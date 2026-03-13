@@ -60,3 +60,14 @@ export type NavKey =
   | 'infrastructure'
   | 'search'
   | 'settings';
+
+export type InspectorTarget =
+  | { kind: 'epicon'; data: EpiconItem }
+  | { kind: 'agent'; data: Agent }
+  | { kind: 'tripwire'; data: Tripwire }
+  | { kind: 'gi'; data: GISnapshot };
+
+export type CommandResult = {
+  ok: boolean;
+  message: string;
+};

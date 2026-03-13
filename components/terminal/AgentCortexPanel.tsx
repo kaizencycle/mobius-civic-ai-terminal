@@ -2,7 +2,15 @@ import type { Agent } from '@/lib/terminal/types';
 import { statusColor, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
 
-export default function AgentCortexPanel({ agents }: { agents: Agent[] }) {
+export default function AgentCortexPanel({
+  agents,
+  selectedId,
+  onSelect,
+}: {
+  agents: Agent[];
+  selectedId?: string;
+  onSelect?: (agent: Agent) => void;
+}) {
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
       <SectionLabel
@@ -11,9 +19,15 @@ export default function AgentCortexPanel({ agents }: { agents: Agent[] }) {
       />
       <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
         {agents.map((agent) => (
-          <div
+          <button
             key={agent.id}
-            className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"
+            onClick={() => onSelect?.(agent)}
+            className={cn(
+              'rounded-lg border p-3 text-left transition',
+              selectedId === agent.id
+                ? 'border-sky-500/40 bg-sky-500/10'
+                : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-900',
+            )}
           >
             <div className="flex items-center justify-between">
               <div className="text-sm font-mono font-semibold text-white">
@@ -51,7 +65,7 @@ export default function AgentCortexPanel({ agents }: { agents: Agent[] }) {
                 {agent.heartbeatOk ? 'OK' : 'FAIL'}
               </span>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </section>

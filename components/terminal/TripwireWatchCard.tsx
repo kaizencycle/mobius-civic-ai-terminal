@@ -4,17 +4,27 @@ import SectionLabel from './SectionLabel';
 
 export default function TripwireWatchCard({
   tripwires,
+  selectedId,
+  onSelect,
 }: {
   tripwires: Tripwire[];
+  selectedId?: string;
+  onSelect?: (tripwire: Tripwire) => void;
 }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
       <SectionLabel title="Tripwire Watch" subtitle="Substrate anomalies" />
       <div className="mt-3 space-y-3">
         {tripwires.map((t) => (
-          <div
+          <button
             key={t.id}
-            className={cn('rounded-lg border p-3', tripwireStyle(t.severity))}
+            onClick={() => onSelect?.(t)}
+            className={cn(
+              'w-full rounded-lg border p-3 text-left transition',
+              selectedId === t.id
+                ? 'ring-1 ring-sky-500/40 ' + tripwireStyle(t.severity)
+                : tripwireStyle(t.severity) + ' hover:brightness-125',
+            )}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -31,7 +41,7 @@ export default function TripwireWatchCard({
             <div className="mt-2 text-[11px] font-mono uppercase tracking-[0.15em] opacity-80">
               Owner: {t.owner}
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>

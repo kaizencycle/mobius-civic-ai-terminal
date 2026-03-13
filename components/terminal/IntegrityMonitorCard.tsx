@@ -20,9 +20,18 @@ function MetricRow({ label, value }: { label: string; value: number }) {
   );
 }
 
-export default function IntegrityMonitorCard({ gi }: { gi: GISnapshot }) {
+export default function IntegrityMonitorCard({
+  gi,
+  onClick,
+}: {
+  gi: GISnapshot;
+  onClick?: () => void;
+}) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+    <button
+      onClick={onClick}
+      className="w-full rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-left transition hover:border-slate-700 hover:bg-slate-900/80"
+    >
       <SectionLabel title="GI Monitor" subtitle="Civic integrity signal" />
       <div className="mt-4 flex items-end gap-3">
         <div className="text-4xl font-mono font-semibold text-white">
@@ -60,6 +69,6 @@ export default function IntegrityMonitorCard({ gi }: { gi: GISnapshot }) {
           ))}
         </div>
       </div>
-    </div>
+    </button>
   );
 }

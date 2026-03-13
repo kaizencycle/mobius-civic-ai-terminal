@@ -1,27 +1,72 @@
+import { useState } from 'react';
+import type { CommandResult } from '@/lib/terminal/types';
 import SectionLabel from './SectionLabel';
 
 export default function CommandPalette({
   value,
   onChange,
+  onExecute,
 }: {
   value: string;
   onChange: (value: string) => void;
+  onExecute?: (command: string) => CommandResult;
 }) {
+  const [history, setHistory] = useState<
+    { input: string; result: CommandResult }[]
+  >([]);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = value.trim();
+    if (!trimmed) return;
+
+    const result = onExecute?.(trimmed) ?? { ok: false, message: 'No handler' };
+    setHistory((prev) => [...prev.slice(-4), { input: trimmed, result }]);
+    onChange('');
+  }
+
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
       <SectionLabel
         title="Command Palette"
         subtitle="Keyboard-first substrate access"
       />
-      <div className="mt-3 flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
-        <span className="text-sm font-mono text-slate-500">⌘K</span>
+
+      {history.length > 0 && (
+        <div className="mt-3 max-h-32 overflow-y-auto space-y-1">
+          {history.map((h, i) => (
+            <div key={i} className="flex gap-2 text-xs font-mono">
+              <span className="text-slate-500">$</span>
+              <span className="text-slate-300">{h.input}</span>
+              <span className="text-slate-500">→</span>
+              <span
+                className={h.result.ok ? 'text-emerald-300' : 'text-amber-300'}
+              >
+                {h.result.message}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSubmit}
+        className="mt-3 flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2"
+      >
+        <span className="text-sm font-mono text-slate-500">$</span>
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Try /scan iran, /market sweep, /ledger C249"
+          placeholder="Try /scan, /agents, /tripwires, /gi, /help"
           className="w-full bg-transparent text-sm font-mono text-white outline-none placeholder:text-slate-500"
         />
-      </div>
+        <button
+          type="submit"
+          className="shrink-0 rounded-md border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-mono text-slate-300 hover:bg-slate-700 transition"
+        >
+          Run
+        </button>
+      </form>
     </section>
   );
 }
