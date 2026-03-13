@@ -85,24 +85,23 @@ export default function TerminalPage() {
   // SSE stream (when API is live)
   useEffect(() => {
     const source = connectMobiusStream((msg: StreamMessage) => {
-      if (msg.type === 'agents' && 'agents' in msg) {
-        setAgents(msg.agents as Agent[]);
+      if (msg.type === 'agents') {
+        setAgents(msg.agents);
       }
 
-      if (msg.type === 'epicon' && 'item' in msg) {
-        const item = msg.item as EpiconItem;
+      if (msg.type === 'epicon') {
         setEpicon((prev) =>
-          [item, ...prev.filter((p) => p.id !== item.id)].slice(0, 20),
+          [msg.item, ...prev.filter((p) => p.id !== msg.item.id)].slice(0, 20),
         );
-        setSelectedEvent((prev) => prev ?? item);
+        setSelectedEvent((prev) => prev ?? msg.item);
       }
 
-      if (msg.type === 'integrity' && 'gi' in msg) {
-        setGi(msg.gi as GISnapshot);
+      if (msg.type === 'integrity') {
+        setGi(msg.gi);
       }
 
-      if (msg.type === 'tripwire' && 'tripwires' in msg) {
-        setTripwires(msg.tripwires as Tripwire[]);
+      if (msg.type === 'tripwire') {
+        setTripwires(msg.tripwires);
       }
     });
 
