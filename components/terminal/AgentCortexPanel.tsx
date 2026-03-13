@@ -1,0 +1,59 @@
+import type { Agent } from '@/lib/terminal/types';
+import { statusColor, cn } from '@/lib/terminal/utils';
+import SectionLabel from './SectionLabel';
+
+export default function AgentCortexPanel({ agents }: { agents: Agent[] }) {
+  return (
+    <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <SectionLabel
+        title="Agent Cortex"
+        subtitle="Live substrate operator map"
+      />
+      <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {agents.map((agent) => (
+          <div
+            key={agent.id}
+            className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-mono font-semibold text-white">
+                {agent.name}
+              </div>
+              <div className={cn('h-2.5 w-2.5 rounded-full', agent.color)} />
+            </div>
+            <div className="mt-1 text-xs font-sans text-slate-400">
+              {agent.role}
+            </div>
+
+            <div className="mt-3 flex items-center gap-2">
+              <div
+                className={cn(
+                  'h-2 w-2 rounded-full',
+                  statusColor(agent.status),
+                )}
+              />
+              <span className="text-xs font-mono uppercase tracking-[0.15em] text-slate-300">
+                {agent.status}
+              </span>
+            </div>
+
+            <div className="mt-3 text-xs font-sans text-slate-400">
+              {agent.lastAction}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between text-[11px] font-mono">
+              <span className="text-slate-500">Heartbeat</span>
+              <span
+                className={
+                  agent.heartbeatOk ? 'text-emerald-300' : 'text-red-300'
+                }
+              >
+                {agent.heartbeatOk ? 'OK' : 'FAIL'}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
