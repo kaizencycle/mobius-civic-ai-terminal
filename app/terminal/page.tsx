@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import TopStatusBar from '@/components/terminal/TopStatusBar';
 import SidebarNav from '@/components/terminal/SidebarNav';
 import EpiconFeedPanel from '@/components/terminal/EpiconFeedPanel';
@@ -14,6 +14,7 @@ import {
   getEpiconFeed,
   getGISnapshot,
   getTripwires,
+  isLiveAPI,
 } from '@/lib/terminal/api';
 import { navItems } from '@/lib/terminal/mock';
 import type {
@@ -30,6 +31,40 @@ import {
   type StreamMessage,
 } from '@/lib/terminal/stream';
 
+// ── Static data (module scope, not re-created per render) ────
+
+const CATEGORY_MAP: Partial<Record<NavKey, EpiconItem['category']>> = {
+  markets: 'market',
+  geopolitics: 'geopolitical',
+  governance: 'governance',
+  infrastructure: 'infrastructure',
+};
+
+const CHAMBER_DESCRIPTIONS: Partial<Record<NavKey, string>> = {
+  search: 'Use the Command Palette below to search across all data. Try /scan followed by a keyword.',
+  settings: 'Terminal configuration and operator preferences. Feature coming in V2.',
+  reflections: 'Agent reflection logs and cross-system annotations. Displaying active agents below.',
+  ledger: 'Immutable event ledger. All EPICON events recorded by ECHO are shown below.',
+};
+
+const NAV_COMMANDS: Record<string, { nav: NavKey; label: string }> = {
+  '/pulse': { nav: 'pulse', label: 'Pulse' },
+  '/markets': { nav: 'markets', label: 'Markets' },
+  '/market': { nav: 'markets', label: 'Markets' },
+  '/ledger': { nav: 'ledger', label: 'Ledger' },
+  '/geopolitics': { nav: 'geopolitics', label: 'Geopolitics' },
+  '/geo': { nav: 'geopolitics', label: 'Geopolitics' },
+  '/governance': { nav: 'governance', label: 'Governance' },
+  '/reflections': { nav: 'reflections', label: 'Reflections' },
+  '/infrastructure': { nav: 'infrastructure', label: 'Infrastructure' },
+  '/infra': { nav: 'infrastructure', label: 'Infrastructure' },
+  '/settings': { nav: 'settings', label: 'Settings' },
+};
+
+const NAV_LABEL_MAP = new Map(navItems.map((n) => [n.key, n.label]));
+
+// ── Component ────────────────────────────────────────────────
+
 export default function TerminalPage() {
   const [selectedNav, setSelectedNav] = useState<NavKey>('pulse');
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -37,26 +72,12 @@ export default function TerminalPage() {
   const [gi, setGi] = useState<GISnapshot | null>(null);
   const [tripwires, setTripwires] = useState<Tripwire[]>([]);
   const [inspectorTarget, setInspectorTarget] = useState<InspectorTarget | null>(null);
-  const [clock, setClock] = useState('');
-  const [command, setCommand] = useState('');
 
-  // Live clock
-  useEffect(() => {
-    const updateClock = () => {
-      const now = new Date();
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        dateStyle: 'medium',
-        timeStyle: 'medium',
-        timeZone: 'America/New_York',
-      });
-      setClock(formatter.format(now));
-    };
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // Ref for stable handleCommand (avoids re-creating callback on every poll)
+  const dataRef = useRef({ agents, epicon, gi, tripwires });
+  dataRef.current = { agents, epicon, gi, tripwires };
 
-  // Initial data load + polling fallback
+  // Initial data load + polling fallback (only when live API is configured)
   useEffect(() => {
     let mounted = true;
 
@@ -79,11 +100,13 @@ export default function TerminalPage() {
     }
 
     load();
-    const interval = setInterval(load, 15000);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
+
+    // Only poll when connected to a live API — mock data is static
+    if (isLiveAPI) {
+      const interval = setInterval(load, 15000);
+      return () => { mounted = false; clearInterval(interval); };
+    }
+    return () => { mounted = false; };
   }, []);
 
   // SSE stream (when API is live)
@@ -111,32 +134,30 @@ export default function TerminalPage() {
       }
     });
 
-    return () => {
-      source?.close();
-    };
+    return () => { source?.close(); };
   }, []);
 
-  // Navigation handler — also updates inspector when switching chambers
-  const handleNavigate = useCallback(
-    (key: NavKey) => {
-      setSelectedNav(key);
-    },
-    [],
-  );
-
-  // Command execution
+  // Stable command handler (reads from ref, no deps on data state)
   const handleCommand = useCallback(
     (input: string): CommandResult => {
       const parts = input.trim().split(/\s+/);
       const cmd = parts[0]?.toLowerCase();
       const arg = parts.slice(1).join(' ').toLowerCase();
+      const { agents, epicon, gi, tripwires } = dataRef.current;
+
+      // Navigation commands (data-driven)
+      if (cmd && cmd in NAV_COMMANDS) {
+        const { nav, label } = NAV_COMMANDS[cmd];
+        setSelectedNav(nav);
+        return { ok: true, message: `Switched to ${label} view` };
+      }
 
       switch (cmd) {
         case '/help':
           return {
             ok: true,
             message:
-              'Commands: /scan [term], /agents, /tripwires, /gi, /pulse, /markets, /ledger, /geopolitics, /governance, /settings, /clear',
+              'Commands: /scan [term], /agents, /tripwires, /gi, /pulse, /markets, /ledger, /geo, /governance, /settings, /clear',
           };
 
         case '/agents':
@@ -233,41 +254,6 @@ export default function TerminalPage() {
           return { ok: false, message: `No results for "${arg}"` };
         }
 
-        case '/pulse':
-          setSelectedNav('pulse');
-          return { ok: true, message: 'Switched to Pulse view' };
-
-        case '/markets':
-        case '/market':
-          setSelectedNav('markets');
-          return { ok: true, message: 'Switched to Markets view' };
-
-        case '/ledger':
-          setSelectedNav('ledger');
-          return { ok: true, message: 'Switched to Ledger view' };
-
-        case '/geopolitics':
-        case '/geo':
-          setSelectedNav('geopolitics');
-          return { ok: true, message: 'Switched to Geopolitics view' };
-
-        case '/governance':
-          setSelectedNav('governance');
-          return { ok: true, message: 'Switched to Governance view' };
-
-        case '/reflections':
-          setSelectedNav('reflections');
-          return { ok: true, message: 'Switched to Reflections view' };
-
-        case '/infrastructure':
-        case '/infra':
-          setSelectedNav('infrastructure');
-          return { ok: true, message: 'Switched to Infrastructure view' };
-
-        case '/settings':
-          setSelectedNav('settings');
-          return { ok: true, message: 'Switched to Settings view' };
-
         case '/clear':
           return { ok: true, message: 'History cleared' };
 
@@ -278,7 +264,7 @@ export default function TerminalPage() {
           };
       }
     },
-    [agents, epicon, gi, tripwires],
+    [], // stable — reads from dataRef
   );
 
   if (!gi || !inspectorTarget) {
@@ -289,140 +275,116 @@ export default function TerminalPage() {
     );
   }
 
-  // Filter epicon by category based on selected nav chamber
-  const categoryMap: Partial<Record<NavKey, EpiconItem['category']>> = {
-    markets: 'market',
-    geopolitics: 'geopolitical',
-    governance: 'governance',
-    infrastructure: 'infrastructure',
-  };
-
-  const filteredEpicon = categoryMap[selectedNav]
-    ? epicon.filter((e) => e.category === categoryMap[selectedNav])
+  // Derived view state
+  const filteredEpicon = CATEGORY_MAP[selectedNav]
+    ? epicon.filter((e) => e.category === CATEGORY_MAP[selectedNav])
     : epicon;
 
-  // Filter agents: show all on pulse/agents, otherwise show active only
   const filteredAgents =
     selectedNav === 'pulse' || selectedNav === 'agents'
       ? agents
       : agents.filter((a) => a.status !== 'idle');
 
-  // Determine which sections to show based on nav
   const showEpicon = !['agents', 'settings', 'search'].includes(selectedNav);
   const showAgents = ['pulse', 'agents', 'reflections'].includes(selectedNav);
   const showMetrics = !['search', 'settings'].includes(selectedNav);
 
-  // Chamber-specific empty states
-  const chamberDescriptions: Partial<Record<NavKey, string>> = {
-    search: 'Use the Command Palette below to search across all data. Try /scan followed by a keyword.',
-    settings: 'Terminal configuration and operator preferences. Feature coming in V2.',
-    reflections: 'Agent reflection logs and cross-system annotations. Displaying active agents below.',
-    ledger: 'Immutable event ledger. All EPICON events recorded by ECHO are shown below.',
-  };
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="flex min-h-screen flex-col">
-        <TopStatusBar
-          clock={clock}
-          gi={gi.score}
-          alertCount={tripwires.length}
-          onNavigate={handleNavigate}
-          onShowGI={() => {
-            setSelectedNav('governance');
-            setInspectorTarget({ kind: 'gi', data: gi });
-          }}
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+      <TopStatusBar
+        gi={gi.score}
+        alertCount={tripwires.length}
+        onNavigate={setSelectedNav}
+        onShowGI={() => {
+          setSelectedNav('governance');
+          setInspectorTarget({ kind: 'gi', data: gi });
+        }}
+      />
+
+      <div className="grid flex-1 grid-cols-12">
+        <SidebarNav
+          items={navItems}
+          selected={selectedNav}
+          onSelect={setSelectedNav}
         />
 
-        <div className="grid flex-1 grid-cols-12">
-          <SidebarNav
-            items={navItems}
-            selected={selectedNav}
-            onSelect={handleNavigate}
-          />
-
-          <main className="col-span-7 border-r border-slate-800 bg-slate-950">
-            <div className="grid h-full grid-rows-[auto_auto_auto_1fr] gap-4 p-4">
-              {chamberDescriptions[selectedNav] && (
-                <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-4">
-                  <div className="text-xs font-mono uppercase tracking-[0.2em] text-sky-300">
-                    {navItems.find((n) => n.key === selectedNav)?.label} Chamber
-                  </div>
-                  <div className="mt-2 text-sm font-sans text-slate-400">
-                    {chamberDescriptions[selectedNav]}
-                  </div>
+        <main className="col-span-7 border-r border-slate-800 bg-slate-950">
+          <div className="grid h-full grid-rows-[auto_auto_auto_1fr] gap-4 p-4">
+            {CHAMBER_DESCRIPTIONS[selectedNav] && (
+              <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-4">
+                <div className="text-xs font-mono uppercase tracking-[0.2em] text-sky-300">
+                  {NAV_LABEL_MAP.get(selectedNav)} Chamber
                 </div>
-              )}
+                <div className="mt-2 text-sm font-sans text-slate-400">
+                  {CHAMBER_DESCRIPTIONS[selectedNav]}
+                </div>
+              </div>
+            )}
 
-              {showEpicon && (
-                <EpiconFeedPanel
-                  items={filteredEpicon}
-                  selectedId={
-                    inspectorTarget.kind === 'epicon'
-                      ? inspectorTarget.data.id
-                      : ''
-                  }
-                  onSelect={(item) =>
-                    setInspectorTarget({ kind: 'epicon', data: item })
+            {showEpicon && (
+              <EpiconFeedPanel
+                items={filteredEpicon}
+                selectedId={
+                  inspectorTarget.kind === 'epicon'
+                    ? inspectorTarget.data.id
+                    : ''
+                }
+                onSelect={(item) =>
+                  setInspectorTarget({ kind: 'epicon', data: item })
+                }
+              />
+            )}
+
+            {showAgents && (
+              <AgentCortexPanel
+                agents={filteredAgents}
+                selectedId={
+                  inspectorTarget.kind === 'agent'
+                    ? inspectorTarget.data.id
+                    : undefined
+                }
+                onSelect={(agent) =>
+                  setInspectorTarget({ kind: 'agent', data: agent })
+                }
+              />
+            )}
+
+            {showMetrics && (
+              <section className="grid grid-cols-2 gap-4">
+                <IntegrityMonitorCard
+                  gi={gi}
+                  onClick={() =>
+                    setInspectorTarget({ kind: 'gi', data: gi })
                   }
                 />
-              )}
-
-              {showAgents && (
-                <AgentCortexPanel
-                  agents={filteredAgents}
+                <TripwireWatchCard
+                  tripwires={tripwires}
                   selectedId={
-                    inspectorTarget.kind === 'agent'
+                    inspectorTarget.kind === 'tripwire'
                       ? inspectorTarget.data.id
                       : undefined
                   }
-                  onSelect={(agent) =>
-                    setInspectorTarget({ kind: 'agent', data: agent })
+                  onSelect={(tw) =>
+                    setInspectorTarget({ kind: 'tripwire', data: tw })
                   }
                 />
-              )}
+              </section>
+            )}
 
-              {showMetrics && (
-                <section className="grid grid-cols-2 gap-4">
-                  <IntegrityMonitorCard
-                    gi={gi}
-                    onClick={() =>
-                      setInspectorTarget({ kind: 'gi', data: gi })
-                    }
-                  />
-                  <TripwireWatchCard
-                    tripwires={tripwires}
-                    selectedId={
-                      inspectorTarget.kind === 'tripwire'
-                        ? inspectorTarget.data.id
-                        : undefined
-                    }
-                    onSelect={(tw) =>
-                      setInspectorTarget({ kind: 'tripwire', data: tw })
-                    }
-                  />
-                </section>
-              )}
-
-              <CommandPalette
-                value={command}
-                onChange={setCommand}
-                onExecute={handleCommand}
-              />
-            </div>
-          </main>
-
-          <DetailInspectorRail target={inspectorTarget} />
-        </div>
-
-        <footer className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 py-2 text-xs font-mono text-slate-500">
-          <span>MOBIUS TERMINAL V1 · Civic Bloomberg Interface</span>
-          <div className="flex items-center gap-2">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            <span>Ledger Connected · Lab4 OK · Shield OK · WS Mock Live</span>
+            <CommandPalette onExecute={handleCommand} />
           </div>
-        </footer>
+        </main>
+
+        <DetailInspectorRail target={inspectorTarget} />
       </div>
+
+      <footer className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 py-2 text-xs font-mono text-slate-500">
+        <span>MOBIUS TERMINAL V1 · Civic Bloomberg Interface</span>
+        <div className="flex items-center gap-2">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <span>Ledger Connected · Lab4 OK · Shield OK · WS Mock Live</span>
+        </div>
+      </footer>
     </div>
   );
 }

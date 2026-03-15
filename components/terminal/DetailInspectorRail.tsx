@@ -1,6 +1,8 @@
-import type { InspectorTarget } from '@/lib/terminal/types';
+import type { InspectorTarget, Tripwire } from '@/lib/terminal/types';
 import { confidenceLabel, statusColor, tripwireStyle, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
+
+// ── Shared sub-components ────────────────────────────────────
 
 function SmallLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -22,6 +24,78 @@ function InspectorStat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+function NumberedStepList({ items }: { items: string[] }) {
+  return (
+    <div className="mt-2 space-y-2">
+      {items.map((item, i) => (
+        <div
+          key={i}
+          className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm font-sans text-slate-300"
+        >
+          <span className="mr-2 font-mono text-slate-500">
+            {String(i + 1).padStart(2, '0')}
+          </span>
+          {item}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Static data (hoisted to module scope) ────────────────────
+
+const SUBTITLES: Record<InspectorTarget['kind'], string> = {
+  epicon: 'Why Mobius believes this',
+  agent: 'Agent operational profile',
+  tripwire: 'Alert analysis and protocol',
+  gi: 'Integrity metrics deep dive',
+};
+
+const AGENT_CAPABILITIES: Record<string, string[]> = {
+  atlas: ['Substrate integrity scanning', 'Downstream amplification control', 'System integrity context updates'],
+  zeus: ['Multi-source cross-verification', 'Source chain validation', 'Confidence tier assessment'],
+  hermes: ['Signal routing and flow control', 'Geopolitical signal prioritization', 'Propagation throttling'],
+  echo: ['Ledger intake and memory recording', 'EPICON snapshot archival', 'Design record preservation'],
+  aurea: ['Strategic synthesis drafting', 'Civic layout architecture', 'Cross-domain pattern analysis'],
+  jade: ['Morale annotation tracking', 'Reflection input processing', 'Team sentiment analysis'],
+  eve: ['Cross-agent output observation', 'Ethical compliance monitoring', 'Bias detection scanning'],
+  daedalus: ['Terminal module compilation', 'Research note assembly', 'Implementation prototyping'],
+};
+
+const DEFAULT_CAPABILITIES = ['General operations', 'Standard monitoring'];
+
+const PROTOCOL_HIGH = [
+  'Immediate operator notification dispatched',
+  'Downstream propagation halted',
+  'Primary source confirmation requested',
+  'Agent verification lane opened at priority',
+  'Escalation timer started (30 min)',
+];
+
+const PROTOCOL_MEDIUM = [
+  'Agent review flagged for attention',
+  'Propagation throttled pending review',
+  'Source reconciliation initiated',
+  'Standard escalation path engaged',
+];
+
+const PROTOCOL_LOW = [
+  'Logged for periodic review',
+  'Standard monitoring continues',
+  'No propagation changes required',
+];
+
+const SEVERITY_RANK: Record<string, number> = { low: 0, medium: 1, high: 2 };
+const SEVERITY_LEVELS = ['low', 'medium', 'high'] as const;
+
+function tripwireProtocol(severity: Tripwire['severity']): string[] {
+  if (severity === 'high') return PROTOCOL_HIGH;
+  if (severity === 'medium') return PROTOCOL_MEDIUM;
+  return PROTOCOL_LOW;
+}
+
+// ── Inspector views ──────────────────────────────────────────
 
 function EpiconView({ data }: { data: InspectorTarget & { kind: 'epicon' } }) {
   const event = data.data;
@@ -85,19 +159,7 @@ function EpiconView({ data }: { data: InspectorTarget & { kind: 'epicon' } }) {
 
       <div>
         <SmallLabel>Agent Trace</SmallLabel>
-        <div className="mt-2 space-y-2">
-          {event.trace.map((step, i) => (
-            <div
-              key={`${event.id}-${i}`}
-              className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm font-sans text-slate-300"
-            >
-              <span className="mr-2 font-mono text-slate-500">
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              {step}
-            </div>
-          ))}
-        </div>
+        <NumberedStepList items={event.trace} />
       </div>
 
       <div>
@@ -154,19 +216,7 @@ function AgentView({ data }: { data: InspectorTarget & { kind: 'agent' } }) {
 
       <div>
         <SmallLabel>Capabilities</SmallLabel>
-        <div className="mt-2 space-y-2">
-          {agentCapabilities(agent.id).map((cap, i) => (
-            <div
-              key={i}
-              className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm font-sans text-slate-300"
-            >
-              <span className="mr-2 font-mono text-slate-500">
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              {cap}
-            </div>
-          ))}
-        </div>
+        <NumberedStepList items={AGENT_CAPABILITIES[agent.id] ?? DEFAULT_CAPABILITIES} />
       </div>
     </div>
   );
@@ -197,10 +247,9 @@ function TripwireView({
       <div>
         <SmallLabel>Severity Level</SmallLabel>
         <div className="mt-2 flex gap-2">
-          {(['low', 'medium', 'high'] as const).map((level) => {
+          {SEVERITY_LEVELS.map((level) => {
             const active =
-              ['low', 'medium', 'high'].indexOf(tw.severity) >=
-              ['low', 'medium', 'high'].indexOf(level);
+              (SEVERITY_RANK[tw.severity] ?? 0) >= (SEVERITY_RANK[level] ?? 0);
             return (
               <div
                 key={level}
@@ -227,19 +276,7 @@ function TripwireView({
 
       <div>
         <SmallLabel>Response Protocol</SmallLabel>
-        <div className="mt-2 space-y-2">
-          {tripwireProtocol(tw.severity).map((step, i) => (
-            <div
-              key={i}
-              className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm font-sans text-slate-300"
-            >
-              <span className="mr-2 font-mono text-slate-500">
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              {step}
-            </div>
-          ))}
-        </div>
+        <NumberedStepList items={tripwireProtocol(tw.severity)} />
       </div>
     </div>
   );
@@ -327,64 +364,20 @@ function GIView({ data }: { data: InspectorTarget & { kind: 'gi' } }) {
   );
 }
 
-function agentCapabilities(id: string): string[] {
-  const caps: Record<string, string[]> = {
-    atlas: ['Substrate integrity scanning', 'Downstream amplification control', 'System integrity context updates'],
-    zeus: ['Multi-source cross-verification', 'Source chain validation', 'Confidence tier assessment'],
-    hermes: ['Signal routing and flow control', 'Geopolitical signal prioritization', 'Propagation throttling'],
-    echo: ['Ledger intake and memory recording', 'EPICON snapshot archival', 'Design record preservation'],
-    aurea: ['Strategic synthesis drafting', 'Civic layout architecture', 'Cross-domain pattern analysis'],
-    jade: ['Morale annotation tracking', 'Reflection input processing', 'Team sentiment analysis'],
-    eve: ['Cross-agent output observation', 'Ethical compliance monitoring', 'Bias detection scanning'],
-    daedalus: ['Terminal module compilation', 'Research note assembly', 'Implementation prototyping'],
-  };
-  return caps[id] ?? ['General operations', 'Standard monitoring'];
-}
-
-function tripwireProtocol(severity: string): string[] {
-  if (severity === 'high') {
-    return [
-      'Immediate operator notification dispatched',
-      'Downstream propagation halted',
-      'Primary source confirmation requested',
-      'Agent verification lane opened at priority',
-      'Escalation timer started (30 min)',
-    ];
-  }
-  if (severity === 'medium') {
-    return [
-      'Agent review flagged for attention',
-      'Propagation throttled pending review',
-      'Source reconciliation initiated',
-      'Standard escalation path engaged',
-    ];
-  }
-  return [
-    'Logged for periodic review',
-    'Standard monitoring continues',
-    'No propagation changes required',
-  ];
-}
+// ── Main component ───────────────────────────────────────────
 
 export default function DetailInspectorRail({
   target,
 }: {
   target: InspectorTarget;
 }) {
-  const subtitles: Record<InspectorTarget['kind'], string> = {
-    epicon: 'Why Mobius believes this',
-    agent: 'Agent operational profile',
-    tripwire: 'Alert analysis and protocol',
-    gi: 'Integrity metrics deep dive',
-  };
-
   return (
     <aside className="col-span-3 bg-slate-950/90">
       <div className="h-full p-4">
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
           <SectionLabel
             title="Detail Inspector"
-            subtitle={subtitles[target.kind]}
+            subtitle={SUBTITLES[target.kind]}
           />
 
           <div className="mt-4">

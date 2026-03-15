@@ -1,4 +1,5 @@
 import type { Agent, EpiconItem, GISnapshot, Tripwire } from './types';
+import { transformAgent, transformEpicon, transformGI, transformTripwire } from './transforms';
 
 export type StreamMessage =
   | { type: 'heartbeat'; cycle: string; timestamp: string; message: string }
@@ -12,63 +13,6 @@ const API_BASE =
     ? process.env.NEXT_PUBLIC_MOBIUS_API_BASE
     : ''
   )?.replace(/\/$/, '') || '';
-
-// ── Snake → Camel transforms (mirrors api.ts) ───────────────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function transformAgent(raw: any): Agent {
-  return {
-    id: raw.id,
-    name: raw.name,
-    role: raw.role,
-    color: raw.color,
-    status: raw.status,
-    heartbeatOk: raw.heartbeat_ok ?? raw.heartbeatOk,
-    lastAction: raw.last_action ?? raw.lastAction,
-  };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function transformEpicon(raw: any): EpiconItem {
-  return {
-    id: raw.id,
-    title: raw.title,
-    category: raw.category,
-    status: raw.status,
-    confidenceTier: raw.confidence_tier ?? raw.confidenceTier,
-    ownerAgent: raw.owner_agent ?? raw.ownerAgent,
-    sources: raw.sources,
-    timestamp: raw.timestamp,
-    summary: raw.summary,
-    trace: raw.trace,
-  };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function transformGI(raw: any): GISnapshot {
-  return {
-    score: raw.score,
-    delta: raw.delta,
-    institutionalTrust: raw.institutional_trust ?? raw.institutionalTrust,
-    infoReliability: raw.info_reliability ?? raw.infoReliability,
-    consensusStability: raw.consensus_stability ?? raw.consensusStability,
-    weekly: raw.weekly,
-  };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function transformTripwire(raw: any): Tripwire {
-  return {
-    id: raw.id,
-    label: raw.label,
-    severity: raw.severity,
-    owner: raw.owner,
-    openedAt: raw.opened_at ?? raw.openedAt,
-    action: raw.action,
-  };
-}
-
-// ── Parse raw SSE payload into typed StreamMessage ───────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseStreamPayload(raw: any): StreamMessage | null {
@@ -114,8 +58,6 @@ function parseStreamPayload(raw: any): StreamMessage | null {
       return null;
   }
 }
-
-// ── SSE connection ───────────────────────────────────────────
 
 export function connectMobiusStream(
   onMessage: (msg: StreamMessage) => void,

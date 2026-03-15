@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import type { NavKey } from '@/lib/terminal/types';
 import { cn } from '@/lib/terminal/utils';
 
@@ -24,56 +27,69 @@ function Chip({
   );
 }
 
+const STATUSES: {
+  label: string;
+  value: string;
+  tone: string;
+  nav: NavKey;
+}[] = [
+  {
+    label: 'ATLAS',
+    value: 'OK',
+    tone: 'text-sky-300 border-sky-500/30 bg-sky-500/10',
+    nav: 'agents',
+  },
+  {
+    label: 'ZEUS',
+    value: 'ACTIVE',
+    tone: 'text-amber-300 border-amber-500/30 bg-amber-500/10',
+    nav: 'agents',
+  },
+  {
+    label: 'ECHO',
+    value: 'LIVE',
+    tone: 'text-slate-200 border-slate-500/30 bg-slate-500/10',
+    nav: 'agents',
+  },
+  {
+    label: 'HERMES',
+    value: 'ROUTING',
+    tone: 'text-rose-300 border-rose-500/30 bg-rose-500/10',
+    nav: 'agents',
+  },
+  {
+    label: 'TRIPWIRE',
+    value: 'NOMINAL',
+    tone: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10',
+    nav: 'infrastructure',
+  },
+];
+
+const clockFormatter = new Intl.DateTimeFormat('en-US', {
+  dateStyle: 'medium',
+  timeStyle: 'medium',
+  timeZone: 'America/New_York',
+});
+
 export default function TopStatusBar({
-  clock,
   gi,
   alertCount,
   onNavigate,
   onShowGI,
 }: {
-  clock: string;
   gi: number;
   alertCount: number;
-  onNavigate?: (key: NavKey) => void;
-  onShowGI?: () => void;
+  onNavigate: (key: NavKey) => void;
+  onShowGI: () => void;
 }) {
-  const statuses: {
-    label: string;
-    value: string;
-    tone: string;
-    nav?: NavKey;
-  }[] = [
-    {
-      label: 'ATLAS',
-      value: 'OK',
-      tone: 'text-sky-300 border-sky-500/30 bg-sky-500/10',
-      nav: 'agents',
-    },
-    {
-      label: 'ZEUS',
-      value: 'ACTIVE',
-      tone: 'text-amber-300 border-amber-500/30 bg-amber-500/10',
-      nav: 'agents',
-    },
-    {
-      label: 'ECHO',
-      value: 'LIVE',
-      tone: 'text-slate-200 border-slate-500/30 bg-slate-500/10',
-      nav: 'agents',
-    },
-    {
-      label: 'HERMES',
-      value: 'ROUTING',
-      tone: 'text-rose-300 border-rose-500/30 bg-rose-500/10',
-      nav: 'agents',
-    },
-    {
-      label: 'TRIPWIRE',
-      value: 'NOMINAL',
-      tone: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10',
-      nav: 'infrastructure',
-    },
-  ];
+  const [clock, setClock] = useState('');
+
+  useEffect(() => {
+    const update = () => setClock(clockFormatter.format(new Date()));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
@@ -90,7 +106,7 @@ export default function TopStatusBar({
         <div className="flex flex-wrap items-center gap-2">
           <Chip
             label="C-249"
-            onClick={() => onNavigate?.('pulse')}
+            onClick={() => onNavigate('pulse')}
           />
           <Chip label={clock || 'Loading...'} />
           <Chip
@@ -101,14 +117,14 @@ export default function TopStatusBar({
           <Chip
             label={`Alerts ${alertCount}`}
             tone="text-amber-300 border-amber-500/30 bg-amber-500/10"
-            onClick={() => onNavigate?.('infrastructure')}
+            onClick={() => onNavigate('infrastructure')}
           />
-          {statuses.map((s) => (
+          {STATUSES.map((s) => (
             <Chip
               key={s.label}
               label={`${s.label} ${s.value}`}
               tone={s.tone}
-              onClick={s.nav ? () => onNavigate?.(s.nav!) : undefined}
+              onClick={() => onNavigate(s.nav)}
             />
           ))}
         </div>

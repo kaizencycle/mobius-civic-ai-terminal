@@ -1,29 +1,35 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { CommandResult } from '@/lib/terminal/types';
 import SectionLabel from './SectionLabel';
 
 export default function CommandPalette({
-  value,
-  onChange,
   onExecute,
 }: {
-  value: string;
-  onChange: (value: string) => void;
-  onExecute?: (command: string) => CommandResult;
+  onExecute: (command: string) => CommandResult;
 }) {
+  const [value, setValue] = useState('');
   const [history, setHistory] = useState<
     { input: string; result: CommandResult }[]
   >([]);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = value.trim();
-    if (!trimmed) return;
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const trimmed = value.trim();
+      if (!trimmed) return;
 
-    const result = onExecute?.(trimmed) ?? { ok: false, message: 'No handler' };
-    setHistory((prev) => [...prev.slice(-4), { input: trimmed, result }]);
-    onChange('');
-  }
+      if (trimmed === '/clear') {
+        setHistory([]);
+        setValue('');
+        return;
+      }
+
+      const result = onExecute(trimmed);
+      setHistory((prev) => [...prev.slice(-4), { input: trimmed, result }]);
+      setValue('');
+    },
+    [value, onExecute],
+  );
 
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
@@ -38,7 +44,7 @@ export default function CommandPalette({
             <div key={i} className="flex gap-2 text-xs font-mono">
               <span className="text-slate-500">$</span>
               <span className="text-slate-300">{h.input}</span>
-              <span className="text-slate-500">→</span>
+              <span className="text-slate-500">&rarr;</span>
               <span
                 className={h.result.ok ? 'text-emerald-300' : 'text-amber-300'}
               >
@@ -56,7 +62,7 @@ export default function CommandPalette({
         <span className="text-sm font-mono text-slate-500">$</span>
         <input
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => setValue(e.target.value)}
           placeholder="Try /scan, /agents, /tripwires, /gi, /help"
           className="w-full bg-transparent text-sm font-mono text-white outline-none placeholder:text-slate-500"
         />
