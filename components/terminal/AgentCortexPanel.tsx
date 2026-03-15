@@ -33,7 +33,11 @@ export default function AgentCortexPanel({
               <div className="text-sm font-mono font-semibold text-white">
                 {agent.name}
               </div>
-              <div className={cn('h-2.5 w-2.5 rounded-full', agent.color)} />
+              <div className={cn(
+                'h-2.5 w-2.5 rounded-full',
+                agent.color,
+                agent.status !== 'idle' && 'agent-glow',
+              )} />
             </div>
             <div className="mt-1 text-xs font-sans text-slate-400">
               {agent.role}
@@ -44,6 +48,7 @@ export default function AgentCortexPanel({
                 className={cn(
                   'h-2 w-2 rounded-full',
                   statusColor(agent.status),
+                  agent.status !== 'idle' && 'agent-pulse',
                 )}
               />
               <span className="text-xs font-mono uppercase tracking-[0.15em] text-slate-300">

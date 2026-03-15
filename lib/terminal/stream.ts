@@ -59,13 +59,19 @@ function parseStreamPayload(raw: any): StreamMessage | null {
   }
 }
 
+export type StreamConnectionStatus = 'live' | 'reconnecting' | 'offline';
+
 export function connectMobiusStream(
   onMessage: (msg: StreamMessage) => void,
-  onError?: (err: Event) => void,
+  onStatusChange?: (status: StreamConnectionStatus) => void,
 ) {
   if (!API_BASE) return null;
 
   const source = new EventSource(`${API_BASE}/stream/events`);
+
+  source.onopen = () => {
+    onStatusChange?.('live');
+  };
 
   const eventTypes = ['heartbeat', 'agents', 'epicon', 'integrity', 'tripwire'];
   for (const type of eventTypes) {
@@ -80,8 +86,12 @@ export function connectMobiusStream(
     });
   }
 
-  source.onerror = (err) => {
-    if (onError) onError(err);
+  source.onerror = () => {
+    if (source.readyState === EventSource.CONNECTING) {
+      onStatusChange?.('reconnecting');
+    } else {
+      onStatusChange?.('offline');
+    }
   };
 
   return source;

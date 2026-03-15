@@ -1,5 +1,5 @@
 import type { InspectorTarget, Tripwire } from '@/lib/terminal/types';
-import { confidenceLabel, statusColor, tripwireStyle, cn } from '@/lib/terminal/utils';
+import { confidenceLabel, statusColor, tripwireStyle, giScoreColor, metricBarColor, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
 
 // ── Shared sub-components ────────────────────────────────────
@@ -293,10 +293,10 @@ function GIView({ data }: { data: InspectorTarget & { kind: 'gi' } }) {
       <div>
         <SmallLabel>Governance Integrity</SmallLabel>
         <div className="mt-1 flex items-end gap-3">
-          <div className="text-3xl font-mono font-semibold text-white">
+          <div className={cn('text-3xl font-mono font-semibold transition-colors duration-700', giScoreColor(gi.score).text)}>
             {gi.score.toFixed(2)}
           </div>
-          <div className="pb-1 text-sm font-mono text-emerald-300">
+          <div className={cn('pb-1 text-sm font-mono', gi.delta > 0 ? 'text-emerald-300' : gi.delta < 0 ? 'text-red-300' : 'text-slate-400')}>
             {gi.delta > 0
               ? `+${gi.delta.toFixed(2)}`
               : gi.delta.toFixed(2)}
@@ -342,7 +342,7 @@ function GIView({ data }: { data: InspectorTarget & { kind: 'gi' } }) {
                 </div>
                 <div className="h-2 rounded-full bg-slate-800">
                   <div
-                    className="h-2 rounded-full bg-sky-500 transition-all duration-500"
+                    className={cn('h-2 rounded-full transition-all duration-500', metricBarColor(m.value))}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
@@ -358,7 +358,7 @@ function GIView({ data }: { data: InspectorTarget & { kind: 'gi' } }) {
           {gi.weekly.map((v, i) => (
             <div
               key={i}
-              className="flex-1 rounded-t bg-sky-500/80 transition-all duration-500"
+              className={cn('flex-1 rounded-t opacity-80 transition-all duration-500', metricBarColor(v))}
               style={{ height: `${Math.max(12, v * 60)}px` }}
             />
           ))}
@@ -573,7 +573,7 @@ export default function DetailInspectorRail({
   target: InspectorTarget;
 }) {
   return (
-    <aside className="col-span-3 bg-slate-950/90">
+    <aside className="col-span-3 max-lg:col-span-2 max-md:col-span-1 bg-slate-950/90">
       <div className="h-full p-4">
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
           <SectionLabel

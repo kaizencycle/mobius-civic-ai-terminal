@@ -4,6 +4,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Agent pulse animation for active (non-idle) agents */
+@keyframes agent-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.agent-pulse {
+  animation: agent-pulse 2s ease-in-out infinite;
+}
+
+/* Glow ring for active agents */
+@keyframes agent-glow {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; }
+  50% { box-shadow: 0 0 8px 2px currentColor; }
+}
+
+.agent-glow {
+  animation: agent-glow 2.5s ease-in-out infinite;
+}
+
 html,
 body {
   margin: 0;

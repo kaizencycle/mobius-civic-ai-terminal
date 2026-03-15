@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { NavKey } from '@/lib/terminal/types';
-import { cn } from '@/lib/terminal/utils';
+import { cn, giScoreColor } from '@/lib/terminal/utils';
 
 function Chip({
   label,
@@ -71,14 +71,18 @@ const clockFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/New_York',
 });
 
+export type StreamStatus = 'live' | 'reconnecting' | 'offline';
+
 export default function TopStatusBar({
   gi,
   alertCount,
+  streamStatus = 'offline',
   onNavigate,
   onShowGI,
 }: {
   gi: number;
   alertCount: number;
+  streamStatus?: StreamStatus;
   onNavigate: (key: NavKey) => void;
   onShowGI: () => void;
 }) {
@@ -98,26 +102,39 @@ export default function TopStatusBar({
           <div className="text-sm font-mono font-semibold uppercase tracking-[0.28em] text-sky-300">
             Mobius Terminal
           </div>
-          <div className="mt-1 text-xs font-sans text-slate-500">
+          <div className="mt-1 text-xs font-sans text-slate-500 hidden sm:block">
             Civic Bloomberg Interface · Integrity Operating View
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Full chip row — hidden on small screens */}
+        <div className="hidden sm:flex flex-wrap items-center gap-2">
           <Chip
-            label="C-249"
+            label="C-250"
             onClick={() => onNavigate('pulse')}
           />
           <Chip label={clock || 'Loading...'} />
           <Chip
             label={`GI ${gi.toFixed(2)}`}
-            tone="text-emerald-300 border-emerald-500/30 bg-emerald-500/10"
+            tone={giScoreColor(gi).chip}
             onClick={onShowGI}
           />
           <Chip
             label={`Alerts ${alertCount}`}
             tone="text-amber-300 border-amber-500/30 bg-amber-500/10"
             onClick={() => onNavigate('infrastructure')}
+          />
+          <Chip
+            label={
+              streamStatus === 'live' ? 'STREAM LIVE'
+                : streamStatus === 'reconnecting' ? 'RECONNECTING'
+                : 'OFFLINE'
+            }
+            tone={
+              streamStatus === 'live' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+                : streamStatus === 'reconnecting' ? 'text-amber-300 border-amber-500/30 bg-amber-500/10'
+                : 'text-slate-400 border-slate-600 bg-slate-800'
+            }
           />
           {STATUSES.map((s) => (
             <Chip
@@ -127,6 +144,23 @@ export default function TopStatusBar({
               onClick={() => onNavigate(s.nav)}
             />
           ))}
+        </div>
+        {/* Compact row for small screens */}
+        <div className="flex sm:hidden items-center gap-2">
+          <Chip
+            label="C-250"
+            onClick={() => onNavigate('pulse')}
+          />
+          <Chip
+            label={`GI ${gi.toFixed(2)}`}
+            tone={giScoreColor(gi).chip}
+            onClick={onShowGI}
+          />
+          <Chip
+            label={`${alertCount}`}
+            tone="text-amber-300 border-amber-500/30 bg-amber-500/10"
+            onClick={() => onNavigate('infrastructure')}
+          />
         </div>
       </div>
     </header>
