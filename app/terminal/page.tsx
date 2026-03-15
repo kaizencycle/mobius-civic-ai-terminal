@@ -37,7 +37,9 @@ import type {
 import {
   connectMobiusStream,
   type StreamMessage,
+  type StreamConnectionStatus,
 } from '@/lib/terminal/stream';
+import type { StreamStatus } from '@/components/terminal/TopStatusBar';
 
 // ── Static data (module scope, not re-created per render) ────
 
@@ -79,6 +81,7 @@ export default function TerminalPage() {
   const [gi, setGi] = useState<GISnapshot | null>(null);
   const [tripwires, setTripwires] = useState<Tripwire[]>([]);
   const [inspectorTarget, setInspectorTarget] = useState<InspectorTarget | null>(null);
+  const [streamStatus, setStreamStatus] = useState<StreamStatus>(isLiveAPI ? 'reconnecting' : 'offline');
 
   // Ref for stable handleCommand (avoids re-creating callback on every poll)
   const dataRef = useRef({ agents, epicon, gi, tripwires });
@@ -117,19 +120,22 @@ export default function TerminalPage() {
 
   // SSE stream (when API is live)
   useEffect(() => {
-    const source = connectMobiusStream((msg: StreamMessage) => {
-      if (msg.type === 'agents') setAgents(msg.agents);
-      if (msg.type === 'epicon') {
-        setEpicon((prev) =>
-          [msg.item, ...prev.filter((p) => p.id !== msg.item.id)].slice(0, 20),
-        );
-        setInspectorTarget((prev) =>
-          prev ?? { kind: 'epicon', data: msg.item },
-        );
-      }
-      if (msg.type === 'integrity') setGi(msg.gi);
-      if (msg.type === 'tripwire') setTripwires(msg.tripwires);
-    });
+    const source = connectMobiusStream(
+      (msg: StreamMessage) => {
+        if (msg.type === 'agents') setAgents(msg.agents);
+        if (msg.type === 'epicon') {
+          setEpicon((prev) =>
+            [msg.item, ...prev.filter((p) => p.id !== msg.item.id)].slice(0, 20),
+          );
+          setInspectorTarget((prev) =>
+            prev ?? { kind: 'epicon', data: msg.item },
+          );
+        }
+        if (msg.type === 'integrity') setGi(msg.gi);
+        if (msg.type === 'tripwire') setTripwires(msg.tripwires);
+      },
+      (status: StreamConnectionStatus) => setStreamStatus(status),
+    );
 
     return () => { source?.close(); };
   }, []);
@@ -341,6 +347,7 @@ export default function TerminalPage() {
       <TopStatusBar
         gi={gi.score}
         alertCount={tripwires.length + mockCivicAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length}
+        streamStatus={streamStatus}
         onNavigate={setSelectedNav}
         onShowGI={() => {
           setSelectedNav('governance');
@@ -348,14 +355,14 @@ export default function TerminalPage() {
         }}
       />
 
-      <div className="grid flex-1 grid-cols-12">
+      <div className="grid flex-1 grid-cols-12 max-md:grid-cols-1">
         <SidebarNav
           items={navItems}
           selected={selectedNav}
           onSelect={setSelectedNav}
         />
 
-        <main className="col-span-7 border-r border-slate-800 bg-slate-950">
+        <main className="col-span-7 max-lg:col-span-9 max-md:col-span-1 border-r border-slate-800 bg-slate-950">
           <div className="grid h-full grid-rows-[auto_auto_auto_1fr] gap-4 p-4">
             {CHAMBER_DESCRIPTIONS[selectedNav] && (
               <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-4">
@@ -468,10 +475,11 @@ export default function TerminalPage() {
       </div>
 
       <footer className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 py-2 text-xs font-mono text-slate-500">
-        <span>MOBIUS TERMINAL V1 · Civic Bloomberg Interface</span>
+        <span className="shrink-0">MOBIUS TERMINAL V1</span>
         <div className="flex items-center gap-2">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <span>Substrate Connected · Browser Shell OK · Ledger Live · Sentinel Council Active</span>
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+          <span className="hidden sm:inline">Substrate Connected · Browser Shell OK · Ledger Live · Sentinel Council Active</span>
+          <span className="sm:hidden">All Systems OK</span>
         </div>
       </footer>
     </div>
