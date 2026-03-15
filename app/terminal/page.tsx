@@ -9,6 +9,9 @@ import IntegrityMonitorCard from '@/components/terminal/IntegrityMonitorCard';
 import TripwireWatchCard from '@/components/terminal/TripwireWatchCard';
 import DetailInspectorRail from '@/components/terminal/DetailInspectorRail';
 import CommandPalette from '@/components/terminal/CommandPalette';
+import LedgerPanel from '@/components/terminal/LedgerPanel';
+import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
+import CivicRadarPanel from '@/components/terminal/CivicRadarPanel';
 import {
   getAgents,
   getEpiconFeed,
@@ -16,7 +19,12 @@ import {
   getTripwires,
   isLiveAPI,
 } from '@/lib/terminal/api';
-import { navItems } from '@/lib/terminal/mock';
+import {
+  navItems,
+  mockLedger,
+  mockSentinels,
+  mockCivicAlerts,
+} from '@/lib/terminal/mock';
 import type {
   Agent,
   EpiconItem,
@@ -44,7 +52,6 @@ const CHAMBER_DESCRIPTIONS: Partial<Record<NavKey, string>> = {
   search: 'Use the Command Palette below to search across all data. Try /scan followed by a keyword.',
   settings: 'Terminal configuration and operator preferences. Feature coming in V2.',
   reflections: 'Agent reflection logs and cross-system annotations. Displaying active agents below.',
-  ledger: 'Immutable event ledger. All EPICON events recorded by ECHO are shown below.',
 };
 
 const NAV_COMMANDS: Record<string, { nav: NavKey; label: string }> = {
@@ -101,7 +108,6 @@ export default function TerminalPage() {
 
     load();
 
-    // Only poll when connected to a live API — mock data is static
     if (isLiveAPI) {
       const interval = setInterval(load, 15000);
       return () => { mounted = false; clearInterval(interval); };
@@ -112,10 +118,7 @@ export default function TerminalPage() {
   // SSE stream (when API is live)
   useEffect(() => {
     const source = connectMobiusStream((msg: StreamMessage) => {
-      if (msg.type === 'agents') {
-        setAgents(msg.agents);
-      }
-
+      if (msg.type === 'agents') setAgents(msg.agents);
       if (msg.type === 'epicon') {
         setEpicon((prev) =>
           [msg.item, ...prev.filter((p) => p.id !== msg.item.id)].slice(0, 20),
@@ -124,20 +127,14 @@ export default function TerminalPage() {
           prev ?? { kind: 'epicon', data: msg.item },
         );
       }
-
-      if (msg.type === 'integrity') {
-        setGi(msg.gi);
-      }
-
-      if (msg.type === 'tripwire') {
-        setTripwires(msg.tripwires);
-      }
+      if (msg.type === 'integrity') setGi(msg.gi);
+      if (msg.type === 'tripwire') setTripwires(msg.tripwires);
     });
 
     return () => { source?.close(); };
   }, []);
 
-  // Stable command handler (reads from ref, no deps on data state)
+  // Stable command handler
   const handleCommand = useCallback(
     (input: string): CommandResult => {
       const parts = input.trim().split(/\s+/);
@@ -157,7 +154,7 @@ export default function TerminalPage() {
           return {
             ok: true,
             message:
-              'Commands: /scan [term], /agents, /tripwires, /gi, /pulse, /markets, /ledger, /geo, /governance, /settings, /clear',
+              'Commands: /scan [term], /agents, /tripwires, /gi, /ledger, /sentinels, /radar, /clear',
           };
 
         case '/agents':
@@ -188,27 +185,43 @@ export default function TerminalPage() {
             }
             return { ok: false, message: `Tripwire "${arg}" not found` };
           }
-          return {
-            ok: true,
-            message: `${tripwires.length} active tripwires`,
-          };
+          return { ok: true, message: `${tripwires.length} active tripwires` };
 
         case '/gi':
         case '/integrity':
           setSelectedNav('governance');
-          if (gi) {
-            setInspectorTarget({ kind: 'gi', data: gi });
-          }
+          if (gi) setInspectorTarget({ kind: 'gi', data: gi });
           return {
             ok: true,
             message: gi ? `GI score: ${gi.score.toFixed(2)}` : 'Loading...',
           };
+
+        case '/sentinels':
+        case '/sentinel':
+          setSelectedNav('governance');
+          if (arg) {
+            const found = mockSentinels.find(
+              (s) => s.name.toLowerCase() === arg || s.id.toLowerCase() === arg,
+            );
+            if (found) {
+              setInspectorTarget({ kind: 'sentinel', data: found });
+              return { ok: true, message: `Inspecting sentinel ${found.name}` };
+            }
+            return { ok: false, message: `Sentinel "${arg}" not found` };
+          }
+          return { ok: true, message: `${mockSentinels.length} sentinels in council` };
+
+        case '/radar':
+        case '/alerts':
+          setSelectedNav('geopolitics');
+          return { ok: true, message: `${mockCivicAlerts.length} civic radar alerts` };
 
         case '/scan':
         case '/search': {
           setSelectedNav('search');
           if (!arg) return { ok: false, message: 'Usage: /scan [term]' };
 
+          // Search epicon
           const matchedEpicon = epicon.find(
             (e) =>
               e.title.toLowerCase().includes(arg) ||
@@ -217,12 +230,10 @@ export default function TerminalPage() {
           );
           if (matchedEpicon) {
             setInspectorTarget({ kind: 'epicon', data: matchedEpicon });
-            return {
-              ok: true,
-              message: `Found: ${matchedEpicon.id} — ${matchedEpicon.title}`,
-            };
+            return { ok: true, message: `Found: ${matchedEpicon.id} — ${matchedEpicon.title}` };
           }
 
+          // Search agents
           const matchedAgent = agents.find(
             (a) =>
               a.name.toLowerCase().includes(arg) ||
@@ -231,12 +242,10 @@ export default function TerminalPage() {
           if (matchedAgent) {
             setSelectedNav('agents');
             setInspectorTarget({ kind: 'agent', data: matchedAgent });
-            return {
-              ok: true,
-              message: `Found agent: ${matchedAgent.name}`,
-            };
+            return { ok: true, message: `Found agent: ${matchedAgent.name}` };
           }
 
+          // Search tripwires
           const matchedTripwire = tripwires.find(
             (t) =>
               t.label.toLowerCase().includes(arg) ||
@@ -245,10 +254,44 @@ export default function TerminalPage() {
           if (matchedTripwire) {
             setSelectedNav('infrastructure');
             setInspectorTarget({ kind: 'tripwire', data: matchedTripwire });
-            return {
-              ok: true,
-              message: `Found tripwire: ${matchedTripwire.id}`,
-            };
+            return { ok: true, message: `Found tripwire: ${matchedTripwire.id}` };
+          }
+
+          // Search ledger
+          const matchedLedger = mockLedger.find(
+            (l) =>
+              l.summary.toLowerCase().includes(arg) ||
+              l.id.toLowerCase().includes(arg) ||
+              l.type.includes(arg),
+          );
+          if (matchedLedger) {
+            setSelectedNav('ledger');
+            setInspectorTarget({ kind: 'ledger', data: matchedLedger });
+            return { ok: true, message: `Found ledger entry: ${matchedLedger.id}` };
+          }
+
+          // Search sentinels
+          const matchedSentinel = mockSentinels.find(
+            (s) =>
+              s.name.toLowerCase().includes(arg) ||
+              s.role.toLowerCase().includes(arg),
+          );
+          if (matchedSentinel) {
+            setSelectedNav('governance');
+            setInspectorTarget({ kind: 'sentinel', data: matchedSentinel });
+            return { ok: true, message: `Found sentinel: ${matchedSentinel.name}` };
+          }
+
+          // Search civic alerts
+          const matchedAlert = mockCivicAlerts.find(
+            (a) =>
+              a.title.toLowerCase().includes(arg) ||
+              a.category.includes(arg),
+          );
+          if (matchedAlert) {
+            setSelectedNav('geopolitics');
+            setInspectorTarget({ kind: 'alert', data: matchedAlert });
+            return { ok: true, message: `Found alert: ${matchedAlert.id}` };
           }
 
           return { ok: false, message: `No results for "${arg}"` };
@@ -264,7 +307,7 @@ export default function TerminalPage() {
           };
       }
     },
-    [], // stable — reads from dataRef
+    [],
   );
 
   if (!gi || !inspectorTarget) {
@@ -285,15 +328,19 @@ export default function TerminalPage() {
       ? agents
       : agents.filter((a) => a.status !== 'idle');
 
-  const showEpicon = !['agents', 'settings', 'search'].includes(selectedNav);
+  // Chamber visibility rules
+  const showEpicon = ['pulse', 'markets', 'geopolitics', 'governance', 'infrastructure', 'ledger'].includes(selectedNav);
   const showAgents = ['pulse', 'agents', 'reflections'].includes(selectedNav);
-  const showMetrics = !['search', 'settings'].includes(selectedNav);
+  const showMetrics = !['search', 'settings', 'ledger'].includes(selectedNav);
+  const showLedger = ['ledger', 'pulse'].includes(selectedNav);
+  const showSentinels = ['governance', 'pulse'].includes(selectedNav);
+  const showRadar = ['geopolitics', 'infrastructure', 'pulse'].includes(selectedNav);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <TopStatusBar
         gi={gi.score}
-        alertCount={tripwires.length}
+        alertCount={tripwires.length + mockCivicAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length}
         onNavigate={setSelectedNav}
         onShowGI={() => {
           setSelectedNav('governance');
@@ -321,7 +368,21 @@ export default function TerminalPage() {
               </div>
             )}
 
-            {showEpicon && (
+            {showLedger && (
+              <LedgerPanel
+                entries={mockLedger}
+                selectedId={
+                  inspectorTarget.kind === 'ledger'
+                    ? inspectorTarget.data.id
+                    : undefined
+                }
+                onSelect={(entry) =>
+                  setInspectorTarget({ kind: 'ledger', data: entry })
+                }
+              />
+            )}
+
+            {showEpicon && selectedNav !== 'ledger' && (
               <EpiconFeedPanel
                 items={filteredEpicon}
                 selectedId={
@@ -345,6 +406,34 @@ export default function TerminalPage() {
                 }
                 onSelect={(agent) =>
                   setInspectorTarget({ kind: 'agent', data: agent })
+                }
+              />
+            )}
+
+            {showSentinels && (
+              <SubstrateStatusCard
+                sentinels={mockSentinels}
+                selectedId={
+                  inspectorTarget.kind === 'sentinel'
+                    ? inspectorTarget.data.id
+                    : undefined
+                }
+                onSelect={(sentinel) =>
+                  setInspectorTarget({ kind: 'sentinel', data: sentinel })
+                }
+              />
+            )}
+
+            {showRadar && (
+              <CivicRadarPanel
+                alerts={mockCivicAlerts}
+                selectedId={
+                  inspectorTarget.kind === 'alert'
+                    ? inspectorTarget.data.id
+                    : undefined
+                }
+                onSelect={(alert) =>
+                  setInspectorTarget({ kind: 'alert', data: alert })
                 }
               />
             )}
@@ -382,7 +471,7 @@ export default function TerminalPage() {
         <span>MOBIUS TERMINAL V1 · Civic Bloomberg Interface</span>
         <div className="flex items-center gap-2">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <span>Ledger Connected · Lab4 OK · Shield OK · WS Mock Live</span>
+          <span>Substrate Connected · Browser Shell OK · Ledger Live · Sentinel Council Active</span>
         </div>
       </footer>
     </div>

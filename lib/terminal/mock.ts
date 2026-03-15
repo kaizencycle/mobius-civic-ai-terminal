@@ -1,4 +1,14 @@
-import type { Agent, EpiconItem, GISnapshot, Tripwire } from './types';
+import type {
+  Agent,
+  Attestation,
+  CivicRadarAlert,
+  EpiconItem,
+  GISnapshot,
+  LedgerEntry,
+  MFSShard,
+  Sentinel,
+  Tripwire,
+} from './types';
 
 export const navItems = [
   { key: 'pulse' as const, label: 'Pulse' },
@@ -187,3 +197,301 @@ export const mockGI: GISnapshot = {
   consensusStability: 0.86,
   weekly: [0.89, 0.9, 0.9, 0.92, 0.91, 0.93, 0.94],
 };
+
+// ── Mobius-Substrate: Ledger entries ─────────────────────────
+
+export const mockLedger: LedgerEntry[] = [
+  {
+    id: 'LE-C249-012',
+    cycleId: 'C-249',
+    type: 'epicon',
+    agentOrigin: 'ECHO',
+    timestamp: '2026-03-13 07:41 ET',
+    summary: 'EPICON-C249-004 committed — regional escalation signal verified by ZEUS',
+    integrityDelta: 0.02,
+    status: 'committed',
+  },
+  {
+    id: 'LE-C249-011',
+    cycleId: 'C-249',
+    type: 'attestation',
+    agentOrigin: 'EVE',
+    timestamp: '2026-03-13 07:35 ET',
+    summary: 'Ethics attestation minted for ATLAS conflict-narrative handling',
+    integrityDelta: 0.01,
+    status: 'committed',
+  },
+  {
+    id: 'LE-C249-010',
+    cycleId: 'C-249',
+    type: 'shard',
+    agentOrigin: 'JADE',
+    timestamp: '2026-03-13 07:28 ET',
+    summary: 'MFS-7721 learning shard created — civic terminal design comprehension',
+    integrityDelta: 0.005,
+    status: 'committed',
+  },
+  {
+    id: 'LE-C249-009',
+    cycleId: 'C-249',
+    type: 'epicon',
+    agentOrigin: 'ECHO',
+    timestamp: '2026-03-13 07:16 ET',
+    summary: 'EPICON-C249-002 logged — tripwire divergence pending reconciliation',
+    integrityDelta: -0.01,
+    status: 'pending',
+  },
+  {
+    id: 'LE-C249-008',
+    cycleId: 'C-249',
+    type: 'settlement',
+    agentOrigin: 'HERMES',
+    timestamp: '2026-03-13 07:10 ET',
+    summary: 'MIC settlement batch dispatched — 14 citizen payouts processed',
+    integrityDelta: 0.0,
+    status: 'committed',
+  },
+  {
+    id: 'LE-C249-007',
+    cycleId: 'C-249',
+    type: 'ubi',
+    agentOrigin: 'DAEDALUS',
+    timestamp: '2026-03-13 06:58 ET',
+    summary: 'UBI distribution preview — 342 eligible citizens, 12,400 MIC allocated',
+    integrityDelta: 0.0,
+    status: 'committed',
+  },
+  {
+    id: 'LE-C249-006',
+    cycleId: 'C-249',
+    type: 'epicon',
+    agentOrigin: 'ECHO',
+    timestamp: '2026-03-13 06:58 ET',
+    summary: 'EPICON-C249-001 reverted — market sweep contradicted by ZEUS',
+    integrityDelta: -0.015,
+    status: 'reverted',
+  },
+];
+
+// ── Mobius-Substrate: MFS Shards ─────────────────────────────
+
+export const mockShards: MFSShard[] = [
+  {
+    id: 'MFS-7721',
+    citizenId: 'CZ-1042',
+    archetype: 'learning',
+    weight: 0.85,
+    qualityScore: 0.92,
+    integrityCoefficient: 0.88,
+    miiDelta: 0.012,
+    timestamp: '2026-03-13 07:28 ET',
+  },
+  {
+    id: 'MFS-7720',
+    citizenId: 'CZ-0891',
+    archetype: 'verification',
+    weight: 0.95,
+    qualityScore: 0.97,
+    integrityCoefficient: 0.94,
+    miiDelta: 0.018,
+    timestamp: '2026-03-13 07:22 ET',
+  },
+  {
+    id: 'MFS-7719',
+    citizenId: 'CZ-1042',
+    archetype: 'governance',
+    weight: 0.72,
+    qualityScore: 0.81,
+    integrityCoefficient: 0.79,
+    miiDelta: 0.008,
+    timestamp: '2026-03-13 07:15 ET',
+  },
+];
+
+// ── Mobius-Substrate: Attestations ───────────────────────────
+
+export const mockAttestations: Attestation[] = [
+  {
+    id: 'ATT-449',
+    citizenId: 'CZ-1042',
+    type: 'mint',
+    reason: 'Consistent verification accuracy over 7 cycles',
+    miiImpact: 0.03,
+    validatorAgent: 'EVE',
+    timestamp: '2026-03-13 07:35 ET',
+  },
+  {
+    id: 'ATT-448',
+    citizenId: 'CZ-0891',
+    type: 'mint',
+    reason: 'Source chain contribution to EPICON-C249-004',
+    miiImpact: 0.02,
+    validatorAgent: 'ZEUS',
+    timestamp: '2026-03-13 07:20 ET',
+  },
+];
+
+// ── Mobius-Substrate: Sentinel Council ───────────────────────
+
+export const mockSentinels: Sentinel[] = [
+  {
+    id: 'sentinel-atlas',
+    name: 'ATLAS',
+    role: 'System Integrity Monitor',
+    status: 'active',
+    integrity: 0.97,
+    provider: 'anthropic',
+    lastAction: 'Scanning substrate for coherence fractures',
+    domains: ['integrity', 'monitoring', 'escalation'],
+  },
+  {
+    id: 'sentinel-zeus',
+    name: 'ZEUS',
+    role: 'Verification Arbiter',
+    status: 'consensus',
+    integrity: 0.96,
+    provider: 'openai',
+    lastAction: 'Cross-provider verification on EPICON-C249-004',
+    domains: ['verification', 'source-chain', 'confidence'],
+  },
+  {
+    id: 'sentinel-eve',
+    name: 'EVE',
+    role: 'Ethics Observer',
+    status: 'active',
+    integrity: 0.98,
+    provider: 'anthropic',
+    lastAction: 'Monitoring agent output for bias patterns',
+    domains: ['ethics', 'bias', 'governance'],
+  },
+  {
+    id: 'sentinel-hermes',
+    name: 'HERMES',
+    role: 'Signal Router',
+    status: 'active',
+    integrity: 0.95,
+    provider: 'google',
+    lastAction: 'Routing geopolitical signals to verification lane',
+    domains: ['routing', 'prioritization', 'throttling'],
+  },
+  {
+    id: 'sentinel-echo',
+    name: 'ECHO',
+    role: 'Memory Keeper',
+    status: 'active',
+    integrity: 0.99,
+    provider: 'anthropic',
+    lastAction: 'Recording EPICON snapshots to immutable ledger',
+    domains: ['memory', 'archival', 'ledger'],
+  },
+  {
+    id: 'sentinel-aurea',
+    name: 'AUREA',
+    role: 'Strategic Architect',
+    status: 'standby',
+    integrity: 0.94,
+    provider: 'openai',
+    lastAction: 'Awaiting next synthesis cycle',
+    domains: ['strategy', 'synthesis', 'architecture'],
+  },
+  {
+    id: 'sentinel-jade',
+    name: 'JADE',
+    role: 'Pattern Analyst',
+    status: 'active',
+    integrity: 0.93,
+    provider: 'google',
+    lastAction: 'Analyzing citizen learning patterns for MFS weighting',
+    domains: ['annotation', 'patterns', 'morale'],
+  },
+  {
+    id: 'sentinel-daedalus',
+    name: 'DAEDALUS',
+    role: 'Builder / Researcher',
+    status: 'active',
+    integrity: 0.92,
+    provider: 'meta',
+    lastAction: 'Compiling UBI distribution preview for C-249',
+    domains: ['research', 'building', 'ubi'],
+  },
+  {
+    id: 'sentinel-uriel',
+    name: 'URIEL',
+    role: 'Safety Guardian',
+    status: 'standby',
+    integrity: 0.99,
+    provider: 'anthropic',
+    lastAction: 'Monitoring escalation paths — no active triggers',
+    domains: ['safety', 'escalation', 'veto'],
+  },
+  {
+    id: 'sentinel-zenith',
+    name: 'ZENITH',
+    role: 'Consensus Coordinator',
+    status: 'consensus',
+    integrity: 0.96,
+    provider: 'google',
+    lastAction: 'Coordinating 3-of-10 quorum for attestation batch',
+    domains: ['consensus', 'quorum', 'coordination'],
+  },
+];
+
+// ── Browser Shell: Civic Radar Alerts ────────────────────────
+
+export const mockCivicAlerts: CivicRadarAlert[] = [
+  {
+    id: 'CRA-2049',
+    title: 'Coordinated narrative amplification detected in regional feeds',
+    severity: 'high',
+    category: 'misinformation',
+    source: 'ECHO Threat Intelligence',
+    timestamp: '2026-03-13 07:38 ET',
+    impact: 'Synthetic amplification pattern across 3 regional news aggregators',
+    actions: [
+      'ATLAS flagged for downstream monitoring',
+      'HERMES throttled propagation velocity',
+      'ZEUS opened multi-source verification lane',
+    ],
+  },
+  {
+    id: 'CRA-2048',
+    title: 'Privacy boundary violation in citizen data pipeline',
+    severity: 'critical',
+    category: 'privacy',
+    source: 'Citizen Shield',
+    timestamp: '2026-03-13 07:25 ET',
+    impact: 'Unauthorized PII exposure detected in third-party aggregation layer',
+    actions: [
+      'EVE initiated ethics review',
+      'URIEL safety protocol engaged',
+      'Pipeline quarantined pending audit',
+    ],
+  },
+  {
+    id: 'CRA-2047',
+    title: 'Governance proposal sentiment manipulation',
+    severity: 'medium',
+    category: 'manipulation',
+    source: 'HIVE Monitor',
+    timestamp: '2026-03-13 07:12 ET',
+    impact: 'Astroturfing pattern detected in HIVE governance vote #247',
+    actions: [
+      'JADE flagged anomalous sentiment patterns',
+      'Vote integrity audit initiated',
+      'Citizen notification queued',
+    ],
+  },
+  {
+    id: 'CRA-2046',
+    title: 'MCP server certificate expiration warning',
+    severity: 'low',
+    category: 'infrastructure',
+    source: 'ATLAS Infrastructure Monitor',
+    timestamp: '2026-03-13 06:55 ET',
+    impact: 'Zeus MCP server TLS certificate expires in 72 hours',
+    actions: [
+      'DAEDALUS scheduled renewal task',
+      'Monitoring interval increased to 1h',
+    ],
+  },
+];

@@ -50,6 +50,10 @@ const SUBTITLES: Record<InspectorTarget['kind'], string> = {
   agent: 'Agent operational profile',
   tripwire: 'Alert analysis and protocol',
   gi: 'Integrity metrics deep dive',
+  ledger: 'Immutable record provenance',
+  shard: 'Fractal shard analysis',
+  alert: 'Civic threat assessment',
+  sentinel: 'Sentinel operational profile',
 };
 
 const AGENT_CAPABILITIES: Record<string, string[]> = {
@@ -364,6 +368,203 @@ function GIView({ data }: { data: InspectorTarget & { kind: 'gi' } }) {
   );
 }
 
+// ── Substrate / Browser Shell views ──────────────────────────
+
+function LedgerView({ data }: { data: InspectorTarget & { kind: 'ledger' } }) {
+  const entry = data.data;
+  return (
+    <div className="space-y-5">
+      <div>
+        <SmallLabel>Ledger Entry</SmallLabel>
+        <div className="mt-1 text-lg font-sans font-semibold text-white">
+          {entry.summary}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <InspectorStat label="Entry ID" value={entry.id} />
+        <InspectorStat label="Cycle" value={entry.cycleId} />
+        <InspectorStat label="Type" value={entry.type.toUpperCase()} />
+        <InspectorStat label="Agent" value={entry.agentOrigin} />
+        <InspectorStat label="Status" value={entry.status.toUpperCase()} />
+        <InspectorStat
+          label="GI Delta"
+          value={
+            entry.integrityDelta === 0
+              ? '0.000'
+              : `${entry.integrityDelta > 0 ? '+' : ''}${entry.integrityDelta.toFixed(3)}`
+          }
+        />
+      </div>
+
+      <div>
+        <SmallLabel>Timestamp</SmallLabel>
+        <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-mono text-slate-300">
+          {entry.timestamp}
+        </div>
+      </div>
+
+      <div>
+        <SmallLabel>Provenance Chain</SmallLabel>
+        <NumberedStepList
+          items={[
+            `Event originated from ${entry.agentOrigin}`,
+            `Classified as ${entry.type} in cycle ${entry.cycleId}`,
+            `Integrity delta: ${entry.integrityDelta >= 0 ? '+' : ''}${entry.integrityDelta.toFixed(3)}`,
+            `Status: ${entry.status} — recorded to immutable ledger`,
+          ]}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ShardView({ data }: { data: InspectorTarget & { kind: 'shard' } }) {
+  const shard = data.data;
+  return (
+    <div className="space-y-5">
+      <div>
+        <SmallLabel>Mobius Fractal Shard</SmallLabel>
+        <div className="mt-1 text-lg font-sans font-semibold text-white">
+          {shard.id}
+        </div>
+        <div className="mt-1 text-sm font-sans text-slate-300">
+          Archetype: {shard.archetype} · Citizen: {shard.citizenId}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <InspectorStat label="Weight" value={shard.weight.toFixed(2)} />
+        <InspectorStat label="Quality" value={`${Math.round(shard.qualityScore * 100)}%`} />
+        <InspectorStat label="Integrity Coeff" value={shard.integrityCoefficient.toFixed(2)} />
+        <InspectorStat label="MII Delta" value={`+${shard.miiDelta.toFixed(3)}`} />
+      </div>
+
+      <div>
+        <SmallLabel>Shard Metrics</SmallLabel>
+        <div className="mt-2 space-y-3">
+          {[
+            { label: 'Weight', value: shard.weight },
+            { label: 'Quality Score', value: shard.qualityScore },
+            { label: 'Integrity Coefficient', value: shard.integrityCoefficient },
+          ].map((m) => {
+            const pct = Math.round(m.value * 100);
+            return (
+              <div key={m.label}>
+                <div className="mb-1 flex items-center justify-between text-xs font-sans">
+                  <span className="text-slate-400">{m.label}</span>
+                  <span className="font-mono text-slate-300">{pct}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-800">
+                  <div
+                    className="h-2 rounded-full bg-emerald-500 transition-all duration-500"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SentinelView({ data }: { data: InspectorTarget & { kind: 'sentinel' } }) {
+  const s = data.data;
+  return (
+    <div className="space-y-5">
+      <div>
+        <SmallLabel>Sentinel</SmallLabel>
+        <div className="mt-1 text-lg font-sans font-semibold text-white">
+          {s.name}
+        </div>
+        <div className="mt-1 text-sm font-sans text-slate-300">{s.role}</div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <InspectorStat label="Status" value={s.status.toUpperCase()} />
+        <InspectorStat label="MII" value={s.integrity.toFixed(2)} />
+        <InspectorStat label="Provider" value={s.provider} />
+        <InspectorStat label="Domains" value={s.domains.join(', ')} />
+      </div>
+
+      <div>
+        <SmallLabel>Integrity Score</SmallLabel>
+        <div className="mt-2">
+          <div className="mb-1 flex items-center justify-between text-xs font-sans">
+            <span className="text-slate-400">MII</span>
+            <span className="font-mono text-slate-300">{Math.round(s.integrity * 100)}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-slate-800">
+            <div
+              className="h-2 rounded-full bg-emerald-500 transition-all duration-500"
+              style={{ width: `${Math.round(s.integrity * 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <SmallLabel>Last Action</SmallLabel>
+        <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-sans text-slate-300">
+          {s.lastAction}
+        </div>
+      </div>
+
+      <div>
+        <SmallLabel>Domain Capabilities</SmallLabel>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {s.domains.map((domain) => (
+            <span
+              key={domain}
+              className="rounded-md border border-slate-800 bg-slate-950 px-2 py-1 text-xs font-mono text-slate-300"
+            >
+              {domain}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AlertView({ data }: { data: InspectorTarget & { kind: 'alert' } }) {
+  const alert = data.data;
+  return (
+    <div className="space-y-5">
+      <div>
+        <SmallLabel>Civic Radar Alert</SmallLabel>
+        <div className="mt-1 text-lg font-sans font-semibold text-white">
+          {alert.title}
+        </div>
+        <div className="mt-2 text-sm font-sans text-slate-300">
+          {alert.impact}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <InspectorStat label="Alert ID" value={alert.id} />
+        <InspectorStat label="Severity" value={alert.severity.toUpperCase()} />
+        <InspectorStat label="Category" value={alert.category} />
+        <InspectorStat label="Source" value={alert.source} />
+      </div>
+
+      <div>
+        <SmallLabel>Response Actions</SmallLabel>
+        <NumberedStepList items={alert.actions} />
+      </div>
+
+      <div>
+        <SmallLabel>Timeline</SmallLabel>
+        <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-mono text-slate-300">
+          {alert.timestamp}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ───────────────────────────────────────────
 
 export default function DetailInspectorRail({
@@ -385,6 +586,10 @@ export default function DetailInspectorRail({
             {target.kind === 'agent' && <AgentView data={target} />}
             {target.kind === 'tripwire' && <TripwireView data={target} />}
             {target.kind === 'gi' && <GIView data={target} />}
+            {target.kind === 'ledger' && <LedgerView data={target} />}
+            {target.kind === 'shard' && <ShardView data={target} />}
+            {target.kind === 'sentinel' && <SentinelView data={target} />}
+            {target.kind === 'alert' && <AlertView data={target} />}
           </div>
         </div>
       </div>

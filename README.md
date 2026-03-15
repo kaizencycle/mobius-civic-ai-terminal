@@ -7,11 +7,12 @@ The Mobius Civic AI Terminal provides a real-time operational interface for moni
 Think of it as a **Bloomberg Terminal for truth verification and civic intelligence.**
 
 Instead of financial tickers, the terminal monitors:
-- AI agents
-- information events
-- verification pipelines
-- global integrity signals
-- tripwire alerts
+- AI agents and sentinel council status
+- EPICON information events
+- verification pipelines and confidence tiers
+- global integrity signals (GI / MII)
+- tripwire alerts and civic radar threats
+- immutable ledger entries and MFS shards
 
 ![Mobius Architecture](docs/architecture.svg)
 
@@ -23,7 +24,15 @@ Modern information systems optimize for speed and amplification, not verificatio
 
 The Mobius Civic AI Terminal is designed to make information **auditable, traceable, and verifiable** before it spreads.
 
-It is part of the broader [Mobius Substrate](https://github.com/kaizencycle), an experimental civic AI infrastructure designed to:
+It is part of the broader Mobius ecosystem:
+
+| Repo | Role |
+|---|---|
+| [**Mobius-Substrate**](https://github.com/kaizencycle/Mobius-Substrate) | Core infrastructure — EPICON schema, MII scoring, MFS shards, Sentinel Council, civic ledger API |
+| [**mobius-browser-shell**](https://github.com/kaizencycle/mobius-browser-shell) | Browser interface — citizen auth, learning labs, civic radar, knowledge graph |
+| **mobius-civic-ai-terminal** *(this repo)* | Operator terminal — real-time monitoring, command palette, integrity dashboard |
+
+Together they form an experimental civic AI infrastructure designed to:
 - reduce misinformation amplification
 - create transparent verification pipelines
 - allow humans and AI agents to collaboratively audit information
@@ -61,6 +70,19 @@ The terminal visualizes the current state of eight Mobius agents:
 ### Integrity Metrics
 
 The system tracks a **Global Integrity Score (GI)** that measures information health across source reliability, institutional trust, consensus stability, and narrative divergence. The goal is not to suppress information but to expose reliability levels transparently.
+
+### Ecosystem Integration
+
+**From [Mobius-Substrate](https://github.com/kaizencycle/Mobius-Substrate):**
+- **Civic Ledger** — Immutable record of all EPICON events, attestations, MFS shards, UBI distributions, and settlements
+- **Sentinel Council** — 10 AI sentinels across multiple providers (Anthropic, OpenAI, Google, Meta) with 3-of-10 quorum consensus
+- **MFS (Mobius Fractal Shards)** — Atomic integrity units with archetype classification, quality scoring, and MII delta tracking
+- **Attestations** — Mint/burn integrity credits validated by sentinel agents
+
+**From [mobius-browser-shell](https://github.com/kaizencycle/mobius-browser-shell):**
+- **Civic Radar** — Real-time threat intelligence feed monitoring misinformation, privacy violations, manipulation, and infrastructure alerts
+- **ECHO Threat Intelligence** — Agent-generated threat entries with IOCs, CVEs, and RAG sources
+- **Citizen Shield** — Digital safety alerts and privacy boundary monitoring
 
 ---
 
