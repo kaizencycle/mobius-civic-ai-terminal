@@ -1,4 +1,5 @@
 import type { Agent, EpiconItem, GISnapshot, Tripwire, LedgerEntry, CivicRadarAlert } from './types';
+import type { CycleIntegritySummary } from '@/lib/echo/integrity-engine';
 import { mockAgents, mockEpicon, mockGI, mockTripwires } from './mock';
 import { transformAgent, transformEpicon, transformGI, transformTripwire } from './transforms';
 
@@ -61,6 +62,7 @@ export type EchoFeedData = {
   epicon: EpiconItem[];
   ledger: LedgerEntry[];
   alerts: CivicRadarAlert[];
+  integrity: CycleIntegritySummary | null;
   status: {
     lastIngest: string | null;
     cycleId: string;

@@ -12,7 +12,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getEchoEpicon, getEchoLedger, getEchoAlerts, getEchoStatus, pushIngestResult } from '@/lib/echo/store';
+import { getEchoEpicon, getEchoLedger, getEchoAlerts, getEchoIntegrity, getEchoStatus, pushIngestResult } from '@/lib/echo/store';
 import { fetchAllSources } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
 
@@ -44,6 +44,7 @@ export async function GET() {
     epicon: getEchoEpicon(),
     ledger: getEchoLedger(),
     alerts: getEchoAlerts(),
+    integrity: getEchoIntegrity(),
     status: getEchoStatus(),
   });
 }
