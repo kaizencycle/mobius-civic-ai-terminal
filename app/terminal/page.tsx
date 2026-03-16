@@ -420,7 +420,7 @@ export default function TerminalPage() {
         />
 
         <main className="col-span-7 max-lg:col-span-9 max-md:col-span-1 border-r border-slate-800 max-md:border-r-0 bg-slate-950">
-          <div className="grid h-full grid-rows-[auto_auto_auto_1fr] gap-4 p-4 max-md:pb-20">
+          <div className="grid h-full grid-rows-[auto_auto_auto_1fr] gap-4 p-4">
             {CHAMBER_DESCRIPTIONS[selectedNav] && (
               <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-4">
                 <div className="text-xs font-mono uppercase tracking-[0.2em] text-sky-300">
@@ -531,7 +531,7 @@ export default function TerminalPage() {
         <DetailInspectorRail target={inspectorTarget} />
       </div>
 
-      <footer className="hidden md:flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 py-2 text-xs font-mono text-slate-500">
+      <footer className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 py-2 text-xs font-mono text-slate-500">
         <span className="shrink-0">MOBIUS TERMINAL V1</span>
         <div className="flex items-center gap-2">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
