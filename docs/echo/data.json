@@ -1,0 +1,12 @@
+{
+  "repo": "kaizencycle/mobius-civic-ai-terminal",
+  "generated_at": null,
+  "cycle_id": null,
+  "source_counts": { "gdelt": 0, "usgs": 0, "coingecko": 0, "total": 0 },
+  "by_severity": { "high": 0, "medium": 0, "low": 0 },
+  "by_category": { "geopolitical": 0, "market": 0, "infrastructure": 0, "governance": 0 },
+  "alert_count": 0,
+  "ledger_count": 0,
+  "epicon_count": 0,
+  "epicon_sig": {}
+}

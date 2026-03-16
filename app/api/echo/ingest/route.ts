@@ -4,14 +4,18 @@
  * GET  /api/echo/ingest — Check ingest status
  * POST /api/echo/ingest — Trigger a new ingest cycle (called by Vercel Cron)
  *
- * Vercel Cron hits this endpoint every 2 hours.
+ * Vercel Cron hits this endpoint daily at 6 AM UTC.
+ * Feed route auto-re-ingests when data is stale (>2h).
  * Can also be triggered manually: curl -X POST /api/echo/ingest
+ *
+ * After ingest, generates a docs/echo/ snapshot (JSON ledger + dashboard).
  */
 
 import { NextResponse } from 'next/server';
 import { fetchAllSources } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
-import { pushIngestResult, getEchoStatus } from '@/lib/echo/store';
+import { pushIngestResult, getEchoStatus, getEchoEpicon, getEchoLedger, getEchoAlerts } from '@/lib/echo/store';
+import { writeSnapshot } from '@/lib/echo/snapshot-writer';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +51,19 @@ export async function POST() {
     // 3. Push to store
     pushIngestResult(result);
 
+    // 4. Generate docs/echo/ snapshot (fire-and-forget, non-blocking)
+    let snapshotWritten = false;
+    try {
+      snapshotWritten = await writeSnapshot(
+        getEchoStatus(),
+        getEchoEpicon(),
+        getEchoLedger(),
+        getEchoAlerts(),
+      );
+    } catch {
+      // Snapshot writing is best-effort
+    }
+
     return NextResponse.json({
       agent: 'ECHO',
       action: 'ingest',
@@ -58,6 +75,7 @@ export async function POST() {
         ledger: result.ledger.length,
         alerts: result.alerts.length,
       },
+      snapshot: snapshotWritten ? 'written' : 'skipped',
       duration: Date.now() - startTime,
       timestamp: result.timestamp,
     });
