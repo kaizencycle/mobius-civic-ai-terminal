@@ -17,7 +17,7 @@ export default function AgentCortexPanel({
         title="Agent Cortex"
         subtitle="Live substrate operator map"
       />
-      <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 xl:grid-cols-4">
         {agents.map((agent) => (
           <button
             key={agent.id}

@@ -63,7 +63,7 @@ export default function SubstrateStatusCard({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-5">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
         {sentinels.map((s) => (
           <button
             key={s.id}

@@ -28,11 +28,32 @@ html,
 body {
   margin: 0;
   padding: 0;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   background: #020617;
   color: #e2e8f0;
+  /* Prevent overscroll bounce on iOS */
+  overscroll-behavior: none;
+}
+
+/* Safe area padding for notched phones (iPhone X+, Android cutouts) */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Touch-friendly tap targets on mobile */
+@media (max-width: 767px) {
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent text selection on interactive elements during tap */
+  button {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
 }
 
 ::-webkit-scrollbar {
