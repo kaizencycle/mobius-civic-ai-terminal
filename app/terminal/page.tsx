@@ -13,6 +13,10 @@ import LedgerPanel from '@/components/terminal/LedgerPanel';
 import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
 import CivicRadarPanel from '@/components/terminal/CivicRadarPanel';
 import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
+import MICWalletPanel from '@/components/terminal/MICWalletPanel';
+import MFSShardPanel from '@/components/terminal/MFSShardPanel';
+import MICBlockchainExplorer from '@/components/terminal/MICBlockchainExplorer';
+import { WalletProvider, useWallet } from '@/contexts/WalletContext';
 import {
   getAgents,
   getEpiconFeed,
@@ -58,6 +62,7 @@ const CATEGORY_MAP: Partial<Record<NavKey, EpiconItem['category']>> = {
 const CHAMBER_DESCRIPTIONS: Partial<Record<NavKey, string>> = {
   search: 'Use the Command Palette below to search across all data. Try /scan followed by a keyword.',
   settings: 'Terminal configuration and operator preferences. Feature coming in V2.',
+  wallet: undefined, // Wallet uses its own panels, not the chamber description
   reflections: 'Agent reflection logs and cross-system annotations. Displaying active agents below.',
 };
 
@@ -73,13 +78,25 @@ const NAV_COMMANDS: Record<string, { nav: NavKey; label: string }> = {
   '/infrastructure': { nav: 'infrastructure', label: 'Infrastructure' },
   '/infra': { nav: 'infrastructure', label: 'Infrastructure' },
   '/settings': { nav: 'settings', label: 'Settings' },
+  '/wallet': { nav: 'wallet', label: 'Wallet' },
+  '/mic': { nav: 'wallet', label: 'Wallet' },
+  '/shards': { nav: 'wallet', label: 'Wallet' },
+  '/blockchain': { nav: 'wallet', label: 'Wallet' },
 };
 
 const NAV_LABEL_MAP = new Map(navItems.map((n) => [n.key, n.label]));
 
 // ── Component ────────────────────────────────────────────────
 
-export default function TerminalPage() {
+export default function TerminalPageWrapper() {
+  return (
+    <WalletProvider>
+      <TerminalPage />
+    </WalletProvider>
+  );
+}
+
+function TerminalPage() {
   const [selectedNav, setSelectedNav] = useState<NavKey>('pulse');
   const [agents, setAgents] = useState<Agent[]>([]);
   const [epicon, setEpicon] = useState<EpiconItem[]>([]);
@@ -90,6 +107,10 @@ export default function TerminalPage() {
   const [echoLedger, setEchoLedger] = useState<LedgerEntry[]>([]);
   const [echoAlerts, setEchoAlerts] = useState<CivicRadarAlert[]>([]);
   const [echoIntegrity, setEchoIntegrity] = useState<CycleIntegritySummary | null>(null);
+
+  // MIC wallet — auto-mint when integrity engine produces MIC
+  const { earnMIC } = useWallet();
+  const lastMintedCycleRef = useRef<string | null>(null);
 
   // Ref for stable handleCommand (avoids re-creating callback on every poll)
   const dataRef = useRef({ agents, epicon, gi, tripwires, echoLedger, echoAlerts });
@@ -176,6 +197,21 @@ export default function TerminalPage() {
     return () => { mounted = false; clearInterval(interval); };
   }, []);
 
+  // Auto-mint MIC to local blockchain when integrity engine reports minted credits
+  useEffect(() => {
+    if (!echoIntegrity) return;
+    if (echoIntegrity.totalMicMinted <= 0) return;
+    if (lastMintedCycleRef.current === echoIntegrity.cycleId) return;
+
+    lastMintedCycleRef.current = echoIntegrity.cycleId;
+    earnMIC('echo_integrity_mint', echoIntegrity.totalMicMinted, {
+      cycleId: echoIntegrity.cycleId,
+      avgMii: echoIntegrity.avgMii,
+      eventCount: echoIntegrity.eventCount,
+      totalGiDelta: echoIntegrity.totalGiDelta,
+    });
+  }, [echoIntegrity, earnMIC]);
+
   // Stable command handler
   const handleCommand = useCallback(
     (input: string): CommandResult => {
@@ -196,7 +232,7 @@ export default function TerminalPage() {
           return {
             ok: true,
             message:
-              'Commands: /scan [term], /agents, /tripwires, /gi, /ledger, /sentinels, /radar, /echo, /clear',
+              'Commands: /scan [term], /agents, /tripwires, /gi, /ledger, /wallet, /mic, /shards, /blockchain, /sentinels, /radar, /echo, /clear',
           };
 
         case '/echo': {
@@ -399,11 +435,12 @@ export default function TerminalPage() {
   // Chamber visibility rules
   const showEpicon = ['pulse', 'markets', 'geopolitics', 'governance', 'infrastructure', 'ledger'].includes(selectedNav);
   const showAgents = ['pulse', 'agents', 'reflections'].includes(selectedNav);
-  const showMetrics = !['search', 'settings', 'ledger'].includes(selectedNav);
+  const showMetrics = !['search', 'settings', 'ledger', 'wallet'].includes(selectedNav);
   const showLedger = ['ledger', 'pulse'].includes(selectedNav);
   const showSentinels = ['governance', 'pulse'].includes(selectedNav);
   const showRadar = ['geopolitics', 'infrastructure', 'pulse'].includes(selectedNav);
   const showIntegrity = ['pulse', 'governance', 'agents'].includes(selectedNav);
+  const showWallet = selectedNav === 'wallet';
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
@@ -510,6 +547,14 @@ export default function TerminalPage() {
 
             {showIntegrity && (
               <IntegrityRatingPanel integrity={echoIntegrity} />
+            )}
+
+            {showWallet && (
+              <>
+                <MICWalletPanel gi={gi} integrity={echoIntegrity} />
+                <MFSShardPanel integrity={echoIntegrity} />
+                <MICBlockchainExplorer />
+              </>
             )}
 
             {showMetrics && (
