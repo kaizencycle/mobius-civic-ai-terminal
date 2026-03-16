@@ -17,9 +17,6 @@ const NAV_ICONS: Partial<Record<NavKey, string>> = {
   settings: '⚙',
 };
 
-// Subset shown in the mobile bottom bar (most important chambers)
-const MOBILE_NAV: NavKey[] = ['pulse', 'agents', 'ledger', 'markets', 'geopolitics', 'search'];
-
 export default function SidebarNav({
   items,
   selected,
@@ -30,7 +27,7 @@ export default function SidebarNav({
   onSelect: (key: NavKey) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <>
@@ -88,68 +85,76 @@ export default function SidebarNav({
         </nav>
       </aside>
 
-      {/* ── Mobile bottom tab bar (visible only on mobile) ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800 bg-slate-950/95 backdrop-blur safe-bottom">
-        <div className="flex items-stretch">
-          {MOBILE_NAV.map((key) => {
-            const item = items.find((i) => i.key === key);
-            if (!item) return null;
-            const active = selected === key;
-            return (
-              <button
-                key={key}
-                onClick={() => { onSelect(key); setMobileExpanded(false); }}
-                className={cn(
-                  'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-mono uppercase tracking-wider transition min-h-[52px]',
-                  active
-                    ? 'text-sky-300 bg-sky-500/10'
-                    : 'text-slate-400 active:bg-slate-900',
-                )}
-              >
-                <span className="text-base leading-none">{NAV_ICONS[key]}</span>
-                <span>{item.label.slice(0, 5)}</span>
-              </button>
-            );
-          })}
-          {/* More button — expands full nav */}
-          <button
-            onClick={() => setMobileExpanded((v) => !v)}
-            className={cn(
-              'flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-mono uppercase tracking-wider transition min-h-[52px]',
-              mobileExpanded ? 'text-sky-300 bg-sky-500/10' : 'text-slate-400 active:bg-slate-900',
-            )}
-          >
-            <span className="text-base leading-none">···</span>
-            <span>More</span>
-          </button>
+      {/* ── Mobile: hamburger toggle button (fixed top-left) ── */}
+      <button
+        onClick={() => setMobileOpen((v) => !v)}
+        className={cn(
+          'md:hidden fixed top-3 left-3 z-50 flex items-center justify-center rounded-lg border px-2.5 py-2 text-sm font-mono transition-all',
+          mobileOpen
+            ? 'border-sky-500/40 bg-sky-500/20 text-sky-300'
+            : 'border-slate-700 bg-slate-900/95 text-slate-300 backdrop-blur',
+        )}
+        aria-label="Toggle navigation"
+      >
+        {mobileOpen ? '✕' : '☰'}
+      </button>
+
+      {/* ── Mobile: backdrop ── */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-30 bg-black/50"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* ── Mobile: left slide-out sidebar drawer ── */}
+      <aside
+        className={cn(
+          'md:hidden fixed top-0 left-0 bottom-0 z-40 w-56 border-r border-slate-800 bg-slate-950 transition-transform duration-300',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
+        {/* Drawer header */}
+        <div className="border-b border-slate-800 px-4 py-3 pt-14">
+          <div className="text-xs font-mono uppercase tracking-[0.25em] text-slate-400">
+            Chambers
+          </div>
         </div>
 
-        {/* Expanded mobile nav overlay */}
-        {mobileExpanded && (
-          <div className="border-t border-slate-800 bg-slate-950 p-3">
-            <div className="grid grid-cols-4 gap-2">
-              {items.filter((i) => !MOBILE_NAV.includes(i.key)).map((item) => {
-                const active = selected === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    onClick={() => { onSelect(item.key); setMobileExpanded(false); }}
-                    className={cn(
-                      'flex flex-col items-center gap-1 rounded-lg p-2 text-[10px] font-mono uppercase tracking-wider transition min-h-[48px]',
-                      active
-                        ? 'text-sky-300 bg-sky-500/10 ring-1 ring-sky-500/30'
-                        : 'text-slate-400 active:bg-slate-900',
-                    )}
-                  >
-                    <span className="text-sm">{NAV_ICONS[item.key]}</span>
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+        {/* Nav items */}
+        <nav className="p-3 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 60px)' }}>
+          <div className="space-y-1">
+            {items.map((item) => {
+              const active = item.key === selected;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => {
+                    onSelect(item.key);
+                    setMobileOpen(false);
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-sm font-sans transition min-h-[44px]',
+                    active
+                      ? 'bg-sky-500/10 text-sky-300 ring-1 ring-sky-500/30'
+                      : 'text-slate-300 active:bg-slate-900',
+                  )}
+                >
+                  <span className="w-5 text-center text-xs font-mono text-slate-500">
+                    {NAV_ICONS[item.key] ?? '·'}
+                  </span>
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge ? (
+                    <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-300">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
-        )}
-      </nav>
+        </nav>
+      </aside>
     </>
   );
 }

@@ -97,7 +97,7 @@ export default function TopStatusBar({
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
-      <div className="flex items-center justify-between gap-4 px-4 py-3">
+      <div className="flex items-center justify-between gap-4 px-4 py-3 max-md:pl-14">
         <div>
           <div className="text-sm font-mono font-semibold uppercase tracking-[0.28em] text-sky-300">
             Mobius Terminal
