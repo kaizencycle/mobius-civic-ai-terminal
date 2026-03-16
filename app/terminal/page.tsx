@@ -17,6 +17,7 @@ import {
   getEpiconFeed,
   getGISnapshot,
   getTripwires,
+  getEchoFeed,
   isLiveAPI,
 } from '@/lib/terminal/api';
 import {
@@ -29,6 +30,8 @@ import type {
   Agent,
   EpiconItem,
   GISnapshot,
+  LedgerEntry,
+  CivicRadarAlert,
   InspectorTarget,
   NavKey,
   Tripwire,
@@ -82,10 +85,12 @@ export default function TerminalPage() {
   const [tripwires, setTripwires] = useState<Tripwire[]>([]);
   const [inspectorTarget, setInspectorTarget] = useState<InspectorTarget | null>(null);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>(isLiveAPI ? 'reconnecting' : 'offline');
+  const [echoLedger, setEchoLedger] = useState<LedgerEntry[]>([]);
+  const [echoAlerts, setEchoAlerts] = useState<CivicRadarAlert[]>([]);
 
   // Ref for stable handleCommand (avoids re-creating callback on every poll)
-  const dataRef = useRef({ agents, epicon, gi, tripwires });
-  dataRef.current = { agents, epicon, gi, tripwires };
+  const dataRef = useRef({ agents, epicon, gi, tripwires, echoLedger, echoAlerts });
+  dataRef.current = { agents, epicon, gi, tripwires, echoLedger, echoAlerts };
 
   // Initial data load + polling fallback (only when live API is configured)
   useEffect(() => {
@@ -140,13 +145,40 @@ export default function TerminalPage() {
     return () => { source?.close(); };
   }, []);
 
+  // ECHO live feed — fetches from internal API, merges with mock data
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadEcho() {
+      const feed = await getEchoFeed();
+      if (!mounted || !feed) return;
+
+      // Merge live ECHO epicon items with existing feed (live first, dedup by id)
+      if (feed.epicon.length > 0) {
+        setEpicon((prev) => {
+          const liveIds = new Set(feed.epicon.map((e) => e.id));
+          return [...feed.epicon, ...prev.filter((p) => !liveIds.has(p.id))].slice(0, 30);
+        });
+      }
+
+      setEchoLedger(feed.ledger);
+      setEchoAlerts(feed.alerts);
+    }
+
+    loadEcho();
+
+    // Re-fetch ECHO data every 2 hours (feed route auto-re-ingests when stale)
+    const interval = setInterval(loadEcho, 2 * 60 * 60 * 1000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+
   // Stable command handler
   const handleCommand = useCallback(
     (input: string): CommandResult => {
       const parts = input.trim().split(/\s+/);
       const cmd = parts[0]?.toLowerCase();
       const arg = parts.slice(1).join(' ').toLowerCase();
-      const { agents, epicon, gi, tripwires } = dataRef.current;
+      const { agents, epicon, gi, tripwires, echoLedger, echoAlerts } = dataRef.current;
 
       // Navigation commands (data-driven)
       if (cmd && cmd in NAV_COMMANDS) {
@@ -160,8 +192,27 @@ export default function TerminalPage() {
           return {
             ok: true,
             message:
-              'Commands: /scan [term], /agents, /tripwires, /gi, /ledger, /sentinels, /radar, /clear',
+              'Commands: /scan [term], /agents, /tripwires, /gi, /ledger, /sentinels, /radar, /echo, /clear',
           };
+
+        case '/echo': {
+          // Trigger manual ECHO ingest
+          fetch('/api/echo/ingest', { method: 'POST' })
+            .then((r) => r.json())
+            .then(() => getEchoFeed().then((feed) => {
+              if (!feed) return;
+              if (feed.epicon.length > 0) {
+                setEpicon((prev) => {
+                  const liveIds = new Set(feed.epicon.map((e) => e.id));
+                  return [...feed.epicon, ...prev.filter((p) => !liveIds.has(p.id))].slice(0, 30);
+                });
+              }
+              setEchoLedger(feed.ledger);
+              setEchoAlerts(feed.alerts);
+            }))
+            .catch(() => { /* silent */ });
+          return { ok: true, message: 'ECHO ingest triggered. Live data will refresh shortly.' };
+        }
 
         case '/agents':
           setSelectedNav('agents');
@@ -220,7 +271,7 @@ export default function TerminalPage() {
         case '/radar':
         case '/alerts':
           setSelectedNav('geopolitics');
-          return { ok: true, message: `${mockCivicAlerts.length} civic radar alerts` };
+          return { ok: true, message: `${mockCivicAlerts.length + echoAlerts.length} civic radar alerts` };
 
         case '/scan':
         case '/search': {
@@ -263,8 +314,9 @@ export default function TerminalPage() {
             return { ok: true, message: `Found tripwire: ${matchedTripwire.id}` };
           }
 
-          // Search ledger
-          const matchedLedger = mockLedger.find(
+          // Search ledger (live ECHO + mock)
+          const allLedger = [...echoLedger, ...mockLedger];
+          const matchedLedger = allLedger.find(
             (l) =>
               l.summary.toLowerCase().includes(arg) ||
               l.id.toLowerCase().includes(arg) ||
@@ -288,8 +340,9 @@ export default function TerminalPage() {
             return { ok: true, message: `Found sentinel: ${matchedSentinel.name}` };
           }
 
-          // Search civic alerts
-          const matchedAlert = mockCivicAlerts.find(
+          // Search civic alerts (live ECHO + mock)
+          const allAlerts = [...echoAlerts, ...mockCivicAlerts];
+          const matchedAlert = allAlerts.find(
             (a) =>
               a.title.toLowerCase().includes(arg) ||
               a.category.includes(arg),
@@ -334,6 +387,10 @@ export default function TerminalPage() {
       ? agents
       : agents.filter((a) => a.status !== 'idle');
 
+  // Merged data: live ECHO + mock
+  const mergedLedger = [...echoLedger, ...mockLedger];
+  const mergedAlerts = [...echoAlerts, ...mockCivicAlerts];
+
   // Chamber visibility rules
   const showEpicon = ['pulse', 'markets', 'geopolitics', 'governance', 'infrastructure', 'ledger'].includes(selectedNav);
   const showAgents = ['pulse', 'agents', 'reflections'].includes(selectedNav);
@@ -346,7 +403,7 @@ export default function TerminalPage() {
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <TopStatusBar
         gi={gi.score}
-        alertCount={tripwires.length + mockCivicAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length}
+        alertCount={tripwires.length + mergedAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length}
         streamStatus={streamStatus}
         onNavigate={setSelectedNav}
         onShowGI={() => {
@@ -377,7 +434,7 @@ export default function TerminalPage() {
 
             {showLedger && (
               <LedgerPanel
-                entries={mockLedger}
+                entries={mergedLedger}
                 selectedId={
                   inspectorTarget.kind === 'ledger'
                     ? inspectorTarget.data.id
@@ -433,7 +490,7 @@ export default function TerminalPage() {
 
             {showRadar && (
               <CivicRadarPanel
-                alerts={mockCivicAlerts}
+                alerts={mergedAlerts}
                 selectedId={
                   inspectorTarget.kind === 'alert'
                     ? inspectorTarget.data.id

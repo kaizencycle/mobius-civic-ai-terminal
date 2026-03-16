@@ -1,4 +1,4 @@
-import type { Agent, EpiconItem, GISnapshot, Tripwire } from './types';
+import type { Agent, EpiconItem, GISnapshot, Tripwire, LedgerEntry, CivicRadarAlert } from './types';
 import { mockAgents, mockEpicon, mockGI, mockTripwires } from './mock';
 import { transformAgent, transformEpicon, transformGI, transformTripwire } from './transforms';
 
@@ -53,4 +53,32 @@ export async function getTripwires(): Promise<Tripwire[]> {
   const tripwires = raw.tripwires;
   if (!Array.isArray(tripwires)) return mockTripwires;
   return tripwires.map(transformTripwire);
+}
+
+// ── ECHO Live Feed ───────────────────────────────────────────
+
+export type EchoFeedData = {
+  epicon: EpiconItem[];
+  ledger: LedgerEntry[];
+  alerts: CivicRadarAlert[];
+  status: {
+    lastIngest: string | null;
+    cycleId: string;
+    totalIngested: number;
+    counts: { epicon: number; ledger: number; alerts: number };
+  };
+};
+
+/**
+ * Fetches live ECHO data from the internal API route.
+ * Returns null if the fetch fails (terminal falls back to mock-only data).
+ */
+export async function getEchoFeed(): Promise<EchoFeedData | null> {
+  try {
+    const res = await fetch('/api/echo/feed', { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
