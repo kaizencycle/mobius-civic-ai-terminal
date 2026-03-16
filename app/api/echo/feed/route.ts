@@ -4,7 +4,11 @@
  * GET /api/echo/feed — Returns live EPICON events, ledger entries, and alerts
  *
  * The frontend polls this to merge live ECHO data with mock data.
- * If the store is empty (cold start), triggers an ingest first.
+ * Re-ingests automatically when data is stale (>2 hours old) or on cold start.
+ *
+ * This compensates for Vercel Hobby's once-daily cron limit:
+ * the cron seeds the morning baseline, and feed requests keep data
+ * fresh throughout the day via stale-while-revalidate.
  */
 
 import { NextResponse } from 'next/server';
@@ -14,11 +18,17 @@ import { transformBatch } from '@/lib/echo/transform';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const status = getEchoStatus();
+const STALE_MS = 2 * 60 * 60 * 1000; // 2 hours
 
-  // If store is empty, do a lazy ingest (first request warms the cache)
-  if (status.totalIngested === 0) {
+function isStale(): boolean {
+  const { lastIngest } = getEchoStatus();
+  if (!lastIngest) return true;
+  return Date.now() - new Date(lastIngest).getTime() > STALE_MS;
+}
+
+export async function GET() {
+  // Re-ingest if store is empty or data is older than 2 hours
+  if (isStale()) {
     try {
       const rawEvents = await fetchAllSources();
       if (rawEvents.length > 0) {
@@ -26,7 +36,7 @@ export async function GET() {
         pushIngestResult(result);
       }
     } catch {
-      // Proceed with empty data
+      // Proceed with whatever data we have
     }
   }
 

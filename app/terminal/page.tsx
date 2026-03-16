@@ -167,7 +167,7 @@ export default function TerminalPage() {
 
     loadEcho();
 
-    // Re-fetch ECHO data every 2 hours (matches cron interval)
+    // Re-fetch ECHO data every 2 hours (feed route auto-re-ingests when stale)
     const interval = setInterval(loadEcho, 2 * 60 * 60 * 1000);
     return () => { mounted = false; clearInterval(interval); };
   }, []);
