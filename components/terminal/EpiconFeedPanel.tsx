@@ -1,6 +1,39 @@
+'use client';
+
+import { useState, useMemo } from 'react';
 import type { EpiconItem } from '@/lib/terminal/types';
 import { confidenceLabel, epiconStatusStyle, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
+import SortBar, { type SortOption } from './SortBar';
+
+type EpiconSortKey = 'time' | 'confidence' | 'category' | 'status';
+
+const SORT_OPTIONS: SortOption<EpiconSortKey>[] = [
+  { key: 'time', label: 'Time' },
+  { key: 'confidence', label: 'Confidence' },
+  { key: 'category', label: 'Category' },
+  { key: 'status', label: 'Status' },
+];
+
+const STATUS_RANK: Record<string, number> = { verified: 2, pending: 1, contradicted: 0 };
+
+function sortEpicon(items: EpiconItem[], key: EpiconSortKey, dir: 'asc' | 'desc'): EpiconItem[] {
+  const mult = dir === 'desc' ? -1 : 1;
+  return [...items].sort((a, b) => {
+    switch (key) {
+      case 'time':
+        return mult * (new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      case 'confidence':
+        return mult * (a.confidenceTier - b.confidenceTier);
+      case 'category':
+        return mult * a.category.localeCompare(b.category);
+      case 'status':
+        return mult * ((STATUS_RANK[a.status] ?? 0) - (STATUS_RANK[b.status] ?? 0));
+      default:
+        return 0;
+    }
+  });
+}
 
 export default function EpiconFeedPanel({
   items,
@@ -11,11 +44,24 @@ export default function EpiconFeedPanel({
   selectedId: string;
   onSelect: (item: EpiconItem) => void;
 }) {
+  const [sortKey, setSortKey] = useState<EpiconSortKey>('time');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const sorted = useMemo(() => sortEpicon(items, sortKey, sortDir), [items, sortKey, sortDir]);
+
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-      <SectionLabel title="EPICON Feed" subtitle="Live audited event stream" />
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <SectionLabel title="EPICON Feed" subtitle="Live audited event stream" />
+        <SortBar
+          options={SORT_OPTIONS}
+          active={sortKey}
+          direction={sortDir}
+          onSort={(k, d) => { setSortKey(k); setSortDir(d); }}
+        />
+      </div>
       <div className="mt-3 space-y-3">
-        {items.map((item) => (
+        {sorted.map((item) => (
           <button
             key={item.id}
             onClick={() => onSelect(item)}
