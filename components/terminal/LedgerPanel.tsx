@@ -1,6 +1,10 @@
+'use client';
+
+import { useState, useMemo } from 'react';
 import type { LedgerEntry } from '@/lib/terminal/types';
 import { cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
+import SortBar, { type SortOption } from './SortBar';
 
 const TYPE_STYLES: Record<LedgerEntry['type'], string> = {
   epicon: 'text-sky-300 border-sky-500/30 bg-sky-500/10',
@@ -16,6 +20,35 @@ const STATUS_STYLES: Record<LedgerEntry['status'], string> = {
   reverted: 'text-red-300',
 };
 
+type LedgerSortKey = 'time' | 'type' | 'gi_delta' | 'status';
+
+const SORT_OPTIONS: SortOption<LedgerSortKey>[] = [
+  { key: 'time', label: 'Time' },
+  { key: 'type', label: 'Type' },
+  { key: 'gi_delta', label: 'GI Delta' },
+  { key: 'status', label: 'Status' },
+];
+
+const LEDGER_STATUS_RANK: Record<string, number> = { committed: 2, pending: 1, reverted: 0 };
+
+function sortLedger(entries: LedgerEntry[], key: LedgerSortKey, dir: 'asc' | 'desc'): LedgerEntry[] {
+  const mult = dir === 'desc' ? -1 : 1;
+  return [...entries].sort((a, b) => {
+    switch (key) {
+      case 'time':
+        return mult * (new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      case 'type':
+        return mult * a.type.localeCompare(b.type);
+      case 'gi_delta':
+        return mult * (a.integrityDelta - b.integrityDelta);
+      case 'status':
+        return mult * ((LEDGER_STATUS_RANK[a.status] ?? 0) - (LEDGER_STATUS_RANK[b.status] ?? 0));
+      default:
+        return 0;
+    }
+  });
+}
+
 export default function LedgerPanel({
   entries,
   selectedId,
@@ -25,14 +58,27 @@ export default function LedgerPanel({
   selectedId?: string;
   onSelect?: (entry: LedgerEntry) => void;
 }) {
+  const [sortKey, setSortKey] = useState<LedgerSortKey>('time');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const sorted = useMemo(() => sortLedger(entries, sortKey, sortDir), [entries, sortKey, sortDir]);
+
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-      <SectionLabel
-        title="Civic Ledger"
-        subtitle="Immutable event record — Mobius Substrate"
-      />
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <SectionLabel
+          title="Civic Ledger"
+          subtitle="Immutable event record — Mobius Substrate"
+        />
+        <SortBar
+          options={SORT_OPTIONS}
+          active={sortKey}
+          direction={sortDir}
+          onSort={(k, d) => { setSortKey(k); setSortDir(d); }}
+        />
+      </div>
       <div className="mt-3 space-y-2">
-        {entries.map((entry) => (
+        {sorted.map((entry) => (
           <button
             key={entry.id}
             onClick={() => onSelect?.(entry)}

@@ -1,6 +1,10 @@
+'use client';
+
+import { useState, useMemo } from 'react';
 import type { CivicRadarAlert } from '@/lib/terminal/types';
 import { cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
+import SortBar, { type SortOption } from './SortBar';
 
 const SEVERITY_STYLES: Record<CivicRadarAlert['severity'], string> = {
   critical: 'text-red-300 border-red-500/30 bg-red-500/10',
@@ -18,6 +22,32 @@ const CATEGORY_STYLES: Record<CivicRadarAlert['category'], string> = {
   governance: 'text-emerald-300',
 };
 
+type RadarSortKey = 'severity' | 'time' | 'category';
+
+const SORT_OPTIONS: SortOption<RadarSortKey>[] = [
+  { key: 'severity', label: 'Severity' },
+  { key: 'time', label: 'Time' },
+  { key: 'category', label: 'Category' },
+];
+
+const SEVERITY_RANK: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+
+function sortAlerts(alerts: CivicRadarAlert[], key: RadarSortKey, dir: 'asc' | 'desc'): CivicRadarAlert[] {
+  const mult = dir === 'desc' ? -1 : 1;
+  return [...alerts].sort((a, b) => {
+    switch (key) {
+      case 'severity':
+        return mult * ((SEVERITY_RANK[a.severity] ?? 0) - (SEVERITY_RANK[b.severity] ?? 0));
+      case 'time':
+        return mult * (new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      case 'category':
+        return mult * a.category.localeCompare(b.category);
+      default:
+        return 0;
+    }
+  });
+}
+
 export default function CivicRadarPanel({
   alerts,
   selectedId,
@@ -27,16 +57,29 @@ export default function CivicRadarPanel({
   selectedId?: string;
   onSelect?: (alert: CivicRadarAlert) => void;
 }) {
+  const [sortKey, setSortKey] = useState<RadarSortKey>('severity');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const sorted = useMemo(() => sortAlerts(alerts, sortKey, sortDir), [alerts, sortKey, sortDir]);
+
   const criticalCount = alerts.filter(
     (a) => a.severity === 'critical' || a.severity === 'high',
   ).length;
 
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-      <SectionLabel
-        title="Civic Radar"
-        subtitle="Browser Shell — threat intelligence feed"
-      />
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <SectionLabel
+          title="Civic Radar"
+          subtitle="Browser Shell — threat intelligence feed"
+        />
+        <SortBar
+          options={SORT_OPTIONS}
+          active={sortKey}
+          direction={sortDir}
+          onSort={(k, d) => { setSortKey(k); setSortDir(d); }}
+        />
+      </div>
 
       {criticalCount > 0 && (
         <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-mono text-red-300">
@@ -45,7 +88,7 @@ export default function CivicRadarPanel({
       )}
 
       <div className="mt-3 space-y-2">
-        {alerts.map((alert) => (
+        {sorted.map((alert) => (
           <button
             key={alert.id}
             onClick={() => onSelect?.(alert)}
