@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import type { InspectorTarget, Tripwire } from '@/lib/terminal/types';
 import { confidenceLabel, statusColor, tripwireStyle, giScoreColor, metricBarColor, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
@@ -567,32 +570,78 @@ function AlertView({ data }: { data: InspectorTarget & { kind: 'alert' } }) {
 
 // ── Main component ───────────────────────────────────────────
 
+function InspectorContent({ target }: { target: InspectorTarget }) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <SectionLabel
+        title="Detail Inspector"
+        subtitle={SUBTITLES[target.kind]}
+      />
+
+      <div className="mt-4">
+        {target.kind === 'epicon' && <EpiconView data={target} />}
+        {target.kind === 'agent' && <AgentView data={target} />}
+        {target.kind === 'tripwire' && <TripwireView data={target} />}
+        {target.kind === 'gi' && <GIView data={target} />}
+        {target.kind === 'ledger' && <LedgerView data={target} />}
+        {target.kind === 'shard' && <ShardView data={target} />}
+        {target.kind === 'sentinel' && <SentinelView data={target} />}
+        {target.kind === 'alert' && <AlertView data={target} />}
+      </div>
+    </div>
+  );
+}
+
 export default function DetailInspectorRail({
   target,
 }: {
   target: InspectorTarget;
 }) {
-  return (
-    <aside className="col-span-3 max-lg:col-span-2 max-md:col-span-1 bg-slate-950/90">
-      <div className="h-full p-4">
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-          <SectionLabel
-            title="Detail Inspector"
-            subtitle={SUBTITLES[target.kind]}
-          />
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-          <div className="mt-4">
-            {target.kind === 'epicon' && <EpiconView data={target} />}
-            {target.kind === 'agent' && <AgentView data={target} />}
-            {target.kind === 'tripwire' && <TripwireView data={target} />}
-            {target.kind === 'gi' && <GIView data={target} />}
-            {target.kind === 'ledger' && <LedgerView data={target} />}
-            {target.kind === 'shard' && <ShardView data={target} />}
-            {target.kind === 'sentinel' && <SentinelView data={target} />}
-            {target.kind === 'alert' && <AlertView data={target} />}
-          </div>
+  return (
+    <>
+      {/* ── Desktop / Tablet: sidebar rail ── */}
+      <aside className="max-md:hidden col-span-3 max-lg:col-span-2 bg-slate-950/90">
+        <div className="h-full p-4">
+          <InspectorContent target={target} />
+        </div>
+      </aside>
+
+      {/* ── Mobile: toggle button + bottom sheet ── */}
+      <button
+        onClick={() => setMobileOpen((v) => !v)}
+        className={cn(
+          'md:hidden fixed right-3 z-50 flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-mono shadow-lg transition-all',
+          mobileOpen
+            ? 'bottom-[55%] border-sky-500/40 bg-sky-500/20 text-sky-300'
+            : 'bottom-[68px] border-slate-700 bg-slate-900 text-slate-300',
+        )}
+      >
+        <span className="text-sm">{mobileOpen ? '▼' : '▲'}</span>
+        Inspector
+      </button>
+
+      {/* Backdrop */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-30 bg-black/50"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Sheet */}
+      <div
+        className={cn(
+          'md:hidden fixed left-0 right-0 bottom-0 z-40 bg-slate-950 border-t border-slate-800 transition-transform duration-300 safe-bottom',
+          mobileOpen ? 'translate-y-0' : 'translate-y-full',
+        )}
+        style={{ maxHeight: '55vh' }}
+      >
+        <div className="overflow-y-auto p-4" style={{ maxHeight: '55vh', paddingBottom: '70px' }}>
+          <InspectorContent target={target} />
         </div>
       </div>
-    </aside>
+    </>
   );
 }
