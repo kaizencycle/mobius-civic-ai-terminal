@@ -110,7 +110,7 @@ export default function TopStatusBar({
         {/* Full chip row — hidden on small screens */}
         <div className="hidden sm:flex flex-wrap items-center gap-2">
           <Chip
-            label="C-250"
+            label="C-251"
             onClick={() => onNavigate('pulse')}
           />
           <Chip label={clock || 'Loading...'} />
@@ -148,7 +148,7 @@ export default function TopStatusBar({
         {/* Compact row for small screens */}
         <div className="flex sm:hidden items-center gap-2">
           <Chip
-            label="C-250"
+            label="C-251"
             onClick={() => onNavigate('pulse')}
           />
           <Chip

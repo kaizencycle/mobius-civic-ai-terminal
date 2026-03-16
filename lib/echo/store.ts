@@ -32,7 +32,7 @@ const store: EchoStore = {
   alerts: [],
   integrity: null,
   lastIngest: null,
-  cycleId: 'C-250',
+  cycleId: 'C-251',
   totalIngested: 0,
 };
 
