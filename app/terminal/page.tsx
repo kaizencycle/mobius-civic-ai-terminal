@@ -12,6 +12,7 @@ import CommandPalette from '@/components/terminal/CommandPalette';
 import LedgerPanel from '@/components/terminal/LedgerPanel';
 import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
 import CivicRadarPanel from '@/components/terminal/CivicRadarPanel';
+import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
 import {
   getAgents,
   getEpiconFeed,
@@ -26,6 +27,7 @@ import {
   mockSentinels,
   mockCivicAlerts,
 } from '@/lib/terminal/mock';
+import type { CycleIntegritySummary } from '@/lib/echo/integrity-engine';
 import type {
   Agent,
   EpiconItem,
@@ -87,6 +89,7 @@ export default function TerminalPage() {
   const [streamStatus, setStreamStatus] = useState<StreamStatus>(isLiveAPI ? 'reconnecting' : 'offline');
   const [echoLedger, setEchoLedger] = useState<LedgerEntry[]>([]);
   const [echoAlerts, setEchoAlerts] = useState<CivicRadarAlert[]>([]);
+  const [echoIntegrity, setEchoIntegrity] = useState<CycleIntegritySummary | null>(null);
 
   // Ref for stable handleCommand (avoids re-creating callback on every poll)
   const dataRef = useRef({ agents, epicon, gi, tripwires, echoLedger, echoAlerts });
@@ -163,6 +166,7 @@ export default function TerminalPage() {
 
       setEchoLedger(feed.ledger);
       setEchoAlerts(feed.alerts);
+      if (feed.integrity) setEchoIntegrity(feed.integrity);
     }
 
     loadEcho();
@@ -209,6 +213,7 @@ export default function TerminalPage() {
               }
               setEchoLedger(feed.ledger);
               setEchoAlerts(feed.alerts);
+              if (feed.integrity) setEchoIntegrity(feed.integrity);
             }))
             .catch(() => { /* silent */ });
           return { ok: true, message: 'ECHO ingest triggered. Live data will refresh shortly.' };
@@ -398,6 +403,7 @@ export default function TerminalPage() {
   const showLedger = ['ledger', 'pulse'].includes(selectedNav);
   const showSentinels = ['governance', 'pulse'].includes(selectedNav);
   const showRadar = ['geopolitics', 'infrastructure', 'pulse'].includes(selectedNav);
+  const showIntegrity = ['pulse', 'governance', 'agents'].includes(selectedNav);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
@@ -500,6 +506,10 @@ export default function TerminalPage() {
                   setInspectorTarget({ kind: 'alert', data: alert })
                 }
               />
+            )}
+
+            {showIntegrity && (
+              <IntegrityRatingPanel integrity={echoIntegrity} />
             )}
 
             {showMetrics && (

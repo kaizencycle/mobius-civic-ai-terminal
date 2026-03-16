@@ -7,6 +7,7 @@
 
 import type { EpiconItem, LedgerEntry, CivicRadarAlert } from '@/lib/terminal/types';
 import type { RawEvent } from './sources';
+import { rateBatch, type CycleIntegritySummary } from './integrity-engine';
 
 // ── Cycle tracking ───────────────────────────────────────────
 
@@ -139,6 +140,7 @@ export type IngestResult = {
   epicon: EpiconItem[];
   ledger: LedgerEntry[];
   alerts: CivicRadarAlert[];
+  integrity: CycleIntegritySummary;
   sourceCount: number;
   timestamp: string;
 };
@@ -157,11 +159,37 @@ export function transformBatch(events: RawEvent[]): IngestResult {
     if (alert) alerts.push(alert);
   }
 
+  // Run integrity rating across all agents (ATLAS, ZEUS, JADE, EVE)
+  const cycleId = getCurrentCycleId();
+  const integrity = rateBatch(events, epicon, cycleId);
+
+  // Update ledger deltas with integrity-engine-computed values
+  for (let i = 0; i < ledger.length; i++) {
+    const rating = integrity.ratings[i];
+    if (rating) {
+      ledger[i].integrityDelta = rating.integrityDelta;
+      ledger[i].status = rating.verdict === 'contested' ? 'pending'
+        : rating.verdict === 'flagged' ? 'pending'
+        : 'committed';
+    }
+  }
+
+  // Update EPICON statuses based on integrity verdicts
+  for (let i = 0; i < epicon.length; i++) {
+    const rating = integrity.ratings[i];
+    if (rating) {
+      epicon[i].status = rating.verdict === 'contested' ? 'contradicted'
+        : rating.verdict === 'flagged' ? 'pending'
+        : 'verified';
+    }
+  }
+
   return {
-    cycleId: getCurrentCycleId(),
+    cycleId,
     epicon,
     ledger,
     alerts,
+    integrity,
     sourceCount: events.length,
     timestamp: new Date().toISOString(),
   };
