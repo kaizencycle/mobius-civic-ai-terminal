@@ -8,6 +8,7 @@ const NAV_ICONS: Partial<Record<NavKey, string>> = {
   pulse: 'P',
   agents: 'A',
   ledger: 'L',
+  wallet: 'W',
   markets: 'M',
   geopolitics: 'G',
   governance: 'V',

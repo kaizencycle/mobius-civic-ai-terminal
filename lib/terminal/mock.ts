@@ -14,6 +14,7 @@ export const navItems = [
   { key: 'pulse' as const, label: 'Pulse' },
   { key: 'agents' as const, label: 'Agents' },
   { key: 'ledger' as const, label: 'Ledger' },
+  { key: 'wallet' as const, label: 'Wallet' },
   { key: 'markets' as const, label: 'Markets' },
   { key: 'geopolitics' as const, label: 'Geopolitics', badge: 3 },
   { key: 'governance' as const, label: 'Governance' },

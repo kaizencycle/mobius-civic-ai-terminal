@@ -53,6 +53,7 @@ export type NavKey =
   | 'pulse'
   | 'agents'
   | 'ledger'
+  | 'wallet'
   | 'markets'
   | 'geopolitics'
   | 'governance'
