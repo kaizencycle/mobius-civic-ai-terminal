@@ -18,6 +18,7 @@ import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
 import MICWalletPanel from '@/components/terminal/MICWalletPanel';
 import MFSShardPanel from '@/components/terminal/MFSShardPanel';
 import MICBlockchainExplorer from '@/components/terminal/MICBlockchainExplorer';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { WalletProvider, useWallet } from '@/contexts/WalletContext';
 import {
   getAgents,
@@ -454,6 +455,7 @@ function TerminalPage() {
       <TopStatusBar
         gi={gi.score}
         alertCount={tripwires.length + mergedAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length}
+        cycleId={currentCycleId()}
         streamStatus={streamStatus}
         onNavigate={setSelectedNav}
         onShowGI={() => {

@@ -76,12 +76,14 @@ export type StreamStatus = 'live' | 'reconnecting' | 'offline';
 export default function TopStatusBar({
   gi,
   alertCount,
+  cycleId = 'C-253',
   streamStatus = 'offline',
   onNavigate,
   onShowGI,
 }: {
   gi: number;
   alertCount: number;
+  cycleId?: string;
   streamStatus?: StreamStatus;
   onNavigate: (key: NavKey) => void;
   onShowGI: () => void;
@@ -110,7 +112,7 @@ export default function TopStatusBar({
         {/* Full chip row — hidden on small screens */}
         <div className="hidden sm:flex flex-wrap items-center gap-2">
           <Chip
-            label="C-253"
+            label={cycleId}
             onClick={() => onNavigate('pulse')}
           />
           <Chip label={clock || 'Loading...'} />
@@ -148,7 +150,7 @@ export default function TopStatusBar({
         {/* Compact row for small screens */}
         <div className="flex sm:hidden items-center gap-2">
           <Chip
-            label="C-253"
+            label={cycleId}
             onClick={() => onNavigate('pulse')}
           />
           <Chip

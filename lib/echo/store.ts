@@ -10,6 +10,7 @@
 import type { EpiconItem, LedgerEntry, CivicRadarAlert } from '@/lib/terminal/types';
 import type { IngestResult } from './transform';
 import type { CycleIntegritySummary } from './integrity-engine';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 const MAX_EPICON = 50;
 const MAX_LEDGER = 100;
@@ -32,7 +33,7 @@ const store: EchoStore = {
   alerts: [],
   integrity: null,
   lastIngest: null,
-  cycleId: 'C-253',
+  cycleId: currentCycleId(),
   totalIngested: 0,
 };
 
