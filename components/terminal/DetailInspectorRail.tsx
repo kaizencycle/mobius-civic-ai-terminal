@@ -57,6 +57,7 @@ const SUBTITLES: Record<InspectorTarget['kind'], string> = {
   shard: 'Fractal shard analysis',
   alert: 'Civic threat assessment',
   sentinel: 'Sentinel operational profile',
+  signal: 'Signal vs narrative divergence analysis',
 };
 
 const AGENT_CAPABILITIES: Record<string, string[]> = {
@@ -568,6 +569,92 @@ function AlertView({ data }: { data: InspectorTarget & { kind: 'alert' } }) {
   );
 }
 
+// ── Signal Engine view ────────────────────────────────────────
+
+function SignalView({ data }: { data: InspectorTarget & { kind: 'signal' } }) {
+  const s = data.data;
+  const classColor =
+    s.classification === 'SIGNAL' ? 'text-emerald-300' :
+    s.classification === 'DISTORTION' ? 'text-red-300' :
+    'text-amber-300';
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <SmallLabel>Event</SmallLabel>
+        <div className="mt-1 text-lg font-sans font-semibold text-white">{s.title}</div>
+        <div className="mt-2 text-sm font-sans text-slate-300 leading-relaxed">{s.summary}</div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <InspectorStat label="Event ID" value={s.eventId} />
+        <InspectorStat label="Category" value={s.category.toUpperCase()} />
+      </div>
+
+      <div>
+        <SmallLabel>Classification</SmallLabel>
+        <div className={`mt-2 text-xl font-mono font-bold ${classColor}`}>
+          {s.classification}
+        </div>
+      </div>
+
+      <div>
+        <SmallLabel>Score Breakdown</SmallLabel>
+        <div className="mt-2 space-y-3">
+          {[
+            { label: 'Signal (verification strength)', value: s.signal, color: 'bg-emerald-500' },
+            { label: 'Narrative (amplification level)', value: s.narrative, color: 'bg-amber-500' },
+            { label: 'Volatility (system reaction)', value: s.volatility, color: 'bg-rose-500' },
+          ].map((m) => (
+            <div key={m.label}>
+              <div className="mb-1 flex items-center justify-between text-sm font-sans">
+                <span className="text-slate-300">{m.label}</span>
+                <span className="font-mono text-slate-400">{Math.round(m.value * 100)}%</span>
+              </div>
+              <div className="h-2.5 rounded-full bg-slate-800">
+                <div className={`h-2.5 rounded-full ${m.color} transition-all duration-500`} style={{ width: `${Math.round(m.value * 100)}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {s.divergence > 0 && (
+        <div>
+          <SmallLabel>Divergence</SmallLabel>
+          <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+            <div className="text-sm font-sans text-amber-300">
+              Narrative exceeds signal by <span className="font-mono font-bold">{Math.round(s.divergence * 100)}%</span>
+            </div>
+            <div className="mt-1 text-xs font-sans text-slate-400">
+              When narrative amplification exceeds verification strength, the information field is unstable.
+              Monitor for convergence (narrative drops to match signal) or escalation (divergence widens).
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <SmallLabel>What This Means</SmallLabel>
+        <div className="mt-2 space-y-2 text-xs font-sans text-slate-400 leading-relaxed">
+          <div className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2">
+            <span className="mr-2 font-mono text-emerald-400">Signal</span>
+            measures how well-verified the underlying event is across sources, confidence tiers, and agent processing depth.
+          </div>
+          <div className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2">
+            <span className="mr-2 font-mono text-amber-400">Narrative</span>
+            measures the intensity of interpretation, amplification, and emotional language surrounding the event.
+          </div>
+          <div className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2">
+            <span className="mr-2 font-mono text-rose-400">Volatility</span>
+            measures market and system reaction intensity — how much the world is moving in response.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ───────────────────────────────────────────
 
 function InspectorContent({ target }: { target: InspectorTarget }) {
@@ -587,6 +674,7 @@ function InspectorContent({ target }: { target: InspectorTarget }) {
         {target.kind === 'shard' && <ShardView data={target} />}
         {target.kind === 'sentinel' && <SentinelView data={target} />}
         {target.kind === 'alert' && <AlertView data={target} />}
+        {target.kind === 'signal' && <SignalView data={target} />}
       </div>
     </div>
   );

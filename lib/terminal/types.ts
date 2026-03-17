@@ -135,4 +135,18 @@ export type InspectorTarget =
   | { kind: 'ledger'; data: LedgerEntry }
   | { kind: 'shard'; data: MFSShard }
   | { kind: 'alert'; data: CivicRadarAlert }
-  | { kind: 'sentinel'; data: Sentinel };
+  | { kind: 'sentinel'; data: Sentinel }
+  | { kind: 'signal'; data: SignalScoreTarget };
+
+/** Signal Engine score data for inspector display */
+export type SignalScoreTarget = {
+  eventId: string;
+  title: string;
+  category: EpiconItem['category'];
+  signal: number;
+  narrative: number;
+  volatility: number;
+  classification: string;
+  divergence: number;
+  summary: string;
+};
