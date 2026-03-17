@@ -8,10 +8,12 @@
 import type { EpiconItem, LedgerEntry, CivicRadarAlert } from '@/lib/terminal/types';
 import type { RawEvent } from './sources';
 import { rateBatch, type CycleIntegritySummary } from './integrity-engine';
+import { cycleForDate } from '@/lib/eve/cycle-engine';
 
 // ── Cycle tracking ───────────────────────────────────────────
+// Initialized from epoch on first call, then kept in sync by EVE-bot.
 
-let cycleCounter = 250;
+let cycleCounter = cycleForDate(new Date());
 let eventCounter = 100;
 
 export function getCurrentCycleId(): string {
@@ -20,6 +22,17 @@ export function getCurrentCycleId(): string {
 
 export function advanceCycle(): string {
   cycleCounter += 1;
+  eventCounter = 0;
+  return getCurrentCycleId();
+}
+
+/**
+ * Sync the cycle counter to the epoch-calculated value.
+ * Called by EVE-bot on cycle transition and on cold starts.
+ * Returns the new cycle ID.
+ */
+export function syncCycleToEpoch(date: Date = new Date()): string {
+  cycleCounter = cycleForDate(date);
   eventCounter = 0;
   return getCurrentCycleId();
 }
