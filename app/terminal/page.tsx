@@ -12,6 +12,8 @@ import CommandPalette from '@/components/terminal/CommandPalette';
 import LedgerPanel from '@/components/terminal/LedgerPanel';
 import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
 import CivicRadarPanel from '@/components/terminal/CivicRadarPanel';
+import SignalEnginePanel from '@/components/terminal/SignalEnginePanel';
+import { scoreBatch } from '@/lib/echo/signal-engine';
 import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
 import MICWalletPanel from '@/components/terminal/MICWalletPanel';
 import MFSShardPanel from '@/components/terminal/MFSShardPanel';
@@ -78,6 +80,7 @@ const NAV_COMMANDS: Record<string, { nav: NavKey; label: string }> = {
   '/infrastructure': { nav: 'infrastructure', label: 'Infrastructure' },
   '/infra': { nav: 'infrastructure', label: 'Infrastructure' },
   '/settings': { nav: 'settings', label: 'Settings' },
+  '/signal': { nav: 'governance', label: 'Signal Engine' },
   '/wallet': { nav: 'wallet', label: 'Wallet' },
   '/mic': { nav: 'wallet', label: 'Wallet' },
   '/shards': { nav: 'wallet', label: 'Wallet' },
@@ -232,7 +235,7 @@ function TerminalPage() {
           return {
             ok: true,
             message:
-              'Commands: /scan [term], /agents, /tripwires, /gi, /ledger, /wallet, /mic, /shards, /blockchain, /sentinels, /radar, /echo, /clear',
+              'Commands: /scan [term], /agents, /tripwires, /gi, /signal, /ledger, /wallet, /mic, /shards, /blockchain, /sentinels, /radar, /echo, /clear',
           };
 
         case '/echo': {
@@ -432,6 +435,9 @@ function TerminalPage() {
   const mergedLedger = [...echoLedger, ...mockLedger];
   const mergedAlerts = [...echoAlerts, ...mockCivicAlerts];
 
+  // Signal Engine scoring
+  const signalScores = scoreBatch(filteredEpicon);
+
   // Chamber visibility rules
   const showEpicon = ['pulse', 'markets', 'geopolitics', 'governance', 'infrastructure', 'ledger'].includes(selectedNav);
   const showAgents = ['pulse', 'agents', 'reflections'].includes(selectedNav);
@@ -441,6 +447,7 @@ function TerminalPage() {
   const showRadar = ['geopolitics', 'infrastructure', 'pulse'].includes(selectedNav);
   const showIntegrity = ['pulse', 'governance', 'agents'].includes(selectedNav);
   const showWallet = selectedNav === 'wallet';
+  const showSignal = ['pulse', 'governance', 'geopolitics', 'markets'].includes(selectedNav);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
@@ -541,6 +548,20 @@ function TerminalPage() {
                 }
                 onSelect={(alert) =>
                   setInspectorTarget({ kind: 'alert', data: alert })
+                }
+              />
+            )}
+
+            {showSignal && signalScores.length > 0 && (
+              <SignalEnginePanel
+                scores={signalScores}
+                selectedId={
+                  inspectorTarget.kind === 'signal'
+                    ? inspectorTarget.data.eventId
+                    : undefined
+                }
+                onSelect={(score) =>
+                  setInspectorTarget({ kind: 'signal', data: score })
                 }
               />
             )}
