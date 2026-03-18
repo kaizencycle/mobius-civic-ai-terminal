@@ -23,6 +23,12 @@
 
 export type NodeTier = 'observer' | 'participant' | 'node-1' | 'node-2' | 'signal-node';
 
+export type MIIHistoryPoint = {
+  timestamp: string;
+  score: number;
+  reason: string;
+};
+
 export type MobiusProfile = {
   login: string;
   displayName: string;
@@ -33,6 +39,7 @@ export type MobiusProfile = {
   verificationMisses: number;
   createdAt: string;
   lastActiveAt: string;
+  miiHistory: MIIHistoryPoint[];
 };
 
 export type StoredEpicon = {
@@ -71,6 +78,14 @@ profileStore.set('kaizencycle', {
   verificationMisses: 1,
   createdAt: '2026-03-13T07:46:00Z',
   lastActiveAt: new Date().toISOString(),
+  miiHistory: [
+    { timestamp: '2026-03-13T07:46:00Z', score: 0.50, reason: 'Profile initialized — Mobius Terminal V1 launch' },
+    { timestamp: '2026-03-14T10:00:00Z', score: 0.54, reason: 'First EPICON submissions recorded' },
+    { timestamp: '2026-03-15T14:30:00Z', score: 0.58, reason: 'ZEUS verified 3 signals as hits' },
+    { timestamp: '2026-03-16T09:15:00Z', score: 0.61, reason: 'Continued verified contributions' },
+    { timestamp: '2026-03-17T10:06:00Z', score: 0.63, reason: 'C-253 Iran-Hormuz signal submissions' },
+    { timestamp: '2026-03-17T15:00:00Z', score: 0.64, reason: 'Signal Engine V1 analysis verified' },
+  ],
 });
 
 // ── MII Calculation ──────────────────────────────────────────
@@ -107,6 +122,7 @@ export function ensureProfile(login: string, displayName: string): MobiusProfile
     return existing;
   }
 
+  const now = new Date().toISOString();
   const profile: MobiusProfile = {
     login,
     displayName,
@@ -115,11 +131,26 @@ export function ensureProfile(login: string, displayName: string): MobiusProfile
     epiconCount: 0,
     verificationHits: 0,
     verificationMisses: 0,
-    createdAt: new Date().toISOString(),
-    lastActiveAt: new Date().toISOString(),
+    createdAt: now,
+    lastActiveAt: now,
+    miiHistory: [
+      { timestamp: now, score: 0.50, reason: 'Profile initialized' },
+    ],
   };
   profileStore.set(login, profile);
   return profile;
+}
+
+function appendHistory(profile: MobiusProfile, reason: string): void {
+  profile.miiHistory.push({
+    timestamp: new Date().toISOString(),
+    score: profile.miiScore,
+    reason,
+  });
+  // Keep last 30 entries
+  if (profile.miiHistory.length > 30) {
+    profile.miiHistory = profile.miiHistory.slice(-30);
+  }
 }
 
 export function incrementEpiconCount(login: string): MobiusProfile | null {
@@ -130,6 +161,7 @@ export function incrementEpiconCount(login: string): MobiusProfile | null {
   profile.lastActiveAt = new Date().toISOString();
   profile.miiScore = calculateMII(profile);
   profile.nodeTier = calculateTier(profile.miiScore);
+  appendHistory(profile, `Submitted EPICON #${profile.epiconCount}`);
   return profile;
 }
 
@@ -149,6 +181,7 @@ export function recordVerification(
   profile.lastActiveAt = new Date().toISOString();
   profile.miiScore = calculateMII(profile);
   profile.nodeTier = calculateTier(profile.miiScore);
+  appendHistory(profile, `ZEUS verification: ${outcome}`);
   return profile;
 }
 
@@ -180,4 +213,10 @@ export function updateEpicon(
   if (!existing) return null;
   Object.assign(existing, updates);
   return existing;
+}
+
+export function getEpiconsByLogin(login: string): StoredEpicon[] {
+  return Array.from(epiconStore.values())
+    .filter((e) => e.submittedByLogin === login)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
