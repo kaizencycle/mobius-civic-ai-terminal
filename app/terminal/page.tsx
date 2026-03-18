@@ -8,12 +8,14 @@ import AgentCortexPanel from '@/components/terminal/AgentCortexPanel';
 import IntegrityMonitorCard from '@/components/terminal/IntegrityMonitorCard';
 import TripwireWatchCard from '@/components/terminal/TripwireWatchCard';
 import DetailInspectorRail from '@/components/terminal/DetailInspectorRail';
+import type { ZeusVerifyPayload, ZeusVerifyResult } from '@/components/terminal/DetailInspectorRail';
 import CommandPalette from '@/components/terminal/CommandPalette';
 import LedgerPanel from '@/components/terminal/LedgerPanel';
 import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
 import CivicRadarPanel from '@/components/terminal/CivicRadarPanel';
 import SignalEnginePanel from '@/components/terminal/SignalEnginePanel';
 import { scoreBatch } from '@/lib/echo/signal-engine';
+import { detectTripwires, mergeTripwires } from '@/lib/echo/tripwire-engine';
 import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
 import MICWalletPanel from '@/components/terminal/MICWalletPanel';
 import MFSShardPanel from '@/components/terminal/MFSShardPanel';
@@ -238,13 +240,33 @@ function TerminalPage() {
           return {
             ok: true,
             message:
-              'Commands: /submit, /scan [term], /agents, /tripwires, /gi, /signal, /ledger, /wallet, /mic, /shards, /blockchain, /sentinels, /radar, /echo, /clear',
+              'Commands: /submit, /profile [login], /scan [term], /agents, /tripwires, /gi, /signal, /ledger, /wallet, /mic, /shards, /blockchain, /sentinels, /radar, /echo, /clear',
           };
 
         case '/submit':
         case '/create':
           setShowCreateEpicon(true);
           return { ok: true, message: 'Opening EPICON submission modal...' };
+
+        case '/profile': {
+          const login = arg || 'kaizencycle';
+          fetch(`/api/profile?login=${encodeURIComponent(login)}`)
+            .then((r) => r.json())
+            .then((data) => {
+              if (data.profile) {
+                const p = data.profile;
+                const accuracy = p.verificationHits + p.verificationMisses > 0
+                  ? `${p.verificationHits}/${p.verificationHits + p.verificationMisses}`
+                  : 'n/a';
+                // Re-render with a fresh command result by updating a tripwire-style alert
+                console.log(
+                  `[PROFILE] ${p.login} | MII: ${p.miiScore} | Tier: ${p.nodeTier} | EPICONs: ${p.epiconCount} | Accuracy: ${accuracy}`,
+                );
+              }
+            })
+            .catch(() => { /* silent */ });
+          return { ok: true, message: `Loading profile for ${login}...` };
+        }
 
         case '/echo': {
           // Trigger manual ECHO ingest
@@ -446,6 +468,10 @@ function TerminalPage() {
   // Signal Engine scoring
   const signalScores = scoreBatch(filteredEpicon);
 
+  // Tripwire Detection Engine — auto-detect from current state
+  const autoTripwires = gi ? detectTripwires({ epicon, gi, agents, tripwires }) : [];
+  const allTripwires = mergeTripwires(tripwires, autoTripwires);
+
   // Chamber visibility rules
   const showEpicon = ['pulse', 'markets', 'geopolitics', 'governance', 'infrastructure', 'ledger'].includes(selectedNav);
   const showAgents = ['pulse', 'agents', 'reflections'].includes(selectedNav);
@@ -461,7 +487,7 @@ function TerminalPage() {
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <TopStatusBar
         gi={gi.score}
-        alertCount={tripwires.length + mergedAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length}
+        alertCount={allTripwires.length + mergedAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length}
         cycleId={currentCycleId()}
         streamStatus={streamStatus}
         onNavigate={setSelectedNav}
@@ -596,7 +622,7 @@ function TerminalPage() {
                   }
                 />
                 <TripwireWatchCard
-                  tripwires={tripwires}
+                  tripwires={allTripwires}
                   selectedId={
                     inspectorTarget.kind === 'tripwire'
                       ? inspectorTarget.data.id
@@ -613,7 +639,36 @@ function TerminalPage() {
           </div>
         </main>
 
-        <DetailInspectorRail target={inspectorTarget} />
+        <DetailInspectorRail
+          target={inspectorTarget}
+          onZeusVerify={async (payload: ZeusVerifyPayload): Promise<ZeusVerifyResult> => {
+            try {
+              const res = await fetch('/api/zeus/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              const data = await res.json();
+              if (data.ok) {
+                // Update the EPICON in the feed to reflect verification
+                setEpicon((prev) =>
+                  prev.map((e) =>
+                    e.id === payload.epiconId
+                      ? { ...e, status: payload.finalStatus, confidenceTier: payload.finalConfidenceTier as 0 | 1 | 2 | 3 | 4 }
+                      : e,
+                  ),
+                );
+              }
+              return {
+                ok: data.ok,
+                miiScore: data.profile?.miiScore,
+                nodeTier: data.profile?.nodeTier,
+              };
+            } catch {
+              return { ok: false };
+            }
+          }}
+        />
       </div>
 
       <CreateEpiconModal
