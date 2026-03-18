@@ -5,6 +5,20 @@ import type { InspectorTarget, Tripwire } from '@/lib/terminal/types';
 import { confidenceLabel, statusColor, tripwireStyle, giScoreColor, metricBarColor, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
 
+export type ZeusVerifyPayload = {
+  epiconId: string;
+  outcome: 'hit' | 'miss';
+  finalStatus: 'verified' | 'contradicted';
+  finalConfidenceTier: number;
+  zeusNote: string;
+};
+
+export type ZeusVerifyResult = {
+  ok: boolean;
+  miiScore?: number;
+  nodeTier?: string;
+};
+
 // ── Shared sub-components ────────────────────────────────────
 
 function SmallLabel({ children }: { children: React.ReactNode }) {
@@ -105,7 +119,126 @@ function tripwireProtocol(severity: Tripwire['severity']): string[] {
 
 // ── Inspector views ──────────────────────────────────────────
 
-function EpiconView({ data }: { data: InspectorTarget & { kind: 'epicon' } }) {
+function ZeusVerifyControls({
+  epiconId,
+  status,
+  onVerify,
+}: {
+  epiconId: string;
+  status: string;
+  onVerify?: (payload: ZeusVerifyPayload) => Promise<ZeusVerifyResult>;
+}) {
+  const [note, setNote] = useState('');
+  const [tier, setTier] = useState(3);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<ZeusVerifyResult | null>(null);
+
+  if (!onVerify) return null;
+
+  // Only show for user-submitted pending EPICONs
+  const isUserSubmitted = epiconId.includes('-USR-');
+  if (!isUserSubmitted || status !== 'pending') {
+    if (isUserSubmitted && status !== 'pending') {
+      return (
+        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs font-mono text-emerald-400">
+          ZEUS verification complete — status: {status.toUpperCase()}
+        </div>
+      );
+    }
+    return null;
+  }
+
+  const handleVerify = async (outcome: 'hit' | 'miss') => {
+    setBusy(true);
+    try {
+      const res = await onVerify({
+        epiconId,
+        outcome,
+        finalStatus: outcome === 'hit' ? 'verified' : 'contradicted',
+        finalConfidenceTier: tier,
+        zeusNote: note,
+      });
+      setResult(res);
+    } catch {
+      setResult({ ok: false });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (result) {
+    return (
+      <div className={cn(
+        'rounded-lg border px-3 py-2 text-xs font-mono',
+        result.ok
+          ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400'
+          : 'border-rose-500/20 bg-rose-500/5 text-rose-400',
+      )}>
+        {result.ok
+          ? `ZEUS verification recorded. Author MII: ${result.miiScore?.toFixed(2) ?? 'n/a'} (${result.nodeTier ?? 'n/a'})`
+          : 'Verification failed or already processed.'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">
+          Final Tier
+        </span>
+        <div className="flex gap-1">
+          {[1, 2, 3, 4].map((t) => (
+            <button
+              key={t}
+              onClick={() => setTier(t)}
+              className={cn(
+                'rounded border px-2 py-1 text-[10px] font-mono transition',
+                t === tier
+                  ? 'border-amber-500/40 bg-amber-500/15 text-amber-300'
+                  : 'border-slate-800 bg-slate-950 text-slate-500 hover:border-slate-700',
+              )}
+            >
+              T{t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="ZEUS verification note (optional)"
+        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-mono text-white outline-none placeholder:text-slate-600 focus:border-amber-500/40"
+      />
+
+      <div className="flex gap-2">
+        <button
+          disabled={busy}
+          onClick={() => handleVerify('hit')}
+          className="flex-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.12em] text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
+        >
+          {busy ? '...' : 'Verify (Hit)'}
+        </button>
+        <button
+          disabled={busy}
+          onClick={() => handleVerify('miss')}
+          className="flex-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.12em] text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+        >
+          {busy ? '...' : 'Contradict (Miss)'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EpiconView({
+  data,
+  onZeusVerify,
+}: {
+  data: InspectorTarget & { kind: 'epicon' };
+  onZeusVerify?: (payload: ZeusVerifyPayload) => Promise<ZeusVerifyResult>;
+}) {
   const event = data.data;
   return (
     <div className="space-y-5">
@@ -168,6 +301,17 @@ function EpiconView({ data }: { data: InspectorTarget & { kind: 'epicon' } }) {
       <div>
         <SmallLabel>Agent Trace</SmallLabel>
         <NumberedStepList items={event.trace} />
+      </div>
+
+      <div>
+        <SmallLabel>ZEUS Verification</SmallLabel>
+        <div className="mt-2">
+          <ZeusVerifyControls
+            epiconId={event.id}
+            status={event.status}
+            onVerify={onZeusVerify}
+          />
+        </div>
       </div>
 
       <div>
@@ -657,7 +801,13 @@ function SignalView({ data }: { data: InspectorTarget & { kind: 'signal' } }) {
 
 // ── Main component ───────────────────────────────────────────
 
-function InspectorContent({ target }: { target: InspectorTarget }) {
+function InspectorContent({
+  target,
+  onZeusVerify,
+}: {
+  target: InspectorTarget;
+  onZeusVerify?: (payload: ZeusVerifyPayload) => Promise<ZeusVerifyResult>;
+}) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
       <SectionLabel
@@ -666,7 +816,7 @@ function InspectorContent({ target }: { target: InspectorTarget }) {
       />
 
       <div className="mt-4">
-        {target.kind === 'epicon' && <EpiconView data={target} />}
+        {target.kind === 'epicon' && <EpiconView data={target} onZeusVerify={onZeusVerify} />}
         {target.kind === 'agent' && <AgentView data={target} />}
         {target.kind === 'tripwire' && <TripwireView data={target} />}
         {target.kind === 'gi' && <GIView data={target} />}
@@ -682,8 +832,10 @@ function InspectorContent({ target }: { target: InspectorTarget }) {
 
 export default function DetailInspectorRail({
   target,
+  onZeusVerify,
 }: {
   target: InspectorTarget;
+  onZeusVerify?: (payload: ZeusVerifyPayload) => Promise<ZeusVerifyResult>;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -692,7 +844,7 @@ export default function DetailInspectorRail({
       {/* ── Desktop / Tablet: sidebar rail ── */}
       <aside className="max-md:hidden col-span-3 max-lg:col-span-2 bg-slate-950/90">
         <div className="h-full p-4">
-          <InspectorContent target={target} />
+          <InspectorContent target={target} onZeusVerify={onZeusVerify} />
         </div>
       </aside>
 
@@ -727,7 +879,7 @@ export default function DetailInspectorRail({
         style={{ maxHeight: '55vh' }}
       >
         <div className="overflow-y-auto p-4" style={{ maxHeight: '55vh', paddingBottom: '70px' }}>
-          <InspectorContent target={target} />
+          <InspectorContent target={target} onZeusVerify={onZeusVerify} />
         </div>
       </div>
     </>

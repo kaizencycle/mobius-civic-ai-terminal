@@ -110,6 +110,11 @@ export default function EpiconFeedPanel({
               <span className="rounded-md bg-slate-800 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-slate-300">
                 {item.ownerAgent}
               </span>
+              {item.id.includes('-USR-') && (
+                <span className="rounded-md border border-violet-500/20 bg-violet-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-violet-300">
+                  participant
+                </span>
+              )}
             </div>
           </button>
         ))}

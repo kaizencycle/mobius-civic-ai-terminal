@@ -8,6 +8,7 @@ import AgentCortexPanel from '@/components/terminal/AgentCortexPanel';
 import IntegrityMonitorCard from '@/components/terminal/IntegrityMonitorCard';
 import TripwireWatchCard from '@/components/terminal/TripwireWatchCard';
 import DetailInspectorRail from '@/components/terminal/DetailInspectorRail';
+import type { ZeusVerifyPayload, ZeusVerifyResult } from '@/components/terminal/DetailInspectorRail';
 import CommandPalette from '@/components/terminal/CommandPalette';
 import LedgerPanel from '@/components/terminal/LedgerPanel';
 import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
@@ -238,13 +239,33 @@ function TerminalPage() {
           return {
             ok: true,
             message:
-              'Commands: /submit, /scan [term], /agents, /tripwires, /gi, /signal, /ledger, /wallet, /mic, /shards, /blockchain, /sentinels, /radar, /echo, /clear',
+              'Commands: /submit, /profile [login], /scan [term], /agents, /tripwires, /gi, /signal, /ledger, /wallet, /mic, /shards, /blockchain, /sentinels, /radar, /echo, /clear',
           };
 
         case '/submit':
         case '/create':
           setShowCreateEpicon(true);
           return { ok: true, message: 'Opening EPICON submission modal...' };
+
+        case '/profile': {
+          const login = arg || 'kaizencycle';
+          fetch(`/api/profile?login=${encodeURIComponent(login)}`)
+            .then((r) => r.json())
+            .then((data) => {
+              if (data.profile) {
+                const p = data.profile;
+                const accuracy = p.verificationHits + p.verificationMisses > 0
+                  ? `${p.verificationHits}/${p.verificationHits + p.verificationMisses}`
+                  : 'n/a';
+                // Re-render with a fresh command result by updating a tripwire-style alert
+                console.log(
+                  `[PROFILE] ${p.login} | MII: ${p.miiScore} | Tier: ${p.nodeTier} | EPICONs: ${p.epiconCount} | Accuracy: ${accuracy}`,
+                );
+              }
+            })
+            .catch(() => { /* silent */ });
+          return { ok: true, message: `Loading profile for ${login}...` };
+        }
 
         case '/echo': {
           // Trigger manual ECHO ingest
@@ -613,7 +634,36 @@ function TerminalPage() {
           </div>
         </main>
 
-        <DetailInspectorRail target={inspectorTarget} />
+        <DetailInspectorRail
+          target={inspectorTarget}
+          onZeusVerify={async (payload: ZeusVerifyPayload): Promise<ZeusVerifyResult> => {
+            try {
+              const res = await fetch('/api/zeus/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              const data = await res.json();
+              if (data.ok) {
+                // Update the EPICON in the feed to reflect verification
+                setEpicon((prev) =>
+                  prev.map((e) =>
+                    e.id === payload.epiconId
+                      ? { ...e, status: payload.finalStatus, confidenceTier: payload.finalConfidenceTier as 0 | 1 | 2 | 3 | 4 }
+                      : e,
+                  ),
+                );
+              }
+              return {
+                ok: data.ok,
+                miiScore: data.profile?.miiScore,
+                nodeTier: data.profile?.nodeTier,
+              };
+            } catch {
+              return { ok: false };
+            }
+          }}
+        />
       </div>
 
       <CreateEpiconModal
