@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getProfile, ensureProfile } from '@/lib/mobius/stores';
+import { getProfile, ensureProfile, getEpiconsByLogin } from '@/lib/mobius/stores';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,11 +33,14 @@ export async function GET(request: Request) {
         verificationMisses: 0,
         createdAt: new Date().toISOString(),
         lastActiveAt: new Date().toISOString(),
+        miiHistory: [],
       },
+      epicons: [],
     });
   }
 
-  return NextResponse.json({ ok: true, profile });
+  const epicons = getEpiconsByLogin(login);
+  return NextResponse.json({ ok: true, profile, epicons });
 }
 
 export async function POST(request: Request) {
