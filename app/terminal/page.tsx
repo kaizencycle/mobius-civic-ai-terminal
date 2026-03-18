@@ -15,6 +15,7 @@ import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
 import CivicRadarPanel from '@/components/terminal/CivicRadarPanel';
 import SignalEnginePanel from '@/components/terminal/SignalEnginePanel';
 import { scoreBatch } from '@/lib/echo/signal-engine';
+import { detectTripwires, mergeTripwires } from '@/lib/echo/tripwire-engine';
 import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
 import MICWalletPanel from '@/components/terminal/MICWalletPanel';
 import MFSShardPanel from '@/components/terminal/MFSShardPanel';
@@ -467,6 +468,10 @@ function TerminalPage() {
   // Signal Engine scoring
   const signalScores = scoreBatch(filteredEpicon);
 
+  // Tripwire Detection Engine — auto-detect from current state
+  const autoTripwires = gi ? detectTripwires({ epicon, gi, agents, tripwires }) : [];
+  const allTripwires = mergeTripwires(tripwires, autoTripwires);
+
   // Chamber visibility rules
   const showEpicon = ['pulse', 'markets', 'geopolitics', 'governance', 'infrastructure', 'ledger'].includes(selectedNav);
   const showAgents = ['pulse', 'agents', 'reflections'].includes(selectedNav);
@@ -482,7 +487,7 @@ function TerminalPage() {
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <TopStatusBar
         gi={gi.score}
-        alertCount={tripwires.length + mergedAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length}
+        alertCount={allTripwires.length + mergedAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length}
         cycleId={currentCycleId()}
         streamStatus={streamStatus}
         onNavigate={setSelectedNav}
@@ -617,7 +622,7 @@ function TerminalPage() {
                   }
                 />
                 <TripwireWatchCard
-                  tripwires={tripwires}
+                  tripwires={allTripwires}
                   selectedId={
                     inspectorTarget.kind === 'tripwire'
                       ? inspectorTarget.data.id

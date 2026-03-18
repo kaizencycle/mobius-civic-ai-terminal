@@ -1,6 +1,15 @@
-import type { Tripwire } from '@/lib/terminal/types';
+import type { Tripwire, TripwireLayer } from '@/lib/terminal/types';
 import { tripwireStyle, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
+
+const LAYER_COLORS: Record<TripwireLayer, string> = {
+  information: 'text-sky-300 border-sky-500/20 bg-sky-500/10',
+  market: 'text-amber-300 border-amber-500/20 bg-amber-500/10',
+  infrastructure: 'text-orange-300 border-orange-500/20 bg-orange-500/10',
+  governance: 'text-violet-300 border-violet-500/20 bg-violet-500/10',
+  cognitive: 'text-rose-300 border-rose-500/20 bg-rose-500/10',
+  system: 'text-cyan-300 border-cyan-500/20 bg-cyan-500/10',
+};
 
 export default function TripwireWatchCard({
   tripwires,
@@ -11,9 +20,18 @@ export default function TripwireWatchCard({
   selectedId?: string;
   onSelect?: (tripwire: Tripwire) => void;
 }) {
+  const autoCount = tripwires.filter((t) => t.autoDetected).length;
+
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-      <SectionLabel title="Tripwire Watch" subtitle="Substrate anomalies" />
+      <div className="flex items-start justify-between gap-3">
+        <SectionLabel title="Tripwire Watch" subtitle="Substrate anomalies" />
+        {autoCount > 0 && (
+          <span className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-cyan-300">
+            {autoCount} auto
+          </span>
+        )}
+      </div>
       <div className="mt-3 space-y-3">
         {tripwires.map((t) => (
           <button
@@ -38,8 +56,34 @@ export default function TripwireWatchCard({
                 <div>{t.openedAt}</div>
               </div>
             </div>
-            <div className="mt-2 text-[11px] font-mono uppercase tracking-[0.15em] opacity-80">
-              Owner: {t.owner}
+
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-mono uppercase tracking-[0.15em] opacity-80">
+                Owner: {t.owner}
+              </span>
+
+              {t.layer && (
+                <span
+                  className={cn(
+                    'rounded-md border px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.15em]',
+                    LAYER_COLORS[t.layer],
+                  )}
+                >
+                  {t.layer}
+                </span>
+              )}
+
+              {t.autoDetected && (
+                <span className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.15em] text-cyan-300">
+                  auto
+                </span>
+              )}
+
+              {t.triggerMetric && t.triggerValue !== undefined && (
+                <span className="text-[10px] font-mono text-slate-500">
+                  {t.triggerMetric}: {typeof t.triggerValue === 'number' && t.triggerValue % 1 !== 0 ? t.triggerValue.toFixed(3) : t.triggerValue}
+                </span>
+              )}
             </div>
           </button>
         ))}
