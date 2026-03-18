@@ -18,6 +18,7 @@ import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
 import MICWalletPanel from '@/components/terminal/MICWalletPanel';
 import MFSShardPanel from '@/components/terminal/MFSShardPanel';
 import MICBlockchainExplorer from '@/components/terminal/MICBlockchainExplorer';
+import CreateEpiconModal from '@/components/terminal/CreateEpiconModal';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { WalletProvider, useWallet } from '@/contexts/WalletContext';
 import {
@@ -111,6 +112,7 @@ function TerminalPage() {
   const [echoLedger, setEchoLedger] = useState<LedgerEntry[]>([]);
   const [echoAlerts, setEchoAlerts] = useState<CivicRadarAlert[]>([]);
   const [echoIntegrity, setEchoIntegrity] = useState<CycleIntegritySummary | null>(null);
+  const [showCreateEpicon, setShowCreateEpicon] = useState(false);
 
   // MIC wallet — auto-mint when integrity engine produces MIC
   const { earnMIC } = useWallet();
@@ -236,8 +238,13 @@ function TerminalPage() {
           return {
             ok: true,
             message:
-              'Commands: /scan [term], /agents, /tripwires, /gi, /signal, /ledger, /wallet, /mic, /shards, /blockchain, /sentinels, /radar, /echo, /clear',
+              'Commands: /submit, /scan [term], /agents, /tripwires, /gi, /signal, /ledger, /wallet, /mic, /shards, /blockchain, /sentinels, /radar, /echo, /clear',
           };
+
+        case '/submit':
+        case '/create':
+          setShowCreateEpicon(true);
+          return { ok: true, message: 'Opening EPICON submission modal...' };
 
         case '/echo': {
           // Trigger manual ECHO ingest
@@ -608,6 +615,47 @@ function TerminalPage() {
 
         <DetailInspectorRail target={inspectorTarget} />
       </div>
+
+      <CreateEpiconModal
+        open={showCreateEpicon}
+        onClose={() => setShowCreateEpicon(false)}
+        onSubmit={async (draft) => {
+          const sources = [draft.source1, draft.source2, draft.source3]
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const tags = draft.tags.split(',').map((t) => t.trim()).filter(Boolean);
+          const confidenceMap: Record<string, number> = { low: 1, medium: 2, high: 3 };
+
+          const res = await fetch('/api/epicon/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: draft.title,
+              summary: draft.summary,
+              category: draft.category,
+              sources,
+              tags,
+              confidenceTier: confidenceMap[draft.confidence] ?? 1,
+            }),
+          });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.error || 'Submission failed');
+
+          // Optimistic UI — add to feed immediately
+          setEpicon((prev) => [{
+            id: data.epicon.id,
+            title: data.epicon.title,
+            summary: data.epicon.summary,
+            category: data.epicon.category,
+            status: 'pending' as const,
+            confidenceTier: data.epicon.confidenceTier as 0 | 1 | 2 | 3 | 4,
+            ownerAgent: 'ECHO',
+            sources: data.epicon.sources,
+            timestamp: data.epicon.timestamp,
+            trace: data.epicon.trace,
+          }, ...prev].slice(0, 30));
+        }}
+      />
 
       <footer className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 py-2 text-xs font-mono text-slate-500">
         <span className="shrink-0">MOBIUS TERMINAL V1</span>
