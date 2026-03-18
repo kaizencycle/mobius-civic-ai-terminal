@@ -27,7 +27,9 @@ export default function SubstrateStatusCard({
 }) {
   const activeSentinels = sentinels.filter((s) => s.status !== 'standby').length;
   const avgIntegrity =
-    sentinels.reduce((sum, s) => sum + s.integrity, 0) / sentinels.length;
+    sentinels.length > 0
+      ? sentinels.reduce((sum, s) => sum + s.integrity, 0) / sentinels.length
+      : 0;
 
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
@@ -64,6 +66,11 @@ export default function SubstrateStatusCard({
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+        {sentinels.length === 0 && (
+          <div className="col-span-full rounded-lg border border-dashed border-slate-800 bg-slate-950/60 p-4 text-sm font-sans text-slate-400">
+            Sentinel council data is unavailable. Consensus preview remains in degraded mode until providers report in.
+          </div>
+        )}
         {sentinels.map((s) => (
           <button
             key={s.id}

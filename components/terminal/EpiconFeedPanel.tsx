@@ -61,6 +61,11 @@ export default function EpiconFeedPanel({
         />
       </div>
       <div className="mt-3 space-y-3">
+        {sorted.length === 0 && (
+          <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/60 p-4 text-sm font-sans text-slate-400">
+            No EPICON events are active in this chamber yet. Use <span className="font-mono text-sky-300">/submit</span> to open a new event or switch back to Pulse for the full live feed.
+          </div>
+        )}
         {sorted.map((item) => (
           <button
             key={item.id}

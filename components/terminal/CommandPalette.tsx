@@ -55,6 +55,10 @@ export default function CommandPalette({
         </div>
       )}
 
+      <div className="mt-3 rounded-lg border border-dashed border-slate-800 bg-slate-950/50 px-3 py-2 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-500">
+        Suggested: /submit · /scan tripwire · /ledger · /wallet · /echo
+      </div>
+
       <form
         onSubmit={handleSubmit}
         className="mt-3 flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2"
