@@ -20,8 +20,13 @@ AUREA monitors system health and signal pressure.
 AUREA may run on a scheduled basis using platform cron.
 
 Suggested cadence:
-- every 30 minutes for active development
-- hourly for standard oversight
+- every 30 minutes for active development on plans that support sub-daily cron jobs
+- hourly for standard oversight on plans that support sub-daily cron jobs
+- daily on Vercel Hobby deployments that are limited to one cron execution per day
+
+Current repository schedule:
+- `35 5 * * *` for `/api/aurea/oversee`
+- runs once daily at 05:35 UTC, shortly after the existing EVE and ECHO scheduled jobs
 
 ## Output
 

@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/aurea/oversee",
-      "schedule": "*/30 * * * *"
+      "schedule": "35 5 * * *"
     }
   ]
 }
