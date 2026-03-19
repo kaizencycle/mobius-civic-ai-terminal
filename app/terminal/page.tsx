@@ -9,6 +9,7 @@ import SuggestedNextActions, { type SuggestedAction } from '@/components/termina
 import TerminalShellFallback from '@/components/terminal/TerminalShellFallback';
 import SidebarNav from '@/components/terminal/SidebarNav';
 import EpiconFeedPanel from '@/components/terminal/EpiconFeedPanel';
+import CandidateFeed from '@/components/epicon/CandidateFeed';
 import AgentCortexPanel from '@/components/terminal/AgentCortexPanel';
 import IntegrityMonitorCard from '@/components/terminal/IntegrityMonitorCard';
 import TripwireWatchCard from '@/components/terminal/TripwireWatchCard';
@@ -676,17 +677,26 @@ function TerminalPage() {
             )}
 
             {showEpicon && selectedNav !== 'ledger' && (
-              <EpiconFeedPanel
-                items={filteredEpicon}
-                selectedId={
-                  inspectorTarget.kind === 'epicon'
-                    ? inspectorTarget.data.id
-                    : ''
-                }
-                onSelect={(item) =>
-                  setInspectorTarget({ kind: 'epicon', data: item })
-                }
-              />
+              <>
+                <EpiconFeedPanel
+                  items={filteredEpicon}
+                  selectedId={
+                    inspectorTarget.kind === 'epicon'
+                      ? inspectorTarget.data.id
+                      : ''
+                  }
+                  onSelect={(item) =>
+                    setInspectorTarget({ kind: 'epicon', data: item })
+                  }
+                />
+
+                <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+                  <div className="mb-3 text-xs font-mono uppercase tracking-[0.2em] text-amber-300">
+                    External Candidate Feed
+                  </div>
+                  <CandidateFeed />
+                </div>
+              </>
             )}
 
             {showAgents && (
