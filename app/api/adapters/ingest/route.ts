@@ -8,6 +8,7 @@ import {
   mockOpenClawSignals,
 } from '@/packages/adapters/mock/mockSignals';
 import { OpenClawAdapter } from '@/packages/adapters/openclaw/OpenClawAdapter';
+import { addCandidates } from '@/lib/epicon/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,22 @@ export async function GET() {
     (sum, item) => sum + item.candidates.length,
     0,
   );
+
+  const allCandidates = [
+    ...botsOfWallStreet.candidates,
+    ...moltbook.candidates,
+    ...openclaw.candidates,
+  ].map((candidate) => ({
+    title: candidate.title,
+    summary: candidate.summary,
+    category: candidate.category,
+    confidence_tier: candidate.confidence_tier,
+    external_source_system: candidate.external_source_system,
+    external_source_actor: candidate.external_source_actor,
+    zeus_note: undefined,
+  }));
+
+  addCandidates(allCandidates);
 
   return NextResponse.json({
     ok: true,
