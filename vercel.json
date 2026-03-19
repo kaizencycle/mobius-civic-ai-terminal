@@ -7,6 +7,10 @@
     {
       "path": "/api/echo/ingest",
       "schedule": "5 5 * * *"
+    },
+    {
+      "path": "/api/aurea/oversee",
+      "schedule": "*/30 * * * *"
     }
   ]
 }
