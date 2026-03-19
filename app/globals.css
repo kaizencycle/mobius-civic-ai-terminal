@@ -56,6 +56,65 @@ body {
   }
 }
 
+/* Live Integrity Ribbon – cycling left-to-right sweep */
+@keyframes ribbon-sweep {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.ribbon-sweep {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(14, 165, 233, 0.06) 25%,
+    rgba(14, 165, 233, 0.14) 50%,
+    rgba(14, 165, 233, 0.06) 75%,
+    transparent 100%
+  );
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: ribbon-sweep 4s linear infinite;
+}
+
+/* Edge fade masks for the scrolling ribbon on mobile */
+.ribbon-scroll-container {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* IE/Edge */
+}
+.ribbon-scroll-container::-webkit-scrollbar {
+  display: none;                  /* Chrome/Safari */
+}
+
+@media (max-width: 767px) {
+  .ribbon-scroll-container {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 5%,
+      black 90%,
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 5%,
+      black 90%,
+      transparent 100%
+    );
+  }
+}
+
+/* Ribbon border glow pulse */
+@keyframes ribbon-border-glow {
+  0%, 100% { border-color: rgba(14, 165, 233, 0.10); }
+  50% { border-color: rgba(14, 165, 233, 0.30); }
+}
+
+.ribbon-border-glow {
+  animation: ribbon-border-glow 4s ease-in-out infinite;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }
