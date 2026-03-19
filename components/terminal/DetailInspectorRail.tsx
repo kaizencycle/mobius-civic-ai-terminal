@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { InspectorTarget, Tripwire } from '@/lib/terminal/types';
 import { confidenceLabel, statusColor, tripwireStyle, giScoreColor, metricBarColor, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
@@ -833,9 +833,11 @@ function InspectorContent({
 export default function DetailInspectorRail({
   target,
   onZeusVerify,
+  prependContent,
 }: {
   target: InspectorTarget;
   onZeusVerify?: (payload: ZeusVerifyPayload) => Promise<ZeusVerifyResult>;
+  prependContent?: ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -843,7 +845,8 @@ export default function DetailInspectorRail({
     <>
       {/* ── Desktop / Tablet: sidebar rail ── */}
       <aside className="max-md:hidden col-span-3 max-lg:col-span-2 bg-slate-950/90">
-        <div className="h-full p-4">
+        <div className="h-full space-y-4 p-4">
+          {prependContent}
           <InspectorContent target={target} onZeusVerify={onZeusVerify} />
         </div>
       </aside>
@@ -879,7 +882,10 @@ export default function DetailInspectorRail({
         style={{ maxHeight: '55vh' }}
       >
         <div className="overflow-y-auto p-4" style={{ maxHeight: '55vh', paddingBottom: '70px' }}>
-          <InspectorContent target={target} onZeusVerify={onZeusVerify} />
+          <div className="space-y-4">
+            {prependContent}
+            <InspectorContent target={target} onZeusVerify={onZeusVerify} />
+          </div>
         </div>
       </div>
     </>

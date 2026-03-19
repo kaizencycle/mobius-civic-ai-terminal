@@ -33,6 +33,11 @@ export default function TripwireWatchCard({
         )}
       </div>
       <div className="mt-3 space-y-3">
+        {tripwires.length === 0 && (
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm font-sans text-emerald-300">
+            No active tripwires. Substrate posture is nominal and ready for new watch conditions.
+          </div>
+        )}
         {tripwires.map((t) => (
           <button
             key={t.id}

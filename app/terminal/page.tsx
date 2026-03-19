@@ -2,6 +2,11 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import TopStatusBar from '@/components/terminal/TopStatusBar';
+import LiveIntegrityRibbon from '@/components/terminal/LiveIntegrityRibbon';
+import AttestationReplayRail from '@/components/terminal/AttestationReplayRail';
+import ConsensusPreviewStrip from '@/components/terminal/ConsensusPreviewStrip';
+import SuggestedNextActions, { type SuggestedAction } from '@/components/terminal/SuggestedNextActions';
+import TerminalShellFallback from '@/components/terminal/TerminalShellFallback';
 import SidebarNav from '@/components/terminal/SidebarNav';
 import EpiconFeedPanel from '@/components/terminal/EpiconFeedPanel';
 import AgentCortexPanel from '@/components/terminal/AgentCortexPanel';
@@ -21,6 +26,7 @@ import MICWalletPanel from '@/components/terminal/MICWalletPanel';
 import MFSShardPanel from '@/components/terminal/MFSShardPanel';
 import MICBlockchainExplorer from '@/components/terminal/MICBlockchainExplorer';
 import CreateEpiconModal from '@/components/terminal/CreateEpiconModal';
+import { useTerminalFreshness } from '@/hooks/useTerminalFreshness';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { WalletProvider, useWallet } from '@/contexts/WalletContext';
 import {
@@ -115,6 +121,10 @@ function TerminalPage() {
   const [echoAlerts, setEchoAlerts] = useState<CivicRadarAlert[]>([]);
   const [echoIntegrity, setEchoIntegrity] = useState<CycleIntegritySummary | null>(null);
   const [showCreateEpicon, setShowCreateEpicon] = useState(false);
+  const [operatorMessage, setOperatorMessage] = useState('Terminal live. Awaiting operator action.');
+
+  const mergedLedger = [...echoLedger, ...mockLedger];
+  const { freshness } = useTerminalFreshness(mergedLedger);
 
   // MIC wallet — auto-mint when integrity engine produces MIC
   const { earnMIC } = useWallet();
@@ -444,11 +454,7 @@ function TerminalPage() {
   );
 
   if (!gi || !inspectorTarget) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-300 font-mono">
-        Loading Mobius Terminal...
-      </div>
-    );
+    return <TerminalShellFallback statusLabel="Booting Mobius Terminal · syncing integrity surfaces" />;
   }
 
   // Derived view state
@@ -462,7 +468,6 @@ function TerminalPage() {
       : agents.filter((a) => a.status !== 'idle');
 
   // Merged data: live ECHO + mock
-  const mergedLedger = [...echoLedger, ...mockLedger];
   const mergedAlerts = [...echoAlerts, ...mockCivicAlerts];
 
   // Signal Engine scoring
@@ -483,6 +488,122 @@ function TerminalPage() {
   const showWallet = selectedNav === 'wallet';
   const showSignal = ['pulse', 'governance', 'geopolitics', 'markets'].includes(selectedNav);
 
+  const dominantTripwireState = allTripwires.some((tw) => tw.severity === 'high')
+    ? 'degraded'
+    : allTripwires.some((tw) => tw.severity === 'medium')
+      ? 'watch'
+      : 'stable';
+
+  const consensusAgents = (() => {
+    if (showCreateEpicon) {
+      return [
+        { name: 'ZEUS', verdict: 'approve' as const, note: 'Verification lane ready for operator-submitted signal.' },
+        { name: 'EVE', verdict: 'caution' as const, note: 'Check ethics impact before publishing outward.' },
+        { name: 'AUREA', verdict: 'approve' as const, note: 'Synthesis path available once evidence lands.' },
+        { name: 'HERMES', verdict: 'approve' as const, note: 'Routing prepared for intake and escalation.' },
+        { name: 'JADE', verdict: 'pending' as const, note: 'Annotation layer opens after submission.' },
+        { name: 'ATLAS', verdict: 'caution' as const, note: 'Tripwire scan will run on submit.' },
+      ];
+    }
+
+    if (inspectorTarget.kind === 'epicon') {
+      const event = inspectorTarget.data;
+      return [
+        { name: 'ZEUS', verdict: event.status === 'contradicted' ? 'block' as const : 'approve' as const, note: `Confidence tier ${event.confidenceTier} attestation ready.` },
+        { name: 'EVE', verdict: event.status === 'pending' ? 'caution' as const : 'approve' as const, note: 'Public impact review remains visible.' },
+        { name: 'AUREA', verdict: 'approve' as const, note: 'Strategic synthesis can be generated from current trace.' },
+        { name: 'HERMES', verdict: 'approve' as const, note: 'Routing path mapped from intake to chamber context.' },
+        { name: 'JADE', verdict: 'pending' as const, note: 'Human annotation slot available for operator notes.' },
+        { name: 'ATLAS', verdict: dominantTripwireState === 'degraded' ? 'caution' as const : 'approve' as const, note: 'Anomaly posture matches current tripwire state.' },
+      ];
+    }
+
+    return [
+      { name: 'ZEUS', verdict: 'approve' as const, note: 'Verification fabric nominal.' },
+      { name: 'EVE', verdict: 'approve' as const, note: 'Ethics observer online.' },
+      { name: 'AUREA', verdict: 'approve' as const, note: 'Synthesis layer stable.' },
+      { name: 'HERMES', verdict: streamStatus === 'offline' ? 'caution' as const : 'approve' as const, note: 'Routing follows stream posture.' },
+      { name: 'JADE', verdict: 'pending' as const, note: 'Annotation opens when operator context is supplied.' },
+      { name: 'ATLAS', verdict: dominantTripwireState === 'degraded' ? 'caution' as const : 'approve' as const, note: 'Risk preview mirrors active tripwires.' },
+    ];
+  })();
+
+  const suggestedActions: SuggestedAction[] = (() => {
+    if (showCreateEpicon) {
+      return [
+        { id: 'submit.epicon', label: 'Complete EPICON draft', description: 'Attach sources, confidence, and tags before sending to ECHO.' },
+        { id: 'request.consensus', label: 'Request consensus', description: 'Preview ZEUS/EVE/AUREA review before operator submission.' },
+        { id: 'open.tripwire', label: 'Inspect tripwire posture', description: 'Check whether this signal should enter a watch lane first.' },
+      ];
+    }
+
+    if (inspectorTarget.kind === 'epicon') {
+      return [
+        { id: 'ledger.open', label: 'Open ledger record', description: 'Jump to the correlated ledger write for this EPICON.' },
+        { id: 'consensus.request', label: 'Request consensus', description: 'Preview cross-agent verdicts before escalating or publishing.' },
+        { id: 'tripwire.escalate', label: 'Escalate to tripwire', description: 'Promote the event into infrastructure watch if risk increases.' },
+        { id: 'annotate.jade', label: 'Annotate with JADE', description: 'Capture human context and morale signals in the trace.' },
+        { id: 'inspect.wallet', label: 'Open wallet impact', description: 'Review MIC / MII implications from integrity movement.' },
+      ];
+    }
+
+    return [
+      { id: 'scan.epicon', label: 'Scan related EPICONs', description: 'Search the active feed for adjacent events or categories.' },
+      { id: 'open.ledger', label: 'Open ledger chamber', description: 'Review the immutable record for the current cycle.' },
+      { id: 'open.wallet', label: 'Inspect wallet impact', description: 'Check MIC minting and MFS shard activity.' },
+    ];
+  })();
+
+  const handleSuggestedAction = (actionId: string) => {
+    setOperatorMessage(`Operator action queued: ${actionId}`);
+
+    if (actionId === 'open.ledger' || actionId === 'ledger.open') {
+      setSelectedNav('ledger');
+      const latest = mergedLedger[0];
+      if (latest) setInspectorTarget({ kind: 'ledger', data: latest });
+      return;
+    }
+
+    if (actionId === 'tripwire.escalate' || actionId === 'open.tripwire') {
+      setSelectedNav('infrastructure');
+      const active = allTripwires[0];
+      if (active) setInspectorTarget({ kind: 'tripwire', data: active });
+      return;
+    }
+
+    if (actionId === 'inspect.wallet' || actionId === 'open.wallet') {
+      setSelectedNav('wallet');
+      return;
+    }
+
+    if (actionId === 'annotate.jade') {
+      setSelectedNav('reflections');
+      const jade = agents.find((agent) => agent.id === 'jade');
+      if (jade) setInspectorTarget({ kind: 'agent', data: jade });
+      return;
+    }
+
+    if (actionId === 'scan.epicon') {
+      setSelectedNav('search');
+      return;
+    }
+
+    if (actionId === 'submit.epicon') {
+      setShowCreateEpicon(true);
+      return;
+    }
+
+    if (actionId === 'request.consensus' || actionId === 'consensus.request') {
+      setOperatorMessage('Consensus request staged across ZEUS, EVE, AUREA, HERMES, JADE, and ATLAS.');
+    }
+  };
+
+  const liveRibbonMii = echoIntegrity?.avgMii ?? (mockSentinels.reduce((sum, sentinel) => sum + sentinel.integrity, 0) / mockSentinels.length);
+  const liveRibbonMicDelta = echoIntegrity?.totalMicMinted ?? Math.max(0, gi.delta * 100);
+  const relatedLedgerEntry = inspectorTarget.kind === 'epicon'
+    ? mergedLedger.find((entry) => entry.summary.includes(inspectorTarget.data.id) || entry.summary.toLowerCase().includes(inspectorTarget.data.title.toLowerCase().slice(0, 24)))
+    : undefined;
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <TopStatusBar
@@ -497,6 +618,24 @@ function TerminalPage() {
         }}
       />
 
+      <LiveIntegrityRibbon
+        gi={gi.score}
+        mii={liveRibbonMii}
+        micDelta={liveRibbonMicDelta}
+        tripwireState={dominantTripwireState}
+        lastLedgerSyncLabel={freshness.lastLedgerSyncLabel}
+        lastIngestLabel={freshness.lastIngestLabel}
+        lastCycleAdvanceLabel={freshness.lastCycleAdvanceLabel}
+        cycleId={currentCycleId()}
+        streamLabel={streamStatus === 'live' ? 'LIVE' : streamStatus === 'reconnecting' ? 'RECONNECTING' : 'OFFLINE'}
+      />
+
+      <ConsensusPreviewStrip
+        title={showCreateEpicon ? 'Consensus Preview · Submission Lane' : 'Consensus Preview · Operator Lane'}
+        subtitle={operatorMessage}
+        agents={consensusAgents}
+      />
+
       <div className="grid flex-1 grid-cols-12 max-md:grid-cols-1">
         <SidebarNav
           items={navItems}
@@ -506,16 +645,21 @@ function TerminalPage() {
 
         <main className="col-span-7 max-lg:col-span-9 max-md:col-span-1 border-r border-slate-800 max-md:border-r-0 bg-slate-950">
           <div className="grid h-full grid-rows-[auto_auto_auto_1fr] gap-4 p-4">
-            {CHAMBER_DESCRIPTIONS[selectedNav] && (
-              <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-4">
-                <div className="text-xs font-mono uppercase tracking-[0.2em] text-sky-300">
-                  {NAV_LABEL_MAP.get(selectedNav)} Chamber
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-mono uppercase tracking-[0.2em] text-sky-300">
+                    {NAV_LABEL_MAP.get(selectedNav)} Chamber
+                  </div>
+                  <div className="mt-2 text-sm font-sans text-slate-400">
+                    {CHAMBER_DESCRIPTIONS[selectedNav] ?? 'Operational state is visible before command entry. Use the live ribbon, replay rail, and consensus strip to inspect trust, freshness, and next actions from first paint.'}
+                  </div>
                 </div>
-                <div className="mt-2 text-sm font-sans text-slate-400">
-                  {CHAMBER_DESCRIPTIONS[selectedNav]}
+                <div className="max-w-md text-xs font-mono uppercase tracking-[0.15em] text-slate-500">
+                  {operatorMessage}
                 </div>
               </div>
-            )}
+            </div>
 
             {showLedger && (
               <LedgerPanel
@@ -635,12 +779,30 @@ function TerminalPage() {
               </section>
             )}
 
-            <CommandPalette onExecute={handleCommand} />
+            <CommandPalette onExecute={(command) => { const result = handleCommand(command); setOperatorMessage(result.message); return result; }} />
+
+            <SuggestedNextActions
+              title={showCreateEpicon ? 'Suggested Next Actions · Submission Flow' : 'Suggested Next Actions'}
+              actions={suggestedActions}
+              onSelect={handleSuggestedAction}
+            />
           </div>
         </main>
 
         <DetailInspectorRail
           target={inspectorTarget}
+          prependContent={inspectorTarget.kind === 'epicon' ? (
+            <AttestationReplayRail
+              event={inspectorTarget.data}
+              relatedLedger={relatedLedgerEntry}
+              onAction={(actionId) => {
+                setOperatorMessage(`Replay rail action queued: ${actionId}`);
+                if (actionId === 'compare') {
+                  setSelectedNav('governance');
+                }
+              }}
+            />
+          ) : null}
           onZeusVerify={async (payload: ZeusVerifyPayload): Promise<ZeusVerifyResult> => {
             try {
               const res = await fetch('/api/zeus/verify', {
@@ -673,7 +835,10 @@ function TerminalPage() {
 
       <CreateEpiconModal
         open={showCreateEpicon}
-        onClose={() => setShowCreateEpicon(false)}
+        onClose={() => {
+          setShowCreateEpicon(false);
+          setOperatorMessage('EPICON submission lane closed. Terminal returned to live monitoring.');
+        }}
         onSubmit={async (draft) => {
           const sources = [draft.source1, draft.source2, draft.source3]
             .map((s) => s.trim())
@@ -697,6 +862,8 @@ function TerminalPage() {
           if (!data.ok) throw new Error(data.error || 'Submission failed');
 
           // Optimistic UI — add to feed immediately
+          setOperatorMessage(`EPICON ${data.epicon.id} staged for ZEUS verification.`);
+
           setEpicon((prev) => [{
             id: data.epicon.id,
             title: data.epicon.title,
