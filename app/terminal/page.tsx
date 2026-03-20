@@ -26,6 +26,7 @@ import { WalletProvider } from '@/contexts/WalletContext';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { navItems, mockCivicAlerts, mockSentinels } from '@/lib/terminal/mock';
 import type { NavKey } from '@/lib/terminal/types';
+import { cn } from '@/lib/terminal/utils';
 import { useTerminalCommands } from '@/hooks/useTerminalCommands';
 import { useTerminalData } from '@/hooks/useTerminalData';
 
@@ -37,9 +38,34 @@ const CreateEpiconModal = dynamic(() => import('@/components/terminal/CreateEpic
 const CHAMBER_DESCRIPTIONS: Partial<Record<NavKey, string>> = {
   search: 'Use the Command Palette below to search across all data. Try /scan followed by a keyword.',
   settings: 'Terminal configuration and operator preferences. Feature coming in V2.',
-  wallet: undefined,
-  reflections: 'Agent reflection logs and cross-system annotations. Displaying active agents below.',
+  wallet: 'MIC wallet, MFS shards, and blockchain explorer. Integrity economics in real time.',
+  reflections: 'Agent reflection logs and cross-system annotations.',
 };
+
+function chamberStatus(nav: NavKey, gi: number, tripwireCount: number, epiconCount: number, alertCount: number) {
+  if (CHAMBER_DESCRIPTIONS[nav]) return CHAMBER_DESCRIPTIONS[nav] as string;
+
+  const giLabel = gi >= 0.85 ? 'GI stable' : gi >= 0.7 ? 'GI under pressure' : 'GI critical';
+  const tripwireLabel = tripwireCount === 0 ? 'No active tripwires' : `${tripwireCount} tripwire${tripwireCount === 1 ? '' : 's'} active`;
+  const feedLabel = `${epiconCount} signal${epiconCount === 1 ? '' : 's'} in feed`;
+
+  switch (nav) {
+    case 'pulse':
+      return `${giLabel}. ${tripwireLabel}. ${feedLabel}. ${alertCount} alert${alertCount === 1 ? '' : 's'}.`;
+    case 'geopolitics':
+      return `Geopolitical signals filtered. ${feedLabel}. ${tripwireLabel}.`;
+    case 'markets':
+      return `Market signals filtered. ${feedLabel}.`;
+    case 'governance':
+      return `Governance view. ${giLabel}. Signal Engine scoring active.`;
+    case 'infrastructure':
+      return `Infrastructure watch. ${tripwireLabel}.`;
+    case 'agents':
+      return 'Agent cortex. All sentinels reporting.';
+    default:
+      return `${giLabel}. ${tripwireLabel}.`;
+  }
+}
 
 const NAV_LABEL_MAP = new Map(navItems.map((item) => [item.key, item.label]));
 
@@ -105,6 +131,8 @@ function TerminalPage() {
   const showIntegrity = ['pulse', 'governance', 'agents'].includes(selectedNav);
   const showWallet = selectedNav === 'wallet';
   const showSignal = ['pulse', 'governance', 'geopolitics', 'markets'].includes(selectedNav);
+  const showConsensus = showCreateEpicon || inspectorTarget.kind === 'epicon';
+  const criticalAlertCount = mergedAlerts.filter((alert) => alert.severity === 'critical' || alert.severity === 'high').length;
 
   const consensusAgents = (() => {
     if (showCreateEpicon) {
@@ -130,14 +158,7 @@ function TerminalPage() {
       ];
     }
 
-    return [
-      { name: 'ZEUS', verdict: 'approve' as const, note: 'Verification fabric nominal.' },
-      { name: 'EVE', verdict: 'approve' as const, note: 'Ethics observer online.' },
-      { name: 'AUREA', verdict: 'approve' as const, note: 'Synthesis layer stable.' },
-      { name: 'HERMES', verdict: streamStatus === 'offline' ? 'caution' as const : 'approve' as const, note: 'Routing follows stream posture.' },
-      { name: 'JADE', verdict: 'pending' as const, note: 'Annotation opens when operator context is supplied.' },
-      { name: 'ATLAS', verdict: dominantTripwireState === 'degraded' ? 'caution' as const : 'approve' as const, note: 'Risk preview mirrors active tripwires.' },
-    ];
+    return [];
   })();
 
   const suggestedActions: SuggestedAction[] = (() => {
@@ -220,7 +241,7 @@ function TerminalPage() {
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <TopStatusBar
         gi={gi.score}
-        alertCount={allTripwires.length + mergedAlerts.filter((alert) => alert.severity === 'critical' || alert.severity === 'high').length}
+        alertCount={allTripwires.length + criticalAlertCount}
         cycleId={currentCycleId()}
         streamStatus={streamStatus}
         onNavigate={setSelectedNav}
@@ -242,16 +263,18 @@ function TerminalPage() {
         streamLabel={streamStatus === 'live' ? 'LIVE' : streamStatus === 'reconnecting' ? 'RECONNECTING' : 'OFFLINE'}
       />
 
-      <ConsensusPreviewStrip
-        title={showCreateEpicon ? 'Consensus Preview · Submission Lane' : 'Consensus Preview · Operator Lane'}
-        subtitle={operatorMessage}
-        agents={consensusAgents}
-      />
+      {showConsensus && (
+        <ConsensusPreviewStrip
+          title={showCreateEpicon ? 'Consensus Preview · Submission Lane' : 'Consensus Preview · Operator Lane'}
+          subtitle={operatorMessage}
+          agents={consensusAgents}
+        />
+      )}
 
       <div className="grid flex-1 grid-cols-12 max-md:grid-cols-1">
         <SidebarNav items={navItems} selected={selectedNav} onSelect={setSelectedNav} />
 
-        <main className="col-span-7 max-lg:col-span-9 max-md:col-span-1 border-r border-slate-800 max-md:border-r-0 bg-slate-950">
+        <main className="col-span-7 border-r border-slate-800 bg-slate-950 max-lg:col-span-9 max-md:col-span-1 max-md:border-r-0">
           <div className="grid h-full grid-rows-[auto_auto_auto_1fr] gap-4 p-4">
             <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -260,7 +283,7 @@ function TerminalPage() {
                     {NAV_LABEL_MAP.get(selectedNav)} Chamber
                   </div>
                   <div className="mt-2 text-sm font-sans text-slate-400">
-                    {CHAMBER_DESCRIPTIONS[selectedNav] ?? 'Operational state is visible before command entry. Use the live ribbon, replay rail, and consensus strip to inspect trust, freshness, and next actions from first paint.'}
+                    {chamberStatus(selectedNav, gi.score, allTripwires.length, filteredEpicon.length, criticalAlertCount)}
                   </div>
                 </div>
                 <div className="max-w-md text-xs font-mono uppercase tracking-[0.15em] text-slate-500">
@@ -418,9 +441,16 @@ function TerminalPage() {
       <footer className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 py-2 text-xs font-mono text-slate-500">
         <span className="shrink-0">MOBIUS TERMINAL V1</span>
         <div className="flex items-center gap-2">
-          <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
-          <span className="hidden sm:inline">Substrate Connected · Browser Shell OK · Ledger Live · Sentinel Council Active</span>
-          <span className="sm:hidden">All Systems OK</span>
+          <span
+            className={cn(
+              'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
+              streamStatus === 'live' ? 'bg-emerald-400' : streamStatus === 'reconnecting' ? 'bg-amber-400' : 'bg-slate-500',
+            )}
+          />
+          <span className="hidden sm:inline">
+            {currentCycleId()} · {allTripwires.length} tripwire{allTripwires.length === 1 ? '' : 's'} · GI {gi.score.toFixed(2)} · {filteredEpicon.length} signals · {streamStatus === 'live' ? 'Stream live' : streamStatus === 'reconnecting' ? 'Reconnecting' : 'Local mode'}
+          </span>
+          <span className="sm:hidden">{currentCycleId()} · GI {gi.score.toFixed(2)}</span>
         </div>
       </footer>
     </div>
