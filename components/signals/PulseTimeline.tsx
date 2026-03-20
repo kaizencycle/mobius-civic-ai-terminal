@@ -42,11 +42,9 @@ export default function PulseTimeline() {
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
 
   async function load() {
-    const [pulseRes, runtimeRes] = await Promise.all([
-      fetch('/api/signals/pulse', { cache: 'no-store' }),
-      fetch('/api/runtime/status', { cache: 'no-store' }),
-    ]);
+    const pulseRes = await fetch('/api/signals/pulse', { cache: 'no-store' });
     const pulseJson = await pulseRes.json();
+    const runtimeRes = await fetch('/api/runtime/status', { cache: 'no-store' });
     const runtimeJson: RuntimeStatus = await runtimeRes.json();
     setSignals(pulseJson.signals || []);
     setRuntime(runtimeJson);

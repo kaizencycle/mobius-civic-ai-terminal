@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/runtime/heartbeat",
-      "schedule": "*/1 * * * *"
+      "schedule": "40 5 * * *"
     }
   ]
 }
