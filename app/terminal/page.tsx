@@ -12,8 +12,11 @@ import SidebarNav from '@/components/terminal/SidebarNav';
 import EpiconFeedPanel from '@/components/terminal/EpiconFeedPanel';
 import CandidateFeed from '@/components/epicon/CandidateFeed';
 import AgentCortexPanel from '@/components/terminal/AgentCortexPanel';
+import AgentGrid from '@/components/agents/AgentGrid';
 import IntegrityMonitorCard from '@/components/terminal/IntegrityMonitorCard';
+import PulseTimeline from '@/components/signals/PulseTimeline';
 import TripwireWatchCard from '@/components/terminal/TripwireWatchCard';
+import TripwirePanel from '@/components/tripwire/TripwirePanel';
 import DetailInspectorRail from '@/components/terminal/DetailInspectorRail';
 import type { ZeusVerifyPayload, ZeusVerifyResult } from '@/components/terminal/DetailInspectorRail';
 import CommandPalette from '@/components/terminal/CommandPalette';
@@ -61,7 +64,7 @@ function chamberStatus(nav: NavKey, gi: number, tripwireCount: number, epiconCou
     case 'infrastructure':
       return `Infrastructure watch. ${tripwireLabel}.`;
     case 'agents':
-      return 'Agent cortex. All sentinels reporting.';
+      return 'Canonical Mobius roster online. Visible agent presence restored.';
     default:
       return `${giLabel}. ${tripwireLabel}.`;
   }
@@ -328,11 +331,14 @@ function TerminalPage() {
             )}
 
             {showAgents && (
-              <AgentCortexPanel
-                agents={filteredAgents}
-                selectedId={inspectorTarget.kind === 'agent' ? inspectorTarget.data.id : undefined}
-                onSelect={(agent) => setInspectorTarget({ kind: 'agent', data: agent })}
-              />
+              <>
+                {selectedNav === 'agents' && <AgentGrid />}
+                <AgentCortexPanel
+                  agents={filteredAgents}
+                  selectedId={inspectorTarget.kind === 'agent' ? inspectorTarget.data.id : undefined}
+                  onSelect={(agent) => setInspectorTarget({ kind: 'agent', data: agent })}
+                />
+              </>
             )}
 
             {showSentinels && (
@@ -357,6 +363,13 @@ function TerminalPage() {
                 selectedId={inspectorTarget.kind === 'signal' ? inspectorTarget.data.eventId : undefined}
                 onSelect={(score) => setInspectorTarget({ kind: 'signal', data: score })}
               />
+            )}
+
+            {selectedNav === 'pulse' && (
+              <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+                <PulseTimeline />
+                <TripwirePanel />
+              </div>
             )}
 
             {showIntegrity && <IntegrityRatingPanel integrity={echoIntegrity} />}
