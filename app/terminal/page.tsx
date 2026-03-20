@@ -90,6 +90,7 @@ function TerminalPage() {
     filteredEpicon,
     freshness,
     gi,
+    integrityStatus,
     inspectorTarget,
     mergedLedger,
     operatorMessage,
@@ -231,8 +232,12 @@ function TerminalPage() {
     }
   };
 
-  const liveRibbonMii = echoIntegrity?.avgMii ?? (mockSentinels.reduce((sum, sentinel) => sum + sentinel.integrity, 0) / mockSentinels.length);
+  const liveRibbonMii = integrityStatus?.mii_baseline ?? echoIntegrity?.avgMii ?? (mockSentinels.reduce((sum, sentinel) => sum + sentinel.integrity, 0) / mockSentinels.length);
   const liveRibbonMicDelta = echoIntegrity?.totalMicMinted ?? Math.max(0, gi.delta * 100);
+  const cycleId = integrityStatus?.cycle ?? currentCycleId();
+  const micSupply = integrityStatus?.mic_supply ?? 0;
+  const terminalStatus = integrityStatus?.terminal_status ?? 'nominal';
+  const primaryDriver = integrityStatus?.primary_driver ?? 'No primary driver available';
   const relatedLedgerEntry = inspectorTarget.kind === 'epicon'
     ? mergedLedger.find((entry) => entry.summary.includes(inspectorTarget.data.id) || entry.summary.toLowerCase().includes(inspectorTarget.data.title.toLowerCase().slice(0, 24)))
     : undefined;
@@ -242,7 +247,11 @@ function TerminalPage() {
       <TopStatusBar
         gi={gi.score}
         alertCount={allTripwires.length + criticalAlertCount}
-        cycleId={currentCycleId()}
+        mii={liveRibbonMii}
+        micSupply={micSupply}
+        terminalStatus={terminalStatus}
+        primaryDriver={primaryDriver}
+        cycleId={cycleId}
         streamStatus={streamStatus}
         onNavigate={setSelectedNav}
         onShowGI={() => {
@@ -255,11 +264,12 @@ function TerminalPage() {
         gi={gi.score}
         mii={liveRibbonMii}
         micDelta={liveRibbonMicDelta}
+        micSupply={micSupply}
         tripwireState={dominantTripwireState}
         lastLedgerSyncLabel={freshness.lastLedgerSyncLabel}
         lastIngestLabel={freshness.lastIngestLabel}
         lastCycleAdvanceLabel={freshness.lastCycleAdvanceLabel}
-        cycleId={currentCycleId()}
+        cycleId={cycleId}
         streamLabel={streamStatus === 'live' ? 'LIVE' : streamStatus === 'reconnecting' ? 'RECONNECTING' : 'OFFLINE'}
       />
 
@@ -448,9 +458,9 @@ function TerminalPage() {
             )}
           />
           <span className="hidden sm:inline">
-            {currentCycleId()} · {allTripwires.length} tripwire{allTripwires.length === 1 ? '' : 's'} · GI {gi.score.toFixed(2)} · {filteredEpicon.length} signals · {streamStatus === 'live' ? 'Stream live' : streamStatus === 'reconnecting' ? 'Reconnecting' : 'Local mode'}
+            {cycleId} · {allTripwires.length} tripwire{allTripwires.length === 1 ? '' : 's'} · GI {gi.score.toFixed(2)} · MII {liveRibbonMii.toFixed(2)} · MIC {micSupply.toLocaleString()} · {filteredEpicon.length} signals · {streamStatus === 'live' ? 'Stream live' : streamStatus === 'reconnecting' ? 'Reconnecting' : 'Local mode'}
           </span>
-          <span className="sm:hidden">{currentCycleId()} · GI {gi.score.toFixed(2)}</span>
+          <span className="sm:hidden">{cycleId} · GI {gi.score.toFixed(2)}</span>
         </div>
       </footer>
     </div>

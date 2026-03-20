@@ -1,7 +1,9 @@
 import type { Agent, EpiconItem, GISnapshot, Tripwire, LedgerEntry, CivicRadarAlert } from './types';
 import type { CycleIntegritySummary } from '@/lib/echo/integrity-engine';
-import { mockAgents, mockEpicon, mockGI, mockTripwires } from './mock';
-import { transformAgent, transformEpicon, transformGI, transformTripwire } from './transforms';
+import { ledgerBackfill, type LedgerBackfillEntry } from '@/lib/mock/ledgerBackfill';
+import { integrityStatus, type IntegrityStatusResponse } from '@/lib/mock/integrityStatus';
+import { mockAgents, mockEpicon, mockTripwires } from './mock';
+import { transformAgent, transformEpicon, transformTripwire } from './transforms';
 
 const API_BASE =
   (typeof window !== 'undefined'
@@ -24,6 +26,46 @@ async function fetchJson(path: string): Promise<any | null> {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchInternalJson(path: string): Promise<any | null> {
+  try {
+    const res = await fetch(path, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export function integrityStatusToGISnapshot(status: IntegrityStatusResponse): GISnapshot {
+  return {
+    score: status.global_integrity,
+    delta: -0.01,
+    institutionalTrust: status.signals.geopolitics,
+    infoReliability: status.signals.information,
+    consensusStability: status.signals.sentiment,
+    weekly: [0.84, 0.83, 0.82, 0.81, 0.8, 0.79, status.global_integrity],
+  };
+}
+
+function backfillEntryToLedger(entry: LedgerBackfillEntry): LedgerEntry {
+  return {
+    id: entry.id,
+    cycleId: entry.cycle,
+    type: 'epicon',
+    agentOrigin: entry.agent,
+    timestamp: entry.timestamp,
+    title: entry.title,
+    summary: entry.summary,
+    integrityDelta: 0,
+    status: entry.status === 'verified' ? 'committed' : entry.status === 'contradicted' ? 'reverted' : 'pending',
+    category: entry.category,
+    confidenceTier: entry.confidence_tier,
+    tags: entry.tags,
+    source: 'backfill',
+  };
+}
+
 export async function getAgents(): Promise<Agent[]> {
   const raw = await fetchJson('/agents/status');
   if (!raw) return mockAgents;
@@ -40,12 +82,15 @@ export async function getEpiconFeed(): Promise<EpiconItem[]> {
   return items.map(transformEpicon);
 }
 
+export async function getIntegrityStatus(): Promise<IntegrityStatusResponse> {
+  const raw = await fetchInternalJson('/api/integrity-status');
+  if (!raw || typeof raw !== 'object' || !(raw as Record<string, unknown>).ok) return integrityStatus;
+  return raw as IntegrityStatusResponse;
+}
+
 export async function getGISnapshot(): Promise<GISnapshot> {
-  const raw = await fetchJson('/integrity/current');
-  if (!raw) return mockGI;
-  const gi = raw.gi;
-  if (!gi || typeof gi !== 'object' || !('score' in gi)) return mockGI;
-  return transformGI(gi);
+  const status = await getIntegrityStatus();
+  return integrityStatusToGISnapshot(status);
 }
 
 export async function getTripwires(): Promise<Tripwire[]> {
@@ -54,6 +99,15 @@ export async function getTripwires(): Promise<Tripwire[]> {
   const tripwires = raw.tripwires;
   if (!Array.isArray(tripwires)) return mockTripwires;
   return tripwires.map(transformTripwire);
+}
+
+export async function getLedgerBackfill(): Promise<LedgerEntry[]> {
+  const raw = await fetchInternalJson('/api/ledger/backfill');
+  const items = raw && typeof raw === 'object' && Array.isArray((raw as { items?: unknown[] }).items)
+    ? (raw as { items: LedgerBackfillEntry[] }).items
+    : ledgerBackfill;
+
+  return items.map(backfillEntryToLedger);
 }
 
 // ── ECHO Live Feed ───────────────────────────────────────────
