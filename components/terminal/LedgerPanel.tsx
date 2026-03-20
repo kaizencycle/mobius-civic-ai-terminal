@@ -91,7 +91,7 @@ export default function LedgerPanel({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-mono text-slate-400">
                     {entry.id}
                   </span>
@@ -103,8 +103,21 @@ export default function LedgerPanel({
                   >
                     {entry.type}
                   </span>
+                  {entry.category && (
+                    <span className="rounded-md border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] text-slate-300">
+                      {entry.category}
+                    </span>
+                  )}
+                  {typeof entry.confidenceTier === 'number' && (
+                    <span className="rounded-md border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] text-amber-300">
+                      Tier {entry.confidenceTier}
+                    </span>
+                  )}
                 </div>
-                <div className="mt-1 text-sm font-sans text-slate-200 truncate">
+                <div className="mt-1 text-sm font-semibold text-slate-100">
+                  {entry.title ?? entry.summary}
+                </div>
+                <div className="mt-1 text-sm font-sans text-slate-400">
                   {entry.summary}
                 </div>
               </div>
@@ -130,13 +143,18 @@ export default function LedgerPanel({
               </div>
             </div>
 
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] text-slate-300">
                 {entry.agentOrigin}
               </span>
               <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] text-slate-300">
                 {entry.cycleId}
               </span>
+              {entry.source && (
+                <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] text-slate-400">
+                  {entry.source}
+                </span>
+              )}
             </div>
           </button>
         ))}

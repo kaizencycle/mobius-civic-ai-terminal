@@ -10,11 +10,14 @@ import {
   getAgents,
   getEchoFeed,
   getEpiconFeed,
-  getGISnapshot,
+  getIntegrityStatus,
+  getLedgerBackfill,
   getTripwires,
+  integrityStatusToGISnapshot,
   isLiveAPI,
 } from '@/lib/terminal/api';
 import { mockLedger } from '@/lib/terminal/mock';
+import type { IntegrityStatusResponse } from '@/lib/mock/integrityStatus';
 import type {
   Agent,
   CivicRadarAlert,
@@ -56,6 +59,8 @@ export function useTerminalData(selectedNav: NavKey) {
   const [epicon, setEpicon] = useState<EpiconItem[]>([]);
   const [gi, setGi] = useState<GISnapshot | null>(null);
   const [tripwires, setTripwires] = useState<Tripwire[]>([]);
+  const [integrityStatus, setIntegrityStatus] = useState<IntegrityStatusResponse | null>(null);
+  const [backfillLedger, setBackfillLedger] = useState<LedgerEntry[]>([]);
   const [inspectorTarget, setInspectorTarget] = useState<InspectorTarget | null>(null);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>(isLiveAPI ? 'reconnecting' : 'offline');
   const [echoLedger, setEchoLedger] = useState<LedgerEntry[]>([]);
@@ -64,31 +69,34 @@ export function useTerminalData(selectedNav: NavKey) {
   const [showCreateEpicon, setShowCreateEpicon] = useState(false);
   const [operatorMessage, setOperatorMessage] = useState('Terminal live. Awaiting operator action.');
 
-  const mergedLedger = useMemo(() => [...echoLedger, ...mockLedger], [echoLedger]);
+  const mergedLedger = useMemo(() => [...echoLedger, ...backfillLedger, ...mockLedger], [backfillLedger, echoLedger]);
   const { freshness } = useTerminalFreshness(mergedLedger);
 
   const { earnMIC } = useWallet();
   const lastMintedCycleRef = useRef<string | null>(null);
 
-  const dataRef = useRef({ agents, epicon, gi, tripwires, echoLedger, echoAlerts });
-  dataRef.current = { agents, epicon, gi, tripwires, echoLedger, echoAlerts };
+  const dataRef = useRef({ agents, epicon, gi, tripwires, echoLedger, echoAlerts, integrityStatus, backfillLedger });
+  dataRef.current = { agents, epicon, gi, tripwires, echoLedger, echoAlerts, integrityStatus, backfillLedger };
 
   useEffect(() => {
     let mounted = true;
 
     async function load() {
-      const [agentsData, epiconData, giData, tripwireData] = await Promise.all([
+      const [agentsData, epiconData, integrityData, tripwireData, ledgerBackfillData] = await Promise.all([
         getAgents(),
         getEpiconFeed(),
-        getGISnapshot(),
+        getIntegrityStatus(),
         getTripwires(),
+        getLedgerBackfill(),
       ]);
 
       if (!mounted) return;
       setAgents(agentsData);
       setEpicon(epiconData);
-      setGi(giData);
+      setIntegrityStatus(integrityData);
+      setGi(integrityStatusToGISnapshot(integrityData));
       setTripwires(tripwireData);
+      setBackfillLedger(ledgerBackfillData);
       setInspectorTarget((prev) => prev ?? (epiconData[0] ? { kind: 'epicon', data: epiconData[0] } : null));
     }
 
@@ -241,6 +249,7 @@ export function useTerminalData(selectedNav: NavKey) {
     filteredEpicon,
     freshness,
     gi,
+    integrityStatus,
     inspectorTarget,
     mergedLedger,
     operatorMessage,

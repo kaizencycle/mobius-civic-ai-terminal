@@ -75,6 +75,10 @@ export type StreamStatus = 'live' | 'reconnecting' | 'offline';
 
 export default function TopStatusBar({
   gi,
+  mii,
+  micSupply,
+  terminalStatus,
+  primaryDriver,
   alertCount,
   cycleId = 'C-253',
   streamStatus = 'offline',
@@ -82,6 +86,10 @@ export default function TopStatusBar({
   onShowGI,
 }: {
   gi: number;
+  mii: number;
+  micSupply: number;
+  terminalStatus: 'nominal' | 'stressed' | 'critical';
+  primaryDriver: string;
   alertCount: number;
   cycleId?: string;
   streamStatus?: StreamStatus;
@@ -97,6 +105,12 @@ export default function TopStatusBar({
     return () => clearInterval(id);
   }, []);
 
+  const statusTone = terminalStatus === 'nominal'
+    ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+    : terminalStatus === 'stressed'
+      ? 'text-amber-300 border-amber-500/30 bg-amber-500/10'
+      : 'text-red-300 border-red-500/30 bg-red-500/10';
+
   return (
     <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
       <div className="flex items-center justify-between gap-4 px-4 py-3 max-md:pl-14">
@@ -107,20 +121,18 @@ export default function TopStatusBar({
           <div className="mt-1 text-xs font-sans text-slate-500 hidden sm:block">
             Civic Bloomberg Interface · Integrity Operating View
           </div>
+          <div className="mt-1 hidden max-w-md truncate text-[10px] font-mono uppercase tracking-[0.12em] text-slate-600 lg:block">
+            Driver · {primaryDriver}
+          </div>
         </div>
 
-        {/* Full chip row — hidden on small screens */}
-        <div className="hidden sm:flex flex-wrap items-center gap-2">
-          <Chip
-            label={cycleId}
-            onClick={() => onNavigate('pulse')}
-          />
+        <div className="hidden sm:flex flex-wrap items-center justify-end gap-2">
+          <Chip label={cycleId} onClick={() => onNavigate('pulse')} />
           <Chip label={clock || 'Loading...'} />
-          <Chip
-            label={`GI ${gi.toFixed(2)}`}
-            tone={giScoreColor(gi).chip}
-            onClick={onShowGI}
-          />
+          <Chip label={`GI ${gi.toFixed(2)}`} tone={giScoreColor(gi).chip} onClick={onShowGI} />
+          <Chip label={`MII ${mii.toFixed(2)}`} tone={mii >= 0.7 ? 'text-cyan-300 border-cyan-500/30 bg-cyan-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'} onClick={() => onNavigate('wallet')} />
+          <Chip label={`MIC ${micSupply.toLocaleString()}`} tone="text-violet-300 border-violet-500/30 bg-violet-500/10" onClick={() => onNavigate('wallet')} />
+          <Chip label={terminalStatus} tone={statusTone} onClick={() => onNavigate('governance')} />
           <Chip
             label={`Alerts ${alertCount}`}
             tone="text-amber-300 border-amber-500/30 bg-amber-500/10"
@@ -147,22 +159,12 @@ export default function TopStatusBar({
             />
           ))}
         </div>
-        {/* Compact row for small screens */}
+
         <div className="flex sm:hidden items-center gap-2">
-          <Chip
-            label={cycleId}
-            onClick={() => onNavigate('pulse')}
-          />
-          <Chip
-            label={`GI ${gi.toFixed(2)}`}
-            tone={giScoreColor(gi).chip}
-            onClick={onShowGI}
-          />
-          <Chip
-            label={`${alertCount}`}
-            tone="text-amber-300 border-amber-500/30 bg-amber-500/10"
-            onClick={() => onNavigate('infrastructure')}
-          />
+          <Chip label={cycleId} onClick={() => onNavigate('pulse')} />
+          <Chip label={`GI ${gi.toFixed(2)}`} tone={giScoreColor(gi).chip} onClick={onShowGI} />
+          <Chip label={`MII ${mii.toFixed(2)}`} tone="text-cyan-300 border-cyan-500/30 bg-cyan-500/10" onClick={() => onNavigate('wallet')} />
+          <Chip label={`${alertCount}`} tone="text-amber-300 border-amber-500/30 bg-amber-500/10" onClick={() => onNavigate('infrastructure')} />
         </div>
       </div>
     </header>

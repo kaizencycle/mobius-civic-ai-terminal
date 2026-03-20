@@ -17,6 +17,7 @@ export type LiveIntegrityRibbonProps = {
   gi: number;
   mii: number;
   micDelta: number;
+  micSupply: number;
   tripwireState: IntegrityTone;
   lastLedgerSyncLabel: string;
   lastIngestLabel: string;
@@ -61,6 +62,7 @@ export default function LiveIntegrityRibbon({
   mii,
   micDelta,
   tripwireState,
+  micSupply,
   lastLedgerSyncLabel,
   lastIngestLabel,
   lastCycleAdvanceLabel,
@@ -117,7 +119,8 @@ export default function LiveIntegrityRibbon({
           <MetricChip label="cycle" value={cycleId} />
           <MetricChip label="gi" value={formatScore(gi)} tone={giTone} />
           <MetricChip label="mii" value={formatScore(mii)} tone={mii >= 0.9 ? 'stable' : mii >= 0.78 ? 'watch' : 'degraded'} />
-          <MetricChip label="mic" value={micLabel} tone={micDelta >= 0 ? 'stable' : 'degraded'} />
+          <MetricChip label="mic Δ" value={micLabel} tone={micDelta >= 0 ? 'stable' : 'degraded'} />
+          <MetricChip label="mic supply" value={micSupply.toLocaleString()} />
           <MetricChip label="tripwire" value={tripwireState.toUpperCase()} tone={tripwireState} />
           <MetricChip label="ledger" value={lastLedgerSyncLabel} />
           <MetricChip label="ingest" value={lastIngestLabel} />

@@ -109,9 +109,14 @@ export type LedgerEntry = {
   type: 'epicon' | 'attestation' | 'shard' | 'ubi' | 'settlement';
   agentOrigin: string;
   timestamp: string;
+  title?: string;
   summary: string;
   integrityDelta: number;
   status: 'committed' | 'pending' | 'reverted';
+  category?: 'geopolitical' | 'market' | 'governance' | 'infrastructure' | 'narrative';
+  confidenceTier?: number;
+  tags?: string[];
+  source?: 'mock' | 'echo' | 'backfill';
 };
 
 export type MFSShard = {
