@@ -14,7 +14,9 @@ import CandidateFeed from '@/components/epicon/CandidateFeed';
 import AgentCortexPanel from '@/components/terminal/AgentCortexPanel';
 import AgentGrid from '@/components/agents/AgentGrid';
 import IntegrityMonitorCard from '@/components/terminal/IntegrityMonitorCard';
+import PulseTimeline from '@/components/signals/PulseTimeline';
 import TripwireWatchCard from '@/components/terminal/TripwireWatchCard';
+import TripwirePanel from '@/components/tripwire/TripwirePanel';
 import DetailInspectorRail from '@/components/terminal/DetailInspectorRail';
 import type { ZeusVerifyPayload, ZeusVerifyResult } from '@/components/terminal/DetailInspectorRail';
 import CommandPalette from '@/components/terminal/CommandPalette';
@@ -361,6 +363,13 @@ function TerminalPage() {
                 selectedId={inspectorTarget.kind === 'signal' ? inspectorTarget.data.eventId : undefined}
                 onSelect={(score) => setInspectorTarget({ kind: 'signal', data: score })}
               />
+            )}
+
+            {selectedNav === 'pulse' && (
+              <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+                <PulseTimeline />
+                <TripwirePanel />
+              </div>
             )}
 
             {showIntegrity && <IntegrityRatingPanel integrity={echoIntegrity} />}
