@@ -20,6 +20,7 @@ import TripwirePanel from '@/components/tripwire/TripwirePanel';
 import DetailInspectorRail from '@/components/terminal/DetailInspectorRail';
 import type { ZeusVerifyPayload, ZeusVerifyResult } from '@/components/terminal/DetailInspectorRail';
 import CommandPalette from '@/components/terminal/CommandPalette';
+import QueryResultCard from '@/components/query/QueryResultCard';
 import LedgerPanel from '@/components/terminal/LedgerPanel';
 import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
 import CivicRadarPanel from '@/components/terminal/CivicRadarPanel';
@@ -29,6 +30,7 @@ import { WalletProvider } from '@/contexts/WalletContext';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { navItems, mockCivicAlerts, mockSentinels } from '@/lib/terminal/mock';
 import type { NavKey } from '@/lib/terminal/types';
+import { mockQueryResult } from '@/lib/mock/queryResult';
 import { cn } from '@/lib/terminal/utils';
 import { useTerminalCommands } from '@/hooks/useTerminalCommands';
 import { useTerminalData } from '@/hooks/useTerminalData';
@@ -380,6 +382,10 @@ function TerminalPage() {
                 <MFSShardPanel integrity={echoIntegrity} />
                 <MICBlockchainExplorer />
               </>
+            )}
+
+            {selectedNav === 'search' && (
+              <QueryResultCard result={mockQueryResult} />
             )}
 
             {showMetrics && (
