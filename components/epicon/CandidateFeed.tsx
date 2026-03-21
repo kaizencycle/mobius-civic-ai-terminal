@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useMobiusIdentity } from '@/hooks/useMobiusIdentity';
 import CandidateCard from './CandidateCard';
 
 type Candidate = {
@@ -16,6 +17,7 @@ type Candidate = {
 
 export default function CandidateFeed() {
   const [data, setData] = useState<Candidate[]>([]);
+  const { hasPermission } = useMobiusIdentity();
 
   async function load() {
     const res = await fetch('/api/epicon/candidates', { cache: 'no-store' });
@@ -35,11 +37,13 @@ export default function CandidateFeed() {
           outcome === 'verified'
             ? 'Cross-source alignment sufficient for verified candidate status.'
             : 'Contradiction or insufficient support detected by ZEUS.',
+        reviewer: 'kaizencycle',
       }),
     });
 
     if (!res.ok) {
-      console.error('ZEUS verification failed');
+      const json = await res.json().catch(() => null);
+      console.error(json?.error || 'ZEUS verification failed');
       return;
     }
 
@@ -61,7 +65,13 @@ export default function CandidateFeed() {
       ) : null}
 
       {data.map((item) => (
-        <CandidateCard key={item.id} item={item} onVerify={onVerify} />
+        <CandidateCard
+          key={item.id}
+          item={item}
+          onVerify={onVerify}
+          canVerify={hasPermission('epicon:verify')}
+          canContradict={hasPermission('epicon:contradict')}
+        />
       ))}
     </div>
   );

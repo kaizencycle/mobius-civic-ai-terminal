@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useMobiusIdentity } from '@/hooks/useMobiusIdentity';
 import PublishEpiconModal from './PublishEpiconModal';
 
 type QueryResult = {
@@ -21,6 +22,8 @@ export default function QueryResultCard({
   result: QueryResult;
 }) {
   const [open, setOpen] = useState(false);
+  const { hasPermission, loading } = useMobiusIdentity();
+  const canPublish = hasPermission('epicon:publish');
 
   return (
     <>
@@ -55,12 +58,24 @@ export default function QueryResultCard({
             Save to Dashboard
           </button>
 
-          <button
-            className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm text-sky-300 hover:bg-sky-500/20"
-            onClick={() => setOpen(true)}
-          >
-            Publish to EPICON
-          </button>
+          <div className="flex flex-col gap-1">
+            <button
+              disabled={loading || !canPublish}
+              className={`rounded-lg border px-3 py-2 text-sm transition ${
+                canPublish
+                  ? 'border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20'
+                  : 'cursor-not-allowed border-slate-800 bg-slate-950 text-slate-600'
+              }`}
+              onClick={() => canPublish && setOpen(true)}
+            >
+              Publish to EPICON
+            </button>
+            {!loading && !canPublish ? (
+              <div className="text-[11px] text-slate-500">
+                Publish unavailable for current role
+              </div>
+            ) : null}
+          </div>
 
           <button
             className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"

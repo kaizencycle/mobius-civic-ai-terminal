@@ -15,6 +15,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/identity/guards';
 import {
   getStoredEpicon,
   updateEpicon,
@@ -34,6 +35,10 @@ type VerifyRequest = {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as VerifyRequest;
+    const reviewer = ((body as VerifyRequest & { reviewer?: string }).reviewer) || 'kaizencycle';
+    const permission = body.finalStatus === 'contradicted' || body.outcome === 'miss'
+      ? 'epicon:contradict'
+      : 'epicon:verify';
 
     if (!body.epiconId) {
       return NextResponse.json({ ok: false, error: 'epiconId is required' }, { status: 400 });
@@ -44,6 +49,8 @@ export async function POST(request: Request) {
     if (!body.finalStatus || !['verified', 'contradicted'].includes(body.finalStatus)) {
       return NextResponse.json({ ok: false, error: 'finalStatus must be "verified" or "contradicted"' }, { status: 400 });
     }
+
+    requirePermission(reviewer, permission);
 
     const epicon = getStoredEpicon(body.epiconId);
     if (!epicon) {
@@ -94,10 +101,13 @@ export async function POST(request: Request) {
           }
         : null,
     });
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request body';
+    const status = message.startsWith('Permission denied:') ? 403 : 400;
+
     return NextResponse.json(
-      { ok: false, error: 'Invalid request body' },
-      { status: 400 },
+      { ok: false, error: message },
+      { status },
     );
   }
 }

@@ -126,9 +126,10 @@ export default function PublishEpiconModal({
           submitted_by_login: 'kaizencycle',
         }),
       });
+      const json = await res.json();
 
       if (!res.ok) {
-        throw new Error('Publish failed');
+        throw new Error(json.error || 'Publish failed');
       }
 
       onClose();
@@ -139,7 +140,7 @@ export default function PublishEpiconModal({
       );
     } catch (err) {
       console.error(err);
-      alert('Unable to complete publish flow');
+      alert(err instanceof Error ? err.message : 'Unable to complete publish flow');
     } finally {
       setLoading(false);
     }
