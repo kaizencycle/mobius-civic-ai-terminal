@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import TerminalNav from '@/components/layout/TerminalNav';
 import GIMonitorBadge from '@/components/gi/GIMonitorBadge';
+import MobiusIdentityBadge from '@/components/identity/MobiusIdentityBadge';
 import type { NavKey } from '@/lib/terminal/types';
 import { cn } from '@/lib/terminal/utils';
 
@@ -132,6 +133,7 @@ export default function TopStatusBar({
             <Chip label={cycleId} onClick={() => onNavigate('pulse')} />
             <Chip label={clock || 'Loading...'} />
             <GIMonitorBadge />
+            <MobiusIdentityBadge />
             <Chip
               label={`MII ${mii.toFixed(2)}`}
               tone={mii >= 0.7 ? 'text-cyan-300 border-cyan-500/30 bg-cyan-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'}

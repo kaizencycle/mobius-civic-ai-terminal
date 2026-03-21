@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 type MicAccount = {
   login: string;
   balance: number;
+  mobius_id: string;
+  role: string;
   locked: number;
   rewards_earned: number;
   mic_burned: number;
@@ -63,6 +65,9 @@ export default function MicAccountPanel() {
       <div className="text-xs uppercase tracking-[0.2em] text-slate-400">MIC Account</div>
 
       <div className="mt-2 text-lg font-semibold text-white">@{account.login}</div>
+      <div className="mt-1 text-xs uppercase tracking-[0.14em] text-slate-500">
+        {account.mobius_id} · {account.role}
+      </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <MiniStat label="Balance" value={String(account.balance)} />

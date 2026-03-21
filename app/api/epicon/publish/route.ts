@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addPublicEpicon } from '@/lib/epicon/feedStore';
 import { lockStake } from '@/lib/mic/store';
+import { incrementEpiconCount } from '@/lib/identity/store';
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -37,6 +38,10 @@ export async function POST(req: NextRequest) {
 
   if (record.publication_mode === 'public') {
     addPublicEpicon(record);
+
+    if (record.submitted_by_login) {
+      incrementEpiconCount(record.submitted_by_login);
+    }
   }
 
   return NextResponse.json({
