@@ -68,6 +68,13 @@ export default function QueryResultCard({
           >
             Ask Follow-Up
           </button>
+
+          <a
+            href="/epicon"
+            className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
+          >
+            Open EPICON Feed
+          </a>
         </div>
       </div>
 

@@ -34,9 +34,14 @@ export function transformGI(raw: any): GISnapshot {
   return {
     score: raw.score,
     delta: raw.delta,
+    mode: raw.mode,
+    terminalStatus: raw.terminal_status ?? raw.terminalStatus,
+    primaryDriver: raw.primary_driver ?? raw.primaryDriver,
+    summary: raw.summary,
     institutionalTrust: raw.institutional_trust ?? raw.institutionalTrust,
     infoReliability: raw.info_reliability ?? raw.infoReliability,
     consensusStability: raw.consensus_stability ?? raw.consensusStability,
+    signalBreakdown: raw.signal_breakdown ?? raw.signalBreakdown,
     weekly: raw.weekly,
   };
 }

@@ -454,16 +454,16 @@ function GIView({ data }: { data: InspectorTarget & { kind: 'gi' } }) {
 
       <div className="grid grid-cols-2 gap-3">
         <InspectorStat
-          label="Institutional Trust"
-          value={`${Math.round(gi.institutionalTrust * 100)}%`}
+          label="GI Mode"
+          value={(gi.mode ?? 'yellow').toUpperCase()}
         />
         <InspectorStat
-          label="Info Reliability"
-          value={`${Math.round(gi.infoReliability * 100)}%`}
+          label="Terminal Status"
+          value={(gi.terminalStatus ?? 'stressed').toUpperCase()}
         />
         <InspectorStat
-          label="Consensus Stability"
-          value={`${Math.round(gi.consensusStability * 100)}%`}
+          label="Primary Driver"
+          value={gi.primaryDriver ?? 'No primary driver available'}
         />
         <InspectorStat
           label="Weekly Avg"
@@ -477,9 +477,10 @@ function GIView({ data }: { data: InspectorTarget & { kind: 'gi' } }) {
         <SmallLabel>Score Breakdown</SmallLabel>
         <div className="mt-2 space-y-3">
           {[
-            { label: 'Institutional Trust', value: gi.institutionalTrust },
-            { label: 'Info Reliability', value: gi.infoReliability },
-            { label: 'Consensus Stability', value: gi.consensusStability },
+            { label: 'Signal Quality', value: gi.signalBreakdown?.quality ?? gi.institutionalTrust },
+            { label: 'Signal Freshness', value: gi.signalBreakdown?.freshness ?? gi.infoReliability },
+            { label: 'Tripwire Stability', value: gi.signalBreakdown?.stability ?? gi.consensusStability },
+            { label: 'System Health', value: gi.signalBreakdown?.system ?? gi.score },
           ].map((m) => {
             const pct = Math.round(m.value * 100);
             return (

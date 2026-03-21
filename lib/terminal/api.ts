@@ -37,14 +37,43 @@ async function fetchInternalJson(path: string): Promise<any | null> {
   }
 }
 
-export function integrityStatusToGISnapshot(status: IntegrityStatusResponse): GISnapshot {
+export function integrityStatusToGISnapshot(
+  status: IntegrityStatusResponse,
+  previousScore?: number,
+): GISnapshot {
+  const quality = status.signals.quality ?? status.signals.geopolitics;
+  const freshness = status.signals.freshness ?? status.signals.information;
+  const stability = status.signals.stability ?? status.signals.sentiment;
+  const system = status.signals.system ?? status.signals.economy;
+  const delta = typeof previousScore === 'number'
+    ? Number((status.global_integrity - previousScore).toFixed(2))
+    : 0;
+
   return {
     score: status.global_integrity,
-    delta: -0.01,
-    institutionalTrust: status.signals.geopolitics,
-    infoReliability: status.signals.information,
-    consensusStability: status.signals.sentiment,
-    weekly: [0.84, 0.83, 0.82, 0.81, 0.8, 0.79, status.global_integrity],
+    delta,
+    mode: status.mode,
+    terminalStatus: status.terminal_status,
+    primaryDriver: status.primary_driver,
+    summary: status.summary,
+    institutionalTrust: quality,
+    infoReliability: freshness,
+    consensusStability: stability,
+    signalBreakdown: {
+      quality,
+      freshness,
+      stability,
+      system,
+    },
+    weekly: [
+      Math.min(1, Number((status.global_integrity + 0.06).toFixed(2))),
+      Math.min(1, Number((status.global_integrity + 0.04).toFixed(2))),
+      Math.min(1, Number((status.global_integrity + 0.03).toFixed(2))),
+      Math.min(1, Number((status.global_integrity + 0.02).toFixed(2))),
+      Math.min(1, Number((status.global_integrity + 0.01).toFixed(2))),
+      status.global_integrity,
+      status.global_integrity,
+    ],
   };
 }
 
