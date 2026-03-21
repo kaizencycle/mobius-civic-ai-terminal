@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { InspectorTarget, Tripwire } from '@/lib/terminal/types';
 import { confidenceLabel, statusColor, tripwireStyle, giScoreColor, metricBarColor, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
@@ -11,6 +11,7 @@ export type ZeusVerifyPayload = {
   finalStatus: 'verified' | 'contradicted';
   finalConfidenceTier: number;
   zeusNote: string;
+  reviewer?: string;
 };
 
 export type ZeusVerifyResult = {
@@ -132,8 +133,36 @@ function ZeusVerifyControls({
   const [tier, setTier] = useState(3);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ZeusVerifyResult | null>(null);
+  const [canVerify, setCanVerify] = useState(false);
+  const [canContradict, setCanContradict] = useState(false);
 
   if (!onVerify) return null;
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadPermissions() {
+      try {
+        const res = await fetch('/api/identity/me?username=kaizencycle', { cache: 'no-store' });
+        const json = await res.json();
+        const permissions = json.permissions || [];
+        if (!active) return;
+        setCanVerify(permissions.includes('epicon:verify'));
+        setCanContradict(permissions.includes('epicon:contradict'));
+      } catch {
+        if (active) {
+          setCanVerify(false);
+          setCanContradict(false);
+        }
+      }
+    }
+
+    loadPermissions();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Only show for user-submitted pending EPICONs
   const isUserSubmitted = epiconId.includes('-USR-');
@@ -157,6 +186,7 @@ function ZeusVerifyControls({
         finalStatus: outcome === 'hit' ? 'verified' : 'contradicted',
         finalConfidenceTier: tier,
         zeusNote: note,
+        reviewer: 'kaizencycle',
       });
       setResult(res);
     } catch {
@@ -183,6 +213,12 @@ function ZeusVerifyControls({
 
   return (
     <div className="space-y-3">
+      {!canVerify && !canContradict ? (
+        <div className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-mono text-slate-500">
+          ZEUS verification unavailable for current role.
+        </div>
+      ) : null}
+
       <div className="flex items-center gap-2">
         <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">
           Final Tier
@@ -214,16 +250,16 @@ function ZeusVerifyControls({
 
       <div className="flex gap-2">
         <button
-          disabled={busy}
+          disabled={busy || !canVerify}
           onClick={() => handleVerify('hit')}
-          className="flex-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.12em] text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
+          className="flex-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.12em] text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-30"
         >
           {busy ? '...' : 'Verify (Hit)'}
         </button>
         <button
-          disabled={busy}
+          disabled={busy || !canContradict}
           onClick={() => handleVerify('miss')}
-          className="flex-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.12em] text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+          className="flex-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.12em] text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-30"
         >
           {busy ? '...' : 'Contradict (Miss)'}
         </button>

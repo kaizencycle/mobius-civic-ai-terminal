@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import type { Agent } from '@/lib/terminal/types';
 import { statusColor, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
@@ -11,12 +14,42 @@ export default function AgentCortexPanel({
   selectedId?: string;
   onSelect?: (agent: Agent) => void;
 }) {
+  const [canInvoke, setCanInvoke] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadPermissions() {
+      try {
+        const res = await fetch('/api/identity/me?username=kaizencycle', { cache: 'no-store' });
+        const json = await res.json();
+        if (!active) return;
+        setCanInvoke(Boolean(json.permissions?.includes('agents:invoke')));
+      } catch {
+        if (active) {
+          setCanInvoke(false);
+        }
+      }
+    }
+
+    loadPermissions();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
       <SectionLabel
         title="Agent Cortex"
         subtitle="Live substrate operator map"
       />
+      {!canInvoke ? (
+        <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-mono text-slate-500">
+          Agent invocation unavailable for current role. Read-only status view only.
+        </div>
+      ) : null}
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 xl:grid-cols-4">
         {agents.map((agent) => (
           <button

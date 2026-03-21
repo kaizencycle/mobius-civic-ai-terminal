@@ -16,11 +16,26 @@ type Candidate = {
 
 export default function CandidateFeed() {
   const [data, setData] = useState<Candidate[]>([]);
+  const [canVerify, setCanVerify] = useState(false);
+  const [canContradict, setCanContradict] = useState(false);
 
   async function load() {
     const res = await fetch('/api/epicon/candidates', { cache: 'no-store' });
     const json = await res.json();
     setData(json.candidates || []);
+  }
+
+  async function loadPermissions() {
+    try {
+      const res = await fetch('/api/identity/me?username=kaizencycle', { cache: 'no-store' });
+      const json = await res.json();
+      const permissions = json.permissions || [];
+      setCanVerify(permissions.includes('epicon:verify'));
+      setCanContradict(permissions.includes('epicon:contradict'));
+    } catch {
+      setCanVerify(false);
+      setCanContradict(false);
+    }
   }
 
   async function onVerify(id: string, outcome: 'verified' | 'contradicted') {
@@ -35,11 +50,13 @@ export default function CandidateFeed() {
           outcome === 'verified'
             ? 'Cross-source alignment sufficient for verified candidate status.'
             : 'Contradiction or insufficient support detected by ZEUS.',
+        reviewer: 'kaizencycle',
       }),
     });
 
     if (!res.ok) {
-      console.error('ZEUS verification failed');
+      const json = await res.json().catch(() => null);
+      console.error(json?.error || 'ZEUS verification failed');
       return;
     }
 
@@ -48,6 +65,7 @@ export default function CandidateFeed() {
 
   useEffect(() => {
     load();
+    loadPermissions();
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -61,7 +79,13 @@ export default function CandidateFeed() {
       ) : null}
 
       {data.map((item) => (
-        <CandidateCard key={item.id} item={item} onVerify={onVerify} />
+        <CandidateCard
+          key={item.id}
+          item={item}
+          onVerify={onVerify}
+          canVerify={canVerify}
+          canContradict={canContradict}
+        />
       ))}
     </div>
   );
