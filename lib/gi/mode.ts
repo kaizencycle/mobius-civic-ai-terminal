@@ -13,6 +13,7 @@ export const giModeConfig = {
     burnMultiplier: 1.0,
     minStakeOptions: [0, 1, 3],
     visibilityThreshold: 0.35,
+    tone: 'green',
   },
   yellow: {
     label: 'Stabilization',
@@ -20,6 +21,7 @@ export const giModeConfig = {
     burnMultiplier: 1.0,
     minStakeOptions: [1, 3, 5],
     visibilityThreshold: 0.5,
+    tone: 'yellow',
   },
   red: {
     label: 'Defense',
@@ -27,5 +29,6 @@ export const giModeConfig = {
     burnMultiplier: 1.5,
     minStakeOptions: [3, 5, 8],
     visibilityThreshold: 0.7,
+    tone: 'red',
   },
 } as const;
