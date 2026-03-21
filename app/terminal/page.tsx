@@ -18,6 +18,7 @@ import PulseTimeline from '@/components/signals/PulseTimeline';
 import TripwireWatchCard from '@/components/terminal/TripwireWatchCard';
 import TripwirePanel from '@/components/tripwire/TripwirePanel';
 import DetailInspectorRail from '@/components/terminal/DetailInspectorRail';
+import MicAccountPanel from '@/components/mic/MicAccountPanel';
 import type { ZeusVerifyPayload, ZeusVerifyResult } from '@/components/terminal/DetailInspectorRail';
 import CommandPalette from '@/components/terminal/CommandPalette';
 import QueryResultCard from '@/components/query/QueryResultCard';
@@ -250,7 +251,6 @@ function TerminalPage() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <TopStatusBar
-        gi={gi.score}
         alertCount={allTripwires.length + criticalAlertCount}
         mii={liveRibbonMii}
         micSupply={micSupply}
@@ -258,12 +258,7 @@ function TerminalPage() {
         primaryDriver={primaryDriver}
         cycleId={cycleId}
         streamStatus={streamStatus}
-        giMode={gi.mode}
         onNavigate={setSelectedNav}
-        onShowGI={() => {
-          setSelectedNav('governance');
-          setInspectorTarget({ kind: 'gi', data: gi });
-        }}
       />
 
       <LiveIntegrityRibbon
@@ -418,18 +413,23 @@ function TerminalPage() {
 
         <DetailInspectorRail
           target={inspectorTarget}
-          prependContent={inspectorTarget.kind === 'epicon' ? (
-            <AttestationReplayRail
-              event={inspectorTarget.data}
-              relatedLedger={relatedLedgerEntry}
-              onAction={(actionId) => {
-                setOperatorMessage(`Replay rail action queued: ${actionId}`);
-                if (actionId === 'compare') {
-                  setSelectedNav('governance');
-                }
-              }}
-            />
-          ) : null}
+          prependContent={
+            <>
+              <MicAccountPanel />
+              {inspectorTarget.kind === 'epicon' ? (
+                <AttestationReplayRail
+                  event={inspectorTarget.data}
+                  relatedLedger={relatedLedgerEntry}
+                  onAction={(actionId) => {
+                    setOperatorMessage(`Replay rail action queued: ${actionId}`);
+                    if (actionId === 'compare') {
+                      setSelectedNav('governance');
+                    }
+                  }}
+                />
+              ) : null}
+            </>
+          }
           onZeusVerify={async (payload: ZeusVerifyPayload): Promise<ZeusVerifyResult> => {
             try {
               const response = await fetch('/api/zeus/verify', {
