@@ -24,9 +24,9 @@ type RuntimeStatus = {
 };
 
 function freshnessLabel(runtime: RuntimeStatus | null) {
-  if (runtime?.freshness.status === 'fresh') return 'System Live';
-  if (runtime?.freshness.status === 'degraded') return 'System Degraded';
-  if (runtime?.freshness.status === 'stale') return 'System Stale';
+  if (runtime?.freshness.status === 'fresh') return 'System live';
+  if (runtime?.freshness.status === 'degraded') return 'System degraded';
+  if (runtime?.freshness.status === 'stale') return 'System stale';
   return 'Checking system freshness';
 }
 
@@ -57,20 +57,31 @@ export default function PulseTimeline() {
   }, []);
 
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+    <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Pulse Timeline</div>
-          <div className={`mt-2 text-xs ${freshnessTone(runtime)}`}>{freshnessLabel(runtime)}</div>
+          <div className={`text-xs uppercase tracking-[0.18em] ${freshnessTone(runtime)}`}>{freshnessLabel(runtime)}</div>
+          <div className="mt-2 text-sm text-slate-400">
+            Incoming micro-agent signals and current intake state.
+          </div>
         </div>
 
         <div className="text-right text-xs text-slate-500">
-          <div>{runtime?.last_run ? `Last heartbeat: ${new Date(runtime.last_run).toLocaleTimeString()}` : 'Awaiting heartbeat'}</div>
+          <div>{runtime?.last_run ? `Updated ${new Date(runtime.last_run).toLocaleString()}` : 'Awaiting heartbeat'}</div>
           <div>{signals.length} active signals</div>
         </div>
       </div>
 
       <div className="mt-4 space-y-3">
+        {signals.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/50 p-4 text-sm text-slate-400">
+            <div className="font-medium text-slate-200">No live pulse items yet.</div>
+            <div className="mt-1 text-xs text-slate-500">
+              The intake lane is waiting for new signals from the active agent network.
+            </div>
+          </div>
+        ) : null}
+
         {signals.map((signal) => (
           <div key={signal.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
             <div className="flex items-start justify-between gap-3">
@@ -100,11 +111,11 @@ export default function PulseTimeline() {
             </div>
 
             <div className="mt-3 text-xs text-slate-500">
-              confidence: {signal.confidence_tier} • observed: {signal.observed_at}
+              Confidence {signal.confidence_tier} · Observed {new Date(signal.observed_at).toLocaleString()}
             </div>
           </div>
         ))}
       </div>
-    </section>
+    </div>
   );
 }

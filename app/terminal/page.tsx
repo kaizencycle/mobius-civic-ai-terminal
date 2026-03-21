@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import TopStatusBar from '@/components/terminal/TopStatusBar';
+import TerminalSection from '@/components/layout/TerminalSection';
 import LiveIntegrityRibbon from '@/components/terminal/LiveIntegrityRibbon';
 import AttestationReplayRail from '@/components/terminal/AttestationReplayRail';
 import ConsensusPreviewStrip from '@/components/terminal/ConsensusPreviewStrip';
@@ -286,22 +287,27 @@ function TerminalPage() {
         <SidebarNav items={navItems} selected={selectedNav} onSelect={setSelectedNav} />
 
         <main className="col-span-7 border-r border-slate-800 bg-slate-950 max-lg:col-span-9 max-md:col-span-1 max-md:border-r-0">
-          <div className="grid h-full grid-rows-[auto_auto_auto_1fr] gap-4 p-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="text-xs font-mono uppercase tracking-[0.2em] text-sky-300">
-                    {NAV_LABEL_MAP.get(selectedNav)} Chamber
-                  </div>
-                  <div className="mt-2 text-sm font-sans text-slate-400">
-                    {chamberStatus(selectedNav, gi.score, allTripwires.length, filteredEpicon.length, criticalAlertCount)}
+          <div className="grid h-full auto-rows-max gap-4 p-4">
+            <TerminalSection
+              eyebrow="Command Surface"
+              title={`${NAV_LABEL_MAP.get(selectedNav)} Chamber`}
+              description={chamberStatus(selectedNav, gi.score, allTripwires.length, filteredEpicon.length, criticalAlertCount)}
+              actions={
+                <div className="space-y-1 text-right">
+                  <div className="font-mono uppercase tracking-[0.15em] text-slate-500">{operatorMessage}</div>
+                  <div className="text-[11px] uppercase tracking-[0.12em] text-slate-600">
+                    {cycleId} · {terminalStatus} · {streamStatus === 'live' ? 'stream live' : streamStatus === 'reconnecting' ? 'reconnecting' : 'local mode'}
                   </div>
                 </div>
-                <div className="max-w-md text-xs font-mono uppercase tracking-[0.15em] text-slate-500">
-                  {operatorMessage}
-                </div>
+              }
+            >
+              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-slate-500">
+                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Driver · {primaryDriver}</span>
+                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Signals · {filteredEpicon.length}</span>
+                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Tripwires · {allTripwires.length}</span>
+                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Alerts · {criticalAlertCount}</span>
               </div>
-            </div>
+            </TerminalSection>
 
             {showLedger && (
               <LedgerPanel
@@ -312,31 +318,45 @@ function TerminalPage() {
             )}
 
             {showEpicon && selectedNav !== 'ledger' && (
-              <>
-                <EpiconFeedPanel
-                  items={filteredEpicon}
-                  selectedId={inspectorTarget.kind === 'epicon' ? inspectorTarget.data.id : ''}
-                  onSelect={(item) => setInspectorTarget({ kind: 'epicon', data: item })}
-                />
+              <TerminalSection
+                eyebrow="Public Memory"
+                title="EPICON Feed"
+                description="Published signals, candidate intake, and current publication context."
+                id="epicon"
+              >
+                <div className="space-y-4">
+                  <EpiconFeedPanel
+                    items={filteredEpicon}
+                    selectedId={inspectorTarget.kind === 'epicon' ? inspectorTarget.data.id : ''}
+                    onSelect={(item) => setInspectorTarget({ kind: 'epicon', data: item })}
+                  />
 
-                <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-                  <div className="mb-3 text-xs font-mono uppercase tracking-[0.2em] text-amber-300">
-                    External Candidate Feed
+                  <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                    <div className="mb-3 text-xs uppercase tracking-[0.2em] text-amber-300">
+                      External Candidate Feed
+                    </div>
+                    <CandidateFeed />
                   </div>
-                  <CandidateFeed />
                 </div>
-              </>
+              </TerminalSection>
             )}
 
             {showAgents && (
-              <>
-                {selectedNav === 'agents' && <AgentGrid />}
-                <AgentCortexPanel
-                  agents={filteredAgents}
-                  selectedId={inspectorTarget.kind === 'agent' ? inspectorTarget.data.id : undefined}
-                  onSelect={(agent) => setInspectorTarget({ kind: 'agent', data: agent })}
-                />
-              </>
+              <TerminalSection
+                id="agents"
+                eyebrow="Cortex"
+                title={selectedNav === 'agents' ? 'Agent Grid' : 'Agent Cortex'}
+                description="Canonical Mobius agents, roles, and status."
+              >
+                <div className="space-y-4">
+                  {selectedNav === 'agents' && <AgentGrid />}
+                  <AgentCortexPanel
+                    agents={filteredAgents}
+                    selectedId={inspectorTarget.kind === 'agent' ? inspectorTarget.data.id : undefined}
+                    onSelect={(agent) => setInspectorTarget({ kind: 'agent', data: agent })}
+                  />
+                </div>
+              </TerminalSection>
             )}
 
             {showSentinels && (
@@ -364,9 +384,32 @@ function TerminalPage() {
             )}
 
             {selectedNav === 'pulse' && (
-              <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
-                <PulseTimeline />
-                <TripwirePanel />
+              <div className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
+                <TerminalSection
+                  eyebrow="Live Intake"
+                  title="Pulse Timeline"
+                  description="Incoming micro-agent signals and current intake state."
+                >
+                  <PulseTimeline />
+                </TerminalSection>
+
+                <TerminalSection
+                  eyebrow="System State"
+                  title="Global Integrity"
+                  description="Reactive integrity, tripwire, and system state."
+                >
+                  <div className="space-y-4">
+                    <TripwirePanel />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <IntegrityMonitorCard gi={gi} onClick={() => setInspectorTarget({ kind: 'gi', data: gi })} />
+                      <TripwireWatchCard
+                        tripwires={allTripwires}
+                        selectedId={inspectorTarget.kind === 'tripwire' ? inspectorTarget.data.id : undefined}
+                        onSelect={(tripwire) => setInspectorTarget({ kind: 'tripwire', data: tripwire })}
+                      />
+                    </div>
+                  </div>
+                </TerminalSection>
               </div>
             )}
 
@@ -381,18 +424,30 @@ function TerminalPage() {
             )}
 
             {selectedNav === 'search' && (
-              <QueryResultCard result={mockQueryResult} />
+              <TerminalSection
+                eyebrow="Query"
+                title="Query Result"
+                description="Private save, follow-up, or publish to EPICON."
+              >
+                <QueryResultCard result={mockQueryResult} />
+              </TerminalSection>
             )}
 
-            {showMetrics && (
-              <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <IntegrityMonitorCard gi={gi} onClick={() => setInspectorTarget({ kind: 'gi', data: gi })} />
-                <TripwireWatchCard
-                  tripwires={allTripwires}
-                  selectedId={inspectorTarget.kind === 'tripwire' ? inspectorTarget.data.id : undefined}
-                  onSelect={(tripwire) => setInspectorTarget({ kind: 'tripwire', data: tripwire })}
-                />
-              </section>
+            {showMetrics && selectedNav !== 'pulse' && (
+              <TerminalSection
+                eyebrow="System State"
+                title="Global Integrity"
+                description="Reactive integrity posture, tripwire watch, and operator health context."
+              >
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <IntegrityMonitorCard gi={gi} onClick={() => setInspectorTarget({ kind: 'gi', data: gi })} />
+                  <TripwireWatchCard
+                    tripwires={allTripwires}
+                    selectedId={inspectorTarget.kind === 'tripwire' ? inspectorTarget.data.id : undefined}
+                    onSelect={(tripwire) => setInspectorTarget({ kind: 'tripwire', data: tripwire })}
+                  />
+                </section>
+              </TerminalSection>
             )}
 
             <CommandPalette
@@ -415,7 +470,14 @@ function TerminalPage() {
           target={inspectorTarget}
           prependContent={
             <>
-              <MicAccountPanel />
+              <TerminalSection
+                id="mic"
+                eyebrow="Account"
+                title="MIC Account"
+                description="Balance, stake, rewards, and burn state."
+              >
+                <MicAccountPanel />
+              </TerminalSection>
               {inspectorTarget.kind === 'epicon' ? (
                 <AttestationReplayRail
                   event={inspectorTarget.data}

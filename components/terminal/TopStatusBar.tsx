@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import TerminalNav from '@/components/layout/TerminalNav';
 import GIMonitorBadge from '@/components/gi/GIMonitorBadge';
 import type { NavKey } from '@/lib/terminal/types';
 import { cn } from '@/lib/terminal/utils';
@@ -18,9 +19,9 @@ function Chip({
     <button
       onClick={onClick}
       className={cn(
-        'rounded-md border px-2.5 py-1 text-[11px] font-mono uppercase tracking-[0.15em] transition',
+        'rounded-lg border px-3 py-2 text-[11px] font-mono uppercase tracking-[0.15em] transition',
         tone,
-        onClick ? 'hover:brightness-125 cursor-pointer' : 'cursor-default',
+        onClick ? 'cursor-pointer hover:brightness-125' : 'cursor-default',
       )}
     >
       {label}
@@ -110,58 +111,64 @@ export default function TopStatusBar({
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
-      <div className="flex items-center justify-between gap-4 px-4 py-3 max-md:pl-14">
-        <div>
-          <div className="text-sm font-mono font-semibold uppercase tracking-[0.28em] text-sky-300">
-            Mobius Terminal
+      <div className="px-4 py-3 max-md:pl-14">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-3">
+            <div>
+              <div className="text-sm font-mono font-semibold uppercase tracking-[0.28em] text-sky-300">
+                Mobius Terminal
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                Civic Bloomberg Interface · Integrity Operating View
+              </div>
+              <div className="mt-1 max-w-2xl text-[10px] font-mono uppercase tracking-[0.12em] text-slate-600">
+                Primary driver · {primaryDriver}
+              </div>
+            </div>
+            <TerminalNav />
           </div>
-          <div className="mt-1 text-xs font-sans text-slate-500 hidden sm:block">
-            Civic Bloomberg Interface · Integrity Operating View
-          </div>
-          <div className="mt-1 hidden max-w-md truncate text-[10px] font-mono uppercase tracking-[0.12em] text-slate-600 lg:block">
-            Driver · {primaryDriver}
-          </div>
-        </div>
 
-        <div className="hidden sm:flex flex-wrap items-center justify-end gap-2">
-          <Chip label={cycleId} onClick={() => onNavigate('pulse')} />
-          <Chip label={clock || 'Loading...'} />
-          <GIMonitorBadge />
-          <Chip label={`MII ${mii.toFixed(2)}`} tone={mii >= 0.7 ? 'text-cyan-300 border-cyan-500/30 bg-cyan-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'} onClick={() => onNavigate('wallet')} />
-          <Chip label={`MIC ${micSupply.toLocaleString()}`} tone="text-violet-300 border-violet-500/30 bg-violet-500/10" onClick={() => onNavigate('wallet')} />
-          <Chip label={terminalStatus} tone={statusTone} onClick={() => onNavigate('governance')} />
-          <Chip
-            label={`Alerts ${alertCount}`}
-            tone="text-amber-300 border-amber-500/30 bg-amber-500/10"
-            onClick={() => onNavigate('infrastructure')}
-          />
-          <Chip
-            label={
-              streamStatus === 'live' ? 'STREAM LIVE'
-                : streamStatus === 'reconnecting' ? 'RECONNECTING'
-                : 'OFFLINE'
-            }
-            tone={
-              streamStatus === 'live' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
-                : streamStatus === 'reconnecting' ? 'text-amber-300 border-amber-500/30 bg-amber-500/10'
-                : 'text-slate-400 border-slate-600 bg-slate-800'
-            }
-          />
-          {STATUSES.map((s) => (
+          <div className="flex flex-wrap items-center justify-start gap-2 xl:justify-end">
+            <Chip label={cycleId} onClick={() => onNavigate('pulse')} />
+            <Chip label={clock || 'Loading...'} />
+            <GIMonitorBadge />
             <Chip
-              key={s.label}
-              label={`${s.label} ${s.value}`}
-              tone={s.tone}
-              onClick={() => onNavigate(s.nav)}
+              label={`MII ${mii.toFixed(2)}`}
+              tone={mii >= 0.7 ? 'text-cyan-300 border-cyan-500/30 bg-cyan-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'}
+              onClick={() => onNavigate('wallet')}
             />
-          ))}
-        </div>
-
-        <div className="flex sm:hidden items-center gap-2">
-          <Chip label={cycleId} onClick={() => onNavigate('pulse')} />
-          <GIMonitorBadge />
-          <Chip label={`MII ${mii.toFixed(2)}`} tone="text-cyan-300 border-cyan-500/30 bg-cyan-500/10" onClick={() => onNavigate('wallet')} />
-          <Chip label={`${alertCount}`} tone="text-amber-300 border-amber-500/30 bg-amber-500/10" onClick={() => onNavigate('infrastructure')} />
+            <Chip
+              label={`MIC ${micSupply.toLocaleString()}`}
+              tone="text-violet-300 border-violet-500/30 bg-violet-500/10"
+              onClick={() => onNavigate('wallet')}
+            />
+            <Chip label={terminalStatus} tone={statusTone} onClick={() => onNavigate('governance')} />
+            <Chip
+              label={`Alerts ${alertCount}`}
+              tone="text-amber-300 border-amber-500/30 bg-amber-500/10"
+              onClick={() => onNavigate('infrastructure')}
+            />
+            <Chip
+              label={
+                streamStatus === 'live' ? 'Stream live'
+                  : streamStatus === 'reconnecting' ? 'Reconnecting'
+                  : 'Offline'
+              }
+              tone={
+                streamStatus === 'live' ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+                  : streamStatus === 'reconnecting' ? 'text-amber-300 border-amber-500/30 bg-amber-500/10'
+                  : 'text-slate-400 border-slate-600 bg-slate-800'
+              }
+            />
+            {STATUSES.map((s) => (
+              <Chip
+                key={s.label}
+                label={`${s.label} ${s.value}`}
+                tone={s.tone}
+                onClick={() => onNavigate(s.nav)}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </header>
