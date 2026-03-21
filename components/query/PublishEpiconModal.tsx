@@ -46,6 +46,7 @@ export default function PublishEpiconModal({
           agents_used: result.agents_used,
           publication_mode: publicationMode,
           mic_stake: publicationMode === 'public' ? stake : 0,
+          submitted_by_login: 'kaizencycle',
         }),
       });
 
@@ -56,7 +57,7 @@ export default function PublishEpiconModal({
       onClose();
       alert(
         publicationMode === 'public'
-          ? 'EPICON published in pending state'
+          ? 'EPICON published in pending state and added to the public feed'
           : 'Private draft saved',
       );
     } catch (err) {
