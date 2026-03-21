@@ -59,8 +59,8 @@ export default function EpiconFeedCard({
           <span className="text-slate-500">Stake:</span> {item.mic_stake} MIC
         </div>
         <div>
-          <span className="text-slate-500">By:</span>{' '}
-          @{item.submitted_by_login || 'unknown'}
+          <span className="text-slate-500">Identity:</span>{' '}
+          <span className="text-slate-200">@{item.submitted_by_login || 'unknown'}</span>
         </div>
         <div>
           <span className="text-slate-500">Agents:</span>{' '}

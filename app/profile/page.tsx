@@ -2,17 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import MobiusIdentityCard from '@/components/identity/MobiusIdentityCard';
+import type { MobiusIdentity } from '@/lib/identity/types';
 import type { MobiusProfile, MIIHistoryPoint, StoredEpicon } from '@/lib/mobius/stores';
-
-// ── Types for API response ───────────────────────────────────
 
 type ProfileResponse = {
   ok: boolean;
   profile: MobiusProfile;
   epicons: StoredEpicon[];
 };
-
-// ── Helpers ──────────────────────────────────────────────────
 
 function tierColor(tier: string): string {
   switch (tier) {
@@ -47,8 +45,6 @@ function miiBarColor(score: number): string {
   return 'bg-red-500';
 }
 
-// ── Components ───────────────────────────────────────────────
-
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
@@ -65,23 +61,20 @@ function MIISparkline({ history }: { history: MIIHistoryPoint[] }) {
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500 mb-3">
+      <div className="mb-3 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">
         MII Trend
       </div>
-      <div className="flex items-end gap-1.5 h-24">
+      <div className="flex h-24 items-end gap-1.5">
         {history.map((point, i) => {
           const height = Math.max(8, (point.score / maxScore) * 80);
           return (
-            <div
-              key={`${point.timestamp}-${i}`}
-              className="group relative flex-1"
-            >
+            <div key={`${point.timestamp}-${i}`} className="group relative flex-1">
               <div
                 className={`rounded-t ${miiBarColor(point.score)} transition-all duration-300`}
                 style={{ height: `${height}px` }}
               />
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                <div className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-[10px] font-mono text-slate-300 whitespace-nowrap shadow-lg">
+              <div className="absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 group-hover:block">
+                <div className="whitespace-nowrap rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-[10px] font-mono text-slate-300 shadow-lg">
                   <div className="text-sky-300">{point.score.toFixed(2)}</div>
                   <div className="text-slate-500">{new Date(point.timestamp).toLocaleDateString()}</div>
                 </div>
@@ -109,7 +102,7 @@ function TierProgressBar({ currentTier, mii }: { currentTier: string; mii: numbe
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500 mb-3">
+      <div className="mb-3 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">
         Tier Progression
       </div>
       <div className="space-y-2">
@@ -118,11 +111,11 @@ function TierProgressBar({ currentTier, mii }: { currentTier: string; mii: numbe
           const reached = mii >= tier.threshold;
           return (
             <div key={tier.key} className="flex items-center gap-3">
-              <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+              <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${
                 active ? 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.4)]' :
                 reached ? 'bg-emerald-500/60' : 'bg-slate-700'
               }`} />
-              <div className={`flex-1 text-sm font-mono ${active ? 'text-sky-300 font-medium' : reached ? 'text-slate-300' : 'text-slate-600'}`}>
+              <div className={`flex-1 text-sm font-mono ${active ? 'font-medium text-sky-300' : reached ? 'text-slate-300' : 'text-slate-600'}`}>
                 {tier.label}
               </div>
               <div className={`text-xs font-mono ${active ? 'text-sky-400' : 'text-slate-600'}`}>
@@ -143,7 +136,7 @@ function HistoryTimeline({ history }: { history: MIIHistoryPoint[] }) {
     <div className="space-y-2">
       {reversed.map((point, i) => (
         <div key={`${point.timestamp}-${i}`} className="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-          <div className={`mt-0.5 shrink-0 rounded-md border px-2 py-1 text-xs font-mono ${miiBarColor(point.score).replace('bg-', 'text-').replace('500', '300')} border-slate-700 bg-slate-900`}>
+          <div className={`mt-0.5 shrink-0 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs font-mono ${miiBarColor(point.score).replace('bg-', 'text-').replace('500', '300')}`}>
             {point.score.toFixed(2)}
           </div>
           <div className="min-w-0 flex-1">
@@ -175,9 +168,9 @@ function EpiconList({ epicons }: { epicons: StoredEpicon[] }) {
             <div className="min-w-0 flex-1">
               <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">{e.id}</div>
               <div className="mt-1 text-sm font-medium text-slate-200">{e.title}</div>
-              <div className="mt-1 text-xs text-slate-400 line-clamp-2">{e.summary}</div>
+              <div className="mt-1 line-clamp-2 text-xs text-slate-400">{e.summary}</div>
             </div>
-            <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
               <span className={`rounded-md border px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] ${statusColor(e.status)}`}>
                 {e.status}
               </span>
@@ -188,7 +181,7 @@ function EpiconList({ epicons }: { epicons: StoredEpicon[] }) {
               )}
             </div>
           </div>
-          <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] text-slate-400">
               {e.category}
             </span>
@@ -205,21 +198,25 @@ function EpiconList({ epicons }: { epicons: StoredEpicon[] }) {
   );
 }
 
-// ── Main Page ────────────────────────────────────────────────
-
 export default function ProfilePage() {
   const [data, setData] = useState<ProfileResponse | null>(null);
+  const [identity, setIdentity] = useState<MobiusIdentity | null>(null);
   const [loading, setLoading] = useState(true);
   const [loginInput, setLoginInput] = useState('kaizencycle');
 
   async function loadProfile(login: string) {
     setLoading(true);
     try {
-      const res = await fetch(`/api/profile?login=${encodeURIComponent(login)}`);
-      const json = await res.json();
-      setData(json);
+      const [profileRes, identityRes] = await Promise.all([
+        fetch(`/api/profile?login=${encodeURIComponent(login)}`, { cache: 'no-store' }),
+        fetch(`/api/identity/me?username=${encodeURIComponent(login)}`, { cache: 'no-store' }),
+      ]);
+      const [profileJson, identityJson] = await Promise.all([profileRes.json(), identityRes.json()]);
+      setData(profileJson);
+      setIdentity(identityJson.identity || null);
     } catch {
       setData(null);
+      setIdentity(null);
     } finally {
       setLoading(false);
     }
@@ -238,30 +235,28 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-950/95 backdrop-blur px-6 py-4">
-        <div className="mx-auto max-w-6xl flex items-center justify-between">
+      <header className="border-b border-slate-800 bg-slate-950/95 px-6 py-4 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <div>
-            <Link href="/terminal" className="text-xs font-mono uppercase tracking-[0.25em] text-sky-300 hover:text-sky-200 transition">
+            <Link href="/terminal" className="text-xs font-mono uppercase tracking-[0.25em] text-sky-300 transition hover:text-sky-200">
               &larr; Mobius Terminal
             </Link>
             <h1 className="mt-2 text-2xl font-semibold">Mobius Profile</h1>
             <p className="mt-1 text-sm text-slate-400">
-              Reputation is earned through contribution, verification, and consistency.
+              Identity, permissions, reputation, and contribution history for the active Mobius operator.
             </p>
           </div>
-          {/* Login lookup */}
           <div className="flex items-center gap-2">
             <input
               value={loginInput}
               onChange={(e) => setLoginInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && loadProfile(loginInput)}
               placeholder="github login"
-              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-mono text-white outline-none placeholder:text-slate-600 focus:border-sky-500/40 w-40"
+              className="w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-mono text-white outline-none placeholder:text-slate-600 focus:border-sky-500/40"
             />
             <button
               onClick={() => loadProfile(loginInput)}
-              className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-2 text-sm font-mono text-sky-300 hover:bg-sky-500/20 transition"
+              className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.14em] text-sky-300 transition hover:bg-sky-500/15"
             >
               Load
             </button>
@@ -269,67 +264,87 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl p-6">
+      <main className="mx-auto max-w-6xl px-6 py-6">
         {loading ? (
-          <div className="text-center text-slate-400 py-20">Loading profile...</div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 text-slate-400">
+            Loading Mobius profile surfaces…
+          </div>
         ) : !profile ? (
-          <div className="text-center text-slate-400 py-20">No profile found. Try a different login.</div>
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-6 text-rose-200">
+            Unable to load this profile right now.
+          </div>
         ) : (
           <div className="space-y-6">
-            {/* Identity card */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                  <div className="text-2xl font-semibold text-white">{profile.displayName}</div>
-                  <div className="mt-1 text-sm font-mono text-slate-400">@{profile.login}</div>
-                  <div className="mt-1 text-xs font-mono text-slate-500">
-                    Member since {new Date(profile.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <div className="text-3xl font-mono font-bold text-white">{profile.miiScore.toFixed(2)}</div>
-                    <div className="text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">MII Score</div>
-                  </div>
-                  <span className={`rounded-lg border px-3 py-1.5 text-xs font-mono uppercase tracking-[0.12em] ${tierColor(profile.nodeTier)}`}>
-                    {profile.nodeTier}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Stat label="EPICONs" value={String(profile.epiconCount)} />
-                <Stat
-                  label="Accuracy"
-                  value={accuracy === '—' ? '—' : `${accuracy}%`}
-                  sub={`${profile.verificationHits} hits / ${profile.verificationMisses} misses`}
-                />
-                <Stat label="Hits" value={String(profile.verificationHits)} />
-                <Stat label="Misses" value={String(profile.verificationMisses)} />
-              </div>
-            </div>
+            {identity ? <MobiusIdentityCard identity={identity} /> : null}
 
-            {/* Two-column layout */}
-            <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-              {/* Left: MII trend + EPICON history */}
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
               <div className="space-y-6">
-                <MIISparkline history={profile.miiHistory ?? []} />
-                <div>
-                  <div className="text-xs font-mono uppercase tracking-[0.2em] text-slate-400 mb-3">
-                    EPICON Submissions ({epicons.length})
+                <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="text-xs font-mono uppercase tracking-[0.2em] text-slate-500">Mobius Reputation</div>
+                      <h2 className="mt-2 text-xl font-semibold text-white">{profile.displayName}</h2>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-mono uppercase tracking-[0.14em]">
+                        <span className={`rounded-md border px-2 py-1 ${tierColor(profile.nodeTier)}`}>
+                          {profile.nodeTier}
+                        </span>
+                        <span className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-slate-300">
+                          @{profile.login}
+                        </span>
+                        <span className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-slate-300">
+                          {identity?.status || 'active'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="min-w-[180px] rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+                      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">Current MII</div>
+                      <div className="mt-2 text-3xl font-semibold text-white">{profile.miiScore.toFixed(2)}</div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
+                        <div className={`h-full ${miiBarColor(profile.miiScore)}`} style={{ width: `${Math.min(profile.miiScore * 100, 100)}%` }} />
+                      </div>
+                    </div>
                   </div>
-                  <EpiconList epicons={epicons} />
-                </div>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <Stat label="Signals Submitted" value={String(profile.epiconCount)} />
+                    <Stat label="Verification Hits" value={String(profile.verificationHits)} />
+                    <Stat label="Verification Misses" value={String(profile.verificationMisses)} />
+                    <Stat label="Accuracy" value={accuracy === '—' ? accuracy : `${accuracy}%`} sub={`${totalReviewed} reviewed`} />
+                  </div>
+                </section>
+
+                <section className="grid gap-6 xl:grid-cols-2">
+                  <MIISparkline history={profile.miiHistory} />
+                  <TierProgressBar currentTier={profile.nodeTier} mii={profile.miiScore} />
+                </section>
+
+                <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+                  <div className="text-xs font-mono uppercase tracking-[0.2em] text-slate-500">Recent EPICONs</div>
+                  <div className="mt-4">
+                    <EpiconList epicons={epicons} />
+                  </div>
+                </section>
               </div>
 
-              {/* Right: Tier progression + MII history log */}
               <div className="space-y-6">
-                <TierProgressBar currentTier={profile.nodeTier} mii={profile.miiScore} />
-                <div>
-                  <div className="text-xs font-mono uppercase tracking-[0.2em] text-slate-400 mb-3">
-                    MII History ({(profile.miiHistory ?? []).length} events)
+                <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+                  <div className="text-xs font-mono uppercase tracking-[0.2em] text-slate-500">Integrity History</div>
+                  <div className="mt-4">
+                    <HistoryTimeline history={profile.miiHistory} />
                   </div>
-                  <HistoryTimeline history={profile.miiHistory ?? []} />
-                </div>
+                </section>
+
+                <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
+                  <div className="text-xs font-mono uppercase tracking-[0.2em] text-slate-500">Identity Layer Notes</div>
+                  <div className="mt-3 space-y-3 text-sm text-slate-400">
+                    <p>
+                      Mobius Identity now binds role visibility, MIC state, and EPICON contribution count into a single operator surface.
+                    </p>
+                    <p>
+                      This scaffold keeps storage in memory so the terminal can evolve toward real auth, wallet linkage, and role-based permissions without changing the UI contract.
+                    </p>
+                  </div>
+                </section>
               </div>
             </div>
           </div>
