@@ -258,6 +258,7 @@ function TerminalPage() {
         primaryDriver={primaryDriver}
         cycleId={cycleId}
         streamStatus={streamStatus}
+        giMode={gi.mode}
         onNavigate={setSelectedNav}
         onShowGI={() => {
           setSelectedNav('governance');

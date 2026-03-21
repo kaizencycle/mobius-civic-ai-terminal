@@ -119,7 +119,10 @@ export default function IntegrityMonitorCard({
       onClick={onClick}
       className="group w-full rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-left transition hover:border-slate-700 hover:bg-slate-900/80"
     >
-      <SectionLabel title="GI Monitor" subtitle="Civic integrity signal" />
+      <SectionLabel
+        title="GI Monitor"
+        subtitle={gi.summary ?? `Civic integrity signal${gi.mode ? ` · ${gi.mode.toUpperCase()}` : ''}`}
+      />
 
       <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="relative shrink-0 self-center sm:self-start" style={{ width: 160, height: 160 }}>
@@ -173,9 +176,10 @@ export default function IntegrityMonitorCard({
 
         <div className="min-w-0 flex-1 pt-1">
           <div className="space-y-2">
-            <MetricLabel label="Institutional Trust" value={gi.institutionalTrust} color="bg-sky-400" />
-            <MetricLabel label="Info Reliability" value={gi.infoReliability} color="bg-violet-400" />
-            <MetricLabel label="Consensus Stability" value={gi.consensusStability} color="bg-amber-400" />
+            <MetricLabel label="Signal Quality" value={gi.signalBreakdown?.quality ?? gi.institutionalTrust} color="bg-sky-400" />
+            <MetricLabel label="Signal Freshness" value={gi.signalBreakdown?.freshness ?? gi.infoReliability} color="bg-violet-400" />
+            <MetricLabel label="Tripwire Stability" value={gi.signalBreakdown?.stability ?? gi.consensusStability} color="bg-amber-400" />
+            <MetricLabel label="System Health" value={gi.signalBreakdown?.system ?? gi.score} color="bg-emerald-400" />
           </div>
 
           <div className="mt-4 rounded-lg border border-slate-800/60 bg-slate-950/50 p-2">

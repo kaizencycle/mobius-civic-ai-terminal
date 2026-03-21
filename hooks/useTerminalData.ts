@@ -94,7 +94,7 @@ export function useTerminalData(selectedNav: NavKey) {
       setAgents(agentsData);
       setEpicon(epiconData);
       setIntegrityStatus(integrityData);
-      setGi(integrityStatusToGISnapshot(integrityData));
+      setGi((prev) => integrityStatusToGISnapshot(integrityData, prev?.score));
       setTripwires(tripwireData);
       setBackfillLedger(ledgerBackfillData);
       setInspectorTarget((prev) => prev ?? (epiconData[0] ? { kind: 'epicon', data: epiconData[0] } : null));

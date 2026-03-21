@@ -77,9 +77,19 @@ export type Tripwire = {
 export type GISnapshot = {
   score: number;
   delta: number;
+  mode?: 'green' | 'yellow' | 'red';
+  terminalStatus?: 'nominal' | 'stressed' | 'critical';
+  primaryDriver?: string;
+  summary?: string;
   institutionalTrust: number;
   infoReliability: number;
   consensusStability: number;
+  signalBreakdown?: {
+    quality: number;
+    freshness: number;
+    stability: number;
+    system: number;
+  };
   weekly: number[];
 };
 

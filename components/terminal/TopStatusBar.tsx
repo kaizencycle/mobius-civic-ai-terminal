@@ -82,6 +82,7 @@ export default function TopStatusBar({
   alertCount,
   cycleId = 'C-253',
   streamStatus = 'offline',
+  giMode,
   onNavigate,
   onShowGI,
 }: {
@@ -93,6 +94,7 @@ export default function TopStatusBar({
   alertCount: number;
   cycleId?: string;
   streamStatus?: StreamStatus;
+  giMode?: 'green' | 'yellow' | 'red';
   onNavigate: (key: NavKey) => void;
   onShowGI: () => void;
 }) {
@@ -129,7 +131,7 @@ export default function TopStatusBar({
         <div className="hidden sm:flex flex-wrap items-center justify-end gap-2">
           <Chip label={cycleId} onClick={() => onNavigate('pulse')} />
           <Chip label={clock || 'Loading...'} />
-          <Chip label={`GI ${gi.toFixed(2)}`} tone={giScoreColor(gi).chip} onClick={onShowGI} />
+          <Chip label={`GI ${gi.toFixed(2)}${giMode ? ` · ${giMode.toUpperCase()}` : ''}`} tone={giScoreColor(gi).chip} onClick={onShowGI} />
           <Chip label={`MII ${mii.toFixed(2)}`} tone={mii >= 0.7 ? 'text-cyan-300 border-cyan-500/30 bg-cyan-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'} onClick={() => onNavigate('wallet')} />
           <Chip label={`MIC ${micSupply.toLocaleString()}`} tone="text-violet-300 border-violet-500/30 bg-violet-500/10" onClick={() => onNavigate('wallet')} />
           <Chip label={terminalStatus} tone={statusTone} onClick={() => onNavigate('governance')} />
@@ -162,7 +164,7 @@ export default function TopStatusBar({
 
         <div className="flex sm:hidden items-center gap-2">
           <Chip label={cycleId} onClick={() => onNavigate('pulse')} />
-          <Chip label={`GI ${gi.toFixed(2)}`} tone={giScoreColor(gi).chip} onClick={onShowGI} />
+          <Chip label={`GI ${gi.toFixed(2)}${giMode ? ` · ${giMode.toUpperCase()}` : ''}`} tone={giScoreColor(gi).chip} onClick={onShowGI} />
           <Chip label={`MII ${mii.toFixed(2)}`} tone="text-cyan-300 border-cyan-500/30 bg-cyan-500/10" onClick={() => onNavigate('wallet')} />
           <Chip label={`${alertCount}`} tone="text-amber-300 border-amber-500/30 bg-amber-500/10" onClick={() => onNavigate('infrastructure')} />
         </div>
