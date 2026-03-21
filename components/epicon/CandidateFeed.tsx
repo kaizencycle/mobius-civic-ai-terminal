@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useMobiusIdentity } from '@/hooks/useMobiusIdentity';
 import CandidateCard from './CandidateCard';
 
 type Candidate = {
@@ -16,26 +17,12 @@ type Candidate = {
 
 export default function CandidateFeed() {
   const [data, setData] = useState<Candidate[]>([]);
-  const [canVerify, setCanVerify] = useState(false);
-  const [canContradict, setCanContradict] = useState(false);
+  const { hasPermission } = useMobiusIdentity();
 
   async function load() {
     const res = await fetch('/api/epicon/candidates', { cache: 'no-store' });
     const json = await res.json();
     setData(json.candidates || []);
-  }
-
-  async function loadPermissions() {
-    try {
-      const res = await fetch('/api/identity/me?username=kaizencycle', { cache: 'no-store' });
-      const json = await res.json();
-      const permissions = json.permissions || [];
-      setCanVerify(permissions.includes('epicon:verify'));
-      setCanContradict(permissions.includes('epicon:contradict'));
-    } catch {
-      setCanVerify(false);
-      setCanContradict(false);
-    }
   }
 
   async function onVerify(id: string, outcome: 'verified' | 'contradicted') {
@@ -65,7 +52,6 @@ export default function CandidateFeed() {
 
   useEffect(() => {
     load();
-    loadPermissions();
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -83,8 +69,8 @@ export default function CandidateFeed() {
           key={item.id}
           item={item}
           onVerify={onVerify}
-          canVerify={canVerify}
-          canContradict={canContradict}
+          canVerify={hasPermission('epicon:verify')}
+          canContradict={hasPermission('epicon:contradict')}
         />
       ))}
     </div>

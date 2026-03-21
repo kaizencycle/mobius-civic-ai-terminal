@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { useMobiusIdentity } from '@/hooks/useMobiusIdentity';
 import type { InspectorTarget, Tripwire } from '@/lib/terminal/types';
 import { confidenceLabel, statusColor, tripwireStyle, giScoreColor, metricBarColor, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
@@ -133,36 +134,11 @@ function ZeusVerifyControls({
   const [tier, setTier] = useState(3);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ZeusVerifyResult | null>(null);
-  const [canVerify, setCanVerify] = useState(false);
-  const [canContradict, setCanContradict] = useState(false);
+  const { hasPermission } = useMobiusIdentity();
+  const canVerify = hasPermission('epicon:verify');
+  const canContradict = hasPermission('epicon:contradict');
 
   if (!onVerify) return null;
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadPermissions() {
-      try {
-        const res = await fetch('/api/identity/me?username=kaizencycle', { cache: 'no-store' });
-        const json = await res.json();
-        const permissions = json.permissions || [];
-        if (!active) return;
-        setCanVerify(permissions.includes('epicon:verify'));
-        setCanContradict(permissions.includes('epicon:contradict'));
-      } catch {
-        if (active) {
-          setCanVerify(false);
-          setCanContradict(false);
-        }
-      }
-    }
-
-    loadPermissions();
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   // Only show for user-submitted pending EPICONs
   const isUserSubmitted = epiconId.includes('-USR-');

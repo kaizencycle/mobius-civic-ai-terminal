@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useMobiusIdentity } from '@/hooks/useMobiusIdentity';
 import PublishEpiconModal from './PublishEpiconModal';
 
 type QueryResult = {
@@ -21,30 +22,8 @@ export default function QueryResultCard({
   result: QueryResult;
 }) {
   const [open, setOpen] = useState(false);
-  const [canPublish, setCanPublish] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadPermissions() {
-      try {
-        const res = await fetch('/api/identity/me?username=kaizencycle', { cache: 'no-store' });
-        const json = await res.json();
-        if (!active) return;
-        setCanPublish(Boolean(json.permissions?.includes('epicon:publish')));
-      } catch {
-        if (active) {
-          setCanPublish(false);
-        }
-      }
-    }
-
-    loadPermissions();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  const { hasPermission, loading } = useMobiusIdentity();
+  const canPublish = hasPermission('epicon:publish');
 
   return (
     <>
@@ -81,7 +60,7 @@ export default function QueryResultCard({
 
           <div className="flex flex-col gap-1">
             <button
-              disabled={!canPublish}
+              disabled={loading || !canPublish}
               className={`rounded-lg border px-3 py-2 text-sm transition ${
                 canPublish
                   ? 'border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20'
@@ -91,7 +70,7 @@ export default function QueryResultCard({
             >
               Publish to EPICON
             </button>
-            {!canPublish ? (
+            {!loading && !canPublish ? (
               <div className="text-[11px] text-slate-500">
                 Publish unavailable for current role
               </div>

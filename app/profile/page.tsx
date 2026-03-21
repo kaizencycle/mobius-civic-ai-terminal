@@ -1,38 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import MobiusIdentityCard from '@/components/identity/MobiusIdentityCard';
-import type { MobiusIdentity } from '@/lib/identity/types';
+import { useMobiusIdentity } from '@/hooks/useMobiusIdentity';
 
 export default function ProfilePage() {
-  const [identity, setIdentity] = useState<MobiusIdentity | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function load() {
-      try {
-        const res = await fetch('/api/identity/me?username=kaizencycle', {
-          cache: 'no-store',
-        });
-        const json = await res.json();
-
-        if (mounted) {
-          setIdentity(json.identity || null);
-        }
-      } catch {
-        if (mounted) {
-          setIdentity(null);
-        }
-      }
-    }
-
-    load();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { identity, loading, permissions } = useMobiusIdentity();
 
   return (
     <main className="min-h-screen bg-slate-950 p-6 text-slate-100">
@@ -46,6 +18,18 @@ export default function ProfilePage() {
             <p className="mt-1 text-sm text-slate-400">
               Identity, permissions, integrity score, and contribution state for the current Mobius node.
             </p>
+            {!loading && permissions.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {permissions.map((permission) => (
+                  <span
+                    key={permission}
+                    className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-300"
+                  >
+                    {permission}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -53,7 +37,7 @@ export default function ProfilePage() {
           <MobiusIdentityCard identity={identity} />
         ) : (
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6 text-slate-400">
-            Loading identity...
+            {loading ? 'Loading identity...' : 'Identity unavailable.'}
           </div>
         )}
       </div>
