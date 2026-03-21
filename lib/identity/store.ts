@@ -1,10 +1,8 @@
 import { getMicAccount } from '@/lib/mic/store';
 import type { MobiusIdentity, MobiusRole } from '@/lib/identity/types';
+import { rolePermissions } from '@/lib/identity/permissions';
 
 const DEFAULT_USERNAME = 'kaizencycle';
-const DEFAULT_ROLE: MobiusRole = 'developer';
-const DEFAULT_AGENTS = ['ECHO', 'ZEUS', 'ATLAS'];
-
 const identities = new Map<string, MobiusIdentity>();
 
 function randomId(prefix: string) {
@@ -15,21 +13,41 @@ function normalizeUsername(username?: string | null) {
   return (username || DEFAULT_USERNAME).trim() || DEFAULT_USERNAME;
 }
 
+function defaultRoleFor(username: string): MobiusRole {
+  return username === DEFAULT_USERNAME ? 'developer' : 'citizen';
+}
+
+function defaultAgentPermissions(role: MobiusRole): string[] {
+  if (role === 'developer') {
+    return ['ECHO', 'ZEUS', 'ATLAS', 'AUREA'];
+  }
+
+  return ['ECHO', 'ZEUS'];
+}
+
+function displayNameFor(username: string) {
+  if (username === DEFAULT_USERNAME) {
+    return 'Michael';
+  }
+
+  return username;
+}
+
 function buildIdentity(username: string): MobiusIdentity {
   const now = new Date().toISOString();
-  const account = getMicAccount(username);
+  const role = defaultRoleFor(username);
 
   return {
     mobius_id: randomId('mbx'),
     ledger_id: randomId('ldr'),
     username,
-    display_name: username === DEFAULT_USERNAME ? 'Michael' : username,
-    role: DEFAULT_ROLE,
+    display_name: displayNameFor(username),
+    role,
     status: 'active',
     mii_score: 0.5,
-    mic_balance: account.balance,
+    mic_balance: getMicAccount(username).balance,
     epicon_count: 0,
-    agent_permissions: [...DEFAULT_AGENTS],
+    agent_permissions: defaultAgentPermissions(role),
     joined_at: now,
     last_active_at: now,
   };
@@ -55,7 +73,6 @@ export function getIdentity(username?: string | null) {
 
 export function listIdentities() {
   ensureIdentity(DEFAULT_USERNAME);
-
   return Array.from(identities.values()).map((identity) => ({
     ...identity,
     mic_balance: getMicAccount(identity.username).balance,
@@ -75,4 +92,9 @@ export function incrementEpiconCount(username?: string | null) {
   identity.last_active_at = new Date().toISOString();
   identity.mic_balance = getMicAccount(identity.username).balance;
   return identity;
+}
+
+export function getIdentityPermissions(username?: string | null) {
+  const identity = ensureIdentity(username);
+  return rolePermissions[identity.role];
 }
