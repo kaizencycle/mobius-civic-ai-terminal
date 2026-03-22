@@ -16,11 +16,11 @@
     },
     {
       "path": "/api/signals/micro",
-      "schedule": "*/15 * * * *"
+      "schedule": "10 5 * * *"
     },
     {
       "path": "/api/integrity-status",
-      "schedule": "*/10 * * * *"
+      "schedule": "15 5 * * *"
     },
     {
       "path": "/api/aurea/oversee",
@@ -28,7 +28,7 @@
     },
     {
       "path": "/api/runtime/heartbeat",
-      "schedule": "*/30 * * * *"
+      "schedule": "45 5 * * *"
     }
   ]
 }
