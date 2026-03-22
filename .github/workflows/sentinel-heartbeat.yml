@@ -1,0 +1,157 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Sentinel Heartbeat — Agent Health Attestation
+# ═══════════════════════════════════════════════════════════════════════════════
+# Adapted from kaizencycle/Mobius-Substrate sentinel-heartbeat.yml
+# Runs every 6 hours. Polls the micro sub-agents, records health snapshot,
+# and writes an EPICON heartbeat entry to the catalog.
+# CC0 Public Domain
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Sentinel Heartbeat
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (log only, no commit)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+env:
+  TERMINAL_URL: "https://mobius-civic-ai-terminal.vercel.app"
+
+jobs:
+  heartbeat:
+    name: 🫀 Sentinel Heartbeat
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Poll micro sub-agents
+        id: poll
+        run: |
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          NOW_FILE=$(date -u +"%Y%m%dT%H%M%SZ")
+
+          echo "now=$NOW" >> $GITHUB_OUTPUT
+          echo "now_file=$NOW_FILE" >> $GITHUB_OUTPUT
+
+          # Try to fetch from live terminal
+          MICRO_OK=false
+          if curl -sf "${TERMINAL_URL}/api/signals/micro" -o /tmp/micro.json --max-time 15; then
+            MICRO_OK=true
+            echo "✅ Micro-agent API responded"
+          else
+            echo "⚠️ Micro-agent API unreachable, using offline defaults"
+            echo '{"ok":false,"composite":0.5,"allSignals":[],"anomalies":[],"healthy":false}' > /tmp/micro.json
+          fi
+
+          # Try to fetch integrity status
+          INTEGRITY_OK=false
+          if curl -sf "${TERMINAL_URL}/api/integrity-status" -o /tmp/integrity.json --max-time 15; then
+            INTEGRITY_OK=true
+            echo "✅ Integrity API responded"
+          else
+            echo "⚠️ Integrity API unreachable"
+            echo '{"ok":false,"global_integrity":0,"mode":"unknown"}' > /tmp/integrity.json
+          fi
+
+          # Try to fetch runtime heartbeat
+          RUNTIME_OK=false
+          if curl -sf "${TERMINAL_URL}/api/runtime/heartbeat" -o /tmp/runtime.json --max-time 10; then
+            RUNTIME_OK=true
+            echo "✅ Runtime heartbeat responded"
+          else
+            echo "⚠️ Runtime heartbeat unreachable"
+          fi
+
+          # Extract values
+          COMPOSITE=$(python3 -c "import json; d=json.load(open('/tmp/micro.json')); print(d.get('composite', 0.5))" 2>/dev/null || echo "0.5")
+          ANOMALY_COUNT=$(python3 -c "import json; d=json.load(open('/tmp/micro.json')); print(len(d.get('anomalies', [])))" 2>/dev/null || echo "0")
+          GI=$(python3 -c "import json; d=json.load(open('/tmp/integrity.json')); print(d.get('global_integrity', 0))" 2>/dev/null || echo "0")
+          MODE=$(python3 -c "import json; d=json.load(open('/tmp/integrity.json')); print(d.get('mode', 'unknown'))" 2>/dev/null || echo "unknown")
+
+          echo "micro_ok=$MICRO_OK" >> $GITHUB_OUTPUT
+          echo "integrity_ok=$INTEGRITY_OK" >> $GITHUB_OUTPUT
+          echo "runtime_ok=$RUNTIME_OK" >> $GITHUB_OUTPUT
+          echo "composite=$COMPOSITE" >> $GITHUB_OUTPUT
+          echo "anomaly_count=$ANOMALY_COUNT" >> $GITHUB_OUTPUT
+          echo "gi=$GI" >> $GITHUB_OUTPUT
+          echo "mode=$MODE" >> $GITHUB_OUTPUT
+
+          # Determine overall health
+          if [ "$MICRO_OK" = "true" ] && [ "$INTEGRITY_OK" = "true" ] && [ "$RUNTIME_OK" = "true" ]; then
+            echo "health=nominal" >> $GITHUB_OUTPUT
+          elif [ "$MICRO_OK" = "true" ] || [ "$INTEGRITY_OK" = "true" ]; then
+            echo "health=degraded" >> $GITHUB_OUTPUT
+          else
+            echo "health=offline" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Write heartbeat entry
+        if: ${{ !inputs.dry_run }}
+        run: |
+          NOW="${{ steps.poll.outputs.now }}"
+          NOW_FILE="${{ steps.poll.outputs.now_file }}"
+
+          mkdir -p docs/catalog/heartbeats
+
+          cat > "docs/catalog/heartbeats/${NOW_FILE}.json" <<EOF
+          {
+            "timestamp": "${NOW}",
+            "health": "${{ steps.poll.outputs.health }}",
+            "endpoints": {
+              "micro_agents": ${{ steps.poll.outputs.micro_ok }},
+              "integrity": ${{ steps.poll.outputs.integrity_ok }},
+              "runtime": ${{ steps.poll.outputs.runtime_ok }}
+            },
+            "signals": {
+              "composite": ${{ steps.poll.outputs.composite }},
+              "anomalies": ${{ steps.poll.outputs.anomaly_count }},
+              "gi": ${{ steps.poll.outputs.gi }},
+              "mode": "${{ steps.poll.outputs.mode }}"
+            }
+          }
+          EOF
+
+          # Keep only last 100 heartbeats
+          cd docs/catalog/heartbeats
+          ls -1t *.json 2>/dev/null | tail -n +101 | xargs rm -f 2>/dev/null || true
+
+      - name: Commit heartbeat
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git config user.name "mobius-bot"
+          git config user.email "bot@mobius.substrate"
+          git add docs/catalog/heartbeats/
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "heartbeat: ${{ steps.poll.outputs.health }} · GI ${{ steps.poll.outputs.gi }} · ${{ steps.poll.outputs.anomaly_count }} anomalies [skip ci]"
+            git push
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 🫀 Sentinel Heartbeat" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Timestamp | ${{ steps.poll.outputs.now }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Health | ${{ steps.poll.outputs.health }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| GI | ${{ steps.poll.outputs.gi }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Mode | ${{ steps.poll.outputs.mode }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Composite signal | ${{ steps.poll.outputs.composite }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Anomalies | ${{ steps.poll.outputs.anomaly_count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Micro-agents | ${{ steps.poll.outputs.micro_ok }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integrity API | ${{ steps.poll.outputs.integrity_ok }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Runtime | ${{ steps.poll.outputs.runtime_ok }} |" >> $GITHUB_STEP_SUMMARY
