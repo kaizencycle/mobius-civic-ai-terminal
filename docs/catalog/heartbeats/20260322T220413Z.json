@@ -1,0 +1,257 @@
+{
+  "timestamp": "2026-03-22T22:04:19.462Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-22T22:04:19.442Z",
+          "value": 0.972,
+          "label": "Weather: 52°F, 1mph wind, code 3",
+          "severity": "nominal",
+          "raw": {
+            "time": "2026-03-22T22:00",
+            "interval": 900,
+            "temperature_2m": 51.7,
+            "wind_speed_10m": 0.9,
+            "weather_code": 3
+          }
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-22T22:04:19.462Z",
+          "value": 0.106,
+          "label": "Seismic: 68 quakes M2.5+ today, max M6.3 near 105 km N of Charlotte Amalie, U.S. Virgin Islands",
+          "severity": "elevated",
+          "raw": {
+            "count": 68,
+            "maxMag": 6.3
+          }
+        }
+      ],
+      "polledAt": "2026-03-22T22:04:19.462Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-µ",
+      "signals": [
+        {
+          "agentName": "HERMES-µ",
+          "source": "Hacker News",
+          "timestamp": "2026-03-22T22:04:19.008Z",
+          "value": 0.697,
+          "label": "HN: top 5 avg score 159, avg 86 comments",
+          "severity": "nominal",
+          "raw": {
+            "avgScore": 159,
+            "avgComments": 86,
+            "topTitle": "PC Gamer recommends RSS readers in a 37mb article that just keeps downloading"
+          }
+        },
+        {
+          "agentName": "HERMES-µ",
+          "source": "Wikipedia Recent Changes",
+          "timestamp": "2026-03-22T22:04:19.114Z",
+          "value": 0.7,
+          "label": "Wikipedia: 124.4 edits/min, 0/50 minor",
+          "severity": "nominal",
+          "raw": {
+            "editsPerMin": 124.41,
+            "totalSampled": 50,
+            "minorCount": 0
+          }
+        }
+      ],
+      "polledAt": "2026-03-22T22:04:19.114Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-22T22:04:18.918Z",
+          "value": 0.5,
+          "label": "Federal Register: 0 docs today",
+          "severity": "nominal",
+          "raw": {
+            "count": 0,
+            "types": {},
+            "date": "2026-03-22"
+          }
+        }
+      ],
+      "polledAt": "2026-03-22T22:04:19.441Z",
+      "errors": [
+        "data.gov API fetch failed"
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "GitHub API",
+          "timestamp": "2026-03-22T22:04:19.035Z",
+          "value": 0.999,
+          "label": "GitHub: 14 events/24h, 30 events/7d, last 0h ago",
+          "severity": "nominal",
+          "raw": {
+            "last24h": 14,
+            "last7d": 30,
+            "hoursSinceLast": 0
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "npm Registry",
+          "timestamp": "2026-03-22T22:04:19.439Z",
+          "value": 0.978,
+          "label": "Next.js latest: v16.2.1, released 2d ago",
+          "severity": "nominal",
+          "raw": {
+            "package": "next",
+            "latest": "16.2.1",
+            "daysSinceRelease": 2
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "Self-ping",
+          "timestamp": "2026-03-22T22:04:19.439Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "polledAt": "2026-03-22T22:04:19.439Z",
+      "errors": [],
+      "healthy": true
+    }
+  ],
+  "allSignals": [
+    {
+      "agentName": "GAIA",
+      "source": "Open-Meteo",
+      "timestamp": "2026-03-22T22:04:19.442Z",
+      "value": 0.972,
+      "label": "Weather: 52°F, 1mph wind, code 3",
+      "severity": "nominal",
+      "raw": {
+        "time": "2026-03-22T22:00",
+        "interval": 900,
+        "temperature_2m": 51.7,
+        "wind_speed_10m": 0.9,
+        "weather_code": 3
+      }
+    },
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-22T22:04:19.462Z",
+      "value": 0.106,
+      "label": "Seismic: 68 quakes M2.5+ today, max M6.3 near 105 km N of Charlotte Amalie, U.S. Virgin Islands",
+      "severity": "elevated",
+      "raw": {
+        "count": 68,
+        "maxMag": 6.3
+      }
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Hacker News",
+      "timestamp": "2026-03-22T22:04:19.008Z",
+      "value": 0.697,
+      "label": "HN: top 5 avg score 159, avg 86 comments",
+      "severity": "nominal",
+      "raw": {
+        "avgScore": 159,
+        "avgComments": 86,
+        "topTitle": "PC Gamer recommends RSS readers in a 37mb article that just keeps downloading"
+      }
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Wikipedia Recent Changes",
+      "timestamp": "2026-03-22T22:04:19.114Z",
+      "value": 0.7,
+      "label": "Wikipedia: 124.4 edits/min, 0/50 minor",
+      "severity": "nominal",
+      "raw": {
+        "editsPerMin": 124.41,
+        "totalSampled": 50,
+        "minorCount": 0
+      }
+    },
+    {
+      "agentName": "THEMIS",
+      "source": "Federal Register",
+      "timestamp": "2026-03-22T22:04:18.918Z",
+      "value": 0.5,
+      "label": "Federal Register: 0 docs today",
+      "severity": "nominal",
+      "raw": {
+        "count": 0,
+        "types": {},
+        "date": "2026-03-22"
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "GitHub API",
+      "timestamp": "2026-03-22T22:04:19.035Z",
+      "value": 0.999,
+      "label": "GitHub: 14 events/24h, 30 events/7d, last 0h ago",
+      "severity": "nominal",
+      "raw": {
+        "last24h": 14,
+        "last7d": 30,
+        "hoursSinceLast": 0
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "npm Registry",
+      "timestamp": "2026-03-22T22:04:19.439Z",
+      "value": 0.978,
+      "label": "Next.js latest: v16.2.1, released 2d ago",
+      "severity": "nominal",
+      "raw": {
+        "package": "next",
+        "latest": "16.2.1",
+        "daysSinceRelease": 2
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "Self-ping",
+      "timestamp": "2026-03-22T22:04:19.439Z",
+      "value": 0.5,
+      "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+      "severity": "watch"
+    }
+  ],
+  "composite": 0.681,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-22T22:04:19.462Z",
+      "value": 0.106,
+      "label": "Seismic: 68 quakes M2.5+ today, max M6.3 near 105 km N of Charlotte Amalie, U.S. Virgin Islands",
+      "severity": "elevated",
+      "raw": {
+        "count": 68,
+        "maxMag": 6.3
+      }
+    }
+  ],
+  "healthy": true
+}
