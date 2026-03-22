@@ -1,12 +1,12 @@
 {
   "repo": "kaizencycle/mobius-civic-ai-terminal",
-  "generated_at": "2026-03-22T10:05:00Z",
+  "generated_at": "2026-03-22T16:37:36Z",
   "cycle": "C-258",
   "epoch": "FOUNDATION",
   "version": "0.1.0",
   "stats": {
-    "total_commits": 84,
-    "total_files": 163,
+    "total_commits": 86,
+    "total_files": 169,
     "lines_of_code": 14325,
     "api_routes": 25,
     "components": 10,
@@ -22,47 +22,208 @@
     "primary_driver": "Middle East energy instability"
   },
   "agents": {
-    "canonical": ["ATLAS", "ZEUS", "HERMES", "AUREA", "JADE", "DAEDALUS", "ECHO", "EVE"],
-    "micro": ["GAIA", "HERMES-µ", "THEMIS", "DAEDALUS-µ"],
+    "canonical": [
+      "ATLAS",
+      "ZEUS",
+      "HERMES",
+      "AUREA",
+      "JADE",
+      "DAEDALUS",
+      "ECHO",
+      "EVE"
+    ],
+    "micro": [
+      "GAIA",
+      "HERMES-\u00b5",
+      "THEMIS",
+      "DAEDALUS-\u00b5"
+    ],
     "micro_sources": {
-      "GAIA": ["Open-Meteo", "USGS Earthquake"],
-      "HERMES-µ": ["Hacker News", "Wikipedia Recent Changes"],
-      "THEMIS": ["Federal Register", "data.gov"],
-      "DAEDALUS-µ": ["GitHub API", "npm Registry", "Self-ping"]
+      "GAIA": [
+        "Open-Meteo",
+        "USGS Earthquake"
+      ],
+      "HERMES-\u00b5": [
+        "Hacker News",
+        "Wikipedia Recent Changes"
+      ],
+      "THEMIS": [
+        "Federal Register",
+        "data.gov"
+      ],
+      "DAEDALUS-\u00b5": [
+        "GitHub API",
+        "npm Registry",
+        "Self-ping"
+      ]
     }
   },
   "surfaces": {
     "api_routes": [
-      { "path": "/api/integrity-status", "method": "GET", "domain": "gi", "live": true },
-      { "path": "/api/agents/status", "method": "GET", "domain": "agents", "live": true },
-      { "path": "/api/epicon/feed", "method": "GET", "domain": "epicon", "live": true },
-      { "path": "/api/epicon/create", "method": "POST", "domain": "epicon", "live": true },
-      { "path": "/api/epicon/verify", "method": "POST", "domain": "zeus", "live": true },
-      { "path": "/api/epicon/publish", "method": "POST", "domain": "epicon", "live": true },
-      { "path": "/api/epicon/candidates", "method": "GET", "domain": "epicon", "live": true },
-      { "path": "/api/zeus/verify", "method": "POST", "domain": "zeus", "live": true },
-      { "path": "/api/echo/feed", "method": "GET", "domain": "echo", "live": true },
-      { "path": "/api/echo/ingest", "method": "POST", "domain": "echo", "live": true },
-      { "path": "/api/echo/snapshot", "method": "GET", "domain": "echo", "live": true },
-      { "path": "/api/ledger/backfill", "method": "GET", "domain": "ledger", "live": true },
-      { "path": "/api/tripwire/status", "method": "GET", "domain": "tripwire", "live": true },
-      { "path": "/api/signals/pulse", "method": "GET", "domain": "signals", "live": true },
-      { "path": "/api/signals/micro", "method": "GET", "domain": "micro-agents", "live": true },
-      { "path": "/api/runtime/heartbeat", "method": "GET", "domain": "runtime", "live": true },
-      { "path": "/api/runtime/status", "method": "GET", "domain": "runtime", "live": true },
-      { "path": "/api/mic/account", "method": "GET", "domain": "mic", "live": true },
-      { "path": "/api/mic/settle", "method": "POST", "domain": "mic", "live": true },
-      { "path": "/api/eve/cycle-advance", "method": "POST", "domain": "eve", "live": true },
-      { "path": "/api/aurea/oversee", "method": "POST", "domain": "aurea", "live": true },
-      { "path": "/api/adapters/ingest", "method": "POST", "domain": "adapters", "live": true },
-      { "path": "/api/identity/me", "method": "GET", "domain": "identity", "live": true },
-      { "path": "/api/identity/list", "method": "GET", "domain": "identity", "live": true },
-      { "path": "/api/profile", "method": "GET", "domain": "identity", "live": true }
+      {
+        "path": "/api/integrity-status",
+        "method": "GET",
+        "domain": "gi",
+        "live": true
+      },
+      {
+        "path": "/api/agents/status",
+        "method": "GET",
+        "domain": "agents",
+        "live": true
+      },
+      {
+        "path": "/api/epicon/feed",
+        "method": "GET",
+        "domain": "epicon",
+        "live": true
+      },
+      {
+        "path": "/api/epicon/create",
+        "method": "POST",
+        "domain": "epicon",
+        "live": true
+      },
+      {
+        "path": "/api/epicon/verify",
+        "method": "POST",
+        "domain": "zeus",
+        "live": true
+      },
+      {
+        "path": "/api/epicon/publish",
+        "method": "POST",
+        "domain": "epicon",
+        "live": true
+      },
+      {
+        "path": "/api/epicon/candidates",
+        "method": "GET",
+        "domain": "epicon",
+        "live": true
+      },
+      {
+        "path": "/api/zeus/verify",
+        "method": "POST",
+        "domain": "zeus",
+        "live": true
+      },
+      {
+        "path": "/api/echo/feed",
+        "method": "GET",
+        "domain": "echo",
+        "live": true
+      },
+      {
+        "path": "/api/echo/ingest",
+        "method": "POST",
+        "domain": "echo",
+        "live": true
+      },
+      {
+        "path": "/api/echo/snapshot",
+        "method": "GET",
+        "domain": "echo",
+        "live": true
+      },
+      {
+        "path": "/api/ledger/backfill",
+        "method": "GET",
+        "domain": "ledger",
+        "live": true
+      },
+      {
+        "path": "/api/tripwire/status",
+        "method": "GET",
+        "domain": "tripwire",
+        "live": true
+      },
+      {
+        "path": "/api/signals/pulse",
+        "method": "GET",
+        "domain": "signals",
+        "live": true
+      },
+      {
+        "path": "/api/signals/micro",
+        "method": "GET",
+        "domain": "micro-agents",
+        "live": true
+      },
+      {
+        "path": "/api/runtime/heartbeat",
+        "method": "GET",
+        "domain": "runtime",
+        "live": true
+      },
+      {
+        "path": "/api/runtime/status",
+        "method": "GET",
+        "domain": "runtime",
+        "live": true
+      },
+      {
+        "path": "/api/mic/account",
+        "method": "GET",
+        "domain": "mic",
+        "live": true
+      },
+      {
+        "path": "/api/mic/settle",
+        "method": "POST",
+        "domain": "mic",
+        "live": true
+      },
+      {
+        "path": "/api/eve/cycle-advance",
+        "method": "POST",
+        "domain": "eve",
+        "live": true
+      },
+      {
+        "path": "/api/aurea/oversee",
+        "method": "POST",
+        "domain": "aurea",
+        "live": true
+      },
+      {
+        "path": "/api/adapters/ingest",
+        "method": "POST",
+        "domain": "adapters",
+        "live": true
+      },
+      {
+        "path": "/api/identity/me",
+        "method": "GET",
+        "domain": "identity",
+        "live": true
+      },
+      {
+        "path": "/api/identity/list",
+        "method": "GET",
+        "domain": "identity",
+        "live": true
+      },
+      {
+        "path": "/api/profile",
+        "method": "GET",
+        "domain": "identity",
+        "live": true
+      }
     ],
     "pages": [
-      { "path": "/terminal", "description": "Bloomberg-style civic command console" },
-      { "path": "/epicon", "description": "EPICON feed and query-to-ledger flow" },
-      { "path": "/profile", "description": "Mobius Identity profile surface" }
+      {
+        "path": "/terminal",
+        "description": "Bloomberg-style civic command console"
+      },
+      {
+        "path": "/epicon",
+        "description": "EPICON feed and query-to-ledger flow"
+      },
+      {
+        "path": "/profile",
+        "description": "Mobius Identity profile surface"
+      }
     ]
   },
   "deployments": {
@@ -72,14 +233,54 @@
     "auto_deploy_branch": "main"
   },
   "recent_prs": [
-    { "number": 31, "title": "feat(identity): design Mobius Identity system", "status": "merged", "cycle": "C-257" },
-    { "number": 30, "title": "feat(identity): add Mobius Identity scaffold and profile surface", "status": "merged", "cycle": "C-257" },
-    { "number": 29, "title": "feat(ui): terminal navigation and layout cohesion", "status": "merged", "cycle": "C-257" },
-    { "number": 28, "title": "feat(gi): reactive Global Integrity computation", "status": "merged", "cycle": "C-256" },
-    { "number": 27, "title": "feat(mic): add settlement layer and UI components", "status": "merged", "cycle": "C-256" },
-    { "number": 26, "title": "feat(epicon): add query-to-EPICON publish flow", "status": "merged", "cycle": "C-256" },
-    { "number": 25, "title": "feat(runtime): cron polling and staleness detection", "status": "merged", "cycle": "C-256" },
-    { "number": 24, "title": "feat(terminal): static integrity hydration and ledger backfill", "status": "merged", "cycle": "C-256" }
+    {
+      "number": 31,
+      "title": "feat(identity): design Mobius Identity system",
+      "status": "merged",
+      "cycle": "C-257"
+    },
+    {
+      "number": 30,
+      "title": "feat(identity): add Mobius Identity scaffold and profile surface",
+      "status": "merged",
+      "cycle": "C-257"
+    },
+    {
+      "number": 29,
+      "title": "feat(ui): terminal navigation and layout cohesion",
+      "status": "merged",
+      "cycle": "C-257"
+    },
+    {
+      "number": 28,
+      "title": "feat(gi): reactive Global Integrity computation",
+      "status": "merged",
+      "cycle": "C-256"
+    },
+    {
+      "number": 27,
+      "title": "feat(mic): add settlement layer and UI components",
+      "status": "merged",
+      "cycle": "C-256"
+    },
+    {
+      "number": 26,
+      "title": "feat(epicon): add query-to-EPICON publish flow",
+      "status": "merged",
+      "cycle": "C-256"
+    },
+    {
+      "number": 25,
+      "title": "feat(runtime): cron polling and staleness detection",
+      "status": "merged",
+      "cycle": "C-256"
+    },
+    {
+      "number": 24,
+      "title": "feat(terminal): static integrity hydration and ledger backfill",
+      "status": "merged",
+      "cycle": "C-256"
+    }
   ],
   "license": "CC0-1.0"
 }
