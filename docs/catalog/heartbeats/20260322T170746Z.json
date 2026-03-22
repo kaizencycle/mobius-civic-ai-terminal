@@ -1,0 +1,258 @@
+npm warn exec The following package was not found and will be installed: tsx@4.21.0
+{
+  "timestamp": "2026-03-22T17:07:48.731Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-22T17:07:48.700Z",
+          "value": 0.911,
+          "label": "Weather: 48°F, 10mph wind, code 3",
+          "severity": "nominal",
+          "raw": {
+            "time": "2026-03-22T17:00",
+            "interval": 900,
+            "temperature_2m": 48.3,
+            "wind_speed_10m": 10.1,
+            "weather_code": 3
+          }
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-22T17:07:48.731Z",
+          "value": 0.106,
+          "label": "Seismic: 69 quakes M2.5+ today, max M6.3 near 229 km SE of Attu Station, Alaska",
+          "severity": "elevated",
+          "raw": {
+            "count": 69,
+            "maxMag": 6.3
+          }
+        }
+      ],
+      "polledAt": "2026-03-22T17:07:48.731Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-µ",
+      "signals": [
+        {
+          "agentName": "HERMES-µ",
+          "source": "Hacker News",
+          "timestamp": "2026-03-22T17:07:48.204Z",
+          "value": 0.642,
+          "label": "HN: top 5 avg score 97, avg 27 comments",
+          "severity": "nominal",
+          "raw": {
+            "avgScore": 97,
+            "avgComments": 27,
+            "topTitle": "Flash-MoE: Running a 397B Parameter Model on a Laptop"
+          }
+        },
+        {
+          "agentName": "HERMES-µ",
+          "source": "Wikipedia Recent Changes",
+          "timestamp": "2026-03-22T17:07:48.320Z",
+          "value": 0.7,
+          "label": "Wikipedia: 114.0 edits/min, 0/50 minor",
+          "severity": "nominal",
+          "raw": {
+            "editsPerMin": 113.99,
+            "totalSampled": 50,
+            "minorCount": 0
+          }
+        }
+      ],
+      "polledAt": "2026-03-22T17:07:48.320Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-22T17:07:48.109Z",
+          "value": 0.5,
+          "label": "Federal Register: 0 docs today",
+          "severity": "nominal",
+          "raw": {
+            "count": 0,
+            "types": {},
+            "date": "2026-03-22"
+          }
+        }
+      ],
+      "polledAt": "2026-03-22T17:07:48.700Z",
+      "errors": [
+        "data.gov API fetch failed"
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "GitHub API",
+          "timestamp": "2026-03-22T17:07:48.195Z",
+          "value": 0.999,
+          "label": "GitHub: 12 events/24h, 30 events/7d, last 0h ago",
+          "severity": "nominal",
+          "raw": {
+            "last24h": 12,
+            "last7d": 30,
+            "hoursSinceLast": 0
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "npm Registry",
+          "timestamp": "2026-03-22T17:07:48.697Z",
+          "value": 0.981,
+          "label": "Next.js latest: v16.2.1, released 2d ago",
+          "severity": "nominal",
+          "raw": {
+            "package": "next",
+            "latest": "16.2.1",
+            "daysSinceRelease": 2
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "Self-ping",
+          "timestamp": "2026-03-22T17:07:48.697Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "polledAt": "2026-03-22T17:07:48.697Z",
+      "errors": [],
+      "healthy": true
+    }
+  ],
+  "allSignals": [
+    {
+      "agentName": "GAIA",
+      "source": "Open-Meteo",
+      "timestamp": "2026-03-22T17:07:48.700Z",
+      "value": 0.911,
+      "label": "Weather: 48°F, 10mph wind, code 3",
+      "severity": "nominal",
+      "raw": {
+        "time": "2026-03-22T17:00",
+        "interval": 900,
+        "temperature_2m": 48.3,
+        "wind_speed_10m": 10.1,
+        "weather_code": 3
+      }
+    },
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-22T17:07:48.731Z",
+      "value": 0.106,
+      "label": "Seismic: 69 quakes M2.5+ today, max M6.3 near 229 km SE of Attu Station, Alaska",
+      "severity": "elevated",
+      "raw": {
+        "count": 69,
+        "maxMag": 6.3
+      }
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Hacker News",
+      "timestamp": "2026-03-22T17:07:48.204Z",
+      "value": 0.642,
+      "label": "HN: top 5 avg score 97, avg 27 comments",
+      "severity": "nominal",
+      "raw": {
+        "avgScore": 97,
+        "avgComments": 27,
+        "topTitle": "Flash-MoE: Running a 397B Parameter Model on a Laptop"
+      }
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Wikipedia Recent Changes",
+      "timestamp": "2026-03-22T17:07:48.320Z",
+      "value": 0.7,
+      "label": "Wikipedia: 114.0 edits/min, 0/50 minor",
+      "severity": "nominal",
+      "raw": {
+        "editsPerMin": 113.99,
+        "totalSampled": 50,
+        "minorCount": 0
+      }
+    },
+    {
+      "agentName": "THEMIS",
+      "source": "Federal Register",
+      "timestamp": "2026-03-22T17:07:48.109Z",
+      "value": 0.5,
+      "label": "Federal Register: 0 docs today",
+      "severity": "nominal",
+      "raw": {
+        "count": 0,
+        "types": {},
+        "date": "2026-03-22"
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "GitHub API",
+      "timestamp": "2026-03-22T17:07:48.195Z",
+      "value": 0.999,
+      "label": "GitHub: 12 events/24h, 30 events/7d, last 0h ago",
+      "severity": "nominal",
+      "raw": {
+        "last24h": 12,
+        "last7d": 30,
+        "hoursSinceLast": 0
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "npm Registry",
+      "timestamp": "2026-03-22T17:07:48.697Z",
+      "value": 0.981,
+      "label": "Next.js latest: v16.2.1, released 2d ago",
+      "severity": "nominal",
+      "raw": {
+        "package": "next",
+        "latest": "16.2.1",
+        "daysSinceRelease": 2
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "Self-ping",
+      "timestamp": "2026-03-22T17:07:48.697Z",
+      "value": 0.5,
+      "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+      "severity": "watch"
+    }
+  ],
+  "composite": 0.667,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-22T17:07:48.731Z",
+      "value": 0.106,
+      "label": "Seismic: 69 quakes M2.5+ today, max M6.3 near 229 km SE of Attu Station, Alaska",
+      "severity": "elevated",
+      "raw": {
+        "count": 69,
+        "maxMag": 6.3
+      }
+    }
+  ],
+  "healthy": true
+}
