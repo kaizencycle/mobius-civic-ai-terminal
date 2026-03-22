@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-03-22T21:41:14Z",
+  "health": "degraded",
+  "endpoints": {
+    "micro_agents": true,
+    "integrity": true,
+    "runtime": true
+  },
+  "signals": {
+    "composite": 0.679,
+    "anomalies": 1,
+    "gi": 0.78,
+    "mode": "yellow"
+  },
+  "agents": [
+    {
+      "name": "GAIA",
+      "healthy": true,
+      "signals": 2,
+      "errors": 0
+    },
+    {
+      "name": "HERMES-µ",
+      "healthy": true,
+      "signals": 2,
+      "errors": 0
+    },
+    {
+      "name": "THEMIS",
+      "healthy": true,
+      "signals": 1,
+      "errors": 1
+    },
+    {
+      "name": "DAEDALUS-µ",
+      "healthy": true,
+      "signals": 3,
+      "errors": 0
+    }
+  ],
+  "anomaly_details": [
+    {
+      "agent": "GAIA",
+      "source": "USGS Earthquake",
+      "severity": "elevated",
+      "value": 0.106,
+      "label": "Seismic: 67 quakes M2.5+ today, max M6.3 near 12 km S of Nikolski, Alaska"
+    }
+  ]
+}

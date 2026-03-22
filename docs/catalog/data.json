@@ -1,13 +1,13 @@
 {
   "repo": "kaizencycle/mobius-civic-ai-terminal",
-  "generated_at": "2026-03-22T20:34:48Z",
+  "generated_at": "2026-03-22T21:41:14Z",
   "cycle": "C-258",
   "epoch": "FOUNDATION",
   "version": "0.1.0",
   "stats": {
-    "total_commits": 91,
-    "total_files": 176,
-    "lines_of_code": 14325,
+    "total_commits": 95,
+    "total_files": 177,
+    "lines_of_code": 14319,
     "api_routes": 25,
     "components": 10,
     "hooks": 5,
@@ -34,16 +34,16 @@
     ],
     "micro": [
       "GAIA",
-      "HERMES-\u00b5",
+      "HERMES-µ",
       "THEMIS",
-      "DAEDALUS-\u00b5"
+      "DAEDALUS-µ"
     ],
     "micro_sources": {
       "GAIA": [
         "Open-Meteo",
         "USGS Earthquake"
       ],
-      "HERMES-\u00b5": [
+      "HERMES-µ": [
         "Hacker News",
         "Wikipedia Recent Changes"
       ],
@@ -51,7 +51,7 @@
         "Federal Register",
         "data.gov"
       ],
-      "DAEDALUS-\u00b5": [
+      "DAEDALUS-µ": [
         "GitHub API",
         "npm Registry",
         "Self-ping"
@@ -234,6 +234,24 @@
   },
   "recent_prs": [
     {
+      "number": 34,
+      "title": "fix(deploy): enable auto-production deploys + cron micro-agents",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 33,
+      "title": "feat(ci): Tier 1 governance workflows — C-258",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 32,
+      "title": "feat(agents): micro sub-agent scaffold",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
       "number": 31,
       "title": "feat(identity): design Mobius Identity system",
       "status": "merged",
@@ -260,24 +278,6 @@
     {
       "number": 27,
       "title": "feat(mic): add settlement layer and UI components",
-      "status": "merged",
-      "cycle": "C-256"
-    },
-    {
-      "number": 26,
-      "title": "feat(epicon): add query-to-EPICON publish flow",
-      "status": "merged",
-      "cycle": "C-256"
-    },
-    {
-      "number": 25,
-      "title": "feat(runtime): cron polling and staleness detection",
-      "status": "merged",
-      "cycle": "C-256"
-    },
-    {
-      "number": 24,
-      "title": "feat(terminal): static integrity hydration and ledger backfill",
       "status": "merged",
       "cycle": "C-256"
     }
