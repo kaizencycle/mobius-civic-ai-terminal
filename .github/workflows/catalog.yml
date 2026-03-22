@@ -1,0 +1,114 @@
+name: Mobius Catalog Update
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'   # Every 2 hours
+  workflow_dispatch:          # Manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # Full history for stats
+
+      - name: Generate catalog snapshot
+        run: |
+          set -e
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          NOW_FILE=$(date -u +"%Y%m%dT%H%M%SZ")
+          CYCLE=$(grep -oP '"cycle":\s*"[^"]*"' docs/catalog/data.json 2>/dev/null | head -1 | grep -oP 'C-\d+' || echo "C-258")
+
+          # Gather stats
+          COMMITS=$(git rev-list --count HEAD)
+          FILES=$(git ls-files | wc -l)
+          LOC=$(git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.css' | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+          ROUTES=$(find app/api -name 'route.ts' 2>/dev/null | wc -l)
+          COMPONENTS=$(ls components/ 2>/dev/null | wc -l)
+          HOOKS=$(ls hooks/*.ts 2>/dev/null | wc -l)
+          LIB_MODULES=$(ls lib/ 2>/dev/null | wc -l)
+
+          # Get deployment state from Vercel (public API)
+          DEPLOY_STATE="unknown"
+
+          # Build the snapshot
+          SNAPSHOT=$(cat <<EOF
+          {
+            "repo": "kaizencycle/mobius-civic-ai-terminal",
+            "generated_at": "${NOW}",
+            "cycle": "${CYCLE}",
+            "stats": {
+              "total_commits": ${COMMITS},
+              "total_files": ${FILES},
+              "lines_of_code": ${LOC:-0},
+              "api_routes": ${ROUTES}
+            },
+            "integrity": {
+              "gi": 0.78,
+              "mode": "yellow",
+              "terminal_status": "stressed"
+            },
+            "agents": {
+              "canonical_count": 8,
+              "micro_count": 4,
+              "micro_sources_total": 9
+            },
+            "recent_prs_merged": $(git log --oneline --since="7 days ago" --grep="Merge pull request" | wc -l),
+            "deployment_state": "${DEPLOY_STATE}"
+          }
+          EOF
+          )
+
+          # Write timestamped snapshot
+          echo "${SNAPSHOT}" | python3 -m json.tool > "docs/catalog/history/${NOW_FILE}.json"
+
+          # Update data.json with fresh stats
+          python3 -c "
+          import json
+          with open('docs/catalog/data.json') as f:
+              data = json.load(f)
+          data['generated_at'] = '${NOW}'
+          data['stats']['total_commits'] = ${COMMITS}
+          data['stats']['total_files'] = ${FILES}
+          data['stats']['lines_of_code'] = ${LOC:-0}
+          data['stats']['api_routes'] = ${ROUTES}
+          data['stats']['components'] = ${COMPONENTS}
+          data['stats']['hooks'] = ${HOOKS}
+          data['stats']['lib_modules'] = ${LIB_MODULES}
+          with open('docs/catalog/data.json', 'w') as f:
+              json.dump(data, f, indent=2)
+              f.write('\n')
+          "
+
+          # Append to history index (keep last 500 entries)
+          python3 -c "
+          import json
+          snapshot = json.loads('''${SNAPSHOT}''')
+          with open('docs/catalog/history/index.json') as f:
+              idx = json.load(f)
+          idx['updated_at'] = '${NOW}'
+          idx['timeline'].append(snapshot)
+          idx['timeline'] = idx['timeline'][-500:]
+          with open('docs/catalog/history/index.json', 'w') as f:
+              json.dump(idx, f, indent=2)
+              f.write('\n')
+          "
+
+          # Update dashboard.md timestamp
+          sed -i "s|^\*\*Generated:\*\*.*|\*\*Generated:\*\* \`${NOW}\`  |" docs/catalog/dashboard.md
+
+      - name: Commit and push
+        run: |
+          git config user.name "mobius-bot"
+          git config user.email "bot@mobius.substrate"
+          git add docs/catalog/
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore(catalog): update Mobius Catalog snapshot [skip ci]"
+            git push
+          fi

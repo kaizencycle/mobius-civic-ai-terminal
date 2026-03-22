@@ -27,8 +27,8 @@ export type IntegrityStatusResponse = {
 
 export const integrityStatus: IntegrityStatusResponse = {
   ok: true,
-  cycle: 'C-256',
-  timestamp: '2026-03-20T11:34:00Z',
+  cycle: 'C-258',
+  timestamp: '2026-03-22T11:34:00Z',
   global_integrity: 0.78,
   mode: 'yellow',
   mii_baseline: 0.5,
