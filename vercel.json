@@ -1,4 +1,10 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "ignoreCommand": "git log -1 --format='%s' | grep -q '\\[skip ci\\]'",
   "crons": [
     {
       "path": "/api/eve/cycle-advance",
@@ -9,12 +15,20 @@
       "schedule": "5 5 * * *"
     },
     {
+      "path": "/api/signals/micro",
+      "schedule": "10 5 * * *"
+    },
+    {
+      "path": "/api/integrity-status",
+      "schedule": "15 5 * * *"
+    },
+    {
       "path": "/api/aurea/oversee",
       "schedule": "35 5 * * *"
     },
     {
       "path": "/api/runtime/heartbeat",
-      "schedule": "40 5 * * *"
+      "schedule": "45 5 * * *"
     }
   ]
 }
