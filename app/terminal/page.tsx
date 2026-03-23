@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { TerminalCommandResult } from '@/lib/commands/types';
 import TopStatusBar from '@/components/terminal/TopStatusBar';
 import TerminalSection from '@/components/layout/TerminalSection';
-import LiveIntegrityRibbon from '@/components/terminal/LiveIntegrityRibbon';
+import type { IntegrityTone } from '@/components/terminal/LiveIntegrityRibbon';
 import AttestationReplayRail from '@/components/terminal/AttestationReplayRail';
 import ConsensusPreviewStrip from '@/components/terminal/ConsensusPreviewStrip';
 import SuggestedNextActions, { type SuggestedAction } from '@/components/terminal/SuggestedNextActions';
@@ -264,19 +264,12 @@ function TerminalPage() {
         cycleId={cycleId}
         streamStatus={streamStatus}
         onNavigate={setSelectedNav}
-      />
-
-      <LiveIntegrityRibbon
         gi={gi.score}
-        mii={liveRibbonMii}
         micDelta={liveRibbonMicDelta}
-        micSupply={micSupply}
         tripwireState={dominantTripwireState}
         lastLedgerSyncLabel={freshness.lastLedgerSyncLabel}
         lastIngestLabel={freshness.lastIngestLabel}
         lastCycleAdvanceLabel={freshness.lastCycleAdvanceLabel}
-        cycleId={cycleId}
-        streamLabel={streamStatus === 'live' ? 'LIVE' : streamStatus === 'reconnecting' ? 'RECONNECTING' : 'OFFLINE'}
       />
 
       {showConsensus && (
