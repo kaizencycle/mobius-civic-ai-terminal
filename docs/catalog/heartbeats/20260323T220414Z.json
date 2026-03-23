@@ -1,0 +1,181 @@
+{
+  "timestamp": "2026-03-23T22:04:14.349Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-23T22:04:14.322Z",
+          "value": 0.841,
+          "label": "Weather: 38°F, 9mph wind, code 3",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-23T22:04:14.348Z",
+          "value": 0.131,
+          "label": "Seismic: 59 quakes M2.5+ today, max M5.9 near 206 km NW of Nagqu, China",
+          "severity": "elevated"
+        }
+      ],
+      "polledAt": "2026-03-23T22:04:14.348Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-µ",
+      "signals": [
+        {
+          "agentName": "HERMES-µ",
+          "source": "Hacker News",
+          "timestamp": "2026-03-23T22:04:13.660Z",
+          "value": 0.706,
+          "label": "HN: top 5 avg score 169, avg 73 comments",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "HERMES-µ",
+          "source": "Wikipedia Recent Changes",
+          "timestamp": "2026-03-23T22:04:13.755Z",
+          "value": 0.7,
+          "label": "Wikipedia: 116.5 edits/min, 0/50 minor",
+          "severity": "nominal"
+        }
+      ],
+      "polledAt": "2026-03-23T22:04:13.755Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-23T22:04:13.588Z",
+          "value": 0.992,
+          "label": "Federal Register: 104 docs today (18 notice, 1 rule, 1 proposed rule)",
+          "severity": "nominal"
+        }
+      ],
+      "polledAt": "2026-03-23T22:04:14.321Z",
+      "errors": [
+        "data.gov API fetch failed"
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "GitHub API",
+          "timestamp": "2026-03-23T22:04:13.664Z",
+          "value": 0.997,
+          "label": "GitHub: 30 events/24h, 30 events/7d, last 1h ago",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "npm Registry",
+          "timestamp": "2026-03-23T22:04:14.315Z",
+          "value": 0.967,
+          "label": "Next.js latest: v16.2.1, released 3d ago",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "Self-ping",
+          "timestamp": "2026-03-23T22:04:14.315Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "polledAt": "2026-03-23T22:04:14.315Z",
+      "errors": [],
+      "healthy": true
+    }
+  ],
+  "allSignals": [
+    {
+      "agentName": "GAIA",
+      "source": "Open-Meteo",
+      "timestamp": "2026-03-23T22:04:14.322Z",
+      "value": 0.841,
+      "label": "Weather: 38°F, 9mph wind, code 3",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-23T22:04:14.348Z",
+      "value": 0.131,
+      "label": "Seismic: 59 quakes M2.5+ today, max M5.9 near 206 km NW of Nagqu, China",
+      "severity": "elevated"
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Hacker News",
+      "timestamp": "2026-03-23T22:04:13.660Z",
+      "value": 0.706,
+      "label": "HN: top 5 avg score 169, avg 73 comments",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Wikipedia Recent Changes",
+      "timestamp": "2026-03-23T22:04:13.755Z",
+      "value": 0.7,
+      "label": "Wikipedia: 116.5 edits/min, 0/50 minor",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "THEMIS",
+      "source": "Federal Register",
+      "timestamp": "2026-03-23T22:04:13.588Z",
+      "value": 0.992,
+      "label": "Federal Register: 104 docs today (18 notice, 1 rule, 1 proposed rule)",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "GitHub API",
+      "timestamp": "2026-03-23T22:04:13.664Z",
+      "value": 0.997,
+      "label": "GitHub: 30 events/24h, 30 events/7d, last 1h ago",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "npm Registry",
+      "timestamp": "2026-03-23T22:04:14.315Z",
+      "value": 0.967,
+      "label": "Next.js latest: v16.2.1, released 3d ago",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "Self-ping",
+      "timestamp": "2026-03-23T22:04:14.315Z",
+      "value": 0.5,
+      "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+      "severity": "watch"
+    }
+  ],
+  "composite": 0.729,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-23T22:04:14.348Z",
+      "value": 0.131,
+      "label": "Seismic: 59 quakes M2.5+ today, max M5.9 near 206 km NW of Nagqu, China",
+      "severity": "elevated"
+    }
+  ],
+  "healthy": true
+}
