@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-03-23T12:07:03Z",
+  "composite": 0.73,
+  "healthy": true,
+  "anomalies": 1,
+  "agents": {
+    "GAIA": { "healthy": true, "signals": 2, "errors": 0 },
+    "HERMES-µ": { "healthy": true, "signals": 2, "errors": 0 },
+    "THEMIS": { "healthy": true, "signals": 1, "errors": 1 },
+    "DAEDALUS-µ": { "healthy": true, "signals": 3, "errors": 0 }
+  },
+  "elevated": [
+    {
+      "agent": "GAIA",
+      "source": "USGS Earthquake",
+      "severity": "elevated",
+      "label": "Seismic: 69 quakes M2.5+ today, max M6.3 near 9 km ENE of Calumet, Oklahoma"
+    }
+  ]
+}
