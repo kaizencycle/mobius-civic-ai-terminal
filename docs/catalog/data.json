@@ -1,14 +1,14 @@
 {
   "repo": "kaizencycle/mobius-civic-ai-terminal",
-  "generated_at": "2026-03-23T19:24:34Z",
+  "generated_at": "2026-03-23T20:32:47Z",
   "cycle": "C-258",
   "epoch": "FOUNDATION",
   "version": "0.1.0",
   "stats": {
-    "total_commits": 114,
-    "total_files": 200,
-    "lines_of_code": 14936,
-    "api_routes": 27,
+    "total_commits": 122,
+    "total_files": 210,
+    "lines_of_code": 15762,
+    "api_routes": 28,
     "components": 11,
     "hooks": 5,
     "lib_modules": 16
@@ -234,6 +234,24 @@
   },
   "recent_prs": [
     {
+      "number": 40,
+      "title": "feat(eve): add global news synthesis feed and wire into ECHO",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 38,
+      "title": "feat(agent): add Kaizen Prime v0.1 ledger-first steward agent package",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 37,
+      "title": "fix(ui): unify multiple ribbons into single compact header bar",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
       "number": 36,
       "title": "feat(seo): Schema.org JSON-LD structured data for SEO/GEO/AEO",
       "status": "merged",
@@ -262,24 +280,6 @@
       "title": "feat(agents): micro sub-agent scaffold",
       "status": "merged",
       "cycle": "C-258"
-    },
-    {
-      "number": 31,
-      "title": "feat(identity): design Mobius Identity system",
-      "status": "merged",
-      "cycle": "C-257"
-    },
-    {
-      "number": 30,
-      "title": "feat(identity): add Mobius Identity scaffold and profile surface",
-      "status": "merged",
-      "cycle": "C-257"
-    },
-    {
-      "number": 29,
-      "title": "feat(ui): terminal navigation and layout cohesion",
-      "status": "merged",
-      "cycle": "C-257"
     }
   ],
   "license": "CC0-1.0"
