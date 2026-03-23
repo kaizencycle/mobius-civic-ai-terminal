@@ -7,6 +7,8 @@
 
 // ── Types ────────────────────────────────────────────────────
 
+import { eveItemsToRawEvents, fetchEveGlobalNews } from '@/lib/eve/global-news';
+
 export type RawEvent = {
   sourceId: string;
   source: string;
@@ -156,16 +158,18 @@ export async function fetchCoinGecko(): Promise<RawEvent[]> {
 // ── Aggregate all sources ────────────────────────────────────
 
 export async function fetchAllSources(): Promise<RawEvent[]> {
-  const [gdelt, usgs, coingecko] = await Promise.allSettled([
+  const [gdelt, usgs, coingecko, eveNews] = await Promise.allSettled([
     fetchGDELT(),
     fetchUSGS(),
     fetchCoinGecko(),
+    fetchEveGlobalNews().then((synthesis) => eveItemsToRawEvents(synthesis.items)),
   ]);
 
   const events: RawEvent[] = [
     ...(gdelt.status === 'fulfilled' ? gdelt.value : []),
     ...(usgs.status === 'fulfilled' ? usgs.value : []),
     ...(coingecko.status === 'fulfilled' ? coingecko.value : []),
+    ...(eveNews.status === 'fulfilled' ? eveNews.value : []),
   ];
 
   // Sort by timestamp descending (most recent first)
