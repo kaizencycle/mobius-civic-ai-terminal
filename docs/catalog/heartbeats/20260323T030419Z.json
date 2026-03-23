@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-03-23T03:04:19Z",
+  "health": "nominal",
+  "endpoints": {
+    "micro_agents": true,
+    "integrity": true,
+    "runtime": true
+  },
+  "signals": {
+    "composite": 0.741,
+    "anomalies": 1,
+    "gi": 0.78,
+    "mode": "yellow"
+  },
+  "warnings": [
+    "GAIA/USGS Earthquake: elevated — 72 quakes M2.5+ today, max M6.3"
+  ]
+}
