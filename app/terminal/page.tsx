@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
+import type { TerminalCommandResult } from '@/lib/commands/types';
 import TopStatusBar from '@/components/terminal/TopStatusBar';
 import TerminalSection from '@/components/layout/TerminalSection';
 import LiveIntegrityRibbon from '@/components/terminal/LiveIntegrityRibbon';
@@ -22,6 +23,8 @@ import DetailInspectorRail from '@/components/terminal/DetailInspectorRail';
 import MicAccountPanel from '@/components/mic/MicAccountPanel';
 import type { ZeusVerifyPayload, ZeusVerifyResult } from '@/components/terminal/DetailInspectorRail';
 import CommandPalette from '@/components/terminal/CommandPalette';
+import CommandInput from '@/components/terminal/CommandInput';
+import CommandResult from '@/components/terminal/CommandResult';
 import QueryResultCard from '@/components/query/QueryResultCard';
 import LedgerPanel from '@/components/terminal/LedgerPanel';
 import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
@@ -86,6 +89,7 @@ export default function TerminalPageWrapper() {
 
 function TerminalPage() {
   const [selectedNav, setSelectedNav] = useState<NavKey>('pulse');
+  const [commandResult, setCommandResult] = useState<TerminalCommandResult | null>(null);
   const {
     agents,
     allTripwires,
@@ -449,6 +453,17 @@ function TerminalPage() {
                 </section>
               </TerminalSection>
             )}
+
+            <TerminalSection
+              eyebrow="Command Surface"
+              title="Terminal Commands"
+              description="Exact command matching for weekly digest, GI status, and agent status."
+            >
+              <div className="space-y-4">
+                <CommandInput onResult={setCommandResult} />
+                <CommandResult result={commandResult} />
+              </div>
+            </TerminalSection>
 
             <CommandPalette
               onExecute={(command) => {
