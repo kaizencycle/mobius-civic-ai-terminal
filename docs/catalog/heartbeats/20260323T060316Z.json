@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-03-23T06:03:16Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-23T06:03:16Z",
+          "value": 0.926,
+          "label": "Weather: 48°F, 6mph wind, code 3",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-23T06:03:16Z",
+          "value": 0.106,
+          "label": "Seismic: 73 quakes M2.5+ today, max M6.3 near 16 km N of Fishhook, Alaska",
+          "severity": "elevated"
+        }
+      ],
+      "polledAt": "2026-03-23T06:03:16Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-µ",
+      "signals": [
+        {
+          "agentName": "HERMES-µ",
+          "source": "Hacker News",
+          "timestamp": "2026-03-23T06:03:15Z",
+          "value": 0.85,
+          "label": "HN: top 5 avg score 332, avg 180 comments",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "HERMES-µ",
+          "source": "Wikipedia Recent Changes",
+          "timestamp": "2026-03-23T06:03:15Z",
+          "value": 0.7,
+          "label": "Wikipedia: 177.6 edits/min, 0/50 minor",
+          "severity": "nominal"
+        }
+      ],
+      "polledAt": "2026-03-23T06:03:15Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-23T06:03:15Z",
+          "value": 0.992,
+          "label": "Federal Register: 104 docs today (18 notice, 1 rule, 1 proposed rule)",
+          "severity": "nominal"
+        }
+      ],
+      "polledAt": "2026-03-23T06:03:16Z",
+      "errors": ["data.gov API fetch failed"],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "GitHub API",
+          "timestamp": "2026-03-23T06:03:15Z",
+          "value": 0.975,
+          "label": "GitHub: 14 events/24h, 30 events/7d, last 8h ago",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "npm Registry",
+          "timestamp": "2026-03-23T06:03:16Z",
+          "value": 0.975,
+          "label": "Next.js latest: v16.2.1, released 2d ago",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "Self-ping",
+          "timestamp": "2026-03-23T06:03:16Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "polledAt": "2026-03-23T06:03:16Z",
+      "errors": [],
+      "healthy": true
+    }
+  ],
+  "composite": 0.753,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-23T06:03:16Z",
+      "value": 0.106,
+      "label": "Seismic: 73 quakes M2.5+ today, max M6.3 near 16 km N of Fishhook, Alaska",
+      "severity": "elevated"
+    }
+  ],
+  "healthy": true
+}
