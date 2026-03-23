@@ -1,0 +1,265 @@
+{
+  "timestamp": "2026-03-23T00:02:27.578Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-23T00:02:27.561Z",
+          "value": 0.942,
+          "label": "Weather: 50°F, 5mph wind, code 3",
+          "severity": "nominal",
+          "raw": {
+            "time": "2026-03-23T00:00",
+            "interval": 900,
+            "temperature_2m": 49.6,
+            "wind_speed_10m": 4.6,
+            "weather_code": 3
+          }
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-23T00:02:27.578Z",
+          "value": 0.106,
+          "label": "Seismic: 69 quakes M2.5+ today, max M6.3 near 75 km W of Pilot Point, Alaska",
+          "severity": "elevated",
+          "raw": {
+            "count": 69,
+            "maxMag": 6.3
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T00:02:27.578Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-µ",
+      "signals": [
+        {
+          "agentName": "HERMES-µ",
+          "source": "Hacker News",
+          "timestamp": "2026-03-23T00:02:27.102Z",
+          "value": 0.743,
+          "label": "HN: top 5 avg score 211, avg 123 comments",
+          "severity": "nominal",
+          "raw": {
+            "avgScore": 211,
+            "avgComments": 123,
+            "topTitle": "Diverse perspectives on AI from Rust contributors and maintainers"
+          }
+        },
+        {
+          "agentName": "HERMES-µ",
+          "source": "Wikipedia Recent Changes",
+          "timestamp": "2026-03-23T00:02:27.211Z",
+          "value": 0.7,
+          "label": "Wikipedia: 174.3 edits/min, 0/50 minor",
+          "severity": "nominal",
+          "raw": {
+            "editsPerMin": 174.31,
+            "totalSampled": 50,
+            "minorCount": 0
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T00:02:27.211Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-23T00:02:27.010Z",
+          "value": 0.992,
+          "label": "Federal Register: 104 docs today (18 notice, 1 rule, 1 proposed rule)",
+          "severity": "nominal",
+          "raw": {
+            "count": 104,
+            "types": {
+              "Notice": 18,
+              "Rule": 1,
+              "Proposed Rule": 1
+            },
+            "date": "2026-03-23"
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T00:02:27.489Z",
+      "errors": [
+        "data.gov API fetch failed"
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "GitHub API",
+          "timestamp": "2026-03-23T00:02:27.012Z",
+          "value": 0.993,
+          "label": "GitHub: 14 events/24h, 30 events/7d, last 2h ago",
+          "severity": "nominal",
+          "raw": {
+            "last24h": 14,
+            "last7d": 30,
+            "hoursSinceLast": 2
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "npm Registry",
+          "timestamp": "2026-03-23T00:02:27.442Z",
+          "value": 0.978,
+          "label": "Next.js latest: v16.2.1, released 2d ago",
+          "severity": "nominal",
+          "raw": {
+            "package": "next",
+            "latest": "16.2.1",
+            "daysSinceRelease": 2
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "Self-ping",
+          "timestamp": "2026-03-23T00:02:27.442Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "polledAt": "2026-03-23T00:02:27.442Z",
+      "errors": [],
+      "healthy": true
+    }
+  ],
+  "allSignals": [
+    {
+      "agentName": "GAIA",
+      "source": "Open-Meteo",
+      "timestamp": "2026-03-23T00:02:27.561Z",
+      "value": 0.942,
+      "label": "Weather: 50°F, 5mph wind, code 3",
+      "severity": "nominal",
+      "raw": {
+        "time": "2026-03-23T00:00",
+        "interval": 900,
+        "temperature_2m": 49.6,
+        "wind_speed_10m": 4.6,
+        "weather_code": 3
+      }
+    },
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-23T00:02:27.578Z",
+      "value": 0.106,
+      "label": "Seismic: 69 quakes M2.5+ today, max M6.3 near 75 km W of Pilot Point, Alaska",
+      "severity": "elevated",
+      "raw": {
+        "count": 69,
+        "maxMag": 6.3
+      }
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Hacker News",
+      "timestamp": "2026-03-23T00:02:27.102Z",
+      "value": 0.743,
+      "label": "HN: top 5 avg score 211, avg 123 comments",
+      "severity": "nominal",
+      "raw": {
+        "avgScore": 211,
+        "avgComments": 123,
+        "topTitle": "Diverse perspectives on AI from Rust contributors and maintainers"
+      }
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Wikipedia Recent Changes",
+      "timestamp": "2026-03-23T00:02:27.211Z",
+      "value": 0.7,
+      "label": "Wikipedia: 174.3 edits/min, 0/50 minor",
+      "severity": "nominal",
+      "raw": {
+        "editsPerMin": 174.31,
+        "totalSampled": 50,
+        "minorCount": 0
+      }
+    },
+    {
+      "agentName": "THEMIS",
+      "source": "Federal Register",
+      "timestamp": "2026-03-23T00:02:27.010Z",
+      "value": 0.992,
+      "label": "Federal Register: 104 docs today (18 notice, 1 rule, 1 proposed rule)",
+      "severity": "nominal",
+      "raw": {
+        "count": 104,
+        "types": {
+          "Notice": 18,
+          "Rule": 1,
+          "Proposed Rule": 1
+        },
+        "date": "2026-03-23"
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "GitHub API",
+      "timestamp": "2026-03-23T00:02:27.012Z",
+      "value": 0.993,
+      "label": "GitHub: 14 events/24h, 30 events/7d, last 2h ago",
+      "severity": "nominal",
+      "raw": {
+        "last24h": 14,
+        "last7d": 30,
+        "hoursSinceLast": 2
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "npm Registry",
+      "timestamp": "2026-03-23T00:02:27.442Z",
+      "value": 0.978,
+      "label": "Next.js latest: v16.2.1, released 2d ago",
+      "severity": "nominal",
+      "raw": {
+        "package": "next",
+        "latest": "16.2.1",
+        "daysSinceRelease": 2
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "Self-ping",
+      "timestamp": "2026-03-23T00:02:27.442Z",
+      "value": 0.5,
+      "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+      "severity": "watch"
+    }
+  ],
+  "composite": 0.744,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-23T00:02:27.578Z",
+      "value": 0.106,
+      "label": "Seismic: 69 quakes M2.5+ today, max M6.3 near 75 km W of Pilot Point, Alaska",
+      "severity": "elevated",
+      "raw": {
+        "count": 69,
+        "maxMag": 6.3
+      }
+    }
+  ],
+  "healthy": true
+}
