@@ -1,7 +1,7 @@
 # Mobius Catalog
 
 **Repo:** `kaizencycle/mobius-civic-ai-terminal`
-**Generated:** `2026-03-23T16:59:31Z`  
+**Generated:** `2026-03-23T17:02:54Z`  
 **Cycle:** `C-258`
 **Epoch:** `FOUNDATION`
 
@@ -19,9 +19,9 @@
 
 | Metric | Count |
 |--------|------:|
-| Commits | 84 |
-| Files | 163 |
-| Lines of code | 14,325 |
+| Commits | 107 |
+| Files | 189 |
+| Lines of code | 14,319 |
 | API routes | 25 |
 | Components | 10 |
 | Hooks | 5 |
@@ -55,14 +55,14 @@
 
 | PR | Title | Cycle |
 |---:|-------|-------|
-| #31 | Identity system — role-aware terminal | C-257 |
-| #30 | Identity scaffold and profile surface | C-257 |
-| #29 | Terminal nav and layout cohesion | C-257 |
+| #34 | Auto-production deploys + cron micro-agents | C-258 |
+| #33 | Tier 1 governance workflows | C-258 |
+| #32 | Micro sub-agent scaffold | C-258 |
+| #31 | Role permissions and profile UI | C-257 |
+| #30 | Mobius Identity spine and profile surface | C-257 |
+| #29 | GI-aware Publish to EPICON modal | C-257 |
 | #28 | Reactive Global Integrity computation | C-256 |
-| #27 | MIC settlement layer | C-256 |
-| #26 | Query-to-EPICON publish flow | C-256 |
-| #25 | Cron polling and staleness detection | C-256 |
-| #24 | Static integrity hydration and ledger backfill | C-256 |
+| #27 | MIC settlement logic for EPICON claims | C-256 |
 
 ## API surface (25 routes)
 

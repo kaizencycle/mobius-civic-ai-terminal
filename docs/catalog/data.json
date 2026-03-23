@@ -1,13 +1,13 @@
 {
   "repo": "kaizencycle/mobius-civic-ai-terminal",
-  "generated_at": "2026-03-23T16:59:31Z",
+  "generated_at": "2026-03-23T17:02:54Z",
   "cycle": "C-258",
   "epoch": "FOUNDATION",
   "version": "0.1.0",
   "stats": {
-    "total_commits": 106,
-    "total_files": 188,
-    "lines_of_code": 14325,
+    "total_commits": 107,
+    "total_files": 189,
+    "lines_of_code": 14319,
     "api_routes": 25,
     "components": 10,
     "hooks": 5,
@@ -234,20 +234,38 @@
   },
   "recent_prs": [
     {
+      "number": 34,
+      "title": "fix(deploy): enable auto-production deploys + cron micro-agents",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 33,
+      "title": "feat(ci): Tier 1 governance workflows — C-258",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 32,
+      "title": "feat(micro): micro sub-agent scaffold",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
       "number": 31,
-      "title": "feat(identity): design Mobius Identity system",
+      "title": "feat(identity): role permissions and profile UI",
       "status": "merged",
       "cycle": "C-257"
     },
     {
       "number": 30,
-      "title": "feat(identity): add Mobius Identity scaffold and profile surface",
+      "title": "feat(identity): Mobius Identity spine and profile surface",
       "status": "merged",
       "cycle": "C-257"
     },
     {
       "number": 29,
-      "title": "feat(ui): terminal navigation and layout cohesion",
+      "title": "feat(epicon): GI-aware Publish to EPICON modal",
       "status": "merged",
       "cycle": "C-257"
     },
@@ -259,25 +277,7 @@
     },
     {
       "number": 27,
-      "title": "feat(mic): add settlement layer and UI components",
-      "status": "merged",
-      "cycle": "C-256"
-    },
-    {
-      "number": 26,
-      "title": "feat(epicon): add query-to-EPICON publish flow",
-      "status": "merged",
-      "cycle": "C-256"
-    },
-    {
-      "number": 25,
-      "title": "feat(runtime): cron polling and staleness detection",
-      "status": "merged",
-      "cycle": "C-256"
-    },
-    {
-      "number": 24,
-      "title": "feat(terminal): static integrity hydration and ledger backfill",
+      "title": "feat(mic): settlement logic for EPICON claims",
       "status": "merged",
       "cycle": "C-256"
     }
