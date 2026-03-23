@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-03-23T07:02:59Z",
+  "health": "nominal",
+  "endpoints": {
+    "micro_agents": true,
+    "integrity": true,
+    "runtime": true
+  },
+  "signals": {
+    "composite": 0.748,
+    "anomalies": 1,
+    "gi": 0.78,
+    "mode": "yellow"
+  },
+  "agents": {
+    "GAIA": {
+      "healthy": true,
+      "signals": 2,
+      "elevated": ["USGS Earthquake: 73 quakes M2.5+ today, max M6.3 near False Pass, Alaska"]
+    },
+    "HERMES-µ": {
+      "healthy": true,
+      "signals": 2,
+      "elevated": []
+    },
+    "THEMIS": {
+      "healthy": true,
+      "signals": 1,
+      "elevated": [],
+      "errors": ["data.gov API fetch failed"]
+    },
+    "DAEDALUS-µ": {
+      "healthy": true,
+      "signals": 3,
+      "elevated": []
+    }
+  },
+  "anomalies": [
+    {
+      "agent": "GAIA",
+      "source": "USGS Earthquake",
+      "severity": "elevated",
+      "value": 0.106,
+      "label": "Seismic: 73 quakes M2.5+ today, max M6.3 near 200 km SSE of False Pass, Alaska"
+    }
+  ]
+}
