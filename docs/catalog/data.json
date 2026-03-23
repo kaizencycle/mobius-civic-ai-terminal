@@ -1,13 +1,13 @@
 {
   "repo": "kaizencycle/mobius-civic-ai-terminal",
-  "generated_at": "2026-03-23T20:41:27Z",
+  "generated_at": "2026-03-23T21:04:04Z",
   "cycle": "C-258",
   "epoch": "FOUNDATION",
   "version": "0.1.0",
   "stats": {
-    "total_commits": 122,
-    "total_files": 210,
-    "lines_of_code": 15768,
+    "total_commits": 126,
+    "total_files": 212,
+    "lines_of_code": 15762,
     "api_routes": 28,
     "components": 11,
     "hooks": 5,
@@ -34,16 +34,16 @@
     ],
     "micro": [
       "GAIA",
-      "HERMES-\u00b5",
+      "HERMES-µ",
       "THEMIS",
-      "DAEDALUS-\u00b5"
+      "DAEDALUS-µ"
     ],
     "micro_sources": {
       "GAIA": [
         "Open-Meteo",
         "USGS Earthquake"
       ],
-      "HERMES-\u00b5": [
+      "HERMES-µ": [
         "Hacker News",
         "Wikipedia Recent Changes"
       ],
@@ -51,7 +51,7 @@
         "Federal Register",
         "data.gov"
       ],
-      "DAEDALUS-\u00b5": [
+      "DAEDALUS-µ": [
         "GitHub API",
         "npm Registry",
         "Self-ping"
@@ -271,7 +271,7 @@
     },
     {
       "number": 33,
-      "title": "feat(ci): Tier 1 governance workflows \u2014 C-258",
+      "title": "feat(ci): Tier 1 governance workflows — C-258",
       "status": "merged",
       "cycle": "C-258"
     },

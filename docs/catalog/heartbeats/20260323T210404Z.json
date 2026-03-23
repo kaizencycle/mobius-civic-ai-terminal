@@ -1,0 +1,265 @@
+{
+  "timestamp": "2026-03-23T21:04:06.777Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-23T21:04:06.415Z",
+          "value": 0.844,
+          "label": "Weather: 38\u00b0F, 9mph wind, code 3",
+          "severity": "nominal",
+          "raw": {
+            "time": "2026-03-23T21:00",
+            "interval": 900,
+            "temperature_2m": 38.4,
+            "wind_speed_10m": 8.8,
+            "weather_code": 3
+          }
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-23T21:04:06.777Z",
+          "value": 0.131,
+          "label": "Seismic: 60 quakes M2.5+ today, max M5.9 near 63 km W of Anchor Point, Alaska",
+          "severity": "elevated",
+          "raw": {
+            "count": 60,
+            "maxMag": 5.9
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T21:04:06.777Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-\u00b5",
+      "signals": [
+        {
+          "agentName": "HERMES-\u00b5",
+          "source": "Hacker News",
+          "timestamp": "2026-03-23T21:04:06.146Z",
+          "value": 0.683,
+          "label": "HN: top 5 avg score 144, avg 62 comments",
+          "severity": "nominal",
+          "raw": {
+            "avgScore": 144,
+            "avgComments": 62,
+            "topTitle": "Autoresearch on an old research idea"
+          }
+        },
+        {
+          "agentName": "HERMES-\u00b5",
+          "source": "Wikipedia Recent Changes",
+          "timestamp": "2026-03-23T21:04:06.246Z",
+          "value": 0.7,
+          "label": "Wikipedia: 134.9 edits/min, 0/50 minor",
+          "severity": "nominal",
+          "raw": {
+            "editsPerMin": 134.86,
+            "totalSampled": 50,
+            "minorCount": 0
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T21:04:06.246Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-23T21:04:06.075Z",
+          "value": 0.992,
+          "label": "Federal Register: 104 docs today (18 notice, 1 rule, 1 proposed rule)",
+          "severity": "nominal",
+          "raw": {
+            "count": 104,
+            "types": {
+              "Notice": 18,
+              "Rule": 1,
+              "Proposed Rule": 1
+            },
+            "date": "2026-03-23"
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T21:04:06.716Z",
+      "errors": [
+        "data.gov API fetch failed"
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-\u00b5",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-\u00b5",
+          "source": "GitHub API",
+          "timestamp": "2026-03-23T21:04:06.176Z",
+          "value": 1,
+          "label": "GitHub: 30 events/24h, 30 events/7d, last 0h ago",
+          "severity": "nominal",
+          "raw": {
+            "last24h": 30,
+            "last7d": 30,
+            "hoursSinceLast": 0
+          }
+        },
+        {
+          "agentName": "DAEDALUS-\u00b5",
+          "source": "npm Registry",
+          "timestamp": "2026-03-23T21:04:06.714Z",
+          "value": 0.968,
+          "label": "Next.js latest: v16.2.1, released 3d ago",
+          "severity": "nominal",
+          "raw": {
+            "package": "next",
+            "latest": "16.2.1",
+            "daysSinceRelease": 3
+          }
+        },
+        {
+          "agentName": "DAEDALUS-\u00b5",
+          "source": "Self-ping",
+          "timestamp": "2026-03-23T21:04:06.714Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "polledAt": "2026-03-23T21:04:06.714Z",
+      "errors": [],
+      "healthy": true
+    }
+  ],
+  "allSignals": [
+    {
+      "agentName": "GAIA",
+      "source": "Open-Meteo",
+      "timestamp": "2026-03-23T21:04:06.415Z",
+      "value": 0.844,
+      "label": "Weather: 38\u00b0F, 9mph wind, code 3",
+      "severity": "nominal",
+      "raw": {
+        "time": "2026-03-23T21:00",
+        "interval": 900,
+        "temperature_2m": 38.4,
+        "wind_speed_10m": 8.8,
+        "weather_code": 3
+      }
+    },
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-23T21:04:06.777Z",
+      "value": 0.131,
+      "label": "Seismic: 60 quakes M2.5+ today, max M5.9 near 63 km W of Anchor Point, Alaska",
+      "severity": "elevated",
+      "raw": {
+        "count": 60,
+        "maxMag": 5.9
+      }
+    },
+    {
+      "agentName": "HERMES-\u00b5",
+      "source": "Hacker News",
+      "timestamp": "2026-03-23T21:04:06.146Z",
+      "value": 0.683,
+      "label": "HN: top 5 avg score 144, avg 62 comments",
+      "severity": "nominal",
+      "raw": {
+        "avgScore": 144,
+        "avgComments": 62,
+        "topTitle": "Autoresearch on an old research idea"
+      }
+    },
+    {
+      "agentName": "HERMES-\u00b5",
+      "source": "Wikipedia Recent Changes",
+      "timestamp": "2026-03-23T21:04:06.246Z",
+      "value": 0.7,
+      "label": "Wikipedia: 134.9 edits/min, 0/50 minor",
+      "severity": "nominal",
+      "raw": {
+        "editsPerMin": 134.86,
+        "totalSampled": 50,
+        "minorCount": 0
+      }
+    },
+    {
+      "agentName": "THEMIS",
+      "source": "Federal Register",
+      "timestamp": "2026-03-23T21:04:06.075Z",
+      "value": 0.992,
+      "label": "Federal Register: 104 docs today (18 notice, 1 rule, 1 proposed rule)",
+      "severity": "nominal",
+      "raw": {
+        "count": 104,
+        "types": {
+          "Notice": 18,
+          "Rule": 1,
+          "Proposed Rule": 1
+        },
+        "date": "2026-03-23"
+      }
+    },
+    {
+      "agentName": "DAEDALUS-\u00b5",
+      "source": "GitHub API",
+      "timestamp": "2026-03-23T21:04:06.176Z",
+      "value": 1,
+      "label": "GitHub: 30 events/24h, 30 events/7d, last 0h ago",
+      "severity": "nominal",
+      "raw": {
+        "last24h": 30,
+        "last7d": 30,
+        "hoursSinceLast": 0
+      }
+    },
+    {
+      "agentName": "DAEDALUS-\u00b5",
+      "source": "npm Registry",
+      "timestamp": "2026-03-23T21:04:06.714Z",
+      "value": 0.968,
+      "label": "Next.js latest: v16.2.1, released 3d ago",
+      "severity": "nominal",
+      "raw": {
+        "package": "next",
+        "latest": "16.2.1",
+        "daysSinceRelease": 3
+      }
+    },
+    {
+      "agentName": "DAEDALUS-\u00b5",
+      "source": "Self-ping",
+      "timestamp": "2026-03-23T21:04:06.714Z",
+      "value": 0.5,
+      "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+      "severity": "watch"
+    }
+  ],
+  "composite": 0.727,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-23T21:04:06.777Z",
+      "value": 0.131,
+      "label": "Seismic: 60 quakes M2.5+ today, max M5.9 near 63 km W of Anchor Point, Alaska",
+      "severity": "elevated",
+      "raw": {
+        "count": 60,
+        "maxMag": 5.9
+      }
+    }
+  ],
+  "healthy": true
+}
