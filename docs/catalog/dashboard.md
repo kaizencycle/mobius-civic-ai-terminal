@@ -1,7 +1,7 @@
 # Mobius Catalog
 
 **Repo:** `kaizencycle/mobius-civic-ai-terminal`
-**Generated:** `2026-03-23T19:24:34Z`  
+**Generated:** `2026-03-23T19:52:10Z`  
 **Cycle:** `C-258`
 **Epoch:** `FOUNDATION`
 
@@ -19,9 +19,9 @@
 
 | Metric | Count |
 |--------|------:|
-| Commits | 114 |
-| Files | 200 |
-| Lines of code | 14,936 |
+| Commits | 120 |
+| Files | 208 |
+| Lines of code | 15,074 |
 | API routes | 27 |
 | Components | 11 |
 | Hooks | 5 |
@@ -51,18 +51,18 @@
 | THEMIS | Governance | Federal Register, data.gov |
 | DAEDALUS-µ | Infrastructure | GitHub API, npm, Self-ping |
 
-## Recent PRs (C-257 → C-258)
+## Recent PRs (C-258)
 
 | PR | Title | Cycle |
 |---:|-------|-------|
+| #39 | ATLAS heartbeat maintenance | C-258 |
+| #38 | Kaizen Prime v0.1 ledger-first steward agent | C-258 |
+| #37 | Unify multiple ribbons into single compact header bar | C-258 |
 | #36 | Schema.org JSON-LD structured data for SEO/GEO/AEO | C-258 |
 | #35 | Terminal command registry and weekly digest scaffold | C-258 |
 | #34 | Auto-production deploys + cron micro-agents | C-258 |
 | #33 | Tier 1 governance workflows | C-258 |
 | #32 | Micro sub-agent scaffold | C-258 |
-| #31 | Identity system — role-aware terminal | C-257 |
-| #30 | Identity scaffold and profile surface | C-257 |
-| #29 | Terminal nav and layout cohesion | C-257 |
 
 ## API surface (27 routes)
 

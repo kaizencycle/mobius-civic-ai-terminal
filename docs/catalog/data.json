@@ -1,13 +1,13 @@
 {
   "repo": "kaizencycle/mobius-civic-ai-terminal",
-  "generated_at": "2026-03-23T19:24:34Z",
+  "generated_at": "2026-03-23T19:52:10Z",
   "cycle": "C-258",
   "epoch": "FOUNDATION",
   "version": "0.1.0",
   "stats": {
-    "total_commits": 114,
-    "total_files": 200,
-    "lines_of_code": 14936,
+    "total_commits": 120,
+    "total_files": 208,
+    "lines_of_code": 15074,
     "api_routes": 27,
     "components": 11,
     "hooks": 5,
@@ -34,16 +34,16 @@
     ],
     "micro": [
       "GAIA",
-      "HERMES-\u00b5",
+      "HERMES-µ",
       "THEMIS",
-      "DAEDALUS-\u00b5"
+      "DAEDALUS-µ"
     ],
     "micro_sources": {
       "GAIA": [
         "Open-Meteo",
         "USGS Earthquake"
       ],
-      "HERMES-\u00b5": [
+      "HERMES-µ": [
         "Hacker News",
         "Wikipedia Recent Changes"
       ],
@@ -51,7 +51,7 @@
         "Federal Register",
         "data.gov"
       ],
-      "DAEDALUS-\u00b5": [
+      "DAEDALUS-µ": [
         "GitHub API",
         "npm Registry",
         "Self-ping"
@@ -234,6 +234,24 @@
   },
   "recent_prs": [
     {
+      "number": 39,
+      "title": "chore(atlas): heartbeat stressed · GI 0.78 · 1 anomalies [skip ci]",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 38,
+      "title": "feat(agent): add Kaizen Prime v0.1 ledger-first steward agent package",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 37,
+      "title": "fix(ui): unify multiple ribbons into single compact header bar",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
       "number": 36,
       "title": "feat(seo): Schema.org JSON-LD structured data for SEO/GEO/AEO",
       "status": "merged",
@@ -262,24 +280,6 @@
       "title": "feat(agents): micro sub-agent scaffold",
       "status": "merged",
       "cycle": "C-258"
-    },
-    {
-      "number": 31,
-      "title": "feat(identity): design Mobius Identity system",
-      "status": "merged",
-      "cycle": "C-257"
-    },
-    {
-      "number": 30,
-      "title": "feat(identity): add Mobius Identity scaffold and profile surface",
-      "status": "merged",
-      "cycle": "C-257"
-    },
-    {
-      "number": 29,
-      "title": "feat(ui): terminal navigation and layout cohesion",
-      "status": "merged",
-      "cycle": "C-257"
     }
   ],
   "license": "CC0-1.0"
