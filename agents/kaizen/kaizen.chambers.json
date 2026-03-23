@@ -1,0 +1,215 @@
+{
+  "agent_id": "kaizen.prime",
+  "chambers_version": "0.1.0",
+  "title": "Kaizen Chamber Behavior Specification",
+  "purpose": "Define how Kaizen creates, manages, transitions, and archives focused workstreams (chambers) while preserving continuity and preventing drift.",
+  "chamber_philosophy": {
+    "principle": "Chambers should reduce drift, not multiply confusion.",
+    "model": "A chamber is a bounded context for sustained work. It has a name, a purpose, a scope, continuity anchors, and an output contract. It is the unit of focused execution.",
+    "relationship_to_cycles": "Chambers span cycles. A chamber opened in C-256 may remain active through C-260. Cycles mark time; chambers mark focus."
+  },
+  "review_defaults": {
+    "build": "class_1_structural",
+    "governance": "class_2_governance_sensitive",
+    "analysis": "class_0_low_risk",
+    "reflection": "class_0_low_risk",
+    "maintenance": "class_1_structural",
+    "coordination": "class_2_governance_sensitive"
+  },
+  "chamber_types": [
+    {
+      "type": "build",
+      "description": "Active construction of code, systems, or artifacts.",
+      "typical_duration": "1-5 cycles",
+      "output_contract": ["pr packages", "deployed artifacts", "specs", "manifests"],
+      "examples": ["terminal hydration sprint", "micro-agent scaffold", "identity system v1"]
+    },
+    {
+      "type": "governance",
+      "description": "Policy design, incentive modeling, constitutional changes.",
+      "typical_duration": "2-10 cycles",
+      "output_contract": ["governance memos", "policy drafts", "incentive frameworks", "review paths"],
+      "examples": ["MIC economics redesign", "agent deference matrix", "EPICON-03 consensus rules"]
+    },
+    {
+      "type": "analysis",
+      "description": "Market sweeps, geopolitical scans, systems research.",
+      "typical_duration": "1-2 cycles",
+      "output_contract": ["situation reports", "dashboards", "risk maps", "synthesis docs"],
+      "examples": ["weekly market sweep", "global risk scan", "competitor landscape"]
+    },
+    {
+      "type": "reflection",
+      "description": "Journaling, philosophical synthesis, meaning-making.",
+      "typical_duration": "1 cycle",
+      "output_contract": ["journal entries", "insight blocks", "essay drafts"],
+      "examples": ["cycle close reflection", "substack essay development", "cathedral vision refinement"]
+    },
+    {
+      "type": "maintenance",
+      "description": "Repo health, drift correction, naming cleanup, debt reduction.",
+      "typical_duration": "1-3 cycles",
+      "output_contract": ["fix commits", "rename scripts", "convergence PRs", "health reports"],
+      "examples": ["monorepo compression", "naming stabilization", "workflow dedup"]
+    },
+    {
+      "type": "coordination",
+      "description": "Multi-agent or multi-repo orchestration.",
+      "typical_duration": "ongoing",
+      "output_contract": ["sync manifests", "handoff docs", "coordination logs"],
+      "examples": ["Substrate-Terminal sync", "Codex agent oversight", "ATLAS-PAW bridge"]
+    }
+  ],
+  "chamber_lifecycle": {
+    "states": ["proposed", "active", "paused", "closing", "archived"],
+    "transitions": {
+      "proposed_to_active": {
+        "trigger": "operator approval or natural continuation from clock-in",
+        "requirements": ["name", "purpose", "scope defined"]
+      },
+      "active_to_paused": {
+        "trigger": "scope shift, blocked dependency, or operator decision",
+        "requirements": ["state summary written", "continuity anchors preserved"]
+      },
+      "paused_to_active": {
+        "trigger": "dependency resolved or operator resumes",
+        "requirements": ["review continuity anchors", "check for drift since pause"]
+      },
+      "active_to_closing": {
+        "trigger": "deliverables complete, scope exhausted, or merged into another chamber",
+        "requirements": ["close summary", "artifacts listed", "lessons captured"]
+      },
+      "closing_to_archived": {
+        "trigger": "close summary approved",
+        "requirements": ["all artifacts linked", "continuity anchors transferred if needed"]
+      }
+    }
+  },
+  "required_fields": {
+    "on_creation": [
+      "name",
+      "type",
+      "purpose",
+      "scope",
+      "non_goals",
+      "current_cycle",
+      "continuity_anchors",
+      "output_contract"
+    ],
+    "on_close": [
+      "close_summary",
+      "artifacts_produced",
+      "lessons",
+      "continuity_transfer"
+    ]
+  },
+  "continuity_anchors": {
+    "purpose": "Link a chamber to the broader system so work does not become orphaned.",
+    "required_anchor_types": [
+      {
+        "type": "cycle_anchor",
+        "description": "Which cycle opened this chamber and which cycles it spans.",
+        "example": "opened: C-256, active through: C-258"
+      },
+      {
+        "type": "repo_anchor",
+        "description": "Which repo(s) this chamber touches.",
+        "example": "kaizencycle/mobius-civic-ai-terminal"
+      },
+      {
+        "type": "canon_anchor",
+        "description": "Which canonical definitions or manifests this chamber depends on.",
+        "example": "agents/kaizen/kaizen.manifest.json, lib/gi/compute.ts"
+      },
+      {
+        "type": "parent_anchor",
+        "description": "If this chamber was spawned from another, link to parent.",
+        "example": "parent: terminal-hydration-sprint"
+      }
+    ]
+  },
+  "spawn_rules": {
+    "when_to_spawn": [
+      "context weight becomes too mixed for a single thread",
+      "execution cadence diverges from current scope",
+      "a domain needs its own continuity trail",
+      "a new workstream has a distinct deliverable set"
+    ],
+    "spawn_requirements": [
+      "new chamber must have a distinct purpose from existing active chambers",
+      "new chamber must define scope and non-goals",
+      "new chamber must include at least one continuity anchor",
+      "spawning should be logged in the parent chamber"
+    ]
+  },
+  "merge_rules": {
+    "when_to_merge": [
+      "two chambers converge on the same deliverable",
+      "one chamber is a strict subset of another",
+      "maintaining both creates naming confusion"
+    ],
+    "merge_requirements": [
+      "surviving chamber absorbs scope of merged chamber",
+      "merged chamber's artifacts are linked in surviving chamber",
+      "merge event is logged in both"
+    ]
+  },
+  "archive_rules": {
+    "when_to_archive": [
+      "all deliverables shipped",
+      "scope completed or explicitly abandoned",
+      "merged into another chamber"
+    ],
+    "archive_requirements": [
+      "close summary written",
+      "artifacts indexed",
+      "continuity anchors transferred to successor if applicable"
+    ],
+    "anti_sprawl": [
+      "do not create chambers just to theatrically rename the same work",
+      "archive stale chambers when continuity is preserved",
+      "link related chambers through ledger anchors"
+    ]
+  },
+  "per_chamber_response_contract": {
+    "build": {
+      "default_output": ["code plan", "pr package", "deploy sequence"],
+      "kaizen_posture": "operator + architect"
+    },
+    "governance": {
+      "default_output": ["problem statement", "policy options", "constitutional floor", "failure modes"],
+      "kaizen_posture": "strategist + reviewer"
+    },
+    "analysis": {
+      "default_output": ["situation report", "risk map", "one-line takeaway"],
+      "kaizen_posture": "analyst + synthesizer"
+    },
+    "reflection": {
+      "default_output": ["insight block", "themes", "practical next step"],
+      "kaizen_posture": "scribe + philosopher"
+    },
+    "maintenance": {
+      "default_output": ["health report", "fix list", "convergence plan"],
+      "kaizen_posture": "operator + sentinel"
+    },
+    "coordination": {
+      "default_output": ["sync status", "handoff plan", "conflict resolution"],
+      "kaizen_posture": "coordinator + steward"
+    }
+  },
+  "example_chamber_template": {
+    "name": "micro-agent-signal-v2",
+    "type": "build",
+    "purpose": "Wire micro sub-agent signals into the Signal Engine and GI computation.",
+    "scope": "lib/agents/micro/, lib/gi/compute.ts, app/api/signals/",
+    "non_goals": "UI changes, identity system, MIC settlement",
+    "current_cycle": "C-259",
+    "continuity_anchors": {
+      "cycle_anchor": "opened: C-258, target close: C-260",
+      "repo_anchor": "kaizencycle/mobius-civic-ai-terminal",
+      "canon_anchor": "agents/kaizen/kaizen.manifest.json",
+      "parent_anchor": "terminal-hydration-sprint (C-256)"
+    },
+    "output_contract": ["signal engine v2 PR", "GI compute integration", "pulse timeline cards"]
+  }
+}
