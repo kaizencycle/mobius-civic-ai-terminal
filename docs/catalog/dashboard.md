@@ -1,7 +1,7 @@
 # Mobius Catalog
 
 **Repo:** `kaizencycle/mobius-civic-ai-terminal`
-**Generated:** `2026-03-23T19:02:57Z`  
+**Generated:** `2026-03-23T19:49:29Z`  
 **Cycle:** `C-258`
 **Epoch:** `FOUNDATION`
 
@@ -19,13 +19,13 @@
 
 | Metric | Count |
 |--------|------:|
-| Commits | 84 |
-| Files | 163 |
-| Lines of code | 14,325 |
-| API routes | 25 |
+| Commits | 116 |
+| Files | 200 |
+| Lines of code | 15,074 |
+| API routes | 27 |
 | Components | 10 |
 | Hooks | 5 |
-| Lib modules | 14 |
+| Lib modules | 16 |
 
 ## Agent roster
 
@@ -51,20 +51,20 @@
 | THEMIS | Governance | Federal Register, data.gov |
 | DAEDALUS-µ | Infrastructure | GitHub API, npm, Self-ping |
 
-## Recent PRs (C-256 → C-258)
+## Recent PRs (C-257 → C-258)
 
 | PR | Title | Cycle |
 |---:|-------|-------|
-| #31 | Identity system — role-aware terminal | C-257 |
-| #30 | Identity scaffold and profile surface | C-257 |
-| #29 | Terminal nav and layout cohesion | C-257 |
-| #28 | Reactive Global Integrity computation | C-256 |
-| #27 | MIC settlement layer | C-256 |
-| #26 | Query-to-EPICON publish flow | C-256 |
-| #25 | Cron polling and staleness detection | C-256 |
-| #24 | Static integrity hydration and ledger backfill | C-256 |
+| #38 | Kaizen Prime v0.1 ledger-first steward agent | C-258 |
+| #37 | Unify multiple ribbons into single compact header | C-258 |
+| #36 | Schema.org JSON-LD structured data | C-258 |
+| #35 | Terminal command registry and weekly digest | C-258 |
+| #34 | Auto-production deploys + cron micro-agents | C-258 |
+| #33 | Tier 1 governance workflows | C-258 |
+| #32 | Micro sub-agent scaffold | C-258 |
+| #31 | Role permissions and profile UI | C-257 |
 
-## API surface (25 routes)
+## API surface (27 routes)
 
 **GI**: `/api/integrity-status`
 **Agents**: `/api/agents/status`

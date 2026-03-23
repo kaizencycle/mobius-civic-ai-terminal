@@ -1,13 +1,13 @@
 {
   "repo": "kaizencycle/mobius-civic-ai-terminal",
-  "generated_at": "2026-03-23T19:02:57Z",
+  "generated_at": "2026-03-23T19:49:29Z",
   "cycle": "C-258",
   "epoch": "FOUNDATION",
   "version": "0.1.0",
   "stats": {
-    "total_commits": 109,
-    "total_files": 197,
-    "lines_of_code": 14687,
+    "total_commits": 116,
+    "total_files": 200,
+    "lines_of_code": 15074,
     "api_routes": 27,
     "components": 10,
     "hooks": 5,
@@ -234,52 +234,52 @@
   },
   "recent_prs": [
     {
+      "number": 38,
+      "title": "feat(agent): add Kaizen Prime v0.1 ledger-first steward agent package",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 37,
+      "title": "fix(ui): unify multiple ribbons into single compact header bar",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 36,
+      "title": "feat(seo): Schema.org JSON-LD structured data for SEO/GEO/AEO",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 35,
+      "title": "feat(commands): add terminal command registry and weekly digest scaffold",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 34,
+      "title": "fix(deploy): enable auto-production deploys + cron micro-agents",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 33,
+      "title": "feat(ci): Tier 1 governance workflows — C-258",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
+      "number": 32,
+      "title": "feat(micro): micro sub-agent scaffold",
+      "status": "merged",
+      "cycle": "C-258"
+    },
+    {
       "number": 31,
-      "title": "feat(identity): design Mobius Identity system",
+      "title": "feat(identity): expose role permissions and simplify profile UI",
       "status": "merged",
       "cycle": "C-257"
-    },
-    {
-      "number": 30,
-      "title": "feat(identity): add Mobius Identity scaffold and profile surface",
-      "status": "merged",
-      "cycle": "C-257"
-    },
-    {
-      "number": 29,
-      "title": "feat(ui): terminal navigation and layout cohesion",
-      "status": "merged",
-      "cycle": "C-257"
-    },
-    {
-      "number": 28,
-      "title": "feat(gi): reactive Global Integrity computation",
-      "status": "merged",
-      "cycle": "C-256"
-    },
-    {
-      "number": 27,
-      "title": "feat(mic): add settlement layer and UI components",
-      "status": "merged",
-      "cycle": "C-256"
-    },
-    {
-      "number": 26,
-      "title": "feat(epicon): add query-to-EPICON publish flow",
-      "status": "merged",
-      "cycle": "C-256"
-    },
-    {
-      "number": 25,
-      "title": "feat(runtime): cron polling and staleness detection",
-      "status": "merged",
-      "cycle": "C-256"
-    },
-    {
-      "number": 24,
-      "title": "feat(terminal): static integrity hydration and ledger backfill",
-      "status": "merged",
-      "cycle": "C-256"
     }
   ],
   "license": "CC0-1.0"

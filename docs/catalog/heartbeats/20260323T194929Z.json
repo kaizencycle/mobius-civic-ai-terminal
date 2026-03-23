@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-03-23T19:49:29Z",
+  "health": "elevated",
+  "endpoints": {
+    "micro_agents": true,
+    "integrity": true,
+    "runtime": true
+  },
+  "signals": {
+    "composite": 0.725,
+    "anomalies": 1,
+    "gi": 0.78,
+    "mode": "yellow"
+  },
+  "agents": [
+    {
+      "name": "GAIA",
+      "healthy": true,
+      "signals": 2,
+      "errors": 0
+    },
+    {
+      "name": "HERMES-µ",
+      "healthy": true,
+      "signals": 2,
+      "errors": 0
+    },
+    {
+      "name": "THEMIS",
+      "healthy": true,
+      "signals": 1,
+      "errors": 1
+    },
+    {
+      "name": "DAEDALUS-µ",
+      "healthy": true,
+      "signals": 3,
+      "errors": 0
+    }
+  ],
+  "anomalies": [
+    {
+      "agent": "GAIA",
+      "source": "USGS Earthquake",
+      "severity": "elevated",
+      "label": "Seismic: 63 quakes M2.5+ today, max M5.9 near 18 km W of Grindavík, Iceland",
+      "value": 0.131
+    }
+  ]
+}
