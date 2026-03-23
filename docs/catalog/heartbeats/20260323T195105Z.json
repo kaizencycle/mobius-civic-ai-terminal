@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-03-23T19:51:05Z",
+  "health": "nominal",
+  "endpoints": {
+    "micro_agents": true,
+    "integrity": true,
+    "runtime": true
+  },
+  "signals": {
+    "composite": 0.725,
+    "anomalies": 1,
+    "gi": 0.78,
+    "mode": "yellow"
+  },
+  "anomaly_details": [
+    {
+      "agent": "GAIA",
+      "source": "USGS Earthquake",
+      "severity": "elevated",
+      "label": "Seismic: 63 quakes M2.5+ today, max M5.9 near 18 km W of Grindavík, Iceland"
+    }
+  ]
+}
