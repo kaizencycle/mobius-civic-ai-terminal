@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-03-23T16:06:27Z",
+  "health": "nominal",
+  "endpoints": {
+    "micro_agents": true,
+    "integrity": true,
+    "runtime": true
+  },
+  "signals": {
+    "composite": 0.713,
+    "anomalies": 1,
+    "gi": 0.78,
+    "mode": "yellow"
+  },
+  "details": {
+    "elevated": [
+      {
+        "agent": "GAIA",
+        "source": "USGS Earthquake",
+        "label": "Seismic: 70 quakes M2.5+ today, max M5.9 near 25 km SW of Glacier View, Alaska",
+        "severity": "elevated",
+        "value": 0.131
+      }
+    ],
+    "errors": [
+      "THEMIS: data.gov API fetch failed"
+    ]
+  }
+}
