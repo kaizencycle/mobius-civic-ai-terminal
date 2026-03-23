@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-03-23T18:03:55Z",
+  "health": "nominal",
+  "endpoints": {
+    "micro_agents": true,
+    "integrity": true,
+    "runtime": true
+  },
+  "signals": {
+    "composite": 0.717,
+    "anomalies": 1,
+    "gi": 0.78,
+    "mode": "yellow"
+  },
+  "agents": {
+    "GAIA": { "healthy": true, "errors": [] },
+    "HERMES-µ": { "healthy": true, "errors": ["Wikipedia API fetch failed"] },
+    "THEMIS": { "healthy": true, "errors": ["data.gov API fetch failed"] },
+    "DAEDALUS-µ": { "healthy": true, "errors": [] }
+  },
+  "anomaly_details": [
+    {
+      "agent": "GAIA",
+      "source": "USGS Earthquake",
+      "severity": "elevated",
+      "value": 0.131,
+      "label": "Seismic: 64 quakes M2.5+ today, max M5.9 near 36 km NW of San Antonio, Puerto Rico"
+    }
+  ]
+}
