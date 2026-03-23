@@ -1,7 +1,7 @@
 # Mobius Catalog
 
 **Repo:** `kaizencycle/mobius-civic-ai-terminal`
-**Generated:** `2026-03-23T09:04:04Z`  
+**Generated:** `2026-03-23T10:06:00Z`  
 **Cycle:** `C-258`
 **Epoch:** `FOUNDATION`
 
@@ -19,9 +19,9 @@
 
 | Metric | Count |
 |--------|------:|
-| Commits | 84 |
-| Files | 163 |
-| Lines of code | 14,325 |
+| Commits | 102 |
+| Files | 184 |
+| Lines of code | 14,319 |
 | API routes | 25 |
 | Components | 10 |
 | Hooks | 5 |

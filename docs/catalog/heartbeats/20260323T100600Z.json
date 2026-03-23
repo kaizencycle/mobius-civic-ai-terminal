@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-03-23T10:06:00Z",
+  "health": "degraded",
+  "agents": {
+    "GAIA": { "healthy": true, "signals": 2, "errors": 0 },
+    "HERMES-µ": { "healthy": true, "signals": 2, "errors": 0 },
+    "THEMIS": { "healthy": true, "signals": 1, "errors": 1 },
+    "DAEDALUS-µ": { "healthy": true, "signals": 3, "errors": 0 }
+  },
+  "composite": 0.72,
+  "anomalies": [
+    {
+      "agent": "GAIA",
+      "source": "USGS Earthquake",
+      "severity": "elevated",
+      "label": "Seismic: 68 quakes M2.5+ today, max M6.3 near 84 km NW of San Antonio, Puerto Rico",
+      "value": 0.106
+    }
+  ],
+  "anomaly_count": 1,
+  "gi": 0.78,
+  "mode": "yellow",
+  "build": {
+    "tsc": "pass",
+    "npm_ci": "pass"
+  }
+}
