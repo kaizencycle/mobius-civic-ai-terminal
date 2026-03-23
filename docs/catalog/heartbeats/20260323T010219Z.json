@@ -1,0 +1,241 @@
+{
+  "timestamp": "2026-03-23T01:02:27.817Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-23T01:02:27.798Z",
+          "value": 0.938,
+          "label": "Weather: 48°F, 3mph wind, code 3",
+          "severity": "nominal",
+          "raw": {
+            "time": "2026-03-23T01:00",
+            "interval": 900,
+            "temperature_2m": 48.1,
+            "wind_speed_10m": 3,
+            "weather_code": 3
+          }
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-23T01:02:27.817Z",
+          "value": 0.106,
+          "label": "Seismic: 71 quakes M2.5+ today, max M6.3 near 136 km SE of McCarthy, Alaska",
+          "severity": "elevated",
+          "raw": {
+            "count": 71,
+            "maxMag": 6.3
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T01:02:27.817Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-µ",
+      "signals": [
+        {
+          "agentName": "HERMES-µ",
+          "source": "Hacker News",
+          "timestamp": "2026-03-23T01:02:27.349Z",
+          "value": 0.78,
+          "label": "HN: top 5 avg score 252, avg 153 comments",
+          "severity": "nominal",
+          "raw": {
+            "avgScore": 252,
+            "avgComments": 153,
+            "topTitle": "PC Gamer recommends RSS readers in a 37mb article that just keeps downloading"
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T01:02:27.421Z",
+      "errors": [
+        "Wikipedia API fetch failed"
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-23T01:02:27.190Z",
+          "value": 0.992,
+          "label": "Federal Register: 104 docs today (18 notice, 1 rule, 1 proposed rule)",
+          "severity": "nominal",
+          "raw": {
+            "count": 104,
+            "types": {
+              "Notice": 18,
+              "Rule": 1,
+              "Proposed Rule": 1
+            },
+            "date": "2026-03-23"
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T01:02:27.681Z",
+      "errors": [
+        "data.gov API fetch failed"
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "GitHub API",
+          "timestamp": "2026-03-23T01:02:27.192Z",
+          "value": 0.99,
+          "label": "GitHub: 14 events/24h, 30 events/7d, last 3h ago",
+          "severity": "nominal",
+          "raw": {
+            "last24h": 14,
+            "last7d": 30,
+            "hoursSinceLast": 3
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "npm Registry",
+          "timestamp": "2026-03-23T01:02:27.679Z",
+          "value": 0.977,
+          "label": "Next.js latest: v16.2.1, released 2d ago",
+          "severity": "nominal",
+          "raw": {
+            "package": "next",
+            "latest": "16.2.1",
+            "daysSinceRelease": 2
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "Self-ping",
+          "timestamp": "2026-03-23T01:02:27.679Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "polledAt": "2026-03-23T01:02:27.679Z",
+      "errors": [],
+      "healthy": true
+    }
+  ],
+  "allSignals": [
+    {
+      "agentName": "GAIA",
+      "source": "Open-Meteo",
+      "timestamp": "2026-03-23T01:02:27.798Z",
+      "value": 0.938,
+      "label": "Weather: 48°F, 3mph wind, code 3",
+      "severity": "nominal",
+      "raw": {
+        "time": "2026-03-23T01:00",
+        "interval": 900,
+        "temperature_2m": 48.1,
+        "wind_speed_10m": 3,
+        "weather_code": 3
+      }
+    },
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-23T01:02:27.817Z",
+      "value": 0.106,
+      "label": "Seismic: 71 quakes M2.5+ today, max M6.3 near 136 km SE of McCarthy, Alaska",
+      "severity": "elevated",
+      "raw": {
+        "count": 71,
+        "maxMag": 6.3
+      }
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Hacker News",
+      "timestamp": "2026-03-23T01:02:27.349Z",
+      "value": 0.78,
+      "label": "HN: top 5 avg score 252, avg 153 comments",
+      "severity": "nominal",
+      "raw": {
+        "avgScore": 252,
+        "avgComments": 153,
+        "topTitle": "PC Gamer recommends RSS readers in a 37mb article that just keeps downloading"
+      }
+    },
+    {
+      "agentName": "THEMIS",
+      "source": "Federal Register",
+      "timestamp": "2026-03-23T01:02:27.190Z",
+      "value": 0.992,
+      "label": "Federal Register: 104 docs today (18 notice, 1 rule, 1 proposed rule)",
+      "severity": "nominal",
+      "raw": {
+        "count": 104,
+        "types": {
+          "Notice": 18,
+          "Rule": 1,
+          "Proposed Rule": 1
+        },
+        "date": "2026-03-23"
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "GitHub API",
+      "timestamp": "2026-03-23T01:02:27.192Z",
+      "value": 0.99,
+      "label": "GitHub: 14 events/24h, 30 events/7d, last 3h ago",
+      "severity": "nominal",
+      "raw": {
+        "last24h": 14,
+        "last7d": 30,
+        "hoursSinceLast": 3
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "npm Registry",
+      "timestamp": "2026-03-23T01:02:27.679Z",
+      "value": 0.977,
+      "label": "Next.js latest: v16.2.1, released 2d ago",
+      "severity": "nominal",
+      "raw": {
+        "package": "next",
+        "latest": "16.2.1",
+        "daysSinceRelease": 2
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "Self-ping",
+      "timestamp": "2026-03-23T01:02:27.679Z",
+      "value": 0.5,
+      "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+      "severity": "watch"
+    }
+  ],
+  "composite": 0.755,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-23T01:02:27.817Z",
+      "value": 0.106,
+      "label": "Seismic: 71 quakes M2.5+ today, max M6.3 near 136 km SE of McCarthy, Alaska",
+      "severity": "elevated",
+      "raw": {
+        "count": 71,
+        "maxMag": 6.3
+      }
+    }
+  ],
+  "healthy": true
+}
