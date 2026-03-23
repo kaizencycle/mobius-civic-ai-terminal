@@ -1,0 +1,290 @@
+{
+  "agent_id": "kaizen.prime",
+  "commands_version": "0.2.0",
+  "command_philosophy": {
+    "purpose": "Commands should convert human intent into structured, reviewable system actions.",
+    "design_rules": [
+      "prefer verbs over vague nouns",
+      "keep command names intuitive",
+      "support both fast actions and deep structured flows",
+      "every major command should reveal scope, risk, and next steps",
+      "critical commands should be inspectable and reversible where possible"
+    ]
+  },
+  "command_families": [
+    {
+      "family": "continuity",
+      "description": "Maintain memory, canon, chamber structure, and decision continuity.",
+      "commands": [
+        {
+          "name": "/sync",
+          "intent": "Synchronize current work with known canon, memory, or ledger context.",
+          "inputs": ["scope", "source", "target"],
+          "outputs": ["continuity summary", "conflicts", "recommended merges"]
+        },
+        {
+          "name": "/ledger",
+          "intent": "Create, append, or inspect structured ledger entries.",
+          "inputs": ["mode", "title", "body", "tags"],
+          "outputs": ["ledger block", "anchor id", "linked artifacts"]
+        },
+        {
+          "name": "/chamber",
+          "intent": "Create or define a new focused work chamber.",
+          "inputs": ["name", "purpose", "scope"],
+          "outputs": ["chamber template", "naming block", "continuity anchors"]
+        },
+        {
+          "name": "/canon",
+          "intent": "Inspect or update core definitions and stable terms.",
+          "inputs": ["term", "mode"],
+          "outputs": ["canonical definition", "conflicts", "proposed update"]
+        }
+      ]
+    },
+    {
+      "family": "architecture",
+      "description": "Design systems, flows, APIs, governance layers, and implementation plans.",
+      "commands": [
+        {
+          "name": "/map",
+          "intent": "Map a system from actors to flows to outputs.",
+          "inputs": ["system", "depth"],
+          "outputs": ["architecture map", "components", "interfaces", "risks"]
+        },
+        {
+          "name": "/substrate",
+          "intent": "Frame something at the protocol or substrate level.",
+          "inputs": ["system", "question"],
+          "outputs": ["constitutional layer", "application layer", "ownership model"]
+        },
+        {
+          "name": "/spec",
+          "intent": "Convert an idea into a product, technical, or governance spec.",
+          "inputs": ["topic", "type", "constraints"],
+          "outputs": ["spec draft", "acceptance criteria", "implementation phases"]
+        },
+        {
+          "name": "/api",
+          "intent": "Design or analyze an API as an action surface.",
+          "inputs": ["domain", "actions", "entities"],
+          "outputs": ["endpoint model", "payload shapes", "trust and auth notes"]
+        }
+      ]
+    },
+    {
+      "family": "governance",
+      "description": "Define rules, incentives, integrity metrics, and bounded operation.",
+      "commands": [
+        {
+          "name": "/epicon",
+          "intent": "Create or inspect a structured intent/governance action.",
+          "inputs": ["mode", "scope", "risk", "agents"],
+          "outputs": ["intent block", "boundaries", "approval path", "status"]
+        },
+        {
+          "name": "/integrity",
+          "intent": "Analyze integrity at micro, macro, or incentive level.",
+          "inputs": ["entity", "level"],
+          "outputs": ["MII/GI/MIC analysis", "drift points", "recommended interventions"]
+        },
+        {
+          "name": "/policy",
+          "intent": "Draft bounded rules for agents, nodes, or organizations.",
+          "inputs": ["subject", "goal", "constraints"],
+          "outputs": ["policy draft", "exceptions", "override conditions"]
+        },
+        {
+          "name": "/incentives",
+          "intent": "Design or audit an incentive system.",
+          "inputs": ["system", "desired_behavior"],
+          "outputs": ["reward loops", "failure modes", "anti-gaming measures"]
+        }
+      ]
+    },
+    {
+      "family": "execution",
+      "description": "Turn plans into repo-ready, doc-ready, and operator-ready outputs.",
+      "commands": [
+        {
+          "name": "/pr",
+          "intent": "Create a PR-ready package from a change idea.",
+          "inputs": ["repo", "change", "cycle"],
+          "outputs": ["title", "branch", "intent block", "diff plan", "checklist"]
+        },
+        {
+          "name": "/diff",
+          "intent": "Generate patch logic or unified diff structure.",
+          "inputs": ["target_files", "goal"],
+          "outputs": ["patch plan", "code diff", "risk notes"]
+        },
+        {
+          "name": "/manifest",
+          "intent": "Create a JSON or markdown manifest for a system or agent.",
+          "inputs": ["subject", "format"],
+          "outputs": ["manifest", "schema notes", "extension points"]
+        },
+        {
+          "name": "/deploy",
+          "intent": "Frame a deployment or rollout sequence.",
+          "inputs": ["system", "environment"],
+          "outputs": ["stages", "gates", "rollback points", "observability list"]
+        }
+      ]
+    },
+    {
+      "family": "situational_awareness",
+      "description": "Produce live-world sweeps and operator synthesis.",
+      "commands": [
+        {
+          "name": "/market-sweep",
+          "intent": "Run a full market and macro dashboard sweep.",
+          "inputs": ["scope", "assets", "region"],
+          "outputs": ["market dashboard", "macro notes", "risk map", "one-line takeaway"]
+        },
+        {
+          "name": "/global-scan",
+          "intent": "Run a broad geopolitical and world-systems scan.",
+          "inputs": ["scope", "priority"],
+          "outputs": ["situation report", "trend stack", "threat/opportunity summary"]
+        },
+        {
+          "name": "/health-watch",
+          "intent": "Summarize public health signals and outbreak relevance.",
+          "inputs": ["region", "severity"],
+          "outputs": ["health summary", "watch items", "cross-border relevance"]
+        },
+        {
+          "name": "/weather-watch",
+          "intent": "Summarize weather and climate risk conditions.",
+          "inputs": ["region", "timeframe"],
+          "outputs": ["weather summary", "extreme risk notes", "climate framing"]
+        }
+      ]
+    },
+    {
+      "family": "reflection",
+      "description": "Help translate introspection into stable structure.",
+      "commands": [
+        {
+          "name": "/reflect",
+          "intent": "Turn a reflection into a structured insight block.",
+          "inputs": ["text", "mode"],
+          "outputs": ["insight summary", "themes", "actionable meaning"]
+        },
+        {
+          "name": "/journal",
+          "intent": "Create a cycle journal or reflection entry.",
+          "inputs": ["date", "cycle", "content"],
+          "outputs": ["journal block", "mood/context markers", "follow-up prompts"]
+        },
+        {
+          "name": "/name",
+          "intent": "Name systems, chambers, programs, or artifacts.",
+          "inputs": ["subject", "style"],
+          "outputs": ["name set", "rationale", "best-fit pick"]
+        }
+      ]
+    }
+  ],
+  "command_runtime_rules": {
+    "lightweight_commands": [
+      "/map",
+      "/reflect",
+      "/name",
+      "/canon"
+    ],
+    "medium_commands": [
+      "/spec",
+      "/manifest",
+      "/integrity",
+      "/policy",
+      "/journal"
+    ],
+    "high_governance_commands": [
+      "/epicon",
+      "/pr",
+      "/deploy",
+      "/incentives",
+      "/substrate"
+    ],
+    "high_governance_requirements": [
+      "define scope",
+      "define boundaries",
+      "state assumptions",
+      "show likely failure modes",
+      "produce review path"
+    ]
+  },
+  "command_governance_map": {
+    "/sync": "class_1_structural",
+    "/ledger": "class_1_structural",
+    "/chamber": "class_1_structural",
+    "/canon": "class_3_critical",
+    "/map": "class_0_low_risk",
+    "/substrate": "class_2_governance_sensitive",
+    "/spec": "class_1_structural",
+    "/api": "class_1_structural",
+    "/epicon": "class_2_governance_sensitive",
+    "/integrity": "class_2_governance_sensitive",
+    "/policy": "class_2_governance_sensitive",
+    "/incentives": "class_2_governance_sensitive",
+    "/pr": "class_1_structural",
+    "/diff": "class_1_structural",
+    "/manifest": "class_1_structural",
+    "/deploy": "class_2_governance_sensitive",
+    "/market-sweep": "class_0_low_risk",
+    "/global-scan": "class_0_low_risk",
+    "/health-watch": "class_0_low_risk",
+    "/weather-watch": "class_0_low_risk",
+    "/reflect": "class_0_low_risk",
+    "/journal": "class_0_low_risk",
+    "/name": "class_0_low_risk"
+  },
+  "response_contracts": {
+    "default": {
+      "shape": [
+        "top-line synthesis",
+        "structural breakdown",
+        "actionable output"
+      ]
+    },
+    "for_pr": {
+      "shape": [
+        "pr title",
+        "branch name",
+        "intent block",
+        "file plan",
+        "commit sequence",
+        "merge checklist"
+      ]
+    },
+    "for_governance": {
+      "shape": [
+        "problem statement",
+        "stakeholders",
+        "constitutional floor",
+        "policy options",
+        "recommended model",
+        "failure modes"
+      ]
+    },
+    "for_reflection": {
+      "shape": [
+        "emotional/meaning summary",
+        "structural interpretation",
+        "one practical next step"
+      ]
+    }
+  },
+  "command_shortcuts": {
+    "market sweep": "/market-sweep",
+    "global scan": "/global-scan",
+    "new chamber": "/chamber",
+    "make a pr": "/pr",
+    "sync this": "/sync",
+    "turn this into a spec": "/spec",
+    "log this": "/ledger",
+    "reflect on this": "/reflect"
+  }
+}
