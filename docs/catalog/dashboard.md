@@ -1,7 +1,7 @@
 # Mobius Catalog
 
 **Repo:** `kaizencycle/mobius-civic-ai-terminal`
-**Generated:** `2026-03-23T20:41:27Z`  
+**Generated:** `2026-03-23T21:02:32Z`  
 **Cycle:** `C-258`
 **Epoch:** `FOUNDATION`
 
@@ -19,10 +19,10 @@
 
 | Metric | Count |
 |--------|------:|
-| Commits | 114 |
-| Files | 200 |
-| Lines of code | 14,936 |
-| API routes | 27 |
+| Commits | 123 |
+| Files | 211 |
+| Lines of code | 15,762 |
+| API routes | 28 |
 | Components | 11 |
 | Hooks | 5 |
 | Lib modules | 16 |
@@ -64,7 +64,7 @@
 | #30 | Identity scaffold and profile surface | C-257 |
 | #29 | Terminal nav and layout cohesion | C-257 |
 
-## API surface (27 routes)
+## API surface (28 routes)
 
 **GI**: `/api/integrity-status`
 **Agents**: `/api/agents/status`

@@ -1,0 +1,35 @@
+{
+  "repo": "kaizencycle/mobius-civic-ai-terminal",
+  "generated_at": "2026-03-23T21:02:32Z",
+  "cycle": "C-258",
+  "stats": {
+    "total_commits": 123,
+    "total_files": 211,
+    "lines_of_code": 15762,
+    "api_routes": 28
+  },
+  "integrity": {
+    "gi": 0.78,
+    "mode": "yellow",
+    "terminal_status": "stressed"
+  },
+  "agents": {
+    "canonical_count": 8,
+    "micro_count": 4,
+    "micro_sources_total": 9
+  },
+  "heartbeat": {
+    "composite": 0.731,
+    "anomaly_count": 1,
+    "anomalies": [
+      {
+        "agent": "GAIA",
+        "source": "USGS Earthquake",
+        "severity": "elevated",
+        "label": "Seismic: 60 quakes M2.5+ today, max M5.9 near 63 km W of Anchor Point, Alaska"
+      }
+    ]
+  },
+  "recent_prs_merged": 33,
+  "deployment_state": "unknown"
+}
