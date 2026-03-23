@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-03-23T08:04:27Z",
+  "health": "nominal",
+  "endpoints": {
+    "micro_agents": true,
+    "integrity": true,
+    "runtime": true
+  },
+  "signals": {
+    "composite": 0.725,
+    "anomalies": 1,
+    "gi": 0.78,
+    "mode": "yellow"
+  },
+  "agents": {
+    "GAIA": {
+      "healthy": true,
+      "errors": ["Open-Meteo weather fetch failed"],
+      "signals": 1,
+      "elevated": true
+    },
+    "HERMES-µ": {
+      "healthy": true,
+      "errors": [],
+      "signals": 2,
+      "elevated": false
+    },
+    "THEMIS": {
+      "healthy": true,
+      "errors": ["data.gov API fetch failed"],
+      "signals": 1,
+      "elevated": false
+    },
+    "DAEDALUS-µ": {
+      "healthy": true,
+      "errors": [],
+      "signals": 3,
+      "elevated": false
+    }
+  },
+  "anomaly_details": [
+    {
+      "agent": "GAIA",
+      "source": "USGS Earthquake",
+      "severity": "elevated",
+      "label": "Seismic: 71 quakes M2.5+ today, max M6.3 near 40 km NNE of Whittier, Alaska",
+      "value": 0.106
+    }
+  ]
+}
