@@ -1,0 +1,221 @@
+{
+  "timestamp": "2026-03-23T13:03:44.048Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-23T13:03:43.974Z",
+          "value": 0.765,
+          "label": "Weather: 41°F, 11mph wind, code 51",
+          "severity": "nominal",
+          "raw": {
+            "time": "2026-03-23T13:00",
+            "interval": 900,
+            "temperature_2m": 40.9,
+            "wind_speed_10m": 10.7,
+            "weather_code": 51
+          }
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-23T13:03:44.001Z",
+          "value": 0.106,
+          "label": "Seismic: 70 quakes M2.5+ today, max M6.3 near 87 km SW of Nikolski, Alaska",
+          "severity": "elevated",
+          "raw": {
+            "count": 70,
+            "maxMag": 6.3
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T13:03:44.001Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-µ",
+      "signals": [
+        {
+          "agentName": "HERMES-µ",
+          "source": "Hacker News",
+          "timestamp": "2026-03-23T13:03:43.461Z",
+          "value": 0.8,
+          "label": "HN: top 5 avg score 275, avg 138 comments",
+          "severity": "nominal",
+          "raw": {
+            "avgScore": 275,
+            "avgComments": 138,
+            "topTitle": "Migrating to the EU"
+          }
+        },
+        {
+          "agentName": "HERMES-µ",
+          "source": "Wikipedia Recent Changes",
+          "timestamp": "2026-03-23T13:03:43.576Z",
+          "value": 0.7,
+          "label": "Wikipedia: 98.1 edits/min, 0/50 minor",
+          "severity": "nominal",
+          "raw": {
+            "editsPerMin": 98.12,
+            "totalSampled": 50,
+            "minorCount": 0
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T13:03:43.576Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-23T13:03:43.555Z",
+          "value": 0.992,
+          "label": "Federal Register: 104 docs today (18 notice, 1 rule, 1 proposed rule)",
+          "severity": "nominal",
+          "raw": {
+            "count": 104,
+            "types": {
+              "Notice": 18,
+              "Rule": 1,
+              "Proposed Rule": 1
+            },
+            "date": "2026-03-23"
+          }
+        }
+      ],
+      "polledAt": "2026-03-23T13:03:44.048Z",
+      "errors": [
+        "data.gov API fetch failed"
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "GitHub API",
+          "timestamp": "2026-03-23T13:03:43.514Z",
+          "value": 0.954,
+          "label": "GitHub: 14 events/24h, 30 events/7d, last 15h ago",
+          "severity": "nominal",
+          "raw": {
+            "last24h": 14,
+            "last7d": 30,
+            "hoursSinceLast": 15
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "npm Registry",
+          "timestamp": "2026-03-23T13:03:43.963Z",
+          "value": 0.972,
+          "label": "Next.js latest: v16.2.1, released 3d ago",
+          "severity": "nominal",
+          "raw": {
+            "package": "next",
+            "latest": "16.2.1",
+            "daysSinceRelease": 3
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "Self-ping",
+          "timestamp": "2026-03-23T13:03:43.963Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "polledAt": "2026-03-23T13:03:43.963Z",
+      "errors": [],
+      "healthy": true
+    }
+  ],
+  "allSignals": [
+    {
+      "agentName": "GAIA",
+      "source": "Open-Meteo",
+      "timestamp": "2026-03-23T13:03:43.974Z",
+      "value": 0.765,
+      "label": "Weather: 41°F, 11mph wind, code 51",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-23T13:03:44.001Z",
+      "value": 0.106,
+      "label": "Seismic: 70 quakes M2.5+ today, max M6.3 near 87 km SW of Nikolski, Alaska",
+      "severity": "elevated"
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Hacker News",
+      "timestamp": "2026-03-23T13:03:43.461Z",
+      "value": 0.8,
+      "label": "HN: top 5 avg score 275, avg 138 comments",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Wikipedia Recent Changes",
+      "timestamp": "2026-03-23T13:03:43.576Z",
+      "value": 0.7,
+      "label": "Wikipedia: 98.1 edits/min, 0/50 minor",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "THEMIS",
+      "source": "Federal Register",
+      "timestamp": "2026-03-23T13:03:43.555Z",
+      "value": 0.992,
+      "label": "Federal Register: 104 docs today (18 notice, 1 rule, 1 proposed rule)",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "GitHub API",
+      "timestamp": "2026-03-23T13:03:43.514Z",
+      "value": 0.954,
+      "label": "GitHub: 14 events/24h, 30 events/7d, last 15h ago",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "npm Registry",
+      "timestamp": "2026-03-23T13:03:43.963Z",
+      "value": 0.972,
+      "label": "Next.js latest: v16.2.1, released 3d ago",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "Self-ping",
+      "timestamp": "2026-03-23T13:03:43.963Z",
+      "value": 0.5,
+      "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+      "severity": "watch"
+    }
+  ],
+  "composite": 0.724,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-23T13:03:44.001Z",
+      "value": 0.106,
+      "label": "Seismic: 70 quakes M2.5+ today, max M6.3 near 87 km SW of Nikolski, Alaska",
+      "severity": "elevated"
+    }
+  ],
+  "healthy": true
+}
