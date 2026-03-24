@@ -1,0 +1,105 @@
+{
+  "timestamp": "2026-03-24T19:05:00Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-24T19:04:44.740Z",
+          "value": 0.922,
+          "label": "Weather: 47°F, 5mph wind, code 0",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-24T19:04:44.762Z",
+          "value": 0.191,
+          "label": "Seismic: 34 quakes M2.5+ today, max M7.5 near 62 km S of Whites City, New Mexico",
+          "severity": "elevated"
+        }
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-µ",
+      "signals": [
+        {
+          "agentName": "HERMES-µ",
+          "source": "Hacker News",
+          "timestamp": "2026-03-24T19:04:44.480Z",
+          "value": 0.663,
+          "label": "HN: top 5 avg score 121, avg 65 comments",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "HERMES-µ",
+          "source": "Wikipedia Recent Changes",
+          "timestamp": "2026-03-24T19:04:44.608Z",
+          "value": 0.7,
+          "label": "Wikipedia: 84.3 edits/min, 0/50 minor",
+          "severity": "nominal"
+        }
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-24T19:04:44.407Z",
+          "value": 0.85,
+          "label": "Federal Register: 85 docs today (5 rule, 12 notice, 3 proposed rule)",
+          "severity": "nominal"
+        }
+      ],
+      "errors": ["data.gov API fetch failed"],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "GitHub API",
+          "timestamp": "2026-03-24T19:04:44.566Z",
+          "value": 0.992,
+          "label": "GitHub: 30 events/24h, 30 events/7d, last 3h ago",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "npm Registry",
+          "timestamp": "2026-03-24T19:04:45.182Z",
+          "value": 0.958,
+          "label": "Next.js latest: v16.2.1, released 4d ago",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "Self-ping",
+          "timestamp": "2026-03-24T19:04:45.182Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "healthy": true
+    }
+  ],
+  "composite": 0.722,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "value": 0.191,
+      "label": "Seismic: 34 quakes M2.5+ today, max M7.5 near 62 km S of Whites City, New Mexico",
+      "severity": "elevated"
+    }
+  ],
+  "healthy": true
+}

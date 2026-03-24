@@ -1,0 +1,31 @@
+{
+  "repo": "kaizencycle/mobius-civic-ai-terminal",
+  "generated_at": "2026-03-24T19:05:00Z",
+  "cycle": "C-258",
+  "stats": {
+    "total_commits": 142,
+    "total_files": 225,
+    "lines_of_code": 15778,
+    "api_routes": 28
+  },
+  "integrity": {
+    "gi": 0.78,
+    "mode": "yellow",
+    "terminal_status": "stressed"
+  },
+  "agents": {
+    "canonical_count": 8,
+    "micro_count": 4,
+    "micro_sources_total": 9
+  },
+  "heartbeat": {
+    "composite": 0.722,
+    "anomaly_count": 1,
+    "healthy": true,
+    "elevated_signals": [
+      "GAIA/USGS Earthquake: M7.5 seismic activity"
+    ]
+  },
+  "recent_prs_merged": 32,
+  "deployment_state": "unknown"
+}
