@@ -4,7 +4,7 @@
       "main": true
     }
   },
-  "ignoreCommand": "bash ./tools/vercel-ignore.sh",
+  "ignoreCommand": "bash scripts/ignore-build.sh",
   "crons": [
     {
       "path": "/api/eve/cycle-advance",
