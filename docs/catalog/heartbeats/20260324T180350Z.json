@@ -1,0 +1,265 @@
+{
+  "timestamp": "2026-03-24T18:03:52.050Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-24T18:03:51.783Z",
+          "value": 0.922,
+          "label": "Weather: 47°F, 4mph wind, code 0",
+          "severity": "nominal",
+          "raw": {
+            "time": "2026-03-24T18:00",
+            "interval": 900,
+            "temperature_2m": 46.6,
+            "wind_speed_10m": 4.2,
+            "weather_code": 0
+          }
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-24T18:03:51.806Z",
+          "value": 0.181,
+          "label": "Seismic: 35 quakes M2.5+ today, max M7.5 near 62 km S of Whites City, New Mexico",
+          "severity": "elevated",
+          "raw": {
+            "count": 35,
+            "maxMag": 7.5
+          }
+        }
+      ],
+      "polledAt": "2026-03-24T18:03:51.806Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-µ",
+      "signals": [
+        {
+          "agentName": "HERMES-µ",
+          "source": "Hacker News",
+          "timestamp": "2026-03-24T18:03:51.492Z",
+          "value": 0.729,
+          "label": "HN: top 5 avg score 195, avg 78 comments",
+          "severity": "nominal",
+          "raw": {
+            "avgScore": 195,
+            "avgComments": 78,
+            "topTitle": "LiteLLM Python package compromised by supply-chain attack"
+          }
+        },
+        {
+          "agentName": "HERMES-µ",
+          "source": "Wikipedia Recent Changes",
+          "timestamp": "2026-03-24T18:03:51.637Z",
+          "value": 0.7,
+          "label": "Wikipedia: 126.9 edits/min, 0/50 minor",
+          "severity": "nominal",
+          "raw": {
+            "editsPerMin": 126.92,
+            "totalSampled": 50,
+            "minorCount": 0
+          }
+        }
+      ],
+      "polledAt": "2026-03-24T18:03:51.637Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-24T18:03:51.398Z",
+          "value": 0.85,
+          "label": "Federal Register: 85 docs today (5 rule, 12 notice, 3 proposed rule)",
+          "severity": "nominal",
+          "raw": {
+            "count": 85,
+            "types": {
+              "Rule": 5,
+              "Notice": 12,
+              "Proposed Rule": 3
+            },
+            "date": "2026-03-24"
+          }
+        }
+      ],
+      "polledAt": "2026-03-24T18:03:52.050Z",
+      "errors": [
+        "data.gov API fetch failed"
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "GitHub API",
+          "timestamp": "2026-03-24T18:03:51.587Z",
+          "value": 0.995,
+          "label": "GitHub: 30 events/24h, 30 events/7d, last 2h ago",
+          "severity": "nominal",
+          "raw": {
+            "last24h": 30,
+            "last7d": 30,
+            "hoursSinceLast": 2
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "npm Registry",
+          "timestamp": "2026-03-24T18:03:52.049Z",
+          "value": 0.958,
+          "label": "Next.js latest: v16.2.1, released 4d ago",
+          "severity": "nominal",
+          "raw": {
+            "package": "next",
+            "latest": "16.2.1",
+            "daysSinceRelease": 4
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "Self-ping",
+          "timestamp": "2026-03-24T18:03:52.049Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "polledAt": "2026-03-24T18:03:52.049Z",
+      "errors": [],
+      "healthy": true
+    }
+  ],
+  "allSignals": [
+    {
+      "agentName": "GAIA",
+      "source": "Open-Meteo",
+      "timestamp": "2026-03-24T18:03:51.783Z",
+      "value": 0.922,
+      "label": "Weather: 47°F, 4mph wind, code 0",
+      "severity": "nominal",
+      "raw": {
+        "time": "2026-03-24T18:00",
+        "interval": 900,
+        "temperature_2m": 46.6,
+        "wind_speed_10m": 4.2,
+        "weather_code": 0
+      }
+    },
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-24T18:03:51.806Z",
+      "value": 0.181,
+      "label": "Seismic: 35 quakes M2.5+ today, max M7.5 near 62 km S of Whites City, New Mexico",
+      "severity": "elevated",
+      "raw": {
+        "count": 35,
+        "maxMag": 7.5
+      }
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Hacker News",
+      "timestamp": "2026-03-24T18:03:51.492Z",
+      "value": 0.729,
+      "label": "HN: top 5 avg score 195, avg 78 comments",
+      "severity": "nominal",
+      "raw": {
+        "avgScore": 195,
+        "avgComments": 78,
+        "topTitle": "LiteLLM Python package compromised by supply-chain attack"
+      }
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Wikipedia Recent Changes",
+      "timestamp": "2026-03-24T18:03:51.637Z",
+      "value": 0.7,
+      "label": "Wikipedia: 126.9 edits/min, 0/50 minor",
+      "severity": "nominal",
+      "raw": {
+        "editsPerMin": 126.92,
+        "totalSampled": 50,
+        "minorCount": 0
+      }
+    },
+    {
+      "agentName": "THEMIS",
+      "source": "Federal Register",
+      "timestamp": "2026-03-24T18:03:51.398Z",
+      "value": 0.85,
+      "label": "Federal Register: 85 docs today (5 rule, 12 notice, 3 proposed rule)",
+      "severity": "nominal",
+      "raw": {
+        "count": 85,
+        "types": {
+          "Rule": 5,
+          "Notice": 12,
+          "Proposed Rule": 3
+        },
+        "date": "2026-03-24"
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "GitHub API",
+      "timestamp": "2026-03-24T18:03:51.587Z",
+      "value": 0.995,
+      "label": "GitHub: 30 events/24h, 30 events/7d, last 2h ago",
+      "severity": "nominal",
+      "raw": {
+        "last24h": 30,
+        "last7d": 30,
+        "hoursSinceLast": 2
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "npm Registry",
+      "timestamp": "2026-03-24T18:03:52.049Z",
+      "value": 0.958,
+      "label": "Next.js latest: v16.2.1, released 4d ago",
+      "severity": "nominal",
+      "raw": {
+        "package": "next",
+        "latest": "16.2.1",
+        "daysSinceRelease": 4
+      }
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "Self-ping",
+      "timestamp": "2026-03-24T18:03:52.049Z",
+      "value": 0.5,
+      "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+      "severity": "watch"
+    }
+  ],
+  "composite": 0.729,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-24T18:03:51.806Z",
+      "value": 0.181,
+      "label": "Seismic: 35 quakes M2.5+ today, max M7.5 near 62 km S of Whites City, New Mexico",
+      "severity": "elevated",
+      "raw": {
+        "count": 35,
+        "maxMag": 7.5
+      }
+    }
+  ],
+  "healthy": true
+}
