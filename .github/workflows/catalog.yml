@@ -21,7 +21,14 @@ jobs:
           set -e
           NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           NOW_FILE=$(date -u +"%Y%m%dT%H%M%SZ")
-          CYCLE=$(grep -oP '"cycle":\s*"[^"]*"' docs/catalog/data.json 2>/dev/null | head -1 | grep -oP 'C-\d+' || echo "C-258")
+          CYCLE=$(node -e "
+            const EPOCH = new Date('2025-07-07T00:00:00-05:00');
+            const now = new Date();
+            const est = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+            const estDate = new Date(est + 'T00:00:00-05:00');
+            const days = Math.floor((estDate.getTime() - EPOCH.getTime()) / 86400000);
+            console.log('C-' + days);
+          " 2>/dev/null || echo "C-260")
 
           # Gather stats
           COMMITS=$(git rev-list --count HEAD)

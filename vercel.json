@@ -4,7 +4,7 @@
       "main": true
     }
   },
-  "ignoreCommand": "git log -1 --format='%s' | grep -q '\\[skip ci\\]'",
+  "ignoreCommand": "bash scripts/ignore-build.sh",
   "crons": [
     {
       "path": "/api/eve/cycle-advance",

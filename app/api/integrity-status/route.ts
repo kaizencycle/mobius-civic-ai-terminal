@@ -13,8 +13,15 @@ export const dynamic = 'force-dynamic';
 
 function resolveSignalQuality() {
   const epicon = getEchoEpicon();
-  const items = epicon.length > 0 ? epicon : mockEpicon;
-  return scoreBatch(items).map((score) => score.signal);
+  const isLive = epicon.length > 0;
+  const items = isLive ? epicon : mockEpicon;
+  const scores = scoreBatch(items).map((score) => score.signal);
+
+  // If using mock data, apply a 20% penalty — mock perfection is not real integrity
+  if (!isLive) {
+    return { scores: scores.map((s) => s * 0.8), source: 'mock' as const };
+  }
+  return { scores, source: 'live' as const };
 }
 
 function resolveActiveAgentCount() {
@@ -24,9 +31,17 @@ function resolveActiveAgentCount() {
 export async function GET() {
   const freshness = getStalenessStatus(getHeartbeat());
   const tripwire = getTripwireState();
+  const signalData = resolveSignalQuality();
+
+  // If running on mock data with no real heartbeat, degrade freshness
+  const effectiveFreshness =
+    signalData.source === 'mock' && freshness.status === 'fresh'
+      ? ('degraded' as const)
+      : freshness.status;
+
   const computed = computeGI({
-    zeusScores: resolveSignalQuality(),
-    freshness: freshness.status,
+    zeusScores: signalData.scores,
+    freshness: effectiveFreshness,
     tripwire: tripwire.level,
     activeAgents: resolveActiveAgentCount(),
   });
@@ -42,6 +57,7 @@ export async function GET() {
     terminal_status: computed.terminal_status,
     primary_driver: computed.primary_driver,
     summary: computed.summary,
+    source: signalData.source,
     signals: {
       ...computed.signals,
       geopolitics: computed.signals.quality,
