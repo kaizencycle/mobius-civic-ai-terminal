@@ -4,7 +4,7 @@
       "main": true
     }
   },
-  "ignoreCommand": "git log -1 --format='%s' | grep -q '\\[skip ci\\]'",
+  "ignoreCommand": "bash -c 'SUBJECT=$(git log -1 --format=\"%s\"); AUTHOR=$(git log -1 --format=\"%ae\"); if echo \"$SUBJECT\" | grep -q \"\\[skip ci\\]\"; then echo \"Skipping: [skip ci] in commit message\"; exit 0; fi; if echo \"$AUTHOR\" | grep -qE \"(bot@mobius|cursoragent@cursor)\"; then echo \"Skipping: bot commit by $AUTHOR\"; exit 0; fi; echo \"Building: $SUBJECT\"; exit 1'",
   "crons": [
     {
       "path": "/api/eve/cycle-advance",
