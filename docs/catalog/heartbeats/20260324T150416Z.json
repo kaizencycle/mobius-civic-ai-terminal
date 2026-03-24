@@ -1,0 +1,221 @@
+{
+  "timestamp": "2026-03-24T15:04:16.433Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-24T15:04:16.149Z",
+          "value": 0.838,
+          "label": "Weather: 39°F, 12mph wind, code 0",
+          "severity": "nominal",
+          "raw": {
+            "time": "2026-03-24T15:00",
+            "interval": 900,
+            "temperature_2m": 39.1,
+            "wind_speed_10m": 11.7,
+            "weather_code": 0
+          }
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-24T15:04:16.169Z",
+          "value": 0.111,
+          "label": "Seismic: 42 quakes M2.5+ today, max M7.5 near 60 km WSW of Pacasmayo, Peru",
+          "severity": "elevated",
+          "raw": {
+            "count": 42,
+            "maxMag": 7.5
+          }
+        }
+      ],
+      "polledAt": "2026-03-24T15:04:16.169Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-µ",
+      "signals": [
+        {
+          "agentName": "HERMES-µ",
+          "source": "Hacker News",
+          "timestamp": "2026-03-24T15:04:15.898Z",
+          "value": 0.758,
+          "label": "HN: top 5 avg score 228, avg 144 comments",
+          "severity": "nominal",
+          "raw": {
+            "avgScore": 228,
+            "avgComments": 144,
+            "topTitle": "LiteLLM Python package compromised by supply-chain attack"
+          }
+        },
+        {
+          "agentName": "HERMES-µ",
+          "source": "Wikipedia Recent Changes",
+          "timestamp": "2026-03-24T15:04:16.002Z",
+          "value": 0.7,
+          "label": "Wikipedia: 120.0 edits/min, 0/50 minor",
+          "severity": "nominal",
+          "raw": {
+            "editsPerMin": 120,
+            "totalSampled": 50,
+            "minorCount": 0
+          }
+        }
+      ],
+      "polledAt": "2026-03-24T15:04:16.002Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-24T15:04:15.853Z",
+          "value": 0.85,
+          "label": "Federal Register: 85 docs today (5 rule, 12 notice, 3 proposed rule)",
+          "severity": "nominal",
+          "raw": {
+            "count": 85,
+            "types": {
+              "Rule": 5,
+              "Notice": 12,
+              "Proposed Rule": 3
+            },
+            "date": "2026-03-24"
+          }
+        }
+      ],
+      "polledAt": "2026-03-24T15:04:16.433Z",
+      "errors": [
+        "data.gov API fetch failed"
+      ],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "GitHub API",
+          "timestamp": "2026-03-24T15:04:15.930Z",
+          "value": 0.946,
+          "label": "GitHub: 30 events/24h, 30 events/7d, last 18h ago",
+          "severity": "nominal",
+          "raw": {
+            "last24h": 30,
+            "last7d": 30,
+            "hoursSinceLast": 18
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "npm Registry",
+          "timestamp": "2026-03-24T15:04:16.431Z",
+          "value": 0.959,
+          "label": "Next.js latest: v16.2.1, released 4d ago",
+          "severity": "nominal",
+          "raw": {
+            "package": "next",
+            "latest": "16.2.1",
+            "daysSinceRelease": 4
+          }
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "Self-ping",
+          "timestamp": "2026-03-24T15:04:16.431Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "polledAt": "2026-03-24T15:04:16.431Z",
+      "errors": [],
+      "healthy": true
+    }
+  ],
+  "allSignals": [
+    {
+      "agentName": "GAIA",
+      "source": "Open-Meteo",
+      "timestamp": "2026-03-24T15:04:16.149Z",
+      "value": 0.838,
+      "label": "Weather: 39°F, 12mph wind, code 0",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-24T15:04:16.169Z",
+      "value": 0.111,
+      "label": "Seismic: 42 quakes M2.5+ today, max M7.5 near 60 km WSW of Pacasmayo, Peru",
+      "severity": "elevated"
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Hacker News",
+      "timestamp": "2026-03-24T15:04:15.898Z",
+      "value": 0.758,
+      "label": "HN: top 5 avg score 228, avg 144 comments",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Wikipedia Recent Changes",
+      "timestamp": "2026-03-24T15:04:16.002Z",
+      "value": 0.7,
+      "label": "Wikipedia: 120.0 edits/min, 0/50 minor",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "THEMIS",
+      "source": "Federal Register",
+      "timestamp": "2026-03-24T15:04:15.853Z",
+      "value": 0.85,
+      "label": "Federal Register: 85 docs today (5 rule, 12 notice, 3 proposed rule)",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "GitHub API",
+      "timestamp": "2026-03-24T15:04:15.930Z",
+      "value": 0.946,
+      "label": "GitHub: 30 events/24h, 30 events/7d, last 18h ago",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "npm Registry",
+      "timestamp": "2026-03-24T15:04:16.431Z",
+      "value": 0.959,
+      "label": "Next.js latest: v16.2.1, released 4d ago",
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "Self-ping",
+      "timestamp": "2026-03-24T15:04:16.431Z",
+      "value": 0.5,
+      "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+      "severity": "watch"
+    }
+  ],
+  "composite": 0.708,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "timestamp": "2026-03-24T15:04:16.169Z",
+      "value": 0.111,
+      "label": "Seismic: 42 quakes M2.5+ today, max M7.5 near 60 km WSW of Pacasmayo, Peru",
+      "severity": "elevated"
+    }
+  ],
+  "healthy": true
+}
