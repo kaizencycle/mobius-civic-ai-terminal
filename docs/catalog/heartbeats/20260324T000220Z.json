@@ -1,0 +1,148 @@
+{
+  "timestamp": "2026-03-24T00:02:20.715Z",
+  "agents": [
+    {
+      "agentName": "GAIA",
+      "signals": [
+        {
+          "agentName": "GAIA",
+          "source": "Open-Meteo",
+          "timestamp": "2026-03-24T00:02:20.343Z",
+          "value": 0.831,
+          "label": "Weather: 37°F, 9mph wind, code 3",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "GAIA",
+          "source": "USGS Earthquake",
+          "timestamp": "2026-03-24T00:02:20.715Z",
+          "value": 0.138,
+          "label": "Seismic: 58 quakes M2.5+ today, max M5.8 near 84 km WNW of Puerto, Chile",
+          "severity": "elevated"
+        }
+      ],
+      "polledAt": "2026-03-24T00:02:20.715Z",
+      "errors": [],
+      "healthy": true
+    },
+    {
+      "agentName": "HERMES-µ",
+      "signals": [
+        {
+          "agentName": "HERMES-µ",
+          "source": "Hacker News",
+          "timestamp": "2026-03-24T00:02:20.063Z",
+          "value": 0.711,
+          "label": "HN: top 5 avg score 175, avg 73 comments",
+          "severity": "nominal"
+        }
+      ],
+      "polledAt": "2026-03-24T00:02:20.133Z",
+      "errors": ["Wikipedia API fetch failed"],
+      "healthy": true
+    },
+    {
+      "agentName": "THEMIS",
+      "signals": [
+        {
+          "agentName": "THEMIS",
+          "source": "Federal Register",
+          "timestamp": "2026-03-24T00:02:19.985Z",
+          "value": 0.5,
+          "label": "Federal Register: 0 docs today",
+          "severity": "nominal"
+        }
+      ],
+      "polledAt": "2026-03-24T00:02:20.699Z",
+      "errors": ["data.gov API fetch failed"],
+      "healthy": true
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "signals": [
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "GitHub API",
+          "timestamp": "2026-03-24T00:02:20.114Z",
+          "value": 0.991,
+          "label": "GitHub: 30 events/24h, 30 events/7d, last 3h ago",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "npm Registry",
+          "timestamp": "2026-03-24T00:02:20.697Z",
+          "value": 0.966,
+          "label": "Next.js latest: v16.2.1, released 3d ago",
+          "severity": "nominal"
+        },
+        {
+          "agentName": "DAEDALUS-µ",
+          "source": "Self-ping",
+          "timestamp": "2026-03-24T00:02:20.697Z",
+          "value": 0.5,
+          "label": "Self-ping: no VERCEL_URL configured, defaulting to 0.5",
+          "severity": "watch"
+        }
+      ],
+      "polledAt": "2026-03-24T00:02:20.697Z",
+      "errors": [],
+      "healthy": true
+    }
+  ],
+  "allSignals": [
+    {
+      "agentName": "GAIA",
+      "source": "Open-Meteo",
+      "value": 0.831,
+      "severity": "nominal"
+    },
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "value": 0.138,
+      "severity": "elevated"
+    },
+    {
+      "agentName": "HERMES-µ",
+      "source": "Hacker News",
+      "value": 0.711,
+      "severity": "nominal"
+    },
+    {
+      "agentName": "THEMIS",
+      "source": "Federal Register",
+      "value": 0.5,
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "GitHub API",
+      "value": 0.991,
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "npm Registry",
+      "value": 0.966,
+      "severity": "nominal"
+    },
+    {
+      "agentName": "DAEDALUS-µ",
+      "source": "Self-ping",
+      "value": 0.5,
+      "severity": "watch"
+    }
+  ],
+  "composite": 0.662,
+  "anomalies": [
+    {
+      "agentName": "GAIA",
+      "source": "USGS Earthquake",
+      "value": 0.138,
+      "label": "Seismic: 58 quakes M2.5+ today, max M5.8 near 84 km WNW of Puerto, Chile",
+      "severity": "elevated"
+    }
+  ],
+  "healthy": true
+}
