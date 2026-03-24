@@ -1,0 +1,35 @@
+{
+  "repo": "kaizencycle/mobius-civic-ai-terminal",
+  "generated_at": "2026-03-24T20:06:34Z",
+  "cycle": "C-258",
+  "stats": {
+    "total_commits": 144,
+    "total_files": 227,
+    "lines_of_code": 15778,
+    "api_routes": 28
+  },
+  "integrity": {
+    "gi": 0.78,
+    "mode": "yellow",
+    "terminal_status": "stressed"
+  },
+  "agents": {
+    "canonical_count": 8,
+    "micro_count": 4,
+    "micro_sources_total": 9
+  },
+  "heartbeat": {
+    "composite": 0.724,
+    "anomaly_count": 1,
+    "anomalies": [
+      {
+        "agent": "GAIA",
+        "source": "USGS Earthquake",
+        "severity": "elevated",
+        "label": "Seismic: 34 quakes M2.5+ today, max M7.5 near 60 km S of Whites City, New Mexico"
+      }
+    ]
+  },
+  "recent_prs_merged": 30,
+  "deployment_state": "unknown"
+}

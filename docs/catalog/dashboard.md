@@ -1,7 +1,7 @@
 # Mobius Catalog
 
 **Repo:** `kaizencycle/mobius-civic-ai-terminal`
-**Generated:** `2026-03-24T19:11:54Z`  
+**Generated:** `2026-03-24T20:06:34Z`  
 **Cycle:** `C-258`
 **Epoch:** `FOUNDATION`
 
@@ -19,9 +19,9 @@
 
 | Metric | Count |
 |--------|------:|
-| Commits | 122 |
-| Files | 210 |
-| Lines of code | 15,762 |
+| Commits | 144 |
+| Files | 227 |
+| Lines of code | 15,778 |
 | API routes | 28 |
 | Components | 11 |
 | Hooks | 5 |
@@ -55,6 +55,7 @@
 
 | PR | Title | Cycle |
 |---:|-------|-------|
+| #42 | Stop canceled Vercel cascades and harden GI fallback | C-258 |
 | #40 | Global news synthesis feed wired into ECHO | C-258 |
 | #38 | Kaizen Prime v0.1 ledger-first steward agent | C-258 |
 | #37 | Unify multiple ribbons into single compact header bar | C-258 |
