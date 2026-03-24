@@ -1,7 +1,7 @@
 # Mobius Catalog
 
 **Repo:** `kaizencycle/mobius-civic-ai-terminal`
-**Generated:** `2026-03-24T15:04:30Z`  
+**Generated:** `2026-03-24T16:17:02Z`  
 **Cycle:** `C-258`
 **Epoch:** `FOUNDATION`
 
@@ -19,9 +19,9 @@
 
 | Metric | Count |
 |--------|------:|
-| Commits | 122 |
-| Files | 210 |
-| Lines of code | 15,762 |
+| Commits | 141 |
+| Files | 224 |
+| Lines of code | 15,778 |
 | API routes | 28 |
 | Components | 11 |
 | Hooks | 5 |
@@ -55,6 +55,7 @@
 
 | PR | Title | Cycle |
 |---:|-------|-------|
+| #42 | Fix Vercel cascades and harden GI fallback | C-258 |
 | #40 | Global news synthesis feed wired into ECHO | C-258 |
 | #38 | Kaizen Prime v0.1 ledger-first steward agent | C-258 |
 | #37 | Unify multiple ribbons into single compact header bar | C-258 |
@@ -62,7 +63,6 @@
 | #35 | Terminal command registry and weekly digest scaffold | C-258 |
 | #34 | Auto-production deploys + cron micro-agents | C-258 |
 | #33 | Tier 1 governance workflows | C-258 |
-| #32 | Micro sub-agent scaffold | C-258 |
 
 ## API surface (28 routes)
 
