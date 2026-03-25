@@ -90,7 +90,7 @@ The system tracks a **Global Integrity Score (GI)** that measures information he
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ MOBIUS TERMINAL                                      C-249 | 07:46 | GI .94 │
+│ MOBIUS TERMINAL                           C-XXX (runtime cycle) | ET | GI .94 │
 │ Alerts 2 | ATLAS OK | ZEUS ACTIVE | ECHO LIVE | HERMES ROUTING | TRIPWIRE N │
 ├──────────────┬───────────────────────────────────────────────┬───────────────┤
 │              │                                               │               │
@@ -198,7 +198,65 @@ Without a configured API, the terminal falls back to mock data automatically.
 
 ---
 
+## Boot Modes
+
+Mobius should not be understood as a single boot path.
+
+The terminal is the entry surface, but the full Mobius stack can be mounted at different depths depending on the operator.
+
+### Visitor
+Open the deployed terminal in the browser.
+
+```bash
+open https://mobius-civic-ai-terminal.vercel.app/terminal
+```
+
+Best for:
+- first-time users
+- public observers
+- read-only exploration
+
+### Operator
+Use the terminal as a working command surface connected to hosted APIs and hosted inference.
+
+```bash
+npx mobius-terminal
+```
+
+Best for:
+- daily terminal usage
+- civic operators
+- high-context contributors
+
+### Builder
+Run the repo locally for development, testing, and hybrid integration work.
+
+```bash
+npm install
+npm run dev
+```
+
+Best for:
+- contributors
+- local testing
+- terminal and API iteration
+
+### Sovereign
+Run Mobius as private or self-hosted infrastructure.
+
+```bash
+mobius up --profile sovereign
+```
+
+This mode is the long-term full-node / private-stack direction.
+
+For the canonical boot matrix, see [docs/BOOT_PROFILES.md](docs/BOOT_PROFILES.md).
+
+---
+
 ## Local Development
+
+The current repo-local development flow is closest to **Builder Mode**.
 
 ### Frontend
 
@@ -262,6 +320,8 @@ The terminal includes a keyboard-first command interface:
 ## Project Status
 
 Experimental civic infrastructure project. The Mobius Civic AI Terminal is a prototype interface exploring how AI systems and humans might collaboratively monitor information integrity.
+
+The runtime cycle is derived from the terminal's deterministic cycle engine rather than from static documentation examples.
 
 **Live deployment:** [mobius-civic-ai-terminal.vercel.app/terminal](https://mobius-civic-ai-terminal.vercel.app/terminal)
 
