@@ -33,6 +33,7 @@ import SignalEnginePanel from '@/components/terminal/SignalEnginePanel';
 import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
 import SentinelPulsePanel from '@/components/terminal/SentinelPulsePanel';
 import EveGlobalNewsPanel from '@/components/terminal/EveGlobalNewsPanel';
+import TreasuryWatchCard from '@/components/treasury/TreasuryWatchCard';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { navItems, mockCivicAlerts, mockSentinels } from '@/lib/terminal/mock';
@@ -412,9 +413,10 @@ function TerminalPage() {
                   </TerminalSection>
                 </div>
 
-                <div className="grid gap-4 xl:grid-cols-2">
+                <div className="grid gap-4 xl:grid-cols-3">
                   <SentinelPulsePanel />
                   <EveGlobalNewsPanel />
+                  <TreasuryWatchCard />
                 </div>
               </div>
             )}
