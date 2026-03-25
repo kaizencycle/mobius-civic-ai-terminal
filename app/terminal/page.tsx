@@ -31,6 +31,8 @@ import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
 import CivicRadarPanel from '@/components/terminal/CivicRadarPanel';
 import SignalEnginePanel from '@/components/terminal/SignalEnginePanel';
 import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
+import SentinelPulsePanel from '@/components/terminal/SentinelPulsePanel';
+import EveGlobalNewsPanel from '@/components/terminal/EveGlobalNewsPanel';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { navItems, mockCivicAlerts, mockSentinels } from '@/lib/terminal/mock';
@@ -381,32 +383,39 @@ function TerminalPage() {
             )}
 
             {selectedNav === 'pulse' && (
-              <div className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
-                <TerminalSection
-                  eyebrow="Live Intake"
-                  title="Pulse Timeline"
-                  description="Incoming micro-agent signals and current intake state."
-                >
-                  <PulseTimeline />
-                </TerminalSection>
+              <div className="space-y-4">
+                <div className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
+                  <TerminalSection
+                    eyebrow="Live Intake"
+                    title="Pulse Timeline"
+                    description="Incoming micro-agent signals and current intake state."
+                  >
+                    <PulseTimeline />
+                  </TerminalSection>
 
-                <TerminalSection
-                  eyebrow="System State"
-                  title="Global Integrity"
-                  description="Reactive integrity, tripwire, and system state."
-                >
-                  <div className="space-y-4">
-                    <TripwirePanel />
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <IntegrityMonitorCard gi={gi} onClick={() => setInspectorTarget({ kind: 'gi', data: gi })} />
-                      <TripwireWatchCard
-                        tripwires={allTripwires}
-                        selectedId={inspectorTarget.kind === 'tripwire' ? inspectorTarget.data.id : undefined}
-                        onSelect={(tripwire) => setInspectorTarget({ kind: 'tripwire', data: tripwire })}
-                      />
+                  <TerminalSection
+                    eyebrow="System State"
+                    title="Global Integrity"
+                    description="Reactive integrity, tripwire, and system state."
+                  >
+                    <div className="space-y-4">
+                      <TripwirePanel />
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <IntegrityMonitorCard gi={gi} onClick={() => setInspectorTarget({ kind: 'gi', data: gi })} />
+                        <TripwireWatchCard
+                          tripwires={allTripwires}
+                          selectedId={inspectorTarget.kind === 'tripwire' ? inspectorTarget.data.id : undefined}
+                          onSelect={(tripwire) => setInspectorTarget({ kind: 'tripwire', data: tripwire })}
+                        />
+                      </div>
                     </div>
-                  </div>
-                </TerminalSection>
+                  </TerminalSection>
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <SentinelPulsePanel />
+                  <EveGlobalNewsPanel />
+                </div>
               </div>
             )}
 
