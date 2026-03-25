@@ -1,9 +1,31 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { Agent } from '@/lib/terminal/types';
 import { useMobiusIdentity } from '@/hooks/useMobiusIdentity';
 import { statusColor, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
+
+type AgentMode = 'nominal' | 'degraded' | 'critical';
+type SourceHealth = 'ok' | 'degraded' | 'failed' | 'cached';
+
+type MicroAgent = {
+  agentName: string;
+  healthy: boolean;
+  polledAt: string;
+  errors: string[];
+  mode?: AgentMode;
+  sourceStatus?: Record<string, SourceHealth>;
+  fallbackUsed?: string | null;
+  lastGoodAt?: string | null;
+};
+
+type MicroSweepResponse = {
+  ok: boolean;
+  cached?: boolean;
+  timestamp: string;
+  agents: MicroAgent[];
+};
 
 export default function AgentCortexPanel({
   agents,
@@ -15,10 +37,60 @@ export default function AgentCortexPanel({
   onSelect?: (agent: Agent) => void;
 }) {
   const { identity, hasPermission, loading } = useMobiusIdentity();
+  const [themis, setThemis] = useState<MicroAgent | null>(null);
+  const [microCached, setMicroCached] = useState(false);
   const canInvoke = hasPermission('agents:invoke');
   const visibleAgents = identity
     ? agents.filter((agent) => identity.agent_permissions.includes(agent.name.toUpperCase()))
     : agents;
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadMicroState() {
+      try {
+        const res = await fetch('/api/signals/micro', { cache: 'no-store' });
+        const json: MicroSweepResponse = await res.json();
+        if (!alive || !json.ok) return;
+
+        const nextThemis = json.agents.find((agent) => agent.agentName === 'THEMIS') ?? null;
+        setThemis(nextThemis);
+        setMicroCached(Boolean(json.cached));
+      } catch {
+        // Keep prior THEMIS state if refresh fails.
+      }
+    }
+
+    loadMicroState();
+    const interval = setInterval(loadMicroState, 30000);
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  function themisTone(mode?: AgentMode, healthy = true) {
+    if (mode === 'critical') return 'border-rose-500/30 bg-rose-500/10 text-rose-200';
+    if (mode === 'degraded') return 'border-amber-500/30 bg-amber-500/10 text-amber-200';
+    if (mode === 'nominal') return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200';
+    return healthy
+      ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-200'
+      : 'border-amber-500/20 bg-amber-500/5 text-amber-200';
+  }
+
+  function sourceTone(status: SourceHealth) {
+    switch (status) {
+      case 'ok':
+        return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
+      case 'degraded':
+        return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
+      case 'cached':
+        return 'border-sky-500/20 bg-sky-500/10 text-sky-300';
+      case 'failed':
+      default:
+        return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+    }
+  }
 
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
@@ -38,6 +110,63 @@ export default function AgentCortexPanel({
             : 'Agent invocation unavailable for current role. Read-only status view only.'}
         </div>
       ) : null}
+
+      {themis ? (
+        <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950 px-3 py-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-slate-500">
+                Micro Watch
+              </div>
+              <div className="mt-1 text-sm text-slate-300">
+                THEMIS governance transparency posture
+              </div>
+            </div>
+
+            <div
+              className={cn(
+                'rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em]',
+                themisTone(themis.mode, themis.healthy),
+              )}
+            >
+              THEMIS {themis.mode ? themis.mode.toUpperCase() : themis.healthy ? 'NOMINAL' : 'DEGRADED'}
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {themis.fallbackUsed ? (
+              <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em] text-amber-300">
+                fallback · {themis.fallbackUsed}
+              </span>
+            ) : null}
+            {microCached ? (
+              <span className="rounded-md border border-sky-500/20 bg-sky-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em] text-sky-300">
+                cached sweep
+              </span>
+            ) : null}
+            <span className="rounded-md border border-slate-800 bg-slate-900 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-400">
+              polled · {new Date(themis.polledAt).toLocaleTimeString()}
+            </span>
+          </div>
+
+          {themis.sourceStatus ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {Object.entries(themis.sourceStatus).map(([source, status]) => (
+                <span
+                  key={`themis-${source}`}
+                  className={cn(
+                    'rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em]',
+                    sourceTone(status),
+                  )}
+                >
+                  {source}: {status}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 xl:grid-cols-4">
         {visibleAgents.map((agent) => (
           <button

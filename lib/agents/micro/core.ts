@@ -21,6 +21,9 @@ export interface MicroSignal {
   raw?: unknown;
 }
 
+export type AgentMode = 'nominal' | 'degraded' | 'critical';
+export type SourceHealth = 'ok' | 'degraded' | 'failed' | 'cached';
+
 /** Result of a full agent poll cycle */
 export interface AgentPollResult {
   agentName: string;
@@ -28,6 +31,14 @@ export interface AgentPollResult {
   polledAt: string;
   errors: string[];
   healthy: boolean;
+  /**
+   * Optional runtime posture for richer agent-state UIs.
+   * Existing consumers can ignore these fields safely.
+   */
+  mode?: AgentMode;
+  sourceStatus?: Record<string, SourceHealth>;
+  fallbackUsed?: string | null;
+  lastGoodAt?: string | null;
 }
 
 /** Configuration for a micro sub-agent */
