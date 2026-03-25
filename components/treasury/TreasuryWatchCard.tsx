@@ -1,6 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import type { TreasuryCivicAlert, TreasuryTripwire } from '@/lib/treasury/alerts';
+import type { TreasuryCrossCheckLine } from '@/lib/treasury/cross-check';
+import TreasuryAlertsPanel from './TreasuryAlertsPanel';
+import TreasuryCrossCheckPanel from './TreasuryCrossCheckPanel';
 import TreasuryDeepCompositionPanel, { type TreasuryDeepCompositionItem } from './TreasuryDeepCompositionPanel';
 import TreasuryCompositionPanel, { type TreasuryCompositionItem } from './TreasuryCompositionPanel';
 import TreasuryMiniChart, { type TreasuryChartPoint } from './TreasuryMiniChart';
@@ -26,6 +30,34 @@ type TreasuryDeepCompositionResponse = {
   dataset: string;
   canonicalOrder: string[];
   categories: TreasuryDeepCompositionItem[];
+};
+
+type TreasuryCrossCheckResponse = {
+  ok: boolean;
+  asOf: string;
+  source: string;
+  datasets: {
+    primary: string;
+    secondary: string;
+  };
+  status: 'aligned' | 'watch' | 'drift' | 'partial';
+  tolerancePct: number;
+  toleranceUsd: number;
+  summary: {
+    mspdTotal: number;
+    schedulesTotal: number;
+    absDiff: number;
+    pctDiff: number;
+  };
+  lines: TreasuryCrossCheckLine[];
+};
+
+type TreasuryAlertsResponse = {
+  ok: boolean;
+  timestamp: string;
+  status: 'nominal' | 'watch' | 'stressed' | 'critical';
+  tripwires: TreasuryTripwire[];
+  alerts: TreasuryCivicAlert[];
 };
 
 type FreshnessState = 'fresh' | 'degraded' | 'stale';
@@ -117,23 +149,29 @@ export default function TreasuryWatchCard() {
   const [deepComposition, setDeepComposition] = useState<TreasuryDeepCompositionItem[]>([]);
   const [deepCompositionAsOf, setDeepCompositionAsOf] = useState<string>('');
   const [deepCanonicalOrder, setDeepCanonicalOrder] = useState<string[]>([]);
+  const [crossCheck, setCrossCheck] = useState<TreasuryCrossCheckResponse | null>(null);
+  const [alertEngine, setAlertEngine] = useState<TreasuryAlertsResponse | null>(null);
 
   useEffect(() => {
     let alive = true;
 
     async function load() {
       try {
-        const [watchRes, historyRes, compositionRes, deepCompositionRes] = await Promise.all([
+        const [watchRes, historyRes, compositionRes, deepCompositionRes, crossCheckRes, alertsRes] = await Promise.all([
           fetch('/api/treasury/watch', { cache: 'no-store' }),
           fetch('/api/treasury/history?window=30d&series=velocity', { cache: 'no-store' }),
           fetch('/api/treasury/composition', { cache: 'no-store' }),
           fetch('/api/treasury/deep-composition', { cache: 'no-store' }),
+          fetch('/api/treasury/cross-check', { cache: 'no-store' }),
+          fetch('/api/treasury/alerts', { cache: 'no-store' }),
         ]);
 
         const watchJson: TreasuryWatchResponse = await watchRes.json();
         const historyJson: TreasuryHistoryResponse = await historyRes.json();
         const compositionJson: TreasuryCompositionResponse = await compositionRes.json();
         const deepCompositionJson: TreasuryDeepCompositionResponse = await deepCompositionRes.json();
+        const crossCheckJson: TreasuryCrossCheckResponse = await crossCheckRes.json();
+        const alertsJson: TreasuryAlertsResponse = await alertsRes.json();
         if (!alive || !watchJson.ok) return;
 
         setData(watchJson);
@@ -147,6 +185,12 @@ export default function TreasuryWatchCard() {
           setDeepComposition(deepCompositionJson.categories);
           setDeepCompositionAsOf(deepCompositionJson.asOf);
           setDeepCanonicalOrder(deepCompositionJson.canonicalOrder);
+        }
+        if (crossCheckJson.ok) {
+          setCrossCheck(crossCheckJson);
+        }
+        if (alertsJson.ok) {
+          setAlertEngine(alertsJson);
         }
       } catch {
         // Preserve previous value on refresh failure.
@@ -253,6 +297,30 @@ export default function TreasuryWatchCard() {
           asOf={deepCompositionAsOf || compositionAsOf || data.recordDate}
           categories={deepComposition}
           canonicalOrder={deepCanonicalOrder}
+        />
+      </div>
+
+      <div className="mt-4">
+        <TreasuryCrossCheckPanel
+          asOf={crossCheck?.asOf ?? deepCompositionAsOf ?? compositionAsOf ?? data.recordDate}
+          status={crossCheck?.status ?? 'partial'}
+          summary={
+            crossCheck?.summary ?? {
+              mspdTotal: 0,
+              schedulesTotal: 0,
+              absDiff: 0,
+              pctDiff: 0,
+            }
+          }
+          lines={crossCheck?.lines ?? []}
+        />
+      </div>
+
+      <div className="mt-4">
+        <TreasuryAlertsPanel
+          status={alertEngine?.status ?? 'nominal'}
+          tripwires={alertEngine?.tripwires ?? []}
+          alerts={alertEngine?.alerts ?? []}
         />
       </div>
 
