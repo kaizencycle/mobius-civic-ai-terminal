@@ -33,6 +33,8 @@ import SignalEnginePanel from '@/components/terminal/SignalEnginePanel';
 import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
 import SentinelPulsePanel from '@/components/terminal/SentinelPulsePanel';
 import EveGlobalNewsPanel from '@/components/terminal/EveGlobalNewsPanel';
+import MacroIntegrityPulseCard from '@/components/markets/MacroIntegrityPulseCard';
+import RatesDollarFusionCard from '@/components/markets/RatesDollarFusionCard';
 import TreasuryMarketBridge from '@/components/treasury/TreasuryMarketBridge';
 import TreasuryWatchCard from '@/components/treasury/TreasuryWatchCard';
 import { WalletProvider } from '@/contexts/WalletContext';
@@ -423,13 +425,31 @@ function TerminalPage() {
             )}
 
             {selectedNav === 'markets' && (
-              <TerminalSection
-                eyebrow="Fiscal Signal"
-                title="Treasury → Markets"
-                description="Treasury debt velocity, freshness, and monthly drift compressed into market-facing posture."
-              >
-                <TreasuryMarketBridge />
-              </TerminalSection>
+              <div className="space-y-4">
+                <TerminalSection
+                  eyebrow="Fiscal Signal"
+                  title="Treasury → Markets"
+                  description="Treasury debt velocity, freshness, and monthly drift compressed into market-facing posture."
+                >
+                  <TreasuryMarketBridge />
+                </TerminalSection>
+
+                <TerminalSection
+                  eyebrow="Macro Transmission"
+                  title="Rates + Dollar Fusion"
+                  description="Treasury posture fused with long-end rates, dollar, and volatility overlays."
+                >
+                  <RatesDollarFusionCard />
+                </TerminalSection>
+
+                <TerminalSection
+                  eyebrow="Trust Surface"
+                  title="Macro Integrity Pulse"
+                  description="Freshness, completeness, and cross-provider coherence for macro overlays."
+                >
+                  <MacroIntegrityPulseCard />
+                </TerminalSection>
+              </div>
             )}
 
             {showIntegrity && <IntegrityRatingPanel integrity={echoIntegrity} />}
