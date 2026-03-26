@@ -39,10 +39,12 @@ export default function EpiconFeedPanel({
   items,
   selectedId,
   onSelect,
+  noiseThreshold,
 }: {
   items: EpiconItem[];
   selectedId: string;
   onSelect: (item: EpiconItem) => void;
+  noiseThreshold?: number;
 }) {
   const [sortKey, setSortKey] = useState<EpiconSortKey>('time');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -70,6 +72,7 @@ export default function EpiconFeedPanel({
           <button
             key={item.id}
             onClick={() => onSelect(item)}
+            style={{ contentVisibility: 'auto', containIntrinsicSize: '0 160px' }}
             className={cn(
               'w-full rounded-lg border p-4 text-left transition',
               selectedId === item.id
@@ -115,6 +118,11 @@ export default function EpiconFeedPanel({
               <span className="rounded-md bg-slate-800 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-slate-300">
                 {item.ownerAgent}
               </span>
+              {typeof noiseThreshold === 'number' && item.confidenceTier / 4 < noiseThreshold && (
+                <span className="rounded-md border border-orange-500/40 bg-orange-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-orange-300">
+                  C-261 Breach Risk
+                </span>
+              )}
               {item.id.includes('-USR-') && (
                 <span className="rounded-md border border-violet-500/20 bg-violet-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-violet-300">
                   participant

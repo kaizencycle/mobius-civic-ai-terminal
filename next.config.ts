@@ -1,5 +1,8 @@
 import type { NextConfig } from 'next';
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  bundlePagesRouterDependencies: true,
+  serverExternalPackages: ['@mobius/integrity-core'],
+};
 
 export default nextConfig;
