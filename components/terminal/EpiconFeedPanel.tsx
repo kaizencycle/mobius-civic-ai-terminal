@@ -72,9 +72,8 @@ export default function EpiconFeedPanel({
           <button
             key={item.id}
             onClick={() => onSelect(item)}
-            style={{ contentVisibility: 'auto', containIntrinsicSize: '0 160px' }}
             className={cn(
-              'w-full rounded-lg border p-4 text-left transition',
+              'cv-auto w-full rounded-lg border p-4 text-left transition',
               selectedId === item.id
                 ? 'border-sky-500/40 bg-sky-500/10'
                 : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-900',
