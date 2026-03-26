@@ -30,7 +30,9 @@ import LedgerPanel from '@/components/terminal/LedgerPanel';
 import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
 import CivicRadarPanel from '@/components/terminal/CivicRadarPanel';
 import SignalEnginePanel from '@/components/terminal/SignalEnginePanel';
+import IntegrityFilter from '@/components/terminal/IntegrityFilter';
 import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
+import HardHalt from '@/components/modals/HardHalt';
 import SentinelPulsePanel from '@/components/terminal/SentinelPulsePanel';
 import EveGlobalNewsPanel from '@/components/terminal/EveGlobalNewsPanel';
 import MacroIntegrityPulseCard from '@/components/markets/MacroIntegrityPulseCard';
@@ -45,6 +47,7 @@ import { navItems, mockCivicAlerts, mockSentinels } from '@/lib/terminal/mock';
 import type { NavKey } from '@/lib/terminal/types';
 import { mockQueryResult } from '@/lib/mock/queryResult';
 import { cn } from '@/lib/terminal/utils';
+import { checkCovenantCompliance } from '@/lib/integrity-check';
 import { useTerminalCommands } from '@/hooks/useTerminalCommands';
 import { useTerminalData } from '@/hooks/useTerminalData';
 
@@ -98,6 +101,7 @@ export default function TerminalPageWrapper() {
 function TerminalPage() {
   const [selectedNav, setSelectedNav] = useState<NavKey>('pulse');
   const [commandResult, setCommandResult] = useState<TerminalCommandResult | null>(null);
+  const [noiseThreshold, setNoiseThreshold] = useState(0.7);
   const {
     agents,
     allTripwires,
@@ -153,6 +157,8 @@ function TerminalPage() {
   const showSignal = ['pulse', 'governance', 'geopolitics', 'markets'].includes(selectedNav);
   const showConsensus = showCreateEpicon || inspectorTarget.kind === 'epicon';
   const criticalAlertCount = mergedAlerts.filter((alert) => alert.severity === 'critical' || alert.severity === 'high').length;
+  const filteredSignals = filteredEpicon.filter((item) => item.confidenceTier / 4 >= noiseThreshold);
+  const covenantStatus = checkCovenantCompliance(gi.score);
 
   const consensusAgents = (() => {
     if (showCreateEpicon) {
@@ -263,6 +269,11 @@ function TerminalPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+      <HardHalt
+        isOpen={covenantStatus.status === 'HALT'}
+        giScore={gi.score}
+        reason="Semantic drift detected in active civic signal lanes."
+      />
       <TopStatusBar
         alertCount={allTripwires.length + criticalAlertCount}
         mii={liveRibbonMii}
@@ -308,11 +319,13 @@ function TerminalPage() {
             >
               <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-slate-500">
                 <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Driver · {primaryDriver}</span>
-                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Signals · {filteredEpicon.length}</span>
+                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Signals · {filteredSignals.length}</span>
                 <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Tripwires · {allTripwires.length}</span>
                 <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Alerts · {criticalAlertCount}</span>
               </div>
             </TerminalSection>
+
+            <IntegrityFilter onFilterChange={setNoiseThreshold} defaultThreshold={noiseThreshold} />
 
             {showLedger && (
               <LedgerPanel
@@ -331,9 +344,10 @@ function TerminalPage() {
               >
                 <div className="space-y-4">
                   <EpiconFeedPanel
-                    items={filteredEpicon}
+                    items={filteredSignals}
                     selectedId={inspectorTarget.kind === 'epicon' ? inspectorTarget.data.id : ''}
                     onSelect={(item) => setInspectorTarget({ kind: 'epicon', data: item })}
+                    noiseThreshold={noiseThreshold}
                   />
 
                   <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
