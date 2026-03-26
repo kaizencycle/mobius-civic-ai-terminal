@@ -83,7 +83,7 @@ export default function LedgerPanel({
             key={entry.id}
             onClick={() => onSelect?.(entry)}
             className={cn(
-              'w-full rounded-lg border p-3 text-left transition',
+              'cv-auto w-full rounded-lg border p-3 text-left transition',
               selectedId === entry.id
                 ? 'border-sky-500/40 bg-sky-500/10'
                 : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-900',

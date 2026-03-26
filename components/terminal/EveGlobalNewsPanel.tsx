@@ -100,7 +100,7 @@ export default function EveGlobalNewsPanel() {
 
           <ul className="space-y-2">
             {data.items.slice(0, 8).map((item) => (
-              <li key={item.id} className="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
+              <li key={item.id} className="cv-auto rounded-lg border border-slate-800 bg-slate-950/70 p-3">
                 <a href={item.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-slate-100 hover:text-cyan-300">
                   {item.title}
                 </a>

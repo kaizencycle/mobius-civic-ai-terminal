@@ -128,3 +128,13 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
+
+/* ── Rendering performance ─────────────────────────────────── */
+/* content-visibility: auto skips rendering for off-screen items.
+   The browser only paints items as they scroll into view.
+   contain-intrinsic-block-size gives the browser a height estimate
+   so scroll position calculations stay accurate. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 80px;
+}

@@ -161,7 +161,7 @@ export default function PulseTimeline() {
             {visibleAgents.map((agent) => (
               <div
                 key={agent.agentName}
-                className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"
+                className="cv-auto rounded-xl border border-slate-800 bg-slate-950/60 p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>

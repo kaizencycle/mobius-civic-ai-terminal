@@ -158,7 +158,7 @@ export default function SentinelPulsePanel() {
     return (
       <ul className="space-y-3">
         {events.map((event) => (
-          <li key={event.id} className="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
+          <li key={event.id} className="cv-auto rounded-lg border border-slate-800 bg-slate-950/70 p-3">
             <div className="mb-1 flex items-center justify-between gap-2">
               <span className={`rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em] ${badgeClass(event.agent)}`}>
                 {event.agent}
