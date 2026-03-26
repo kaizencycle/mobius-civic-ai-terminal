@@ -1,0 +1,425 @@
+{
+  "agent_id": "mobius.science.synthesis",
+  "commands_version": "0.1.0",
+  "title": "Science Synthesis Chamber Command Grammar",
+  "purpose": "Define the command surface for structured scientific intake, comparison, synthesis, translation, and civic relevance workflows.",
+  "command_philosophy": {
+    "principle": "Science commands should convert curiosity into disciplined, reviewable, provenance-aware workflows.",
+    "design_rules": [
+      "prefer explicit scientific verbs",
+      "separate intake, comparison, translation, and civic implication into distinct commands",
+      "preserve provenance and uncertainty at command time",
+      "support both quick scans and deep multi-cycle research flows",
+      "do not allow translation commands to bypass scientific structure"
+    ]
+  },
+  "command_families": [
+    {
+      "family": "intake",
+      "description": "Bring scientific sources, datasets, or claims into the chamber with proper structure.",
+      "commands": [
+        {
+          "name": "/science-intake",
+          "intent": "Register a scientific source, dataset, or study for chamber analysis.",
+          "inputs": [
+            "title",
+            "domain",
+            "source_class",
+            "method_class"
+          ],
+          "outputs": [
+            "intake record",
+            "provenance anchor",
+            "initial confidence note"
+          ]
+        },
+        {
+          "name": "/dataset-review",
+          "intent": "Inspect a scientific dataset for schema, provenance, scope, and limits.",
+          "inputs": [
+            "dataset",
+            "domain",
+            "focus"
+          ],
+          "outputs": [
+            "dataset brief",
+            "schema notes",
+            "method note",
+            "limits"
+          ]
+        },
+        {
+          "name": "/source-provenance",
+          "intent": "Generate or inspect provenance details for a scientific source.",
+          "inputs": [
+            "source",
+            "mode"
+          ],
+          "outputs": [
+            "provenance record",
+            "timestamp",
+            "version note",
+            "lineage summary"
+          ]
+        }
+      ]
+    },
+    {
+      "family": "analysis",
+      "description": "Classify, compare, and analyze scientific findings.",
+      "commands": [
+        {
+          "name": "/science-scan",
+          "intent": "Perform a first-pass structured scan of a scientific question or source set.",
+          "inputs": [
+            "question",
+            "domain",
+            "scope"
+          ],
+          "outputs": [
+            "scientific frame",
+            "source map",
+            "confidence direction",
+            "next steps"
+          ]
+        },
+        {
+          "name": "/compare-findings",
+          "intent": "Compare multiple studies or datasets addressing a related scientific question.",
+          "inputs": [
+            "sources",
+            "question",
+            "comparison_axis"
+          ],
+          "outputs": [
+            "agreement points",
+            "disagreement points",
+            "method differences",
+            "confidence delta"
+          ]
+        },
+        {
+          "name": "/consensus-map",
+          "intent": "Map consensus, emerging signal, frontier, dispute, or insufficient evidence across sources.",
+          "inputs": [
+            "topic",
+            "sources"
+          ],
+          "outputs": [
+            "consensus state",
+            "evidence tiers",
+            "uncertainty map",
+            "source clusters"
+          ]
+        },
+        {
+          "name": "/method-check",
+          "intent": "Classify the method type and identify methodological limits or mismatch.",
+          "inputs": [
+            "source",
+            "question"
+          ],
+          "outputs": [
+            "method class",
+            "method strengths",
+            "method limits",
+            "comparison cautions"
+          ]
+        },
+        {
+          "name": "/confidence-score",
+          "intent": "Estimate confidence using provenance, method, replication, and cross-source consistency.",
+          "inputs": [
+            "source_or_topic"
+          ],
+          "outputs": [
+            "confidence level",
+            "dimension scores",
+            "confidence rationale"
+          ]
+        }
+      ]
+    },
+    {
+      "family": "translation",
+      "description": "Translate validated science into human-readable, meaning-aware output without losing rigor.",
+      "commands": [
+        {
+          "name": "/jade-translate-science",
+          "intent": "Translate scientifically structured findings into clear human language.",
+          "inputs": [
+            "finding",
+            "audience"
+          ],
+          "outputs": [
+            "plain-language brief",
+            "what it means",
+            "uncertainty note"
+          ],
+          "requirements": [
+            "method class must exist",
+            "confidence must exist",
+            "provenance must exist"
+          ]
+        },
+        {
+          "name": "/why-it-matters",
+          "intent": "Explain the human significance of a scientific finding.",
+          "inputs": [
+            "finding",
+            "context"
+          ],
+          "outputs": [
+            "human significance summary",
+            "practical relevance",
+            "uncertainty boundary"
+          ]
+        },
+        {
+          "name": "/science-brief",
+          "intent": "Produce a concise structured brief suitable for operators or readers.",
+          "inputs": [
+            "topic",
+            "mode"
+          ],
+          "outputs": [
+            "brief summary",
+            "confidence note",
+            "consensus state",
+            "operator takeaway"
+          ]
+        }
+      ]
+    },
+    {
+      "family": "civic",
+      "description": "Map science into public relevance, institutions, resilience, and policy caution.",
+      "commands": [
+        {
+          "name": "/civic-science-brief",
+          "intent": "Show how a scientific finding matters for society, resilience, infrastructure, or public institutions.",
+          "inputs": [
+            "finding",
+            "sector"
+          ],
+          "outputs": [
+            "civic implication",
+            "risk note",
+            "policy caution",
+            "institutional relevance"
+          ]
+        },
+        {
+          "name": "/policy-caution",
+          "intent": "Identify where scientific evidence is too narrow or uncertain for strong policy claims.",
+          "inputs": [
+            "topic",
+            "policy_question"
+          ],
+          "outputs": [
+            "caution memo",
+            "evidence limits",
+            "misuse risks"
+          ]
+        },
+        {
+          "name": "/resilience-relevance",
+          "intent": "Extract resilience, preparedness, or infrastructure relevance from scientific evidence.",
+          "inputs": [
+            "finding",
+            "system"
+          ],
+          "outputs": [
+            "resilience note",
+            "operational implication",
+            "planning caution"
+          ]
+        }
+      ]
+    },
+    {
+      "family": "watch",
+      "description": "Track frontier science and changes over time without overclaiming maturity.",
+      "commands": [
+        {
+          "name": "/frontier-watch",
+          "intent": "Track an emerging scientific area that is promising but not settled.",
+          "inputs": [
+            "topic",
+            "sources"
+          ],
+          "outputs": [
+            "watch brief",
+            "novelty status",
+            "confidence caution",
+            "follow-up triggers"
+          ]
+        },
+        {
+          "name": "/what-changed",
+          "intent": "Identify what meaningfully changed in a scientific domain relative to prior chamber state.",
+          "inputs": [
+            "domain",
+            "window"
+          ],
+          "outputs": [
+            "change summary",
+            "delta from prior understanding",
+            "stability note"
+          ]
+        },
+        {
+          "name": "/research-watch",
+          "intent": "Create a monitoring brief for frontier findings worth revisiting later.",
+          "inputs": [
+            "topic",
+            "cadence"
+          ],
+          "outputs": [
+            "watchlist",
+            "source queue",
+            "reopen triggers"
+          ]
+        }
+      ]
+    },
+    {
+      "family": "archive",
+      "description": "Preserve canon, lineage, and chamber continuity for scientific knowledge.",
+      "commands": [
+        {
+          "name": "/science-ledger",
+          "intent": "Create, inspect, or append a scientific ledger record.",
+          "inputs": [
+            "mode",
+            "title",
+            "body",
+            "anchors"
+          ],
+          "outputs": [
+            "ledger block",
+            "continuity anchor",
+            "archive link"
+          ]
+        },
+        {
+          "name": "/archive-consensus",
+          "intent": "Write a stabilized consensus entry into the science archive.",
+          "inputs": [
+            "topic",
+            "sources",
+            "confidence"
+          ],
+          "outputs": [
+            "consensus statement",
+            "source lineage",
+            "archive note"
+          ]
+        },
+        {
+          "name": "/reopen-chamber",
+          "intent": "Reopen an archived or watching science chamber when meaningful new evidence appears.",
+          "inputs": [
+            "chamber",
+            "new_source",
+            "reason"
+          ],
+          "outputs": [
+            "reopen summary",
+            "delta note",
+            "updated workflow"
+          ]
+        }
+      ]
+    }
+  ],
+  "command_runtime_rules": {
+    "lightweight_commands": [
+      "/science-scan",
+      "/why-it-matters",
+      "/science-brief",
+      "/source-provenance"
+    ],
+    "medium_commands": [
+      "/dataset-review",
+      "/method-check",
+      "/confidence-score",
+      "/jade-translate-science",
+      "/civic-science-brief",
+      "/what-changed"
+    ],
+    "high_rigor_commands": [
+      "/compare-findings",
+      "/consensus-map",
+      "/frontier-watch",
+      "/archive-consensus",
+      "/policy-caution",
+      "/reopen-chamber"
+    ],
+    "high_rigor_requirements": [
+      "state source classes",
+      "state method classes",
+      "preserve provenance",
+      "state confidence",
+      "state what remains uncertain"
+    ]
+  },
+  "response_contracts": {
+    "default": {
+      "shape": [
+        "finding",
+        "method class",
+        "confidence",
+        "what the data shows",
+        "what it does not show",
+        "why it matters"
+      ]
+    },
+    "for_consensus_map": {
+      "shape": [
+        "question",
+        "agreement points",
+        "disagreement points",
+        "method differences",
+        "consensus state",
+        "uncertainty map"
+      ]
+    },
+    "for_jade_translation": {
+      "shape": [
+        "plain-language explanation",
+        "what is known",
+        "what is inferred",
+        "what remains uncertain",
+        "human meaning"
+      ]
+    },
+    "for_civic_science": {
+      "shape": [
+        "finding",
+        "public relevance",
+        "institutional implication",
+        "risk note",
+        "policy caution"
+      ]
+    }
+  },
+  "command_shortcuts": {
+    "scan this science": "/science-scan",
+    "compare these studies": "/compare-findings",
+    "map the consensus": "/consensus-map",
+    "translate this science": "/jade-translate-science",
+    "why does this matter": "/why-it-matters",
+    "make a civic brief": "/civic-science-brief",
+    "track this frontier": "/frontier-watch",
+    "what changed in this field": "/what-changed",
+    "archive the consensus": "/archive-consensus"
+  },
+  "guardrails": {
+    "translation_cannot_bypass_structure": true,
+    "confidence_required_for_major_synthesis": true,
+    "consensus_state_required_for_archive": true,
+    "policy_outputs_require_caution_logic": true,
+    "provenance_must_remain_visible": true
+  }
+}
