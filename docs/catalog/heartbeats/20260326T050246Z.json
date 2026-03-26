@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-03-26T05:02:46Z",
+  "health": "degraded",
+  "endpoints": {
+    "micro_agents": true,
+    "integrity": true,
+    "eve_news": true
+  },
+  "signals": {
+    "composite": 0.693,
+    "anomalies": 2,
+    "gi": 0.83,
+    "mode": "green"
+  },
+  "eve": {
+    "total_items": 8,
+    "global_tension": "high",
+    "dominant_region": "Global"
+  }
+}
