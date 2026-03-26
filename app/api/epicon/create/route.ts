@@ -1,18 +1,11 @@
 /**
  * EPICON Create API Route
  *
- * POST /api/epicon/create — Accept a user-submitted EPICON signal
- * GET  /api/epicon/create — Return all user-submitted EPICONs
- *
- * Flow:
- *   User submits via CreateEpiconModal or /submit command
- *   → Assigns a cycle-aware EPICON ID
- *   → Stores in shared store (accessible by ZEUS verify route)
- *   → Increments author profile epicon_count + recalculates MII
- *   → Returns the created record
+ * POST /api/epicon/create — User-submitted EPICON (terminal) OR ledger write (Bearer BACKFILL_SECRET)
+ * GET  /api/epicon/create — Last 20 entries from KV epicon feed (mobius:epicon:feed)
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getEchoStatus } from '@/lib/echo/store';
 import {
   storeEpicon,
@@ -20,6 +13,11 @@ import {
   incrementEpiconCount,
   type StoredEpicon,
 } from '@/lib/mobius/stores';
+import {
+  isLedgerEpiconPayload,
+  readEpiconFeedSlice,
+  writeEpiconEntry,
+} from '@/lib/epicon-writer';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,17 +42,66 @@ type CreateRequest = {
   submittedByLogin?: string;
 };
 
-export async function POST(request: Request) {
-  try {
-    const body = (await request.json()) as CreateRequest;
+function isLedgerAuthorized(req: NextRequest): boolean {
+  const secret = process.env.BACKFILL_SECRET;
+  if (!secret) return false;
+  return req.headers.get('authorization') === `Bearer ${secret}`;
+}
 
-    if (!body.title?.trim()) {
+type KvFeedItem = Record<string, unknown>;
+
+function parseFeedEntry(raw: string): KvFeedItem | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed !== null ? (parsed as KvFeedItem) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function GET() {
+  const raw = await readEpiconFeedSlice(0, 19);
+  const entries = raw.map(parseFeedEntry).filter((e): e is KvFeedItem => e !== null);
+
+  return NextResponse.json({
+    ok: true,
+    entries,
+    count: entries.length,
+  });
+}
+
+export async function POST(request: NextRequest) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Invalid request body' }, { status: 400 });
+  }
+
+  if (isLedgerEpiconPayload(body)) {
+    if (!isLedgerAuthorized(request)) {
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    const id = await writeEpiconEntry(body);
+    if (!id) {
+      return NextResponse.json(
+        { ok: false, error: 'KV not configured or write failed' },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json({ ok: true, id });
+  }
+
+  try {
+    const b = body as CreateRequest;
+
+    if (!b.title?.trim()) {
       return NextResponse.json({ ok: false, error: 'Title is required' }, { status: 400 });
     }
-    if (!body.summary?.trim()) {
+    if (!b.summary?.trim()) {
       return NextResponse.json({ ok: false, error: 'Summary is required' }, { status: 400 });
     }
-    if (!body.sources?.length || !body.sources[0]?.trim()) {
+    if (!b.sources?.length || !b.sources[0]?.trim()) {
       return NextResponse.json({ ok: false, error: 'At least one source is required' }, { status: 400 });
     }
 
@@ -62,28 +109,28 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
 
     let authorProfile = null;
-    if (body.submittedByLogin) {
-      authorProfile = incrementEpiconCount(body.submittedByLogin);
+    if (b.submittedByLogin) {
+      authorProfile = incrementEpiconCount(b.submittedByLogin);
     }
 
     const record: StoredEpicon = {
       id: epiconId,
-      title: body.title.trim(),
-      summary: body.summary.trim(),
-      category: body.category || 'geopolitical',
+      title: b.title.trim(),
+      summary: b.summary.trim(),
+      category: b.category || 'geopolitical',
       status: 'pending',
-      confidenceTier: Math.max(0, Math.min(4, body.confidenceTier ?? 1)),
+      confidenceTier: Math.max(0, Math.min(4, b.confidenceTier ?? 1)),
       ownerAgent: 'ECHO',
-      sources: body.sources.filter((s) => s.trim()),
-      tags: body.tags?.filter((t) => t.trim()) ?? [],
+      sources: b.sources.filter((s) => s.trim()),
+      tags: b.tags?.filter((t) => t.trim()) ?? [],
       timestamp: now,
       trace: [
-        `User submitted EPICON from terminal${body.submittedBy ? ` (${body.submittedBy})` : ''}`,
+        `User submitted EPICON from terminal${b.submittedBy ? ` (${b.submittedBy})` : ''}`,
         'ECHO intake — signal logged as pending',
         'Awaiting HERMES routing and ZEUS verification',
       ],
-      submittedBy: body.submittedBy,
-      submittedByLogin: body.submittedByLogin,
+      submittedBy: b.submittedBy,
+      submittedByLogin: b.submittedByLogin,
       submittedByMii: authorProfile?.miiScore,
       verificationOutcome: null,
       zeusNote: null,
@@ -110,13 +157,4 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-}
-
-export async function GET() {
-  const epicons = getAllSubmittedEpicons();
-  return NextResponse.json({
-    ok: true,
-    epicons,
-    count: epicons.length,
-  });
 }
