@@ -10,7 +10,10 @@ import { detectTripwires, mergeTripwires } from '@/lib/echo/tripwire-engine';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+async function executeHeartbeat(): Promise<{
+  tripwire: Awaited<ReturnType<typeof runSignalEngine>>['tripwire'];
+  timestamp: string;
+}> {
   const { tripwire } = await runSignalEngine();
   setHeartbeat();
 
@@ -61,6 +64,22 @@ export async function GET() {
     tags: ['heartbeat', severity, 'automated'],
   }).catch(() => {});
 
+  return { tripwire, timestamp };
+}
+
+export async function GET() {
+  const { tripwire, timestamp } = await executeHeartbeat();
+  return NextResponse.json({
+    ok: true,
+    message: 'Heartbeat executed',
+    timestamp,
+    tripwire,
+  });
+}
+
+/** Same as GET — supports manual / cron triggers that POST. */
+export async function POST() {
+  const { tripwire, timestamp } = await executeHeartbeat();
   return NextResponse.json({
     ok: true,
     message: 'Heartbeat executed',
