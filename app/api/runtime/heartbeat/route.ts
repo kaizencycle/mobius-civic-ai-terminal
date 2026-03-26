@@ -10,7 +10,7 @@ import { detectTripwires, mergeTripwires } from '@/lib/echo/tripwire-engine';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+async function runHeartbeatResponse() {
   const { tripwire } = await runSignalEngine();
   setHeartbeat();
 
@@ -51,6 +51,7 @@ export async function GET() {
   const anomalyCount = anomalyLines.length;
   const timestamp = new Date().toISOString();
 
+  // Write to EPICON KV ledger (non-blocking, best-effort)
   writeEpiconEntry({
     type: 'heartbeat',
     severity,
@@ -67,4 +68,12 @@ export async function GET() {
     timestamp,
     tripwire,
   });
+}
+
+export async function GET() {
+  return runHeartbeatResponse();
+}
+
+export async function POST() {
+  return runHeartbeatResponse();
 }

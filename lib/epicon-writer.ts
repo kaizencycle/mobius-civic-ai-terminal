@@ -1,7 +1,7 @@
-import { createClient, type VercelKV } from '@vercel/kv';
+import { createClient, kv, type VercelKV } from '@vercel/kv';
 
-/** Same list as feed + backfill routes (Upstash / Vercel Redis). */
-export const EPICON_FEED_LIST_KEY = 'mobius:epicon:feed';
+/** Same list key as /api/epicon/feed and /api/ledger/backfill (C-621). */
+const EPICON_FEED_LIST_KEY = 'mobius:epicon:feed';
 
 export interface EpiconWritePayload {
   type: 'heartbeat' | 'catalog' | 'zeus-verify' | 'zeus-report' | 'epicon' | 'merge';
@@ -17,28 +17,45 @@ export interface EpiconWritePayload {
   body?: string;
 }
 
-let _kv: VercelKV | null | undefined;
+function hasKvRestEnv(): boolean {
+  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+}
 
-function getKv(): VercelKV | null {
-  if (_kv !== undefined) return _kv;
+function hasUpstashEnv(): boolean {
+  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+}
 
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+let _upstashClient: VercelKV | null | undefined;
 
+function getUpstashClient(): VercelKV | null {
+  if (_upstashClient !== undefined) return _upstashClient;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) {
-    _kv = null;
+    _upstashClient = null;
     return null;
   }
+  _upstashClient = createClient({ url, token });
+  return _upstashClient;
+}
 
-  _kv = createClient({ url, token });
-  return _kv;
+/**
+ * Redis client for EPICON feed list.
+ * Prefer Vercel KV env (`kv`); otherwise Upstash-only (same DB, different env names).
+ */
+function getFeedKv(): VercelKV | null {
+  if (hasKvRestEnv()) return kv;
+  return getUpstashClient();
 }
 
 export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<string | null> {
-  const kv = getKv();
-  if (!kv) {
+  if (!hasKvRestEnv() && !hasUpstashEnv()) {
+    // KV not configured — silently skip, feed route falls back to GitHub
     return null;
   }
+
+  const client = getFeedKv();
+  if (!client) return null;
 
   const id = `${Date.now().toString(36)}-${payload.type}`;
   const entry = {
@@ -51,8 +68,9 @@ export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<str
   };
 
   try {
-    await kv.lpush(EPICON_FEED_LIST_KEY, JSON.stringify(entry));
-    await kv.ltrim(EPICON_FEED_LIST_KEY, 0, 499);
+    // Prepend to list (newest first), keep max 500 entries
+    await client.lpush(EPICON_FEED_LIST_KEY, JSON.stringify(entry));
+    await client.ltrim(EPICON_FEED_LIST_KEY, 0, 499);
     return id;
   } catch (err) {
     console.error('[epicon-writer] KV write failed:', err);
@@ -61,19 +79,23 @@ export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<str
 }
 
 export async function readEpiconFeedEntries(maxEntries: number): Promise<unknown[]> {
-  const kv = getKv();
-  if (!kv) return [];
+  if (!hasKvRestEnv() && !hasUpstashEnv()) return [];
+
+  const client = getFeedKv();
+  if (!client) return [];
 
   try {
     const end = Math.max(0, maxEntries - 1);
-    const raw = await kv.lrange<string>(EPICON_FEED_LIST_KEY, 0, end);
-    return raw.map((entry) => {
-      try {
-        return JSON.parse(entry) as unknown;
-      } catch {
-        return null;
-      }
-    }).filter((item): item is NonNullable<typeof item> => item !== null);
+    const raw = await client.lrange<string>(EPICON_FEED_LIST_KEY, 0, end);
+    return raw
+      .map((item) => {
+        try {
+          return JSON.parse(item) as unknown;
+        } catch {
+          return null;
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
   } catch {
     return [];
   }
@@ -100,7 +122,9 @@ function isEpiconType(value: unknown): value is EpiconWritePayload['type'] {
   );
 }
 
-export function parseEpiconWritePayload(body: unknown): { ok: true; payload: EpiconWritePayload } | { ok: false; error: string } {
+export function parseEpiconWritePayload(
+  body: unknown,
+): { ok: true; payload: EpiconWritePayload } | { ok: false; error: string } {
   if (body === null || typeof body !== 'object') {
     return { ok: false, error: 'Body must be a JSON object' };
   }
