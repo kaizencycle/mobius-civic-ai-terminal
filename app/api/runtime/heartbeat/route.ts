@@ -10,7 +10,7 @@ import { detectTripwires, mergeTripwires } from '@/lib/echo/tripwire-engine';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+async function runHeartbeat() {
   const { tripwire } = await runSignalEngine();
   setHeartbeat();
 
@@ -67,4 +67,13 @@ export async function GET() {
     timestamp,
     tripwire,
   });
+}
+
+export async function GET() {
+  return runHeartbeat();
+}
+
+/** Same behavior as GET — for cron/agents that POST the heartbeat. */
+export async function POST() {
+  return runHeartbeat();
 }

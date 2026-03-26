@@ -13,8 +13,8 @@
  *   - TTL support for automatic expiration
  *
  * Required env vars (set in Vercel project settings):
- *   UPSTASH_REDIS_REST_URL   — Upstash REST endpoint
- *   UPSTASH_REDIS_REST_TOKEN — Upstash REST auth token
+ *   UPSTASH_REDIS_REST_URL   — Upstash REST endpoint (or KV_REST_API_URL from Vercel KV)
+ *   UPSTASH_REDIS_REST_TOKEN — Upstash REST auth token (or KV_REST_API_TOKEN)
  *
  * Free tier: 500K commands/month, more than enough for this project.
  *
@@ -31,8 +31,8 @@ let _redisAvailable: boolean | null = null;
 function getRedis(): Redis | null {
   if (_redis) return _redis;
 
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (!url || !token) {
     _redisAvailable = false;
@@ -278,7 +278,10 @@ export async function kvHealth(): Promise<{
   latencyMs: number | null;
   error: string | null;
 }> {
-  const configured = !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  const configured = !!(
+    (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
+    (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+  );
 
   if (!configured) {
     return { available: false, configured: false, latencyMs: null, error: 'Env vars not set' };
