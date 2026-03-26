@@ -15,6 +15,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { writeEpiconEntry } from '@/lib/epicon-writer';
 import { requirePermission } from '@/lib/identity/guards';
 import {
   getStoredEpicon,
@@ -84,6 +85,19 @@ export async function POST(request: Request) {
     if (epicon.submittedByLogin) {
       updatedProfile = recordVerification(epicon.submittedByLogin, body.outcome);
     }
+
+    const confirmed = body.outcome === 'hit' && body.finalStatus === 'verified';
+    const reportFile = body.epiconId;
+
+    writeEpiconEntry({
+      type: 'zeus-verify',
+      severity: 'nominal',
+      title: `ZEUS: Verification ${confirmed ? 'confirmed' : 'flagged'} · ${reportFile ?? 'snapshot'}`,
+      author: 'ZEUS',
+      verified: true,
+      verifiedBy: 'ZEUS',
+      tags: ['zeus', 'verification', confirmed ? 'confirmed' : 'flagged'],
+    }).catch(() => {});
 
     return NextResponse.json({
       ok: true,
