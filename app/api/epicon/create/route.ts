@@ -1,18 +1,11 @@
 /**
  * EPICON Create API Route
  *
- * POST /api/epicon/create — Accept a user-submitted EPICON signal
- * GET  /api/epicon/create — Return all user-submitted EPICONs
- *
- * Flow:
- *   User submits via CreateEpiconModal or /submit command
- *   → Assigns a cycle-aware EPICON ID
- *   → Stores in shared store (accessible by ZEUS verify route)
- *   → Increments author profile epicon_count + recalculates MII
- *   → Returns the created record
+ * POST /api/epicon/create — User EPICON submission (terminal) or KV ledger write (Bearer BACKFILL_SECRET)
+ * GET  /api/epicon/create — Submitted EPICONs from memory store, or last 20 KV feed entries when authorized
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getEchoStatus } from '@/lib/echo/store';
 import {
   storeEpicon,
@@ -20,8 +13,19 @@ import {
   incrementEpiconCount,
   type StoredEpicon,
 } from '@/lib/mobius/stores';
+import {
+  parseEpiconWritePayload,
+  readEpiconFeedEntries,
+  writeEpiconEntry,
+} from '@/lib/epicon-writer';
 
 export const dynamic = 'force-dynamic';
+
+function isLedgerAuthorized(request: NextRequest): boolean {
+  const secret = process.env.BACKFILL_SECRET;
+  if (!secret) return false;
+  return request.headers.get('authorization') === `Bearer ${secret}`;
+}
 
 let submissionCounter = 0;
 
@@ -44,8 +48,24 @@ type CreateRequest = {
   submittedByLogin?: string;
 };
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    if (isLedgerAuthorized(request)) {
+      const raw: unknown = await request.json();
+      const parsed = parseEpiconWritePayload(raw);
+      if (!parsed.ok) {
+        return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+      }
+      const id = await writeEpiconEntry(parsed.payload);
+      if (!id) {
+        return NextResponse.json(
+          { ok: false, id: null, error: 'KV write skipped or failed (check KV env vars)' },
+          { status: 503 },
+        );
+      }
+      return NextResponse.json({ ok: true, id });
+    }
+
     const body = (await request.json()) as CreateRequest;
 
     if (!body.title?.trim()) {
@@ -112,7 +132,16 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (isLedgerAuthorized(request)) {
+    const items = await readEpiconFeedEntries(20);
+    return NextResponse.json({
+      ok: true,
+      items,
+      count: items.length,
+    });
+  }
+
   const epicons = getAllSubmittedEpicons();
   return NextResponse.json({
     ok: true,
