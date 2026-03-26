@@ -1,6 +1,6 @@
-import { createClient, type VercelKV } from '@vercel/kv';
+import { kv } from '@vercel/kv';
 
-/** Same list as feed + backfill routes (Upstash / Vercel Redis). */
+/** Same list key as /api/epicon/feed and /api/ledger/backfill (Upstash / Vercel Redis). */
 export const EPICON_FEED_LIST_KEY = 'mobius:epicon:feed';
 
 export interface EpiconWritePayload {
@@ -17,28 +17,29 @@ export interface EpiconWritePayload {
   body?: string;
 }
 
-let _kv: VercelKV | null | undefined;
+function isKvConfigured(): boolean {
+  return !!(
+    (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
+    (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+  );
+}
 
-function getKv(): VercelKV | null {
-  if (_kv !== undefined) return _kv;
-
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  if (!url || !token) {
-    _kv = null;
-    return null;
+/** Map Upstash env names so @vercel/kv's client can connect (C-622). */
+function ensureVercelKvEnv(): void {
+  if (!process.env.KV_REST_API_URL && process.env.UPSTASH_REDIS_REST_URL) {
+    process.env.KV_REST_API_URL = process.env.UPSTASH_REDIS_REST_URL;
   }
-
-  _kv = createClient({ url, token });
-  return _kv;
+  if (!process.env.KV_REST_API_TOKEN && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    process.env.KV_REST_API_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+  }
 }
 
 export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<string | null> {
-  const kv = getKv();
-  if (!kv) {
+  if (!isKvConfigured()) {
     return null;
   }
+
+  ensureVercelKvEnv();
 
   const id = `${Date.now().toString(36)}-${payload.type}`;
   const entry = {
@@ -61,19 +62,22 @@ export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<str
 }
 
 export async function readEpiconFeedEntries(maxEntries: number): Promise<unknown[]> {
-  const kv = getKv();
-  if (!kv) return [];
+  if (!isKvConfigured()) return [];
+
+  ensureVercelKvEnv();
 
   try {
     const end = Math.max(0, maxEntries - 1);
     const raw = await kv.lrange<string>(EPICON_FEED_LIST_KEY, 0, end);
-    return raw.map((entry) => {
-      try {
-        return JSON.parse(entry) as unknown;
-      } catch {
-        return null;
-      }
-    }).filter((item): item is NonNullable<typeof item> => item !== null);
+    return raw
+      .map((entry) => {
+        try {
+          return JSON.parse(entry) as unknown;
+        } catch {
+          return null;
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
   } catch {
     return [];
   }
@@ -100,7 +104,9 @@ function isEpiconType(value: unknown): value is EpiconWritePayload['type'] {
   );
 }
 
-export function parseEpiconWritePayload(body: unknown): { ok: true; payload: EpiconWritePayload } | { ok: false; error: string } {
+export function parseEpiconWritePayload(
+  body: unknown,
+): { ok: true; payload: EpiconWritePayload } | { ok: false; error: string } {
   if (body === null || typeof body !== 'object') {
     return { ok: false, error: 'Body must be a JSON object' };
   }
