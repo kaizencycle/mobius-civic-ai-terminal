@@ -80,6 +80,18 @@
       },
       {
         "path": "/api/epicon/create",
+        "method": "GET",
+        "domain": "epicon",
+        "live": true
+      },
+      {
+        "path": "/api/epicon/create",
+        "method": "POST",
+        "domain": "epicon",
+        "live": true
+      },
+      {
+        "path": "/api/epicon/submit",
         "method": "POST",
         "domain": "epicon",
         "live": true

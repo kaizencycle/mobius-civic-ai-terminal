@@ -21,6 +21,7 @@ import {
   updateEpicon,
   recordVerification,
 } from '@/lib/mobius/stores';
+import { writeEpiconEntry } from '@/lib/epicon-writer';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +85,19 @@ export async function POST(request: Request) {
     if (epicon.submittedByLogin) {
       updatedProfile = recordVerification(epicon.submittedByLogin, body.outcome);
     }
+
+    const confirmed = body.outcome === 'hit' && body.finalStatus === 'verified';
+    const reportFile = body.zeusNote?.trim() || body.epiconId;
+
+    writeEpiconEntry({
+      type: 'zeus-verify',
+      severity: 'nominal',
+      title: `ZEUS: Verification ${confirmed ? 'confirmed' : 'flagged'} · ${reportFile ?? 'snapshot'}`,
+      author: 'ZEUS',
+      verified: true,
+      verifiedBy: 'ZEUS',
+      tags: ['zeus', 'verification', confirmed ? 'confirmed' : 'flagged'],
+    }).catch(() => {});
 
     return NextResponse.json({
       ok: true,

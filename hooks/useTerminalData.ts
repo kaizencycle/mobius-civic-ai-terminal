@@ -205,7 +205,7 @@ export function useTerminalData(selectedNav: NavKey) {
     const tags = draft.tags.split(',').map((tag) => tag.trim()).filter(Boolean);
     const confidenceMap: Record<string, number> = { low: 1, medium: 2, high: 3 };
 
-    const res = await fetch('/api/epicon/create', {
+    const res = await fetch('/api/epicon/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
