@@ -33,6 +33,10 @@ import SignalEnginePanel from '@/components/terminal/SignalEnginePanel';
 import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
 import SentinelPulsePanel from '@/components/terminal/SentinelPulsePanel';
 import EveGlobalNewsPanel from '@/components/terminal/EveGlobalNewsPanel';
+import MacroIntegrityPulseCard from '@/components/markets/MacroIntegrityPulseCard';
+import MarketNarratorCard from '@/components/markets/MarketNarratorCard';
+import MarketSweepExportCard from '@/components/markets/MarketSweepExportCard';
+import RatesDollarFusionCard from '@/components/markets/RatesDollarFusionCard';
 import TreasuryMarketBridge from '@/components/treasury/TreasuryMarketBridge';
 import TreasuryWatchCard from '@/components/treasury/TreasuryWatchCard';
 import { WalletProvider } from '@/contexts/WalletContext';
@@ -423,13 +427,47 @@ function TerminalPage() {
             )}
 
             {selectedNav === 'markets' && (
-              <TerminalSection
-                eyebrow="Fiscal Signal"
-                title="Treasury → Markets"
-                description="Treasury debt velocity, freshness, and monthly drift compressed into market-facing posture."
-              >
-                <TreasuryMarketBridge />
-              </TerminalSection>
+              <div className="space-y-4">
+                <TerminalSection
+                  eyebrow="Fiscal Signal"
+                  title="Treasury → Markets"
+                  description="Treasury debt velocity, freshness, and monthly drift compressed into market-facing posture."
+                >
+                  <TreasuryMarketBridge />
+                </TerminalSection>
+
+                <TerminalSection
+                  eyebrow="Macro Transmission"
+                  title="Rates + Dollar Fusion"
+                  description="Treasury posture fused with long-end rates, dollar, and volatility overlays."
+                >
+                  <RatesDollarFusionCard />
+                </TerminalSection>
+
+                <TerminalSection
+                  eyebrow="Trust Surface"
+                  title="Macro Integrity Pulse"
+                  description="Freshness, completeness, and cross-provider coherence for macro overlays."
+                >
+                  <MacroIntegrityPulseCard />
+                </TerminalSection>
+
+                <TerminalSection
+                  eyebrow="Export"
+                  title="Market Sweep Export"
+                  description="Copy-ready M1 summary composed from fiscal, macro, and trust surfaces."
+                >
+                  <MarketSweepExportCard />
+                </TerminalSection>
+
+                <TerminalSection
+                  eyebrow="Voice"
+                  title="Narrator Mode"
+                  description="AUREA and HERMES convert M1 export canon into operator voice."
+                >
+                  <MarketNarratorCard />
+                </TerminalSection>
+              </div>
             )}
 
             {showIntegrity && <IntegrityRatingPanel integrity={echoIntegrity} />}
