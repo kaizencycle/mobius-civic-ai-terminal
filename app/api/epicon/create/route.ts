@@ -2,14 +2,13 @@
  * EPICON Create API Route
  *
  * POST /api/epicon/create — User EPICON submission (terminal) or KV ledger write (Bearer BACKFILL_SECRET)
- * GET  /api/epicon/create — Submitted EPICONs from memory store, or last 20 KV feed entries when authorized
+ * GET  /api/epicon/create — Last 20 entries from KV epicon feed (same source as /api/epicon/feed)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getEchoStatus } from '@/lib/echo/store';
 import {
   storeEpicon,
-  getAllSubmittedEpicons,
   incrementEpiconCount,
   type StoredEpicon,
 } from '@/lib/mobius/stores';
@@ -132,20 +131,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
-  if (isLedgerAuthorized(request)) {
-    const items = await readEpiconFeedEntries(20);
-    return NextResponse.json({
-      ok: true,
-      items,
-      count: items.length,
-    });
-  }
-
-  const epicons = getAllSubmittedEpicons();
+export async function GET() {
+  const items = await readEpiconFeedEntries(20);
   return NextResponse.json({
     ok: true,
-    epicons,
-    count: epicons.length,
+    items,
+    count: items.length,
   });
 }
