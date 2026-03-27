@@ -1,21 +1,7 @@
 import { createClient, type VercelKV } from '@vercel/kv';
 
-/** Same list as feed + backfill routes (Upstash / Vercel Redis). */
-export const EPICON_FEED_LIST_KEY = 'mobius:epicon:feed';
-
-export interface EpiconWritePayload {
-  type: 'heartbeat' | 'catalog' | 'zeus-verify' | 'zeus-report' | 'epicon' | 'merge';
-  severity: 'nominal' | 'degraded' | 'elevated' | 'critical' | 'info';
-  title: string;
-  author: string;
-  gi?: number;
-  anomalies?: string[];
-  cycle?: string;
-  tags?: string[];
-  verified?: boolean;
-  verifiedBy?: string;
-  body?: string;
-}
+/** Must match `app/api/epicon/feed/route.ts` and `app/api/ledger/backfill/route.ts` list key. */
+const EPICON_FEED_LIST_KEY = 'mobius:epicon:feed';
 
 let _kv: VercelKV | null | undefined;
 
@@ -34,9 +20,24 @@ function getKv(): VercelKV | null {
   return _kv;
 }
 
+export interface EpiconWritePayload {
+  type: 'heartbeat' | 'catalog' | 'zeus-verify' | 'zeus-report' | 'epicon' | 'merge';
+  severity: 'nominal' | 'degraded' | 'elevated' | 'critical' | 'info';
+  title: string;
+  author: string;
+  gi?: number;
+  anomalies?: string[];
+  cycle?: string;
+  tags?: string[];
+  verified?: boolean;
+  verifiedBy?: string;
+  body?: string;
+}
+
 export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<string | null> {
   const kv = getKv();
   if (!kv) {
+    // KV not configured — silently skip, feed route falls back to GitHub
     return null;
   }
 
@@ -51,6 +52,7 @@ export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<str
   };
 
   try {
+    // Prepend to list (newest first), keep max 500 entries
     await kv.lpush(EPICON_FEED_LIST_KEY, JSON.stringify(entry));
     await kv.ltrim(EPICON_FEED_LIST_KEY, 0, 499);
     return id;
@@ -67,9 +69,9 @@ export async function readEpiconFeedEntries(maxEntries: number): Promise<unknown
   try {
     const end = Math.max(0, maxEntries - 1);
     const raw = await kv.lrange<string>(EPICON_FEED_LIST_KEY, 0, end);
-    return raw.map((entry) => {
+    return raw.map((item) => {
       try {
-        return JSON.parse(entry) as unknown;
+        return JSON.parse(item) as unknown;
       } catch {
         return null;
       }
@@ -100,7 +102,9 @@ function isEpiconType(value: unknown): value is EpiconWritePayload['type'] {
   );
 }
 
-export function parseEpiconWritePayload(body: unknown): { ok: true; payload: EpiconWritePayload } | { ok: false; error: string } {
+export function parseEpiconWritePayload(
+  body: unknown,
+): { ok: true; payload: EpiconWritePayload } | { ok: false; error: string } {
   if (body === null || typeof body !== 'object') {
     return { ok: false, error: 'Body must be a JSON object' };
   }
