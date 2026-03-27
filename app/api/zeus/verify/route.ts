@@ -1,21 +1,4 @@
-/**
- * ZEUS Verification API Route
- *
- * POST /api/zeus/verify — Verify a submitted EPICON
- *
- * Flow:
- *   ZEUS (or custodian) reviews a pending EPICON
- *   → Outcome: hit (accurate) or miss (inaccurate/contradicted)
- *   → EPICON status updated (verified / contradicted)
- *   → Author profile stats updated (hits/misses)
- *   → MII recalculated
- *   → Node tier recalculated
- *
- * Principle: high MII = faster review priority, NOT automatic acceptance.
- */
-
-import { NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/identity/guards';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   getStoredEpicon,
   updateEpicon,
@@ -30,12 +13,8 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-type VerifyRequest = {
-  epiconId: string;
-  outcome: 'hit' | 'miss';
-  finalStatus: 'verified' | 'contradicted';
-  finalConfidenceTier: number;
-  zeusNote?: string;
+type VerifyBody = {
+  candidateId?: string;
 };
 
 function zeusScoreForTier(tier: number): number {
@@ -115,77 +94,94 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'finalStatus must be "verified" or "contradicted"' }, { status: 400 });
     }
 
-    requirePermission(reviewer, permission);
+function toZeusScore(confidenceTier: 1 | 2 | 3): number {
+  if (confidenceTier === 1) return 0.7;
+  if (confidenceTier === 2) return 0.88;
+  return 0.95;
+}
 
-    const epicon = getStoredEpicon(body.epiconId);
-    if (!epicon) {
-      return NextResponse.json({
-        ok: false,
-        error: `EPICON ${body.epiconId} not found in submission store`,
-      }, { status: 404 });
+function evaluateVerdict(input: {
+  confidenceTier: 1 | 2 | 3;
+  flags: string[];
+  severity: 'low' | 'medium' | 'high';
+}): ZeusVerdict {
+  if (input.severity === 'high' && input.flags.length > 0) {
+    return 'contested';
+  }
+
+  if (input.confidenceTier >= 2 && input.flags.length === 0) {
+    return 'confirmed';
+  }
+
+  if (input.confidenceTier >= 2 && input.flags.length > 0) {
+    return 'flagged';
+  }
+
+  return 'low-confidence';
+}
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    info: 'POST { candidateId } to verify a candidate',
+  });
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = (await request.json()) as VerifyBody;
+
+    if (!body.candidateId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'candidateId is required',
+        },
+        { status: 400 }
+      );
     }
 
-    // Prevent double-verification
-    if (epicon.verificationOutcome) {
-      return NextResponse.json({
-        ok: false,
-        error: `EPICON ${body.epiconId} already verified (outcome: ${epicon.verificationOutcome})`,
-      }, { status: 409 });
+    const candidate = getPipelineCandidateById(body.candidateId);
+
+    if (!candidate) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Candidate ${body.candidateId} not found`,
+        },
+        { status: 404 }
+      );
     }
 
-    const updatedEpicon = updateEpicon(body.epiconId, {
-      status: body.finalStatus,
-      confidenceTier: Math.max(0, Math.min(4, body.finalConfidenceTier ?? epicon.confidenceTier)),
-      verificationOutcome: body.outcome,
-      zeusNote: body.zeusNote || null,
-      trace: [
-        ...epicon.trace,
-        `ZEUS verification: ${body.outcome} — status → ${body.finalStatus}, confidence → T${body.finalConfidenceTier}`,
-        ...(body.zeusNote ? [`ZEUS note: ${body.zeusNote}`] : []),
-      ],
+    const verdict = evaluateVerdict({
+      confidenceTier: candidate.confidenceTier,
+      flags: candidate.flags,
+      severity: candidate.severity,
     });
 
-    let updatedProfile = null;
-    if (epicon.submittedByLogin) {
-      updatedProfile = recordVerification(epicon.submittedByLogin, body.outcome);
-    }
+    const verifiedAt = new Date().toISOString();
 
-    const confirmed = body.outcome === 'hit' && body.finalStatus === 'verified';
-    const reportRef = body.epiconId;
-
-    writeEpiconEntry({
-      type: 'zeus-verify',
-      severity: 'nominal',
-      title: `ZEUS: Verification ${confirmed ? 'confirmed' : 'flagged'} · ${reportRef}`,
-      author: 'ZEUS',
-      verified: true,
+    updatePipelineCandidate(candidate.id, {
+      status: 'verified',
       verifiedBy: 'ZEUS',
-      tags: ['zeus', 'verification', confirmed ? 'confirmed' : 'flagged'],
-    }).catch(() => {});
+      verifiedAt,
+      zeusVerdict: verdict,
+    });
 
     return NextResponse.json({
       ok: true,
-      epiconId: body.epiconId,
-      outcome: body.outcome,
-      epicon: updatedEpicon,
-      profile: updatedProfile
-        ? {
-            login: updatedProfile.login,
-            miiScore: updatedProfile.miiScore,
-            nodeTier: updatedProfile.nodeTier,
-            verificationHits: updatedProfile.verificationHits,
-            verificationMisses: updatedProfile.verificationMisses,
-            epiconCount: updatedProfile.epiconCount,
-          }
-        : null,
+      candidateId: candidate.id,
+      verdict,
+      verifiedAt,
+      zeusScore: toZeusScore(candidate.confidenceTier),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request body';
-    const status = message.startsWith('Permission denied:') ? 403 : 400;
-
     return NextResponse.json(
-      { ok: false, error: message },
-      { status },
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Unable to verify candidate',
+      },
+      { status: 400 }
     );
   }
 }

@@ -1,56 +1,47 @@
-import { createHash, randomBytes } from 'crypto';
-
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
-
-import type { ClaudeSynthesisJson } from '@/lib/eve/synthesize-claude';
+import { NextRequest, NextResponse } from 'next/server';
 import {
-  addEveSynthesisCandidate,
-  getEveSynthesisCandidates,
-  type EveSynthesisCandidate,
-} from '@/lib/epicon/eveSynthesisCandidates';
-import { getCandidates as getExternalCandidates } from '@/lib/epicon/store';
+  addPipelineCandidate,
+  getPipelineCandidates,
+  type EpiconCandidate,
+  type EveSynthesisPayload,
+} from '@/lib/eve/synthesis-pipeline-store';
 
 export const dynamic = 'force-dynamic';
 
-function normalizeCycleId(raw: string): string {
-  const t = raw.trim();
-  if (/^C-\d+$/i.test(t)) return t.toUpperCase();
-  return t;
+type CandidatePostBody = {
+  cycleId?: string;
+  synthesis?: EveSynthesisPayload;
+};
+
+function buildCandidateId(cycleId: string): string {
+  const normalized = cycleId.toUpperCase().startsWith('C-')
+    ? cycleId.toUpperCase()
+    : `C-${cycleId.replace(/[^0-9]/g, '').padStart(3, '0').slice(-3)}`;
+  return `EPICON-${normalized}-EVE-SYN-01`;
 }
 
-function makeCandidateId(cycleId: string): string {
-  const hash = createHash('sha256')
-    .update(`${Date.now()}-${randomBytes(8).toString('hex')}`)
-    .digest('hex')
-    .slice(0, 8)
-    .toUpperCase();
-  const c = normalizeCycleId(cycleId);
-  return `EPICON-${c}-EVE-SYN-${hash}`;
-}
+function isSynthesisPayload(value: unknown): value is EveSynthesisPayload {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
 
-function isSynthesisShape(o: unknown): o is ClaudeSynthesisJson {
-  if (o === null || typeof o !== 'object') return false;
-  const r = o as Record<string, unknown>;
+  const candidate = value as Record<string, unknown>;
   return (
-    typeof r.epiconTitle === 'string' &&
-    typeof r.epiconSummary === 'string' &&
-    typeof r.synthesis === 'string'
+    typeof candidate.synthesis === 'string' &&
+    typeof candidate.dominantTheme === 'string' &&
+    typeof candidate.dominantRegion === 'string' &&
+    typeof candidate.patternType === 'string' &&
+    typeof candidate.epiconTitle === 'string' &&
+    typeof candidate.epiconSummary === 'string' &&
+    Array.isArray(candidate.flags) &&
+    candidate.flags.every((flag) => typeof flag === 'string') &&
+    (candidate.confidenceTier === 1 || candidate.confidenceTier === 2 || candidate.confidenceTier === 3) &&
+    (candidate.severity === 'low' || candidate.severity === 'medium' || candidate.severity === 'high')
   );
 }
 
-type SynthesizePostBody = {
-  ok?: boolean;
-  cycleId?: string;
-  synthesis?: unknown;
-  agent?: string;
-  itemCount?: number;
-};
-
 export async function GET() {
-  const external = getExternalCandidates();
-  const eve = getEveSynthesisCandidates();
-  const candidates = [...eve, ...external];
+  const candidates = getPipelineCandidates();
   return NextResponse.json({
     ok: true,
     candidates,
@@ -59,62 +50,54 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  let body: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
-  }
+    const body = (await request.json()) as CandidatePostBody;
 
-  if (body === null || typeof body !== 'object') {
-    return NextResponse.json({ ok: false, error: 'Body must be an object' }, { status: 400 });
-  }
+    if (!body.synthesis || !isSynthesisPayload(body.synthesis)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Invalid synthesis payload',
+        },
+        { status: 400 }
+      );
+    }
 
-  const b = body as SynthesizePostBody & Record<string, unknown>;
+    const cycleId = body.cycleId ?? 'C-000';
+    const timestamp = new Date().toISOString();
+    const candidate: EpiconCandidate = {
+      id: buildCandidateId(cycleId),
+      cycleId,
+      timestamp,
+      source: 'eve-synthesis',
+      status: 'pending-verification',
+      title: body.synthesis.epiconTitle,
+      summary: body.synthesis.epiconSummary,
+      dominantTheme: body.synthesis.dominantTheme,
+      dominantRegion: body.synthesis.dominantRegion,
+      patternType: body.synthesis.patternType,
+      confidenceTier: body.synthesis.confidenceTier,
+      severity: body.synthesis.severity,
+      flags: body.synthesis.flags,
+      fullSynthesis: body.synthesis.synthesis,
+      agentOrigin: 'EVE',
+      verifiedBy: null,
+      verifiedAt: null,
+    };
 
-  let synth: unknown = b.synthesis;
-  if (synth === undefined && isSynthesisShape(body)) {
-    synth = body;
-  }
+    addPipelineCandidate(candidate);
 
-  if (!isSynthesisShape(synth)) {
+    return NextResponse.json({
+      ok: true,
+      candidate,
+    });
+  } catch (error) {
     return NextResponse.json(
-      { ok: false, error: 'Expected synthesis object from /api/eve/synthesize' },
-      { status: 400 },
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Unable to store candidate',
+      },
+      { status: 400 }
     );
   }
-
-  const cycleRaw =
-    typeof b.cycleId === 'string' && b.cycleId.trim()
-      ? b.cycleId
-      : typeof (b as { cycle_id?: string }).cycle_id === 'string'
-        ? (b as { cycle_id: string }).cycle_id
-        : 'C-0';
-
-  const candidate: EveSynthesisCandidate = {
-    id: makeCandidateId(cycleRaw),
-    cycleId: normalizeCycleId(cycleRaw),
-    timestamp: new Date().toISOString(),
-    source: 'eve-synthesis',
-    status: 'pending-verification',
-    title: synth.epiconTitle,
-    summary: synth.epiconSummary,
-    dominantTheme: synth.dominantTheme,
-    dominantRegion: synth.dominantRegion,
-    patternType: synth.patternType,
-    confidenceTier: synth.confidenceTier,
-    severity: synth.severity,
-    flags: synth.flags,
-    fullSynthesis: synth.synthesis,
-    agentOrigin: 'EVE',
-    verifiedBy: null,
-    verifiedAt: null,
-  };
-
-  addEveSynthesisCandidate(candidate);
-
-  return NextResponse.json({
-    ok: true,
-    candidate,
-  });
 }
