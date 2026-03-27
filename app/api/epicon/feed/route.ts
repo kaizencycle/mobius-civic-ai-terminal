@@ -7,7 +7,15 @@ import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 export const dynamic = 'force-dynamic';
 
 type EpiconType = 'heartbeat' | 'catalog' | 'zeus-verify' | 'zeus-report' | 'epicon' | 'merge' | 'unknown';
-type EpiconSeverity = 'nominal' | 'degraded' | 'elevated' | 'critical' | 'info';
+type EpiconSeverity =
+  | 'nominal'
+  | 'degraded'
+  | 'elevated'
+  | 'critical'
+  | 'info'
+  | 'low'
+  | 'medium'
+  | 'high';
 type EpiconSource = 'github-commit' | 'kv-ledger' | 'memory-feed' | 'backfill' | 'eve-synthesis';
 
 type EpiconEntry = {
@@ -263,7 +271,10 @@ function isEpiconSeverity(value: string): value is EpiconSeverity {
     value === 'degraded' ||
     value === 'elevated' ||
     value === 'critical' ||
-    value === 'info'
+    value === 'info' ||
+    value === 'low' ||
+    value === 'medium' ||
+    value === 'high'
   );
 }
 

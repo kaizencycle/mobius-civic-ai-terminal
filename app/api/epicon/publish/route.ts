@@ -9,13 +9,9 @@ import { incrementEpiconCount } from '@/lib/identity/store';
 
 export const dynamic = 'force-dynamic';
 
-function mapEveSeverity(
-  s: string,
-): EpiconLedgerFeedEntry['severity'] {
-  if (s === 'low') return 'info';
-  if (s === 'medium') return 'elevated';
-  if (s === 'high') return 'critical';
-  return 'info';
+function eveLedgerSeverity(s: string): EpiconLedgerFeedEntry['severity'] {
+  if (s === 'low' || s === 'medium' || s === 'high') return s;
+  return 'low';
 }
 
 export async function GET() {
@@ -48,7 +44,7 @@ export async function POST(req: NextRequest) {
         title: candidate.title,
         body: candidate.fullSynthesis,
         type: 'epicon',
-        severity: mapEveSeverity(candidate.severity),
+        severity: eveLedgerSeverity(candidate.severity),
         gi: null,
         tags: [
           'eve-synthesis',
