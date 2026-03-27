@@ -9,10 +9,10 @@ import {
 } from '@/lib/mobius/stores';
 import { writeEpiconEntry } from '@/lib/epicon-writer';
 import {
-  getEveSynthesisCandidateById,
-  updateEveSynthesisCandidate,
+  getPipelineCandidateById,
+  updatePipelineCandidate,
   type ZeusSynthesisVerdict,
-} from '@/lib/epicon/eveSynthesisCandidates';
+} from '@/lib/eve/synthesis-pipeline-store';
 
 type VerifyRequest = {
   epiconId: string;
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
     if (typeof body.candidateId === 'string' && body.candidateId.trim()) {
       const id = body.candidateId.trim();
-      const eveCand = getEveSynthesisCandidateById(id);
+      const eveCand = getPipelineCandidateById(id);
       if (!eveCand) {
         return NextResponse.json({ ok: false, error: 'EVE synthesis candidate not found' }, { status: 404 });
       }
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       const verdict = computeEveSynthesisVerdict(eveCand);
       const verifiedAt = new Date().toISOString();
       const zeusScore = zeusScoreForTier(eveCand.confidenceTier);
-      updateEveSynthesisCandidate(id, {
+      updatePipelineCandidate(id, {
         status: 'verified',
         verifiedBy: 'ZEUS',
         verifiedAt,

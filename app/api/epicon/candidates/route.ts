@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { NextRequest, NextResponse } from 'next/server';
 import {
   addPipelineCandidate,
@@ -13,11 +15,20 @@ type CandidatePostBody = {
   synthesis?: EveSynthesisPayload;
 };
 
+function normalizeCycleSegment(cycleId: string): string {
+  const trimmed = cycleId.trim();
+  if (trimmed.toUpperCase().startsWith('C-')) {
+    return trimmed.toUpperCase();
+  }
+  const digits = trimmed.replace(/[^0-9]/g, '');
+  return `C-${digits.padStart(3, '0').slice(-3)}`;
+}
+
 function buildCandidateId(cycleId: string): string {
-  const normalized = cycleId.toUpperCase().startsWith('C-')
-    ? cycleId.toUpperCase()
-    : `C-${cycleId.replace(/[^0-9]/g, '').padStart(3, '0').slice(-3)}`;
-  return `EPICON-${normalized}-EVE-SYN-01`;
+  const normalized = normalizeCycleSegment(cycleId);
+  const stamp = `${normalized}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const hash = createHash('sha256').update(stamp).digest('hex').slice(0, 8);
+  return `EPICON-${normalized}-EVE-SYN-${hash}`;
 }
 
 function isSynthesisPayload(value: unknown): value is EveSynthesisPayload {

@@ -78,10 +78,11 @@ export async function POST(request: NextRequest) {
 
   const itemCount = typeof synJson.itemCount === 'number' ? synJson.itemCount : 0;
 
+  const synthesisPayload = synJson.synthesis;
   const candRes = await fetch(`${base}/api/epicon/candidates`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ ...synJson, cycleId }),
+    body: JSON.stringify({ cycleId, synthesis: synthesisPayload }),
     cache: 'no-store',
   });
   const candJson = (await readJson(candRes)) as Record<string, unknown> | null;
