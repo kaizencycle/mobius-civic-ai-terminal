@@ -131,8 +131,13 @@ export default function LedgerPanel({
                     </span>
                   )}
                 </div>
-                <div className="mt-1 text-sm font-semibold text-slate-100">
-                  {entry.title ?? entry.summary}
+                <div className="mt-1 flex items-center text-sm font-semibold text-slate-100">
+                  <span>{entry.title ?? entry.summary}</span>
+                  {entry.source === 'eve-synthesis' && (
+                    <span className="ml-1 rounded border border-rose-400/30 px-1 py-0.5 text-[10px] font-mono text-rose-400">
+                      EVE SYN
+                    </span>
+                  )}
                 </div>
                 <div className="mt-1 text-sm font-sans text-slate-400">
                   {entry.summary}

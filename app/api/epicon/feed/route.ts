@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 import { getPublicEpiconFeed } from '@/lib/epicon/feedStore';
+import { getPipelineFeedEntries } from '@/lib/eve/synthesis-pipeline-store';
 
 export const dynamic = 'force-dynamic';
 
 type EpiconType = 'heartbeat' | 'catalog' | 'zeus-verify' | 'zeus-report' | 'epicon' | 'merge' | 'unknown';
 type EpiconSeverity = 'nominal' | 'degraded' | 'elevated' | 'critical' | 'info';
-type EpiconSource = 'github-commit' | 'kv-ledger' | 'memory-feed' | 'backfill';
+type EpiconSource = 'github-commit' | 'kv-ledger' | 'memory-feed' | 'backfill' | 'eve-synthesis';
 
 type EpiconEntry = {
   id: string;
@@ -230,6 +231,25 @@ function fromMemoryFeed(): EpiconEntry[] {
   }));
 }
 
+
+function fromSynthesisMemoryFeed(): EpiconEntry[] {
+  return getPipelineFeedEntries().map((item) => ({
+    id: item.id,
+    timestamp: item.timestamp,
+    author: item.author,
+    title: item.title,
+    body: item.body,
+    type: item.type,
+    severity: item.severity,
+    gi: item.gi ?? undefined,
+    source: item.source,
+    tags: item.tags,
+    verified: item.verified,
+    verifiedBy: item.verifiedBy,
+    cycle: item.cycle,
+  }));
+}
+
 async function fromRedis(): Promise<EpiconEntry[]> {
   const redis = getRedisClient();
   if (!redis) return [];
@@ -272,8 +292,9 @@ export async function GET(request: NextRequest) {
   const [commits, kvEntries] = await Promise.all([fetchGitHubCommits(80), fromRedis()]);
   const commitEntries = commits.map(toEpiconEntry).filter((entry): entry is EpiconEntry => entry !== null);
   const memoryEntries = fromMemoryFeed();
+  const synthesisEntries = fromSynthesisMemoryFeed();
 
-  let entries = dedupeSort([...kvEntries, ...commitEntries, ...memoryEntries]);
+  let entries = dedupeSort([...kvEntries, ...commitEntries, ...memoryEntries, ...synthesisEntries]);
 
   if (typeFilter) entries = entries.filter((entry) => entry.type === typeFilter);
   if (minGiValue !== undefined && !Number.isNaN(minGiValue)) {
@@ -291,7 +312,7 @@ export async function GET(request: NextRequest) {
       sources: {
         github: commitEntries.length,
         kv: kvEntries.length,
-        memory: memoryEntries.length,
+        memory: memoryEntries.length + synthesisEntries.length,
         kvConfigured: !!getRedisClient(),
       },
       summary: {
