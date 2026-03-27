@@ -158,12 +158,25 @@ export type IngestResult = {
   timestamp: string;
 };
 
+function isFreshEntry(timestamp: string, maxAgeHours = 48): boolean {
+  try {
+    const entryTime = new Date(timestamp).getTime();
+    if (!Number.isFinite(entryTime)) return false;
+
+    const cutoff = Date.now() - maxAgeHours * 60 * 60 * 1000;
+    return entryTime >= cutoff;
+  } catch {
+    return false; // malformed timestamp — reject silently
+  }
+}
+
 export function transformBatch(events: RawEvent[]): IngestResult {
+  const freshEvents = events.filter((event) => isFreshEntry(event.timestamp));
   const epicon: EpiconItem[] = [];
   const ledger: LedgerEntry[] = [];
   const alerts: CivicRadarAlert[] = [];
 
-  for (const raw of events) {
+  for (const raw of freshEvents) {
     const item = toEpiconItem(raw);
     epicon.push(item);
     ledger.push(toLedgerEntry(raw, item.id));
@@ -174,7 +187,7 @@ export function transformBatch(events: RawEvent[]): IngestResult {
 
   // Run integrity rating across all agents (ATLAS, ZEUS, JADE, EVE)
   const cycleId = getCurrentCycleId();
-  const integrity = rateBatch(events, epicon, cycleId);
+  const integrity = rateBatch(freshEvents, epicon, cycleId);
 
   // Update ledger deltas with integrity-engine-computed values
   for (let i = 0; i < ledger.length; i++) {
@@ -203,7 +216,7 @@ export function transformBatch(events: RawEvent[]): IngestResult {
     ledger,
     alerts,
     integrity,
-    sourceCount: events.length,
+    sourceCount: freshEvents.length,
     timestamp: new Date().toISOString(),
   };
 }
