@@ -66,6 +66,7 @@ export default function LedgerPanel({
   const sorted = useMemo(() => sortLedger(entries, sortKey, sortDir), [entries, sortKey, sortDir]);
   const source = useMemo<DataSource>(() => {
     if (entries.some((entry) => entry.source === 'echo')) return 'live';
+    if (entries.some((entry) => entry.source === 'eve-synthesis')) return 'live';
     if (entries.some((entry) => entry.source === 'backfill')) return 'stale-cache';
     return 'mock';
   }, [entries]);
@@ -131,8 +132,13 @@ export default function LedgerPanel({
                     </span>
                   )}
                 </div>
-                <div className="mt-1 text-sm font-semibold text-slate-100">
-                  {entry.title ?? entry.summary}
+                <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-100">
+                  <span>{entry.title ?? entry.summary}</span>
+                  {entry.source === 'eve-synthesis' ? (
+                    <span className="text-[10px] font-mono text-rose-400 border border-rose-400/30 rounded px-1 py-0.5 ml-1">
+                      EVE SYN
+                    </span>
+                  ) : null}
                 </div>
                 <div className="mt-1 text-sm font-sans text-slate-400">
                   {entry.summary}

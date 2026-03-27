@@ -128,7 +128,7 @@ export type LedgerEntry = {
   category?: 'geopolitical' | 'market' | 'governance' | 'infrastructure' | 'narrative';
   confidenceTier?: number;
   tags?: string[];
-  source?: 'mock' | 'echo' | 'backfill';
+  source?: 'mock' | 'echo' | 'backfill' | 'eve-synthesis';
 };
 
 export type MFSShard = {
