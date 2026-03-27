@@ -2,7 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import type { LedgerEntry } from '@/lib/terminal/types';
+import type { DataSource } from '@/lib/response-envelope';
 import { cn } from '@/lib/terminal/utils';
+import DataSourceBadge from './DataSourceBadge';
 import SectionLabel from './SectionLabel';
 import SortBar, { type SortOption } from './SortBar';
 
@@ -62,14 +64,29 @@ export default function LedgerPanel({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const sorted = useMemo(() => sortLedger(entries, sortKey, sortDir), [entries, sortKey, sortDir]);
+  const source = useMemo<DataSource>(() => {
+    if (entries.some((entry) => entry.source === 'echo')) return 'live';
+    if (entries.some((entry) => entry.source === 'backfill')) return 'stale-cache';
+    return 'mock';
+  }, [entries]);
+  const freshAt = sorted[0]?.timestamp ?? null;
+  const degraded = source !== 'live';
 
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+    <section
+      className={cn(
+        'rounded-xl border bg-slate-900/60 p-4',
+        degraded ? 'border-amber-500/40' : 'border-slate-800'
+      )}
+    >
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <SectionLabel
-          title="Civic Ledger"
-          subtitle="Immutable event record — Mobius Substrate"
-        />
+        <div className="flex items-start gap-3 flex-wrap">
+          <SectionLabel
+            title="Civic Ledger"
+            subtitle="Immutable event record — Mobius Substrate"
+          />
+          <DataSourceBadge source={source} freshAt={freshAt} degraded={degraded} />
+        </div>
         <SortBar
           options={SORT_OPTIONS}
           active={sortKey}
@@ -159,6 +176,11 @@ export default function LedgerPanel({
           </button>
         ))}
       </div>
+      {degraded ? (
+        <div className="mt-3 text-xs text-amber-300">
+          Showing mock/cached data — live source offline
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { DataSource } from '@/lib/response-envelope';
+import DataSourceBadge from '@/components/terminal/DataSourceBadge';
 
 type Signal = {
   id: string;
@@ -16,10 +18,13 @@ type Signal = {
 
 type RuntimeStatus = {
   ok: true;
-  last_run: string;
+  source?: DataSource;
+  freshAt?: string | null;
+  degraded?: boolean;
+  last_run: string | null;
   freshness: {
-    status: 'fresh' | 'degraded' | 'stale';
-    seconds: number;
+    status: 'fresh' | 'nominal' | 'degraded' | 'stale' | 'unknown';
+    seconds: number | null;
   };
 };
 
@@ -48,6 +53,7 @@ type MicroSweepResponse = {
 
 function freshnessLabel(runtime: RuntimeStatus | null) {
   if (runtime?.freshness.status === 'fresh') return 'System live';
+  if (runtime?.freshness.status === 'nominal') return 'System nominal';
   if (runtime?.freshness.status === 'degraded') return 'System degraded';
   if (runtime?.freshness.status === 'stale') return 'System stale';
   return 'Checking system freshness';
@@ -55,6 +61,7 @@ function freshnessLabel(runtime: RuntimeStatus | null) {
 
 function freshnessTone(runtime: RuntimeStatus | null) {
   if (runtime?.freshness.status === 'fresh') return 'text-emerald-300';
+  if (runtime?.freshness.status === 'nominal') return 'text-sky-300';
   if (runtime?.freshness.status === 'degraded') return 'text-amber-300';
   if (runtime?.freshness.status === 'stale') return 'text-rose-300';
   return 'text-slate-500';
@@ -121,9 +128,11 @@ export default function PulseTimeline() {
 
   const themis = micro?.agents.find((agent) => agent.agentName === 'THEMIS');
   const visibleAgents = micro?.agents ?? [];
+  const source = runtime?.source ?? 'mock';
+  const degraded = Boolean(runtime?.degraded);
 
   return (
-    <div>
+    <div className={degraded ? 'rounded-xl border border-amber-500/40 p-3' : ''}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className={`text-xs uppercase tracking-[0.18em] ${freshnessTone(runtime)}`}>{freshnessLabel(runtime)}</div>
@@ -133,6 +142,9 @@ export default function PulseTimeline() {
         </div>
 
         <div className="text-right text-xs text-slate-500">
+          <div className="mb-2 flex justify-end">
+            <DataSourceBadge source={source} freshAt={runtime?.freshAt ?? null} degraded={degraded} />
+          </div>
           <div>{runtime?.last_run ? `Updated ${new Date(runtime.last_run).toLocaleString()}` : 'Awaiting heartbeat'}</div>
           <div>{signals.length} active signals</div>
           <div>{micro ? `${visibleAgents.length} micro agents · composite ${micro.composite.toFixed(3)}` : 'Micro sweep pending'}</div>
@@ -266,6 +278,11 @@ export default function PulseTimeline() {
           </div>
         ))}
       </div>
+      {degraded ? (
+        <div className="mt-3 text-xs text-amber-300">
+          Showing mock/cached data — live source offline
+        </div>
+      ) : null}
     </div>
   );
 }

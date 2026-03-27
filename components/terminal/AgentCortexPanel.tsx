@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import type { Agent } from '@/lib/terminal/types';
+import type { DataSource } from '@/lib/response-envelope';
 import { useMobiusIdentity } from '@/hooks/useMobiusIdentity';
 import { statusColor, cn } from '@/lib/terminal/utils';
+import DataSourceBadge from './DataSourceBadge';
 import SectionLabel from './SectionLabel';
 
 type AgentMode = 'nominal' | 'degraded' | 'critical';
@@ -27,6 +29,12 @@ type MicroSweepResponse = {
   agents: MicroAgent[];
 };
 
+type AgentStatusEnvelope = {
+  source?: DataSource;
+  freshAt?: string | null;
+  degraded?: boolean;
+};
+
 export default function AgentCortexPanel({
   agents,
   selectedId,
@@ -39,6 +47,9 @@ export default function AgentCortexPanel({
   const { identity, hasPermission, loading } = useMobiusIdentity();
   const [themis, setThemis] = useState<MicroAgent | null>(null);
   const [microCached, setMicroCached] = useState(false);
+  const [source, setSource] = useState<DataSource>('mock');
+  const [freshAt, setFreshAt] = useState<string | null>(null);
+  const [degraded, setDegraded] = useState(false);
   const canInvoke = hasPermission('agents:invoke');
   const visibleAgents = identity
     ? agents.filter((agent) => identity.agent_permissions.includes(agent.name.toUpperCase()))
@@ -49,13 +60,20 @@ export default function AgentCortexPanel({
 
     async function loadMicroState() {
       try {
-        const res = await fetch('/api/signals/micro', { cache: 'no-store' });
-        const json: MicroSweepResponse = await res.json();
+        const [microRes, agentsRes] = await Promise.all([
+          fetch('/api/signals/micro', { cache: 'no-store' }),
+          fetch('/api/agents/status', { cache: 'no-store' }),
+        ]);
+        const json: MicroSweepResponse = await microRes.json();
+        const agentsJson: AgentStatusEnvelope = await agentsRes.json();
         if (!alive || !json.ok) return;
 
         const nextThemis = json.agents.find((agent) => agent.agentName === 'THEMIS') ?? null;
         setThemis(nextThemis);
         setMicroCached(Boolean(json.cached));
+        setSource(agentsJson.source ?? 'mock');
+        setFreshAt(agentsJson.freshAt ?? null);
+        setDegraded(Boolean(agentsJson.degraded));
       } catch {
         // Keep prior THEMIS state if refresh fails.
       }
@@ -93,11 +111,19 @@ export default function AgentCortexPanel({
   }
 
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-      <SectionLabel
-        title="Agent Cortex"
-        subtitle="Live substrate operator map"
-      />
+    <section
+      className={cn(
+        'rounded-xl border bg-slate-900/60 p-4',
+        degraded ? 'border-amber-500/40' : 'border-slate-800'
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <SectionLabel
+          title="Agent Cortex"
+          subtitle="Live substrate operator map"
+        />
+        <DataSourceBadge source={source} freshAt={freshAt} degraded={degraded} />
+      </div>
       {identity ? (
         <div className="mt-3 text-[11px] font-mono uppercase tracking-[0.14em] text-slate-500">
           @{identity.username} · {identity.role} · agent access {identity.agent_permissions.join(', ')}
@@ -223,6 +249,11 @@ export default function AgentCortexPanel({
           </button>
         ))}
       </div>
+      {degraded ? (
+        <div className="mt-3 text-xs text-amber-300">
+          Showing mock/cached data — live source offline
+        </div>
+      ) : null}
     </section>
   );
 }
