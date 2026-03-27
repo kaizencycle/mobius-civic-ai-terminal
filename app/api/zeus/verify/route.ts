@@ -1,4 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
+
+import { NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/identity/guards';
 import {
   getStoredEpicon,
   updateEpicon,
@@ -11,10 +14,12 @@ import {
   type ZeusSynthesisVerdict,
 } from '@/lib/epicon/eveSynthesisCandidates';
 
-export const dynamic = 'force-dynamic';
-
-type VerifyBody = {
-  candidateId?: string;
+type VerifyRequest = {
+  epiconId: string;
+  outcome: 'hit' | 'miss';
+  finalStatus: 'verified' | 'contradicted';
+  finalConfidenceTier: number;
+  zeusNote?: string;
 };
 
 function zeusScoreForTier(tier: number): number {
@@ -48,7 +53,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const rawBody = await request.json();
-    const body = rawBody as VerifyRequest & { candidateId?: string };
+    const body = rawBody as VerifyRequest & { candidateId?: string; reviewer?: string };
 
     if (typeof body.candidateId === 'string' && body.candidateId.trim()) {
       const id = body.candidateId.trim();
@@ -79,7 +84,8 @@ export async function POST(request: Request) {
         zeusScore,
       });
     }
-    const reviewer = ((body as VerifyRequest & { reviewer?: string }).reviewer) || 'kaizencycle';
+
+    const reviewer = body.reviewer || 'kaizencycle';
     const permission = body.finalStatus === 'contradicted' || body.outcome === 'miss'
       ? 'epicon:contradict'
       : 'epicon:verify';
@@ -94,94 +100,76 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'finalStatus must be "verified" or "contradicted"' }, { status: 400 });
     }
 
-function toZeusScore(confidenceTier: 1 | 2 | 3): number {
-  if (confidenceTier === 1) return 0.7;
-  if (confidenceTier === 2) return 0.88;
-  return 0.95;
-}
+    requirePermission(reviewer, permission);
 
-function evaluateVerdict(input: {
-  confidenceTier: 1 | 2 | 3;
-  flags: string[];
-  severity: 'low' | 'medium' | 'high';
-}): ZeusVerdict {
-  if (input.severity === 'high' && input.flags.length > 0) {
-    return 'contested';
-  }
-
-  if (input.confidenceTier >= 2 && input.flags.length === 0) {
-    return 'confirmed';
-  }
-
-  if (input.confidenceTier >= 2 && input.flags.length > 0) {
-    return 'flagged';
-  }
-
-  return 'low-confidence';
-}
-
-export async function GET() {
-  return NextResponse.json({
-    ok: true,
-    info: 'POST { candidateId } to verify a candidate',
-  });
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = (await request.json()) as VerifyBody;
-
-    if (!body.candidateId) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'candidateId is required',
-        },
-        { status: 400 }
-      );
+    const epicon = getStoredEpicon(body.epiconId);
+    if (!epicon) {
+      return NextResponse.json({
+        ok: false,
+        error: `EPICON ${body.epiconId} not found in submission store`,
+      }, { status: 404 });
     }
 
-    const candidate = getPipelineCandidateById(body.candidateId);
-
-    if (!candidate) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `Candidate ${body.candidateId} not found`,
-        },
-        { status: 404 }
-      );
+    if (epicon.verificationOutcome) {
+      return NextResponse.json({
+        ok: false,
+        error: `EPICON ${body.epiconId} already verified (outcome: ${epicon.verificationOutcome})`,
+      }, { status: 409 });
     }
 
-    const verdict = evaluateVerdict({
-      confidenceTier: candidate.confidenceTier,
-      flags: candidate.flags,
-      severity: candidate.severity,
+    const updatedEpicon = updateEpicon(body.epiconId, {
+      status: body.finalStatus,
+      confidenceTier: Math.max(0, Math.min(4, body.finalConfidenceTier ?? epicon.confidenceTier)),
+      verificationOutcome: body.outcome,
+      zeusNote: body.zeusNote || null,
+      trace: [
+        ...epicon.trace,
+        `ZEUS verification: ${body.outcome} — status → ${body.finalStatus}, confidence → T${body.finalConfidenceTier}`,
+        ...(body.zeusNote ? [`ZEUS note: ${body.zeusNote}`] : []),
+      ],
     });
 
-    const verifiedAt = new Date().toISOString();
+    let updatedProfile = null;
+    if (epicon.submittedByLogin) {
+      updatedProfile = recordVerification(epicon.submittedByLogin, body.outcome);
+    }
 
-    updatePipelineCandidate(candidate.id, {
-      status: 'verified',
+    const confirmed = body.outcome === 'hit' && body.finalStatus === 'verified';
+    const reportRef = body.epiconId;
+
+    writeEpiconEntry({
+      type: 'zeus-verify',
+      severity: 'nominal',
+      title: `ZEUS: Verification ${confirmed ? 'confirmed' : 'flagged'} · ${reportRef}`,
+      author: 'ZEUS',
+      verified: true,
       verifiedBy: 'ZEUS',
-      verifiedAt,
-      zeusVerdict: verdict,
-    });
+      tags: ['zeus', 'verification', confirmed ? 'confirmed' : 'flagged'],
+    }).catch(() => {});
 
     return NextResponse.json({
       ok: true,
-      candidateId: candidate.id,
-      verdict,
-      verifiedAt,
-      zeusScore: toZeusScore(candidate.confidenceTier),
+      epiconId: body.epiconId,
+      outcome: body.outcome,
+      epicon: updatedEpicon,
+      profile: updatedProfile
+        ? {
+            login: updatedProfile.login,
+            miiScore: updatedProfile.miiScore,
+            nodeTier: updatedProfile.nodeTier,
+            verificationHits: updatedProfile.verificationHits,
+            verificationMisses: updatedProfile.verificationMisses,
+            epiconCount: updatedProfile.epiconCount,
+          }
+        : null,
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request body';
+    const status = message.startsWith('Permission denied:') ? 403 : 400;
+
     return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'Unable to verify candidate',
-      },
-      { status: 400 }
+      { ok: false, error: message },
+      { status },
     );
   }
 }

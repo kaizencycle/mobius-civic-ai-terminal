@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 import { getPublicEpiconFeed } from '@/lib/epicon/feedStore';
+import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
+import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 import { getPipelineFeedEntries } from '@/lib/eve/synthesis-pipeline-store';
 
 export const dynamic = 'force-dynamic';
