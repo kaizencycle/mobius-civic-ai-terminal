@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { createClient, type VercelKV } from '@vercel/kv';
 
 /** Same list as feed + backfill routes (must stay in sync). */
 export const EPICON_FEED_LIST_KEY = 'mobius:epicon:feed';
@@ -17,8 +17,26 @@ export interface EpiconWritePayload {
   body?: string;
 }
 
+let _kv: VercelKV | null | undefined;
+
+function getKv(): VercelKV | null {
+  if (_kv !== undefined) return _kv;
+
+  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    _kv = null;
+    return null;
+  }
+
+  _kv = createClient({ url, token });
+  return _kv;
+}
+
 export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<string | null> {
-  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+  const kv = getKv();
+  if (!kv) {
     // KV not configured — silently skip, feed route falls back to GitHub
     return null;
   }
@@ -45,9 +63,8 @@ export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<str
 }
 
 export async function readEpiconFeedEntries(maxEntries: number): Promise<unknown[]> {
-  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
-    return [];
-  }
+  const kv = getKv();
+  if (!kv) return [];
 
   try {
     const end = Math.max(0, maxEntries - 1);
