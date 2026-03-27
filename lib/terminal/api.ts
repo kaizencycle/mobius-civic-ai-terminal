@@ -1,5 +1,6 @@
 import type { Agent, EpiconItem, GISnapshot, Tripwire, LedgerEntry, CivicRadarAlert } from './types';
 import type { CycleIntegritySummary } from '@/lib/echo/integrity-engine';
+import type { MobiusCivicIntegritySignal } from '@/lib/integrity-signal';
 import { ledgerBackfill, type LedgerBackfillEntry } from '@/lib/mock/ledgerBackfill';
 import { integrityStatus, type IntegrityStatusResponse } from '@/lib/mock/integrityStatus';
 import { mockAgents, mockEpicon, mockTripwires } from './mock';
@@ -246,4 +247,31 @@ export async function getEchoFeed(): Promise<EchoFeedData | null> {
   } catch {
     return null;
   }
+}
+
+
+export type PulseSnapshot = {
+  signals: Array<Record<string, unknown>>;
+  integrity_signal: MobiusCivicIntegritySignal | null;
+};
+
+export async function getPulseSnapshot(): Promise<PulseSnapshot | null> {
+  const raw = await fetchInternalJson('/api/signals/pulse');
+  if (!raw || typeof raw !== 'object') return null;
+
+  const rec = raw as Record<string, unknown>;
+  const signals = Array.isArray(rec.signals)
+    ? rec.signals.filter((item): item is Record<string, unknown> => item !== null && typeof item === 'object')
+    : [];
+
+  const integritySignal = rec.integrity_signal;
+  const typedSignal =
+    integritySignal !== null && typeof integritySignal === 'object'
+      ? (integritySignal as MobiusCivicIntegritySignal)
+      : null;
+
+  return {
+    signals,
+    integrity_signal: typedSignal,
+  };
 }

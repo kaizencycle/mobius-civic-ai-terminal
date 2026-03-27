@@ -28,6 +28,12 @@ function resolveActiveAgentCount() {
   return mockAgents.filter((agent) => agent.heartbeatOk && agent.status !== 'idle').length;
 }
 
+function normalizeTripwireLevel(level: ReturnType<typeof getTripwireState>['level']): 'none' | 'watch' | 'elevated' {
+  if (level === 'high' || level === 'triggered' || level === 'suspended' || level === 'elevated') return 'elevated';
+  if (level === 'medium' || level === 'watch') return 'watch';
+  return 'none';
+}
+
 export async function GET() {
   const freshness = getStalenessStatus(getHeartbeat());
   const tripwire = getTripwireState();
@@ -41,7 +47,7 @@ export async function GET() {
   const computed = computeGI({
     zeusScores: signalData.scores,
     freshness: effectiveFreshness,
-    tripwire: tripwire.level,
+    tripwire: normalizeTripwireLevel(tripwire.level),
     activeAgents: resolveActiveAgentCount(),
   });
 
