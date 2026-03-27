@@ -21,7 +21,7 @@ export type EpiconStatus = 'verified' | 'pending' | 'contradicted';
 export type EpiconItem = {
   id: string;
   title: string;
-  category: 'geopolitical' | 'market' | 'governance' | 'infrastructure';
+  category: 'geopolitical' | 'market' | 'governance' | 'infrastructure' | 'narrative';
   status: EpiconStatus;
   confidenceTier: 0 | 1 | 2 | 3 | 4;
   ownerAgent: string;
@@ -29,6 +29,8 @@ export type EpiconItem = {
   timestamp: string;
   summary: string;
   trace: string[];
+  /** Present on feed entries (e.g. EVE synthesis pipeline) */
+  feedSource?: string;
 };
 
 export type TripwireLayer =
