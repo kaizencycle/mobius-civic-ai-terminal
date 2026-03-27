@@ -1,166 +1,177 @@
-import { NextRequest, NextResponse } from 'next/server';
+/**
+ * POST /api/eve/cycle-synthesize — Full EVE → EPICON → ZEUS → ledger pipeline (C-626)
+ * Protected: Authorization Bearer BACKFILL_SECRET
+ */
+
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-type SynthesizeResponse = {
-  ok: boolean;
-  cycleId?: string;
-  itemCount?: number;
-  synthesis?: unknown;
-  error?: string;
-};
-
-type CandidateResponse = {
-  ok: boolean;
-  candidate?: {
-    id: string;
-  };
-  error?: string;
-};
-
-type VerifyResponse = {
-  ok: boolean;
-  verdict?: 'confirmed' | 'flagged' | 'low-confidence' | 'contested';
-  zeusScore?: number;
-  error?: string;
-};
-
-type PublishResponse = {
-  ok: boolean;
-  published?: {
-    id: string;
-  };
-  error?: string;
-};
-
-async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    cache: 'no-store',
-    ...init,
-  });
-
-  return (await res.json()) as T;
+function serverBaseUrl(request: NextRequest): string {
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
+  const proto = request.headers.get('x-forwarded-proto') ?? 'https';
+  if (host) return `${proto}://${host}`;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return 'http://127.0.0.1:3000';
 }
 
-function isAuthorized(request: NextRequest): boolean {
-  const auth = request.headers.get('authorization');
-  const secret = process.env.BACKFILL_SECRET;
-
-  if (!secret) {
-    return false;
+async function readJson(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
   }
-
-  return auth === `Bearer ${secret}`;
 }
 
 export async function GET(request: NextRequest) {
-  const cycleData = await jsonFetch<{ currentCycle?: string }>(
-    `${request.nextUrl.origin}/api/eve/cycle-advance`
-  ).catch(() => ({ currentCycle: 'unknown' }));
+  const base = serverBaseUrl(request);
+  const cycleRes = await fetch(`${base}/api/eve/cycle-advance`, { cache: 'no-store' });
+  const cycleJson = (await readJson(cycleRes)) as { currentCycle?: string } | null;
 
   return NextResponse.json({
     ok: true,
     info: 'POST to run full EVE synthesis pipeline for current cycle',
     pipeline: ['synthesize', 'candidate', 'verify', 'publish'],
-    currentCycle: cycleData.currentCycle ?? 'unknown',
+    currentCycle: cycleJson?.currentCycle ?? null,
   });
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  const secret = process.env.BACKFILL_SECRET;
+  if (!secret || !secret.trim()) {
+    return NextResponse.json({ ok: false, error: 'BACKFILL_SECRET is not configured' }, { status: 503 });
+  }
+
+  const auth = request.headers.get('authorization');
+  if (auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const base = serverBaseUrl(request);
+
+  const cycleRes = await fetch(`${base}/api/eve/cycle-advance`, { cache: 'no-store' });
+  const cycleJson = (await readJson(cycleRes)) as { currentCycle?: string } | null;
+  const cycleId =
+    typeof cycleJson?.currentCycle === 'string' && cycleJson.currentCycle.trim()
+      ? cycleJson.currentCycle.trim()
+      : 'C-0';
+
+  const synRes = await fetch(`${base}/api/eve/synthesize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ cycleId }),
+    cache: 'no-store',
+  });
+  const synJson = (await readJson(synRes)) as Record<string, unknown> | null;
+  if (!synRes.ok || !synJson || synJson.ok !== true) {
     return NextResponse.json(
       {
         ok: false,
-        error: 'Unauthorized',
+        step: 'synthesize',
+        error: typeof synJson?.error === 'string' ? synJson.error : 'Synthesis failed',
+        details: synJson,
       },
-      { status: 401 }
+      { status: synRes.ok ? 502 : synRes.status },
     );
   }
 
-  const base = request.nextUrl.origin;
+  const itemCount = typeof synJson.itemCount === 'number' ? synJson.itemCount : 0;
 
-  const cycleData: { currentCycle?: string } = await jsonFetch<{ currentCycle?: string }>(`${base}/api/eve/cycle-advance`).catch(() => ({ currentCycle: undefined }));
-  const cycleId = cycleData.currentCycle ?? 'C-000';
-
-  const synthesis = await jsonFetch<SynthesizeResponse>(`${base}/api/eve/synthesize`, {
+  const candRes = await fetch(`${base}/api/epicon/candidates`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ cycleId }),
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ ...synJson, cycleId }),
+    cache: 'no-store',
   });
-
-  if (!synthesis.ok || !synthesis.synthesis) {
-    return NextResponse.json({
-      ok: false,
-      step: 'synthesize',
-      error: synthesis.error ?? 'Unknown synthesize error',
-    });
+  const candJson = (await readJson(candRes)) as Record<string, unknown> | null;
+  if (!candRes.ok || !candJson || candJson.ok !== true) {
+    return NextResponse.json(
+      {
+        ok: false,
+        step: 'candidate',
+        error: typeof candJson?.error === 'string' ? candJson.error : 'Candidate creation failed',
+        details: candJson,
+      },
+      { status: candRes.ok ? 502 : candRes.status },
+    );
   }
 
-  const candidate = await jsonFetch<CandidateResponse>(`${base}/api/epicon/candidates`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      cycleId,
-      synthesis: synthesis.synthesis,
-    }),
-  });
-
-  if (!candidate.ok || !candidate.candidate?.id) {
-    return NextResponse.json({
-      ok: false,
-      step: 'candidate',
-      error: candidate.error ?? 'Unknown candidate error',
-    });
+  const candidate = candJson.candidate as { id?: string } | undefined;
+  const candidateId = typeof candidate?.id === 'string' ? candidate.id : '';
+  if (!candidateId) {
+    return NextResponse.json(
+      { ok: false, step: 'candidate', error: 'Missing candidate id in response' },
+      { status: 502 },
+    );
   }
 
-  const verify = await jsonFetch<VerifyResponse>(`${base}/api/zeus/verify`, {
+  const verRes = await fetch(`${base}/api/zeus/verify`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ candidateId: candidate.candidate.id }),
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ candidateId }),
+    cache: 'no-store',
   });
-
-  if (!verify.ok || !verify.verdict) {
-    return NextResponse.json({
-      ok: false,
-      step: 'verify',
-      error: verify.error ?? 'Unknown verify error',
-    });
+  const verJson = (await readJson(verRes)) as Record<string, unknown> | null;
+  if (!verRes.ok || !verJson || verJson.ok !== true) {
+    return NextResponse.json(
+      {
+        ok: false,
+        step: 'verify',
+        error: typeof verJson?.error === 'string' ? verJson.error : 'Verification failed',
+        details: verJson,
+      },
+      { status: verRes.ok ? 502 : verRes.status },
+    );
   }
 
-  if (verify.verdict === 'contested') {
+  const verdict = typeof verJson.verdict === 'string' ? verJson.verdict : '';
+  const zeusScore = typeof verJson.zeusScore === 'number' ? verJson.zeusScore : 0;
+
+  if (verdict === 'contested') {
     return NextResponse.json({
       ok: true,
       published: false,
       reason: 'ZEUS contested — operator review required',
-      candidate: candidate.candidate,
+      candidate: candJson.candidate,
+      cycleId,
+      timestamp: new Date().toISOString(),
     });
   }
 
-  const publish = await jsonFetch<PublishResponse>(`${base}/api/epicon/publish`, {
+  const pubRes = await fetch(`${base}/api/epicon/publish`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ candidateId: candidate.candidate.id }),
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ candidateId }),
+    cache: 'no-store',
   });
-
-  if (!publish.ok || !publish.published?.id) {
-    return NextResponse.json({
-      ok: false,
-      step: 'publish',
-      error: publish.error ?? 'Unknown publish error',
-    });
+  const pubJson = (await readJson(pubRes)) as Record<string, unknown> | null;
+  if (!pubRes.ok || !pubJson || pubJson.ok !== true) {
+    return NextResponse.json(
+      {
+        ok: false,
+        step: 'publish',
+        error: typeof pubJson?.error === 'string' ? pubJson.error : 'Publish failed',
+        details: pubJson,
+      },
+      { status: pubRes.ok ? 502 : pubRes.status },
+    );
   }
+
+  const published = pubJson.published as Record<string, unknown> | undefined;
+  const entryId = typeof published?.id === 'string' ? published.id : candidateId;
 
   return NextResponse.json({
     ok: true,
     cycleId,
     timestamp: new Date().toISOString(),
     pipeline: {
-      synthesize: { ok: true, itemCount: synthesis.itemCount ?? 0 },
-      candidate: { ok: true, candidateId: candidate.candidate.id },
-      verify: { ok: true, verdict: verify.verdict, zeusScore: verify.zeusScore ?? null },
-      publish: { ok: true, entryId: publish.published.id },
+      synthesize: { ok: true, itemCount },
+      candidate: { ok: true, candidateId },
+      verify: { ok: true, verdict, zeusScore },
+      publish: { ok: true, entryId },
     },
-    entry: publish.published,
+    entry: pubJson.published,
     message: 'EVE synthesis complete — EPICON entry committed to ledger',
   });
 }

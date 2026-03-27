@@ -85,7 +85,13 @@ export function buildSnapshot(
   timestamp: string,
 ): EchoSnapshot {
   const bySeverity = { high: 0, medium: 0, low: 0 };
-  const byCategory = { geopolitical: 0, market: 0, infrastructure: 0, governance: 0 };
+  const byCategory = {
+    geopolitical: 0,
+    market: 0,
+    infrastructure: 0,
+    governance: 0,
+    narrative: 0,
+  };
   const sourceCounts = { gdelt: 0, usgs: 0, coingecko: 0, total: 0 };
 
   for (const item of epicon) {

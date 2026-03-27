@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  getPipelineCandidateById,
-  updatePipelineCandidate,
-} from '@/lib/eve/synthesis-pipeline-store';
+  getStoredEpicon,
+  updateEpicon,
+  recordVerification,
+} from '@/lib/mobius/stores';
+import { writeEpiconEntry } from '@/lib/epicon-writer';
+import {
+  getEveSynthesisCandidateById,
+  updateEveSynthesisCandidate,
+  type ZeusSynthesisVerdict,
+} from '@/lib/epicon/eveSynthesisCandidates';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +17,82 @@ type VerifyBody = {
   candidateId?: string;
 };
 
-type ZeusVerdict = 'confirmed' | 'flagged' | 'low-confidence' | 'contested';
+function zeusScoreForTier(tier: number): number {
+  if (tier >= 3) return 0.95;
+  if (tier >= 2) return 0.88;
+  return 0.7;
+}
+
+function computeEveSynthesisVerdict(candidate: {
+  confidenceTier: number;
+  flags: string[];
+  severity: string;
+}): ZeusSynthesisVerdict {
+  const { confidenceTier, flags, severity } = candidate;
+  const flagCount = flags.length;
+
+  if (severity === 'high' && flagCount > 0) return 'contested';
+  if (confidenceTier === 1) return 'low-confidence';
+  if (confidenceTier >= 2 && flagCount === 0) return 'confirmed';
+  if (confidenceTier >= 2 && flagCount > 0) return 'flagged';
+  return 'low-confidence';
+}
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    info: 'POST { candidateId } to verify a candidate',
+  });
+}
+
+export async function POST(request: Request) {
+  try {
+    const rawBody = await request.json();
+    const body = rawBody as VerifyRequest & { candidateId?: string };
+
+    if (typeof body.candidateId === 'string' && body.candidateId.trim()) {
+      const id = body.candidateId.trim();
+      const eveCand = getEveSynthesisCandidateById(id);
+      if (!eveCand) {
+        return NextResponse.json({ ok: false, error: 'EVE synthesis candidate not found' }, { status: 404 });
+      }
+      if (eveCand.status !== 'pending-verification') {
+        return NextResponse.json(
+          { ok: false, error: 'Candidate is not pending verification' },
+          { status: 400 },
+        );
+      }
+      const verdict = computeEveSynthesisVerdict(eveCand);
+      const verifiedAt = new Date().toISOString();
+      const zeusScore = zeusScoreForTier(eveCand.confidenceTier);
+      updateEveSynthesisCandidate(id, {
+        status: 'verified',
+        verifiedBy: 'ZEUS',
+        verifiedAt,
+        zeusVerdict: verdict,
+      });
+      return NextResponse.json({
+        ok: true,
+        candidateId: id,
+        verdict,
+        verifiedAt,
+        zeusScore,
+      });
+    }
+    const reviewer = ((body as VerifyRequest & { reviewer?: string }).reviewer) || 'kaizencycle';
+    const permission = body.finalStatus === 'contradicted' || body.outcome === 'miss'
+      ? 'epicon:contradict'
+      : 'epicon:verify';
+
+    if (!body.epiconId) {
+      return NextResponse.json({ ok: false, error: 'epiconId is required' }, { status: 400 });
+    }
+    if (!body.outcome || !['hit', 'miss'].includes(body.outcome)) {
+      return NextResponse.json({ ok: false, error: 'outcome must be "hit" or "miss"' }, { status: 400 });
+    }
+    if (!body.finalStatus || !['verified', 'contradicted'].includes(body.finalStatus)) {
+      return NextResponse.json({ ok: false, error: 'finalStatus must be "verified" or "contradicted"' }, { status: 400 });
+    }
 
 function toZeusScore(confidenceTier: 1 | 2 | 3): number {
   if (confidenceTier === 1) return 0.7;

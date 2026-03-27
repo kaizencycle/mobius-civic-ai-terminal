@@ -5,7 +5,7 @@ type Candidate = {
   title: string;
   summary: string;
   category: string;
-  status: 'pending' | 'verified' | 'contradicted';
+  status: 'pending' | 'verified' | 'contradicted' | 'pending-verification';
   confidence_tier: number;
   external_source_system?: string;
   zeus_note?: string;
@@ -16,6 +16,7 @@ type Props = {
   onVerify: (id: string, outcome: 'verified' | 'contradicted') => Promise<void>;
   canVerify: boolean;
   canContradict: boolean;
+  pipelineManaged?: boolean;
 };
 
 function tone(status: Candidate['status']) {
@@ -29,7 +30,13 @@ function tone(status: Candidate['status']) {
   }
 }
 
-export default function CandidateCard({ item, onVerify, canVerify, canContradict }: Props) {
+export default function CandidateCard({
+  item,
+  onVerify,
+  canVerify,
+  canContradict,
+  pipelineManaged = false,
+}: Props) {
   return (
     <div className="rounded-xl border border-slate-800 bg-black/40 p-4 text-white">
       <div className="flex items-start justify-between gap-3">
@@ -59,7 +66,13 @@ export default function CandidateCard({ item, onVerify, canVerify, canContradict
         </div>
       ) : null}
 
-      {item.status === 'pending' ? (
+      {pipelineManaged ? (
+        <div className="mt-3 text-xs text-slate-500">
+          EVE synthesis candidate — verify via /api/eve/cycle-synthesize or ZEUS pipeline routes.
+        </div>
+      ) : null}
+
+      {item.status === 'pending' && !pipelineManaged ? (
         <div className="mt-4 flex gap-2">
           <button
             disabled={!canVerify}
@@ -86,7 +99,7 @@ export default function CandidateCard({ item, onVerify, canVerify, canContradict
         </div>
       ) : null}
 
-      {item.status === 'pending' && !canVerify && !canContradict ? (
+      {item.status === 'pending' && !pipelineManaged && !canVerify && !canContradict ? (
         <div className="mt-3 text-xs text-slate-500">
           Verification unavailable for current role
         </div>

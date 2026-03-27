@@ -6,7 +6,15 @@ import { getPipelineFeedEntries } from '@/lib/eve/synthesis-pipeline-store';
 export const dynamic = 'force-dynamic';
 
 type EpiconType = 'heartbeat' | 'catalog' | 'zeus-verify' | 'zeus-report' | 'epicon' | 'merge' | 'unknown';
-type EpiconSeverity = 'nominal' | 'degraded' | 'elevated' | 'critical' | 'info';
+type EpiconSeverity =
+  | 'nominal'
+  | 'degraded'
+  | 'elevated'
+  | 'critical'
+  | 'info'
+  | 'low'
+  | 'medium'
+  | 'high';
 type EpiconSource = 'github-commit' | 'kv-ledger' | 'memory-feed' | 'backfill' | 'eve-synthesis';
 
 type EpiconEntry = {
@@ -18,13 +26,18 @@ type EpiconEntry = {
   body?: string;
   type: EpiconType;
   severity: EpiconSeverity;
-  gi?: number;
+  gi?: number | null;
   anomalies?: string[];
   sha?: string;
   source: EpiconSource;
   tags: string[];
   verified: boolean;
   verifiedBy?: string;
+  category?: string;
+  confidenceTier?: number;
+  zeusVerdict?: string;
+  patternType?: string;
+  dominantRegion?: string;
 };
 
 type GitHubCommit = {
@@ -270,6 +283,47 @@ async function fromRedis(): Promise<EpiconEntry[]> {
   }
 }
 
+function isEpiconSeverity(value: string): value is EpiconSeverity {
+  return (
+    value === 'nominal' ||
+    value === 'degraded' ||
+    value === 'elevated' ||
+    value === 'critical' ||
+    value === 'info' ||
+    value === 'low' ||
+    value === 'medium' ||
+    value === 'high'
+  );
+}
+
+function fromLocalMemoryLedger(): EpiconEntry[] {
+  return getMemoryLedgerEntries(100).map((row: EpiconLedgerFeedEntry): EpiconEntry => {
+    const sev = isEpiconSeverity(row.severity) ? row.severity : 'info';
+    const typ = row.type as EpiconEntry['type'];
+    const src = row.source === 'eve-synthesis' ? 'eve-synthesis' : 'kv-ledger';
+    return {
+      id: row.id,
+      cycle: row.cycle,
+      timestamp: row.timestamp,
+      author: row.author,
+      title: row.title,
+      body: row.body,
+      type: typ,
+      severity: sev,
+      gi: row.gi ?? undefined,
+      source: src,
+      tags: row.tags,
+      verified: row.verified,
+      verifiedBy: row.verifiedBy,
+      category: row.category,
+      confidenceTier: row.confidenceTier,
+      zeusVerdict: row.zeusVerdict,
+      patternType: row.patternType,
+      dominantRegion: row.dominantRegion,
+    };
+  });
+}
+
 function dedupeSort(entries: EpiconEntry[]): EpiconEntry[] {
   const seen = new Set<string>();
 
@@ -292,13 +346,15 @@ export async function GET(request: NextRequest) {
   const [commits, kvEntries] = await Promise.all([fetchGitHubCommits(80), fromRedis()]);
   const commitEntries = commits.map(toEpiconEntry).filter((entry): entry is EpiconEntry => entry !== null);
   const memoryEntries = fromMemoryFeed();
-  const synthesisEntries = fromSynthesisMemoryFeed();
+  const localLedgerEntries = fromLocalMemoryLedger();
 
-  let entries = dedupeSort([...kvEntries, ...commitEntries, ...memoryEntries, ...synthesisEntries]);
+  let entries = dedupeSort([...kvEntries, ...localLedgerEntries, ...commitEntries, ...memoryEntries]);
 
   if (typeFilter) entries = entries.filter((entry) => entry.type === typeFilter);
   if (minGiValue !== undefined && !Number.isNaN(minGiValue)) {
-    entries = entries.filter((entry) => entry.gi === undefined || entry.gi >= minGiValue);
+    entries = entries.filter(
+      (entry) => entry.gi == null || entry.gi >= minGiValue,
+    );
   }
 
   const items = entries.slice(0, limit);
@@ -312,7 +368,8 @@ export async function GET(request: NextRequest) {
       sources: {
         github: commitEntries.length,
         kv: kvEntries.length,
-        memory: memoryEntries.length + synthesisEntries.length,
+        memory: memoryEntries.length,
+        memoryLedger: localLedgerEntries.length,
         kvConfigured: !!getRedisClient(),
       },
       summary: {
