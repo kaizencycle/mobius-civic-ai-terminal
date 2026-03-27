@@ -1,7 +1,7 @@
-import { createClient, type VercelKV } from '@vercel/kv';
+import { kv, createClient, type VercelKV } from '@vercel/kv';
 
-/** Same list as feed + backfill routes (Upstash / Vercel Redis). */
-export const EPICON_FEED_LIST_KEY = 'mobius:epicon:feed';
+/** Same list as /api/epicon/feed and /api/ledger/backfill (not the bare `epicon:feed` key). */
+const EPICON_FEED_LIST_KEY = 'mobius:epicon:feed';
 
 export interface EpiconWritePayload {
   type: 'heartbeat' | 'catalog' | 'zeus-verify' | 'zeus-report' | 'epicon' | 'merge';
@@ -22,21 +22,28 @@ let _kv: VercelKV | null | undefined;
 function getKv(): VercelKV | null {
   if (_kv !== undefined) return _kv;
 
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  if (!url || !token) {
-    _kv = null;
-    return null;
+  const kvUrl = process.env.KV_REST_API_URL;
+  const kvToken = process.env.KV_REST_API_TOKEN;
+  if (kvUrl && kvToken) {
+    _kv = kv;
+    return _kv;
   }
 
-  _kv = createClient({ url, token });
-  return _kv;
+  const upUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const upToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (upUrl && upToken) {
+    _kv = createClient({ url: upUrl, token: upToken });
+    return _kv;
+  }
+
+  _kv = null;
+  return null;
 }
 
 export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<string | null> {
-  const kv = getKv();
-  if (!kv) {
+  const client = getKv();
+  if (!client) {
+    // KV not configured — silently skip, feed route falls back to GitHub
     return null;
   }
 
@@ -51,8 +58,9 @@ export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<str
   };
 
   try {
-    await kv.lpush(EPICON_FEED_LIST_KEY, JSON.stringify(entry));
-    await kv.ltrim(EPICON_FEED_LIST_KEY, 0, 499);
+    // Prepend to list (newest first), keep max 500 entries
+    await client.lpush(EPICON_FEED_LIST_KEY, JSON.stringify(entry));
+    await client.ltrim(EPICON_FEED_LIST_KEY, 0, 499);
     return id;
   } catch (err) {
     console.error('[epicon-writer] KV write failed:', err);
@@ -61,19 +69,21 @@ export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<str
 }
 
 export async function readEpiconFeedEntries(maxEntries: number): Promise<unknown[]> {
-  const kv = getKv();
-  if (!kv) return [];
+  const client = getKv();
+  if (!client) return [];
 
   try {
     const end = Math.max(0, maxEntries - 1);
-    const raw = await kv.lrange<string>(EPICON_FEED_LIST_KEY, 0, end);
-    return raw.map((entry) => {
-      try {
-        return JSON.parse(entry) as unknown;
-      } catch {
-        return null;
-      }
-    }).filter((item): item is NonNullable<typeof item> => item !== null);
+    const raw = await client.lrange<string>(EPICON_FEED_LIST_KEY, 0, end);
+    return raw
+      .map((entry) => {
+        try {
+          return JSON.parse(entry) as unknown;
+        } catch {
+          return null;
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
   } catch {
     return [];
   }
@@ -100,7 +110,9 @@ function isEpiconType(value: unknown): value is EpiconWritePayload['type'] {
   );
 }
 
-export function parseEpiconWritePayload(body: unknown): { ok: true; payload: EpiconWritePayload } | { ok: false; error: string } {
+export function parseEpiconWritePayload(
+  body: unknown,
+): { ok: true; payload: EpiconWritePayload } | { ok: false; error: string } {
   if (body === null || typeof body !== 'object') {
     return { ok: false, error: 'Body must be a JSON object' };
   }

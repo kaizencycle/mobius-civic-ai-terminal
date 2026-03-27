@@ -51,6 +51,7 @@ async function runHeartbeat() {
   const anomalyCount = anomalyLines.length;
   const timestamp = new Date().toISOString();
 
+  // Write to EPICON KV ledger (non-blocking, best-effort)
   writeEpiconEntry({
     type: 'heartbeat',
     severity,
