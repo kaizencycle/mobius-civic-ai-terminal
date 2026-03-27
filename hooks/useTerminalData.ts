@@ -12,6 +12,7 @@ import {
   getEpiconFeed,
   getIntegrityStatus,
   getLedgerBackfill,
+  getPulseSnapshot,
   getTripwires,
   integrityStatusToGISnapshot,
   isLiveAPI,
@@ -35,6 +36,7 @@ import {
   type StreamMessage,
 } from '@/lib/terminal/stream';
 import type { StreamStatus } from '@/components/terminal/TopStatusBar';
+import type { MobiusCivicIntegritySignal } from '@/lib/integrity-signal';
 
 const CATEGORY_MAP: Partial<Record<NavKey, EpiconItem['category']>> = {
   markets: 'market',
@@ -61,6 +63,7 @@ export function useTerminalData(selectedNav: NavKey) {
   const [tripwires, setTripwires] = useState<Tripwire[]>([]);
   const [integrityStatus, setIntegrityStatus] = useState<IntegrityStatusResponse | null>(null);
   const [backfillLedger, setBackfillLedger] = useState<LedgerEntry[]>([]);
+  const [integritySignal, setIntegritySignal] = useState<MobiusCivicIntegritySignal | null>(null);
   const [feedLedgerRows, setFeedLedgerRows] = useState<LedgerEntry[]>([]);
   const [inspectorTarget, setInspectorTarget] = useState<InspectorTarget | null>(null);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>(isLiveAPI ? 'reconnecting' : 'offline');
@@ -98,12 +101,13 @@ export function useTerminalData(selectedNav: NavKey) {
     let mounted = true;
 
     async function load() {
-      const [agentsData, epiconBundle, integrityData, tripwireData, ledgerBackfillData] = await Promise.all([
+      const [agentsData, epiconBundle, integrityData, tripwireData, ledgerBackfillData, pulseSnapshot] = await Promise.all([
         getAgents(),
         getEpiconFeed(),
         getIntegrityStatus(),
         getTripwires(),
         getLedgerBackfill(),
+        getPulseSnapshot(),
       ]);
 
       if (!mounted) return;
@@ -114,6 +118,7 @@ export function useTerminalData(selectedNav: NavKey) {
       setGi((prev) => integrityStatusToGISnapshot(integrityData, prev?.score));
       setTripwires(tripwireData);
       setBackfillLedger(ledgerBackfillData);
+      setIntegritySignal(pulseSnapshot?.integrity_signal ?? null);
       setInspectorTarget((prev) => prev ?? (epiconBundle.epicon[0] ? { kind: 'epicon', data: epiconBundle.epicon[0] } : null));
     }
 
@@ -268,6 +273,7 @@ export function useTerminalData(selectedNav: NavKey) {
     gi,
     integrityStatus,
     inspectorTarget,
+    integritySignal,
     mergedLedger,
     operatorMessage,
     setEchoAlerts,

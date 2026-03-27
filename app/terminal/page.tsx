@@ -35,6 +35,7 @@ import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
 import HardHalt from '@/components/modals/HardHalt';
 import SentinelPulsePanel from '@/components/terminal/SentinelPulsePanel';
 import EveGlobalNewsPanel from '@/components/terminal/EveGlobalNewsPanel';
+import IntegritySignalTicker from '@/components/terminal/IntegritySignalTicker';
 import MacroIntegrityPulseCard from '@/components/markets/MacroIntegrityPulseCard';
 import MarketNarratorCard from '@/components/markets/MarketNarratorCard';
 import MarketSweepExportCard from '@/components/markets/MarketSweepExportCard';
@@ -115,6 +116,7 @@ function TerminalPage() {
     gi,
     integrityStatus,
     inspectorTarget,
+    integritySignal,
     mergedLedger,
     operatorMessage,
     setEchoAlerts,
@@ -411,6 +413,7 @@ function TerminalPage() {
                     description="Incoming micro-agent signals and current intake state."
                   >
                     <PulseTimeline />
+                    <IntegritySignalTicker signal={integritySignal} />
                   </TerminalSection>
 
                   <TerminalSection

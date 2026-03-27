@@ -1,8 +1,11 @@
+export type RuntimeTripwireLevel = 'none' | 'watch' | 'elevated' | 'nominal' | 'low' | 'medium' | 'high' | 'triggered' | 'suspended';
+
 export type RuntimeTripwireState = {
   active: boolean;
-  level: 'none' | 'watch' | 'elevated';
+  level: RuntimeTripwireLevel;
   reason: string;
   last_updated: string;
+  triggeredBy?: 'HERMES' | 'ZEUS' | 'ATLAS' | 'operator';
 };
 
 let tripwireState: RuntimeTripwireState = {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { setHeartbeat } from '@/lib/runtime/heartbeat';
 import { runSignalEngine } from '@/lib/signals/engine';
+import { getLatestIntegritySignal } from '@/lib/integrity/signal-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,5 +15,6 @@ export async function GET() {
     signals: result.signals,
     tripwire: result.tripwire,
     refreshed_at: new Date().toISOString(),
+    integrity_signal: getLatestIntegritySignal(),
   });
 }
