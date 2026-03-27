@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import GIMonitorBadge from '@/components/gi/GIMonitorBadge';
 import MobiusIdentityBadge from '@/components/identity/MobiusIdentityBadge';
 import type { NavKey } from '@/lib/terminal/types';
@@ -14,14 +14,18 @@ function Chip({
   tone = 'text-slate-300 border-slate-700 bg-slate-900/80',
   onClick,
   className,
+  title,
 }: {
-  label: string;
+  label: ReactNode;
   tone?: string;
   onClick?: () => void;
   className?: string;
+  title?: string;
 }) {
   return (
     <button
+      type="button"
+      title={title}
       onClick={onClick}
       className={cn(
         'rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em] transition whitespace-nowrap',
@@ -83,11 +87,39 @@ const STREAM_TONE: Record<StreamStatus, string> = {
   offline: 'text-slate-400 border-slate-600 bg-slate-800',
 };
 
-const STREAM_LABEL: Record<StreamStatus, string> = {
+/** Spec: STREAM LIVE / RECONNECTING / OFFLINE — short chip on narrow viewports */
+const STREAM_LABEL_SHORT: Record<StreamStatus, string> = {
   live: 'LIVE',
   reconnecting: 'RECONN',
   offline: 'OFFLINE',
 };
+
+const STREAM_LABEL_LONG: Record<StreamStatus, string> = {
+  live: 'STREAM LIVE',
+  reconnecting: 'RECONNECTING',
+  offline: 'OFFLINE',
+};
+
+export function streamConnectionLine(status: StreamStatus): string {
+  return STREAM_LABEL_LONG[status];
+}
+
+function StreamStatusChip({ status }: { status: StreamStatus }) {
+  const title = STREAM_LABEL_LONG[status];
+  return (
+    <Chip
+      title={title}
+      tone={STREAM_TONE[status]}
+      className="max-sm:px-1.5"
+      label={
+        <>
+          <span className="sm:hidden">{STREAM_LABEL_SHORT[status]}</span>
+          <span className="hidden sm:inline">{STREAM_LABEL_LONG[status]}</span>
+        </>
+      }
+    />
+  );
+}
 
 /* ── Agent status chips ──────────────────────────────────────── */
 
@@ -194,11 +226,7 @@ export default function TopStatusBar({
         {/* Right: Status chips + expand toggle */}
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
           {/* Stream status — always visible */}
-          <Chip
-            label={STREAM_LABEL[streamStatus]}
-            tone={STREAM_TONE[streamStatus]}
-            className="max-sm:px-1.5"
-          />
+          <StreamStatusChip status={streamStatus} />
 
           {/* Desktop-only chips */}
           <div className="hidden md:flex items-center gap-1.5">
@@ -292,7 +320,7 @@ export default function TopStatusBar({
               onClick={() => onNavigate('infrastructure')}
             />
             <Chip
-              label={`Stream ${STREAM_LABEL[streamStatus]}`}
+              label={`Stream ${STREAM_LABEL_LONG[streamStatus]}`}
               tone={STREAM_TONE[streamStatus]}
             />
           </div>

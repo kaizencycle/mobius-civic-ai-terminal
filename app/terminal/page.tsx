@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import type { TerminalCommandResult } from '@/lib/commands/types';
-import TopStatusBar from '@/components/terminal/TopStatusBar';
+import TopStatusBar, { streamConnectionLine } from '@/components/terminal/TopStatusBar';
 import TerminalSection from '@/components/layout/TerminalSection';
 import type { IntegrityTone } from '@/components/terminal/LiveIntegrityRibbon';
 import AttestationReplayRail from '@/components/terminal/AttestationReplayRail';
@@ -312,7 +312,7 @@ function TerminalPage() {
                 <div className="space-y-1 text-right">
                   <div className="font-mono uppercase tracking-[0.15em] text-slate-500">{operatorMessage}</div>
                   <div className="text-[11px] uppercase tracking-[0.12em] text-slate-600">
-                    {cycleId} · {terminalStatus} · {streamStatus === 'live' ? 'stream live' : streamStatus === 'reconnecting' ? 'reconnecting' : 'local mode'}
+                    {cycleId} · {terminalStatus} · {streamConnectionLine(streamStatus)}
                   </div>
                 </div>
               }
@@ -622,7 +622,7 @@ function TerminalPage() {
             )}
           />
           <span className="hidden sm:inline">
-            {cycleId} · {allTripwires.length} tripwire{allTripwires.length === 1 ? '' : 's'} · GI {gi.score.toFixed(2)} · MII {liveRibbonMii.toFixed(2)} · MIC {micSupply.toLocaleString()} · {filteredEpicon.length} signals · {streamStatus === 'live' ? 'Stream live' : streamStatus === 'reconnecting' ? 'Reconnecting' : 'Local mode'}
+            {cycleId} · {allTripwires.length} tripwire{allTripwires.length === 1 ? '' : 's'} · GI {gi.score.toFixed(2)} · MII {liveRibbonMii.toFixed(2)} · MIC {micSupply.toLocaleString()} · {filteredEpicon.length} signals · {streamConnectionLine(streamStatus)}
           </span>
           <span className="sm:hidden">{cycleId} · GI {gi.score.toFixed(2)}</span>
         </div>
