@@ -6,9 +6,7 @@
  * for the existing EPICON ingest pipeline.
  *
  * Sources:
- * 1. Saurav / NewsAPI mirror (free, no auth)
- * 2. Wikipedia Current Events via MediaWiki API (free, no auth)
- * 3. GDELT document API (free, no auth)
+ * 1. Wikipedia Current Events via MediaWiki API (free, no auth)
  *
  * CC0 Public Domain
  */
@@ -45,14 +43,6 @@ export type EveSynthesis = {
   dominant_region: string;
   dominant_category: NewsCategory;
   global_tension: 'low' | 'moderate' | 'elevated' | 'high';
-};
-
-type SauravArticle = {
-  title?: string;
-  description?: string;
-  url?: string;
-  source?: { name?: string };
-  publishedAt?: string;
 };
 
 type GDELTArticle = {
@@ -329,34 +319,6 @@ function generateEveTag(title: string, category: NewsCategory): string {
   return 'Cross-domain signal - EVE observing';
 }
 
-async function fetchSauravHeadlines(): Promise<EveNewsItem[]> {
-  const url =
-    'https://saurav.tech/NewsAPI/top-headlines/category/general/us.json';
-
-  const data = await fetchJson<{ articles?: SauravArticle[] }>(url);
-  const articles = data?.articles ?? [];
-
-  return articles.slice(0, 8).map((article, index) => {
-    const title = article.title?.trim() || 'Untitled headline';
-    const category = categorizeHeadline(title);
-    const region = inferRegion(title, article.source?.name ?? '');
-    const severity = inferSeverity(title, category);
-
-    return {
-      id: `eve-saurav-${index}-${normalizeDedupKey(title)}`,
-      title,
-      summary: article.description?.trim() || title,
-      url: article.url || '',
-      source: article.source?.name || 'Saurav/NewsAPI',
-      region,
-      timestamp: toIsoOrNow(article.publishedAt),
-      category,
-      severity,
-      eve_tag: generateEveTag(title, category),
-    };
-  });
-}
-
 function extractWikipediaSectionHtml(
   html: string,
   monthName: string,
@@ -547,16 +509,10 @@ function generatePatternNotes(items: EveNewsItem[]): string[] {
 }
 
 export async function fetchEveGlobalNews(): Promise<EveSynthesis> {
-  const [saurav, wiki, gdelt] = await Promise.allSettled([
-    fetchSauravHeadlines(),
-    fetchWikipediaCurrentEvents(),
-    fetchGDELTGlobal(),
-  ]);
+  const [wiki] = await Promise.allSettled([fetchWikipediaCurrentEvents()]);
 
   const items: EveNewsItem[] = [
-    ...(saurav.status === 'fulfilled' ? saurav.value : []),
     ...(wiki.status === 'fulfilled' ? wiki.value : []),
-    ...(gdelt.status === 'fulfilled' ? gdelt.value : []),
   ];
 
   const seen = new Set<string>();
