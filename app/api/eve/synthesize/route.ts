@@ -22,6 +22,15 @@ function serverBaseUrl(request: NextRequest): string {
   return 'http://127.0.0.1:3000';
 }
 
+async function resolveCycleIdFromEngine(base: string): Promise<string | null> {
+  const res = await fetch(`${base}/api/eve/cycle-advance`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  const data: unknown = await res.json();
+  if (data === null || typeof data !== 'object') return null;
+  const c = (data as { currentCycle?: unknown }).currentCycle;
+  return typeof c === 'string' && c.trim() ? c.trim() : null;
+}
+
 type SynthesizeBody = {
   items?: EveNewsItem[];
   cycleId?: string;
@@ -66,16 +75,15 @@ export async function POST(request: NextRequest) {
     items = Array.isArray(eveData.items) ? eveData.items : [];
     pattern_notes = Array.isArray(eveData.pattern_notes) ? eveData.pattern_notes : [];
     global_tension = eveData.global_tension ?? 'low';
-    if (!cycleId && typeof eveData.timestamp === 'string') {
-      cycleId = `derived-${eveData.timestamp.slice(0, 10)}`;
-    }
   } else {
     pattern_notes = ['Provided inline with request'];
     global_tension = 'moderate';
   }
 
   if (!cycleId) {
-    cycleId = 'unknown';
+    const base = serverBaseUrl(request);
+    const fromEngine = await resolveCycleIdFromEngine(base);
+    cycleId = fromEngine ?? 'unknown';
   }
 
   const freshItems = items.filter((item) => isFresh(item.timestamp, FRESH_MS));
