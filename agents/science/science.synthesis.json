@@ -1,0 +1,16 @@
+{
+  "version": "C-262",
+  "name": "Mobius Science Synthesis",
+  "purpose": "Convert fragmented scientific feeds into integrity-scored civic signal.",
+  "layers": [
+    "Source freshness",
+    "Canonical timestamps",
+    "Confidence labeling",
+    "JADE civic translation",
+    "AUREA strategic framing"
+  ],
+  "output_contract": {
+    "must_include": ["what changed", "why it matters", "what is uncertain", "what to monitor next"],
+    "forbidden": ["spectacle framing", "certainty inflation", "timeline drift"]
+  }
+}
