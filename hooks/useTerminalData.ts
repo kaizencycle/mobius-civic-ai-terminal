@@ -61,6 +61,7 @@ export function useTerminalData(selectedNav: NavKey) {
   const [tripwires, setTripwires] = useState<Tripwire[]>([]);
   const [integrityStatus, setIntegrityStatus] = useState<IntegrityStatusResponse | null>(null);
   const [backfillLedger, setBackfillLedger] = useState<LedgerEntry[]>([]);
+  const [feedLedgerRows, setFeedLedgerRows] = useState<LedgerEntry[]>([]);
   const [inspectorTarget, setInspectorTarget] = useState<InspectorTarget | null>(null);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>(isLiveAPI ? 'reconnecting' : 'offline');
   const [echoLedger, setEchoLedger] = useState<LedgerEntry[]>([]);
@@ -69,7 +70,22 @@ export function useTerminalData(selectedNav: NavKey) {
   const [showCreateEpicon, setShowCreateEpicon] = useState(false);
   const [operatorMessage, setOperatorMessage] = useState('Terminal live. Awaiting operator action.');
 
-  const mergedLedger = useMemo(() => [...echoLedger, ...backfillLedger, ...mockLedger], [backfillLedger, echoLedger]);
+  const mergedLedger = useMemo(() => {
+    const seen = new Set<string>();
+    const out: LedgerEntry[] = [];
+    const pushUnique = (rows: LedgerEntry[]) => {
+      for (const row of rows) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        out.push(row);
+      }
+    };
+    pushUnique(feedLedgerRows);
+    pushUnique(echoLedger);
+    pushUnique(backfillLedger);
+    pushUnique(mockLedger);
+    return out;
+  }, [backfillLedger, echoLedger, feedLedgerRows, mockLedger]);
   const { freshness } = useTerminalFreshness(mergedLedger);
 
   const { earnMIC } = useWallet();
@@ -82,7 +98,7 @@ export function useTerminalData(selectedNav: NavKey) {
     let mounted = true;
 
     async function load() {
-      const [agentsData, epiconData, integrityData, tripwireData, ledgerBackfillData] = await Promise.all([
+      const [agentsData, epiconBundle, integrityData, tripwireData, ledgerBackfillData] = await Promise.all([
         getAgents(),
         getEpiconFeed(),
         getIntegrityStatus(),
@@ -92,12 +108,13 @@ export function useTerminalData(selectedNav: NavKey) {
 
       if (!mounted) return;
       setAgents(agentsData);
-      setEpicon(epiconData);
+      setEpicon(epiconBundle.epicon);
+      setFeedLedgerRows(epiconBundle.ledgerRows);
       setIntegrityStatus(integrityData);
       setGi((prev) => integrityStatusToGISnapshot(integrityData, prev?.score));
       setTripwires(tripwireData);
       setBackfillLedger(ledgerBackfillData);
-      setInspectorTarget((prev) => prev ?? (epiconData[0] ? { kind: 'epicon', data: epiconData[0] } : null));
+      setInspectorTarget((prev) => prev ?? (epiconBundle.epicon[0] ? { kind: 'epicon', data: epiconBundle.epicon[0] } : null));
     }
 
     load();

@@ -77,6 +77,65 @@ export function integrityStatusToGISnapshot(
   };
 }
 
+function epiconFeedRowToLedger(raw: Record<string, unknown>): LedgerEntry | null {
+  if (raw.type !== 'epicon' || raw.verified !== true) return null;
+  const id = typeof raw.id === 'string' ? raw.id : '';
+  if (!id) return null;
+
+  const cycleId =
+    typeof raw.cycle === 'string' && raw.cycle.trim() ? raw.cycle.trim() : 'C-0';
+  const author = typeof raw.author === 'string' && raw.author.trim() ? raw.author : 'operator';
+  const timestamp =
+    typeof raw.timestamp === 'string' && raw.timestamp.trim()
+      ? raw.timestamp
+      : new Date().toISOString();
+  const title = typeof raw.title === 'string' && raw.title.trim() ? raw.title : undefined;
+  const body = typeof raw.body === 'string' ? raw.body : '';
+  const summary = body.trim() ? body : title ?? '';
+
+  const cat = raw.category;
+  const category: LedgerEntry['category'] =
+    cat === 'geopolitical' ||
+    cat === 'market' ||
+    cat === 'governance' ||
+    cat === 'infrastructure' ||
+    cat === 'narrative'
+      ? cat
+      : undefined;
+
+  const ct = raw.confidenceTier;
+  const confidenceTier =
+    typeof ct === 'number' && Number.isInteger(ct) && ct >= 0 && ct <= 4 ? ct : undefined;
+
+  const tagsRaw = raw.tags;
+  const tags =
+    Array.isArray(tagsRaw) && tagsRaw.every((t): t is string => typeof t === 'string')
+      ? tagsRaw
+      : undefined;
+
+  const src = raw.source;
+  const source: LedgerEntry['source'] | undefined =
+    src === 'eve-synthesis' || src === 'echo' || src === 'backfill' || src === 'mock'
+      ? src
+      : undefined;
+
+  return {
+    id,
+    cycleId,
+    type: 'epicon',
+    agentOrigin: author,
+    timestamp,
+    title,
+    summary,
+    integrityDelta: 0,
+    status: 'committed',
+    category,
+    confidenceTier,
+    tags,
+    source,
+  };
+}
+
 function backfillEntryToLedger(entry: LedgerBackfillEntry): LedgerEntry {
   return {
     id: entry.id,
@@ -103,12 +162,33 @@ export async function getAgents(): Promise<Agent[]> {
   return agents.map(transformAgent);
 }
 
-export async function getEpiconFeed(): Promise<EpiconItem[]> {
-  const raw = await fetchJson('/epicon/feed');
-  if (!raw) return mockEpicon;
-  const items = raw.items;
-  if (!Array.isArray(items)) return mockEpicon;
-  return items.map(transformEpicon);
+export type EpiconFeedBundle = {
+  epicon: EpiconItem[];
+  ledgerRows: LedgerEntry[];
+};
+
+export async function getEpiconFeed(): Promise<EpiconFeedBundle> {
+  const raw = API_BASE
+    ? await fetchJson('/epicon/feed')
+    : await fetchInternalJson('/api/epicon/feed');
+  if (!raw || typeof raw !== 'object') {
+    return { epicon: mockEpicon, ledgerRows: [] };
+  }
+  const items = (raw as { items?: unknown }).items;
+  if (!Array.isArray(items)) {
+    return { epicon: mockEpicon, ledgerRows: [] };
+  }
+
+  const epicon = items.map(transformEpicon);
+  const ledgerRows: LedgerEntry[] = [];
+  for (const row of items) {
+    if (row !== null && typeof row === 'object') {
+      const entry = epiconFeedRowToLedger(row as Record<string, unknown>);
+      if (entry) ledgerRows.push(entry);
+    }
+  }
+
+  return { epicon, ledgerRows };
 }
 
 export async function getIntegrityStatus(): Promise<IntegrityStatusResponse> {
