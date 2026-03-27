@@ -1,23 +1,18 @@
 /**
  * EPICON Create API Route
  *
- * POST /api/epicon/create — User EPICON submission (terminal) or KV ledger write (Bearer BACKFILL_SECRET)
- * GET  /api/epicon/create — Submitted EPICONs from memory store, or last 20 KV feed entries when authorized
+ * POST /api/epicon/create — Terminal user submission, or KV ledger write with Bearer BACKFILL_SECRET
+ * GET  /api/epicon/create — Last 20 KV feed entries (Bearer BACKFILL_SECRET only)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getEchoStatus } from '@/lib/echo/store';
 import {
   storeEpicon,
-  getAllSubmittedEpicons,
   incrementEpiconCount,
   type StoredEpicon,
 } from '@/lib/mobius/stores';
-import {
-  parseEpiconWritePayload,
-  readEpiconFeedEntries,
-  writeEpiconEntry,
-} from '@/lib/epicon-writer';
+import { parseEpiconWritePayload, readEpiconFeedEntries, writeEpiconEntry } from '@/lib/epicon-writer';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,27 +120,19 @@ export async function POST(request: NextRequest) {
         : null,
     });
   } catch {
-    return NextResponse.json(
-      { ok: false, error: 'Invalid request body' },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, error: 'Invalid request body' }, { status: 400 });
   }
 }
 
 export async function GET(request: NextRequest) {
-  if (isLedgerAuthorized(request)) {
-    const items = await readEpiconFeedEntries(20);
-    return NextResponse.json({
-      ok: true,
-      items,
-      count: items.length,
-    });
+  if (!isLedgerAuthorized(request)) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  const epicons = getAllSubmittedEpicons();
+  const items = await readEpiconFeedEntries(20);
   return NextResponse.json({
     ok: true,
-    epicons,
-    count: epicons.length,
+    items,
+    count: items.length,
   });
 }
