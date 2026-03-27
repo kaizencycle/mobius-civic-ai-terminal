@@ -1,11 +1,11 @@
-import { createClient, type VercelKV } from '@vercel/kv';
+import { kv } from "@vercel/kv";
 
-/** Same list as feed + backfill routes (Upstash / Vercel Redis). */
-export const EPICON_FEED_LIST_KEY = 'mobius:epicon:feed';
+/** Matches /api/epicon/feed and /api/ledger/backfill list key. */
+const EPICON_FEED_LIST_KEY = "mobius:epicon:feed";
 
 export interface EpiconWritePayload {
-  type: 'heartbeat' | 'catalog' | 'zeus-verify' | 'zeus-report' | 'epicon' | 'merge';
-  severity: 'nominal' | 'degraded' | 'elevated' | 'critical' | 'info';
+  type: "heartbeat" | "catalog" | "zeus-verify" | "zeus-report" | "epicon" | "merge";
+  severity: "nominal" | "degraded" | "elevated" | "critical" | "info";
   title: string;
   author: string;
   gi?: number;
@@ -17,26 +17,9 @@ export interface EpiconWritePayload {
   body?: string;
 }
 
-let _kv: VercelKV | null | undefined;
-
-function getKv(): VercelKV | null {
-  if (_kv !== undefined) return _kv;
-
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  if (!url || !token) {
-    _kv = null;
-    return null;
-  }
-
-  _kv = createClient({ url, token });
-  return _kv;
-}
-
 export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<string | null> {
-  const kv = getKv();
-  if (!kv) {
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+    // KV not configured — silently skip, feed route falls back to GitHub
     return null;
   }
 
@@ -44,65 +27,71 @@ export async function writeEpiconEntry(payload: EpiconWritePayload): Promise<str
   const entry = {
     id,
     timestamp: new Date().toISOString(),
-    source: 'kv-ledger' as const,
+    source: "kv-ledger" as const,
     verified: false,
-    tags: [] as string[],
+    tags: [],
     ...payload,
   };
 
   try {
+    // Prepend to list (newest first), keep max 500 entries
     await kv.lpush(EPICON_FEED_LIST_KEY, JSON.stringify(entry));
     await kv.ltrim(EPICON_FEED_LIST_KEY, 0, 499);
     return id;
   } catch (err) {
-    console.error('[epicon-writer] KV write failed:', err);
+    console.error("[epicon-writer] KV write failed:", err);
     return null;
   }
 }
 
 export async function readEpiconFeedEntries(maxEntries: number): Promise<unknown[]> {
-  const kv = getKv();
-  if (!kv) return [];
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+    return [];
+  }
 
   try {
     const end = Math.max(0, maxEntries - 1);
     const raw = await kv.lrange<string>(EPICON_FEED_LIST_KEY, 0, end);
-    return raw.map((entry) => {
-      try {
-        return JSON.parse(entry) as unknown;
-      } catch {
-        return null;
-      }
-    }).filter((item): item is NonNullable<typeof item> => item !== null);
+    return raw
+      .map((entry) => {
+        try {
+          return JSON.parse(entry) as unknown;
+        } catch {
+          return null;
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
   } catch {
     return [];
   }
 }
 
-function isEpiconSeverity(value: unknown): value is EpiconWritePayload['severity'] {
+function isEpiconSeverity(value: unknown): value is EpiconWritePayload["severity"] {
   return (
-    value === 'nominal' ||
-    value === 'degraded' ||
-    value === 'elevated' ||
-    value === 'critical' ||
-    value === 'info'
+    value === "nominal" ||
+    value === "degraded" ||
+    value === "elevated" ||
+    value === "critical" ||
+    value === "info"
   );
 }
 
-function isEpiconType(value: unknown): value is EpiconWritePayload['type'] {
+function isEpiconType(value: unknown): value is EpiconWritePayload["type"] {
   return (
-    value === 'heartbeat' ||
-    value === 'catalog' ||
-    value === 'zeus-verify' ||
-    value === 'zeus-report' ||
-    value === 'epicon' ||
-    value === 'merge'
+    value === "heartbeat" ||
+    value === "catalog" ||
+    value === "zeus-verify" ||
+    value === "zeus-report" ||
+    value === "epicon" ||
+    value === "merge"
   );
 }
 
-export function parseEpiconWritePayload(body: unknown): { ok: true; payload: EpiconWritePayload } | { ok: false; error: string } {
-  if (body === null || typeof body !== 'object') {
-    return { ok: false, error: 'Body must be a JSON object' };
+export function parseEpiconWritePayload(
+  body: unknown,
+): { ok: true; payload: EpiconWritePayload } | { ok: false; error: string } {
+  if (body === null || typeof body !== "object") {
+    return { ok: false, error: "Body must be a JSON object" };
   }
 
   const o = body as Record<string, unknown>;
@@ -112,16 +101,16 @@ export function parseEpiconWritePayload(body: unknown): { ok: true; payload: Epi
   const author = o.author;
 
   if (!isEpiconType(type)) {
-    return { ok: false, error: 'Invalid or missing type' };
+    return { ok: false, error: "Invalid or missing type" };
   }
   if (!isEpiconSeverity(severity)) {
-    return { ok: false, error: 'Invalid or missing severity' };
+    return { ok: false, error: "Invalid or missing severity" };
   }
-  if (typeof title !== 'string' || !title.trim()) {
-    return { ok: false, error: 'title is required' };
+  if (typeof title !== "string" || !title.trim()) {
+    return { ok: false, error: "title is required" };
   }
-  if (typeof author !== 'string' || !author.trim()) {
-    return { ok: false, error: 'author is required' };
+  if (typeof author !== "string" || !author.trim()) {
+    return { ok: false, error: "author is required" };
   }
 
   const payload: EpiconWritePayload = {
@@ -131,17 +120,17 @@ export function parseEpiconWritePayload(body: unknown): { ok: true; payload: Epi
     author: author.trim(),
   };
 
-  if (typeof o.gi === 'number' && Number.isFinite(o.gi)) payload.gi = o.gi;
-  if (Array.isArray(o.anomalies) && o.anomalies.every((x): x is string => typeof x === 'string')) {
+  if (typeof o.gi === "number" && Number.isFinite(o.gi)) payload.gi = o.gi;
+  if (Array.isArray(o.anomalies) && o.anomalies.every((x): x is string => typeof x === "string")) {
     payload.anomalies = o.anomalies;
   }
-  if (typeof o.cycle === 'string') payload.cycle = o.cycle;
-  if (Array.isArray(o.tags) && o.tags.every((x): x is string => typeof x === 'string')) {
+  if (typeof o.cycle === "string") payload.cycle = o.cycle;
+  if (Array.isArray(o.tags) && o.tags.every((x): x is string => typeof x === "string")) {
     payload.tags = o.tags;
   }
-  if (typeof o.verified === 'boolean') payload.verified = o.verified;
-  if (typeof o.verifiedBy === 'string') payload.verifiedBy = o.verifiedBy;
-  if (typeof o.body === 'string') payload.body = o.body;
+  if (typeof o.verified === "boolean") payload.verified = o.verified;
+  if (typeof o.verifiedBy === "string") payload.verifiedBy = o.verifiedBy;
+  if (typeof o.body === "string") payload.body = o.body;
 
   return { ok: true, payload };
 }
