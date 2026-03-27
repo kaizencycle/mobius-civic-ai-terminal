@@ -84,8 +84,13 @@ export default function EpiconFeedPanel({
                 <div className="text-xs font-mono font-medium uppercase tracking-[0.2em] text-slate-400">
                   {item.id}
                 </div>
-                <div className="mt-1 text-sm font-semibold text-white">
-                  {item.title}
+                <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-white">
+                  <span>{item.title}</span>
+                  {item.feedSource === 'eve-synthesis' ? (
+                    <span className="text-[10px] font-mono text-rose-400 border border-rose-400/30 rounded px-1 py-0.5 ml-1">
+                      EVE SYN
+                    </span>
+                  ) : null}
                 </div>
                 <div className="mt-2 text-sm font-sans text-slate-300">
                   {item.summary}

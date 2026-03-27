@@ -9,10 +9,11 @@ type Candidate = {
   title: string;
   summary: string;
   category: string;
-  status: 'pending' | 'verified' | 'contradicted';
+  status: 'pending' | 'verified' | 'contradicted' | 'pending-verification';
   confidence_tier: number;
   external_source_system?: string;
   zeus_note?: string;
+  source?: string;
 };
 
 export default function CandidateFeed() {
@@ -22,7 +23,20 @@ export default function CandidateFeed() {
   async function load() {
     const res = await fetch('/api/epicon/candidates', { cache: 'no-store' });
     const json = await res.json();
-    setData(json.candidates || []);
+    const raw = (json.candidates || []) as Array<
+      Candidate & { confidenceTier?: number }
+    >;
+    setData(
+      raw.map((c) => ({
+        ...c,
+        confidence_tier:
+          typeof c.confidence_tier === 'number'
+            ? c.confidence_tier
+            : typeof c.confidenceTier === 'number'
+              ? c.confidenceTier
+              : 0,
+      })),
+    );
   }
 
   async function onVerify(id: string, outcome: 'verified' | 'contradicted') {
@@ -71,6 +85,7 @@ export default function CandidateFeed() {
           onVerify={onVerify}
           canVerify={hasPermission('epicon:verify')}
           canContradict={hasPermission('epicon:contradict')}
+          pipelineManaged={item.source === 'eve-synthesis'}
         />
       ))}
     </div>
