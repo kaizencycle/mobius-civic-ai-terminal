@@ -60,11 +60,22 @@ export async function GET() {
   });
 }
 
+function resolveSynthesisFromBody(body: CandidatePostBody): EveSynthesisPayload | null {
+  if (body.synthesis && isSynthesisPayload(body.synthesis)) {
+    return body.synthesis;
+  }
+  if (isSynthesisPayload(body)) {
+    return body;
+  }
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CandidatePostBody;
+    const body = (await request.json()) as CandidatePostBody & Record<string, unknown>;
 
-    if (!body.synthesis || !isSynthesisPayload(body.synthesis)) {
+    const synthesisPayload = resolveSynthesisFromBody(body);
+    if (!synthesisPayload) {
       return NextResponse.json(
         {
           ok: false,
@@ -74,7 +85,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cycleId = body.cycleId ?? 'C-000';
+    const cycleId =
+      typeof body.cycleId === 'string' && body.cycleId.trim()
+        ? body.cycleId.trim()
+        : 'C-000';
     const timestamp = new Date().toISOString();
     const candidate: EpiconCandidate = {
       id: buildCandidateId(cycleId),
@@ -82,15 +96,15 @@ export async function POST(request: NextRequest) {
       timestamp,
       source: 'eve-synthesis',
       status: 'pending-verification',
-      title: body.synthesis.epiconTitle,
-      summary: body.synthesis.epiconSummary,
-      dominantTheme: body.synthesis.dominantTheme,
-      dominantRegion: body.synthesis.dominantRegion,
-      patternType: body.synthesis.patternType,
-      confidenceTier: body.synthesis.confidenceTier,
-      severity: body.synthesis.severity,
-      flags: body.synthesis.flags,
-      fullSynthesis: body.synthesis.synthesis,
+      title: synthesisPayload.epiconTitle,
+      summary: synthesisPayload.epiconSummary,
+      dominantTheme: synthesisPayload.dominantTheme,
+      dominantRegion: synthesisPayload.dominantRegion,
+      patternType: synthesisPayload.patternType,
+      confidenceTier: synthesisPayload.confidenceTier,
+      severity: synthesisPayload.severity,
+      flags: synthesisPayload.flags,
+      fullSynthesis: synthesisPayload.synthesis,
       agentOrigin: 'EVE',
       verifiedBy: null,
       verifiedAt: null,
