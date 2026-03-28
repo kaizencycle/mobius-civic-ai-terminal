@@ -40,6 +40,10 @@ function serverBaseUrl(request: NextRequest): string {
   return 'http://127.0.0.1:3000';
 }
 
+function shouldTriggerSynthesisPipeline(request: NextRequest): boolean {
+  return request.headers.get('x-mobius-skip-synthesis-pipeline') !== '1';
+}
+
 export async function GET(request: NextRequest) {
   const now = Date.now();
 
@@ -66,6 +70,10 @@ export async function GET(request: NextRequest) {
           },
         }
       );
+    }
+
+    if (shouldTriggerSynthesisPipeline(request)) {
+      triggerEveSynthesisPipelineAfterObservation(serverBaseUrl(request));
     }
 
     return NextResponse.json(
@@ -120,7 +128,7 @@ export async function GET(request: NextRequest) {
     };
     cached = { data: freshSynthesis, ts: now };
 
-    if (request.headers.get('x-mobius-skip-synthesis-pipeline') !== '1') {
+    if (shouldTriggerSynthesisPipeline(request)) {
       triggerEveSynthesisPipelineAfterObservation(serverBaseUrl(request));
     }
 
