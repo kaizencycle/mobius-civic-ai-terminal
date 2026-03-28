@@ -7,6 +7,7 @@ import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 import { requirePermission } from '@/lib/identity/guards';
 import { lockStake } from '@/lib/mic/store';
 import { incrementEpiconCount } from '@/lib/identity/store';
+import { getEveSynthesisCandidateById, removeEveSynthesisCandidate } from '@/lib/epicon/eveSynthesisCandidates';
 import { getPipelineCandidateById, removePipelineCandidate } from '@/lib/eve/synthesis-pipeline-store';
 
 type LegacyPublishBody = {
@@ -49,8 +50,58 @@ function eveLedgerSeverity(s: string): EpiconLedgerFeedEntry['severity'] {
   return 'low';
 }
 
-async function publishSynthesisCandidate(candidateId: string) {
-  const candidate = getPipelineCandidateById(candidateId);
+type SynthesisPublishCandidate = {
+  id: string;
+  cycleId: string;
+  title: string;
+  fullSynthesis: string;
+  severity: string;
+  dominantTheme: string;
+  patternType: string;
+  confidenceTier: number;
+  zeusVerdict?: string;
+  dominantRegion: string;
+  status: string;
+};
+
+function resolveSynthesisCandidate(candidateId: string): SynthesisPublishCandidate | null {
+  const fromEve = getEveSynthesisCandidateById(candidateId);
+  if (fromEve) {
+    return {
+      id: fromEve.id,
+      cycleId: fromEve.cycleId,
+      title: fromEve.title,
+      fullSynthesis: fromEve.fullSynthesis,
+      severity: fromEve.severity,
+      dominantTheme: fromEve.dominantTheme,
+      patternType: fromEve.patternType,
+      confidenceTier: fromEve.confidenceTier,
+      zeusVerdict: fromEve.zeusVerdict,
+      dominantRegion: fromEve.dominantRegion,
+      status: fromEve.status,
+    };
+  }
+  const fromPipe = getPipelineCandidateById(candidateId);
+  if (fromPipe && fromPipe.source === 'eve-synthesis') {
+    return {
+      id: fromPipe.id,
+      cycleId: fromPipe.cycleId,
+      title: fromPipe.title,
+      fullSynthesis: fromPipe.fullSynthesis,
+      severity: fromPipe.severity,
+      dominantTheme: fromPipe.dominantTheme,
+      patternType: fromPipe.patternType,
+      confidenceTier: fromPipe.confidenceTier,
+      zeusVerdict: fromPipe.zeusVerdict,
+      dominantRegion: fromPipe.dominantRegion,
+      status: fromPipe.status,
+    };
+  }
+  return null;
+}
+
+async function publishEveSynthesisToLedger(candidateId: string) {
+  const candidate = resolveSynthesisCandidate(candidateId);
 
   if (!candidate) {
     return NextResponse.json(
@@ -58,7 +109,7 @@ async function publishSynthesisCandidate(candidateId: string) {
         ok: false,
         error: `Candidate ${candidateId} not found`,
       },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -68,7 +119,7 @@ async function publishSynthesisCandidate(candidateId: string) {
         ok: false,
         error: `Candidate ${candidateId} must be verified before publish`,
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -94,6 +145,7 @@ async function publishSynthesisCandidate(candidateId: string) {
   };
 
   const { ledgerPosition } = await pushLedgerEntry(entry);
+  removeEveSynthesisCandidate(candidate.id);
   removePipelineCandidate(candidate.id);
 
   return NextResponse.json({
@@ -169,7 +221,7 @@ export async function POST(req: NextRequest) {
 
     if (typeof body.candidateId === 'string' && body.candidateId.trim().length > 0) {
       const candidateId = body.candidateId.trim();
-      return publishSynthesisCandidate(candidateId);
+      return publishEveSynthesisToLedger(candidateId);
     }
 
     // Fallback to legacy publish mode.

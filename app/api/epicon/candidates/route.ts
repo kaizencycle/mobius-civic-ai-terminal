@@ -7,6 +7,7 @@ import {
   type EpiconCandidate,
   type EveSynthesisPayload,
 } from '@/lib/eve/synthesis-pipeline-store';
+import { addEveSynthesisCandidate } from '@/lib/epicon/eveSynthesisCandidates';
 
 export const dynamic = 'force-dynamic';
 
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest) {
     };
 
     addPipelineCandidate(candidate);
+    addEveSynthesisCandidate(candidate);
 
     return NextResponse.json({
       ok: true,

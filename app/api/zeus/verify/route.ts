@@ -9,9 +9,14 @@ import {
 } from '@/lib/mobius/stores';
 import { writeEpiconEntry } from '@/lib/epicon-writer';
 import {
+  getEveSynthesisCandidateById,
+  updateEveSynthesisCandidate,
+  type ZeusSynthesisVerdict,
+} from '@/lib/epicon/eveSynthesisCandidates';
+import {
   getPipelineCandidateById,
   updatePipelineCandidate,
-  type ZeusSynthesisVerdict,
+  type EpiconCandidate,
 } from '@/lib/eve/synthesis-pipeline-store';
 
 type VerifyRequest = {
@@ -43,6 +48,51 @@ function computeEveSynthesisVerdict(candidate: {
   return 'low-confidence';
 }
 
+function verifyEveSynthesisCandidateRecord(
+  id: string,
+  candidate: {
+    confidenceTier: number;
+    flags: string[];
+    severity: string;
+    status: string;
+  },
+): NextResponse {
+  if (candidate.status !== 'pending-verification') {
+    return NextResponse.json(
+      { ok: false, error: 'Candidate is not pending verification' },
+      { status: 400 },
+    );
+  }
+  const verdict = computeEveSynthesisVerdict(candidate);
+  const verifiedAt = new Date().toISOString();
+  const zeusScore = zeusScoreForTier(candidate.confidenceTier);
+  if (getEveSynthesisCandidateById(id)) {
+    updateEveSynthesisCandidate(id, {
+      status: 'verified',
+      verifiedBy: 'ZEUS',
+      verifiedAt,
+      zeusVerdict: verdict,
+    });
+  }
+  const pipe = getPipelineCandidateById(id);
+  if (pipe) {
+    const patch: Partial<EpiconCandidate> = {
+      status: 'verified',
+      verifiedBy: 'ZEUS',
+      verifiedAt,
+      zeusVerdict: verdict,
+    };
+    updatePipelineCandidate(id, patch);
+  }
+  return NextResponse.json({
+    ok: true,
+    candidateId: id,
+    verdict,
+    verifiedAt,
+    zeusScore,
+  });
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -57,32 +107,15 @@ export async function POST(request: Request) {
 
     if (typeof body.candidateId === 'string' && body.candidateId.trim()) {
       const id = body.candidateId.trim();
-      const pipelineCand = getPipelineCandidateById(id);
-      if (!pipelineCand) {
-        return NextResponse.json({ ok: false, error: 'EVE synthesis candidate not found' }, { status: 404 });
+      const eveCand = getEveSynthesisCandidateById(id);
+      if (eveCand) {
+        return verifyEveSynthesisCandidateRecord(id, eveCand);
       }
-      if (pipelineCand.status !== 'pending-verification') {
-        return NextResponse.json(
-          { ok: false, error: 'Candidate is not pending verification' },
-          { status: 400 },
-        );
+      const pipeCand = getPipelineCandidateById(id);
+      if (pipeCand && pipeCand.source === 'eve-synthesis') {
+        return verifyEveSynthesisCandidateRecord(id, pipeCand);
       }
-      const verdict = computeEveSynthesisVerdict(pipelineCand);
-      const verifiedAt = new Date().toISOString();
-      const zeusScore = zeusScoreForTier(pipelineCand.confidenceTier);
-      updatePipelineCandidate(id, {
-        status: 'verified',
-        verifiedBy: 'ZEUS',
-        verifiedAt,
-        zeusVerdict: verdict,
-      });
-      return NextResponse.json({
-        ok: true,
-        candidateId: id,
-        verdict,
-        verifiedAt,
-        zeusScore,
-      });
+      return NextResponse.json({ ok: false, error: 'EVE synthesis candidate not found' }, { status: 404 });
     }
 
     const reviewer = body.reviewer || 'kaizencycle';
