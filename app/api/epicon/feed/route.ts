@@ -3,6 +3,7 @@ import { Redis } from '@upstash/redis';
 import { getPublicEpiconFeed } from '@/lib/epicon/feedStore';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
+import { getPipelineFeedEntries } from '@/lib/eve/synthesis-pipeline-store';
 export const dynamic = 'force-dynamic';
 
 type EpiconType = 'heartbeat' | 'catalog' | 'zeus-verify' | 'zeus-report' | 'epicon' | 'merge' | 'unknown';
@@ -244,6 +245,28 @@ function fromMemoryFeed(): EpiconEntry[] {
   }));
 }
 
+function fromSynthesisMemoryFeed(): EpiconEntry[] {
+  return getPipelineFeedEntries().map((item) => ({
+    id: item.id,
+    timestamp: item.timestamp,
+    author: item.author,
+    title: item.title,
+    body: item.body,
+    type: item.type as EpiconEntry['type'],
+    severity: isEpiconSeverity(item.severity) ? item.severity : 'info',
+    gi: item.gi ?? undefined,
+    source: item.source,
+    tags: item.tags,
+    verified: item.verified,
+    verifiedBy: item.verifiedBy,
+    cycle: item.cycle,
+    category: item.category,
+    confidenceTier: item.confidenceTier,
+    zeusVerdict: item.zeusVerdict,
+    patternType: item.patternType,
+    dominantRegion: item.dominantRegion,
+  }));
+}
 
 async function fromRedis(): Promise<EpiconEntry[]> {
   const redis = getRedisClient();
