@@ -48,6 +48,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+    return NextResponse.json(
+      { ok: false, error: 'ANTHROPIC_API_KEY is not configured — synthesis disabled' },
+      { status: 503 },
+    );
+  }
+
   const base = serverBaseUrl(request);
 
   const cycleRes = await fetch(`${base}/api/eve/cycle-advance`, { cache: 'no-store' });
