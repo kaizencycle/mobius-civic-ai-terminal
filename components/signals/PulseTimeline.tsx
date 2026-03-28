@@ -51,6 +51,26 @@ type MicroSweepResponse = {
   healthy: boolean;
 };
 
+type EveSynthesisLedgerRow = {
+  id: string;
+  title: string;
+  timestamp: string;
+  body?: string;
+  source?: string;
+};
+
+function isEveSynthesisLedgerRow(value: unknown): value is EveSynthesisLedgerRow {
+  if (value === null || typeof value !== 'object') return false;
+  const o = value as Record<string, unknown>;
+  return (
+    typeof o.id === 'string' &&
+    typeof o.title === 'string' &&
+    typeof o.timestamp === 'string' &&
+    (o.body === undefined || typeof o.body === 'string') &&
+    (o.source === undefined || typeof o.source === 'string')
+  );
+}
+
 function freshnessLabel(runtime: RuntimeStatus | null) {
   if (runtime?.freshness.status === 'fresh') return 'System live';
   if (runtime?.freshness.status === 'nominal') return 'System nominal';
@@ -99,22 +119,34 @@ export default function PulseTimeline() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [micro, setMicro] = useState<MicroSweepResponse | null>(null);
+  const [eveLedger, setEveLedger] = useState<EveSynthesisLedgerRow[]>([]);
 
   async function load() {
     try {
-      const [pulseRes, runtimeRes, microRes] = await Promise.all([
+      const [pulseRes, runtimeRes, microRes, feedRes] = await Promise.all([
         fetch('/api/signals/pulse', { cache: 'no-store' }),
         fetch('/api/runtime/status', { cache: 'no-store' }),
         fetch('/api/signals/micro', { cache: 'no-store' }),
+        fetch('/api/epicon/feed?limit=24&type=epicon', { cache: 'no-store' }),
       ]);
 
       const pulseJson = await pulseRes.json();
       const runtimeJson: RuntimeStatus = await runtimeRes.json();
       const microJson: MicroSweepResponse = await microRes.json();
+      const feedJson: unknown = await feedRes.json();
 
       setSignals(pulseJson.signals || []);
       setRuntime(runtimeJson);
       setMicro(microJson.ok ? microJson : null);
+
+      const itemsRaw =
+        feedJson !== null && typeof feedJson === 'object' && 'items' in feedJson
+          ? (feedJson as { items: unknown }).items
+          : [];
+      const items = Array.isArray(itemsRaw) ? itemsRaw.filter(isEveSynthesisLedgerRow) : [];
+      setEveLedger(
+        items.filter((row) => row.source === 'eve-synthesis').slice(0, 5),
+      );
     } catch {
       // Preserve previous state if a refresh fails.
     }
@@ -231,6 +263,37 @@ export default function PulseTimeline() {
               Governance transparency is now rendered with explicit source-state visibility, so catalog failures, keyed fallbacks, and cached snapshots become operator-visible instead of silent.
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {eveLedger.length > 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-rose-300/90">
+              EVE synthesis · civic ledger
+            </div>
+            <div className="text-[10px] font-mono text-slate-500">{eveLedger.length} recent</div>
+          </div>
+          <div className="mt-3 space-y-2">
+            {eveLedger.map((row) => (
+              <div
+                key={row.id}
+                className="rounded-lg border border-slate-800/80 bg-slate-950/60 px-3 py-2"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-mono text-slate-500">{row.id}</span>
+                  <span className="text-[10px] font-mono text-rose-400 border border-rose-400/30 rounded px-1 py-0.5">
+                    EVE SYN
+                  </span>
+                </div>
+                <div className="mt-1 text-sm font-semibold text-slate-100">{row.title}</div>
+                {row.body?.trim() ? (
+                  <div className="mt-1 line-clamp-2 text-xs text-slate-400">{row.body}</div>
+                ) : null}
+                <div className="mt-1 text-[10px] font-mono text-slate-500">{row.timestamp}</div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 
