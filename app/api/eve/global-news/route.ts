@@ -120,7 +120,9 @@ export async function GET(request: NextRequest) {
     };
     cached = { data: freshSynthesis, ts: now };
 
-    triggerEveSynthesisPipelineAfterObservation(serverBaseUrl(request));
+    if (request.headers.get('x-mobius-skip-synthesis-pipeline') !== '1') {
+      triggerEveSynthesisPipelineAfterObservation(serverBaseUrl(request));
+    }
 
     return NextResponse.json(
       { ok: true, ...liveEnvelope(synthesis.timestamp), cached: false, ...freshSynthesis },

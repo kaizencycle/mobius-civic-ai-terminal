@@ -68,7 +68,10 @@ export async function POST(request: NextRequest) {
   if (items.length === 0) {
     const base = serverBaseUrl(request);
     const res = await fetch(`${base}/api/eve/global-news`, {
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'X-Mobius-Skip-Synthesis-Pipeline': '1',
+      },
       cache: 'no-store',
     });
     const eveData = (await res.json()) as Partial<EveSynthesis> & { items?: EveNewsItem[] };
