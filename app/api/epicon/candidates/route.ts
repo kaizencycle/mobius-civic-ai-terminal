@@ -13,6 +13,8 @@ export const dynamic = 'force-dynamic';
 type CandidatePostBody = {
   cycleId?: string;
   synthesis?: EveSynthesisPayload;
+  ok?: boolean;
+  agent?: string;
 };
 
 function normalizeCycleSegment(cycleId: string): string {
@@ -24,6 +26,7 @@ function normalizeCycleSegment(cycleId: string): string {
   return `C-${digits.padStart(3, '0').slice(-3)}`;
 }
 
+/** EPICON-[C-NNN]-EVE-SYN-<hash> per C-626 */
 function buildCandidateId(cycleId: string): string {
   const normalized = normalizeCycleSegment(cycleId);
   const stamp = `${normalized}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;

@@ -78,11 +78,18 @@ export async function POST(request: NextRequest) {
 
   const itemCount = typeof synJson.itemCount === 'number' ? synJson.itemCount : 0;
 
-  const synthesisPayload = synJson.synthesis;
+  const synthesisObj = synJson.synthesis;
+  if (synthesisObj === null || typeof synthesisObj !== 'object') {
+    return NextResponse.json(
+      { ok: false, step: 'candidate', error: 'Synthesis response missing synthesis object' },
+      { status: 502 },
+    );
+  }
+
   const candRes = await fetch(`${base}/api/epicon/candidates`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ cycleId, synthesis: synthesisPayload }),
+    body: JSON.stringify({ cycleId, synthesis: synthesisObj }),
     cache: 'no-store',
   });
   const candJson = (await readJson(candRes)) as Record<string, unknown> | null;

@@ -57,19 +57,19 @@ export async function POST(request: Request) {
 
     if (typeof body.candidateId === 'string' && body.candidateId.trim()) {
       const id = body.candidateId.trim();
-      const eveCand = getPipelineCandidateById(id);
-      if (!eveCand) {
+      const pipelineCand = getPipelineCandidateById(id);
+      if (!pipelineCand) {
         return NextResponse.json({ ok: false, error: 'EVE synthesis candidate not found' }, { status: 404 });
       }
-      if (eveCand.status !== 'pending-verification') {
+      if (pipelineCand.status !== 'pending-verification') {
         return NextResponse.json(
           { ok: false, error: 'Candidate is not pending verification' },
           { status: 400 },
         );
       }
-      const verdict = computeEveSynthesisVerdict(eveCand);
+      const verdict = computeEveSynthesisVerdict(pipelineCand);
       const verifiedAt = new Date().toISOString();
-      const zeusScore = zeusScoreForTier(eveCand.confidenceTier);
+      const zeusScore = zeusScoreForTier(pipelineCand.confidenceTier);
       updatePipelineCandidate(id, {
         status: 'verified',
         verifiedBy: 'ZEUS',
