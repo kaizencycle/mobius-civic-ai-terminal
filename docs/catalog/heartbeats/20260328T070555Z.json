@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-03-28T07:05:55Z",
+  "health": "nominal",
+  "endpoints": {
+    "micro_agents": true,
+    "integrity": true,
+    "runtime": true
+  },
+  "signals": {
+    "composite": 0.666,
+    "anomalies": 2,
+    "gi": 0.68,
+    "mode": "yellow"
+  }
+}
