@@ -9,7 +9,7 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { fetchEveGlobalNews } from '@/lib/eve/global-news';
 import { triggerEveSynthesisPipelineAfterObservation } from '@/lib/eve/global-news-pipeline-trigger';
@@ -44,6 +44,19 @@ function shouldTriggerSynthesisPipeline(request: NextRequest): boolean {
   return request.headers.get('x-mobius-skip-synthesis-pipeline') !== '1';
 }
 
+function scheduleSynthesisPipelineTrigger(baseUrl: string, request: NextRequest): void {
+  if (!shouldTriggerSynthesisPipeline(request)) {
+    return;
+  }
+  try {
+    after(() => {
+      triggerEveSynthesisPipelineAfterObservation(baseUrl);
+    });
+  } catch {
+    triggerEveSynthesisPipelineAfterObservation(baseUrl);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const now = Date.now();
 
@@ -72,9 +85,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (shouldTriggerSynthesisPipeline(request)) {
-      triggerEveSynthesisPipelineAfterObservation(serverBaseUrl(request));
-    }
+    scheduleSynthesisPipelineTrigger(serverBaseUrl(request), request);
 
     return NextResponse.json(
       {
@@ -128,9 +139,7 @@ export async function GET(request: NextRequest) {
     };
     cached = { data: freshSynthesis, ts: now };
 
-    if (shouldTriggerSynthesisPipeline(request)) {
-      triggerEveSynthesisPipelineAfterObservation(serverBaseUrl(request));
-    }
+    scheduleSynthesisPipelineTrigger(serverBaseUrl(request), request);
 
     return NextResponse.json(
       { ok: true, ...liveEnvelope(synthesis.timestamp), cached: false, ...freshSynthesis },
