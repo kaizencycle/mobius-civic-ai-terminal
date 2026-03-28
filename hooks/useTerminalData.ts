@@ -66,7 +66,7 @@ export function useTerminalData(selectedNav: NavKey) {
   const [integritySignal, setIntegritySignal] = useState<MobiusCivicIntegritySignal | null>(null);
   const [feedLedgerRows, setFeedLedgerRows] = useState<LedgerEntry[]>([]);
   const [inspectorTarget, setInspectorTarget] = useState<InspectorTarget | null>(null);
-  const [streamStatus, setStreamStatus] = useState<StreamStatus>(isLiveAPI ? 'reconnecting' : 'offline');
+  const [streamStatus, setStreamStatus] = useState<StreamStatus>(isLiveAPI ? 'reconnecting' : 'local');
   const [echoLedger, setEchoLedger] = useState<LedgerEntry[]>([]);
   const [echoAlerts, setEchoAlerts] = useState<CivicRadarAlert[]>([]);
   const [echoIntegrity, setEchoIntegrity] = useState<CycleIntegritySummary | null>(null);

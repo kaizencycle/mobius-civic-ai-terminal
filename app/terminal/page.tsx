@@ -269,6 +269,15 @@ function TerminalPage() {
     ? mergedLedger.find((entry) => entry.summary.includes(inspectorTarget.data.id) || entry.summary.toLowerCase().includes(inspectorTarget.data.title.toLowerCase().slice(0, 24)))
     : undefined;
 
+  const streamStatusLine =
+    streamStatus === 'live'
+      ? 'STREAM LIVE'
+      : streamStatus === 'reconnecting'
+        ? 'RECONNECTING'
+        : streamStatus === 'local'
+          ? 'LOCAL (mock data)'
+          : 'OFFLINE';
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <HardHalt
@@ -314,7 +323,7 @@ function TerminalPage() {
                 <div className="space-y-1 text-right">
                   <div className="font-mono uppercase tracking-[0.15em] text-slate-500">{operatorMessage}</div>
                   <div className="text-[11px] uppercase tracking-[0.12em] text-slate-600">
-                    {cycleId} · {terminalStatus} · {streamStatus === 'live' ? 'stream live' : streamStatus === 'reconnecting' ? 'reconnecting' : 'local mode'}
+                    {cycleId} · {terminalStatus} · {streamStatusLine}
                   </div>
                 </div>
               }
@@ -621,11 +630,17 @@ function TerminalPage() {
           <span
             className={cn(
               'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
-              streamStatus === 'live' ? 'bg-emerald-400' : streamStatus === 'reconnecting' ? 'bg-amber-400' : 'bg-slate-500',
+              streamStatus === 'live'
+                ? 'bg-emerald-400'
+                : streamStatus === 'reconnecting'
+                  ? 'bg-amber-400'
+                  : streamStatus === 'local'
+                    ? 'bg-sky-400'
+                    : 'bg-slate-500',
             )}
           />
           <span className="hidden sm:inline">
-            {cycleId} · {allTripwires.length} tripwire{allTripwires.length === 1 ? '' : 's'} · GI {gi.score.toFixed(2)} · MII {liveRibbonMii.toFixed(2)} · MIC {micSupply.toLocaleString()} · {filteredEpicon.length} signals · {streamStatus === 'live' ? 'Stream live' : streamStatus === 'reconnecting' ? 'Reconnecting' : 'Local mode'}
+            {cycleId} · {allTripwires.length} tripwire{allTripwires.length === 1 ? '' : 's'} · GI {gi.score.toFixed(2)} · MII {liveRibbonMii.toFixed(2)} · MIC {micSupply.toLocaleString()} · {filteredEpicon.length} signals · {streamStatusLine}
           </span>
           <span className="sm:hidden">{cycleId} · GI {gi.score.toFixed(2)}</span>
         </div>

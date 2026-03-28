@@ -75,18 +75,20 @@ const clockFormatter = new Intl.DateTimeFormat('en-US', {
 
 /* ── Stream status helpers ───────────────────────────────────── */
 
-export type StreamStatus = 'live' | 'reconnecting' | 'offline';
+export type StreamStatus = 'live' | 'reconnecting' | 'offline' | 'local';
 
 const STREAM_TONE: Record<StreamStatus, string> = {
   live: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10',
   reconnecting: 'text-amber-300 border-amber-500/30 bg-amber-500/10',
   offline: 'text-slate-400 border-slate-600 bg-slate-800',
+  local: 'text-sky-300/90 border-sky-500/25 bg-sky-500/10',
 };
 
 const STREAM_LABEL: Record<StreamStatus, string> = {
-  live: 'LIVE',
-  reconnecting: 'RECONN',
+  live: 'STREAM LIVE',
+  reconnecting: 'RECONNECTING',
   offline: 'OFFLINE',
+  local: 'LOCAL',
 };
 
 /* ── Agent status chips ──────────────────────────────────────── */
