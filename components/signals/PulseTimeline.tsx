@@ -284,7 +284,7 @@ export default function PulseTimeline() {
                 <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-100">
                   <span>{row.title}</span>
                   {row.source === 'eve-synthesis' ? (
-                    <span className="text-[10px] font-mono text-rose-400 border border-rose-400/30 rounded px-1 py-0.5 ml-1">
+                    <span className="ml-1 text-[10px] font-mono text-rose-400 border border-rose-400/30 rounded px-1 py-0.5">
                       EVE SYN
                     </span>
                   ) : null}
