@@ -329,8 +329,15 @@ export async function GET(request: NextRequest) {
   const commitEntries = commits.map(toEpiconEntry).filter((entry): entry is EpiconEntry => entry !== null);
   const memoryEntries = fromMemoryFeed();
   const localLedgerEntries = fromLocalMemoryLedger();
+  const pipelineMemoryEntries = fromSynthesisMemoryFeed();
 
-  let entries = dedupeSort([...kvEntries, ...localLedgerEntries, ...commitEntries, ...memoryEntries]);
+  let entries = dedupeSort([
+    ...kvEntries,
+    ...localLedgerEntries,
+    ...pipelineMemoryEntries,
+    ...commitEntries,
+    ...memoryEntries,
+  ]);
 
   if (typeFilter) entries = entries.filter((entry) => entry.type === typeFilter);
   if (minGiValue !== undefined && !Number.isNaN(minGiValue)) {

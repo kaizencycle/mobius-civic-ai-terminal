@@ -52,7 +52,29 @@ export type EpiconCandidate = {
   zeusVerdict?: ZeusSynthesisVerdict;
 };
 
+export type PublishedEpiconEntry = {
+  id: string;
+  timestamp: string;
+  author: 'EVE';
+  title: string;
+  body: string;
+  type: 'epicon';
+  severity: 'info' | 'elevated' | 'critical';
+  gi: null;
+  tags: string[];
+  source: 'eve-synthesis';
+  verified: true;
+  verifiedBy: 'ZEUS';
+  cycle: string;
+  category: SynthesisDominantTheme;
+  confidenceTier: SynthesisConfidenceTier;
+  zeusVerdict?: ZeusSynthesisVerdict;
+  patternType: SynthesisPatternType;
+  dominantRegion: string;
+};
+
 const candidates: EpiconCandidate[] = [];
+const memoryFeed: PublishedEpiconEntry[] = [];
 
 export function getPipelineCandidates(): EpiconCandidate[] {
   return candidates.slice();
@@ -88,4 +110,15 @@ export function removePipelineCandidate(candidateId: string): boolean {
   }
   candidates.splice(idx, 1);
   return true;
+}
+
+export function addPipelineFeedEntry(entry: PublishedEpiconEntry): void {
+  memoryFeed.unshift(entry);
+  if (memoryFeed.length > 500) {
+    memoryFeed.length = 500;
+  }
+}
+
+export function getPipelineFeedEntries(): PublishedEpiconEntry[] {
+  return memoryFeed.slice();
 }

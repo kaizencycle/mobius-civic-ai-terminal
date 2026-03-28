@@ -26,11 +26,14 @@ function normalizeCycleSegment(cycleId: string): string {
   return `C-${digits.padStart(3, '0').slice(-3)}`;
 }
 
-/** EPICON-[C-NNN]-EVE-SYN-<hash> per C-626 */
-function buildCandidateId(cycleId: string): string {
+/** EPICON-[C-NNN]-EVE-SYN-<hash> — hash from cycle + ISO timestamp (C-626). */
+function buildCandidateId(cycleId: string, timestampIso: string): string {
   const normalized = normalizeCycleSegment(cycleId);
-  const stamp = `${normalized}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  const hash = createHash('sha256').update(stamp).digest('hex').slice(0, 8);
+  const hash = createHash('sha256')
+    .update(`${normalized}:${timestampIso}`)
+    .digest('hex')
+    .slice(0, 8)
+    .toUpperCase();
   return `EPICON-${normalized}-EVE-SYN-${hash}`;
 }
 
@@ -94,7 +97,7 @@ export async function POST(request: NextRequest) {
         : 'C-000';
     const timestamp = new Date().toISOString();
     const candidate: EpiconCandidate = {
-      id: buildCandidateId(cycleId),
+      id: buildCandidateId(cycleId, timestamp),
       cycleId,
       timestamp,
       source: 'eve-synthesis',
