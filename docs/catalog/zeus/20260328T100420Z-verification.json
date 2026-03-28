@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-03-28T10:04:20.000Z",
+  "agent": "ZEUS",
+  "atlas_heartbeat_reviewed": "20260328T070555Z.json",
+  "verification_status": "disputed",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat parse (health, GI, anomalies, EVE tension)",
+      "result": "warn",
+      "detail": "Reviewed 20260328T070555Z.json: health=nominal, endpoints micro_agents/integrity/runtime all true, signals composite=0.666, anomalies=2, gi=0.68, mode=yellow. File has no eve.global_tension field; EVE tension for this run taken from live /api/eve/global-news only."
+    },
+    {
+      "check": "Production /api/signals/micro vs ATLAS anomaly count and identity",
+      "result": "pass",
+      "detail": "Live fetch ~2026-03-28T10:03:18Z: anomalies[] still exactly two elevated signals: GAIA/USGS (41 quakes M2.5+ today, max M5.4 near Abepura, Indonesia) and DAEDALUS-µ Self-ping HTTP 401 in 70ms. Composite 0.635 vs heartbeat 0.666 (~5% lower) — consistent with continued strain. THEMIS: healthy=false, mode=degraded, errors include data.gov catalog API fetch failed and no transparency fallback; Federal Register ok in sourceStatus — agent-level degradation beyond the two listed anomalies."
+    },
+    {
+      "check": "Anomaly persistence and severity trajectory",
+      "result": "warn",
+      "detail": "Both anomaly classes persist (not transient). Seismic remains elevated; quake count/sample differs from prior ZEUS snapshot by time-of-day (41 vs 48) — stable elevated class. Self-ping remains elevated with HTTP 401 — stable infrastructure/auth pattern vs prior run."
+    },
+    {
+      "check": "Production /api/integrity-status (source, plausibility, freshness)",
+      "result": "pass",
+      "detail": "source=live (not mock) — GI is production-backed for this run. global_integrity=0.6, mode=yellow, terminal_status=stressed, primary_driver=Moderate signal degradation. Heartbeat had gi=0.68 at 07:05Z; live GI lower at 10:03Z — score trajectory aligns with worsening, not recovery. Freshness heavily degraded: signals.freshness=0.3, stability=0.3, sentiment=0.3, information=0.3; quality=0.77, geopolitics=0.77, system=1, economy=1 explain yellow/stressed without contradiction. kv=false noted."
+    },
+    {
+      "check": "ATLAS health=nominal vs live terminal_status",
+      "result": "fail",
+      "detail": "Disconnect: heartbeat labels overall health nominal while live integrity-status reports terminal_status=stressed and GI 0.6 with Moderate signal degradation. ZEUS treats this as disputed — nominal is not supported by current integrity aggregate at verification time."
+    },
+    {
+      "check": "Vercel deployment health (READY, ERROR in 6h, ignoreCommand)",
+      "result": "warn",
+      "detail": "No Vercel CLI or VERCEL_TOKEN in this environment — could not list deployments or confirm READY vs ERROR in the last six hours, or observe ignoreCommand skipping bot builds. vercel.json defines ignoreCommand as bash scripts/ignore-build.sh (skips [skip ci] and mobius-bot/cursoragent identities). Production HTTPS for /api/signals/micro, /api/integrity-status, and /api/eve/global-news returned 200 at verification time."
+    },
+    {
+      "check": "EVE /api/eve/global-news vs GI and micro anomalies",
+      "result": "pass",
+      "detail": "global_tension=elevated, dominant_category=geopolitical, source=live, degraded=false. Live GI is yellow/stressed — no longer the high-tension vs green-GI disconnect seen when integrity was mock-sourced. Micro anomalies (seismic, self-ping 401) still do not map to headline themes; they read as natural-hazard and app-health signals."
+    }
+  ],
+  "gi_verified": true,
+  "anomaly_persistence": {
+    "GAIA/USGS Earthquake": "persistent",
+    "DAEDALUS-µ/Self-ping": "persistent"
+  },
+  "eve_correlation": "Elevated global_tension and geopolitical-heavy EVE feed align with yellow/stressed GI in this run. Seismic and Self-ping 401 remain weakly correlated with EVE items — interpret as environmental and infrastructure signals respectively.",
+  "recommendation": "Reconcile ATLAS health labeling with integrity terminal_status when GI is yellow and anomalies persist; prefer stressed/degraded when terminal_status=stressed. THEMIS data.gov path failures remain a separate degradation vector. Re-run ZEUS with Vercel API credentials to validate deployment READY state and ignoreCommand behavior. Confirm whether Self-ping 401 is expected for anomaly logic."
+}
