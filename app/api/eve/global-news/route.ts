@@ -8,9 +8,11 @@
  * CC0 Public Domain
  */
 
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import { fetchEveGlobalNews } from '@/lib/eve/global-news';
+import { triggerEveSynthesisPipelineAfterObservation } from '@/lib/eve/global-news-pipeline-trigger';
 import { mockEveNews } from '@/lib/mock-data';
 import {
   isFresh,
@@ -30,7 +32,15 @@ let cached:
 
 const CACHE_TTL_MS = 3 * 60 * 1000;
 
-export async function GET() {
+function serverBaseUrl(request: NextRequest): string {
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
+  const proto = request.headers.get('x-forwarded-proto') ?? 'https';
+  if (host) return `${proto}://${host}`;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return 'http://127.0.0.1:3000';
+}
+
+export async function GET(request: NextRequest) {
   const now = Date.now();
 
   if (cached && now - cached.ts < CACHE_TTL_MS) {
@@ -109,6 +119,8 @@ export async function GET() {
       items: freshItems,
     };
     cached = { data: freshSynthesis, ts: now };
+
+    triggerEveSynthesisPipelineAfterObservation(serverBaseUrl(request));
 
     return NextResponse.json(
       { ok: true, ...liveEnvelope(synthesis.timestamp), cached: false, ...freshSynthesis },
