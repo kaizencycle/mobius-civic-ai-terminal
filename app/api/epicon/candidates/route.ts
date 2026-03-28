@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { NextRequest, NextResponse } from 'next/server';
 import {
   addPipelineCandidate,
@@ -5,19 +7,35 @@ import {
   type EpiconCandidate,
   type EveSynthesisPayload,
 } from '@/lib/eve/synthesis-pipeline-store';
+import { addEveSynthesisCandidate } from '@/lib/epicon/eveSynthesisCandidates';
 
 export const dynamic = 'force-dynamic';
 
 type CandidatePostBody = {
   cycleId?: string;
   synthesis?: EveSynthesisPayload;
+  ok?: boolean;
+  agent?: string;
 };
 
-function buildCandidateId(cycleId: string): string {
-  const normalized = cycleId.toUpperCase().startsWith('C-')
-    ? cycleId.toUpperCase()
-    : `C-${cycleId.replace(/[^0-9]/g, '').padStart(3, '0').slice(-3)}`;
-  return `EPICON-${normalized}-EVE-SYN-01`;
+function normalizeCycleSegment(cycleId: string): string {
+  const trimmed = cycleId.trim();
+  if (trimmed.toUpperCase().startsWith('C-')) {
+    return trimmed.toUpperCase();
+  }
+  const digits = trimmed.replace(/[^0-9]/g, '');
+  return `C-${digits.padStart(3, '0').slice(-3)}`;
+}
+
+/** EPICON-[C-NNN]-EVE-SYN-<hash> — hash from cycle + ISO timestamp (C-626). */
+function buildCandidateId(cycleId: string, timestampIso: string): string {
+  const normalized = normalizeCycleSegment(cycleId);
+  const hash = createHash('sha256')
+    .update(`${normalized}:${timestampIso}`)
+    .digest('hex')
+    .slice(0, 8)
+    .toUpperCase();
+  return `EPICON-${normalized}-EVE-SYN-${hash}`;
 }
 
 function isSynthesisPayload(value: unknown): value is EveSynthesisPayload {
@@ -49,11 +67,22 @@ export async function GET() {
   });
 }
 
+function resolveSynthesisFromBody(body: CandidatePostBody): EveSynthesisPayload | null {
+  if (body.synthesis && isSynthesisPayload(body.synthesis)) {
+    return body.synthesis;
+  }
+  if (isSynthesisPayload(body)) {
+    return body;
+  }
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as CandidatePostBody;
+    const body = (await request.json()) as CandidatePostBody & Record<string, unknown>;
 
-    if (!body.synthesis || !isSynthesisPayload(body.synthesis)) {
+    const synthesisPayload = resolveSynthesisFromBody(body);
+    if (!synthesisPayload) {
       return NextResponse.json(
         {
           ok: false,
@@ -63,29 +92,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cycleId = body.cycleId ?? 'C-000';
+    const cycleId =
+      typeof body.cycleId === 'string' && body.cycleId.trim()
+        ? body.cycleId.trim()
+        : 'C-000';
     const timestamp = new Date().toISOString();
     const candidate: EpiconCandidate = {
-      id: buildCandidateId(cycleId),
+      id: buildCandidateId(cycleId, timestamp),
       cycleId,
       timestamp,
       source: 'eve-synthesis',
       status: 'pending-verification',
-      title: body.synthesis.epiconTitle,
-      summary: body.synthesis.epiconSummary,
-      dominantTheme: body.synthesis.dominantTheme,
-      dominantRegion: body.synthesis.dominantRegion,
-      patternType: body.synthesis.patternType,
-      confidenceTier: body.synthesis.confidenceTier,
-      severity: body.synthesis.severity,
-      flags: body.synthesis.flags,
-      fullSynthesis: body.synthesis.synthesis,
+      title: synthesisPayload.epiconTitle,
+      summary: synthesisPayload.epiconSummary,
+      dominantTheme: synthesisPayload.dominantTheme,
+      dominantRegion: synthesisPayload.dominantRegion,
+      patternType: synthesisPayload.patternType,
+      confidenceTier: synthesisPayload.confidenceTier,
+      severity: synthesisPayload.severity,
+      flags: synthesisPayload.flags,
+      fullSynthesis: synthesisPayload.synthesis,
       agentOrigin: 'EVE',
       verifiedBy: null,
       verifiedAt: null,
     };
 
     addPipelineCandidate(candidate);
+    addEveSynthesisCandidate(candidate);
 
     return NextResponse.json({
       ok: true,

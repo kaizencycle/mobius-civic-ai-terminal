@@ -1,22 +1,14 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
 import { addPublicEpicon } from '@/lib/epicon/feedStore';
-import { getEveSynthesisCandidateById, removeEveSynthesisCandidate } from '@/lib/epicon/eveSynthesisCandidates';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 import { requirePermission } from '@/lib/identity/guards';
 import { lockStake } from '@/lib/mic/store';
 import { incrementEpiconCount } from '@/lib/identity/store';
-import {
-  addPipelineFeedEntry,
-  getPipelineCandidateById,
-  removePipelineCandidate,
-  type PublishedEpiconEntry,
-} from '@/lib/eve/synthesis-pipeline-store';
-
-const EPICON_FEED_LIST_KEY = 'mobius:epicon:feed';
+import { getEveSynthesisCandidateById, removeEveSynthesisCandidate } from '@/lib/epicon/eveSynthesisCandidates';
+import { getPipelineCandidateById, removePipelineCandidate } from '@/lib/eve/synthesis-pipeline-store';
 
 type LegacyPublishBody = {
   submitted_by_login?: string;
@@ -53,36 +45,72 @@ function toLegacyBody(input: Record<string, unknown>): LegacyPublishBody {
   };
 }
 
-function getRedisClient(): Redis | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) {
-    return null;
-  }
-
-  try {
-    return new Redis({ url, token });
-  } catch {
-    return null;
-  }
-}
-
 function eveLedgerSeverity(s: string): EpiconLedgerFeedEntry['severity'] {
   if (s === 'low' || s === 'medium' || s === 'high') return s;
   return 'low';
 }
 
-function toSeverity(input: 'low' | 'medium' | 'high'): PublishedEpiconEntry['severity'] {
-  if (input === 'high') return 'critical';
-  if (input === 'medium') return 'elevated';
-  return 'info';
+type SynthesisPublishCandidate = {
+  id: string;
+  cycleId: string;
+  title: string;
+  fullSynthesis: string;
+  severity: string;
+  dominantTheme: string;
+  patternType: string;
+  confidenceTier: number;
+  zeusVerdict?: string;
+  dominantRegion: string;
+  status: string;
+};
+
+function resolveSynthesisCandidate(candidateId: string): SynthesisPublishCandidate | null {
+  const fromEve = getEveSynthesisCandidateById(candidateId);
+  if (fromEve) {
+    return {
+      id: fromEve.id,
+      cycleId: fromEve.cycleId,
+      title: fromEve.title,
+      fullSynthesis: fromEve.fullSynthesis,
+      severity: fromEve.severity,
+      dominantTheme: fromEve.dominantTheme,
+      patternType: fromEve.patternType,
+      confidenceTier: fromEve.confidenceTier,
+      zeusVerdict: fromEve.zeusVerdict,
+      dominantRegion: fromEve.dominantRegion,
+      status: fromEve.status,
+    };
+  }
+  const fromPipe = getPipelineCandidateById(candidateId);
+  if (fromPipe && fromPipe.source === 'eve-synthesis') {
+    return {
+      id: fromPipe.id,
+      cycleId: fromPipe.cycleId,
+      title: fromPipe.title,
+      fullSynthesis: fromPipe.fullSynthesis,
+      severity: fromPipe.severity,
+      dominantTheme: fromPipe.dominantTheme,
+      patternType: fromPipe.patternType,
+      confidenceTier: fromPipe.confidenceTier,
+      zeusVerdict: fromPipe.zeusVerdict,
+      dominantRegion: fromPipe.dominantRegion,
+      status: fromPipe.status,
+    };
+  }
+  return null;
 }
 
-async function publishEveSynthesisCandidate(candidateId: string) {
-  const candidate = getEveSynthesisCandidateById(candidateId);
+async function publishEveSynthesisToLedger(candidateId: string) {
+  const candidate = resolveSynthesisCandidate(candidateId);
 
   if (!candidate) {
-    return null;
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Candidate ${candidateId} not found`,
+      },
+      { status: 404 },
+    );
   }
 
   if (candidate.status !== 'verified') {
@@ -118,72 +146,12 @@ async function publishEveSynthesisCandidate(candidateId: string) {
 
   const { ledgerPosition } = await pushLedgerEntry(entry);
   removeEveSynthesisCandidate(candidate.id);
-
-  return NextResponse.json({
-    ok: true,
-    published: entry,
-    ledgerPosition,
-  });
-}
-
-async function publishSynthesisCandidate(candidateId: string) {
-  const candidate = getPipelineCandidateById(candidateId);
-
-  if (!candidate) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: `Candidate ${candidateId} not found`,
-      },
-      { status: 404 }
-    );
-  }
-
-  if (candidate.status !== 'verified') {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: `Candidate ${candidateId} must be verified before publish`,
-      },
-      { status: 400 }
-    );
-  }
-
-  const entry: PublishedEpiconEntry = {
-    id: candidate.id,
-    timestamp: new Date().toISOString(),
-    author: 'EVE',
-    title: candidate.title,
-    body: candidate.fullSynthesis,
-    type: 'epicon',
-    severity: toSeverity(candidate.severity),
-    gi: null,
-    tags: ['eve-synthesis', candidate.dominantTheme, candidate.patternType, 'automated'],
-    source: 'eve-synthesis',
-    verified: true,
-    verifiedBy: 'ZEUS',
-    cycle: candidate.cycleId,
-    category: candidate.dominantTheme,
-    confidenceTier: candidate.confidenceTier,
-    zeusVerdict: candidate.zeusVerdict,
-    patternType: candidate.patternType,
-    dominantRegion: candidate.dominantRegion,
-  };
-
-  const redis = getRedisClient();
-  if (redis) {
-    await redis.lpush(EPICON_FEED_LIST_KEY, JSON.stringify(entry));
-    await redis.ltrim(EPICON_FEED_LIST_KEY, 0, 499);
-  } else {
-    addPipelineFeedEntry(entry);
-  }
-
   removePipelineCandidate(candidate.id);
 
   return NextResponse.json({
     ok: true,
     published: entry,
-    ledgerPosition: 0,
+    ledgerPosition,
   });
 }
 
@@ -253,11 +221,7 @@ export async function POST(req: NextRequest) {
 
     if (typeof body.candidateId === 'string' && body.candidateId.trim().length > 0) {
       const candidateId = body.candidateId.trim();
-      const eveResult = await publishEveSynthesisCandidate(candidateId);
-      if (eveResult) {
-        return eveResult;
-      }
-      return publishSynthesisCandidate(candidateId);
+      return publishEveSynthesisToLedger(candidateId);
     }
 
     // Fallback to legacy publish mode.

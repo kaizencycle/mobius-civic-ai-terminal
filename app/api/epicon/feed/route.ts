@@ -3,7 +3,6 @@ import { Redis } from '@upstash/redis';
 import { getPublicEpiconFeed } from '@/lib/epicon/feedStore';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
-import { getPipelineFeedEntries } from '@/lib/eve/synthesis-pipeline-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -246,25 +245,6 @@ function fromMemoryFeed(): EpiconEntry[] {
   }));
 }
 
-
-function fromSynthesisMemoryFeed(): EpiconEntry[] {
-  return getPipelineFeedEntries().map((item) => ({
-    id: item.id,
-    timestamp: item.timestamp,
-    author: item.author,
-    title: item.title,
-    body: item.body,
-    type: item.type,
-    severity: item.severity,
-    gi: item.gi ?? undefined,
-    source: item.source,
-    tags: item.tags,
-    verified: item.verified,
-    verifiedBy: item.verifiedBy,
-    cycle: item.cycle,
-  }));
-}
-
 async function fromRedis(): Promise<EpiconEntry[]> {
   const redis = getRedisClient();
   if (!redis) return [];
@@ -350,7 +330,12 @@ export async function GET(request: NextRequest) {
   const memoryEntries = fromMemoryFeed();
   const localLedgerEntries = fromLocalMemoryLedger();
 
-  let entries = dedupeSort([...kvEntries, ...localLedgerEntries, ...commitEntries, ...memoryEntries]);
+  let entries = dedupeSort([
+    ...kvEntries,
+    ...localLedgerEntries,
+    ...commitEntries,
+    ...memoryEntries,
+  ]);
 
   if (typeFilter) entries = entries.filter((entry) => entry.type === typeFilter);
   if (minGiValue !== undefined && !Number.isNaN(minGiValue)) {

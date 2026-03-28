@@ -56,7 +56,10 @@ function buildUserPrompt(
     (it) =>
       `- ${it.title} [category=${it.category}, region=${it.region}, eve_tag=${it.eve_tag}]`,
   );
-  const notes = eveMeta.pattern_notes.join(' | ');
+  const notes =
+    Array.isArray(eveMeta.pattern_notes) && eveMeta.pattern_notes.length > 0
+      ? eveMeta.pattern_notes.join(' | ')
+      : '(none)';
   return `Current signal set for cycle ${cycleId}:
 ${lines.join('\n')}
 Existing pattern observations: ${notes}

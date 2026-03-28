@@ -1,46 +1,16 @@
 /**
  * In-memory store for EVE → EPICON synthesis pipeline candidates (C-626).
- * Resets on cold start; replace with KV in a later cycle.
+ * Mirrors pipeline candidates for ZEUS/publish lookups; resets on cold start.
  */
 
-export type ZeusSynthesisVerdict = 'confirmed' | 'flagged' | 'low-confidence' | 'contested';
+import type { EpiconCandidate, ZeusSynthesisVerdict } from '@/lib/eve/synthesis-pipeline-store';
 
-export type EveSynthesisPayload = {
-  synthesis: string;
-  dominantTheme: string;
-  dominantRegion: string;
-  patternType: string;
-  confidenceTier: number;
-  epiconTitle: string;
-  epiconSummary: string;
-  flags: string[];
-  severity: string;
-};
+export type { ZeusSynthesisVerdict };
+export type EveSynthesisCandidate = EpiconCandidate;
 
-export type EveSynthesisCandidate = {
-  id: string;
-  cycleId: string;
-  timestamp: string;
-  source: 'eve-synthesis';
-  status: 'pending-verification' | 'verified';
-  title: string;
-  summary: string;
-  dominantTheme: string;
-  dominantRegion: string;
-  patternType: string;
-  confidenceTier: number;
-  severity: string;
-  flags: string[];
-  fullSynthesis: string;
-  agentOrigin: 'EVE';
-  verifiedBy: string | null;
-  verifiedAt: string | null;
-  zeusVerdict?: ZeusSynthesisVerdict;
-};
+const store: EpiconCandidate[] = [];
 
-const store: EveSynthesisCandidate[] = [];
-
-export function addEveSynthesisCandidate(candidate: EveSynthesisCandidate): void {
+export function addEveSynthesisCandidate(candidate: EpiconCandidate): void {
   store.unshift(candidate);
   if (store.length > 100) {
     store.length = 100;
@@ -57,8 +27,8 @@ export function getEveSynthesisCandidateById(id: string): EveSynthesisCandidate 
 
 export function updateEveSynthesisCandidate(
   id: string,
-  patch: Partial<EveSynthesisCandidate>,
-): EveSynthesisCandidate | undefined {
+  patch: Partial<EpiconCandidate>,
+): EpiconCandidate | undefined {
   const idx = store.findIndex((c) => c.id === id);
   if (idx === -1) return undefined;
   const next = { ...store[idx], ...patch };
