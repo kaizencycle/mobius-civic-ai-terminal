@@ -285,9 +285,11 @@ export default function PulseTimeline() {
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-100">
                   <span>{row.title}</span>
-                  <span className="text-[10px] font-mono text-rose-400 border border-rose-400/30 rounded px-1 py-0.5 ml-1">
-                    EVE SYN
-                  </span>
+                  {row.source === 'eve-synthesis' ? (
+                    <span className="text-[10px] font-mono text-rose-400 border border-rose-400/30 rounded px-1 py-0.5 ml-1">
+                      EVE SYN
+                    </span>
+                  ) : null}
                 </div>
                 {row.body?.trim() ? (
                   <div className="mt-1 line-clamp-2 text-xs text-slate-400">{row.body}</div>
