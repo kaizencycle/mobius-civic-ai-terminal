@@ -48,10 +48,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey || !apiKey.trim()) {
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
     return NextResponse.json(
-      { ok: false, error: 'ANTHROPIC_API_KEY is not configured' },
+      { ok: false, error: 'ANTHROPIC_API_KEY is not configured — synthesis disabled' },
       { status: 503 },
     );
   }
