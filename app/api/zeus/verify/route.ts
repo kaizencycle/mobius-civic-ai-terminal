@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission } from '@/lib/identity/guards';
 import {
   getStoredEpicon,
@@ -18,6 +18,7 @@ import {
   updatePipelineCandidate,
   type EpiconCandidate,
 } from '@/lib/eve/synthesis-pipeline-store';
+import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
 type VerifyRequest = {
   epiconId: string;
@@ -100,7 +101,10 @@ export async function GET() {
   });
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const authError = getServiceAuthError(request);
+  if (authError) return authError;
+
   try {
     const rawBody = await request.json();
     const body = rawBody as VerifyRequest & { candidateId?: string; reviewer?: string };
