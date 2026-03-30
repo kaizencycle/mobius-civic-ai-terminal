@@ -12,6 +12,8 @@ export type PublicEpiconRecord = {
   submitted_by_login?: string;
   created_at: string;
   trace: string[];
+  /** Present when merged from ledger rows (e.g. EVE synthesis). */
+  source?: string;
 };
 
 const publicFeed: PublicEpiconRecord[] = [];
