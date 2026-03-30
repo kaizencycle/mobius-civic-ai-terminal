@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { runSignalEngine } from '@/lib/signals/engine';
 import { setHeartbeat } from '@/lib/runtime/heartbeat';
 import { writeEpiconEntry } from '@/lib/epicon-writer';
@@ -7,6 +7,7 @@ import { integrityStatus } from '@/lib/mock/integrityStatus';
 import { integrityStatusToGISnapshot } from '@/lib/terminal/api';
 import { mockAgents, mockEpicon, mockTripwires } from '@/lib/terminal/mock';
 import { detectTripwires, mergeTripwires } from '@/lib/echo/tripwire-engine';
+import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,11 +70,19 @@ async function runHeartbeat() {
   });
 }
 
-export async function GET() {
+function authorize(request: NextRequest) {
+  return getServiceAuthError(request);
+}
+
+export async function GET(request: NextRequest) {
+  const authError = authorize(request);
+  if (authError) return authError;
   return runHeartbeat();
 }
 
 /** Same behavior as GET — for cron/agents that POST the heartbeat. */
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const authError = authorize(request);
+  if (authError) return authError;
   return runHeartbeat();
 }
