@@ -34,7 +34,7 @@ const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 const MSPD_SUMMARY_URL =
   process.env.TREASURY_MSPD_SUMMARY_URL ??
-  'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/mspd/summary_of_treasury_securities_outstanding?sort=-record_date&page[size]=500';
+  'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/debt/mspd/mspd_table_1?filter=record_date:lte:2026-02-28&sort=-record_date&page[size]=500';
 
 const CANONICAL_ORDER = [
   'Marketable',
