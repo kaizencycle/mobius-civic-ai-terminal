@@ -75,6 +75,17 @@ export async function POST(request: NextRequest) {
   const pattern_notes = Array.isArray(eveMeta.pattern_notes) ? eveMeta.pattern_notes : [];
   const global_tension: EveSynthesis['global_tension'] = eveMeta.global_tension ?? 'low';
 
+  const globalNewsRes = await fetch(`${base}/api/eve/global-news`, {
+    headers: {
+      Accept: 'application/json',
+      'X-Mobius-Skip-Synthesis-Pipeline': '1',
+    },
+    cache: 'no-store',
+  });
+  const eveMeta = (await globalNewsRes.json()) as Partial<EveSynthesis> & { items?: EveNewsItem[] };
+  pattern_notes = Array.isArray(eveMeta.pattern_notes) ? eveMeta.pattern_notes : [];
+  global_tension = eveMeta.global_tension ?? 'low';
+
   if (items.length === 0) {
     items = Array.isArray(eveMeta.items) ? eveMeta.items : [];
   }
