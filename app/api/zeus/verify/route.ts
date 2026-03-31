@@ -102,6 +102,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = getServiceAuthError(request);
+  if (authError) return authError;
+
   try {
     const rawBody = await request.json();
     const body = rawBody as VerifyRequest & { candidateId?: string; reviewer?: string };
@@ -118,9 +121,6 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: 'EVE synthesis candidate not found' }, { status: 404 });
     }
-
-    const authError = getServiceAuthError(request);
-    if (authError) return authError;
 
     const reviewer = body.reviewer || 'kaizencycle';
     const permission = body.finalStatus === 'contradicted' || body.outcome === 'miss'

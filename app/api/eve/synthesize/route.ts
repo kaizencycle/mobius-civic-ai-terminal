@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import type { EveNewsItem, EveSynthesis } from '@/lib/eve/global-news';
 import { callClaudeForEveSynthesis } from '@/lib/eve/synthesize-claude';
 import { isFresh } from '@/lib/response-envelope';
+import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = getServiceAuthError(request);
+  if (authError) return authError;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || !apiKey.trim()) {
     return NextResponse.json(
@@ -60,23 +64,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const base = serverBaseUrl(request);
   let items: EveNewsItem[] = Array.isArray(body.items) ? body.items : [];
   let cycleId = typeof body.cycleId === 'string' && body.cycleId.trim() ? body.cycleId.trim() : '';
+  let pattern_notes: string[] = [];
+  let global_tension: EveSynthesis['global_tension'] = 'low';
 
-  const globalNewsRes = await fetch(`${base}/api/eve/global-news`, {
-    headers: {
-      Accept: 'application/json',
-      'X-Mobius-Skip-Synthesis-Pipeline': '1',
-    },
-    cache: 'no-store',
-  });
-  const eveMeta = (await globalNewsRes.json()) as Partial<EveSynthesis> & { items?: EveNewsItem[] };
-  const pattern_notes = Array.isArray(eveMeta.pattern_notes) ? eveMeta.pattern_notes : [];
-  const global_tension: EveSynthesis['global_tension'] = eveMeta.global_tension ?? 'low';
+  const base = serverBaseUrl(request);
 
   if (items.length === 0) {
-    items = Array.isArray(eveMeta.items) ? eveMeta.items : [];
+    const res = await fetch(`${base}/api/eve/global-news`, {
+      headers: {
+        Accept: 'application/json',
+        'X-Mobius-Skip-Synthesis-Pipeline': '1',
+      },
+      cache: 'no-store',
+    });
+    const eveData = (await res.json()) as Partial<EveSynthesis> & { items?: EveNewsItem[] };
+    items = Array.isArray(eveData.items) ? eveData.items : [];
+    pattern_notes = Array.isArray(eveData.pattern_notes) ? eveData.pattern_notes : [];
+    global_tension = eveData.global_tension ?? 'low';
+  } else {
+    pattern_notes = ['Provided inline with request'];
+    global_tension = 'moderate';
   }
 
   if (!cycleId) {

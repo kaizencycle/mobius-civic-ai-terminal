@@ -8,6 +8,7 @@ import {
   type EveSynthesisPayload,
 } from '@/lib/eve/synthesis-pipeline-store';
 import { addEveSynthesisCandidate } from '@/lib/epicon/eveSynthesisCandidates';
+import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +79,9 @@ function resolveSynthesisFromBody(body: CandidatePostBody): EveSynthesisPayload 
 }
 
 export async function POST(request: NextRequest) {
+  const authError = getServiceAuthError(request);
+  if (authError) return authError;
+
   try {
     const body = (await request.json()) as CandidatePostBody & Record<string, unknown>;
 
