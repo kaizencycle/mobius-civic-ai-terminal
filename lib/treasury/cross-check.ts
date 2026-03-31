@@ -46,7 +46,7 @@ const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 const TREASURY_SCHEDULES_MONTH_URL =
   process.env.TREASURY_SCHEDULES_MONTH_URL ??
-  'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/debt/schedules_federal_debt_by_month?sort=-record_date&page[size]=1000';
+  'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/schedules_federal_debt?filter=record_date:lte:2026-02-28&sort=-record_date&page[size]=1000';
 
 const TOLERANCE_PCT = 0.005;
 const TOLERANCE_USD = 5_000_000_000;
