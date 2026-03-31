@@ -56,9 +56,12 @@ export async function POST(request: NextRequest) {
   }
 
   const base = serverBaseUrl(request);
-  const authHeaders = {
+  const jsonHeaders = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
+  };
+  const authHeaders = {
+    ...jsonHeaders,
     Authorization: `Bearer ${secret}`,
   };
 
@@ -71,7 +74,7 @@ export async function POST(request: NextRequest) {
 
   const synRes = await fetch(`${base}/api/eve/synthesize`, {
     method: 'POST',
-    headers: authHeaders,
+    headers: jsonHeaders,
     body: JSON.stringify({ cycleId }),
     cache: 'no-store',
   });
