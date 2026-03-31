@@ -60,31 +60,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
   }
 
+  const base = serverBaseUrl(request);
   let items: EveNewsItem[] = Array.isArray(body.items) ? body.items : [];
   let cycleId = typeof body.cycleId === 'string' && body.cycleId.trim() ? body.cycleId.trim() : '';
   let pattern_notes: string[] = [];
   let global_tension: EveSynthesis['global_tension'] = 'low';
 
+  const globalNewsRes = await fetch(`${base}/api/eve/global-news`, {
+    headers: {
+      Accept: 'application/json',
+      'X-Mobius-Skip-Synthesis-Pipeline': '1',
+    },
+    cache: 'no-store',
+  });
+  const eveMeta = (await globalNewsRes.json()) as Partial<EveSynthesis> & { items?: EveNewsItem[] };
+  pattern_notes = Array.isArray(eveMeta.pattern_notes) ? eveMeta.pattern_notes : [];
+  global_tension = eveMeta.global_tension ?? 'low';
+
   if (items.length === 0) {
-    const base = serverBaseUrl(request);
-    const res = await fetch(`${base}/api/eve/global-news`, {
-      headers: {
-        Accept: 'application/json',
-        'X-Mobius-Skip-Synthesis-Pipeline': '1',
-      },
-      cache: 'no-store',
-    });
-    const eveData = (await res.json()) as Partial<EveSynthesis> & { items?: EveNewsItem[] };
-    items = Array.isArray(eveData.items) ? eveData.items : [];
-    pattern_notes = Array.isArray(eveData.pattern_notes) ? eveData.pattern_notes : [];
-    global_tension = eveData.global_tension ?? 'low';
-  } else {
-    pattern_notes = ['Provided inline with request'];
-    global_tension = 'moderate';
+    items = Array.isArray(eveMeta.items) ? eveMeta.items : [];
   }
 
   if (!cycleId) {
-    const base = serverBaseUrl(request);
     const fromEngine = await resolveCycleIdFromEngine(base);
     cycleId = fromEngine ?? 'unknown';
   }
