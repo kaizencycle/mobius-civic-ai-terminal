@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-03-31T10:05:00.000Z",
+  "agent": "ZEUS",
+  "atlas_heartbeat_reviewed": "20260331T072525Z.json",
+  "verification_status": "confirmed",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat parse (health, GI, anomalies, EVE global tension)",
+      "result": "warn",
+      "detail": "Reviewed 20260331T072525Z.json: health=degraded, signals.composite=0.67, anomalies=2, gi=0.76, mode=yellow. Endpoints: micro_agents=true, integrity=true, runtime=false. This heartbeat schema does not include an eve or global_tension field; EVE tension was assessed only from live /api/eve/global-news."
+    },
+    {
+      "check": "Production /api/signals/micro vs ATLAS anomaly count and identity",
+      "result": "pass",
+      "detail": "Live fetch ~2026-03-31T10:03:35Z: anomalies[] still exactly two elevated signals: GAIA/USGS (55 quakes M2.5+ today, max M5.3 near Maneadero, B.C., MX) and DAEDALUS-µ Self-ping HTTP 401 in 96ms. Composite 0.754 vs heartbeat 0.67 — same order of magnitude, slight improvement in composite but still two elevated legs. HERMES-µ reports Wikipedia API fetch failed (error on agent, not listed in anomalies)."
+    },
+    {
+      "check": "Anomaly persistence and severity trajectory",
+      "result": "pass",
+      "detail": "Both ATLAS-era anomaly types persist (not transient). Seismic remains elevated; max M5.3 in this snapshot versus prior ZEUS citation of M6.5 (2026-03-27) indicates de-escalation in peak magnitude while label stays elevated. Self-ping remains elevated with HTTP 401 — stable infrastructure/auth pattern versus prior ~119ms latency (still nominal fast)."
+    },
+    {
+      "check": "Production /api/integrity-status (source, plausibility, freshness)",
+      "result": "pass",
+      "detail": "source=live, global_integrity=0.76, mode=yellow, terminal_status=stressed, primary_driver=Moderate signal degradation — aligns with heartbeat gi=0.76 and mode=yellow. signals.freshness=1 and information=1; stability=0.3 and sentiment=0.3 explain yellow without stale GI computation in this response. kv=false noted. Timestamp ~2026-03-31T10:03:33Z is fresh."
+    },
+    {
+      "check": "Vercel deployment health (READY, ERROR in 6h, ignoreCommand)",
+      "result": "warn",
+      "detail": "Vercel CLI has no stored credentials in this environment (device login required); VERCEL_TOKEN not set — could not list deployments or confirm READY vs ERROR in the last six hours or observe ignoreCommand outcomes. Repo vercel.json defines ignoreCommand as bash scripts/ignore-build.sh, which exits 0 for [skip ci] and mobius-bot/cursoragent authors. Production HTTPS returned 200 for /api/signals/micro, /api/integrity-status, /api/eve/global-news, and /api/runtime/heartbeat at verification time."
+    },
+    {
+      "check": "EVE /api/eve/global-news vs GI and micro anomalies",
+      "result": "pass",
+      "detail": "Response source=mock, degraded=true, degradedReason=EVE live feed returned no fresh items, global_tension=low with placeholder items — no high-tension vs green-GI disconnect. Anomalies (seismic, self-ping 401) do not correlate with mock EVE headlines; they read as geophysical and app-auth/health signals. HN top story (npm supply-chain) is nominal severity in micro output, not an anomaly."
+    },
+    {
+      "check": "ATLAS endpoints.runtime=false vs live /api/runtime/heartbeat",
+      "result": "pass",
+      "detail": "GET /api/runtime/heartbeat returns ok=false with error Service authorization is not configured — consistent with heartbeat marking runtime endpoint unhealthy or unavailable without service auth."
+    }
+  ],
+  "gi_verified": true,
+  "anomaly_persistence": {
+    "GAIA/USGS Earthquake": "persistent",
+    "DAEDALUS-µ/Self-ping": "persistent"
+  },
+  "eve_correlation": "EVE is on mock fallback with global_tension=low; no geopolitical narrative explains USGS seismic elevation or Self-ping 401. Persistent anomalies are environmental and infrastructure-side relative to EVE state.",
+  "recommendation": "ATLAS degraded classification is consistent with live micro signals and live GI (yellow/stressed). Restore EVE live feed to regain tension/news correlation signal. Provide Vercel API or token to future ZEUS runs to validate deployment READY/ERROR and ignoreCommand skip behavior. If Self-ping 401 is intentional, document or tune anomaly rules to reduce noise."
+}
