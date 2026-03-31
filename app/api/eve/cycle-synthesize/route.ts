@@ -60,10 +60,6 @@ export async function POST(request: NextRequest) {
     'Content-Type': 'application/json',
     Accept: 'application/json',
   };
-  const authHeaders = {
-    ...jsonHeaders,
-    Authorization: `Bearer ${secret}`,
-  };
 
   const cycleRes = await fetch(`${base}/api/eve/cycle-advance`, { cache: 'no-store' });
   const cycleJson = (await readJson(cycleRes)) as { currentCycle?: string } | null;
@@ -103,7 +99,7 @@ export async function POST(request: NextRequest) {
 
   const candRes = await fetch(`${base}/api/epicon/candidates`, {
     method: 'POST',
-    headers: authHeaders,
+    headers: jsonHeaders,
     body: JSON.stringify({ cycleId, synthesis: synthesisObj }),
     cache: 'no-store',
   });
@@ -131,7 +127,7 @@ export async function POST(request: NextRequest) {
 
   const verRes = await fetch(`${base}/api/zeus/verify`, {
     method: 'POST',
-    headers: authHeaders,
+    headers: jsonHeaders,
     body: JSON.stringify({ candidateId }),
     cache: 'no-store',
   });
@@ -164,7 +160,7 @@ export async function POST(request: NextRequest) {
 
   const pubRes = await fetch(`${base}/api/epicon/publish`, {
     method: 'POST',
-    headers: authHeaders,
+    headers: jsonHeaders,
     body: JSON.stringify({ candidateId }),
     cache: 'no-store',
   });
