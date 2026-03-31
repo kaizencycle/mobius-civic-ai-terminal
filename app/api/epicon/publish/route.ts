@@ -217,9 +217,6 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const authError = getServiceAuthError(req);
-  if (authError) return authError;
-
   try {
     const body = (await req.json()) as { candidateId?: string } & Record<string, unknown>;
 
@@ -228,7 +225,10 @@ export async function POST(req: NextRequest) {
       return publishEveSynthesisToLedger(candidateId);
     }
 
-    // Fallback to legacy publish mode.
+    const legacyAuthError = getServiceAuthError(req);
+    if (legacyAuthError) return legacyAuthError;
+
+    // Fallback to legacy publish mode (identity-gated).
     return publishLegacyRecord(body);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to publish EPICON';
