@@ -228,8 +228,6 @@ export async function POST(req: NextRequest) {
         ? body.candidateId.trim()
         : '';
     if (candidateIdRaw.length > 0) {
-      const synthesisAuthError = getServiceAuthError(req, { allowEvePipelineInternal: true });
-      if (synthesisAuthError) return synthesisAuthError;
       return publishEveSynthesisToLedger(candidateIdRaw);
     }
 

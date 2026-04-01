@@ -6,8 +6,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { EVE_PIPELINE_INTERNAL_HEADER } from '@/lib/security/serviceAuth';
-
 export const dynamic = 'force-dynamic';
 
 function serverBaseUrl(request: NextRequest): string {
@@ -58,11 +56,9 @@ export async function POST(request: NextRequest) {
   }
 
   const base = serverBaseUrl(request);
-  const trimmedSecret = secret.trim();
   const pipelineHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-    [EVE_PIPELINE_INTERNAL_HEADER]: trimmedSecret,
   };
 
   const cycleRes = await fetch(`${base}/api/eve/cycle-advance`, { cache: 'no-store' });
