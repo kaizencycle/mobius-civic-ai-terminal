@@ -114,11 +114,14 @@ async function publishEveSynthesisToLedger(candidateId: string) {
     );
   }
 
-  if (candidate.status !== 'verified') {
+  if (candidate.status !== 'verified' || candidate.zeusVerdict === 'contested') {
     return NextResponse.json(
       {
         ok: false,
-        error: `Candidate ${candidateId} must be verified before publish`,
+        error:
+          candidate.zeusVerdict === 'contested'
+            ? `Candidate ${candidateId} is contested — operator review required before publish`
+            : `Candidate ${candidateId} must be verified before publish`,
       },
       { status: 400 },
     );
@@ -217,16 +220,19 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const authError = getServiceAuthError(req);
-  if (authError) return authError;
-
   try {
     const body = (await req.json()) as { candidateId?: string } & Record<string, unknown>;
 
-    if (typeof body.candidateId === 'string' && body.candidateId.trim().length > 0) {
-      const candidateId = body.candidateId.trim();
-      return publishEveSynthesisToLedger(candidateId);
+    const candidateIdRaw =
+      typeof body.candidateId === 'string' && body.candidateId.trim().length > 0
+        ? body.candidateId.trim()
+        : '';
+    if (candidateIdRaw.length > 0) {
+      return publishEveSynthesisToLedger(candidateIdRaw);
     }
+
+    const authError = getServiceAuthError(req);
+    if (authError) return authError;
 
     // Fallback to legacy publish mode.
     return publishLegacyRecord(body);

@@ -9,6 +9,9 @@ import { pushMemoryLedgerEntry } from '@/lib/epicon/memoryLedgerFeed';
 
 export const EPICON_LEDGER_LIST_KEY = 'mobius:epicon:feed';
 
+/** Legacy alias (C-626); written alongside mobius:epicon:feed when Redis is configured. */
+const EPICON_LEDGER_LIST_KEY_ALIAS = 'epicon:feed';
+
 function getRedisClient(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -27,6 +30,8 @@ export async function pushLedgerEntry(entry: EpiconLedgerFeedEntry): Promise<{ l
   if (redis) {
     await redis.lpush(EPICON_LEDGER_LIST_KEY, payload);
     await redis.ltrim(EPICON_LEDGER_LIST_KEY, 0, 499);
+    await redis.lpush(EPICON_LEDGER_LIST_KEY_ALIAS, payload);
+    await redis.ltrim(EPICON_LEDGER_LIST_KEY_ALIAS, 0, 499);
     return { ledgerPosition: 0 };
   }
 

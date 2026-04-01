@@ -250,8 +250,12 @@ async function fromRedis(): Promise<EpiconEntry[]> {
   if (!redis) return [];
 
   try {
-    const raw = await redis.lrange<string>('mobius:epicon:feed', 0, 99);
-    return raw
+    const [primary, alias] = await Promise.all([
+      redis.lrange<string>('mobius:epicon:feed', 0, 99),
+      redis.lrange<string>('epicon:feed', 0, 99),
+    ]);
+    const combined = [...primary, ...alias];
+    return combined
       .map((entry) => {
         try {
           return JSON.parse(entry) as EpiconEntry;
