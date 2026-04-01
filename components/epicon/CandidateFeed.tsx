@@ -9,7 +9,7 @@ type Candidate = {
   title: string;
   summary: string;
   category: string;
-  status: 'pending' | 'verified' | 'contradicted' | 'pending-verification';
+  status: 'pending' | 'verified' | 'contradicted' | 'pending-verification' | 'contested';
   confidence_tier: number;
   external_source_system?: string;
   zeus_note?: string;

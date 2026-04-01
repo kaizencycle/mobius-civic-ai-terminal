@@ -9,7 +9,6 @@ import { NextResponse } from 'next/server';
 import type { EveNewsItem, EveSynthesis } from '@/lib/eve/global-news';
 import { callClaudeForEveSynthesis } from '@/lib/eve/synthesize-claude';
 import { isFresh } from '@/lib/response-envelope';
-import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,9 +44,6 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const authError = getServiceAuthError(request);
-  if (authError) return authError;
-
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || !apiKey.trim()) {
     return NextResponse.json(
@@ -69,8 +65,9 @@ export async function POST(request: NextRequest) {
   let pattern_notes: string[] = [];
   let global_tension: EveSynthesis['global_tension'] = 'low';
 
+  const base = serverBaseUrl(request);
+
   if (items.length === 0) {
-    const base = serverBaseUrl(request);
     const res = await fetch(`${base}/api/eve/global-news`, {
       headers: {
         Accept: 'application/json',
@@ -88,7 +85,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (!cycleId) {
-    const base = serverBaseUrl(request);
     const fromEngine = await resolveCycleIdFromEngine(base);
     cycleId = fromEngine ?? 'unknown';
   }
