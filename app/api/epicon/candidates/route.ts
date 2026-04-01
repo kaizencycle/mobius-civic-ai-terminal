@@ -1,8 +1,7 @@
-import { createHash } from 'node:crypto';
-
 import { NextRequest, NextResponse } from 'next/server';
 import {
   addPipelineCandidate,
+  allocateEveSynthesisEpiconId,
   getPipelineCandidates,
   type EpiconCandidate,
   type EveSynthesisPayload,
@@ -17,26 +16,6 @@ type CandidatePostBody = {
   ok?: boolean;
   agent?: string;
 };
-
-function normalizeCycleSegment(cycleId: string): string {
-  const trimmed = cycleId.trim();
-  if (trimmed.toUpperCase().startsWith('C-')) {
-    return trimmed.toUpperCase();
-  }
-  const digits = trimmed.replace(/[^0-9]/g, '');
-  return `C-${digits.padStart(3, '0').slice(-3)}`;
-}
-
-/** EPICON-[C-NNN]-EVE-SYN-<hash> — hash from cycle + ISO timestamp (C-626). */
-function buildCandidateId(cycleId: string, timestampIso: string): string {
-  const normalized = normalizeCycleSegment(cycleId);
-  const hash = createHash('sha256')
-    .update(`${normalized}:${timestampIso}`)
-    .digest('hex')
-    .slice(0, 8)
-    .toUpperCase();
-  return `EPICON-${normalized}-EVE-SYN-${hash}`;
-}
 
 function isSynthesisPayload(value: unknown): value is EveSynthesisPayload {
   if (value === null || typeof value !== 'object') {
@@ -98,7 +77,7 @@ export async function POST(request: NextRequest) {
         : 'C-000';
     const timestamp = new Date().toISOString();
     const candidate: EpiconCandidate = {
-      id: buildCandidateId(cycleId, timestamp),
+      id: allocateEveSynthesisEpiconId(cycleId),
       cycleId,
       timestamp,
       source: 'eve-synthesis',

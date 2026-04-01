@@ -54,6 +54,27 @@ export type EpiconCandidate = {
 
 const candidates: EpiconCandidate[] = [];
 
+/** Per-cycle sequence for EPICON-CNNN-EVE-SYN-01 style IDs (resets on cold start). */
+const eveSynthesisSeqByCycle = new Map<string, number>();
+
+function normalizeCycleSegment(cycleId: string): string {
+  const trimmed = cycleId.trim();
+  if (trimmed.toUpperCase().startsWith('C-')) {
+    return trimmed.toUpperCase();
+  }
+  const digits = trimmed.replace(/[^0-9]/g, '');
+  return `C-${digits.padStart(3, '0').slice(-3)}`;
+}
+
+/** EPICON-[C-NNN]-EVE-SYN-01, EPICON-[C-NNN]-EVE-SYN-02, … per server instance (C-626). */
+export function allocateEveSynthesisEpiconId(cycleId: string): string {
+  const normalized = normalizeCycleSegment(cycleId);
+  const next = (eveSynthesisSeqByCycle.get(normalized) ?? 0) + 1;
+  eveSynthesisSeqByCycle.set(normalized, next);
+  const seq = String(next).padStart(2, '0');
+  return `EPICON-${normalized}-EVE-SYN-${seq}`;
+}
+
 export function getPipelineCandidates(): EpiconCandidate[] {
   return candidates.slice();
 }
