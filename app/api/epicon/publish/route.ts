@@ -220,13 +220,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as { candidateId?: string } & Record<string, unknown>;
 
-    const authError = getServiceAuthError(req);
-    if (authError) return authError;
-
     if (typeof body.candidateId === 'string' && body.candidateId.trim().length > 0) {
       const candidateId = body.candidateId.trim();
       return publishEveSynthesisToLedger(candidateId);
     }
+
+    const authError = getServiceAuthError(req);
+    if (authError) return authError;
 
     // Fallback to legacy publish mode.
     return publishLegacyRecord(body);
