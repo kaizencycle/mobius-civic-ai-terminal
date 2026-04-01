@@ -225,8 +225,6 @@ export async function POST(req: NextRequest) {
         ? body.candidateId.trim()
         : '';
     if (candidateIdRaw.length > 0) {
-      const pipelineAuth = getServiceAuthError(req, { allowEvePipelineInternal: true });
-      if (pipelineAuth) return pipelineAuth;
       return publishEveSynthesisToLedger(candidateIdRaw);
     }
 

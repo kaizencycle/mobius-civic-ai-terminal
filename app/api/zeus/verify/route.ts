@@ -106,13 +106,6 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.json();
     const body = rawBody as VerifyRequest & { candidateId?: string; reviewer?: string };
 
-    const synthesisVerify =
-      typeof body.candidateId === 'string' && Boolean(body.candidateId.trim());
-    const pipelineAuthError = getServiceAuthError(request, {
-      allowEvePipelineInternal: synthesisVerify,
-    });
-    if (pipelineAuthError) return pipelineAuthError;
-
     if (typeof body.candidateId === 'string' && body.candidateId.trim()) {
       const id = body.candidateId.trim();
       const eveCand = getEveSynthesisCandidateById(id);
