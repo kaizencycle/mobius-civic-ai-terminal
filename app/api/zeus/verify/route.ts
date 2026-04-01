@@ -67,9 +67,10 @@ function verifyEveSynthesisCandidateRecord(
   const verdict = computeEveSynthesisVerdict(candidate);
   const verifiedAt = new Date().toISOString();
   const zeusScore = zeusScoreForTier(candidate.confidenceTier);
+  const nextStatus: EpiconCandidate['status'] = verdict === 'contested' ? 'contested' : 'verified';
   if (getEveSynthesisCandidateById(id)) {
     updateEveSynthesisCandidate(id, {
-      status: 'verified',
+      status: nextStatus,
       verifiedBy: 'ZEUS',
       verifiedAt,
       zeusVerdict: verdict,
@@ -78,7 +79,7 @@ function verifyEveSynthesisCandidateRecord(
   const pipe = getPipelineCandidateById(id);
   if (pipe) {
     const patch: Partial<EpiconCandidate> = {
-      status: 'verified',
+      status: nextStatus,
       verifiedBy: 'ZEUS',
       verifiedAt,
       zeusVerdict: verdict,

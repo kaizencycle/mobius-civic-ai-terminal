@@ -114,11 +114,14 @@ async function publishEveSynthesisToLedger(candidateId: string) {
     );
   }
 
-  if (candidate.status !== 'verified') {
+  if (candidate.status !== 'verified' || candidate.zeusVerdict === 'contested') {
     return NextResponse.json(
       {
         ok: false,
-        error: `Candidate ${candidateId} must be verified before publish`,
+        error:
+          candidate.zeusVerdict === 'contested'
+            ? `Candidate ${candidateId} is contested — operator review required before publish`
+            : `Candidate ${candidateId} must be verified before publish`,
       },
       { status: 400 },
     );
