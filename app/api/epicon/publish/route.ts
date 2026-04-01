@@ -9,7 +9,6 @@ import { lockStake } from '@/lib/mic/store';
 import { incrementEpiconCount } from '@/lib/identity/store';
 import { getEveSynthesisCandidateById, removeEveSynthesisCandidate } from '@/lib/epicon/eveSynthesisCandidates';
 import { getPipelineCandidateById, removePipelineCandidate } from '@/lib/eve/synthesis-pipeline-store';
-import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
 type LegacyPublishBody = {
   submitted_by_login?: string;

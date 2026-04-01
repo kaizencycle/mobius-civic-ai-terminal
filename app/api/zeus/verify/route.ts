@@ -18,7 +18,6 @@ import {
   updatePipelineCandidate,
   type EpiconCandidate,
 } from '@/lib/eve/synthesis-pipeline-store';
-import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
 type VerifyRequest = {
   epiconId: string;
