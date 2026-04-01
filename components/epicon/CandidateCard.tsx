@@ -5,7 +5,7 @@ type Candidate = {
   title: string;
   summary: string;
   category: string;
-  status: 'pending' | 'verified' | 'contradicted' | 'pending-verification';
+  status: 'pending' | 'verified' | 'contradicted' | 'pending-verification' | 'contested';
   confidence_tier: number;
   external_source_system?: string;
   zeus_note?: string;
@@ -24,6 +24,7 @@ function tone(status: Candidate['status']) {
     case 'verified':
       return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
     case 'contradicted':
+    case 'contested':
       return 'border-rose-500/30 bg-rose-500/10 text-rose-300';
     default:
       return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
