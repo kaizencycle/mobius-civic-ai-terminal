@@ -6,6 +6,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { EVE_PIPELINE_INTERNAL_HEADER } from '@/lib/security/serviceAuth';
+
 export const dynamic = 'force-dynamic';
 
 function serverBaseUrl(request: NextRequest): string {
@@ -56,10 +58,11 @@ export async function POST(request: NextRequest) {
   }
 
   const base = serverBaseUrl(request);
-  const authHeaders = {
+  const trimmedSecret = secret.trim();
+  const pipelineHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-    Authorization: `Bearer ${secret}`,
+    [EVE_PIPELINE_INTERNAL_HEADER]: trimmedSecret,
   };
 
   const cycleRes = await fetch(`${base}/api/eve/cycle-advance`, { cache: 'no-store' });
@@ -71,7 +74,7 @@ export async function POST(request: NextRequest) {
 
   const synRes = await fetch(`${base}/api/eve/synthesize`, {
     method: 'POST',
-    headers: authHeaders,
+    headers: pipelineHeaders,
     body: JSON.stringify({ cycleId }),
     cache: 'no-store',
   });
@@ -100,7 +103,7 @@ export async function POST(request: NextRequest) {
 
   const candRes = await fetch(`${base}/api/epicon/candidates`, {
     method: 'POST',
-    headers: authHeaders,
+    headers: pipelineHeaders,
     body: JSON.stringify({ cycleId, synthesis: synthesisObj }),
     cache: 'no-store',
   });
@@ -128,7 +131,7 @@ export async function POST(request: NextRequest) {
 
   const verRes = await fetch(`${base}/api/zeus/verify`, {
     method: 'POST',
-    headers: authHeaders,
+    headers: pipelineHeaders,
     body: JSON.stringify({ candidateId }),
     cache: 'no-store',
   });
@@ -161,7 +164,7 @@ export async function POST(request: NextRequest) {
 
   const pubRes = await fetch(`${base}/api/epicon/publish`, {
     method: 'POST',
-    headers: authHeaders,
+    headers: pipelineHeaders,
     body: JSON.stringify({ candidateId }),
     cache: 'no-store',
   });

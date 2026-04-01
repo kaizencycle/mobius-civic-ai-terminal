@@ -36,7 +36,7 @@ export type EpiconCandidate = {
   cycleId: string;
   timestamp: string;
   source: 'eve-synthesis';
-  status: 'pending-verification' | 'verified';
+  status: 'pending-verification' | 'verified' | 'contested';
   title: string;
   summary: string;
   dominantTheme: SynthesisDominantTheme;
