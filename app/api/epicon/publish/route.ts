@@ -220,9 +220,14 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as { candidateId?: string } & Record<string, unknown>;
 
-    if (typeof body.candidateId === 'string' && body.candidateId.trim().length > 0) {
-      const candidateId = body.candidateId.trim();
-      return publishEveSynthesisToLedger(candidateId);
+    const candidateIdRaw =
+      typeof body.candidateId === 'string' && body.candidateId.trim().length > 0
+        ? body.candidateId.trim()
+        : '';
+    if (candidateIdRaw.length > 0) {
+      const pipelineAuth = getServiceAuthError(req, { allowEvePipelineInternal: true });
+      if (pipelineAuth) return pipelineAuth;
+      return publishEveSynthesisToLedger(candidateIdRaw);
     }
 
     const authError = getServiceAuthError(req);

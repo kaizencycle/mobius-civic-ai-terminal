@@ -106,6 +106,13 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.json();
     const body = rawBody as VerifyRequest & { candidateId?: string; reviewer?: string };
 
+    const synthesisVerify =
+      typeof body.candidateId === 'string' && Boolean(body.candidateId.trim());
+    const pipelineAuthError = getServiceAuthError(request, {
+      allowEvePipelineInternal: synthesisVerify,
+    });
+    if (pipelineAuthError) return pipelineAuthError;
+
     if (typeof body.candidateId === 'string' && body.candidateId.trim()) {
       const id = body.candidateId.trim();
       const eveCand = getEveSynthesisCandidateById(id);
@@ -119,8 +126,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'EVE synthesis candidate not found' }, { status: 404 });
     }
 
-    const authError = getServiceAuthError(request);
-    if (authError) return authError;
+    const legacyAuthError = getServiceAuthError(request);
+    if (legacyAuthError) return legacyAuthError;
 
     const reviewer = body.reviewer || 'kaizencycle';
     const permission = body.finalStatus === 'contradicted' || body.outcome === 'miss'

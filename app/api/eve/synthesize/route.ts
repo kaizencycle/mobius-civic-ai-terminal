@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import type { EveNewsItem, EveSynthesis } from '@/lib/eve/global-news';
 import { callClaudeForEveSynthesis } from '@/lib/eve/synthesize-claude';
 import { isFresh } from '@/lib/response-envelope';
+import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = getServiceAuthError(request, { allowEvePipelineInternal: true });
+  if (authError) return authError;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || !apiKey.trim()) {
     return NextResponse.json(
