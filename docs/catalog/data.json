@@ -1,7 +1,7 @@
 {
   "repo": "kaizencycle/mobius-civic-ai-terminal",
-  "generated_at": "2026-04-02T13:26:24Z",
-  "cycle": "C-268",
+  "generated_at": "2026-04-02T14:02:10Z",
+  "cycle": "C-269",
   "epoch": "FOUNDATION",
   "version": "0.1.0",
   "stats": {
@@ -14,12 +14,12 @@
     "lib_modules": 28
   },
   "integrity": {
-    "gi": 0.78,
+    "gi": 0.74,
     "mii_baseline": 0.5,
     "mic_supply": 1000000,
     "mode": "yellow",
     "terminal_status": "stressed",
-    "primary_driver": "Middle East energy instability"
+    "primary_driver": "Moderate signal degradation"
   },
   "agents": {
     "canonical": [
