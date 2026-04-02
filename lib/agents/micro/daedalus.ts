@@ -15,6 +15,7 @@ import {
   normalizeInverse,
   safeFetch,
 } from './core';
+import { serviceAuthorizationHeaderValue } from '@/lib/security/serviceAuth';
 
 export const DAEDALUS_CONFIG: MicroAgentConfig = {
   name: 'DAEDALUS-µ',
@@ -116,9 +117,13 @@ async function pollSelfPing(): Promise<MicroSignal | null> {
 
   const url = `https://${baseUrl.replace(/^https?:\/\//, '')}/api/runtime/heartbeat`;
   const start = Date.now();
+  const authorization = serviceAuthorizationHeaderValue();
 
   try {
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: authorization ? { authorization } : undefined,
+    });
     const latencyMs = Date.now() - start;
 
     if (!res.ok) {
