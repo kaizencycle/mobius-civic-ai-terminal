@@ -40,3 +40,24 @@ If `main` branch protection blocks direct pushes, either:
 
 1. grant the Cursor actor bypass rights for required PR checks, or
 2. explicitly instruct Cursor to open a PR for that specific cycle.
+
+---
+
+## Mobius Substrate header (v1.1) and Cloud Agent runs
+
+Long-form cycle packets may include the **Mobius Substrate — Cursor Background Agent Instruction Header** (C-623, operator `kaizencycle`): GIT IDENTITY, STOP CONDITIONS, VERIFICATION, CONSTRAINTS, CLASS **A** (code) vs **B** (runtime/KV only), and a **TASK** block (prerequisites, steps, verification).
+
+### Incomplete packets
+
+If the header is present but **TASK** is unfilled (e.g. placeholders `C-NNN`, empty steps, CLASS not **A** or **B**), agents should **stop and report** — do not infer scope or ship code.
+
+### When “direct-to-main only” meets a Cloud feature branch
+
+The v1.1 header may require **no `cursor/*` branches** and **push to `main` only**. **Cursor Cloud** sessions for this repo are often bound to a **feature branch** (for example `cursor/cursor-agent-functionality-*`) with **push to that branch**.
+
+When both appear:
+
+- Follow the **Cursor Cloud session branch** and push there (`git push -u origin <branch>`) unless the operator has explicitly moved the session to `main`.
+- Treat **direct-to-main** as authoritative only when the working branch is `main` **and** push permissions allow it.
+
+For PR vs KV vs direct semantics, see [CURSOR_MODES.md](./ops/CURSOR_MODES.md) and [automation_policy.md](./ops/automation_policy.md).
