@@ -211,7 +211,7 @@ export async function getGISnapshot(): Promise<GISnapshot> {
 
 export async function getTripwires(): Promise<Tripwire[]> {
   const raw = await fetchJson('/tripwires/active');
-  if (!ra|) return mockTripwires;
+  if (!raw) return mockTripwires;
   const tripwires = raw.tripwires;
   if (!Array.isArray(tripwires)) return mockTripwires;
   return tripwires.map(transformTripwire);
@@ -226,7 +226,7 @@ export async function getLedgerBackfill(): Promise<LedgerEntry[]> {
   return items.map(backfillEntryToLedger);
 }
 
-// ── ECHO Live Feed ───────────────────────────────────────────
+// ── ECHO Live Feed ────────────────────────────────────────────
 
 export type EchoFeedData = {
   epicon: EpiconItem[];
