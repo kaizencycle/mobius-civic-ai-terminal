@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-04-02T10:01:55.000Z",
+  "agent": "ZEUS",
+  "atlas_heartbeat_reviewed": "20260402T072223Z.json",
+  "verification_status": "confirmed",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat parse (health, GI, anomalies, EVE)",
+      "result": "warn",
+      "detail": "Parsed 20260402T072223Z.json: health=degraded, endpoints micro_agents=true integrity=true runtime=false, composite=0.676, anomalies=2, gi=0.78, mode=yellow. Heartbeat schema does not include EVE global_tension; EVE must be read from production /api/eve/global-news."
+    },
+    {
+      "check": "/api/runtime/heartbeat vs heartbeat endpoints.runtime",
+      "result": "pass",
+      "detail": "Live GET /api/runtime/heartbeat returned HTTP 503 at verification time, consistent with ATLAS runtime=false. Sentinel workflow uses curl -sf on this route; failure correctly drives health=degraded when micro and integrity succeed."
+    },
+    {
+      "check": "/api/signals/micro vs ATLAS anomaly count and severity",
+      "result": "warn",
+      "detail": "Anomaly count still 2. GAIA/USGS remains critical (72 quakes M2.5+ today, max M7.4 near Ternate, Indonesia)—persistent geophysical signal, severity at least as sharp as typical seismic spikes. DAEDALUS-µ/Self-ping remains elevated (HTTP 401, ~30ms)—persistent, likely auth-gated probe as designed. Composite 0.723 vs heartbeat 0.676 (improved slightly). HERMES-µ reports Wikipedia API fetch failed (errors array); THEMIS sourceStatus shows data.gov official and last-good-cache failed while agent healthy=true—upstream degradation not mirrored as anomalies."
+    },
+    {
+      "check": "/api/integrity-status GI source and freshness",
+      "result": "pass",
+      "detail": "source=live (not mock). global_integrity=0.79, mode=yellow, terminal_status=stressed, primary_driver=Moderate signal degradation—consistent with micro composite ~0.72 and two listed anomalies. signals.freshness=1 at this sample; stability=0.3 and sentiment=0.3 pull composite stress. kv=false as in prior runs."
+    },
+    {
+      "check": "Vercel deployment health (READY, ERROR last 6h, ignoreCommand)",
+      "result": "warn",
+      "detail": "VERCEL_TOKEN unset; Vercel CLI/API not authenticated in this environment. Production HTTPS 200 for /api/signals/micro, /api/integrity-status, /api/eve/global-news; runtime heartbeat 503. Deployment list, recent ERROR builds, and ignoreCommand/bot skip behavior could not be verified via Vercel tools."
+    },
+    {
+      "check": "/api/eve/global-news cross-check vs GI and anomalies",
+      "result": "pass",
+      "detail": "EVE source=mock, degraded=true, degradedReason=EVE live feed returned no fresh items, global_tension=low, placeholder items only. No scenario of high/elevated tension with green GI: GI is yellow and terminal stressed. Low tension with persistent micro anomalies supports interpretation that dominant issues are infrastructure/feeds and geophysical activity, not live geopolitical narrative from EVE."
+    }
+  ],
+  "gi_verified": true,
+  "anomaly_persistence": {
+    "GAIA:USGS Earthquake": "persistent",
+    "DAEDALUS-µ:Self-ping": "persistent"
+  },
+  "eve_correlation": "EVE is mock/degraded with global_tension low; no live news items to correlate with seismic spike or self-ping 401. Seismic critical signal reflects USGS data, not EVE. Treat EVE tension as unavailable for cross-signal validation until live feed recovers.",
+  "recommendation": "Prioritize restoring /api/runtime/heartbeat (503) to clear degraded heartbeat classification. Optionally reconcile THEMIS data.gov official/last-good-cache failures with integrity inputs. Re-run ZEUS with VERCEL_TOKEN to assert READY deployments, six-hour ERROR window, and ignoreCommand. Investigate HERMES Wikipedia failure if completeness matters."
+}
