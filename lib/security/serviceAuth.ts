@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-type ServiceSecretName = 'CRON_SECRET' | 'BACKFILL_SECRET';
+type ServiceSecretName = 'MOBIUS_SERVICE_SECRET' | 'CRON_SECRET' | 'BACKFILL_SECRET';
 
 function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> {
-  const pairs: ServiceSecretName[] = ['CRON_SECRET', 'BACKFILL_SECRET'];
+  const pairs: ServiceSecretName[] = ['MOBIUS_SERVICE_SECRET', 'CRON_SECRET', 'BACKFILL_SECRET'];
 
   return pairs
     .map((name) => {
