@@ -44,8 +44,8 @@ function getRedisClient(): Redis | null {
 }
 
 function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.BACKFILL_SECRET;
-  if (!secret) return false;
+  const secret = process.env.MOBIUS_SERVICE_SECRET ?? process.env.BACKFILL_SECRET;
+  if (!secret || !secret.trim()) return false;
   return req.headers.get('authorization') === `Bearer ${secret}`;
 }
 
@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   const kvConfigured = Boolean(getRedisClient());
-  const backfillProtected = Boolean(process.env.BACKFILL_SECRET);
+  const backfillProtected = Boolean(process.env.MOBIUS_SERVICE_SECRET ?? process.env.BACKFILL_SECRET);
 
   return NextResponse.json({
     ok: true,
@@ -239,7 +239,7 @@ export async function GET() {
     kvConfigured,
     backfillProtected,
     instructions: kvConfigured
-      ? 'POST with Authorization: Bearer $BACKFILL_SECRET to seed history'
+      ? 'POST with Authorization: Bearer $MOBIUS_SERVICE_SECRET (or legacy $BACKFILL_SECRET) to seed history'
       : 'Configure UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN first',
   });
 }

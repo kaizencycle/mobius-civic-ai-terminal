@@ -1,6 +1,6 @@
 /**
  * POST /api/eve/cycle-synthesize — Full EVE → EPICON → ZEUS → ledger pipeline (C-626)
- * Protected: Authorization Bearer BACKFILL_SECRET
+ * Protected: Authorization Bearer MOBIUS_SERVICE_SECRET (fallback BACKFILL_SECRET)
  */
 
 import type { NextRequest } from 'next/server';
@@ -38,9 +38,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const secret = process.env.BACKFILL_SECRET;
+  const secret = process.env.MOBIUS_SERVICE_SECRET ?? process.env.BACKFILL_SECRET;
   if (!secret || !secret.trim()) {
-    return NextResponse.json({ ok: false, error: 'BACKFILL_SECRET is not configured' }, { status: 503 });
+    return NextResponse.json(
+      { ok: false, error: 'Service authorization is not configured (set MOBIUS_SERVICE_SECRET)' },
+      { status: 503 },
+    );
   }
 
   const auth = request.headers.get('authorization');
