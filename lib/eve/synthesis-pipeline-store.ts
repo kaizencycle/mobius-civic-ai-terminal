@@ -58,12 +58,16 @@ const candidates: EpiconCandidate[] = [];
 const eveSynthesisSeqByCycle = new Map<string, number>();
 
 function normalizeCycleSegment(cycleId: string): string {
-  const trimmed = cycleId.trim();
-  if (trimmed.toUpperCase().startsWith('C-')) {
-    return trimmed.toUpperCase();
+  const trimmed = cycleId.trim().toUpperCase();
+  const m = /^C-(\d+)$/.exec(trimmed);
+  if (m) {
+    return `C-${m[1]}`;
   }
   const digits = trimmed.replace(/[^0-9]/g, '');
-  return `C-${digits.padStart(3, '0').slice(-3)}`;
+  if (!digits) {
+    return 'C-0';
+  }
+  return `C-${digits}`;
 }
 
 /** EPICON-[C-NNN]-EVE-SYN-01, EPICON-[C-NNN]-EVE-SYN-02, … per server instance (C-626). */
