@@ -117,12 +117,14 @@ async function pollSelfPing(): Promise<MicroSignal | null> {
 
   const url = `https://${baseUrl.replace(/^https?:\/\//, '')}/api/runtime/heartbeat`;
   const start = Date.now();
-  const authorization = serviceAuthorizationHeaderValue();
+  const secret = serviceAuthorizationHeaderValue();
+  const headers: Record<string, string> = {};
+  if (secret) headers['x-mobius-secret'] = secret;
 
   try {
     const res = await fetch(url, {
       cache: 'no-store',
-      headers: authorization ? { authorization } : undefined,
+      headers,
     });
     const latencyMs = Date.now() - start;
 
