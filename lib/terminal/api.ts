@@ -137,6 +137,12 @@ function epiconFeedRowToLedger(raw: Record<string, unknown>): LedgerEntry | null
   };
 }
 
+
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
+}
+
 function backfillEntryToLedger(entry: LedgerBackfillEntry): LedgerEntry {
   return {
     id: entry.id,
@@ -180,13 +186,13 @@ export async function getEpiconFeed(): Promise<EpiconFeedBundle> {
     return { epicon: mockEpicon, ledgerRows: [] };
   }
 
-  const epicon = items.map(transformEpicon);
+  const validItems = items.filter(isRecord);
+
+  const epicon = validItems.map(transformEpicon);
   const ledgerRows: LedgerEntry[] = [];
-  for (const row of items) {
-    if (row !== null && typeof row === 'object') {
-      const entry = epiconFeedRowToLedger(row as Record<string, unknown>);
-      if (entry) ledgerRows.push(entry);
-    }
+  for (const row of validItems) {
+    const entry = epiconFeedRowToLedger(row);
+    if (entry) ledgerRows.push(entry);
   }
 
   return { epicon, ledgerRows };
@@ -205,7 +211,7 @@ export async function getGISnapshot(): Promise<GISnapshot> {
 
 export async function getTripwires(): Promise<Tripwire[]> {
   const raw = await fetchJson('/tripwires/active');
-  if (!raw) return mockTripwires;
+  if (!ra|) return mockTripwires;
   const tripwires = raw.tripwires;
   if (!Array.isArray(tripwires)) return mockTripwires;
   return tripwires.map(transformTripwire);

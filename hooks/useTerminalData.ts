@@ -18,7 +18,7 @@ import {
   isLiveAPI,
 } from '@/lib/terminal/api';
 import { mockLedger } from '@/lib/terminal/mock';
-import type { IntegrityStatusResponse } from '@/lib/mock/integrityStatus';
+import { integrityStatus as mockIntegrityStatus, type IntegrityStatusResponse } from '@/lib/mock/integrityStatus';
 import type {
   Agent,
   CivicRadarAlert,
@@ -55,6 +55,16 @@ type SubmitDraft = {
   source3: string;
   tags: string;
 };
+
+
+function resolveInitialInspectorTarget(
+  epiconItems: EpiconItem[],
+  ledgerRows: LedgerEntry[],
+): InspectorTarget | null {
+  if (epiconItems[0]) return { kind: 'epicon', data: epiconItems[0] };
+  if (ledgerRows[0]) return { kind: 'ledger', data: ledgerRows[0] };
+  return null;
+}
 
 export function useTerminalData(selectedNav: NavKey) {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -101,25 +111,56 @@ export function useTerminalData(selectedNav: NavKey) {
     let mounted = true;
 
     async function load() {
-      const [agentsData, epiconBundle, integrityData, tripwireData, ledgerBackfillData, pulseSnapshot] = await Promise.all([
-        getAgents(),
-        getEpiconFeed(),
-        getIntegrityStatus(),
-        getTripwires(),
-        getLedgerBackfill(),
-        getPulseSnapshot(),
-      ]);
+      try {
+        const [
+          agentsResult,
+          epiconResult,
+          integrityResult,
+          tripwireResult,
+          ledgerBackfillResult,
+          pulseSnapshotResult,
+        ] = await Promise.allSettled([
+          getAgents(),
+          getEpiconFeed(),
+          getIntegrityStatus(),
+          getTripwires(),
+          getLedgerBackfill(),
+          getPulseSnapshot(),
+        ]);
 
-      if (!mounted) return;
-      setAgents(agentsData);
-      setEpicon(epiconBundle.epicon);
-      setFeedLedgerRows(epiconBundle.ledgerRows);
-      setIntegrityStatus(integrityData);
-      setGi((prev) => integrityStatusToGISnapshot(integrityData, prev?.score));
-      setTripwires(tripwireData);
-      setBackfillLedger(ledgerBackfillData);
-      setIntegritySignal(pulseSnapshot?.integrity_signal ?? null);
-      setInspectorTarget((prev) => prev ?? (epiconBundle.epicon[0] ? { kind: 'epicon', data: epiconBundle.epicon[0] } : null));
+        if (!mounted) return;
+
+        const agentsData = agentsResult.status === 'fulfilled' ? agentsResult.value : [];
+        const epiconBundle = epiconResult.status === 'fulfilled'
+          ? epiconResult.value
+          : { epicon: [], ledgerRows: [] };
+        const integrityData = integrityResult.status === 'fulfilled'
+          ? integrityResult.value
+          : mockIntegrityStatus;
+        const tripwireData = tripwireResult.status === 'fulfilled' ? tripwireResult.value : [];
+        const ledgerBackfillData = ledgerBackfillResult.status === 'fulfilled' ? ledgerBackfillResult.value : [];
+        const pulseSnapshot = pulseSnapshotResult.status === 'fulfilled' ? pulseSnapshotResult.value : null;
+
+        setAgents(agentsData);
+        setEpicon(epiconBundle.epicon);
+        setFeedLedgerRows(epiconBundle.ledgerRows);
+        setIntegrityStatus(integrityData);
+        setGi((prev) => integrityStatusToGISnapshot(integrityData, prev?.score));
+        setTripwires(tripwireData);
+        setBackfillLedger(ledgerBackfillData);
+        setIntegritySignal(pulseSnapshot?.integrity_signal ?? null);
+        setInspectorTarget((prev) => prev ?? resolveInitialInspectorTarget(
+          epiconBundle.epicon,
+          ledgerBackfillData,
+        ));
+      } catch {
+        if (!mounted) return;
+
+        setIntegrityStatus(mockIntegrityStatus);
+        setGi((prev) => prev ?? integrityStatusToGISnapshot(mockIntegrityStatus));
+        setInspectorTarget((prev) => prev ?? resolveInitialInspectorTarget([], mockLedger));
+        setOperatorMessage('Terminal recovered in degraded mode. Some live surfaces are unavailable.');
+      }
     }
 
     load();
@@ -135,7 +176,7 @@ export function useTerminalData(selectedNav: NavKey) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [setOperatorMessage]);
 
   useEffect(() => {
     const source = connectMobiusStream(
