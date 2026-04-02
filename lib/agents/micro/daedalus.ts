@@ -119,7 +119,7 @@ async function pollSelfPing(): Promise<MicroSignal | null> {
   const start = Date.now();
   const secret = serviceAuthorizationHeaderValue();
   const headers: Record<string, string> = {};
-  if (secret) headers['x-mobius-secret'] = secret;
+  if (secret) headers.authorization = secret;
 
   try {
     const res = await fetch(url, {
