@@ -4,15 +4,16 @@ import type { NextRequest } from 'next/server';
 type ServiceSecretName = 'MOBIUS_SERVICE_SECRET' | 'CRON_SECRET' | 'BACKFILL_SECRET';
 
 function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> {
-  const pairs: ServiceSecretName[] = ['MOBIUS_SERVICE_SECRET', 'CRON_SECRET', 'BACKFILL_SECRET'];
+  const pairs: Array<{ name: ServiceSecretName; value: string | undefined }> = [
+    { name: 'MOBIUS_SERVICE_SECRET', value: process.env.MOBIUS_SERVICE_SECRET },
+    { name: 'CRON_SECRET', value: process.env.CRON_SECRET },
+    { name: 'BACKFILL_SECRET', value: process.env.BACKFILL_SECRET },
+  ];
 
   return pairs
-    .map((name) => {
-      const value = process.env[name];
-      return typeof value === 'string' && value.trim()
-        ? { name, value: value.trim() }
-        : null;
-    })
+    .map(({ name, value }) => (typeof value === 'string' && value.trim()
+      ? { name, value: value.trim() }
+      : null))
     .filter((item): item is { name: ServiceSecretName; value: string } => item !== null);
 }
 
