@@ -48,12 +48,12 @@ import { navItems, mockCivicAlerts, mockSentinels } from '@/lib/terminal/mock';
 import type { NavKey } from '@/lib/terminal/types';
 import { mockQueryResult } from '@/lib/mock/queryResult';
 import { cn } from '@/lib/terminal/utils';
-import { checkCovenantCompliance } from '@/lib/integrity-check';
+import { evaluateCircuitBreaker } from '@/lib/integrity-check';
 import { useTerminalCommands } from '@/hooks/useTerminalCommands';
 import { useTerminalData } from '@/hooks/useTerminalData';
 
 const MICWalletPanel = dynamic(() => import('@/components/terminal/MICWalletPanel'));
-const MFSShardPanel = dynamic(() => import('@/components/terminal/MFSShardPanel'));
+const MFTShardPanel = dynamic(() => import('@/components/terminal/MFTShardPanel'));
 const MICBlockchainExplorer = dynamic(() => import('@/components/terminal/MICBlockchainExplorer'));
 const CreateEpiconModal = dynamic(() => import('@/components/terminal/CreateEpiconModal'));
 
@@ -144,7 +144,7 @@ function TerminalPage() {
   });
 
   if (!gi || !inspectorTarget) {
-    return <TerminalShellFallback statusLabel="Booting Mobius Terminal · syncing integrity surfaces" />;
+    return <TerminalShellFallback statusLabel="Booting Mobius Terminal ·• syncing integrity surfaces" />;
   }
 
   const mergedAlerts = [...echoAlerts, ...mockCivicAlerts];
@@ -160,7 +160,13 @@ function TerminalPage() {
   const showConsensus = showCreateEpicon || inspectorTarget.kind === 'epicon';
   const criticalAlertCount = mergedAlerts.filter((alert) => alert.severity === 'critical' || alert.severity === 'high').length;
   const filteredSignals = filteredEpicon.filter((item) => item.confidenceTier / 4 >= noiseThreshold);
-  const covenantStatus = checkCovenantCompliance(gi.score);
+  const semanticDriftDetected = criticalAlertCount > 0 || allTripwires.length >= 4;
+  const breakerDecision = evaluateCircuitBreaker({
+    giScore: gi.score,
+    tripwireState: dominantTripwireState,
+    semanticDriftDetected,
+    operatorHalt: false,
+  });
 
   const consensusAgents = (() => {
     if (showCreateEpicon) {
@@ -238,7 +244,7 @@ function TerminalPage() {
     }
 
     if (actionId === 'annotate.jade') {
-      setSelectedNav('reflections');
+      setSelectedNav("reflections");
       const jade = agents.find((agent) => agent.id === 'jade');
       if (jade) setInspectorTarget({ kind: 'agent', data: jade });
       return;
@@ -268,13 +274,17 @@ function TerminalPage() {
   const relatedLedgerEntry = inspectorTarget.kind === 'epicon'
     ? mergedLedger.find((entry) => entry.summary.includes(inspectorTarget.data.id) || entry.summary.toLowerCase().includes(inspectorTarget.data.title.toLowerCase().slice(0, 24)))
     : undefined;
+  const breakerReason = semanticDriftDetected
+    ? 'Integrity pressure detected across tripwire, alert, or semantic-drift lanes.'
+    : breakerDecision.message;
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <HardHalt
-        isOpen={covenantStatus.status === 'HALT'}
+        stage={breakerDecision.stage}
         giScore={gi.score}
-        reason="Semantic drift detected in active civic signal lanes."
+        reason={breakerReason}
+        triggeredBy={breakerDecision.triggeredBy}
       />
       <TopStatusBar
         alertCount={allTripwires.length + criticalAlertCount}
@@ -295,7 +305,7 @@ function TerminalPage() {
 
       {showConsensus && (
         <ConsensusPreviewStrip
-          title={showCreateEpicon ? 'Consensus Preview · Submission Lane' : 'Consensus Preview · Operator Lane'}
+          title={showCreateEpicon ? 'Consensus Preview ·• Submission Lane' : 'Consensus Preview · • Operator Lane'}
           subtitle={operatorMessage}
           agents={consensusAgents}
         />
@@ -314,16 +324,16 @@ function TerminalPage() {
                 <div className="space-y-1 text-right">
                   <div className="font-mono uppercase tracking-[0.15em] text-slate-500">{operatorMessage}</div>
                   <div className="text-[11px] uppercase tracking-[0.12em] text-slate-600">
-                    {cycleId} · {terminalStatus} · {streamStatus === 'live' ? 'stream live' : streamStatus === 'reconnecting' ? 'reconnecting' : 'local mode'}
+                    {cycleId} ·• ${terminalStatus} ·• ${streamStatus === 'live' ? 'stream live' : streamStatus === 'reconnecting' ? 'reconnecting' : 'local mode'}
                   </div>
                 </div>
               }
             >
               <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-slate-500">
-                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Driver · {primaryDriver}</span>
-                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Signals · {filteredSignals.length}</span>
-                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Tripwires · {allTripwires.length}</span>
-                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Alerts · {criticalAlertCount}</span>
+                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Driver · • {primaryDriver}</span>
+                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Signals ·• {filteredSignals.length}</span>
+                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Tripwires · • {allTripwires.length}</span>
+                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Alerts · • {criticalAlertCount}</span>
               </div>
             </TerminalSection>
 
@@ -428,7 +438,7 @@ function TerminalPage() {
                         <TripwireWatchCard
                           tripwires={allTripwires}
                           selectedId={inspectorTarget.kind === 'tripwire' ? inspectorTarget.data.id : undefined}
-                          onSelect={(tripwire) => setInspectorTarget({ kind: 'tripwire', data: tripwire })}
+                          onSelect={(repo) => setInspectorTarget({ kind: 'tripwire', data: repo })}
                         />
                       </div>
                     </div>
@@ -447,7 +457,7 @@ function TerminalPage() {
               <div className="space-y-4">
                 <TerminalSection
                   eyebrow="Fiscal Signal"
-                  title="Treasury → Markets"
+                  title="Treasury ·• Markets"
                   description="Treasury debt velocity, freshness, and monthly drift compressed into market-facing posture."
                 >
                   <TreasuryMarketBridge />
@@ -527,24 +537,44 @@ function TerminalPage() {
             <TerminalSection
               eyebrow="Command Surface"
               title="Terminal Commands"
-              description="Exact command matching for weekly digest, GI status, and agent status."
+              description={breakerDecision.writeAllowed
+                ? 'Exact command matching for weekly digest, GI status, and agent status.'
+                : 'Write lanes paused while containment or halt posture is active. Read-only commands remain visible.'}
             >
               <div className="space-y-4">
-                <CommandInput onResult={setCommandResult} />
+                {breakerDecision.writeAllowed ? (
+                  <CommandInput onResult={setCommandResult} />
+                ) : (
+                  <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-sm text-orange-200">
+                    Command submission is paused while the terminal is in {breakerDecision.stage} mode.
+                  </div>
+                )}
                 <CommandResult result={commandResult} />
               </div>
             </TerminalSection>
 
-            <CommandPalette
-              onExecute={(command) => {
-                const result = handleCommand(command);
-                setOperatorMessage(result.message);
-                return result;
-              }}
-            />
+            {breakerDecision.writeAllowed ? (
+              <CommandPalette
+                onExecute={(command) => {
+                  const result = handleCommand(command);
+                  setOperatorMessage(result.message);
+                  return result;
+                }}
+              />
+            ) : (
+              <TerminalSection
+                eyebrow="Circuit Breaker"
+                title="Command Palette Paused"
+                description={`Navigation remains available while ${breakerDecision.stage} mode is active.`}
+              >
+                <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-sm text-orange-200">
+                  Command palette execution is paused until integrity posture recovers.
+                </div>
+              </TerminalSection>
+            )}
 
             <SuggestedNextActions
-              title={showCreateEpicon ? 'Suggested Next Actions · Submission Flow' : 'Suggested Next Actions'}
+              title={showCreateEpicon ? 'Suggested Next Actions ·• Submission Flow' : 'Suggested Next Actions'}
               actions={suggestedActions}
               onSelect={handleSuggestedAction}
             />
@@ -605,7 +635,7 @@ function TerminalPage() {
       </div>
 
       <CreateEpiconModal
-        open={showCreateEpicon}
+        open={showCreateEpicon && breakerDecision.writeAllowed}
         onClose={() => {
           setShowCreateEpicon(false);
           setOperatorMessage('EPICON submission lane closed. Terminal returned to live monitoring.');
@@ -625,9 +655,9 @@ function TerminalPage() {
             )}
           />
           <span className="hidden sm:inline">
-            {cycleId} · {allTripwires.length} tripwire{allTripwires.length === 1 ? '' : 's'} · GI {gi.score.toFixed(2)} · MII {liveRibbonMii.toFixed(2)} · MIC {micSupply.toLocaleString()} · {filteredEpicon.length} signals · {streamStatus === 'live' ? 'Stream live' : streamStatus === 'reconnecting' ? 'Reconnecting' : 'Local mode'}
+            {cycleId} ¢• ${allTripwires.length} tripwire${allTripwires.length === 1 ? '' : 's'} ·• GI {gi.score.toFixed(2)} ¢• MII {liveRibbonMii.toFixed(2)} · • MIC {micSupply.toLocaleString()} ·• ${filteredEpicon.length} signals ·• ${streamStatus === 'live' ? 'Stream live' : streamStatus === 'reconnecting' ? 'Reconnecting' : 'Local mode'}
           </span>
-          <span className="sm:hidden">{cycleId} · GI {gi.score.toFixed(2)}</span>
+          <span className="sm:hidden">{cycleId} ¢• GI {gi.score.toFixed(2)}</span>
         </div>
       </footer>
     </div>
