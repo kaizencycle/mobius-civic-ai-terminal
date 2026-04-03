@@ -273,7 +273,7 @@ export async function getEchoFeed(): Promise<EchoFeedData | null> {
 }
 
 export async function getPromotionStatus(): Promise<PromotionStatus | null> {
-  const raw = await fetchInternalJson('/api/epicon/promote');
+  const raw = await fetchInternalJson('/api/epicon/promote?trigger=1');
   if (!raw || typeof raw !== 'object') return null;
   const counters = (raw as { counters?: unknown }).counters;
   if (!counters || typeof counters !== 'object') return null;
