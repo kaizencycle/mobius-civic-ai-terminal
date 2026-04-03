@@ -18,6 +18,9 @@ export type EpiconLedgerFeedEntry = {
   cycle?: string;
   category?: string;
   confidenceTier?: number;
+  derivedFrom?: string;
+  status?: 'committed' | 'pending' | 'failed';
+  agentOrigin?: string;
   zeusVerdict?: string;
   patternType?: string;
   dominantRegion?: string;

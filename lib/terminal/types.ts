@@ -31,6 +31,9 @@ export type EpiconItem = {
   trace: string[];
   /** Present on feed entries (e.g. EVE synthesis pipeline) */
   feedSource?: string;
+  promotionState?: 'pending' | 'selected' | 'promoted' | 'failed';
+  assignedAgents?: string[];
+  committedEntries?: string[];
 };
 
 export type TripwireLayer =
@@ -128,7 +131,7 @@ export type LedgerEntry = {
   category?: 'geopolitical' | 'market' | 'governance' | 'infrastructure' | 'narrative';
   confidenceTier?: number;
   tags?: string[];
-  source?: 'mock' | 'echo' | 'backfill' | 'eve-synthesis';
+  source?: 'mock' | 'echo' | 'backfill' | 'eve-synthesis' | 'agent_commit';
 };
 
 export type MFSShard = {

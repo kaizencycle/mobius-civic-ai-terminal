@@ -16,7 +16,7 @@ type EpiconSeverity =
   | 'low'
   | 'medium'
   | 'high';
-type EpiconSource = 'github-commit' | 'kv-ledger' | 'memory-feed' | 'backfill' | 'eve-synthesis';
+type EpiconSource = 'github-commit' | 'kv-ledger' | 'memory-feed' | 'backfill' | 'eve-synthesis' | 'agent_commit';
 
 type EpiconEntry = {
   id: string;
@@ -39,6 +39,12 @@ type EpiconEntry = {
   zeusVerdict?: string;
   patternType?: string;
   dominantRegion?: string;
+  derivedFrom?: string;
+  status?: 'committed' | 'pending' | 'failed';
+  agentOrigin?: string;
+  promotion_state?: 'pending' | 'selected' | 'promoted' | 'failed';
+  assigned_agents?: string[];
+  committed_entries?: string[];
 };
 
 type GitHubCommit = {
@@ -306,6 +312,9 @@ function fromLocalMemoryLedger(): EpiconEntry[] {
       zeusVerdict: row.zeusVerdict,
       patternType: row.patternType,
       dominantRegion: row.dominantRegion,
+      derivedFrom: row.derivedFrom,
+      status: row.status,
+      agentOrigin: row.agentOrigin,
     };
   });
 }

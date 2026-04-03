@@ -120,6 +120,7 @@ function TerminalPage() {
     integritySignal,
     mergedLedger,
     operatorMessage,
+    promotionCounters,
     setEchoAlerts,
     setEchoIntegrity,
     setEchoLedger,
@@ -334,6 +335,7 @@ function TerminalPage() {
               <LedgerPanel
                 entries={mergedLedger}
                 duplicateSuppressedCount={duplicateSuppressedCount}
+                promotionCounters={promotionCounters}
                 selectedId={inspectorTarget.kind === 'ledger' ? inspectorTarget.data.id : undefined}
                 onSelect={(entry) => setInspectorTarget({ kind: 'ledger', data: entry })}
               />

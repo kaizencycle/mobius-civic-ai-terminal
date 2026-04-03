@@ -316,6 +316,15 @@ function EpiconView({
       </div>
 
       <div>
+        <SmallLabel>Promotion Pipeline</SmallLabel>
+        <div className="mt-2 grid grid-cols-1 gap-2">
+          <InspectorStat label="Promotion State" value={(event.promotionState ?? 'pending').toUpperCase()} />
+          <InspectorStat label="Assigned Agents" value={(event.assignedAgents ?? []).join(', ') || 'Awaiting assignment'} />
+          <InspectorStat label="Committed Entries" value={(event.committedEntries ?? []).join(', ') || 'Awaiting correlated ledger entry'} />
+        </div>
+      </div>
+
+      <div>
         <SmallLabel>ZEUS Verification</SmallLabel>
         <div className="mt-2">
           <ZeusVerifyControls
