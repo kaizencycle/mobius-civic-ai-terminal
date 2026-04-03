@@ -97,6 +97,7 @@ export async function POST() {
         ratings: [],
       },
       sourceCount: 0,
+      duplicateSuppressedCount: 0,
       timestamp: now.toISOString(),
     });
 

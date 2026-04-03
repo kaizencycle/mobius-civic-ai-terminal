@@ -82,6 +82,7 @@ export function useTerminalData(selectedNav: NavKey) {
   const [echoIntegrity, setEchoIntegrity] = useState<CycleIntegritySummary | null>(null);
   const [showCreateEpicon, setShowCreateEpicon] = useState(false);
   const [operatorMessage, setOperatorMessage] = useState('Terminal live. Awaiting operator action.');
+  const [duplicateSuppressedCount, setDuplicateSuppressedCount] = useState(0);
 
   const mergedLedger = useMemo(() => {
     const seen = new Set<string>();
@@ -214,6 +215,7 @@ export function useTerminalData(selectedNav: NavKey) {
       setEchoLedger(feed.ledger);
       setEchoAlerts(feed.alerts);
       if (feed.integrity) setEchoIntegrity(feed.integrity);
+      setDuplicateSuppressedCount(feed.status.duplicateSuppressedCount ?? 0);
     }
 
     loadEcho();
@@ -317,6 +319,7 @@ export function useTerminalData(selectedNav: NavKey) {
     integritySignal,
     mergedLedger,
     operatorMessage,
+    duplicateSuppressedCount,
     setEchoAlerts,
     setEchoIntegrity,
     setEchoLedger,

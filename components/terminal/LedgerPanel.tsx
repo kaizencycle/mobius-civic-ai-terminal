@@ -53,10 +53,12 @@ function sortLedger(entries: LedgerEntry[], key: LedgerSortKey, dir: 'asc' | 'de
 
 export default function LedgerPanel({
   entries,
+  duplicateSuppressedCount = 0,
   selectedId,
   onSelect,
 }: {
   entries: LedgerEntry[];
+  duplicateSuppressedCount?: number;
   selectedId?: string;
   onSelect?: (entry: LedgerEntry) => void;
 }) {
@@ -64,6 +66,19 @@ export default function LedgerPanel({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const sorted = useMemo(() => sortLedger(entries, sortKey, sortDir), [entries, sortKey, sortDir]);
+  const liveIngestEntries = useMemo(
+    () => sorted.filter((entry) => entry.source === 'echo' && entry.status === 'pending'),
+    [sorted],
+  );
+  const liveCommittedEntries = useMemo(
+    () => sorted.filter((entry) => (entry.source === 'echo' || entry.source === 'eve-synthesis') && entry.status === 'committed'),
+    [sorted],
+  );
+  const backfillEntries = useMemo(
+    () => sorted.filter((entry) => entry.source === 'backfill' || entry.source === 'mock'),
+    [sorted],
+  );
+  const cycleId = liveIngestEntries[0]?.cycleId ?? liveCommittedEntries[0]?.cycleId ?? sorted[0]?.cycleId ?? 'unknown';
   const source = useMemo<DataSource>(() => {
     if (entries.some((entry) => entry.source === 'echo')) return 'live';
     if (entries.some((entry) => entry.source === 'eve-synthesis')) return 'live';
@@ -96,7 +111,19 @@ export default function LedgerPanel({
         />
       </div>
       <div className="mt-3 space-y-2">
-        {sorted.map((entry) => (
+        <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-[11px] font-mono uppercase tracking-[0.1em] text-slate-300">
+          <div>live_ingest_count: <span className="text-amber-300">{liveIngestEntries.length}</span></div>
+          <div>live_committed_agent_count: <span className="text-emerald-300">{liveCommittedEntries.length}</span></div>
+          <div>backfill_count: <span className="text-slate-200">{backfillEntries.length}</span></div>
+          <div>duplicate_suppressed_count: <span className="text-fuchsia-300">{duplicateSuppressedCount}</span></div>
+        </div>
+        <div className="text-[11px] font-mono uppercase tracking-[0.1em] text-slate-500">
+          Cycle {cycleId} · default focus: committed agent memory
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-4">
+        {liveCommittedEntries.map((entry) => (
           <button
             key={entry.id}
             onClick={() => onSelect?.(entry)}
@@ -181,6 +208,42 @@ export default function LedgerPanel({
             </div>
           </button>
         ))}
+        {liveCommittedEntries.length === 0 ? (
+          <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
+            No live committed agent records in the active cycle yet.
+          </div>
+        ) : null}
+
+        {liveIngestEntries.length > 0 ? (
+          <details className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2">
+            <summary className="cursor-pointer text-xs font-mono uppercase tracking-[0.1em] text-amber-300">
+              Live ingest (pending) · {liveIngestEntries.length}
+            </summary>
+            <div className="mt-2 space-y-2">
+              {liveIngestEntries.map((entry) => (
+                <button
+                  key={entry.id}
+                  onClick={() => onSelect?.(entry)}
+                  className={cn(
+                    'cv-auto w-full rounded-lg border p-3 text-left transition border-amber-500/20 bg-slate-950/60 hover:border-amber-400/40',
+                    selectedId === entry.id && 'border-amber-400/60 bg-amber-500/10',
+                  )}
+                >
+                  <div className="text-xs font-mono text-slate-400">{entry.id}</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-100">{entry.title ?? entry.summary}</div>
+                </button>
+              ))}
+            </div>
+          </details>
+        ) : null}
+
+        {backfillEntries.length > 0 ? (
+          <details className="rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+            <summary className="cursor-pointer text-xs font-mono uppercase tracking-[0.1em] text-slate-400">
+              Historical backfill · {backfillEntries.length}
+            </summary>
+          </details>
+        ) : null}
       </div>
       {degraded ? (
         <div className="mt-3 text-xs text-amber-300">

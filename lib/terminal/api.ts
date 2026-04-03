@@ -237,6 +237,7 @@ export type EchoFeedData = {
     lastIngest: string | null;
     cycleId: string;
     totalIngested: number;
+    duplicateSuppressedCount: number;
     counts: { epicon: number; ledger: number; alerts: number };
   };
 };
