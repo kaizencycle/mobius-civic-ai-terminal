@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-25T05:04:48Z",
+  "timestamp": "2026-04-03T14:03:46.000Z",
   "health": "stressed",
   "endpoints": {
     "micro_agents": true,
@@ -7,14 +7,14 @@
     "eve_news": true
   },
   "signals": {
-    "composite": 0.627,
+    "composite": 0.763,
     "anomalies": 2,
-    "gi": 0.83,
-    "mode": "green"
+    "gi": 0.74,
+    "mode": "yellow"
   },
   "eve": {
-    "total_items": 8,
-    "global_tension": "high",
+    "total_items": 3,
+    "global_tension": "low",
     "dominant_region": "Global"
   }
 }
