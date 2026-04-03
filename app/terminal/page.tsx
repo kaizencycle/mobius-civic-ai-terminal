@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import HardHalt from '@/components/modals/HardHalt';
 import TerminalShellFallback from '@/components/terminal/TerminalShellFallback';
 import { WalletProvider } from '@/contexts/WalletContext';
@@ -62,10 +62,10 @@ function TerminalPage() {
   const [focusedAgent, setFocusedAgent] = useState<AgentStatusApi | null>(null);
   const [agentRoster, setAgentRoster] = useState<AgentStatusApi[]>([]);
   const [micro, setMicro] = useState<MicroSweepResponse | null>(null);
-  const [microHistory, setMicroHistory] = useState<Array<{ time: string; composite: number }>>([]);
+  const [microHistory, setMicroHistory] = useState<number[]>([]);
   const [kvLatency, setKvLatency] = useState<number | null>(null);
 
-  const { allTripwires, filteredEpicon, gi, integrityStatus, mergedLedger, streamStatus } = useTerminalData(selectedNav);
+  const { allTripwires, filteredAgents, filteredEpicon, gi, integrityStatus, mergedLedger, streamStatus } = useTerminalData(selectedNav);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -85,20 +85,21 @@ function TerminalPage() {
           fetch('/api/signals/micro', { cache: 'no-store' }),
           fetch('/api/kv/health', { cache: 'no-store' }),
         ]);
+
         const agentsJson: AgentStatusResponse = await agentsRes.json();
         const microJson: MicroSweepResponse = await microRes.json();
         const kvJson: KvHealthResponse = await kvRes.json();
+
         if (!mounted) return;
 
         if (agentsJson.ok) setAgentRoster(agentsJson.agents ?? []);
         if (microJson.ok) {
           setMicro(microJson);
-          const time = new Date(microJson.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          setMicroHistory((prev) => [...prev, { time, composite: microJson.composite }].slice(-12));
+          setMicroHistory((prev) => [...prev, microJson.composite].slice(-24));
         }
         setKvLatency(kvJson.latencyMs ?? null);
       } catch {
-        // silent degradation
+        // Keep rendering with existing hook data if side feeds fail.
       }
     }
 
@@ -119,7 +120,7 @@ function TerminalPage() {
     { label: 'Global Integrity', value: giScore.toFixed(3), trend: giDelta, icon: '◎' },
     { label: 'Signal Feed', value: String(filteredEpicon.length), trend: filteredEpicon.length > 8 ? 0.08 : -0.04, icon: '∿' },
     { label: 'Tripwires', value: String(allTripwires.length), trend: allTripwires.length > 0 ? -0.1 : 0.02, icon: '⚠' },
-    { label: 'Agents Live', value: String(agentRoster.length), trend: agentRoster.length >= 6 ? 0.05 : -0.02, icon: '◉' },
+    { label: 'Agents Live', value: String(agentRoster.length || filteredAgents.length), trend: (agentRoster.length || filteredAgents.length) >= 6 ? 0.05 : -0.02, icon: '◉' },
   ];
 
   const ledgerTags = useMemo(() => {
@@ -133,11 +134,22 @@ function TerminalPage() {
     return mergedLedger.filter((entry) => (entry.tags ?? []).includes(tagFilter));
   }, [mergedLedger, tagFilter]);
 
-  const visibleAgents = useMemo(() => {
+  const visibleAgents = useMemo<AgentStatusApi[]>(() => {
+    const source: AgentStatusApi[] = agentRoster.length > 0
+      ? agentRoster
+      : filteredAgents.map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        role: agent.role,
+        status: (agent.status === 'idle' ? 'idle' : 'alive') as AgentStatusApi['status'],
+        detail: agent.lastAction,
+        load: undefined,
+        uptime: undefined,
+      }));
     const needle = agentSearch.trim().toLowerCase();
-    if (!needle) return agentRoster;
-    return agentRoster.filter((agent) => `${agent.name} ${agent.role}`.toLowerCase().includes(needle));
-  }, [agentRoster, agentSearch]);
+    if (!needle) return source;
+    return source.filter((agent) => `${agent.name} ${agent.role}`.toLowerCase().includes(needle));
+  }, [agentRoster, filteredAgents, agentSearch]);
 
   if (!gi) return <TerminalShellFallback statusLabel="Booting Mobius Terminal · syncing integrity surfaces" />;
 
@@ -154,6 +166,7 @@ function TerminalPage() {
               <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400">{cycleId}</div>
             </div>
           </div>
+
           <nav className="hidden items-center gap-1 md:flex">
             {TABS.map((tab) => (
               <button
@@ -168,6 +181,7 @@ function TerminalPage() {
               </button>
             ))}
           </nav>
+
           <div className="flex items-center gap-3 text-xs font-mono text-slate-400">
             <span className="flex items-center gap-2">
               <span className={cn('h-2 w-2 rounded-full', streamStatus === 'live' ? 'bg-emerald-400' : 'bg-amber-400')} />
@@ -185,52 +199,42 @@ function TerminalPage() {
           <div className="grid grid-cols-2 gap-3">
             {statCards.map((card) => <StatCard key={card.label} {...card} />)}
           </div>
+
           <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
             <div className="mb-3 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Integrity Trend</div>
-            <MiniChart points={microHistory.length > 1 ? microHistory.map((p) => p.composite) : gi.weekly} />
+            <MiniChart points={microHistory.length > 1 ? microHistory : gi.weekly} />
           </section>
+
           <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
             <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Tripwire Anomalies</div>
             <div className="space-y-2">
-              {allTripwires.slice(0, 4).map((tripwire) => (
+              {allTripwires.slice(0, 6).map((tripwire) => (
                 <div key={tripwire.id} className="rounded border border-slate-800 bg-slate-950/70 p-2 text-xs">
                   <div className="font-medium text-slate-200">{tripwire.label}</div>
                   <div className="font-mono uppercase text-slate-500">{tripwire.severity} · {tripwire.owner}</div>
                 </div>
               ))}
+              {allTripwires.length === 0 ? <div className="text-xs text-slate-500">No active anomalies.</div> : null}
             </div>
           </section>
         </aside>
 
         <section className="col-span-12 rounded-lg border border-slate-800 bg-slate-900/40 p-3 xl:col-span-6">
-          <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
-            <div>
-              <div className="text-sm font-semibold">Pulse Ledger</div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Live signal trace</div>
-            </div>
-            <div className="text-xs font-mono text-slate-400">{filteredLedger.length} entries</div>
-          </div>
-          <div className="mb-3 flex flex-wrap gap-2">
-            {ledgerTags.map((tag) => (
-              <button key={tag} onClick={() => setTagFilter(tag)} className={cn('rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em]', tagFilter === tag ? 'border-sky-500/50 bg-sky-500/15 text-sky-200' : 'border-slate-700 bg-slate-950 text-slate-400')}>
-                {tag}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-2">
-            {filteredLedger.slice(0, 14).map((entry) => (
-              <LedgerRow
-                key={entry.id}
-                entry={entry}
-                isSelected={selectedLedgerId === entry.id}
-                isExpanded={expandedLedgerId === entry.id}
-                onSelect={() => {
-                  setSelectedLedgerId(entry.id);
-                  setExpandedLedgerId(expandedLedgerId === entry.id ? null : entry.id);
-                }}
-              />
-            ))}
-          </div>
+          <MainPanel
+            selectedNav={selectedNav}
+            cycleId={cycleId}
+            filteredLedger={filteredLedger}
+            ledgerTags={ledgerTags}
+            tagFilter={tagFilter}
+            setTagFilter={setTagFilter}
+            selectedLedgerId={selectedLedgerId}
+            expandedLedgerId={expandedLedgerId}
+            setSelectedLedgerId={setSelectedLedgerId}
+            setExpandedLedgerId={setExpandedLedgerId}
+            filteredEpiconCount={filteredEpicon.length}
+            allTripwires={allTripwires.length}
+            micSupply={integrityStatus?.mic_supply ?? 0}
+          />
         </section>
 
         <aside className="col-span-12 space-y-4 xl:col-span-3">
@@ -239,9 +243,16 @@ function TerminalPage() {
               <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Agent Roster</div>
               <div className="text-[10px] font-mono text-slate-500">{visibleAgents.length} online</div>
             </div>
-            <input value={agentSearch} onChange={(event) => setAgentSearch(event.target.value)} placeholder="Search agent" className="mb-3 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 outline-none ring-sky-500/30 focus:ring-1" />
+
+            <input
+              value={agentSearch}
+              onChange={(event) => setAgentSearch(event.target.value)}
+              placeholder="Search agent"
+              className="mb-3 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 outline-none ring-sky-500/30 focus:ring-1"
+            />
+
             <div className="space-y-2">
-              {visibleAgents.slice(0, 8).map((agent) => {
+              {visibleAgents.slice(0, 10).map((agent) => {
                 const load = Math.min(100, Math.max(5, Math.round((agent.load ?? 0.6) * 100)));
                 return (
                   <button key={agent.id} onClick={() => setFocusedAgent(agent)} className="w-full rounded-md border border-slate-800 bg-slate-950/80 p-2 text-left">
@@ -282,31 +293,13 @@ function TerminalPage() {
         </aside>
       </main>
 
-      {focusedAgent ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" onClick={() => setFocusedAgent(null)}>
-          <div className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 p-4 transition" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-2 text-lg font-semibold">{focusedAgent.name}</div>
-            <div className="text-xs text-slate-400">{focusedAgent.role} · {focusedAgent.tier ?? 'core'} tier</div>
-            <div className="mt-3 h-1.5 overflow-hidden rounded bg-slate-800"><div className="h-full bg-sky-400" style={{ width: `${Math.min(100, Math.round((focusedAgent.load ?? 0.6) * 100))}%` }} /></div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
-              <div>Status: {focusedAgent.status}</div>
-              <div>Uptime: {focusedAgent.uptime ?? 'n/a'}</div>
-              <div className="col-span-2">Last action: {focusedAgent.lastAction ?? 'Awaiting task'}</div>
-              <div className="col-span-2">{focusedAgent.detail ?? 'Canonical substrate agent participating in consensus and signal routing.'}</div>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button className="rounded-md border border-slate-600 px-3 py-1.5 text-xs">Diagnostics</button>
-              <button className="rounded-md border border-slate-600 px-3 py-1.5 text-xs">Logs</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {focusedAgent ? <AgentModal focusedAgent={focusedAgent} setFocusedAgent={setFocusedAgent} /> : null}
 
       <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-8 items-center justify-between border-t border-slate-800 bg-slate-950 px-4 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />System Ready</span>
-          <span>CPU 27%</span>
-          <span>MEM 61%</span>
+          <span>CPU {Math.max(9, Math.min(99, Math.round(gi.institutionalTrust * 100)))}%</span>
+          <span>MEM {Math.max(11, Math.min(99, Math.round(gi.consensusStability * 100)))}%</span>
         </div>
         <div className="flex items-center gap-3">
           <span>Latency {kvLatency ?? '--'}ms</span>
@@ -314,6 +307,149 @@ function TerminalPage() {
           <span>Node mobius-us-east-1</span>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function MainPanel({
+  selectedNav,
+  cycleId,
+  filteredLedger,
+  ledgerTags,
+  tagFilter,
+  setTagFilter,
+  selectedLedgerId,
+  expandedLedgerId,
+  setSelectedLedgerId,
+  setExpandedLedgerId,
+  filteredEpiconCount,
+  allTripwires,
+  micSupply,
+}: {
+  selectedNav: NavKey;
+  cycleId: string;
+  filteredLedger: LedgerEntry[];
+  ledgerTags: string[];
+  tagFilter: string;
+  setTagFilter: (tag: string) => void;
+  selectedLedgerId: string | null;
+  expandedLedgerId: string | null;
+  setSelectedLedgerId: (id: string | null) => void;
+  setExpandedLedgerId: (id: string | null) => void;
+  filteredEpiconCount: number;
+  allTripwires: number;
+  micSupply: number;
+}) {
+  if (selectedNav === 'agents') {
+    return (
+      <PanelCard title="Agent Operations" subtitle={`${cycleId} · Canonical + micro lanes`}>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <TinyMetric label="Live signals" value={String(filteredEpiconCount)} />
+          <TinyMetric label="Tripwires" value={String(allTripwires)} />
+          <TinyMetric label="MIC supply" value={micSupply.toLocaleString()} />
+        </div>
+      </PanelCard>
+    );
+  }
+
+  if (selectedNav === 'infrastructure') {
+    return (
+      <PanelCard title="Tripwire Chamber" subtitle={`${cycleId} · Infrastructure watch`}>
+        <div className="text-sm text-slate-300">Tripwire alerts are visible in the left anomaly stack with live severity and ownership labels.</div>
+      </PanelCard>
+    );
+  }
+
+  if (selectedNav === 'wallet') {
+    return (
+      <PanelCard title="Wallet Chamber" subtitle={`${cycleId} · Integrity economics`}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TinyMetric label="MIC supply" value={micSupply.toLocaleString()} />
+          <TinyMetric label="Ledger writes" value={String(filteredLedger.length)} />
+        </div>
+      </PanelCard>
+    );
+  }
+
+  return (
+    <>
+      <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
+        <div>
+          <div className="text-sm font-semibold">Pulse Ledger</div>
+          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Live signal trace</div>
+        </div>
+        <div className="text-xs font-mono text-slate-400">{filteredLedger.length} entries</div>
+      </div>
+
+      <div className="mb-3 flex flex-wrap gap-2">
+        {ledgerTags.map((tag) => (
+          <button
+            key={tag}
+            onClick={() => setTagFilter(tag)}
+            className={cn('rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em]', tagFilter === tag ? 'border-sky-500/50 bg-sky-500/15 text-sky-200' : 'border-slate-700 bg-slate-950 text-slate-400')}
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        {filteredLedger.slice(0, 14).map((entry) => (
+          <LedgerRow
+            key={entry.id}
+            entry={entry}
+            isSelected={selectedLedgerId === entry.id}
+            isExpanded={expandedLedgerId === entry.id}
+            onSelect={() => {
+              setSelectedLedgerId(entry.id);
+              setExpandedLedgerId(expandedLedgerId === entry.id ? null : entry.id);
+            }}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function PanelCard({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+  return (
+    <div>
+      <div className="mb-3 border-b border-slate-800 pb-3">
+        <div className="text-sm font-semibold">{title}</div>
+        <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{subtitle}</div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function TinyMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded border border-slate-800 bg-slate-950/60 p-3">
+      <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">{label}</div>
+      <div className="mt-1 text-lg font-mono text-slate-100">{value}</div>
+    </div>
+  );
+}
+
+function AgentModal({ focusedAgent, setFocusedAgent }: { focusedAgent: AgentStatusApi; setFocusedAgent: (agent: AgentStatusApi | null) => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" onClick={() => setFocusedAgent(null)}>
+      <div className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 p-4 transition" onClick={(event) => event.stopPropagation()}>
+        <div className="mb-2 text-lg font-semibold">{focusedAgent.name}</div>
+        <div className="text-xs text-slate-400">{focusedAgent.role} · {focusedAgent.tier ?? 'core'} tier</div>
+        <div className="mt-3 h-1.5 overflow-hidden rounded bg-slate-800"><div className="h-full bg-sky-400" style={{ width: `${Math.min(100, Math.round((focusedAgent.load ?? 0.6) * 100))}%` }} /></div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
+          <div>Status: {focusedAgent.status}</div>
+          <div>Uptime: {focusedAgent.uptime ?? 'n/a'}</div>
+          <div className="col-span-2">Last action: {focusedAgent.lastAction ?? 'Awaiting task'}</div>
+          <div className="col-span-2">{focusedAgent.detail ?? 'Canonical substrate agent participating in consensus and signal routing.'}</div>
+        </div>
+        <div className="mt-4 flex gap-2">
+          <button className="rounded-md border border-slate-600 px-3 py-1.5 text-xs">Diagnostics</button>
+          <button className="rounded-md border border-slate-600 px-3 py-1.5 text-xs">Logs</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -377,6 +513,7 @@ function LedgerRow({ entry, isSelected, isExpanded, onSelect }: { entry: LedgerE
           <span>{confidence}%</span>
         </div>
       </button>
+
       {isExpanded ? (
         <div className="mt-3 border-t border-slate-800 pt-3 text-xs text-slate-300">
           <div className="mb-2 flex flex-wrap gap-1">
