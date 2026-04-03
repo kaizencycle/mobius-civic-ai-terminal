@@ -25,6 +25,8 @@ permissions:
 
 env:
   TERMINAL_URL: "https://mobius-civic-ai-terminal.vercel.app"
+  # Optional: set repo secret MOBIUS_SERVICE_SECRET to match Vercel (same value as app service auth).
+  MOBIUS_SERVICE_SECRET: ${{ secrets.MOBIUS_SERVICE_SECRET }}
 
 jobs:
   heartbeat:
@@ -64,13 +66,24 @@ jobs:
             echo '{"ok":false,"global_integrity":0,"mode":"unknown"}' > /tmp/integrity.json
           fi
 
-          # Try to fetch runtime heartbeat
+          # Try to fetch runtime heartbeat (route requires service auth — same secret as Vercel)
           RUNTIME_OK=false
-          if curl -sf "${TERMINAL_URL}/api/runtime/heartbeat" -o /tmp/runtime.json --max-time 10; then
-            RUNTIME_OK=true
-            echo "✅ Runtime heartbeat responded"
+          RUNTIME_CURL=( -sf "${TERMINAL_URL}/api/runtime/heartbeat" -o /tmp/runtime.json --max-time 10 )
+          if [ -n "${MOBIUS_SERVICE_SECRET:-}" ]; then
+            if curl "${RUNTIME_CURL[@]}" -H "Authorization: Bearer ${MOBIUS_SERVICE_SECRET}"; then
+              RUNTIME_OK=true
+              echo "✅ Runtime heartbeat responded"
+            else
+              echo "⚠️ Runtime heartbeat unreachable"
+            fi
           else
-            echo "⚠️ Runtime heartbeat unreachable"
+            echo "⚠️ MOBIUS_SERVICE_SECRET not set in repo secrets — runtime probe unauthenticated (expect 401)"
+            if curl "${RUNTIME_CURL[@]}"; then
+              RUNTIME_OK=true
+              echo "✅ Runtime heartbeat responded"
+            else
+              echo "⚠️ Runtime heartbeat unreachable"
+            fi
           fi
 
           # Extract values
