@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-04-03T10:00:50.000Z",
+  "agent": "ZEUS",
+  "atlas_heartbeat_reviewed": "20260403T071905Z.json",
+  "verification_status": "confirmed",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat parse (health, GI, anomalies, EVE)",
+      "result": "warn",
+      "detail": "Parsed 20260403T071905Z.json: health=degraded, endpoints micro_agents=true integrity=true runtime=false, composite=0.705, anomalies=2, gi=0.68, mode=yellow. Heartbeat JSON has no EVE global_tension field; EVE tension taken from live /api/eve/global-news."
+    },
+    {
+      "check": "/api/signals/micro vs ATLAS anomaly list",
+      "result": "warn",
+      "detail": "Response ok=true, cached=true, timestamp ~10:00:52Z. anomalies array length still 2, matching ATLAS. GAIA/USGS: severity elevated (74 quakes M2.5+ today, max M5.9 near Ternate, Indonesia)—persistent geophysical stressor. DAEDALUS-µ/Self-ping: severity elevated, HTTP 401 in ~25ms—persistent, consistent with auth-gated self-check. Composite 0.768 vs heartbeat snapshot 0.705 (micro aggregate improved vs ATLAS sample; not de-escalation of flagged rows). HERMES-µ errors include Wikipedia API fetch failed; THEMIS sourceStatus shows data.gov official and last-good-cache failed while healthy=true—upstream gaps not surfaced as anomalies."
+    },
+    {
+      "check": "/api/integrity-status GI source, score, freshness",
+      "result": "pass",
+      "detail": "source=live (not mock): GI is authoritative for this run. global_integrity=0.61, mode=yellow, terminal_status=stressed, primary_driver=Moderate signal degradation—aligned with low subscores: freshness=0.3, stability=0.3, sentiment=0.3, information=0.3 versus quality=0.79 and system=1. Lower GI than heartbeat-reported gi=0.68 reflects newer snapshot and degraded freshness drivers, not a mock score. kv=true at verification time."
+    },
+    {
+      "check": "/api/runtime/heartbeat vs heartbeat endpoints.runtime",
+      "result": "warn",
+      "detail": "GET /api/runtime/heartbeat returned HTTP 401 at verification time (ATLAS recorded runtime=false). Treats runtime path as failing sentinel curl-style success checks; aligns with degraded health. Self-ping on micro also reports 401—consistent auth/unauthorized surface on internal probes."
+    },
+    {
+      "check": "Vercel deployment health (READY, ERROR last 6h, ignoreCommand)",
+      "result": "warn",
+      "detail": "VERCEL_TOKEN unset; Vercel CLI not available for deployment listings. Cannot confirm READY state, ERROR deployments in last 6 hours, or ignoreCommand skipping bot commits from this environment. Production site responds HTTP 200 for / with Vercel headers; public APIs above returned JSON 200."
+    },
+    {
+      "check": "/api/eve/global-news vs GI and playbook tension rules",
+      "result": "pass",
+      "detail": "EVE source=mock, degraded=true, degradedReason=EVE live feed returned no fresh items, global_tension=low, placeholder items only. No high/elevated tension with green GI: GI mode=yellow and terminal stressed. Low tension while micro anomalies persist supports classifying dominant issues as feeds/infrastructure and geophysical signals, not live EVE geopolitical narrative."
+    }
+  ],
+  "gi_verified": true,
+  "anomaly_persistence": {
+    "GAIA:USGS Earthquake": "persistent",
+    "DAEDALUS-µ:Self-ping": "persistent"
+  },
+  "eve_correlation": "EVE mock/degraded with global_tension low and no fresh items; no meaningful correlation between EVE headlines and USGS or self-ping anomalies. Seismic elevation is USGS-driven. Until EVE live feed recovers, tension field is not a reliable cross-check for world-state vs system-state disconnect.",
+  "recommendation": "Treat ATLAS degraded as accurate: restore a successful runtime heartbeat contract (2xx vs 401/503) for clear nominal classification. Address EVE live feed freshness to exit mock/degraded. Optionally align THEMIS/HERMES upstream failures with integrity inputs if they should affect GI. Re-run ZEUS with Vercel credentials to verify READY deployments, recent ERROR builds, and ignoreCommand behavior for bot commits."
+}
