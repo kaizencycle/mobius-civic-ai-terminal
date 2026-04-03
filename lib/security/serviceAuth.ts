@@ -36,6 +36,18 @@ export function serviceAuthorizationHeaderValue(): string | null {
   return primary ? `Bearer ${primary.value}` : null;
 }
 
+/**
+ * True when this request is Vercel’s scheduled cron HTTP GET (production).
+ * Vercel documents User-Agent `vercel-cron/1.0` for cron invocations; some
+ * deployments have seen missing or mismatched Authorization vs CRON_SECRET.
+ * Used only by /api/runtime/heartbeat so the cron path matches other cron routes.
+ */
+export function isVercelCronInvocation(request: NextRequest): boolean {
+  if (process.env.VERCEL !== '1') return false;
+  const ua = request.headers.get('user-agent');
+  return ua === 'vercel-cron/1.0';
+}
+
 export function getServiceAuthError(request: NextRequest): NextResponse | null {
   const secrets = configuredSecrets();
   if (secrets.length === 0) {
