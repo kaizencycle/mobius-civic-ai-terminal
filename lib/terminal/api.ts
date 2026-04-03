@@ -249,6 +249,13 @@ export type PromotionStatus = {
     committed_agent_count: number;
     failed_promotion_count: number;
   };
+  diagnostics?: {
+    last_promotion_run_at: string | null;
+    promoter_input_count: number;
+    promoter_eligible_count: number;
+    promoter_excluded_reasons: Record<string, number>;
+    promoted_ids_this_cycle: string[];
+  };
   items?: Array<{
     epicon_id: string;
     promotion_state: 'pending' | 'selected' | 'promoted' | 'failed';
