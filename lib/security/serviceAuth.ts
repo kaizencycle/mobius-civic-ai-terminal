@@ -4,10 +4,7 @@ import type { NextRequest } from 'next/server';
 type ServiceSecretName = 'MOBIUS_SERVICE_SECRET' | 'CRON_SECRET' | 'BACKFILL_SECRET';
 
 function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> {
-  // MOBIUS_SERVICE_SECRET first for outbound callers (DAEDALUS → /api/runtime/heartbeat):
-  // operators set this for app/service probes; it must match what heartbeat accepts.
-  // CRON_SECRET: Vercel cron still sends Authorization: Bearer ${CRON_SECRET} when set.
-  // getServiceAuthError accepts any configured secret's Bearer token (trimmed, flexible parsing).
+  // Inbound: accept Bearer for any configured secret (order does not matter).
   const pairs: Array<{ name: ServiceSecretName; value: string | undefined }> = [
     { name: 'MOBIUS_SERVICE_SECRET', value: process.env.MOBIUS_SERVICE_SECRET },
     { name: 'CRON_SECRET', value: process.env.CRON_SECRET },
@@ -21,6 +18,16 @@ function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> 
     .filter((item): item is { name: ServiceSecretName; value: string } => item !== null);
 }
 
+/** First non-empty secret for outbound Authorization (order matches Vercel cron + typical ops). */
+function outboundBearerMaterial(): string | null {
+  const order: ServiceSecretName[] = ['CRON_SECRET', 'MOBIUS_SERVICE_SECRET', 'BACKFILL_SECRET'];
+  for (const name of order) {
+    const raw = process.env[name];
+    if (typeof raw === 'string' && raw.trim()) return raw.trim();
+  }
+  return null;
+}
+
 /** Extract secret material from Authorization (Bearer or raw), normalized for comparison. */
 function extractAuthorizationToken(authorization: string | null): string | null {
   if (authorization === null) return null;
@@ -32,20 +39,25 @@ function extractAuthorizationToken(authorization: string | null): string | null 
 }
 
 export function serviceAuthorizationHeaderValue(): string | null {
-  const [primary] = configuredSecrets();
-  return primary ? `Bearer ${primary.value}` : null;
+  const material = outboundBearerMaterial();
+  return material ? `Bearer ${material}` : null;
 }
 
 /**
  * True when this request is Vercel’s scheduled cron HTTP GET (production).
- * Vercel documents User-Agent `vercel-cron/1.0` for cron invocations; some
- * deployments have seen missing or mismatched Authorization vs CRON_SECRET.
- * Used only by /api/runtime/heartbeat so the cron path matches other cron routes.
+ * Vercel documents User-Agent `vercel-cron/1.0` and may send `x-vercel-cron`;
+ * some deployments differ slightly on User-Agent. Used only by
+ * /api/runtime/heartbeat so scheduled cron can run when auth headers are absent
+ * or differ from app secrets (still production-only).
  */
 export function isVercelCronInvocation(request: NextRequest): boolean {
   if (process.env.VERCEL !== '1') return false;
-  const ua = request.headers.get('user-agent');
-  return ua === 'vercel-cron/1.0';
+  const cronMarker = request.headers.get('x-vercel-cron');
+  if (cronMarker !== null && cronMarker.trim() !== '') {
+    return true;
+  }
+  const ua = request.headers.get('user-agent') ?? '';
+  return /^vercel-cron\//i.test(ua.trim());
 }
 
 export function getServiceAuthError(request: NextRequest): NextResponse | null {
