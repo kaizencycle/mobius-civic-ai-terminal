@@ -54,11 +54,18 @@ function sortLedger(entries: LedgerEntry[], key: LedgerSortKey, dir: 'asc' | 'de
 export default function LedgerPanel({
   entries,
   duplicateSuppressedCount = 0,
+  promotionCounters,
   selectedId,
   onSelect,
 }: {
   entries: LedgerEntry[];
   duplicateSuppressedCount?: number;
+  promotionCounters?: {
+    pending_promotable_count: number;
+    promoted_this_cycle_count: number;
+    committed_agent_count: number;
+    failed_promotion_count: number;
+  };
   selectedId?: string;
   onSelect?: (entry: LedgerEntry) => void;
 }) {
@@ -71,7 +78,7 @@ export default function LedgerPanel({
     [sorted],
   );
   const liveCommittedEntries = useMemo(
-    () => sorted.filter((entry) => (entry.source === 'echo' || entry.source === 'eve-synthesis') && entry.status === 'committed'),
+    () => sorted.filter((entry) => (entry.source === 'echo' || entry.source === 'eve-synthesis' || entry.source === 'agent_commit') && entry.status === 'committed'),
     [sorted],
   );
   const backfillEntries = useMemo(
@@ -116,6 +123,10 @@ export default function LedgerPanel({
           <div>live_committed_agent_count: <span className="text-emerald-300">{liveCommittedEntries.length}</span></div>
           <div>backfill_count: <span className="text-slate-200">{backfillEntries.length}</span></div>
           <div>duplicate_suppressed_count: <span className="text-fuchsia-300">{duplicateSuppressedCount}</span></div>
+          <div>pending_promotable_count: <span className="text-amber-300">{promotionCounters?.pending_promotable_count ?? 0}</span></div>
+          <div>promoted_this_cycle_count: <span className="text-sky-300">{promotionCounters?.promoted_this_cycle_count ?? 0}</span></div>
+          <div>committed_agent_count: <span className="text-emerald-300">{promotionCounters?.committed_agent_count ?? liveCommittedEntries.length}</span></div>
+          <div>failed_promotion_count: <span className="text-rose-300">{promotionCounters?.failed_promotion_count ?? 0}</span></div>
         </div>
         <div className="text-[11px] font-mono uppercase tracking-[0.1em] text-slate-500">
           Cycle {cycleId} · default focus: committed agent memory

@@ -116,7 +116,7 @@ function epiconFeedRowToLedger(raw: Record<string, unknown>): LedgerEntry | null
 
   const src = raw.source;
   const source: LedgerEntry['source'] | undefined =
-    src === 'eve-synthesis' || src === 'echo' || src === 'backfill' || src === 'mock'
+    src === 'eve-synthesis' || src === 'echo' || src === 'backfill' || src === 'mock' || src === 'agent_commit'
       ? src
       : undefined;
 
@@ -242,6 +242,22 @@ export type EchoFeedData = {
   };
 };
 
+export type PromotionStatus = {
+  counters: {
+    pending_promotable_count: number;
+    promoted_this_cycle_count: number;
+    committed_agent_count: number;
+    failed_promotion_count: number;
+  };
+  items?: Array<{
+    epicon_id: string;
+    promotion_state: 'pending' | 'selected' | 'promoted' | 'failed';
+    assigned_agents: string[];
+    committed_entries: string[];
+    failed_attempts: number;
+  }>;
+};
+
 /**
  * Fetches live ECHO data from the internal API route.
  * Returns null if the fetch fails (terminal falls back to mock-only data).
@@ -254,6 +270,14 @@ export async function getEchoFeed(): Promise<EchoFeedData | null> {
   } catch {
     return null;
   }
+}
+
+export async function getPromotionStatus(): Promise<PromotionStatus | null> {
+  const raw = await fetchInternalJson('/api/epicon/promote');
+  if (!raw || typeof raw !== 'object') return null;
+  const counters = (raw as { counters?: unknown }).counters;
+  if (!counters || typeof counters !== 'object') return null;
+  return raw as PromotionStatus;
 }
 
 

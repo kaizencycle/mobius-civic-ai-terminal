@@ -12,6 +12,7 @@ import {
   getEpiconFeed,
   getIntegrityStatus,
   getLedgerBackfill,
+  getPromotionStatus,
   getPulseSnapshot,
   getTripwires,
   integrityStatusToGISnapshot,
@@ -83,6 +84,12 @@ export function useTerminalData(selectedNav: NavKey) {
   const [showCreateEpicon, setShowCreateEpicon] = useState(false);
   const [operatorMessage, setOperatorMessage] = useState('Terminal live. Awaiting operator action.');
   const [duplicateSuppressedCount, setDuplicateSuppressedCount] = useState(0);
+  const [promotionCounters, setPromotionCounters] = useState({
+    pending_promotable_count: 0,
+    promoted_this_cycle_count: 0,
+    committed_agent_count: 0,
+    failed_promotion_count: 0,
+  });
 
   const mergedLedger = useMemo(() => {
     const seen = new Set<string>();
@@ -202,7 +209,7 @@ export function useTerminalData(selectedNav: NavKey) {
     let mounted = true;
 
     async function loadEcho() {
-      const feed = await getEchoFeed();
+      const [feed, promotion] = await Promise.all([getEchoFeed(), getPromotionStatus()]);
       if (!mounted || !feed) return;
 
       if (feed.epicon.length > 0) {
@@ -216,6 +223,20 @@ export function useTerminalData(selectedNav: NavKey) {
       setEchoAlerts(feed.alerts);
       if (feed.integrity) setEchoIntegrity(feed.integrity);
       setDuplicateSuppressedCount(feed.status.duplicateSuppressedCount ?? 0);
+      if (promotion) {
+        setPromotionCounters(promotion.counters);
+        const promotionMap = new Map((promotion.items ?? []).map((item) => [item.epicon_id, item]));
+        setEpicon((prev) => prev.map((item) => {
+          const row = promotionMap.get(item.id);
+          if (!row) return item;
+          return {
+            ...item,
+            promotionState: row.promotion_state,
+            assignedAgents: row.assigned_agents,
+            committedEntries: row.committed_entries,
+          };
+        }));
+      }
     }
 
     loadEcho();
@@ -320,6 +341,7 @@ export function useTerminalData(selectedNav: NavKey) {
     mergedLedger,
     operatorMessage,
     duplicateSuppressedCount,
+    promotionCounters,
     setEchoAlerts,
     setEchoIntegrity,
     setEchoLedger,

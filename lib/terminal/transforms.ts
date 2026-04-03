@@ -55,6 +55,15 @@ export function transformEpicon(raw: any): EpiconItem {
     summary,
     trace,
     feedSource: typeof raw.source === 'string' ? raw.source : undefined,
+    promotionState:
+      raw.promotion_state === 'pending' ||
+      raw.promotion_state === 'selected' ||
+      raw.promotion_state === 'promoted' ||
+      raw.promotion_state === 'failed'
+        ? raw.promotion_state
+        : undefined,
+    assignedAgents: Array.isArray(raw.assigned_agents) ? raw.assigned_agents.filter((a: unknown): a is string => typeof a === 'string') : undefined,
+    committedEntries: Array.isArray(raw.committed_entries) ? raw.committed_entries.filter((a: unknown): a is string => typeof a === 'string') : undefined,
   };
 }
 
