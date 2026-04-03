@@ -25,6 +25,9 @@ permissions:
 
 env:
   TERMINAL_URL: "https://mobius-civic-ai-terminal.vercel.app"
+  # Match lib/security/serviceAuth.ts: MOBIUS_SERVICE_SECRET preferred, then CRON_SECRET
+  MOBIUS_SERVICE_SECRET: ${{ secrets.MOBIUS_SERVICE_SECRET }}
+  CRON_SECRET: ${{ secrets.CRON_SECRET }}
 
 jobs:
   heartbeat:
@@ -64,9 +67,14 @@ jobs:
             echo '{"ok":false,"global_integrity":0,"mode":"unknown"}' > /tmp/integrity.json
           fi
 
-          # Try to fetch runtime heartbeat
+          # Try to fetch runtime heartbeat (requires same Bearer as deployed service auth)
+          RUNTIME_AUTH="${MOBIUS_SERVICE_SECRET:-${CRON_SECRET:-}}"
+          RUNTIME_CURL_AUTH=()
+          if [ -n "$RUNTIME_AUTH" ]; then
+            RUNTIME_CURL_AUTH=(-H "Authorization: Bearer ${RUNTIME_AUTH}")
+          fi
           RUNTIME_OK=false
-          if curl -sf "${TERMINAL_URL}/api/runtime/heartbeat" -o /tmp/runtime.json --max-time 10; then
+          if curl -sf "${RUNTIME_CURL_AUTH[@]}" "${TERMINAL_URL}/api/runtime/heartbeat" -o /tmp/runtime.json --max-time 10; then
             RUNTIME_OK=true
             echo "✅ Runtime heartbeat responded"
           else

@@ -3,10 +3,13 @@ import type { NextRequest } from 'next/server';
 
 type ServiceSecretName = 'MOBIUS_SERVICE_SECRET' | 'CRON_SECRET' | 'BACKFILL_SECRET';
 
+function trimSecret(value: string | undefined): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  return value.trim();
+}
+
+/** All configured secrets — inbound routes accept Bearer for any of these. */
 function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> {
-  // CRON_SECRET first: Vercel cron sends Authorization: Bearer ${CRON_SECRET}.
-  // Outbound callers (e.g. DAEDALUS self-ping → /api/runtime/heartbeat) must use
-  // the same token the platform attaches, or probes 401 while cron succeeds.
   const pairs: Array<{ name: ServiceSecretName; value: string | undefined }> = [
     { name: 'CRON_SECRET', value: process.env.CRON_SECRET },
     { name: 'MOBIUS_SERVICE_SECRET', value: process.env.MOBIUS_SERVICE_SECRET },
@@ -14,15 +17,29 @@ function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> 
   ];
 
   return pairs
-    .map(({ name, value }) => (typeof value === 'string' && value.trim()
-      ? { name, value: value.trim() }
-      : null))
+    .map(({ name, value }) => {
+      const trimmed = trimSecret(value);
+      return trimmed ? { name, value: trimmed } : null;
+    })
     .filter((item): item is { name: ServiceSecretName; value: string } => item !== null);
 }
 
+/**
+ * Bearer token for server-side outbound calls (e.g. DAEDALUS → /api/runtime/heartbeat).
+ * Prefer MOBIUS_SERVICE_SECRET so internal probes match the primary service token when
+ * CRON_SECRET is also set (Vercel cron still authenticates via getServiceAuthError using CRON_SECRET).
+ */
 export function serviceAuthorizationHeaderValue(): string | null {
-  const [primary] = configuredSecrets();
-  return primary ? `Bearer ${primary.value}` : null;
+  const outboundOrder: ServiceSecretName[] = [
+    'MOBIUS_SERVICE_SECRET',
+    'CRON_SECRET',
+    'BACKFILL_SECRET',
+  ];
+  for (const name of outboundOrder) {
+    const raw = trimSecret(process.env[name]);
+    if (raw) return `Bearer ${raw}`;
+  }
+  return null;
 }
 
 export function getServiceAuthError(request: NextRequest): NextResponse | null {
