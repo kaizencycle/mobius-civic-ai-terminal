@@ -72,8 +72,14 @@ function formatCommitTitle(agent: Agent, epicon: EpiconItem): string {
   return `${agent} review: ${epicon.title}`.slice(0, 140);
 }
 
+function toIdToken(value: string): string {
+  return value.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toUpperCase();
+}
+
 function buildCommit(agent: Agent, epicon: EpiconItem, cycleId: string, seq: number): EpiconLedgerFeedEntry {
-  const id = `LE-${cycleId}-${agent}-${String(seq).padStart(3, '0')}`;
+  const stamp = Date.now();
+  const derivedFromToken = toIdToken(epicon.id);
+  const id = `LE-${cycleId}-${agent}-${derivedFromToken}-${stamp}-${String(seq).padStart(3, '0')}`;
   return {
     id,
     timestamp: new Date().toISOString(),
@@ -147,6 +153,33 @@ async function getLedgerPendingEpicon(): Promise<EpiconItem[]> {
 
   rows.push(...getMemoryLedgerEntries(200));
   return rows.map(parsePendingLedgerEntry).filter((item): item is EpiconItem => item !== null);
+}
+
+async function getLedgerRows(limit = 400): Promise<EpiconLedgerFeedEntry[]> {
+  const redis = getRedisClient();
+  const rows: EpiconLedgerFeedEntry[] = [];
+
+  if (redis) {
+    try {
+      const [primary, alias] = await Promise.all([
+        redis.lrange<string>('mobius:epicon:feed', 0, limit - 1),
+        redis.lrange<string>('epicon:feed', 0, limit - 1),
+      ]);
+
+      for (const raw of [...primary, ...alias]) {
+        try {
+          rows.push(JSON.parse(raw) as EpiconLedgerFeedEntry);
+        } catch {
+          // ignore malformed rows
+        }
+      }
+    } catch {
+      // continue with in-memory fallback
+    }
+  }
+
+  rows.push(...getMemoryLedgerEntries(limit));
+  return rows;
 }
 
 async function ensureEchoIngested(): Promise<void> {
@@ -289,14 +322,28 @@ export async function GET(request: NextRequest) {
   const promotable = await getPromotablePending(state, nowIso, promotedIdsThisCycle);
   const pending = promotable.pending;
 
-  let promotedThisCycle = promotedIdsThisCycle.length;
+  let promotedThisCycle = 0;
   let committedAgentCount = 0;
   let failedPromotionCount = 0;
+  const cyclePrefix = `LE-${cycleId}-`;
 
   for (const entry of Object.values(state)) {
-    committedAgentCount += entry.committed_entries.length;
+    const committedInActiveCycle = entry.committed_entries.filter((entryId) => entryId.startsWith(cyclePrefix));
+    committedAgentCount += committedInActiveCycle.length;
+    if (entry.promotion_state === 'promoted' && committedInActiveCycle.length > 0) {
+      promotedThisCycle += 1;
+    }
     failedPromotionCount += entry.failed_attempts;
   }
+
+  const ledgerRows = await getLedgerRows();
+  const seenCommittedIds = new Set<string>();
+  for (const row of ledgerRows) {
+    if (row.source !== 'agent_commit' || row.status !== 'committed' || row.cycle !== cycleId) continue;
+    if (typeof row.id !== 'string' || !row.id) continue;
+    seenCommittedIds.add(row.id);
+  }
+  committedAgentCount = seenCommittedIds.size;
 
   return NextResponse.json({
     ok: true,
