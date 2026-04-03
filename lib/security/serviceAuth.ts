@@ -18,7 +18,7 @@ function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> 
     .filter((item): item is { name: ServiceSecretName; value: string } => item !== null);
 }
 
-/** First non-empty secret for outbound Authorization (MOBIUS first so internal fetches match ops / GitHub Actions). */
+/** First non-empty secret for outbound Authorization (MOBIUS first so probes match sentinel / ops). */
 function outboundBearerMaterial(): string | null {
   const order: ServiceSecretName[] = ['MOBIUS_SERVICE_SECRET', 'CRON_SECRET', 'BACKFILL_SECRET'];
   for (const name of order) {
