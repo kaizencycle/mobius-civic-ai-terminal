@@ -17,7 +17,9 @@ export type NewsCategory =
   | 'geopolitical'
   | 'governance'
   | 'market'
-  | 'infrastructure';
+  | 'infrastructure'
+  | 'ethics'
+  | 'civic-risk';
 
 export type Severity = 'low' | 'medium' | 'high';
 
@@ -223,6 +225,8 @@ function categorizeHeadline(text: string): NewsCategory {
     governance: GOV_KEYWORDS.filter((keyword) => lower.includes(keyword)).length,
     market: MARKET_KEYWORDS.filter((keyword) => lower.includes(keyword)).length,
     infrastructure: INFRA_KEYWORDS.filter((keyword) => lower.includes(keyword)).length,
+    ethics: 0,
+    'civic-risk': 0,
   };
 
   const max = Math.max(...Object.values(scores));
@@ -295,6 +299,14 @@ function generateEveTag(title: string, category: NewsCategory): string {
 
   if (category === 'market') {
     return 'Economic signal - correlate with geopolitical drivers';
+  }
+
+  if (category === 'ethics') {
+    return 'Ethics lane active - monitor governance and integrity posture';
+  }
+
+  if (category === 'civic-risk') {
+    return 'Civic-risk lane active - assess transmission to public trust';
   }
 
   if (category === 'infrastructure') {
@@ -564,12 +576,16 @@ export function eveItemsToRawEvents(items: EveNewsItem[]): RawEvent[] {
     summary: `${item.eve_tag}. ${item.summary}`,
     url: item.url,
     timestamp: item.timestamp,
-    category: item.category,
+    category:
+      item.category === 'ethics' || item.category === 'civic-risk'
+        ? 'governance'
+        : item.category,
     severity: item.severity,
     metadata: {
       region: item.region,
       eve_tag: item.eve_tag,
       original_source: item.source,
+      eve_category: item.category,
     },
   }));
 }

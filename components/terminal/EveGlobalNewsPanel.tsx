@@ -79,7 +79,7 @@ export default function EveGlobalNewsPanel() {
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="text-xs uppercase tracking-[0.18em] text-slate-400">EVE Global News</div>
+        <div className="text-xs uppercase tracking-[0.18em] text-slate-400">EVE Governance / Ethics</div>
         {data && (
           <span className={`rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em] ${tensionClass(data.global_tension)}`}>
             {data.global_tension}
