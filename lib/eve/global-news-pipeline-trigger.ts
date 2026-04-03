@@ -15,7 +15,7 @@ async function readJson(res: Response): Promise<unknown> {
 
 export function triggerEveSynthesisPipelineAfterObservation(baseUrl: string): void {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  const secret = process.env.MOBIUS_SERVICE_SECRET ?? process.env.BACKFILL_SECRET;
+  const secret = process.env.BACKFILL_SECRET ?? process.env.MOBIUS_SERVICE_SECRET;
   if (!apiKey?.trim() || !secret?.trim()) {
     return;
   }
