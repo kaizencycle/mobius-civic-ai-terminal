@@ -65,6 +65,13 @@ export default function LedgerPanel({
     promoted_this_cycle_count: number;
     committed_agent_count: number;
     failed_promotion_count: number;
+    diagnostics?: {
+      last_promotion_run_at: string | null;
+      promoter_input_count: number;
+      promoter_eligible_count: number;
+      promoter_excluded_reasons: Record<string, number>;
+      promoted_ids_this_cycle: string[];
+    };
   };
   selectedId?: string;
   onSelect?: (entry: LedgerEntry) => void;
@@ -127,6 +134,19 @@ export default function LedgerPanel({
           <div>promoted_this_cycle_count: <span className="text-sky-300">{promotionCounters?.promoted_this_cycle_count ?? 0}</span></div>
           <div>committed_agent_count: <span className="text-emerald-300">{promotionCounters?.committed_agent_count ?? liveCommittedEntries.length}</span></div>
           <div>failed_promotion_count: <span className="text-rose-300">{promotionCounters?.failed_promotion_count ?? 0}</span></div>
+          <div>promoter_input_count: <span className="text-slate-200">{promotionCounters?.diagnostics?.promoter_input_count ?? 0}</span></div>
+          <div>promoter_eligible_count: <span className="text-sky-300">{promotionCounters?.diagnostics?.promoter_eligible_count ?? 0}</span></div>
+          <div className="col-span-2">
+            promoted_ids_this_cycle: <span className="text-emerald-300">{promotionCounters?.diagnostics?.promoted_ids_this_cycle?.join(', ') || 'none'}</span>
+          </div>
+          <div className="col-span-2">
+            last_promotion_run_at: <span className="text-slate-200">{promotionCounters?.diagnostics?.last_promotion_run_at ?? 'n/a'}</span>
+          </div>
+        </div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-[10px] font-mono uppercase tracking-[0.08em] text-slate-400">
+          promoter_excluded_reasons: {Object.entries(promotionCounters?.diagnostics?.promoter_excluded_reasons ?? {})
+            .map(([reason, count]) => `${reason}=${count}`)
+            .join(' · ') || 'none'}
         </div>
         <div className="text-[11px] font-mono uppercase tracking-[0.1em] text-slate-500">
           Cycle {cycleId} · default focus: committed agent memory

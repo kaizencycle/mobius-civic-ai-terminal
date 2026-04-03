@@ -89,6 +89,13 @@ export function useTerminalData(selectedNav: NavKey) {
     promoted_this_cycle_count: 0,
     committed_agent_count: 0,
     failed_promotion_count: 0,
+    diagnostics: {
+      last_promotion_run_at: null as string | null,
+      promoter_input_count: 0,
+      promoter_eligible_count: 0,
+      promoter_excluded_reasons: {} as Record<string, number>,
+      promoted_ids_this_cycle: [] as string[],
+    },
   });
 
   const mergedLedger = useMemo(() => {
@@ -224,7 +231,16 @@ export function useTerminalData(selectedNav: NavKey) {
       if (feed.integrity) setEchoIntegrity(feed.integrity);
       setDuplicateSuppressedCount(feed.status.duplicateSuppressedCount ?? 0);
       if (promotion) {
-        setPromotionCounters(promotion.counters);
+        setPromotionCounters({
+          ...promotion.counters,
+          diagnostics: promotion.diagnostics ?? {
+            last_promotion_run_at: null,
+            promoter_input_count: 0,
+            promoter_eligible_count: 0,
+            promoter_excluded_reasons: {},
+            promoted_ids_this_cycle: [],
+          },
+        });
         const promotionMap = new Map((promotion.items ?? []).map((item) => [item.epicon_id, item]));
         setEpicon((prev) => prev.map((item) => {
           const row = promotionMap.get(item.id);

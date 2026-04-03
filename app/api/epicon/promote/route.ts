@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
-import { getEchoEpicon, getEchoStatus } from '@/lib/echo/store';
+import { getEchoEpicon, getEchoStatus, pushIngestResult } from '@/lib/echo/store';
+import { fetchAllSources } from '@/lib/echo/sources';
+import { transformBatch } from '@/lib/echo/transform';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
@@ -13,6 +15,19 @@ export const dynamic = 'force-dynamic';
 type Agent = 'ZEUS' | 'JADE' | 'HERMES' | 'AUREA' | 'ATLAS';
 type PromotionState = Awaited<ReturnType<typeof getPromotionState>>;
 type PromotableCategory = EpiconItem['category'];
+type ExclusionReason =
+  | 'status_not_pending'
+  | 'confidence_tier_below_1'
+  | 'category_not_promotable'
+  | 'already_promoted';
+
+type PromotionTrace = {
+  last_promotion_run_at: string | null;
+  promoter_input_count: number;
+  promoter_eligible_count: number;
+  promoter_excluded_reasons: Record<ExclusionReason, number>;
+  promoted_ids_this_cycle: string[];
+};
 
 const AGENT_ROUTING: Record<EpiconItem['category'], Agent[]> = {
   market: ['HERMES', 'ZEUS', 'AUREA'],
@@ -134,32 +149,88 @@ async function getLedgerPendingEpicon(): Promise<EpiconItem[]> {
   return rows.map(parsePendingLedgerEntry).filter((item): item is EpiconItem => item !== null);
 }
 
-async function getPromotablePending(state: PromotionState): Promise<EpiconItem[]> {
+async function ensureEchoIngested(): Promise<void> {
+  if (getEchoEpicon().length > 0) return;
+  try {
+    const raw = await fetchAllSources();
+    if (raw.length > 0) {
+      pushIngestResult(transformBatch(raw));
+    }
+  } catch {
+    // best-effort refresh only
+  }
+}
+
+async function getPromotablePending(
+  state: PromotionState,
+  nowIso: string,
+  promotedIdsThisCycle: string[] = [],
+): Promise<{ pending: EpiconItem[]; trace: PromotionTrace }> {
+  await ensureEchoIngested();
   const fromEcho = getEchoEpicon();
   const fromLedger = await getLedgerPendingEpicon();
   const pendingById = new Map<string, EpiconItem>();
+  const excluded: Record<ExclusionReason, number> = {
+    status_not_pending: 0,
+    confidence_tier_below_1: 0,
+    category_not_promotable: 0,
+    already_promoted: 0,
+  };
+  const allCandidates = [...fromEcho, ...fromLedger];
 
-  for (const item of [...fromEcho, ...fromLedger]) {
-    if (item.status !== 'pending') continue;
-    if (item.confidenceTier < 1) continue;
-    if (!PROMOTABLE_CATEGORIES.has(item.category)) continue;
-    if (state[item.id]?.promotion_state === 'promoted') continue;
+  console.info('[epicon/promote] promoter_input_candidates', {
+    count: allCandidates.length,
+    ids: allCandidates.map((item) => item.id),
+  });
+
+  for (const item of allCandidates) {
+    if (item.status !== 'pending') {
+      excluded.status_not_pending += 1;
+      continue;
+    }
+    if (item.confidenceTier < 1) {
+      excluded.confidence_tier_below_1 += 1;
+      continue;
+    }
+    if (!PROMOTABLE_CATEGORIES.has(item.category)) {
+      excluded.category_not_promotable += 1;
+      continue;
+    }
+    if (state[item.id]?.promotion_state === 'promoted') {
+      excluded.already_promoted += 1;
+      continue;
+    }
     pendingById.set(item.id, item);
   }
 
-  return [...pendingById.values()]
+  const pending = [...pendingById.values()]
     .sort((a, b) => {
       if (b.confidenceTier !== a.confidenceTier) return b.confidenceTier - a.confidenceTier;
       return parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp);
     });
+
+  console.info('[epicon/promote] promoter_excluded_reasons', excluded);
+
+  return {
+    pending,
+    trace: {
+      last_promotion_run_at: nowIso,
+      promoter_input_count: allCandidates.length,
+      promoter_eligible_count: pending.length,
+      promoter_excluded_reasons: excluded,
+      promoted_ids_this_cycle: promotedIdsThisCycle,
+    },
+  };
 }
 
 async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: string, state: PromotionState) {
-  const pending = (await getPromotablePending(state)).slice(0, maxItems);
+  const promotable = await getPromotablePending(state, nowIso);
+  const pending = promotable.pending.slice(0, maxItems);
   let promoted = 0;
   let committed = 0;
   let failed = 0;
   let seq = 1;
+  const promotedIdsThisCycle: string[] = [];
 
   for (const epicon of pending) {
     const existing = state[epicon.id] ?? defaultPromotionState(nowIso);
@@ -186,6 +257,7 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
 
       existing.promotion_state = 'promoted';
       promoted += 1;
+      promotedIdsThisCycle.push(epicon.id);
     } catch {
       existing.promotion_state = 'failed';
       existing.failed_attempts += 1;
@@ -196,7 +268,8 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
   }
 
   await savePromotionState(state);
-  return { pending, promoted, committed, failed };
+  const postRun = await getPromotablePending(state, nowIso, promotedIdsThisCycle);
+  return { pending, promoted, committed, failed, trace: postRun.trace };
 }
 
 export async function GET(request: NextRequest) {
@@ -206,19 +279,22 @@ export async function GET(request: NextRequest) {
   const nowIso = new Date().toISOString();
   const cycleId = currentCycleId();
   const state = await getPromotionState();
+  let lastRunAt: string | null = null;
+  let promotedIdsThisCycle: string[] = [];
   if (runCycle) {
-    await runPromotionCycle(boundedMaxItems, nowIso, cycleId, state);
+    const run = await runPromotionCycle(boundedMaxItems, nowIso, cycleId, state);
+    lastRunAt = nowIso;
+    promotedIdsThisCycle = run.trace.promoted_ids_this_cycle;
   }
-  const pending = await getPromotablePending(state);
+  const promotable = await getPromotablePending(state, nowIso, promotedIdsThisCycle);
+  const pending = promotable.pending;
 
-  let promotedThisCycle = 0;
+  let promotedThisCycle = promotedIdsThisCycle.length;
   let committedAgentCount = 0;
   let failedPromotionCount = 0;
 
-  for (const item of pending) {
-    const entry = state[item.id] ?? defaultPromotionState(nowIso);
+  for (const entry of Object.values(state)) {
     committedAgentCount += entry.committed_entries.length;
-    if (entry.promotion_state === 'promoted') promotedThisCycle += 1;
     failedPromotionCount += entry.failed_attempts;
   }
 
@@ -231,6 +307,10 @@ export async function GET(request: NextRequest) {
       promoted_this_cycle_count: promotedThisCycle,
       committed_agent_count: committedAgentCount,
       failed_promotion_count: failedPromotionCount,
+    },
+    diagnostics: {
+      ...promotable.trace,
+      last_promotion_run_at: lastRunAt,
     },
     items: pending.map((item) => {
       const entry = state[item.id] ?? defaultPromotionState(nowIso);
@@ -261,6 +341,7 @@ export async function POST(request: NextRequest) {
     promoted: run.promoted,
     committed: run.committed,
     failed: run.failed,
+    diagnostics: run.trace,
     maxItems,
     timestamp: nowIso,
   });
