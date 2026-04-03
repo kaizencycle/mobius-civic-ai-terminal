@@ -4,9 +4,12 @@ import type { NextRequest } from 'next/server';
 type ServiceSecretName = 'MOBIUS_SERVICE_SECRET' | 'CRON_SECRET' | 'BACKFILL_SECRET';
 
 function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> {
+  // CRON_SECRET first: Vercel cron sends Authorization: Bearer ${CRON_SECRET}.
+  // Outbound callers (e.g. DAEDALUS self-ping → /api/runtime/heartbeat) must use
+  // the same token the platform attaches, or probes 401 while cron succeeds.
   const pairs: Array<{ name: ServiceSecretName; value: string | undefined }> = [
-    { name: 'MOBIUS_SERVICE_SECRET', value: process.env.MOBIUS_SERVICE_SECRET },
     { name: 'CRON_SECRET', value: process.env.CRON_SECRET },
+    { name: 'MOBIUS_SERVICE_SECRET', value: process.env.MOBIUS_SERVICE_SECRET },
     { name: 'BACKFILL_SECRET', value: process.env.BACKFILL_SECRET },
   ];
 
