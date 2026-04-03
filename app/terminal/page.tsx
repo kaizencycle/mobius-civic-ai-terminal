@@ -108,6 +108,7 @@ function TerminalPage() {
     allTripwires,
     dataRef,
     dominantTripwireState,
+    duplicateSuppressedCount,
     echoAlerts,
     echoIntegrity,
     filteredAgents,
@@ -332,6 +333,7 @@ function TerminalPage() {
             {showLedger && (
               <LedgerPanel
                 entries={mergedLedger}
+                duplicateSuppressedCount={duplicateSuppressedCount}
                 selectedId={inspectorTarget.kind === 'ledger' ? inspectorTarget.data.id : undefined}
                 onSelect={(entry) => setInspectorTarget({ kind: 'ledger', data: entry })}
               />
