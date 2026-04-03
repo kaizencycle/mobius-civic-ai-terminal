@@ -3,6 +3,31 @@ import type { NextRequest } from 'next/server';
 
 type ServiceSecretName = 'MOBIUS_SERVICE_SECRET' | 'CRON_SECRET' | 'BACKFILL_SECRET';
 
+/**
+ * Normalize secret material from env: trim, strip one layer of surrounding quotes,
+ * strip an optional `Bearer ` prefix. Aligns stored values with
+ * `extractAuthorizationToken()` so `Authorization: Bearer <secret>` and outbound
+ * `serviceAuthorizationHeaderValue()` stay consistent when ops paste
+ * `Bearer …` or quoted values into Vercel.
+ */
+function normalizeServiceSecretMaterial(raw: string | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  let s = raw.trim();
+  if (s.length === 0) return null;
+  if (
+    (s.startsWith('"') && s.endsWith('"') && s.length >= 2) ||
+    (s.startsWith("'") && s.endsWith("'") && s.length >= 2)
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  if (s.length === 0) return null;
+  const bearerMatch = /^Bearer\s+(.+)$/i.exec(s);
+  if (bearerMatch) {
+    s = bearerMatch[1].trim();
+  }
+  return s.length > 0 ? s : null;
+}
+
 function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> {
   // Inbound: accept Bearer for any configured secret (order does not matter).
   const pairs: Array<{ name: ServiceSecretName; value: string | undefined }> = [
@@ -12,18 +37,19 @@ function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> 
   ];
 
   return pairs
-    .map(({ name, value }) => (typeof value === 'string' && value.trim()
-      ? { name, value: value.trim() }
-      : null))
+    .map(({ name, value }) => {
+      const normalized = normalizeServiceSecretMaterial(value);
+      return normalized !== null ? { name, value: normalized } : null;
+    })
     .filter((item): item is { name: ServiceSecretName; value: string } => item !== null);
 }
 
-/** First non-empty secret for outbound Authorization (MOBIUS first so probes match sentinel / ops). */
+/** First non-empty normalized secret for outbound Authorization (MOBIUS first so probes match sentinel / ops). */
 function outboundBearerMaterial(): string | null {
   const order: ServiceSecretName[] = ['MOBIUS_SERVICE_SECRET', 'CRON_SECRET', 'BACKFILL_SECRET'];
   for (const name of order) {
-    const raw = process.env[name];
-    if (typeof raw === 'string' && raw.trim()) return raw.trim();
+    const normalized = normalizeServiceSecretMaterial(process.env[name]);
+    if (normalized !== null) return normalized;
   }
   return null;
 }
