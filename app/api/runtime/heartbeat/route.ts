@@ -7,7 +7,11 @@ import { integrityStatus } from '@/lib/mock/integrityStatus';
 import { integrityStatusToGISnapshot } from '@/lib/terminal/api';
 import { mockAgents, mockEpicon, mockTripwires } from '@/lib/terminal/mock';
 import { detectTripwires, mergeTripwires } from '@/lib/echo/tripwire-engine';
-import { getServiceAuthError, isVercelCronInvocation } from '@/lib/security/serviceAuth';
+import {
+  getServiceAuthError,
+  isValidCronSecretBearer,
+  isVercelCronInvocation,
+} from '@/lib/security/serviceAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,6 +75,9 @@ async function runHeartbeat() {
 }
 
 function authorize(request: NextRequest) {
+  if (isValidCronSecretBearer(request.headers.get('authorization'))) {
+    return null;
+  }
   if (isVercelCronInvocation(request)) {
     return null;
   }

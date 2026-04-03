@@ -86,6 +86,19 @@ export function isVercelCronInvocation(request: NextRequest): boolean {
   return /^vercel-cron\//i.test(ua.trim());
 }
 
+/**
+ * Vercel injects `Authorization: Bearer ${CRON_SECRET}` on cron invocations when
+ * CRON_SECRET is set (see Vercel cron docs). That header is checked before the
+ * generic service-secret list so scheduled `/api/runtime/heartbeat` succeeds when
+ * MOBIUS_SERVICE_SECRET and CRON_SECRET differ.
+ */
+export function isValidCronSecretBearer(authorization: string | null): boolean {
+  const cronMaterial = normalizeServiceSecretMaterial(process.env.CRON_SECRET);
+  if (cronMaterial === null) return false;
+  const token = extractAuthorizationToken(authorization);
+  return token !== null && token === cronMaterial;
+}
+
 export function getServiceAuthError(request: NextRequest): NextResponse | null {
   const secrets = configuredSecrets();
   if (secrets.length === 0) {
