@@ -256,7 +256,7 @@ export function useTerminalData(selectedNav: NavKey) {
     }
 
     loadEcho();
-    const interval = window.setInterval(loadEcho, 2 * 60 * 60 * 1000);
+    const interval = window.setInterval(loadEcho, 15000);
 
     return () => {
       mounted = false;
