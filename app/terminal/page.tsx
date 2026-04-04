@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import HardHalt from '@/components/modals/HardHalt';
 import TerminalShellFallback from '@/components/terminal/TerminalShellFallback';
 import { WalletProvider } from '@/contexts/WalletContext';
@@ -61,9 +61,11 @@ function TerminalPage() {
   const [agentSearch, setAgentSearch] = useState('');
   const [focusedAgent, setFocusedAgent] = useState<AgentStatusApi | null>(null);
   const [agentRoster, setAgentRoster] = useState<AgentStatusApi[]>([]);
+  const [rosterLoaded, setRosterLoaded] = useState(false);
   const [micro, setMicro] = useState<MicroSweepResponse | null>(null);
   const [microHistory, setMicroHistory] = useState<Array<{ time: string; composite: number }>>([]);
   const [kvLatency, setKvLatency] = useState<number | null>(null);
+  const [ledgerExpanded, setLedgerExpanded] = useState(false);
 
   const { allTripwires, filteredEpicon, gi, integrityStatus, mergedLedger, streamStatus } = useTerminalData(selectedNav);
 
@@ -89,6 +91,7 @@ function TerminalPage() {
       if (agentsResult.status === 'fulfilled' && agentsResult.value.ok) {
         setAgentRoster(agentsResult.value.agents ?? []);
       }
+      setRosterLoaded(true);
       if (microResult.status === 'fulfilled' && microResult.value.ok) {
         const microJson = microResult.value;
         setMicro(microJson);
@@ -136,6 +139,12 @@ function TerminalPage() {
     if (!needle) return agentRoster;
     return agentRoster.filter((agent) => `${agent.name} ${agent.role}`.toLowerCase().includes(needle));
   }, [agentRoster, agentSearch]);
+
+  // Stable callback — never recreated, so React.memo on LedgerRow is effective
+  const handleLedgerSelect = useCallback((id: string) => {
+    setSelectedLedgerId(id);
+    setExpandedLedgerId((prev) => (prev === id ? null : id));
+  }, []);
 
   if (!gi) return <TerminalShellFallback statusLabel="Booting Mobius Terminal · syncing integrity surfaces" />;
 
@@ -216,19 +225,24 @@ function TerminalPage() {
             ))}
           </div>
           <div className="space-y-2">
-            {filteredLedger.slice(0, 14).map((entry) => (
+            {filteredLedger.slice(0, ledgerExpanded ? undefined : 14).map((entry) => (
               <LedgerRow
                 key={entry.id}
                 entry={entry}
                 isSelected={selectedLedgerId === entry.id}
                 isExpanded={expandedLedgerId === entry.id}
-                onSelect={() => {
-                  setSelectedLedgerId(entry.id);
-                  setExpandedLedgerId(expandedLedgerId === entry.id ? null : entry.id);
-                }}
+                onSelect={handleLedgerSelect}
               />
             ))}
           </div>
+          {filteredLedger.length > 14 && (
+            <button
+              onClick={() => setLedgerExpanded((prev) => !prev)}
+              className="mt-3 w-full rounded-md border border-slate-700 bg-slate-950 py-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400 transition hover:border-sky-500/40 hover:text-sky-300"
+            >
+              {ledgerExpanded ? '▲ collapse' : `▼ show ${filteredLedger.length - 14} more entries`}
+            </button>
+          )}
         </section>
 
         <aside className="col-span-12 space-y-4 xl:col-span-3">
@@ -239,36 +253,40 @@ function TerminalPage() {
             </div>
             <input value={agentSearch} onChange={(event) => setAgentSearch(event.target.value)} placeholder="Search agent" className="mb-3 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 outline-none ring-sky-500/30 focus:ring-1" />
             <div className="space-y-2">
-              {visibleAgents.slice(0, 8).map((agent) => {
-                const load = Math.min(100, Math.max(5, Math.round((agent.load ?? 0.6) * 100)));
-                return (
-                  <button key={agent.id} onClick={() => setFocusedAgent(agent)} className="w-full rounded-md border border-slate-800 bg-slate-950/80 p-2 text-left">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-semibold text-slate-100">{agent.name}</div>
-                      <span className={cn('h-2 w-2 rounded-full', agent.status === 'offline' ? 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]' : agent.status === 'idle' ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]' : 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]')} />
-                    </div>
-                    <div className="text-[10px] text-slate-500">{agent.role}</div>
-                    <div className="mt-2 h-1 w-16 overflow-hidden rounded bg-slate-800"><div className={cn('h-full', load > 80 ? 'bg-rose-400' : load > 60 ? 'bg-amber-400' : 'bg-sky-400')} style={{ width: `${load}%` }} /></div>
-                  </button>
-                );
-              })}
+              {!rosterLoaded
+                ? Array.from({ length: 4 }).map((_, i) => <SkeletonAgentRow key={i} />)
+                : visibleAgents.slice(0, 8).map((agent) => {
+                    const load = Math.min(100, Math.max(5, Math.round((agent.load ?? 0.6) * 100)));
+                    return (
+                      <button key={agent.id} onClick={() => setFocusedAgent(agent)} className="w-full rounded-md border border-slate-800 bg-slate-950/80 p-2 text-left">
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs font-semibold text-slate-100">{agent.name}</div>
+                          <span className={cn('h-2 w-2 rounded-full', agent.status === 'offline' ? 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]' : agent.status === 'idle' ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]' : 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]')} />
+                        </div>
+                        <div className="text-[10px] text-slate-500">{agent.role}</div>
+                        <div className="mt-2 h-1 w-16 overflow-hidden rounded bg-slate-800"><div className={cn('h-full', load > 80 ? 'bg-rose-400' : load > 60 ? 'bg-amber-400' : 'bg-sky-400')} style={{ width: `${load}%` }} /></div>
+                      </button>
+                    );
+                  })}
             </div>
           </section>
 
           <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
             <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Micro-Agent Signals</div>
             <div className="space-y-2">
-              {(micro?.agents ?? []).map((agent) => {
-                const scored = micro?.allSignals.filter((signal) => signal.agentName === agent.agentName) ?? [];
-                const score = scored.length === 0 ? 0 : Math.round((scored.reduce((sum, signal) => sum + signal.value, 0) / scored.length) * 100);
-                const tone = score > 90 ? 'bg-emerald-400' : score > 70 ? 'bg-sky-400' : 'bg-amber-400';
-                return (
-                  <div key={agent.agentName} className="rounded-md border border-slate-800 bg-slate-950/70 p-2">
-                    <div className="flex items-center justify-between text-xs"><span>{agent.agentName}</span><span className="font-mono text-slate-400">{score}%</span></div>
-                    <div className="mt-1 h-1 overflow-hidden rounded bg-slate-800"><div className={tone + ' h-full transition-all'} style={{ width: `${score}%` }} /></div>
-                  </div>
-                );
-              })}
+              {!rosterLoaded
+                ? Array.from({ length: 3 }).map((_, i) => <SkeletonSignalRow key={i} />)
+                : (micro?.agents ?? []).map((agent) => {
+                    const scored = micro?.allSignals.filter((signal) => signal.agentName === agent.agentName) ?? [];
+                    const score = scored.length === 0 ? 0 : Math.round((scored.reduce((sum, signal) => sum + signal.value, 0) / scored.length) * 100);
+                    const tone = score > 90 ? 'bg-emerald-400' : score > 70 ? 'bg-sky-400' : 'bg-amber-400';
+                    return (
+                      <div key={agent.agentName} className="rounded-md border border-slate-800 bg-slate-950/70 p-2">
+                        <div className="flex items-center justify-between text-xs"><span>{agent.agentName}</span><span className="font-mono text-slate-400">{score}%</span></div>
+                        <div className="mt-1 h-1 overflow-hidden rounded bg-slate-800"><div className={tone + ' h-full transition-all'} style={{ width: `${score}%` }} /></div>
+                      </div>
+                    );
+                  })}
             </div>
           </section>
 
@@ -316,7 +334,9 @@ function TerminalPage() {
   );
 }
 
-function StatCard({ label, value, trend, icon }: { label: string; value: string; trend: number; icon: string }) {
+// ── Optimization 1: React.memo prevents re-render on every 15s poll ──────────
+
+const StatCard = memo(function StatCard({ label, value, trend, icon }: { label: string; value: string; trend: number; icon: string }) {
   const positive = trend >= 0;
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 transition hover:border-sky-500/50">
@@ -330,7 +350,7 @@ function StatCard({ label, value, trend, icon }: { label: string; value: string;
       </div>
     </div>
   );
-}
+});
 
 function MiniChart({ points }: { points: number[] }) {
   const normalized = points.length > 1 ? points : [0.5, 0.52, 0.49, 0.53, 0.55, 0.56, 0.57];
@@ -354,11 +374,49 @@ function MiniChart({ points }: { points: number[] }) {
   );
 }
 
-function LedgerRow({ entry, isSelected, isExpanded, onSelect }: { entry: LedgerEntry; isSelected: boolean; isExpanded: boolean; onSelect: () => void }) {
+// ── Optimization 5: auto-updating relative timestamp ─────────────────────────
+
+function useRelativeTime(timestamp: string) {
+  const format = (ts: string) => {
+    const diffMs = Date.now() - new Date(ts).getTime();
+    if (Number.isNaN(diffMs)) return ts;
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return `${diffSec}s ago`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return new Date(ts).toLocaleDateString();
+  };
+  const [label, setLabel] = useState(() => format(timestamp));
+  useEffect(() => {
+    const id = window.setInterval(() => setLabel(format(timestamp)), 60_000);
+    return () => window.clearInterval(id);
+  }, [timestamp]);
+  return label;
+}
+
+// ── Optimization 1 (continued): memo + stable callbacks via lifted state ──────
+
+type LedgerRowProps = {
+  entry: LedgerEntry;
+  isSelected: boolean;
+  isExpanded: boolean;
+  onSelect: (id: string) => void;
+};
+
+const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSelect }: LedgerRowProps) {
   const confidence = Math.min(100, Math.max(10, Math.round(((entry.confidenceTier ?? 2) / 4) * 100)));
+  const relTime = useRelativeTime(entry.timestamp);
+  const isoTime = new Date(entry.timestamp).toISOString();
+
+  const handleSelect = useCallback(() => {
+    onSelect(entry.id);
+  }, [onSelect, entry.id]);
+
   return (
     <div className={cn('rounded-md border border-slate-800 bg-slate-950/70 p-3 transition', isSelected && 'border-sky-500/30 ring-1 ring-sky-500/20')}>
-      <button onClick={onSelect} className="w-full text-left">
+      <button onClick={handleSelect} className="w-full text-left">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-xs font-mono text-slate-300">{entry.agentOrigin.slice(0, 2).toUpperCase()}</div>
@@ -367,7 +425,7 @@ function LedgerRow({ entry, isSelected, isExpanded, onSelect }: { entry: LedgerE
               <div className="truncate text-xs text-slate-500">{entry.summary}</div>
             </div>
           </div>
-          <div className="text-right text-[10px] font-mono text-slate-500">{new Date(entry.timestamp).toLocaleTimeString()}</div>
+          <time dateTime={isoTime} title={isoTime} className="shrink-0 text-right text-[10px] font-mono text-slate-500">{relTime}</time>
         </div>
         <div className="mt-2 flex items-center gap-2 text-[10px] font-mono text-slate-400">
           <span>confidence</span>
@@ -386,6 +444,34 @@ function LedgerRow({ entry, isSelected, isExpanded, onSelect }: { entry: LedgerE
           <div className="text-right text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">hash {entry.id}</div>
         </div>
       ) : null}
+    </div>
+  );
+});
+
+
+// ── Optimization 2: Skeleton loaders ─────────────────────────────────────────
+
+function SkeletonAgentRow() {
+  return (
+    <div className="w-full rounded-md border border-slate-800 bg-slate-950/80 p-2 animate-pulse">
+      <div className="flex items-center justify-between">
+        <div className="h-3 w-16 rounded bg-slate-800" />
+        <div className="h-2 w-2 rounded-full bg-slate-800" />
+      </div>
+      <div className="mt-1 h-2.5 w-24 rounded bg-slate-800" />
+      <div className="mt-2 h-1 w-16 rounded bg-slate-800" />
+    </div>
+  );
+}
+
+function SkeletonSignalRow() {
+  return (
+    <div className="rounded-md border border-slate-800 bg-slate-950/70 p-2 animate-pulse">
+      <div className="flex items-center justify-between">
+        <div className="h-3 w-20 rounded bg-slate-800" />
+        <div className="h-3 w-8 rounded bg-slate-800" />
+      </div>
+      <div className="mt-1 h-1 w-full rounded bg-slate-800" />
     </div>
   );
 }
