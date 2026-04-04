@@ -177,17 +177,9 @@ async function tryExternalEnrichment(): Promise<{ line: string | null; degraded:
   }
 }
 
-export type GatherEveGovernanceOptions = {
-  ledgerRows?: EpiconLedgerFeedEntry[];
-  /** When true (e.g. global-news path), do not call fetchEveGlobalNews — use caller-supplied context instead. */
-  skipLiveExternalFetch?: boolean;
-  externalItemCount?: number;
-  externalDegradedReason?: string;
-};
-
 export async function gatherEveGovernanceSynthesisInput(
   cycleId?: string,
-  options?: GatherEveGovernanceOptions,
+  options?: { ledgerRows?: EpiconLedgerFeedEntry[] },
 ): Promise<EveGovernanceSynthesisInput> {
   const resolvedCycle = cycleId?.trim() || currentCycleId();
   const ledgerRows = options?.ledgerRows ?? (await readLedgerRowsForEve(400));
@@ -216,27 +208,9 @@ export async function gatherEveGovernanceSynthesisInput(
   const mii = integrityStatus.mii_baseline;
 
   const echoEpicon = getEchoEpicon();
-  const narrativeClusterCount = echoEpicon.filter((e) => e.category === 'narrative').length;
+  const narrativeClusterCount = echoEpicon.length;
 
-  let externalDegraded: boolean;
-  let externalEnrichment: string | null;
-
-  if (options?.skipLiveExternalFetch) {
-    const reason = options.externalDegradedReason;
-    const count = options.externalItemCount;
-    externalDegraded = Boolean(reason);
-    if (reason) {
-      externalEnrichment = `External observation layer: degraded (${reason}).`;
-    } else if (typeof count === 'number' && count > 0) {
-      externalEnrichment = `External observation layer: ${count} fresh item(s) available for operator context (substrate remains authoritative).`;
-    } else {
-      externalEnrichment = null;
-    }
-  } else {
-    const ext = await tryExternalEnrichment();
-    externalDegraded = ext.degraded;
-    externalEnrichment = ext.line;
-  }
+  const ext = await tryExternalEnrichment();
 
   return {
     cycleId: resolvedCycle,
@@ -250,8 +224,8 @@ export async function gatherEveGovernanceSynthesisInput(
     treasuryTripwireCount,
     treasuryAlertCount,
     narrativeClusterCount,
-    externalDegraded,
-    externalEnrichment,
+    externalDegraded: ext.degraded,
+    externalEnrichment: ext.line,
   };
 }
 
@@ -323,10 +297,6 @@ export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisI
   }
   for (const a of input.civicAlerts.slice(0, 5)) {
     if (typeof a.id === 'string') derivedFrom.push(`civic:${a.id}`);
-  }
-  derivedFrom.push(`tripwire:${input.tripwire.level}`);
-  if (input.treasuryStatus !== 'unavailable') {
-    derivedFrom.push(`treasury:${input.treasuryStatus}`);
   }
 
   const governanceSummary =
@@ -477,11 +447,6 @@ export async function publishEveGovernanceSynthesis(
     return { published: false, entryId: null, idempotencyTag, ledgerSeverity: ledgerSeverityFromSignals(output.severity) };
   }
 
-  const freshRows = await readLedgerRowsForEve(400);
-  if (ledgerHasIdempotencyTag(freshRows, idempotencyTag)) {
-    return { published: false, entryId: null, idempotencyTag, ledgerSeverity: ledgerSeverityFromSignals(output.severity) };
-  }
-
   const seqToken = Date.now().toString(36).toUpperCase();
   const entryId = `EPICON-${input.cycleId}-EVE-SYN-${seqToken}`;
   const timestamp = nowIso();
@@ -493,9 +458,6 @@ export async function publishEveGovernanceSynthesis(
     output.category,
     ...output.ethicsFlags.map((f) => `ethics:${f}`),
   ];
-
-  const ledgerCategory =
-    output.category === 'civic-risk' || output.category === 'ethics' ? 'governance' : output.category;
 
   await pushLedgerEntry({
     id: entryId,
@@ -510,7 +472,7 @@ export async function publishEveGovernanceSynthesis(
     verified: true,
     verifiedBy: 'ZEUS',
     cycle: input.cycleId,
-    category: ledgerCategory,
+    category: output.category,
     confidenceTier: output.confidenceTier,
     derivedFrom: output.derivedFrom.slice(0, 32).join('|').slice(0, 512),
     status: 'committed',

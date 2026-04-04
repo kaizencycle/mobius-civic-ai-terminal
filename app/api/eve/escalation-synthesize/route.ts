@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       cycleId,
       mode: 'escalation' as const,
       published: false,
-      reason: 'no_escalation_conditions',
+      reason: 'no_escalation_signal',
       derivedFromCount: 0,
     });
   }
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       cycleId,
       mode: 'escalation' as const,
       published: false,
-      reason: 'already_synthesized_for_escalation_signature',
+      reason: 'already_synthesized_for_escalation_class',
       idempotencyTag,
       derivedFromCount: 0,
     });
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
     mode: 'escalation' as const,
     published: publishResult.published,
     entryId: publishResult.entryId,
-    reason: publishResult.published ? 'escalation_conditions_met' : 'already_synthesized_for_escalation_signature',
+    reason: publishResult.published ? 'escalation_signal' : 'already_synthesized_for_escalation_class',
     derivedFromCount: output.derivedFrom.length,
     idempotencyTag: publishResult.idempotencyTag,
     escalationFingerprint: fingerprint,

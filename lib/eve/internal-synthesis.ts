@@ -21,15 +21,8 @@ type InternalSynthesisResult = {
   committed: false;
 };
 
-export async function buildAndCommitEveInternalSynthesis(options?: {
-  externalItemCount?: number;
-  externalDegradedReason?: string;
-}): Promise<InternalSynthesisResult> {
-  const input = await gatherEveGovernanceSynthesisInput(undefined, {
-    skipLiveExternalFetch: true,
-    externalItemCount: options?.externalItemCount,
-    externalDegradedReason: options?.externalDegradedReason,
-  });
+export async function buildAndCommitEveInternalSynthesis(): Promise<InternalSynthesisResult> {
+  const input = await gatherEveGovernanceSynthesisInput();
   const output = buildEveGovernanceSynthesisOutput(input);
   const preview = buildInternalPreviewFromInput(input, output);
 
