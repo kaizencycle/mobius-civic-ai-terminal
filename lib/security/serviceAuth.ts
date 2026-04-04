@@ -64,13 +64,6 @@ function extractAuthorizationToken(authorization: string | null): string | null 
   return raw.length > 0 ? raw : null;
 }
 
-/** Authorization header as sent on the wire (trimmed), for exact-match checks (e.g. Vercel CRON_SECRET). */
-function trimmedAuthorizationHeader(authorization: string | null): string | null {
-  if (authorization === null) return null;
-  const t = authorization.trim();
-  return t.length > 0 ? t : null;
-}
-
 export function serviceAuthorizationHeaderValue(): string | null {
   const material = outboundBearerMaterial();
   return material ? `Bearer ${material}` : null;
@@ -85,11 +78,12 @@ export function serviceAuthorizationHeaderValue(): string | null {
  * carry CRON_SECRET (still production-only).
  */
 export function isVercelCronInvocation(request: NextRequest): boolean {
-  if (process.env.VERCEL !== '1') return false;
+  // Injected on cron invocations; validated by the platform before the function runs.
   const cronAuthToken = request.headers.get('x-vercel-cron-auth-token');
   if (cronAuthToken !== null && cronAuthToken.trim() !== '') {
     return true;
   }
+  if (process.env.VERCEL !== '1') return false;
   const cronMarker = request.headers.get('x-vercel-cron');
   if (cronMarker !== null && cronMarker.trim() !== '') {
     return true;
@@ -100,23 +94,11 @@ export function isVercelCronInvocation(request: NextRequest): boolean {
 
 /**
  * Vercel injects `Authorization: Bearer ${CRON_SECRET}` on cron invocations when
- * CRON_SECRET is set (see Vercel cron docs). That header is checked before the
- * generic service-secret list so scheduled `/api/runtime/heartbeat` succeeds when
- * MOBIUS_SERVICE_SECRET and CRON_SECRET differ.
+ * CRON_SECRET is set (see Vercel cron docs). Compared after normalization so quoted
+ * or `Bearer …` env values still match the wire header.
  */
 export function isValidCronSecretBearer(authorization: string | null): boolean {
-  const cronEnv = process.env.CRON_SECRET;
-  if (typeof cronEnv !== 'string') return false;
-  const cronTrimmed = cronEnv.trim();
-  if (cronTrimmed.length === 0) return false;
-
-  // Vercel sends Authorization: Bearer ${CRON_SECRET} byte-for-byte against the env value (see Vercel cron docs).
-  const header = trimmedAuthorizationHeader(authorization);
-  if (header !== null && header === `Bearer ${cronTrimmed}`) {
-    return true;
-  }
-
-  const cronMaterial = normalizeServiceSecretMaterial(cronEnv);
+  const cronMaterial = normalizeServiceSecretMaterial(process.env.CRON_SECRET);
   if (cronMaterial === null) return false;
   const token = extractAuthorizationToken(authorization);
   if (token === null) return false;
