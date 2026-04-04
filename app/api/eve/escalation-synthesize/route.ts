@@ -1,53 +1,113 @@
 /**
- * POST /api/eve/escalation-synthesize — C-270 escalation-only EVE governance synthesis.
- * Publishes when tripwire / GI / civic / treasury / narrative cluster thresholds fire; idempotent per signature.
+ * POST /api/eve/escalation-synthesize — EVE escalation-only governance synthesis (C-270).
+ * Bearer: MOBIUS_SERVICE_SECRET | CRON_SECRET | BACKFILL_SECRET
  */
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import { runEveGovernanceSynthesis } from '@/lib/eve/governance-synthesis';
+import {
+  buildEveGovernanceSynthesisOutput,
+  escalationFingerprint,
+  escalationIdempotencyTag,
+  escalationWarranted,
+  gatherEveGovernanceSynthesisInput,
+  ledgerHasIdempotencyTag,
+  publishEveGovernanceSynthesis,
+  readLedgerRowsForEve,
+} from '@/lib/eve/governance-synthesis';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { getServiceAuthError } from '@/lib/security/serviceAuth';
+import { runSignalEngine } from '@/lib/signals/engine';
 
 export const dynamic = 'force-dynamic';
 
-function authOk(request: NextRequest): boolean {
-  const secret = process.env.BACKFILL_SECRET;
-  if (!secret || !secret.trim()) return true;
-  const auth = request.headers.get('authorization');
-  return auth === `Bearer ${secret}`;
+type EscBody = {
+  cycleId?: unknown;
+  force?: unknown;
+};
+
+function parseBody(body: unknown): { cycleId: string | null; force: boolean } {
+  if (body === null || typeof body !== 'object') {
+    return { cycleId: null, force: false };
+  }
+  const o = body as EscBody;
+  const raw = o.cycleId;
+  const cycleId = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
+  const force = o.force === true;
+  return { cycleId, force };
 }
 
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    info: 'POST to run escalation-gated EVE synthesis when substrate signals warrant an extra ledger entry',
+    info: 'POST with service Authorization when substrate escalation signals warrant an extra EVE synthesis',
+    mode: 'escalation',
   });
 }
 
 export async function POST(request: NextRequest) {
-  if (!authOk(request)) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+  const authErr = getServiceAuthError(request);
+  if (authErr) return authErr;
+
+  let body: unknown = {};
+  try {
+    const text = await request.text();
+    if (text.trim()) {
+      body = JSON.parse(text) as unknown;
+    }
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const result = await runEveGovernanceSynthesis({ mode: 'escalation' });
+  const { cycleId: bodyCycle, force } = parseBody(body);
+  const cycleId = bodyCycle ?? currentCycleId();
+
+  await runSignalEngine();
+
+  const allRows = await readLedgerRowsForEve(400);
+  const input = await gatherEveGovernanceSynthesisInput(cycleId, { ledgerRows: allRows });
+
+  if (!force && !escalationWarranted(input)) {
+    return NextResponse.json({
+      ok: true,
+      cycleId,
+      mode: 'escalation' as const,
+      published: false,
+      reason: 'no_escalation_conditions',
+      derivedFromCount: 0,
+    });
+  }
+
+  const fingerprint = force ? `force-${Date.now()}` : escalationFingerprint(input);
+  const idempotencyTag = escalationIdempotencyTag(cycleId, fingerprint);
+
+  if (!force && ledgerHasIdempotencyTag(allRows, idempotencyTag)) {
+    return NextResponse.json({
+      ok: true,
+      cycleId,
+      mode: 'escalation' as const,
+      published: false,
+      reason: 'already_synthesized_for_escalation_signature',
+      idempotencyTag,
+      derivedFromCount: 0,
+    });
+  }
+
+  const output = buildEveGovernanceSynthesisOutput(input);
+  const publishResult = await publishEveGovernanceSynthesis(input, output, idempotencyTag, allRows);
 
   return NextResponse.json({
     ok: true,
-    cycleId: result.cycleId,
+    cycleId,
     mode: 'escalation' as const,
-    published: result.published,
-    entryId: result.entryId,
-    reason: result.reason,
-    derivedFromCount: result.derivedFromCount,
-    trace: {
-      governancePosture: result.synthesis?.governancePosture ?? null,
-      civicRiskLevel: result.synthesis?.civicRiskLevel ?? null,
-      escalationActive:
-        result.reason === 'no_escalation_conditions'
-          ? false
-          : result.reason === 'already_synthesized_for_escalation_signature'
-            ? true
-            : result.published,
-    },
+    published: publishResult.published,
+    entryId: publishResult.entryId,
+    reason: publishResult.published ? 'escalation_conditions_met' : 'already_synthesized_for_escalation_signature',
+    derivedFromCount: output.derivedFrom.length,
+    idempotencyTag: publishResult.idempotencyTag,
+    escalationFingerprint: fingerprint,
+    governancePosture: output.governancePosture,
+    externalDegraded: input.externalDegraded,
   });
 }

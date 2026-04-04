@@ -1,88 +1,64 @@
 /**
- * C-270 — EVE governance / ethics / civic-risk synthesis on the live EPICON ledger.
- * Internal substrate first; optional external news is layered by callers (e.g. global-news).
+ * EVE governance / ethics / civic-risk synthesis on live EPICON ledger (C-270).
+ * Internal substrate first; optional external news enrichment; KV-backed publish.
  */
 
 import { Redis } from '@upstash/redis';
 
 import type { EveNewsItem, EveSynthesis, NewsCategory, Severity } from '@/lib/eve/global-news';
+import { fetchEveGlobalNews } from '@/lib/eve/global-news';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { getEchoAlerts, getEchoEpicon } from '@/lib/echo/store';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
-import { getEchoAlerts, getEchoEpicon } from '@/lib/echo/store';
-import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { integrityStatus } from '@/lib/mock/integrityStatus';
 import { mockCivicAlerts } from '@/lib/terminal/mock';
-import { kvGet, kvSet } from '@/lib/kv/store';
+import type { CivicRadarAlert } from '@/lib/terminal/types';
 import { getTreasuryAlerts } from '@/lib/treasury/alerts';
 import { getTripwireState } from '@/lib/tripwire/store';
 
-export const EVE_GOVERNANCE_TAG = 'eve-governance-synth';
-export const EVE_GOVERNANCE_VERSION = 'c270-v1';
+export const EVE_GOVERNANCE_SYNTH_TAG = 'eve-governance-synthesis';
+export const EVE_SYNTHESIS_SOURCE = 'eve-synthesis' as const;
 
-const GI_ESCALATION_THRESHOLD = 0.82;
-const CIVIC_CRITICAL_ESCALATION = 1;
-const NARRATIVE_CLUSTER_ESCALATION = 4;
+const CYCLE_WINDOW_MS = 3 * 60 * 60 * 1000;
+const GI_STRESS_THRESHOLD = 0.72;
+const NARRATIVE_CLUSTER_THRESHOLD = 6;
 
-const KV_LAST_CYCLE = 'eve:gov:last_cycle_synth';
-const KV_LAST_ESCAL_SIG = 'eve:gov:last_escalation_sig';
-const ESCALATION_SIG_TTL_SEC = 86400;
+export type EveSynthesizeMode = 'cycle' | 'escalation';
 
-/** Warm-instance idempotency when Redis/KV is not configured or writes fail. */
-let memoryLastCyclePublished: string | null = null;
-let memoryLastEscalationSig: string | null = null;
-
-export type EveSynthesisInput = {
+export type EveGovernanceSynthesisInput = {
   cycleId: string;
-  timestamp: string;
+  gatheredAt: string;
   committedAgentRows: EpiconLedgerFeedEntry[];
-  agentAuthors: string[];
   tripwire: ReturnType<typeof getTripwireState>;
-  civicAlerts: ReturnType<typeof getEchoAlerts>;
-  treasury: {
-    status: string;
-    tripwireCount: number;
-    alertCount: number;
-    degraded: boolean;
-  };
+  civicAlerts: CivicRadarAlert[];
   gi: number;
   mii: number;
+  treasuryStatus: string;
+  treasuryTripwireCount: number;
+  treasuryAlertCount: number;
   narrativeClusterCount: number;
-  externalEnrichment: {
-    available: boolean;
-    itemCount: number;
-    degradedReason?: string;
-  };
+  externalDegraded: boolean;
+  externalEnrichment: string | null;
 };
+
+export type EveGovernanceCategory = 'governance' | 'ethics' | 'civic-risk';
 
 export type EveGovernanceSynthesisOutput = {
   title: string;
   summary: string;
   body: string;
-  category: NewsCategory;
+  category: EveGovernanceCategory;
   severity: Severity;
-  confidenceTier: 0 | 1 | 2 | 3 | 4;
-  governancePosture: 'stable' | 'watch' | 'stressed';
+  confidenceTier: number;
+  governancePosture: 'stable' | 'watch' | 'stressed' | 'critical';
   ethicsFlags: string[];
   civicRiskLevel: 'low' | 'medium' | 'high';
   derivedFrom: string[];
 };
 
-export type EveGovernanceRunMode = 'cycle' | 'escalation';
-
-export type EveGovernanceSynthesisResult = {
-  ok: true;
-  cycleId: string;
-  mode: EveGovernanceRunMode;
-  published: boolean;
-  entryId: string | null;
-  reason: string;
-  derivedFromCount: number;
-  synthesis: EveGovernanceSynthesisOutput | null;
-  input: EveSynthesisInput;
-};
-
-function getRedisLedgerClient(): Redis | null {
+function getRedisClient(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
@@ -93,9 +69,9 @@ function getRedisLedgerClient(): Redis | null {
   }
 }
 
-async function readLedgerRows(limit = 300): Promise<EpiconLedgerFeedEntry[]> {
+export async function readLedgerRowsForEve(limit = 400): Promise<EpiconLedgerFeedEntry[]> {
   const rows: EpiconLedgerFeedEntry[] = [];
-  const redis = getRedisLedgerClient();
+  const redis = getRedisClient();
 
   if (redis) {
     try {
@@ -120,14 +96,6 @@ async function readLedgerRows(limit = 300): Promise<EpiconLedgerFeedEntry[]> {
   return rows;
 }
 
-function nowIso(): string {
-  return new Date().toISOString();
-}
-
-function sanitizeTitle(value: string): string {
-  return value.replace(/\s+/g, ' ').trim().slice(0, 140);
-}
-
 function severityRank(severity: Severity): number {
   if (severity === 'high') return 3;
   if (severity === 'medium') return 2;
@@ -139,53 +107,94 @@ function maxSeverity(a: Severity, b: Severity): Severity {
 }
 
 function scoreToSeverity(score: number): Severity {
-  if (score < 0.72) return 'high';
+  if (score < GI_STRESS_THRESHOLD) return 'high';
   if (score < 0.84) return 'medium';
   return 'low';
 }
 
-function tripwireToSeverity(level: string): Severity {
-  if (level === 'high' || level === 'triggered' || level === 'suspended' || level === 'elevated') return 'high';
-  if (level === 'medium' || level === 'watch') return 'medium';
-  return 'low';
+export function tensionFromHighestSeverity(highest: Severity): EveSynthesis['global_tension'] {
+  if (highest === 'high') return 'high';
+  if (highest === 'medium') return 'elevated';
+  return 'moderate';
 }
 
-function ledgerIdCycle(cycleId: string): string {
-  return `LE-${cycleId}-EVE-GOV-SYNTH`;
+function nowIso(): string {
+  return new Date().toISOString();
 }
 
-function ledgerIdEscalation(cycleId: string, token: string): string {
-  return `LE-${cycleId}-EVE-ESCAL-${token}`;
+function sanitizeTitle(value: string): string {
+  return value.replace(/\s+/g, ' ').trim().slice(0, 140);
 }
 
-function countCriticalCivic(alerts: ReturnType<typeof getEchoAlerts>): number {
-  return alerts.filter((a) => a.severity === 'critical').length;
+export function cycleWindowBucket(nowMs: number): string {
+  const w = Math.floor(nowMs / CYCLE_WINDOW_MS);
+  return String(w);
 }
 
-function narrativeClusterApprox(): number {
-  const items = getEchoEpicon();
-  return items.filter((e) => e.category === 'narrative').length;
+export function cycleSynthesisIdempotencyTag(cycleId: string, windowBucket: string): string {
+  return `eve-syn-cycle|${cycleId}|${windowBucket}`;
 }
 
-export async function buildEveGovernanceSynthesisInput(options?: {
+export function escalationFingerprint(input: EveGovernanceSynthesisInput): string {
+  const giBucket = Math.floor(input.gi * 50);
+  const tw = input.tripwire.level;
+  const critRadar =
+    input.civicAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length;
+  const treasuryKey =
+    input.treasuryStatus === 'critical' || input.treasuryStatus === 'stressed' ? input.treasuryStatus : 'other';
+  const narr = input.narrativeClusterCount >= NARRATIVE_CLUSTER_THRESHOLD ? 'spike' : 'calm';
+  return `${giBucket}|${tw}|${critRadar}|${treasuryKey}|${narr}`;
+}
+
+export function escalationIdempotencyTag(cycleId: string, fingerprint: string): string {
+  return `eve-syn-esc|${cycleId}|${fingerprint}`;
+}
+
+export function ledgerHasIdempotencyTag(rows: EpiconLedgerFeedEntry[], tag: string): boolean {
+  return rows.some(
+    (row) =>
+      row.source === EVE_SYNTHESIS_SOURCE &&
+      row.status === 'committed' &&
+      Array.isArray(row.tags) &&
+      row.tags.includes(tag),
+  );
+}
+
+async function tryExternalEnrichment(): Promise<{ line: string | null; degraded: boolean }> {
+  try {
+    const syn = await fetchEveGlobalNews();
+    const first = syn.items[0];
+    const headline = first && typeof first.title === 'string' ? first.title.trim() : '';
+    if (headline) {
+      return {
+        line: `External observation (non-blocking): ${headline.slice(0, 120)}`,
+        degraded: false,
+      };
+    }
+    return { line: null, degraded: false };
+  } catch {
+    return { line: null, degraded: true };
+  }
+}
+
+export type GatherEveGovernanceOptions = {
+  ledgerRows?: EpiconLedgerFeedEntry[];
+  /** When true (e.g. global-news path), do not call fetchEveGlobalNews — use caller-supplied context instead. */
+  skipLiveExternalFetch?: boolean;
   externalItemCount?: number;
   externalDegradedReason?: string;
-}): Promise<EveSynthesisInput> {
-  const cycleId = currentCycleId();
-  const timestamp = nowIso();
-  const ledgerRows = await readLedgerRows(320);
+};
+
+export async function gatherEveGovernanceSynthesisInput(
+  cycleId?: string,
+  options?: GatherEveGovernanceOptions,
+): Promise<EveGovernanceSynthesisInput> {
+  const resolvedCycle = cycleId?.trim() || currentCycleId();
+  const ledgerRows = options?.ledgerRows ?? (await readLedgerRowsForEve(400));
 
   const committedAgentRows = ledgerRows.filter(
-    (row) => row.source === 'agent_commit' && row.status === 'committed' && row.cycle === cycleId,
+    (row) => row.source === 'agent_commit' && row.status === 'committed' && row.cycle === resolvedCycle,
   );
-
-  const agentAuthors = [
-    ...new Set(
-      committedAgentRows
-        .map((row) => row.agentOrigin ?? row.author)
-        .filter((a): a is string => typeof a === 'string' && a.trim().length > 0),
-    ),
-  ].sort();
 
   const tripwire = getTripwireState();
   const echoAlerts = getEchoAlerts();
@@ -194,138 +203,165 @@ export async function buildEveGovernanceSynthesisInput(options?: {
   let treasuryStatus = 'unavailable';
   let treasuryTripwireCount = 0;
   let treasuryAlertCount = 0;
-  let treasuryDegraded = true;
   try {
     const treasury = await getTreasuryAlerts();
     treasuryStatus = treasury.status;
     treasuryTripwireCount = treasury.tripwires.length;
     treasuryAlertCount = treasury.alerts.length;
-    treasuryDegraded = false;
   } catch {
-    treasuryDegraded = true;
+    // graceful degradation
   }
 
   const gi = integrityStatus.global_integrity;
   const mii = integrityStatus.mii_baseline;
-  const extCount = typeof options?.externalItemCount === 'number' ? options.externalItemCount : 0;
-  const extReason = options?.externalDegradedReason;
+
+  const echoEpicon = getEchoEpicon();
+  const narrativeClusterCount = echoEpicon.filter((e) => e.category === 'narrative').length;
+
+  let externalDegraded: boolean;
+  let externalEnrichment: string | null;
+
+  if (options?.skipLiveExternalFetch) {
+    const reason = options.externalDegradedReason;
+    const count = options.externalItemCount;
+    externalDegraded = Boolean(reason);
+    if (reason) {
+      externalEnrichment = `External observation layer: degraded (${reason}).`;
+    } else if (typeof count === 'number' && count > 0) {
+      externalEnrichment = `External observation layer: ${count} fresh item(s) available for operator context (substrate remains authoritative).`;
+    } else {
+      externalEnrichment = null;
+    }
+  } else {
+    const ext = await tryExternalEnrichment();
+    externalDegraded = ext.degraded;
+    externalEnrichment = ext.line;
+  }
 
   return {
-    cycleId,
-    timestamp,
+    cycleId: resolvedCycle,
+    gatheredAt: nowIso(),
     committedAgentRows,
-    agentAuthors,
     tripwire,
     civicAlerts,
-    treasury: {
-      status: treasuryStatus,
-      tripwireCount: treasuryTripwireCount,
-      alertCount: treasuryAlertCount,
-      degraded: treasuryDegraded,
-    },
     gi,
     mii,
-    narrativeClusterCount: narrativeClusterApprox(),
-    externalEnrichment: {
-      available: extCount > 0,
-      itemCount: extCount,
-      degradedReason: extReason,
-    },
+    treasuryStatus,
+    treasuryTripwireCount,
+    treasuryAlertCount,
+    narrativeClusterCount,
+    externalDegraded,
+    externalEnrichment,
   };
 }
 
-function ruleBasedSynthesis(input: EveSynthesisInput): EveGovernanceSynthesisOutput {
-  const { cycleId, committedAgentRows, agentAuthors, tripwire, civicAlerts, treasury, gi, mii, narrativeClusterCount, externalEnrichment } =
-    input;
+export function escalationWarranted(input: EveGovernanceSynthesisInput): boolean {
+  if (input.gi < GI_STRESS_THRESHOLD) return true;
+  if (
+    input.tripwire.level === 'elevated' ||
+    input.tripwire.level === 'high' ||
+    input.tripwire.level === 'triggered' ||
+    input.tripwire.level === 'suspended'
+  ) {
+    return true;
+  }
+  if (input.civicAlerts.some((a) => a.severity === 'critical')) return true;
+  if (input.treasuryStatus === 'critical' || input.treasuryStatus === 'stressed') return true;
+  if (input.narrativeClusterCount >= NARRATIVE_CLUSTER_THRESHOLD) return true;
+  return false;
+}
 
-  const giSev = scoreToSeverity(gi);
-  const miiSev = scoreToSeverity(mii);
-  const twSev = tripwireToSeverity(tripwire.level);
-  const civicCritical = countCriticalCivic(civicAlerts);
-  const civicSev: Severity = civicCritical >= CIVIC_CRITICAL_ESCALATION ? 'high' : civicAlerts.length >= 4 ? 'medium' : 'low';
-  const treasurySev: Severity =
-    treasury.status === 'critical' || treasury.status === 'stressed'
+function ledgerSeverityFromSignals(sev: Severity): EpiconLedgerFeedEntry['severity'] {
+  if (sev === 'high') return 'high';
+  if (sev === 'medium') return 'medium';
+  return 'low';
+}
+
+export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisInput): EveGovernanceSynthesisOutput {
+  const actorSet = new Set(
+    input.committedAgentRows
+      .map((row) => row.agentOrigin ?? row.author)
+      .filter((agent): agent is string => typeof agent === 'string' && agent.trim().length > 0),
+  );
+  const agentList = [...actorSet].sort();
+
+  const giSeverity = scoreToSeverity(input.gi);
+  const miiSeverity = scoreToSeverity(input.mii);
+  const tripwireSeverity: Severity =
+    input.tripwire.level === 'high' ||
+    input.tripwire.level === 'triggered' ||
+    input.tripwire.level === 'suspended'
       ? 'high'
-      : treasury.status === 'watch'
+      : input.tripwire.level === 'medium' ||
+          input.tripwire.level === 'watch' ||
+          input.tripwire.level === 'elevated'
         ? 'medium'
         : 'low';
 
-  const narrativeSev: Severity = narrativeClusterCount >= NARRATIVE_CLUSTER_ESCALATION ? 'medium' : 'low';
-
-  const combinedSeverity = [giSev, miiSev, twSev, civicSev, treasurySev, narrativeSev].reduce((a, b) => maxSeverity(a, b));
-
-  const agentLine =
-    agentAuthors.length > 0
-      ? `Committed agent lanes this cycle: ${agentAuthors.join(', ')}.`
-      : 'No additional committed agent authors detected for this cycle window yet.';
-
-  const treasuryLine = treasury.degraded
-    ? 'Treasury watch: degraded — internal fiscal stress signals were not refreshed; posture inferred from other substrate lanes only.'
-    : `Treasury watch: ${treasury.status} (${treasury.tripwireCount} fiscal tripwire(s), ${treasury.alertCount} alert(s)).`;
-
-  const tripLine = tripwire.active
-    ? `Runtime tripwire active (${tripwire.level}) — ${tripwire.reason}`
-    : `Runtime tripwire: ${tripwire.level} — ${tripwire.reason}`;
-
-  const extLine = externalEnrichment.available
-    ? `External observation layer: ${externalEnrichment.itemCount} fresh item(s) available for enrichment.`
-    : externalEnrichment.degradedReason
-      ? `External observation layer: degraded (${externalEnrichment.degradedReason}).`
-      : 'External observation layer: unavailable or stale — synthesis remains substrate-first.';
-
-  const narrativeLine =
-    narrativeClusterCount >= NARRATIVE_CLUSTER_ESCALATION
-      ? `Narrative cluster pressure: ${narrativeClusterCount} narrative-class EPICON signals in ECHO — monitor for amplification beyond verified evidence.`
-      : `Narrative cluster pressure: ${narrativeClusterCount} narrative-class signals — within normal watch band.`;
-
-  const summary = sanitizeTitle(
-    `GI ${gi.toFixed(2)}, MII ${mii.toFixed(2)}; ${committedAgentRows.length} committed agent row(s); civic radar ${civicAlerts.length} alert(s); ${tripLine.slice(0, 80)}${tripLine.length > 80 ? '…' : ''}`,
-  );
-
-  const title = sanitizeTitle(
-    combinedSeverity === 'high' || tripwire.active
-      ? `EVE review: civic-risk elevated — verify before narrative expansion (${cycleId})`
-      : gi < GI_ESCALATION_THRESHOLD
-        ? `EVE review: integrity posture soft — tighten verification cadence (${cycleId})`
-        : `EVE review: governance substrate stable with active cross-lane memory (${cycleId})`,
-  );
-
-  const body = [
-    `${agentLine} ${treasuryLine}`,
-    `${tripLine}. Civic radar: ${civicAlerts.length} alert(s), including ${civicCritical} critical-class signal(s).`,
-    `${narrativeLine}`,
-    `${extLine}`,
-    'Ethics framing: privilege committed ledger and verification chains over synthetic certainty; flag overreach when narrative velocity exceeds corroborated evidence.',
-  ].join('\n\n');
-
-  const governancePosture: EveGovernanceSynthesisOutput['governancePosture'] =
-    combinedSeverity === 'high' || tripwire.active ? 'stressed' : combinedSeverity === 'medium' ? 'watch' : 'stable';
+  let combinedSeverity = maxSeverity(maxSeverity(giSeverity, miiSeverity), tripwireSeverity);
+  if (input.civicAlerts.some((a) => a.severity === 'critical')) {
+    combinedSeverity = maxSeverity(combinedSeverity, 'high');
+  } else if (input.civicAlerts.filter((a) => a.severity === 'high').length >= 2) {
+    combinedSeverity = maxSeverity(combinedSeverity, 'medium');
+  }
 
   const civicRiskLevel: EveGovernanceSynthesisOutput['civicRiskLevel'] =
-    civicCritical >= 1 || combinedSeverity === 'high' ? 'high' : combinedSeverity === 'medium' ? 'medium' : 'low';
+    combinedSeverity === 'high' ? 'high' : combinedSeverity === 'medium' ? 'medium' : 'low';
+
+  const governancePosture: EveGovernanceSynthesisOutput['governancePosture'] =
+    input.gi < 0.65 ? 'critical' : input.gi < GI_STRESS_THRESHOLD ? 'stressed' : tripwireSeverity !== 'low' ? 'watch' : 'stable';
 
   const ethicsFlags: string[] = [];
-  if (tripwire.active) ethicsFlags.push('active_tripwire');
-  if (narrativeClusterCount >= NARRATIVE_CLUSTER_ESCALATION) ethicsFlags.push('narrative_cluster_elevated');
-  if (gi < GI_ESCALATION_THRESHOLD) ethicsFlags.push('gi_below_watch');
-  if (treasury.status === 'stressed' || treasury.status === 'critical') ethicsFlags.push('fiscal_stress');
-  if (!externalEnrichment.available) ethicsFlags.push('external_layer_degraded');
+  if (input.tripwire.active) ethicsFlags.push('active-tripwire');
+  if (input.gi < GI_STRESS_THRESHOLD) ethicsFlags.push('integrity-stress');
+  if (input.narrativeClusterCount >= NARRATIVE_CLUSTER_THRESHOLD) ethicsFlags.push('narrative-cluster-spike');
+  if (input.externalDegraded) ethicsFlags.push('external-feed-degraded');
 
   const derivedFrom: string[] = [];
-  for (const row of committedAgentRows.slice(0, 12)) {
-    derivedFrom.push(row.id);
+  for (const row of input.committedAgentRows.slice(0, 12)) {
+    if (typeof row.id === 'string' && row.id) derivedFrom.push(row.id);
   }
-  derivedFrom.push(`tripwire:${tripwire.level}`);
-  for (const a of civicAlerts.slice(0, 6)) {
-    derivedFrom.push(`civic:${a.id}`);
+  for (const a of input.civicAlerts.slice(0, 5)) {
+    if (typeof a.id === 'string') derivedFrom.push(`civic:${a.id}`);
   }
-  if (treasury.tripwireCount > 0) derivedFrom.push('treasury:tripwires');
-  if (treasury.alertCount > 0) derivedFrom.push('treasury:alerts');
 
-  const category: NewsCategory =
-    civicRiskLevel === 'high' || civicCritical >= 1 ? 'civic-risk' : ethicsFlags.includes('narrative_cluster_elevated') ? 'ethics' : 'governance';
+  const governanceSummary =
+    `Cycle ${input.cycleId} substrate: ${input.committedAgentRows.length} committed agent row(s) ` +
+    `from ${agentList.length > 0 ? agentList.join(', ') : 'no agent authors in-window'}. ` +
+    `GI=${input.gi.toFixed(2)}, MII=${input.mii.toFixed(2)}. Treasury watch: ${input.treasuryStatus} ` +
+    `(${input.treasuryTripwireCount} fiscal tripwire(s), ${input.treasuryAlertCount} alert(s)).`;
 
-  const confidenceTier: EveGovernanceSynthesisOutput['confidenceTier'] = combinedSeverity === 'high' ? 2 : 3;
+  const civicLine =
+    `Civic radar: ${input.civicAlerts.length} alert(s); tripwire runtime: ${input.tripwire.level}` +
+    (input.tripwire.active ? ` — ${input.tripwire.reason}` : '.');
+
+  const ethicsLine = input.tripwire.active
+    ? `Ethics / operator stance: treat narrative claims as subordinate to committed ledger evidence while tripwire ${input.tripwire.level} is active.`
+    : 'Ethics / operator stance: no active runtime tripwire; maintain verification discipline and avoid narrative overreach.';
+
+  const extLine = input.externalEnrichment ? `\n\n${input.externalEnrichment}` : '';
+
+  let title: string;
+  if (governancePosture === 'critical' || governancePosture === 'stressed') {
+    title = sanitizeTitle(`EVE review: civic-risk elevated — integrity posture stressed in ${input.cycleId}`);
+  } else if (ethicsFlags.includes('narrative-cluster-spike')) {
+    title = sanitizeTitle(`EVE review: narrative-overreach risk exceeds verified evidence in ${input.cycleId}`);
+  } else {
+    title = sanitizeTitle(`EVE review: governance implications of substrate state — ${input.cycleId}`);
+  }
+
+  const summary = sanitizeTitle(
+    `${governancePosture.toUpperCase()} posture · ${agentList.length} agent lane(s) · GI ${input.gi.toFixed(2)}`,
+  );
+
+  const body = [governanceSummary, civicLine, ethicsLine, extLine.trim() ? extLine : null]
+    .filter((p): p is string => typeof p === 'string')
+    .join('\n\n');
+
+  const category: EveGovernanceCategory =
+    civicRiskLevel === 'high' ? 'civic-risk' : ethicsFlags.length >= 2 ? 'ethics' : 'governance';
+
+  const confidenceTier = combinedSeverity === 'high' && input.committedAgentRows.length >= 2 ? 3 : 2;
 
   return {
     title,
@@ -341,418 +377,136 @@ function ruleBasedSynthesis(input: EveSynthesisInput): EveGovernanceSynthesisOut
   };
 }
 
-function hasCycleSynthesisForWindow(rows: EpiconLedgerFeedEntry[], cycleId: string): boolean {
-  return rows.some(
-    (row) =>
-      row.source === 'eve-synthesis' &&
-      row.agentOrigin === 'EVE' &&
-      row.cycle === cycleId &&
-      row.tags.includes(EVE_GOVERNANCE_TAG),
-  );
-}
-
-function hasLedgerEntryById(rows: EpiconLedgerFeedEntry[], id: string): boolean {
-  return rows.some((row) => row.id === id);
-}
-
-function escalationActive(input: EveSynthesisInput): boolean {
-  if (input.gi < GI_ESCALATION_THRESHOLD) return true;
-  if (input.tripwire.active || input.tripwire.level === 'elevated' || input.tripwire.level === 'high' || input.tripwire.level === 'triggered') {
-    return true;
-  }
-  if (countCriticalCivic(input.civicAlerts) >= CIVIC_CRITICAL_ESCALATION) return true;
-  if (input.narrativeClusterCount >= NARRATIVE_CLUSTER_ESCALATION) return true;
-  if (input.treasury.status === 'stressed' || input.treasury.status === 'critical') return true;
-  return false;
-}
-
-function escalationSignature(input: EveSynthesisInput): string {
-  const crit = countCriticalCivic(input.civicAlerts);
-  return [
-    input.cycleId,
-    input.gi.toFixed(3),
-    input.tripwire.level,
-    input.tripwire.active ? '1' : '0',
-    String(crit),
-    String(input.narrativeClusterCount),
-    input.treasury.status,
-  ].join('|');
-}
-
-function tokenFromSignature(sig: string): string {
-  let h = 0;
-  for (let i = 0; i < sig.length; i++) {
-    h = (Math.imul(31, h) + sig.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h).toString(36).toUpperCase().slice(0, 8);
-}
-
-async function kvLastCyclePublished(): Promise<string | null> {
-  const v = await kvGet<string>(KV_LAST_CYCLE);
-  return typeof v === 'string' && v.trim() ? v.trim() : null;
-}
-
-async function kvSetLastCyclePublished(cycleId: string): Promise<void> {
-  memoryLastCyclePublished = cycleId;
-  await kvSet(KV_LAST_CYCLE, cycleId);
-}
-
-async function kvLastEscalationSig(): Promise<string | null> {
-  const v = await kvGet<string>(KV_LAST_ESCAL_SIG);
-  return typeof v === 'string' && v.trim() ? v.trim() : null;
-}
-
-async function kvSetLastEscalationSig(sig: string): Promise<void> {
-  memoryLastEscalationSig = sig;
-  await kvSet(KV_LAST_ESCAL_SIG, sig, ESCALATION_SIG_TTL_SEC);
-}
-
-export async function runEveGovernanceSynthesis(options?: {
-  mode?: EveGovernanceRunMode;
-  externalItemCount?: number;
-  externalDegradedReason?: string;
-}): Promise<EveGovernanceSynthesisResult> {
-  const input = await buildEveGovernanceSynthesisInput({
-    externalItemCount: options?.externalItemCount,
-    externalDegradedReason: options?.externalDegradedReason,
-  });
-  const { cycleId } = input;
-  const ledgerRows = await readLedgerRows(400);
-  const mode: EveGovernanceRunMode = options?.mode ?? 'cycle';
-
-  if (mode === 'cycle') {
-    if (memoryLastCyclePublished === cycleId) {
-      return {
-        ok: true,
-        cycleId,
-        mode: 'cycle',
-        published: false,
-        entryId: ledgerIdCycle(cycleId),
-        reason: 'already_synthesized_for_window',
-        derivedFromCount: 0,
-        synthesis: null,
-        input,
-      };
-    }
-
-    const kvCycle = await kvLastCyclePublished();
-    if (kvCycle === cycleId) {
-      memoryLastCyclePublished = cycleId;
-      return {
-        ok: true,
-        cycleId,
-        mode: 'cycle',
-        published: false,
-        entryId: ledgerIdCycle(cycleId),
-        reason: 'already_synthesized_for_window',
-        derivedFromCount: 0,
-        synthesis: null,
-        input,
-      };
-    }
-
-    if (hasCycleSynthesisForWindow(ledgerRows, cycleId)) {
-      memoryLastCyclePublished = cycleId;
-      await kvSetLastCyclePublished(cycleId);
-      return {
-        ok: true,
-        cycleId,
-        mode: 'cycle',
-        published: false,
-        entryId: ledgerIdCycle(cycleId),
-        reason: 'already_synthesized_for_window',
-        derivedFromCount: 0,
-        synthesis: null,
-        input,
-      };
-    }
-
-    const existingLegacy = ledgerRows.find(
-      (r) => r.author === 'EVE' && r.cycle === cycleId && r.tags.includes('eve-internal-synthesis'),
-    );
-    if (existingLegacy) {
-      memoryLastCyclePublished = cycleId;
-      await kvSetLastCyclePublished(cycleId);
-      return {
-        ok: true,
-        cycleId,
-        mode: 'cycle',
-        published: false,
-        entryId: existingLegacy.id,
-        reason: 'legacy_internal_synthesis_present',
-        derivedFromCount: 0,
-        synthesis: null,
-        input,
-      };
-    }
-
-    const synth = ruleBasedSynthesis(input);
-    const entryId = ledgerIdCycle(cycleId);
-
-    if (hasLedgerEntryById(ledgerRows, entryId)) {
-      memoryLastCyclePublished = cycleId;
-      await kvSetLastCyclePublished(cycleId);
-      return {
-        ok: true,
-        cycleId,
-        mode: 'cycle',
-        published: false,
-        entryId,
-        reason: 'already_synthesized_for_window',
-        derivedFromCount: synth.derivedFrom.length,
-        synthesis: synth,
-        input,
-      };
-    }
-
-    await pushLedgerEntry({
-      id: entryId,
-      timestamp: input.timestamp,
-      author: 'EVE',
-      title: synth.title,
-      body: synth.body,
-      type: 'epicon',
-      severity: synth.severity,
-      tags: [EVE_GOVERNANCE_TAG, EVE_GOVERNANCE_VERSION, synth.category, ...synth.ethicsFlags.slice(0, 6)],
-      source: 'eve-synthesis',
-      verified: true,
-      verifiedBy: 'ZEUS',
-      cycle: cycleId,
-      category: synth.category === 'civic-risk' ? 'governance' : synth.category,
-      confidenceTier: synth.confidenceTier,
-      status: 'committed',
-      agentOrigin: 'EVE',
-      derivedFrom: synth.derivedFrom.slice(0, 24).join(','),
-    });
-
-    await kvSetLastCyclePublished(cycleId);
-
-    return {
-      ok: true,
-      cycleId,
-      mode: 'cycle',
-      published: true,
-      entryId,
-      reason: 'cycle_window_due',
-      derivedFromCount: synth.derivedFrom.length,
-      synthesis: synth,
-      input,
-    };
-  }
-
-  // escalation mode
-  if (!escalationActive(input)) {
-    return {
-      ok: true,
-      cycleId,
-      mode: 'escalation',
-      published: false,
-      entryId: null,
-      reason: 'no_escalation_conditions',
-      derivedFromCount: 0,
-      synthesis: null,
-      input,
-    };
-  }
-
-  const sig = escalationSignature(input);
-  if (memoryLastEscalationSig === sig) {
-    return {
-      ok: true,
-      cycleId,
-      mode: 'escalation',
-      published: false,
-      entryId: null,
-      reason: 'already_synthesized_for_escalation_signature',
-      derivedFromCount: 0,
-      synthesis: null,
-      input,
-    };
-  }
-
-  const prevSig = await kvLastEscalationSig();
-  if (prevSig === sig) {
-    memoryLastEscalationSig = sig;
-    return {
-      ok: true,
-      cycleId,
-      mode: 'escalation',
-      published: false,
-      entryId: null,
-      reason: 'already_synthesized_for_escalation_signature',
-      derivedFromCount: 0,
-      synthesis: null,
-      input,
-    };
-  }
-
-  const token = tokenFromSignature(sig);
-  const entryId = ledgerIdEscalation(cycleId, token);
-  if (hasLedgerEntryById(ledgerRows, entryId)) {
-    await kvSetLastEscalationSig(sig);
-    return {
-      ok: true,
-      cycleId,
-      mode: 'escalation',
-      published: false,
-      entryId,
-      reason: 'already_synthesized_for_escalation_signature',
-      derivedFromCount: 0,
-      synthesis: null,
-      input,
-    };
-  }
-
-  const synth = ruleBasedSynthesis(input);
-  const escalTitle = sanitizeTitle(`EVE review: escalation — ${synth.title.replace(/^EVE review:\s*/i, '')}`);
-
-  await pushLedgerEntry({
-    id: entryId,
-    timestamp: nowIso(),
-    author: 'EVE',
-    title: escalTitle,
-    body: synth.body,
-    type: 'epicon',
-    severity: maxSeverity(synth.severity, 'medium'),
-    tags: [EVE_GOVERNANCE_TAG, EVE_GOVERNANCE_VERSION, 'escalation', synth.category, ...synth.ethicsFlags.slice(0, 5)],
-    source: 'eve-synthesis',
-    verified: true,
-    verifiedBy: 'ZEUS',
-    cycle: cycleId,
-    category: 'governance',
-    confidenceTier: synth.confidenceTier,
-    status: 'committed',
-    agentOrigin: 'EVE',
-    derivedFrom: synth.derivedFrom.slice(0, 24).join(','),
-  });
-
-  await kvSetLastEscalationSig(sig);
-
-  return {
-    ok: true,
-    cycleId,
-    mode: 'escalation',
-    published: true,
-    entryId,
-    reason: 'escalation_conditions_met',
-    derivedFromCount: synth.derivedFrom.length,
-    synthesis: { ...synth, title: escalTitle },
-    input,
-  };
-}
-
-/** Backward-compatible hook for GET /api/eve/global-news — refreshes ledger once per cycle and returns panel items. */
-export async function buildAndCommitEveInternalSynthesis(options?: {
-  externalItemCount?: number;
-  externalDegradedReason?: string;
-}): Promise<{
-  cycleId: string;
+export function buildInternalPreviewFromInput(
+  input: EveGovernanceSynthesisInput,
+  output: EveGovernanceSynthesisOutput,
+): {
   items: EveNewsItem[];
   pattern_notes: string[];
   dominant_category: NewsCategory;
   dominant_region: string;
   global_tension: EveSynthesis['global_tension'];
-  committed: boolean;
-}> {
-  const result = await runEveGovernanceSynthesis({
-    mode: 'cycle',
-    externalItemCount: options?.externalItemCount,
-    externalDegradedReason: options?.externalDegradedReason,
-  });
-  const input = result.input;
-  const synth = result.synthesis ?? ruleBasedSynthesis(input);
+} {
+  const timestamp = input.gatheredAt;
+  const cycleId = input.cycleId;
 
-  const giSeverity = scoreToSeverity(input.gi);
-  const miiSeverity = scoreToSeverity(input.mii);
-  const tripwireSeverity = tripwireToSeverity(input.tripwire.level);
-  const combinedSeverity = maxSeverity(maxSeverity(giSeverity, miiSeverity), tripwireSeverity);
-
-  const tensionFromHighest = (h: Severity): EveSynthesis['global_tension'] => {
-    if (h === 'high') return 'high';
-    if (h === 'medium') return 'elevated';
-    return 'moderate';
-  };
-
-  const governanceSummaryTitle = sanitizeTitle(
-    `EVE review: governance posture for ${input.cycleId} across committed agent lanes`,
-  );
-  const governanceSummary =
-    `Cycle ${input.cycleId} has ${input.committedAgentRows.length} committed agent rows ` +
-    `from ${input.agentAuthors.length > 0 ? input.agentAuthors.join(', ') : 'no active agent authors yet'}. ` +
-    `GI=${input.gi.toFixed(2)}, MII=${input.mii.toFixed(2)}, treasury=${input.treasury.status}.`;
-
-  const publicRiskTitle = sanitizeTitle(`EVE framing: civic-risk transmission watch for ${input.cycleId}`);
-  const publicRisk =
-    `Public-risk framing: civic radar is carrying ${input.civicAlerts.length} alert(s), ` +
-    `treasury watch reports ${input.treasury.tripwireCount} tripwire(s) and ${input.treasury.alertCount} alert(s), ` +
-    `and tripwire posture is ${input.tripwire.level}.`;
-
-  const cautionTitle = sanitizeTitle(`EVE caution: operator integrity posture note for ${input.cycleId}`);
-  const caution =
-    input.tripwire.active
-      ? `Operator caution: active tripwire (${input.tripwire.level}) — ${input.tripwire.reason}. Keep narrative claims subordinate to committed ledger evidence.`
-      : 'Operator caution: no active runtime tripwire, but preserve verification discipline and avoid narrative overreach.';
-
-  const timestamp = input.timestamp;
   const items: EveNewsItem[] = [
     {
-      id: `eve-internal-${input.cycleId.toLowerCase()}-governance`,
-      title: governanceSummaryTitle,
-      summary: governanceSummary,
+      id: `eve-internal-${cycleId.toLowerCase()}-governance`,
+      title: output.title,
+      summary: output.summary,
       url: '/api/epicon/feed',
       source: 'EVE Internal Substrate',
       region: 'System',
       timestamp,
       category: 'governance',
-      severity: combinedSeverity,
-      eve_tag: 'Internal governance synthesis from committed substrate state',
+      severity: output.severity,
+      eve_tag: 'Governance synthesis from committed substrate state',
     },
     {
-      id: `eve-internal-${input.cycleId.toLowerCase()}-civic-risk`,
-      title: publicRiskTitle,
-      summary: publicRisk,
+      id: `eve-internal-${cycleId.toLowerCase()}-civic-risk`,
+      title: sanitizeTitle(`EVE framing: civic-risk transmission watch for ${cycleId}`),
+      summary:
+        `Public-risk framing: ${input.civicAlerts.length} civic radar alert(s); ` +
+        `treasury ${input.treasuryStatus}; narrative cluster size ${input.narrativeClusterCount}.`,
       url: '/api/echo/feed',
       source: 'EVE Civic Radar',
       region: 'Public Sphere',
       timestamp,
       category: 'civic-risk',
-      severity: maxSeverity(combinedSeverity, input.civicAlerts.length >= 3 ? 'medium' : 'low'),
-      eve_tag: 'Public-risk framing from civic radar and treasury watch',
+      severity: output.civicRiskLevel === 'high' ? 'high' : output.civicRiskLevel === 'medium' ? 'medium' : 'low',
+      eve_tag: 'Civic-risk framing from internal signals',
     },
     {
-      id: `eve-internal-${input.cycleId.toLowerCase()}-ethics`,
-      title: cautionTitle,
-      summary: caution,
+      id: `eve-internal-${cycleId.toLowerCase()}-ethics`,
+      title: sanitizeTitle(`EVE caution: ethics and verification posture for ${cycleId}`),
+      summary:
+        input.tripwire.active
+          ? `Active tripwire (${input.tripwire.level}): ${input.tripwire.reason}`
+          : 'No active tripwire; preserve evidence-first narration.',
       url: '/api/tripwire/status',
       source: 'EVE Integrity Posture',
       region: 'Operator',
       timestamp,
       category: 'ethics',
-      severity: tripwireSeverity,
-      eve_tag: 'Operator caution memo for integrity-preserving execution',
+      severity:
+        input.tripwire.level === 'high' || input.tripwire.level === 'triggered'
+          ? 'high'
+          : input.tripwire.level === 'watch' || input.tripwire.level === 'medium'
+            ? 'medium'
+            : 'low',
+      eve_tag: 'Ethics and bias-aware operator caution',
     },
   ];
 
   const pattern_notes = [
-    synth.summary,
-    `Tripwire posture ${input.tripwire.level}; treasury ${input.treasury.status}; civic radar alerts ${input.civicAlerts.length}.`,
-    `EVE lane: ${result.published ? `committed ledger entry ${result.entryId ?? ''}` : 'ledger idempotent hold — no duplicate publish'}.`,
+    `Internal-first synthesis: ${input.committedAgentRows.length} committed agent rows in ${cycleId}.`,
+    `Tripwire ${input.tripwire.level}; treasury ${input.treasuryStatus}; civic alerts ${input.civicAlerts.length}.`,
+    input.externalDegraded
+      ? 'External EVE news degraded — substrate-only synthesis.'
+      : 'External observations optional; substrate remains authoritative.',
   ];
 
-  const counts = new Map<NewsCategory, number>();
-  for (const item of items) {
-    counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
-  }
-  const dominant_category = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'governance';
-
   return {
-    cycleId: input.cycleId,
     items,
     pattern_notes,
-    dominant_category,
+    dominant_category: output.category === 'civic-risk' ? 'civic-risk' : 'governance',
     dominant_region: 'System',
-    global_tension: tensionFromHighest(combinedSeverity),
-    committed: result.published,
+    global_tension: tensionFromHighestSeverity(output.severity),
   };
 }
 
+export type PublishEveGovernanceResult = {
+  published: boolean;
+  entryId: string | null;
+  idempotencyTag: string;
+  ledgerSeverity: EpiconLedgerFeedEntry['severity'];
+};
+
+export async function publishEveGovernanceSynthesis(
+  input: EveGovernanceSynthesisInput,
+  output: EveGovernanceSynthesisOutput,
+  idempotencyTag: string,
+  allRows: EpiconLedgerFeedEntry[],
+): Promise<PublishEveGovernanceResult> {
+  if (ledgerHasIdempotencyTag(allRows, idempotencyTag)) {
+    return { published: false, entryId: null, idempotencyTag, ledgerSeverity: ledgerSeverityFromSignals(output.severity) };
+  }
+
+  const seqToken = Date.now().toString(36).toUpperCase();
+  const entryId = `EPICON-${input.cycleId}-EVE-SYN-${seqToken}`;
+  const timestamp = nowIso();
+  const ledgerSeverity = ledgerSeverityFromSignals(output.severity);
+
+  const tags = [
+    EVE_GOVERNANCE_SYNTH_TAG,
+    idempotencyTag,
+    output.category,
+    ...output.ethicsFlags.map((f) => `ethics:${f}`),
+  ];
+
+  const ledgerCategory =
+    output.category === 'civic-risk' || output.category === 'ethics' ? 'governance' : output.category;
+
+  await pushLedgerEntry({
+    id: entryId,
+    timestamp,
+    author: 'EVE',
+    title: output.title,
+    body: output.body,
+    type: 'epicon',
+    severity: ledgerSeverity,
+    tags,
+    source: EVE_SYNTHESIS_SOURCE,
+    verified: true,
+    verifiedBy: 'ZEUS',
+    cycle: input.cycleId,
+    category: ledgerCategory,
+    confidenceTier: output.confidenceTier,
+    derivedFrom: output.derivedFrom.slice(0, 32).join('|').slice(0, 512),
+    status: 'committed',
+    agentOrigin: 'EVE',
+  });
+
+  return { published: true, entryId, idempotencyTag, ledgerSeverity };
+}

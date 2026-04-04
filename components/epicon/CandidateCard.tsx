@@ -69,7 +69,7 @@ export default function CandidateCard({
 
       {pipelineManaged ? (
         <div className="mt-3 text-xs text-slate-500">
-          EVE synthesis candidate — verify via /api/eve/cycle-synthesize or ZEUS pipeline routes.
+          EVE synthesis candidate — verify via /api/eve/pipeline-synthesize or ZEUS pipeline routes.
         </div>
       ) : null}
 
