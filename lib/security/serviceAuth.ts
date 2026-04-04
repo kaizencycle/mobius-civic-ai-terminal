@@ -110,14 +110,19 @@ export function isValidCronSecretBearer(authorization: string | null): boolean {
   const cronTrimmed = cronEnv.trim();
   if (cronTrimmed.length === 0) return false;
 
-  // Vercel sends Authorization: Bearer ${CRON_SECRET} byte-for-byte against the env value (see Vercel cron docs).
+  const cronMaterial = normalizeServiceSecretMaterial(cronEnv);
+  if (cronMaterial === null) return false;
+
   const header = trimmedAuthorizationHeader(authorization);
+  // Docs: Vercel may send Bearer + raw env; normalizeServiceSecretMaterial aligns quoted / nested Bearer env values.
+  if (header !== null && header === `Bearer ${cronMaterial}`) {
+    return true;
+  }
+  // Legacy: exact wire match when env is stored raw (no quotes / extra Bearer in the value).
   if (header !== null && header === `Bearer ${cronTrimmed}`) {
     return true;
   }
 
-  const cronMaterial = normalizeServiceSecretMaterial(cronEnv);
-  if (cronMaterial === null) return false;
   const token = extractAuthorizationToken(authorization);
   if (token === null) return false;
   const tokenMaterial = normalizeServiceSecretMaterial(token);
