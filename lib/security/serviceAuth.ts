@@ -77,19 +77,21 @@ export function serviceAuthorizationHeaderValue(): string | null {
 }
 
 /**
- * True when this request is Vercel’s scheduled cron HTTP GET (production).
- * Vercel may send `x-vercel-cron-auth-token` on cron invocations (platform-validated
- * before the function runs). Older paths document `x-vercel-cron`, User-Agent
- * `vercel-cron/1.0`, or `Authorization: Bearer ${CRON_SECRET}`. Used only by
- * /api/runtime/heartbeat so scheduled cron can run when Authorization does not
- * carry CRON_SECRET (still production-only).
+ * True when this request is a Vercel-scheduled cron invocation.
+ * If `x-vercel-cron-auth-token` is present (non-empty), Vercel has already validated
+ * it at the edge — accept without requiring `VERCEL=1`. Otherwise, when `VERCEL=1`,
+ * fall back to `x-vercel-cron` or a `vercel-cron` user-agent. Heartbeat also accepts
+ * `Authorization: Bearer ${CRON_SECRET}` and generic service secrets via
+ * `getServiceAuthError`.
  */
 export function isVercelCronInvocation(request: NextRequest): boolean {
-  if (process.env.VERCEL !== '1') return false;
   const cronAuthToken = request.headers.get('x-vercel-cron-auth-token');
   if (cronAuthToken !== null && cronAuthToken.trim() !== '') {
+    // Vercel validates this token before the invocation reaches the function; do not require VERCEL=1
+    // here — some runtimes omit it while still forwarding the platform cron header.
     return true;
   }
+  if (process.env.VERCEL !== '1') return false;
   const cronMarker = request.headers.get('x-vercel-cron');
   if (cronMarker !== null && cronMarker.trim() !== '') {
     return true;
