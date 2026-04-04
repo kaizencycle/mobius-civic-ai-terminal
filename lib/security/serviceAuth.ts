@@ -54,7 +54,7 @@ function outboundBearerMaterial(): string | null {
   return null;
 }
 
-/** Extract secret material from Authorization (Bearer or raw), normalized for comparison. */
+/** Extract secret material from Authorization (Bearer or raw). Do not normalize here — normalization is env-specific. */
 function extractAuthorizationToken(authorization: string | null): string | null {
   if (authorization === null) return null;
   const trimmed = authorization.trim();
@@ -62,6 +62,13 @@ function extractAuthorizationToken(authorization: string | null): string | null 
   const bearerMatch = /^Bearer\s+(.+)$/i.exec(trimmed);
   const raw = bearerMatch ? bearerMatch[1].trim() : trimmed;
   return raw.length > 0 ? raw : null;
+}
+
+/** Authorization header as sent on the wire (trimmed), for exact-match checks (e.g. Vercel CRON_SECRET). */
+function trimmedAuthorizationHeader(authorization: string | null): string | null {
+  if (authorization === null) return null;
+  const t = authorization.trim();
+  return t.length > 0 ? t : null;
 }
 
 export function serviceAuthorizationHeaderValue(): string | null {
@@ -93,10 +100,23 @@ export function isVercelCronInvocation(request: NextRequest): boolean {
  * MOBIUS_SERVICE_SECRET and CRON_SECRET differ.
  */
 export function isValidCronSecretBearer(authorization: string | null): boolean {
-  const cronMaterial = normalizeServiceSecretMaterial(process.env.CRON_SECRET);
+  const cronEnv = process.env.CRON_SECRET;
+  if (typeof cronEnv !== 'string') return false;
+  const cronTrimmed = cronEnv.trim();
+  if (cronTrimmed.length === 0) return false;
+
+  // Vercel sends Authorization: Bearer ${CRON_SECRET} byte-for-byte against the env value (see Vercel cron docs).
+  const header = trimmedAuthorizationHeader(authorization);
+  if (header !== null && header === `Bearer ${cronTrimmed}`) {
+    return true;
+  }
+
+  const cronMaterial = normalizeServiceSecretMaterial(cronEnv);
   if (cronMaterial === null) return false;
   const token = extractAuthorizationToken(authorization);
-  return token !== null && token === cronMaterial;
+  if (token === null) return false;
+  const tokenMaterial = normalizeServiceSecretMaterial(token);
+  return tokenMaterial !== null && tokenMaterial === cronMaterial;
 }
 
 export function getServiceAuthError(request: NextRequest): NextResponse | null {
@@ -112,7 +132,8 @@ export function getServiceAuthError(request: NextRequest): NextResponse | null {
   const token =
     rawToken !== null ? normalizeServiceSecretMaterial(rawToken) : null;
   const authorized =
-    token !== null && secrets.some(({ value }) => token === value);
+    token !== null &&
+    secrets.some(({ value }) => token === value);
 
   if (!authorized) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });

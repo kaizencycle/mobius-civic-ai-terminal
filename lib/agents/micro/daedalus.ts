@@ -15,8 +15,6 @@ import {
   normalizeInverse,
   safeFetch,
 } from './core';
-import { serviceAuthorizationHeaderValue } from '@/lib/security/serviceAuth';
-
 export const DAEDALUS_CONFIG: MicroAgentConfig = {
   name: 'DAEDALUS-µ',
   description: 'Infrastructure resilience — repo health, dependency freshness, uptime',
@@ -115,16 +113,13 @@ async function pollSelfPing(): Promise<MicroSignal | null> {
     };
   }
 
-  const url = `https://${baseUrl.replace(/^https?:\/\//, '')}/api/runtime/heartbeat`;
+  // Public integrity endpoint — avoids coupling self-ping to service secrets (heartbeat is auth-gated).
+  const url = `https://${baseUrl.replace(/^https?:\/\//, '')}/api/integrity-status`;
   const start = Date.now();
-  const secret = serviceAuthorizationHeaderValue();
-  const headers: Record<string, string> = {};
-  if (secret) headers.Authorization = secret;
 
   try {
     const res = await fetch(url, {
       cache: 'no-store',
-      headers,
     });
     const latencyMs = Date.now() - start;
 
