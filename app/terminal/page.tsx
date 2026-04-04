@@ -42,10 +42,10 @@ type KvHealthResponse = { ok: boolean; latencyMs: number | null };
 
 const TABS: Array<{ key: NavKey; label: string }> = [
   { key: 'pulse', label: 'Pulse' },
+  { key: 'ledger', label: 'Epicon' },
   { key: 'agents', label: 'Agents' },
-  { key: 'ledger', label: 'Ledger' },
   { key: 'infrastructure', label: 'Tripwire' },
-  { key: 'wallet', label: 'Wallet' },
+  { key: 'wallet', label: 'MIC' },
 ];
 
 const TERMINAL_PREFS_KEY = 'mobius-terminal-prefs-v1';
@@ -162,15 +162,32 @@ function TerminalPage() {
   }, []);
 
   const covenantStatus = checkCovenantCompliance(gi?.score ?? 0);
-  const cycleId = integrityStatus?.cycle ?? 'C-270';
+  const cycleId = integrityStatus?.cycle ?? 'C-271';
   const giScore = gi?.score ?? 0;
   const giDelta = gi?.delta ?? 0;
 
-  const statCards = [
-    { label: 'Global Integrity', value: giScore.toFixed(3), trend: giDelta, icon: '◎' },
-    { label: 'Signal Feed', value: String(filteredEpicon.length), trend: filteredEpicon.length > 8 ? 0.08 : -0.04, icon: '∿' },
-    { label: 'Tripwires', value: String(allTripwires.length), trend: allTripwires.length > 0 ? -0.1 : 0.02, icon: '⚠' },
-    { label: 'Agents Live', value: String(agentRoster.length), trend: agentRoster.length >= 6 ? 0.05 : -0.02, icon: '◉' },
+  const statCards: Array<{ label: string; value: string; trend: number; icon: string; subtitle: string; nav: NavKey }> = [
+    { label: 'Global Integrity', value: giScore.toFixed(3), trend: giDelta, icon: '◎', subtitle: 'GI stable', nav: 'pulse' },
+    { label: 'Signal Feed', value: String(filteredEpicon.length), trend: filteredEpicon.length > 8 ? 0.08 : -0.04, icon: '∿', subtitle: 'live entries', nav: 'pulse' },
+    { label: 'Tripwires', value: String(allTripwires.length), trend: allTripwires.length > 0 ? -0.1 : 0.02, icon: '⚠', subtitle: '2 high / 4 medium', nav: 'infrastructure' },
+    { label: 'Agents Live', value: String(agentRoster.length), trend: agentRoster.length >= 6 ? 0.05 : -0.02, icon: '◉', subtitle: 'sentinels online', nav: 'agents' },
+  ];
+  const chamberLabel = selectedNav === 'pulse' ? 'PULSE CHAMBER' : selectedNav === 'agents' ? 'AGENT CHAMBER' : selectedNav === 'ledger' ? 'CIVIC LEDGER CHAMBER' : selectedNav === 'infrastructure' ? 'TRIPWIRE CHAMBER' : 'MIC CHAMBER';
+  const commandSurfaceTitle = selectedNav === 'wallet' ? 'Wallet Chamber' : selectedNav === 'agents' ? 'Agent Chamber' : selectedNav === 'ledger' ? 'Civic Ledger Chamber' : selectedNav === 'infrastructure' ? 'Tripwire Chamber' : 'Pulse Chamber';
+  const commandSurfaceButtons: Array<{ label: string; nav: NavKey }> =
+    selectedNav === 'wallet'
+      ? [{ label: 'Inspect', nav: 'wallet' }, { label: 'Open Chamber', nav: 'wallet' }, { label: 'Review Signals', nav: 'pulse' }]
+      : selectedNav === 'agents'
+        ? [{ label: 'Inspect', nav: 'agents' }, { label: 'Open Chamber', nav: 'agents' }, { label: 'Review Signals', nav: 'ledger' }]
+        : [{ label: 'Inspect', nav: 'infrastructure' }, { label: 'Open Chamber', nav: selectedNav }, { label: 'Review Signals', nav: 'ledger' }];
+  const statusChips: Array<{ label: string; tone: string; nav: NavKey }> = [
+    { label: 'ZEUS ACTIVE', tone: 'border-sky-500/40 bg-sky-500/10 text-sky-200', nav: 'agents' },
+    { label: 'ECHO LIVE', tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200', nav: 'pulse' },
+    { label: 'HERMES ROUTING', tone: 'border-violet-500/40 bg-violet-500/10 text-violet-200', nav: 'infrastructure' },
+    { label: 'ATLAS OK', tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200', nav: 'agents' },
+    { label: 'TRIPWIRE NOMINAL', tone: 'border-amber-500/40 bg-amber-500/10 text-amber-200', nav: 'infrastructure' },
+    { label: 'MINTING PAUSED', tone: 'border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-200', nav: 'wallet' },
+    { label: 'DEGRADED', tone: 'border-rose-500/40 bg-rose-500/10 text-rose-200', nav: 'infrastructure' },
   ];
 
   const ledgerTags = useMemo(() => {
@@ -244,8 +261,9 @@ function TerminalPage() {
       <section className="col-span-12 rounded-lg border border-slate-800 bg-slate-900/40 p-3 xl:col-span-6">
         <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
-            <div className="text-sm font-semibold">Pulse Ledger</div>
+            <div className="text-sm font-semibold uppercase tracking-[0.08em]">Pulse Ledger</div>
             <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Live signal trace</div>
+            <div className="text-[10px] text-slate-500">Immutable event record — Mobius Substrate</div>
           </div>
           <div className="text-xs font-mono text-slate-400">{filteredLedger.length} entries</div>
         </div>
@@ -294,46 +312,29 @@ function TerminalPage() {
     <div className="min-h-screen bg-[#020617] text-slate-100">
       <HardHalt isOpen={covenantStatus.status === 'HALT'} giScore={gi.score} reason="Semantic drift detected in active civic signal lanes." />
 
-      <header className="sticky top-0 z-40 h-14 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+      <header className="sticky top-0 z-40 h-16 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
         <div className="mx-auto flex h-full max-w-[1800px] items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sky-500 text-slate-950">⌘</div>
             <div>
-              <div className="text-sm font-semibold">Mobius Civic Terminal</div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400">{cycleId}</div>
+              <div className="text-sm font-semibold uppercase tracking-[0.12em]">MOBIUS CIVIC TERMINAL</div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · {chamberLabel} · LIVE SIGNAL TRACE</div>
             </div>
           </div>
-          <nav className="hidden items-center gap-1 md:flex">
+          <select
+            aria-label="Select terminal chamber"
+            value={selectedNav}
+            onChange={(event) => setSelectedNav(event.target.value as NavKey)}
+            className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-200"
+          >
             {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setSelectedNav(tab.key)}
-                className={cn(
-                  'rounded-md px-3 py-1.5 text-xs font-mono uppercase tracking-[0.16em] transition',
-                  selectedNav === tab.key ? 'bg-sky-500/20 text-sky-200 ring-1 ring-sky-500/40' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
-                )}
-              >
-                {tab.label}
-              </button>
+              <option key={tab.key} value={tab.key}>{tab.label}</option>
             ))}
-          </nav>
-          <div className="md:hidden">
-            {/* Optimization 8: mobile tab selector so chamber switching is available on small screens. */}
-            <select
-              aria-label="Select terminal chamber"
-              value={selectedNav}
-              onChange={(event) => setSelectedNav(event.target.value as NavKey)}
-              className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-200"
-            >
-              {TABS.map((tab) => (
-                <option key={tab.key} value={tab.key}>{tab.label}</option>
-              ))}
-            </select>
-          </div>
+          </select>
           <div className="flex items-center gap-3 text-xs font-mono text-slate-400">
             <span className="flex items-center gap-2">
               <span className={cn('h-2 w-2 rounded-full', streamStatus === 'live' ? 'bg-emerald-400' : 'bg-amber-400')} />
-              {streamStatus}
+              {streamStatus === 'live' ? 'ONLINE' : 'OFFLINE'}
             </span>
             <span className="hidden lg:inline">{clock}</span>
             <span>◔</span>
@@ -343,22 +344,63 @@ function TerminalPage() {
       </header>
 
       <main className="mx-auto grid w-full max-w-[1800px] grid-cols-12 gap-4 p-4 pb-14">
-        <aside className="col-span-12 space-y-4 xl:col-span-3">
+        <section className="col-span-12 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-300">
+          @KAIZENCYCLE · DEVELOPER · MII 0.50 · MIC 100
+        </section>
+
+        <section className="col-span-12 space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            {statCards.map((card) => <StatCard key={card.label} {...card} />)}
+            {statCards.map((card) => <StatCard key={card.label} {...card} onClick={() => setSelectedNav(card.nav)} />)}
           </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {statusChips.map((chip) => (
+              <button
+                key={chip.label}
+                onClick={() => setSelectedNav(chip.nav)}
+                className={cn('whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em]', chip.tone)}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <aside className="col-span-12 space-y-4 xl:col-span-8">
           <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-            <div className="mb-3 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Integrity Trend</div>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-300">Integrity Trend</div>
+                <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">GI · LAST 12 CYCLES · LIVE</div>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] font-mono uppercase">
+                <button className="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400">1D</button>
+                <button className="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400">7C</button>
+                <button className="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400">30C</button>
+              </div>
+            </div>
             <MiniChart points={microHistory.length > 1 ? microHistory.map((p) => p.composite) : gi.weekly} />
           </section>
           <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-            <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Tripwire Anomalies</div>
+            <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-300">Tripwire Anomalies</div>
             <div className="space-y-2">
               {allTripwires.slice(0, 4).map((tripwire) => (
-                <div key={tripwire.id} className="rounded border border-slate-800 bg-slate-950/70 p-2 text-xs">
+                <div key={tripwire.id} className={cn('rounded border bg-slate-950/70 p-2 text-xs', tripwire.severity.toLowerCase() === 'high' ? 'border-rose-500/40' : 'border-amber-500/30')}>
                   <div className="font-medium text-slate-200">{tripwire.label}</div>
-                  <div className="font-mono uppercase text-slate-500">{tripwire.severity} · {tripwire.owner}</div>
+                  <div className="font-mono uppercase text-slate-500">{tripwire.severity} · {tripwire.owner} · monitoring escalation</div>
                 </div>
+              ))}
+            </div>
+          </section>
+          <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-300">Command Surface</div>
+            <div className="mt-1 text-lg font-semibold text-slate-100">{commandSurfaceTitle}</div>
+            <div className="mt-2 text-sm text-slate-300">GI stable. {allTripwires.length} tripwires active. {filteredEpicon.length} signals in feed. {allTripwires.filter((t) => t.severity.toLowerCase() === 'high').length} alerts.</div>
+            <div className="mt-2 text-[10px] font-mono uppercase tracking-[0.14em] text-sky-300">TERMINAL LIVE · AWAITING OPERATOR ACTION</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {commandSurfaceButtons.map((action) => (
+                <button key={action.label} onClick={() => setSelectedNav(action.nav)} className="rounded-md border border-slate-600 px-3 py-1.5 text-xs">
+                  {action.label}
+                </button>
               ))}
             </div>
           </section>
@@ -439,7 +481,7 @@ function TerminalPage() {
         </div>
       ) : null}
 
-      <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-8 items-center justify-between border-t border-slate-800 bg-slate-950 px-4 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
+      <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-7 items-center justify-between border-t border-slate-800 bg-slate-950 px-4 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />System Ready</span>
           <span>CPU 27%</span>
@@ -448,7 +490,7 @@ function TerminalPage() {
         <div className="flex items-center gap-3">
           <span>Latency {kvLatency ?? '--'}ms</span>
           <span>Uptime {micro?.healthy ? '99.98%' : 'degraded'}</span>
-          <span>Node mobius-us-east-1</span>
+          <span>Node MOBIUS-US-EAST-1</span>
         </div>
       </footer>
     </div>
@@ -457,10 +499,10 @@ function TerminalPage() {
 
 // ── Optimization 1: React.memo prevents re-render on every 15s poll ──────────
 
-const StatCard = memo(function StatCard({ label, value, trend, icon }: { label: string; value: string; trend: number; icon: string }) {
+const StatCard = memo(function StatCard({ label, value, trend, icon, subtitle, onClick }: { label: string; value: string; trend: number; icon: string; subtitle: string; onClick: () => void }) {
   const positive = trend >= 0;
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 transition hover:border-sky-500/50">
+    <button onClick={onClick} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-left transition hover:border-sky-500/50">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{label}</span>
         <span className="text-slate-500">{icon}</span>
@@ -469,7 +511,8 @@ const StatCard = memo(function StatCard({ label, value, trend, icon }: { label: 
       <div className={cn('text-[11px] font-mono', positive ? 'text-emerald-300' : 'text-rose-300')}>
         {positive ? '▲' : '▼'} {(Math.abs(trend) * 100).toFixed(1)}%
       </div>
-    </div>
+      <div className="mt-1 text-[10px] text-slate-500">{subtitle}</div>
+    </button>
   );
 });
 
@@ -559,10 +602,11 @@ const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSel
           </div>
           <time dateTime={isoTime} title={isoTime ?? entry.timestamp} className="shrink-0 text-right text-[10px] font-mono text-slate-500">{relTime}</time>
         </div>
-        <div className="mt-2 flex items-center gap-2 text-[10px] font-mono text-slate-400">
-          <span>confidence</span>
+        <div className="mt-2 flex items-center gap-2 text-[10px] font-mono uppercase text-slate-400">
+          <span>{entry.agentOrigin}</span>
           <div className="h-1.5 flex-1 overflow-hidden rounded bg-slate-800"><div className="h-full bg-emerald-400" style={{ width: `${confidence}%` }} /></div>
-          <span>{confidence}%</span>
+          <span>{entry.status ?? `${confidence}%`}</span>
+          <span className="text-slate-500">→</span>
         </div>
       </button>
       {isExpanded ? (
