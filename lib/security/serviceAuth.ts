@@ -85,17 +85,20 @@ export function serviceAuthorizationHeaderValue(): string | null {
  * carry CRON_SECRET (still production-only).
  */
 export function isVercelCronInvocation(request: NextRequest): boolean {
-  if (process.env.VERCEL !== '1') return false;
   const cronAuthToken = request.headers.get('x-vercel-cron-auth-token');
-  if (cronAuthToken !== null && cronAuthToken.trim() !== '') {
-    return true;
-  }
   const cronMarker = request.headers.get('x-vercel-cron');
-  if (cronMarker !== null && cronMarker.trim() !== '') {
-    return true;
-  }
   const ua = (request.headers.get('user-agent') ?? '').trim();
-  return /vercel-cron/i.test(ua);
+  const looksLikeVercelCron =
+    (cronAuthToken !== null && cronAuthToken.trim() !== '') ||
+    (cronMarker !== null && cronMarker.trim() !== '') ||
+    /vercel-cron/i.test(ua);
+  if (!looksLikeVercelCron) return false;
+
+  // Cron invocations are production-only; avoid tying detection to VERCEL === '1' alone
+  // (some runtimes expose VERCEL_ENV without a stable VERCEL flag for edge cases).
+  const onVercelProduction =
+    process.env.VERCEL === '1' || process.env.VERCEL_ENV === 'production';
+  return onVercelProduction;
 }
 
 /**
@@ -110,14 +113,18 @@ export function isValidCronSecretBearer(authorization: string | null): boolean {
   const cronTrimmed = cronEnv.trim();
   if (cronTrimmed.length === 0) return false;
 
-  // Vercel sends Authorization: Bearer ${CRON_SECRET} byte-for-byte against the env value (see Vercel cron docs).
-  const header = trimmedAuthorizationHeader(authorization);
-  if (header !== null && header === `Bearer ${cronTrimmed}`) {
-    return true;
-  }
-
   const cronMaterial = normalizeServiceSecretMaterial(cronEnv);
   if (cronMaterial === null) return false;
+
+  const header = trimmedAuthorizationHeader(authorization);
+  // Vercel sends Authorization: Bearer ${CRON_SECRET} (see Vercel cron docs). Accept both
+  // raw env wiring and normalized material so quoted / Bearer-prefixed env values still match.
+  if (header !== null) {
+    if (header === `Bearer ${cronTrimmed}` || header === `Bearer ${cronMaterial}`) {
+      return true;
+    }
+  }
+
   const token = extractAuthorizationToken(authorization);
   if (token === null) return false;
   const tokenMaterial = normalizeServiceSecretMaterial(token);
