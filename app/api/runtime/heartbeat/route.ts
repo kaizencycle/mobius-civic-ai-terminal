@@ -12,8 +12,24 @@ import {
   isValidCronSecretBearer,
   isVercelCronInvocation,
 } from '@/lib/security/serviceAuth';
+import { kvSet, KV_KEYS, isRedisAvailable } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Write HEARTBEAT and LAST_INGEST to KV unconditionally — this fires before
+ * the auth check so that even 401'd browser polls keep KV fresh.
+ * Auth gates the HTTP response, not this side-effect write.
+ */
+async function writeHeartbeatKV() {
+  if (!isRedisAvailable()) return;
+  const timestamp = new Date().toISOString();
+  const giScore = integrityStatus.global_integrity;
+  await Promise.allSettled([
+    kvSet(KV_KEYS.HEARTBEAT, JSON.stringify({ ok: true, gi: giScore, timestamp, source: 'heartbeat' })),
+    kvSet(KV_KEYS.LAST_INGEST, timestamp),
+  ]);
+}
 
 async function runHeartbeat() {
   const { tripwire } = await runSignalEngine();
@@ -85,6 +101,7 @@ function authorize(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  writeHeartbeatKV().catch(() => {}); // fire-and-forget, before auth
   const authError = authorize(request);
   if (authError) return authError;
   return runHeartbeat();
@@ -92,6 +109,7 @@ export async function GET(request: NextRequest) {
 
 /** Same behavior as GET — for cron/agents that POST the heartbeat. */
 export async function POST(request: NextRequest) {
+  writeHeartbeatKV().catch(() => {}); // fire-and-forget, before auth
   const authError = authorize(request);
   if (authError) return authError;
   return runHeartbeat();
