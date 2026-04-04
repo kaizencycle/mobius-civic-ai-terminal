@@ -79,26 +79,24 @@ function TerminalPage() {
     let mounted = true;
 
     async function loadSidePanels() {
-      try {
-        const [agentsRes, microRes, kvRes] = await Promise.all([
-          fetch('/api/agents/status', { cache: 'no-store' }),
-          fetch('/api/signals/micro', { cache: 'no-store' }),
-          fetch('/api/kv/health', { cache: 'no-store' }),
-        ]);
-        const agentsJson: AgentStatusResponse = await agentsRes.json();
-        const microJson: MicroSweepResponse = await microRes.json();
-        const kvJson: KvHealthResponse = await kvRes.json();
-        if (!mounted) return;
+      const [agentsResult, microResult, kvResult] = await Promise.allSettled([
+        fetch('/api/agents/status', { cache: 'no-store' }).then((r) => r.json() as Promise<AgentStatusResponse>),
+        fetch('/api/signals/micro', { cache: 'no-store' }).then((r) => r.json() as Promise<MicroSweepResponse>),
+        fetch('/api/kv/health', { cache: 'no-store' }).then((r) => r.json() as Promise<KvHealthResponse>),
+      ]);
+      if (!mounted) return;
 
-        if (agentsJson.ok) setAgentRoster(agentsJson.agents ?? []);
-        if (microJson.ok) {
-          setMicro(microJson);
-          const time = new Date(microJson.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          setMicroHistory((prev) => [...prev, { time, composite: microJson.composite }].slice(-12));
-        }
-        setKvLatency(kvJson.latencyMs ?? null);
-      } catch {
-        // silent degradation
+      if (agentsResult.status === 'fulfilled' && agentsResult.value.ok) {
+        setAgentRoster(agentsResult.value.agents ?? []);
+      }
+      if (microResult.status === 'fulfilled' && microResult.value.ok) {
+        const microJson = microResult.value;
+        setMicro(microJson);
+        const time = new Date(microJson.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setMicroHistory((prev) => [...prev, { time, composite: microJson.composite }].slice(-12));
+      }
+      if (kvResult.status === 'fulfilled') {
+        setKvLatency(kvResult.value.latencyMs ?? null);
       }
     }
 
