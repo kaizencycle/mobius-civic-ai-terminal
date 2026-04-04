@@ -182,7 +182,7 @@ export async function getEpiconFeed(): Promise<EpiconFeedBundle> {
     return { epicon: mockEpicon, ledgerRows: [] };
   }
   const items = (raw as { items?: unknown }).items;
-  if (!Array.isArray(items)) {
+  if (!Array.isArray(items) || items.length === 0) {
     return { epicon: mockEpicon, ledgerRows: [] };
   }
 

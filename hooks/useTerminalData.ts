@@ -216,6 +216,7 @@ export function useTerminalData(selectedNav: NavKey) {
     let mounted = true;
 
     async function loadEcho() {
+      try {
       const [feed, promotion] = await Promise.all([getEchoFeed(), getPromotionStatus()]);
       if (!mounted || !feed) return;
 
@@ -252,6 +253,9 @@ export function useTerminalData(selectedNav: NavKey) {
             committedEntries: row.committed_entries,
           };
         }));
+      }
+      } catch {
+        // silent degradation — echo data unavailable
       }
     }
 
