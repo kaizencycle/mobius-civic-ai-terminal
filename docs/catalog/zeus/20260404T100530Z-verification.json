@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-04-04T10:05:30.000Z",
+  "agent": "ZEUS",
+  "atlas_heartbeat_reviewed": "20260404T070900Z.json",
+  "verification_status": "confirmed",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat parse (health, GI, anomalies, EVE)",
+      "result": "warn",
+      "detail": "Parsed 20260404T070900Z.json: health=degraded, endpoints micro_agents=true integrity=true runtime=false, composite=0.7, anomalies=2, gi=0.74, mode=yellow. Heartbeat JSON has no EVE global_tension field; EVE tension is taken from live /api/eve/global-news."
+    },
+    {
+      "check": "/api/signals/micro vs ATLAS anomaly list",
+      "result": "warn",
+      "detail": "Response ok=true, cached=false, kv=true, timestamp ~10:01:23Z. anomalies length still 2—matches ATLAS count. GAIA/USGS: elevated, 48 quakes M2.5+ today max M5.9 (Rat Islands, Alaska)—persistent geophysical signal vs heartbeat (same class; counts naturally drift). DAEDALUS-µ/Self-ping: elevated, HTTP 401 in ~163ms—persistent, same failure mode as prior runs (auth-gated probe). Composite 0.712 vs heartbeat 0.7—stable, not a de-escalation of the two flagged rows. THEMIS mode=degraded with data.gov catalog API fetch failed and last-good-cache fallback (~9m stale at poll time); HERMES-µ lists Wikipedia API fetch failed—upstream gaps not listed in anomalies[] but explain broader degradation context."
+    },
+    {
+      "check": "/api/integrity-status GI source, score, freshness",
+      "result": "pass",
+      "detail": "source=live (not mock): GI is operationally meaningful this run. global_integrity=0.75, mode=yellow, terminal_status=stressed, primary_driver=Moderate signal degradation—consistent with subscores quality=0.77, geopolitics=0.77 versus freshness=0.3 and information=0.3 (stability/system/sentiment/economy at 1). Slight GI uptick vs heartbeat gi=0.74 is within snapshot noise; still yellow/stressed. kv=true."
+    },
+    {
+      "check": "/api/runtime/heartbeat vs heartbeat endpoints.runtime",
+      "result": "warn",
+      "detail": "GET /api/runtime/heartbeat returned HTTP 401 with body ok=false error=Unauthorized at verification time—aligns with ATLAS runtime=false and contributes to degraded classification."
+    },
+    {
+      "check": "Vercel deployment health (READY, ERROR last 6h, ignoreCommand)",
+      "result": "warn",
+      "detail": "VERCEL_TOKEN was not present in the automation shell environment (Bearer call to api.vercel.com returned missingToken). Vercel CLI listing was not used after a prior hang risk. Cannot assert production deployment READY, ERROR deployments in the last six hours, or ignoreCommand (vercel.json: bash scripts/ignore-build.sh) skipping bot builds from API/CLI. Production origin returned JSON 200 for /api/signals/micro, /api/integrity-status, and /api/eve/global-news at verification time—site is serving."
+    },
+    {
+      "check": "/api/eve/global-news vs GI and tension playbook",
+      "result": "pass",
+      "detail": "EVE source=live, degraded=false, global_tension=high with governance and civic-risk items at severity high (internal synthesis for C-271). GI is yellow with terminal_status=stressed—not green—so the playbook case (high tension + green GI disconnect) does not apply; system state already shows stress. EVE summaries reference civic radar alerts and substrate state rather than USGS or self-ping; little direct correlation with the two micro anomalies (seismic volume, 401 self-ping)."
+    }
+  ],
+  "gi_verified": true,
+  "anomaly_persistence": {
+    "GAIA:USGS Earthquake": "persistent",
+    "DAEDALUS-µ:Self-ping": "persistent"
+  },
+  "eve_correlation": "global_tension=high reflects internal governance/civic-risk framing (C-271), not the USGS or DAEDALUS self-ping rows. With GI yellow/stressed, EVE and integrity narratives are directionally aligned. Seismic elevation and auth-gated probes remain best read as geophysical and infrastructure/auth-surface signals respectively.",
+  "recommendation": "ATLAS degraded assessment holds: keep tracking runtime heartbeat contract (2xx vs 401) and THEMIS/HERMES upstream failures that drive freshness/information downgrades. Re-run ZEUS in an environment with VERCEL_TOKEN to verify READY deployments, six-hour ERROR window, and ignoreCommand behavior for bot commits."
+}
