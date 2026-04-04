@@ -95,7 +95,9 @@ export function getServiceAuthError(request: NextRequest): NextResponse | null {
     );
   }
 
-  const token = extractAuthorizationToken(request.headers.get('authorization'));
+  const rawToken = extractAuthorizationToken(request.headers.get('authorization'));
+  const token =
+    rawToken !== null ? normalizeServiceSecretMaterial(rawToken) : null;
   const authorized =
     token !== null && secrets.some(({ value }) => token === value);
 
