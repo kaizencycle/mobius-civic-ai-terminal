@@ -8,6 +8,10 @@ import { useTerminalData } from '@/hooks/useTerminalData';
 import { checkCovenantCompliance } from '@/lib/integrity-check';
 import { cn } from '@/lib/utils';
 import type { LedgerEntry, NavKey } from '@/lib/terminal/types';
+import AgentGrid from '@/components/agents/AgentGrid';
+import LedgerPanel from '@/components/terminal/LedgerPanel';
+import TripwirePanel from '@/components/tripwire/TripwirePanel';
+import MICWalletPanel from '@/components/terminal/MICWalletPanel';
 
 type AgentStatusApi = {
   id: string;
@@ -194,6 +198,98 @@ function TerminalPage() {
 
   if (!gi) return <TerminalShellFallback statusLabel="Booting Mobius Terminal · syncing integrity surfaces" />;
 
+  const renderCenterContent = () => {
+    if (selectedNav === 'agents') {
+      return (
+        <section className="col-span-12 rounded-lg border border-slate-800 bg-slate-900/40 p-3 xl:col-span-6">
+          <div className="mb-3 border-b border-slate-800 pb-3">
+            <div className="text-sm font-semibold">Agent Roster</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Live agent status</div>
+          </div>
+          <AgentGrid />
+        </section>
+      );
+    }
+    if (selectedNav === 'ledger') {
+      return (
+        <section className="col-span-12 rounded-lg border border-slate-800 bg-slate-900/40 p-3 xl:col-span-6">
+          <LedgerPanel
+            entries={mergedLedger}
+            selectedId={selectedLedgerId ?? undefined}
+            onSelect={(entry) => handleLedgerSelect(entry.id)}
+          />
+        </section>
+      );
+    }
+    if (selectedNav === 'infrastructure') {
+      return (
+        <section className="col-span-12 rounded-lg border border-slate-800 bg-slate-900/40 p-3 xl:col-span-6">
+          <div className="mb-3 border-b border-slate-800 pb-3">
+            <div className="text-sm font-semibold">Tripwire Infrastructure</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · System tripwire status</div>
+          </div>
+          <TripwirePanel />
+        </section>
+      );
+    }
+    if (selectedNav === 'wallet') {
+      return (
+        <section className="col-span-12 rounded-lg border border-slate-800 bg-slate-900/40 p-3 xl:col-span-6">
+          <MICWalletPanel gi={gi} integrity={null} />
+        </section>
+      );
+    }
+    // default: pulse
+    return (
+      <section className="col-span-12 rounded-lg border border-slate-800 bg-slate-900/40 p-3 xl:col-span-6">
+        <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
+          <div>
+            <div className="text-sm font-semibold">Pulse Ledger</div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Live signal trace</div>
+          </div>
+          <div className="text-xs font-mono text-slate-400">{filteredLedger.length} entries</div>
+        </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">
+          {/* Optimization 9: inline shortcut hints for faster operator discovery. */}
+          <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">Alt+1..5 switch chambers</span>
+          <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">/ focus agent search</span>
+          <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">L toggle ledger</span>
+        </div>
+        <div className="mb-3 flex flex-wrap gap-2">
+          {ledgerTags.map((tag) => (
+            <button key={tag} onClick={() => setTagFilter(tag)} className={cn('rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em]', tagFilter === tag ? 'border-sky-500/50 bg-sky-500/15 text-sky-200' : 'border-slate-700 bg-slate-950 text-slate-400')}>
+              {tag}
+            </button>
+          ))}
+        </div>
+        <div className="space-y-2">
+          {filteredLedger.slice(0, ledgerExpanded ? undefined : 14).map((entry) => (
+            <LedgerRow
+              key={entry.id}
+              entry={entry}
+              isSelected={selectedLedgerId === entry.id}
+              isExpanded={expandedLedgerId === entry.id}
+              onSelect={handleLedgerSelect}
+            />
+          ))}
+        </div>
+        {filteredLedger.length === 0 ? (
+          <div className="rounded-md border border-dashed border-slate-700 bg-slate-950/60 p-4 text-center text-xs text-slate-400">
+            No ledger entries match this filter. Try <button onClick={() => setTagFilter('all')} className="text-sky-300 underline underline-offset-2">resetting to all tags</button>.
+          </div>
+        ) : null}
+        {filteredLedger.length > 14 && (
+          <button
+            onClick={() => setLedgerExpanded((prev) => !prev)}
+            className="mt-3 w-full rounded-md border border-slate-700 bg-slate-950 py-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400 transition hover:border-sky-500/40 hover:text-sky-300"
+          >
+            {ledgerExpanded ? '▲ collapse' : `▼ show ${filteredLedger.length - 14} more entries`}
+          </button>
+        )}
+      </section>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100">
       <HardHalt isOpen={covenantStatus.status === 'HALT'} giScore={gi.score} reason="Semantic drift detected in active civic signal lanes." />
@@ -268,52 +364,7 @@ function TerminalPage() {
           </section>
         </aside>
 
-        <section className="col-span-12 rounded-lg border border-slate-800 bg-slate-900/40 p-3 xl:col-span-6">
-          <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
-            <div>
-              <div className="text-sm font-semibold">Pulse Ledger</div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Live signal trace</div>
-            </div>
-            <div className="text-xs font-mono text-slate-400">{filteredLedger.length} entries</div>
-          </div>
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">
-            {/* Optimization 9: inline shortcut hints for faster operator discovery. */}
-            <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">Alt+1..5 switch chambers</span>
-            <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">/ focus agent search</span>
-            <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">L toggle ledger</span>
-          </div>
-          <div className="mb-3 flex flex-wrap gap-2">
-            {ledgerTags.map((tag) => (
-              <button key={tag} onClick={() => setTagFilter(tag)} className={cn('rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em]', tagFilter === tag ? 'border-sky-500/50 bg-sky-500/15 text-sky-200' : 'border-slate-700 bg-slate-950 text-slate-400')}>
-                {tag}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-2">
-            {filteredLedger.slice(0, ledgerExpanded ? undefined : 14).map((entry) => (
-              <LedgerRow
-                key={entry.id}
-                entry={entry}
-                isSelected={selectedLedgerId === entry.id}
-                isExpanded={expandedLedgerId === entry.id}
-                onSelect={handleLedgerSelect}
-              />
-            ))}
-          </div>
-          {filteredLedger.length === 0 ? (
-            <div className="rounded-md border border-dashed border-slate-700 bg-slate-950/60 p-4 text-center text-xs text-slate-400">
-              No ledger entries match this filter. Try <button onClick={() => setTagFilter('all')} className="text-sky-300 underline underline-offset-2">resetting to all tags</button>.
-            </div>
-          ) : null}
-          {filteredLedger.length > 14 && (
-            <button
-              onClick={() => setLedgerExpanded((prev) => !prev)}
-              className="mt-3 w-full rounded-md border border-slate-700 bg-slate-950 py-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400 transition hover:border-sky-500/40 hover:text-sky-300"
-            >
-              {ledgerExpanded ? '▲ collapse' : `▼ show ${filteredLedger.length - 14} more entries`}
-            </button>
-          )}
-        </section>
+        {renderCenterContent()}
 
         <aside className="col-span-12 space-y-4 xl:col-span-3">
           <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
