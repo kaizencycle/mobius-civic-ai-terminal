@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-03-25T07:11:02Z",
+  "timestamp": "2026-04-04T07:09:00Z",
   "health": "degraded",
   "endpoints": {
     "micro_agents": true,
@@ -7,9 +7,9 @@
     "runtime": false
   },
   "signals": {
-    "composite": 0.656,
+    "composite": 0.7,
     "anomalies": 2,
-    "gi": 0.75,
+    "gi": 0.74,
     "mode": "yellow"
   }
 }
