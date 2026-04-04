@@ -478,7 +478,11 @@ type LedgerRowProps = {
 const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSelect }: LedgerRowProps) {
   const confidence = Math.min(100, Math.max(10, Math.round(((entry.confidenceTier ?? 2) / 4) * 100)));
   const relTime = useRelativeTime(entry.timestamp);
-  const isoTime = new Date(entry.timestamp).toISOString();
+  const isoTime = useMemo(() => {
+    const parsed = new Date(entry.timestamp);
+    if (Number.isNaN(parsed.getTime())) return undefined;
+    return parsed.toISOString();
+  }, [entry.timestamp]);
 
   const handleSelect = useCallback(() => {
     onSelect(entry.id);
@@ -495,7 +499,7 @@ const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSel
               <div className="truncate text-xs text-slate-500">{entry.summary}</div>
             </div>
           </div>
-          <time dateTime={isoTime} title={isoTime} className="shrink-0 text-right text-[10px] font-mono text-slate-500">{relTime}</time>
+          <time dateTime={isoTime} title={isoTime ?? entry.timestamp} className="shrink-0 text-right text-[10px] font-mono text-slate-500">{relTime}</time>
         </div>
         <div className="mt-2 flex items-center gap-2 text-[10px] font-mono text-slate-400">
           <span>confidence</span>
