@@ -324,6 +324,10 @@ export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisI
   for (const a of input.civicAlerts.slice(0, 5)) {
     if (typeof a.id === 'string') derivedFrom.push(`civic:${a.id}`);
   }
+  derivedFrom.push(`tripwire:${input.tripwire.level}`);
+  if (input.treasuryStatus !== 'unavailable') {
+    derivedFrom.push(`treasury:${input.treasuryStatus}`);
+  }
 
   const governanceSummary =
     `Cycle ${input.cycleId} substrate: ${input.committedAgentRows.length} committed agent row(s) ` +
@@ -470,6 +474,11 @@ export async function publishEveGovernanceSynthesis(
   allRows: EpiconLedgerFeedEntry[],
 ): Promise<PublishEveGovernanceResult> {
   if (ledgerHasIdempotencyTag(allRows, idempotencyTag)) {
+    return { published: false, entryId: null, idempotencyTag, ledgerSeverity: ledgerSeverityFromSignals(output.severity) };
+  }
+
+  const freshRows = await readLedgerRowsForEve(400);
+  if (ledgerHasIdempotencyTag(freshRows, idempotencyTag)) {
     return { published: false, entryId: null, idempotencyTag, ledgerSeverity: ledgerSeverityFromSignals(output.severity) };
   }
 
