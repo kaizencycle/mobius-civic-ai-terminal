@@ -32,14 +32,14 @@ const AGENT_BASE = [
 
 let staleSnapshot: { cycle: string; timestamp: string } | null = null;
 
-function toAgentStatus(status: 'alive' | 'unknown') {
+function toAgentStatus(status: 'alive' | 'offline') {
   return AGENT_BASE.map((agent) => ({
     ...agent,
     status,
     detail:
       status === 'alive'
         ? 'Live heartbeat observed from runtime status.'
-        : 'Heartbeat is stale; agent state is currently unknown.',
+        : 'Heartbeat is stale; agent is offline until a fresh runtime heartbeat arrives.',
     heartbeat_ok: status === 'alive',
     last_action:
       status === 'alive'
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
       ...staleCacheEnvelope(timestamp, 'Heartbeat stale'),
       cycle,
       timestamp,
-      agents: toAgentStatus('unknown'),
+      agents: toAgentStatus('offline'),
     });
   } catch (error) {
     const mock = mockAgentStatus();
@@ -87,7 +87,7 @@ export async function GET(request: Request) {
         ...staleCacheEnvelope(staleSnapshot.timestamp, 'Heartbeat stale'),
         cycle: staleSnapshot.cycle,
         timestamp: staleSnapshot.timestamp,
-        agents: toAgentStatus('unknown'),
+        agents: toAgentStatus('offline'),
       });
     }
 

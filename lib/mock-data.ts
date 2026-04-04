@@ -18,7 +18,7 @@ export function mockAgentStatus() {
     source: 'mock' as const,
     agents: AGENTS.map((agent) => ({
       ...agent,
-      status: 'unknown' as const,
+      status: 'offline' as const,
       detail: 'Representative placeholder while live agent heartbeat is unavailable.',
       heartbeat_ok: false,
       last_action: 'Live source unavailable',

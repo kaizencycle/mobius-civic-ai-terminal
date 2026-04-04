@@ -1,15 +1,40 @@
-import type { Agent, EpiconItem, GISnapshot, Tripwire } from './types';
+import type { Agent, AgentStatus, EpiconItem, GISnapshot, Tripwire } from './types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function transformAgent(raw: any): Agent {
+/** Map roster API / stream payloads to terminal AgentStatus (API uses alive|idle|offline). */
+function normalizeAgentApiStatus(raw: unknown): AgentStatus {
+  if (raw === 'idle') return 'idle';
+  if (raw === 'alive') return 'listening';
+  if (raw === 'offline' || raw === 'unknown') return 'alert';
+  return 'idle';
+}
+
+export function transformAgent(raw: unknown): Agent {
+  if (raw === null || typeof raw !== 'object') {
+    return {
+      id: '',
+      name: '',
+      role: '',
+      color: 'slate',
+      status: 'idle',
+      heartbeatOk: false,
+      lastAction: '',
+    };
+  }
+  const r = raw as Record<string, unknown>;
+  const lastAction =
+    typeof r.last_action === 'string'
+      ? r.last_action
+      : typeof r.lastAction === 'string'
+        ? r.lastAction
+        : '';
   return {
-    id: raw.id,
-    name: raw.name,
-    role: raw.role,
-    color: raw.color,
-    status: raw.status,
-    heartbeatOk: raw.heartbeat_ok ?? raw.heartbeatOk,
-    lastAction: raw.last_action ?? raw.lastAction,
+    id: typeof r.id === 'string' ? r.id : '',
+    name: typeof r.name === 'string' ? r.name : '',
+    role: typeof r.role === 'string' ? r.role : '',
+    color: typeof r.color === 'string' ? r.color : 'slate',
+    status: normalizeAgentApiStatus(r.status),
+    heartbeatOk: Boolean(r.heartbeat_ok ?? r.heartbeatOk),
+    lastAction,
   };
 }
 
