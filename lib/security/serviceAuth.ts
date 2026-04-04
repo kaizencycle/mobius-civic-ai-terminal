@@ -64,13 +64,6 @@ function extractAuthorizationToken(authorization: string | null): string | null 
   return raw.length > 0 ? raw : null;
 }
 
-/** Authorization header as sent on the wire (trimmed), for exact-match checks (e.g. Vercel CRON_SECRET). */
-function trimmedAuthorizationHeader(authorization: string | null): string | null {
-  if (authorization === null) return null;
-  const t = authorization.trim();
-  return t.length > 0 ? t : null;
-}
-
 export function serviceAuthorizationHeaderValue(): string | null {
   const material = outboundBearerMaterial();
   return material ? `Bearer ${material}` : null;
@@ -102,20 +95,15 @@ export function isVercelCronInvocation(request: NextRequest): boolean {
 export function isValidCronSecretBearer(authorization: string | null): boolean {
   const cronEnv = process.env.CRON_SECRET;
   if (typeof cronEnv !== 'string') return false;
-  const cronTrimmed = cronEnv.trim();
-  if (cronTrimmed.length === 0) return false;
-
-  // Vercel sends Authorization: Bearer ${CRON_SECRET} byte-for-byte against the env value (see Vercel cron docs).
-  const header = trimmedAuthorizationHeader(authorization);
-  if (header !== null && header === `Bearer ${cronTrimmed}`) {
-    return true;
-  }
 
   const cronMaterial = normalizeServiceSecretMaterial(cronEnv);
   if (cronMaterial === null) return false;
+
   const token = extractAuthorizationToken(authorization);
   if (token === null) return false;
   const tokenMaterial = normalizeServiceSecretMaterial(token);
+  // Single normalized compare: matches Vercel’s Bearer cron value even when ops quoted the
+  // env value, pasted “Bearer …”, or the wire header uses different Bearer casing/spacing.
   return tokenMaterial !== null && tokenMaterial === cronMaterial;
 }
 
