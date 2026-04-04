@@ -25,8 +25,9 @@ permissions:
 
 env:
   TERMINAL_URL: "https://mobius-civic-ai-terminal.vercel.app"
-  # Optional: set repo secret MOBIUS_SERVICE_SECRET to match Vercel (same value as app service auth).
+  # Match Vercel service auth: MOBIUS_SERVICE_SECRET or CRON_SECRET (same material as cron / heartbeat).
   MOBIUS_SERVICE_SECRET: ${{ secrets.MOBIUS_SERVICE_SECRET }}
+  CRON_SECRET: ${{ secrets.CRON_SECRET }}
 
 jobs:
   heartbeat:
@@ -66,18 +67,22 @@ jobs:
             echo '{"ok":false,"global_integrity":0,"mode":"unknown"}' > /tmp/integrity.json
           fi
 
-          # Try to fetch runtime heartbeat (route requires service auth — same secret as Vercel)
+          # Try to fetch runtime heartbeat (route requires service auth — Bearer must match Vercel secrets)
           RUNTIME_OK=false
           RUNTIME_CURL=( -sf "${TERMINAL_URL}/api/runtime/heartbeat" -o /tmp/runtime.json --max-time 10 )
-          if [ -n "${MOBIUS_SERVICE_SECRET:-}" ]; then
-            if curl "${RUNTIME_CURL[@]}" -H "Authorization: Bearer ${MOBIUS_SERVICE_SECRET}"; then
+          RUNTIME_SECRET="${MOBIUS_SERVICE_SECRET:-}"
+          if [ -z "$RUNTIME_SECRET" ]; then
+            RUNTIME_SECRET="${CRON_SECRET:-}"
+          fi
+          if [ -n "$RUNTIME_SECRET" ]; then
+            if curl "${RUNTIME_CURL[@]}" -H "Authorization: Bearer ${RUNTIME_SECRET}"; then
               RUNTIME_OK=true
               echo "✅ Runtime heartbeat responded"
             else
               echo "⚠️ Runtime heartbeat unreachable"
             fi
           else
-            echo "⚠️ MOBIUS_SERVICE_SECRET not set in repo secrets — runtime probe unauthenticated (expect 401)"
+            echo "⚠️ Neither MOBIUS_SERVICE_SECRET nor CRON_SECRET set in repo secrets — runtime probe unauthenticated (expect 401)"
             if curl "${RUNTIME_CURL[@]}"; then
               RUNTIME_OK=true
               echo "✅ Runtime heartbeat responded"
