@@ -75,10 +75,10 @@ async function runHeartbeat() {
 }
 
 function authorize(request: NextRequest) {
-  if (isValidCronSecretBearer(request.headers.get('authorization'))) {
+  if (isVercelCronInvocation(request)) {
     return null;
   }
-  if (isVercelCronInvocation(request)) {
+  if (isValidCronSecretBearer(request.headers.get('authorization'))) {
     return null;
   }
   return getServiceAuthError(request);
