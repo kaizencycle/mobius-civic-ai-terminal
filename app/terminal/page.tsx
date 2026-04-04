@@ -1,95 +1,48 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { useState } from 'react';
-import type { TerminalCommandResult } from '@/lib/commands/types';
-import TopStatusBar from '@/components/terminal/TopStatusBar';
-import TerminalSection from '@/components/layout/TerminalSection';
-import type { IntegrityTone } from '@/components/terminal/LiveIntegrityRibbon';
-import AttestationReplayRail from '@/components/terminal/AttestationReplayRail';
-import ConsensusPreviewStrip from '@/components/terminal/ConsensusPreviewStrip';
-import SuggestedNextActions, { type SuggestedAction } from '@/components/terminal/SuggestedNextActions';
-import TerminalShellFallback from '@/components/terminal/TerminalShellFallback';
-import SidebarNav from '@/components/terminal/SidebarNav';
-import EpiconFeedPanel from '@/components/terminal/EpiconFeedPanel';
-import CandidateFeed from '@/components/epicon/CandidateFeed';
-import AgentCortexPanel from '@/components/terminal/AgentCortexPanel';
-import AgentGrid from '@/components/agents/AgentGrid';
-import IntegrityMonitorCard from '@/components/terminal/IntegrityMonitorCard';
-import PulseTimeline from '@/components/signals/PulseTimeline';
-import TripwireWatchCard from '@/components/terminal/TripwireWatchCard';
-import TripwirePanel from '@/components/tripwire/TripwirePanel';
-import DetailInspectorRail from '@/components/terminal/DetailInspectorRail';
-import MicAccountPanel from '@/components/mic/MicAccountPanel';
-import type { ZeusVerifyPayload, ZeusVerifyResult } from '@/components/terminal/DetailInspectorRail';
-import CommandPalette from '@/components/terminal/CommandPalette';
-import CommandInput from '@/components/terminal/CommandInput';
-import CommandResult from '@/components/terminal/CommandResult';
-import QueryResultCard from '@/components/query/QueryResultCard';
-import LedgerPanel from '@/components/terminal/LedgerPanel';
-import SubstrateStatusCard from '@/components/terminal/SubstrateStatusCard';
-import CivicRadarPanel from '@/components/terminal/CivicRadarPanel';
-import SignalEnginePanel from '@/components/terminal/SignalEnginePanel';
-import IntegrityFilter from '@/components/terminal/IntegrityFilter';
-import IntegrityRatingPanel from '@/components/terminal/IntegrityRatingPanel';
+import { useEffect, useMemo, useState } from 'react';
 import HardHalt from '@/components/modals/HardHalt';
-import SentinelPulsePanel from '@/components/terminal/SentinelPulsePanel';
-import EveGlobalNewsPanel from '@/components/terminal/EveGlobalNewsPanel';
-import IntegritySignalTicker from '@/components/terminal/IntegritySignalTicker';
-import MacroIntegrityPulseCard from '@/components/markets/MacroIntegrityPulseCard';
-import MarketNarratorCard from '@/components/markets/MarketNarratorCard';
-import MarketSweepExportCard from '@/components/markets/MarketSweepExportCard';
-import RatesDollarFusionCard from '@/components/markets/RatesDollarFusionCard';
-import TreasuryMarketBridge from '@/components/treasury/TreasuryMarketBridge';
-import TreasuryWatchCard from '@/components/treasury/TreasuryWatchCard';
+import TerminalShellFallback from '@/components/terminal/TerminalShellFallback';
 import { WalletProvider } from '@/contexts/WalletContext';
-import { currentCycleId } from '@/lib/eve/cycle-engine';
-import { navItems, mockCivicAlerts, mockSentinels } from '@/lib/terminal/mock';
-import type { NavKey } from '@/lib/terminal/types';
-import { mockQueryResult } from '@/lib/mock/queryResult';
-import { cn } from '@/lib/terminal/utils';
-import { checkCovenantCompliance } from '@/lib/integrity-check';
-import { useTerminalCommands } from '@/hooks/useTerminalCommands';
 import { useTerminalData } from '@/hooks/useTerminalData';
+import { checkCovenantCompliance } from '@/lib/integrity-check';
+import { cn } from '@/lib/utils';
+import type { LedgerEntry, NavKey } from '@/lib/terminal/types';
 
-const MICWalletPanel = dynamic(() => import('@/components/terminal/MICWalletPanel'));
-const MFSShardPanel = dynamic(() => import('@/components/terminal/MFSShardPanel'));
-const MICBlockchainExplorer = dynamic(() => import('@/components/terminal/MICBlockchainExplorer'));
-const CreateEpiconModal = dynamic(() => import('@/components/terminal/CreateEpiconModal'));
-
-const CHAMBER_DESCRIPTIONS: Partial<Record<NavKey, string>> = {
-  search: 'Use the Command Palette below to search across all data. Try /scan followed by a keyword.',
-  settings: 'Terminal configuration and operator preferences. Feature coming in V2.',
-  wallet: 'MIC wallet, MFS shards, and blockchain explorer. Integrity economics in real time.',
-  reflections: 'Agent reflection logs and cross-system annotations.',
+type AgentStatusApi = {
+  id: string;
+  name: string;
+  role: string;
+  tier?: string;
+  status: 'alive' | 'idle' | 'offline';
+  detail?: string;
+  lastAction?: string;
+  load?: number;
+  uptime?: string;
 };
 
-function chamberStatus(nav: NavKey, gi: number, tripwireCount: number, epiconCount: number, alertCount: number) {
-  if (CHAMBER_DESCRIPTIONS[nav]) return CHAMBER_DESCRIPTIONS[nav] as string;
+type AgentStatusResponse = { ok: boolean; agents: AgentStatusApi[] };
 
-  const giLabel = gi >= 0.85 ? 'GI stable' : gi >= 0.7 ? 'GI under pressure' : 'GI critical';
-  const tripwireLabel = tripwireCount === 0 ? 'No active tripwires' : `${tripwireCount} tripwire${tripwireCount === 1 ? '' : 's'} active`;
-  const feedLabel = `${epiconCount} signal${epiconCount === 1 ? '' : 's'} in feed`;
+type MicroSignal = { agentName: string; value: number };
+type MicroAgent = { agentName: string; healthy: boolean };
+type MicroSweepResponse = {
+  ok: boolean;
+  timestamp: string;
+  composite: number;
+  healthy: boolean;
+  agents: MicroAgent[];
+  allSignals: MicroSignal[];
+};
 
-  switch (nav) {
-    case 'pulse':
-      return `${giLabel}. ${tripwireLabel}. ${feedLabel}. ${alertCount} alert${alertCount === 1 ? '' : 's'}.`;
-    case 'geopolitics':
-      return `Geopolitical signals filtered. ${feedLabel}. ${tripwireLabel}.`;
-    case 'markets':
-      return `Market signals filtered. ${feedLabel}.`;
-    case 'governance':
-      return `Governance view. ${giLabel}. Signal Engine scoring active.`;
-    case 'infrastructure':
-      return `Infrastructure watch. ${tripwireLabel}.`;
-    case 'agents':
-      return 'Canonical Mobius roster online. Visible agent presence restored.';
-    default:
-      return `${giLabel}. ${tripwireLabel}.`;
-  }
-}
+type KvHealthResponse = { ok: boolean; latencyMs: number | null };
 
-const NAV_LABEL_MAP = new Map(navItems.map((item) => [item.key, item.label]));
+const TABS: Array<{ key: NavKey; label: string }> = [
+  { key: 'pulse', label: 'Pulse' },
+  { key: 'agents', label: 'Agents' },
+  { key: 'ledger', label: 'Ledger' },
+  { key: 'infrastructure', label: 'Tripwire' },
+  { key: 'wallet', label: 'Wallet' },
+];
 
 export default function TerminalPageWrapper() {
   return (
@@ -101,539 +54,340 @@ export default function TerminalPageWrapper() {
 
 function TerminalPage() {
   const [selectedNav, setSelectedNav] = useState<NavKey>('pulse');
-  const [commandResult, setCommandResult] = useState<TerminalCommandResult | null>(null);
-  const [noiseThreshold, setNoiseThreshold] = useState(0.7);
-  const {
-    agents,
-    allTripwires,
-    dataRef,
-    dominantTripwireState,
-    duplicateSuppressedCount,
-    echoAlerts,
-    echoIntegrity,
-    filteredAgents,
-    filteredEpicon,
-    freshness,
-    gi,
-    integrityStatus,
-    inspectorTarget,
-    integritySignal,
-    mergedLedger,
-    operatorMessage,
-    promotionCounters,
-    setEchoAlerts,
-    setEchoIntegrity,
-    setEchoLedger,
-    setEpicon,
-    setInspectorTarget,
-    setOperatorMessage,
-    setShowCreateEpicon,
-    showCreateEpicon,
-    signalScores,
-    streamStatus,
-    submitEpiconDraft,
-  } = useTerminalData(selectedNav);
+  const [selectedLedgerId, setSelectedLedgerId] = useState<string | null>(null);
+  const [expandedLedgerId, setExpandedLedgerId] = useState<string | null>(null);
+  const [tagFilter, setTagFilter] = useState<string>('all');
+  const [clock, setClock] = useState<string>('');
+  const [agentSearch, setAgentSearch] = useState('');
+  const [focusedAgent, setFocusedAgent] = useState<AgentStatusApi | null>(null);
+  const [agentRoster, setAgentRoster] = useState<AgentStatusApi[]>([]);
+  const [micro, setMicro] = useState<MicroSweepResponse | null>(null);
+  const [microHistory, setMicroHistory] = useState<Array<{ time: string; composite: number }>>([]);
+  const [kvLatency, setKvLatency] = useState<number | null>(null);
 
-  const handleCommand = useTerminalCommands({
-    dataRef,
-    setEchoAlerts,
-    setEchoIntegrity,
-    setEchoLedger,
-    setEpicon,
-    setInspectorTarget,
-    setSelectedNav,
-    setShowCreateEpicon,
-  });
+  const { allTripwires, filteredEpicon, gi, integrityStatus, mergedLedger, streamStatus } = useTerminalData(selectedNav);
 
-  if (!gi || !inspectorTarget) {
-    return <TerminalShellFallback statusLabel="Booting Mobius Terminal · syncing integrity surfaces" />;
-  }
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
+    }, 1000);
+    setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
+    return () => window.clearInterval(timer);
+  }, []);
 
-  const mergedAlerts = [...echoAlerts, ...mockCivicAlerts];
-  const showEpicon = ['pulse', 'markets', 'geopolitics', 'governance', 'infrastructure', 'ledger'].includes(selectedNav);
-  const showAgents = ['pulse', 'agents', 'reflections'].includes(selectedNav);
-  const showMetrics = !['search', 'settings', 'ledger', 'wallet'].includes(selectedNav);
-  const showLedger = ['ledger', 'pulse'].includes(selectedNav);
-  const showSentinels = ['governance', 'pulse'].includes(selectedNav);
-  const showRadar = ['geopolitics', 'infrastructure', 'pulse'].includes(selectedNav);
-  const showIntegrity = ['pulse', 'governance', 'agents'].includes(selectedNav);
-  const showWallet = selectedNav === 'wallet';
-  const showSignal = ['pulse', 'governance', 'geopolitics', 'markets'].includes(selectedNav);
-  const showConsensus = showCreateEpicon || inspectorTarget.kind === 'epicon';
-  const criticalAlertCount = mergedAlerts.filter((alert) => alert.severity === 'critical' || alert.severity === 'high').length;
-  const filteredSignals = filteredEpicon.filter((item) => item.confidenceTier / 4 >= noiseThreshold);
-  const covenantStatus = checkCovenantCompliance(gi.score);
+  useEffect(() => {
+    let mounted = true;
 
-  const consensusAgents = (() => {
-    if (showCreateEpicon) {
-      return [
-        { name: 'ZEUS', verdict: 'approve' as const, note: 'Verification lane ready for operator-submitted signal.' },
-        { name: 'EVE', verdict: 'caution' as const, note: 'Check ethics impact before publishing outward.' },
-        { name: 'AUREA', verdict: 'approve' as const, note: 'Synthesis path available once evidence lands.' },
-        { name: 'HERMES', verdict: 'approve' as const, note: 'Routing prepared for intake and escalation.' },
-        { name: 'JADE', verdict: 'pending' as const, note: 'Annotation layer opens after submission.' },
-        { name: 'ATLAS', verdict: 'caution' as const, note: 'Tripwire scan will run on submit.' },
-      ];
+    async function loadSidePanels() {
+      try {
+        const [agentsRes, microRes, kvRes] = await Promise.all([
+          fetch('/api/agents/status', { cache: 'no-store' }),
+          fetch('/api/signals/micro', { cache: 'no-store' }),
+          fetch('/api/kv/health', { cache: 'no-store' }),
+        ]);
+        const agentsJson: AgentStatusResponse = await agentsRes.json();
+        const microJson: MicroSweepResponse = await microRes.json();
+        const kvJson: KvHealthResponse = await kvRes.json();
+        if (!mounted) return;
+
+        if (agentsJson.ok) setAgentRoster(agentsJson.agents ?? []);
+        if (microJson.ok) {
+          setMicro(microJson);
+          const time = new Date(microJson.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          setMicroHistory((prev) => [...prev, { time, composite: microJson.composite }].slice(-12));
+        }
+        setKvLatency(kvJson.latencyMs ?? null);
+      } catch {
+        // silent degradation
+      }
     }
 
-    if (inspectorTarget.kind === 'epicon') {
-      const event = inspectorTarget.data;
-      return [
-        { name: 'ZEUS', verdict: event.status === 'contradicted' ? 'block' as const : 'approve' as const, note: `Confidence tier ${event.confidenceTier} attestation ready.` },
-        { name: 'EVE', verdict: event.status === 'pending' ? 'caution' as const : 'approve' as const, note: 'Public impact review remains visible.' },
-        { name: 'AUREA', verdict: 'approve' as const, note: 'Strategic synthesis can be generated from current trace.' },
-        { name: 'HERMES', verdict: 'approve' as const, note: 'Routing path mapped from intake to chamber context.' },
-        { name: 'JADE', verdict: 'pending' as const, note: 'Human annotation slot available for operator notes.' },
-        { name: 'ATLAS', verdict: dominantTripwireState === 'degraded' ? 'caution' as const : 'approve' as const, note: 'Anomaly posture matches current tripwire state.' },
-      ];
-    }
+    loadSidePanels();
+    const poll = window.setInterval(loadSidePanels, 30000);
+    return () => {
+      mounted = false;
+      window.clearInterval(poll);
+    };
+  }, []);
 
-    return [];
-  })();
+  const covenantStatus = checkCovenantCompliance(gi?.score ?? 0);
+  const cycleId = integrityStatus?.cycle ?? 'C-270';
+  const giScore = gi?.score ?? 0;
+  const giDelta = gi?.delta ?? 0;
 
-  const suggestedActions: SuggestedAction[] = (() => {
-    if (showCreateEpicon) {
-      return [
-        { id: 'submit.epicon', label: 'Complete EPICON draft', description: 'Attach sources, confidence, and tags before sending to ECHO.' },
-        { id: 'request.consensus', label: 'Request consensus', description: 'Preview ZEUS/EVE/AUREA review before operator submission.' },
-        { id: 'open.tripwire', label: 'Inspect tripwire posture', description: 'Check whether this signal should enter a watch lane first.' },
-      ];
-    }
+  const statCards = [
+    { label: 'Global Integrity', value: giScore.toFixed(3), trend: giDelta, icon: '◎' },
+    { label: 'Signal Feed', value: String(filteredEpicon.length), trend: filteredEpicon.length > 8 ? 0.08 : -0.04, icon: '∿' },
+    { label: 'Tripwires', value: String(allTripwires.length), trend: allTripwires.length > 0 ? -0.1 : 0.02, icon: '⚠' },
+    { label: 'Agents Live', value: String(agentRoster.length), trend: agentRoster.length >= 6 ? 0.05 : -0.02, icon: '◉' },
+  ];
 
-    if (inspectorTarget.kind === 'epicon') {
-      return [
-        { id: 'ledger.open', label: 'Open ledger record', description: 'Jump to the correlated ledger write for this EPICON.' },
-        { id: 'consensus.request', label: 'Request consensus', description: 'Preview cross-agent verdicts before escalating or publishing.' },
-        { id: 'tripwire.escalate', label: 'Escalate to tripwire', description: 'Promote the event into infrastructure watch if risk increases.' },
-        { id: 'annotate.jade', label: 'Annotate with JADE', description: 'Capture human context and morale signals in the trace.' },
-        { id: 'inspect.wallet', label: 'Open wallet impact', description: 'Review MIC / MII implications from integrity movement.' },
-      ];
-    }
+  const ledgerTags = useMemo(() => {
+    const allTags = new Set<string>();
+    for (const entry of mergedLedger) for (const tag of entry.tags ?? []) allTags.add(tag);
+    return ['all', ...Array.from(allTags).slice(0, 8)];
+  }, [mergedLedger]);
 
-    return [
-      { id: 'scan.epicon', label: 'Scan related EPICONs', description: 'Search the active feed for adjacent events or categories.' },
-      { id: 'open.ledger', label: 'Open ledger chamber', description: 'Review the immutable record for the current cycle.' },
-      { id: 'open.wallet', label: 'Inspect wallet impact', description: 'Check MIC minting and MFS shard activity.' },
-    ];
-  })();
+  const filteredLedger = useMemo(() => {
+    if (tagFilter === 'all') return mergedLedger;
+    return mergedLedger.filter((entry) => (entry.tags ?? []).includes(tagFilter));
+  }, [mergedLedger, tagFilter]);
 
-  const handleSuggestedAction = (actionId: string) => {
-    setOperatorMessage(`Operator action queued: ${actionId}`);
+  const visibleAgents = useMemo(() => {
+    const needle = agentSearch.trim().toLowerCase();
+    if (!needle) return agentRoster;
+    return agentRoster.filter((agent) => `${agent.name} ${agent.role}`.toLowerCase().includes(needle));
+  }, [agentRoster, agentSearch]);
 
-    if (actionId === 'open.ledger' || actionId === 'ledger.open') {
-      setSelectedNav('ledger');
-      const latest = mergedLedger[0];
-      if (latest) setInspectorTarget({ kind: 'ledger', data: latest });
-      return;
-    }
-
-    if (actionId === 'tripwire.escalate' || actionId === 'open.tripwire') {
-      setSelectedNav('infrastructure');
-      const active = allTripwires[0];
-      if (active) setInspectorTarget({ kind: 'tripwire', data: active });
-      return;
-    }
-
-    if (actionId === 'inspect.wallet' || actionId === 'open.wallet') {
-      setSelectedNav('wallet');
-      return;
-    }
-
-    if (actionId === 'annotate.jade') {
-      setSelectedNav('reflections');
-      const jade = agents.find((agent) => agent.id === 'jade');
-      if (jade) setInspectorTarget({ kind: 'agent', data: jade });
-      return;
-    }
-
-    if (actionId === 'scan.epicon') {
-      setSelectedNav('search');
-      return;
-    }
-
-    if (actionId === 'submit.epicon') {
-      setShowCreateEpicon(true);
-      return;
-    }
-
-    if (actionId === 'request.consensus' || actionId === 'consensus.request') {
-      setOperatorMessage('Consensus request staged across ZEUS, EVE, AUREA, HERMES, JADE, and ATLAS.');
-    }
-  };
-
-  const liveRibbonMii = integrityStatus?.mii_baseline ?? echoIntegrity?.avgMii ?? (mockSentinels.reduce((sum, sentinel) => sum + sentinel.integrity, 0) / mockSentinels.length);
-  const liveRibbonMicDelta = echoIntegrity?.totalMicMinted ?? Math.max(0, gi.delta * 100);
-  const cycleId = integrityStatus?.cycle ?? currentCycleId();
-  const micSupply = integrityStatus?.mic_supply ?? 0;
-  const terminalStatus = integrityStatus?.terminal_status ?? 'nominal';
-  const primaryDriver = integrityStatus?.primary_driver ?? 'No primary driver available';
-  const relatedLedgerEntry = inspectorTarget.kind === 'epicon'
-    ? mergedLedger.find((entry) => entry.summary.includes(inspectorTarget.data.id) || entry.summary.toLowerCase().includes(inspectorTarget.data.title.toLowerCase().slice(0, 24)))
-    : undefined;
+  if (!gi) return <TerminalShellFallback statusLabel="Booting Mobius Terminal · syncing integrity surfaces" />;
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
-      <HardHalt
-        isOpen={covenantStatus.status === 'HALT'}
-        giScore={gi.score}
-        reason="Semantic drift detected in active civic signal lanes."
-      />
-      <TopStatusBar
-        alertCount={allTripwires.length + criticalAlertCount}
-        mii={liveRibbonMii}
-        micSupply={micSupply}
-        terminalStatus={terminalStatus}
-        primaryDriver={primaryDriver}
-        cycleId={cycleId}
-        streamStatus={streamStatus}
-        onNavigate={setSelectedNav}
-        gi={gi.score}
-        micDelta={liveRibbonMicDelta}
-        tripwireState={dominantTripwireState}
-        lastLedgerSyncLabel={freshness.lastLedgerSyncLabel}
-        lastIngestLabel={freshness.lastIngestLabel}
-        lastCycleAdvanceLabel={freshness.lastCycleAdvanceLabel}
-      />
+    <div className="min-h-screen bg-[#020617] text-slate-100">
+      <HardHalt isOpen={covenantStatus.status === 'HALT'} giScore={gi.score} reason="Semantic drift detected in active civic signal lanes." />
 
-      {showConsensus && (
-        <ConsensusPreviewStrip
-          title={showCreateEpicon ? 'Consensus Preview · Submission Lane' : 'Consensus Preview · Operator Lane'}
-          subtitle={operatorMessage}
-          agents={consensusAgents}
-        />
-      )}
-
-      <div className="grid flex-1 grid-cols-12 max-md:grid-cols-1">
-        <SidebarNav items={navItems} selected={selectedNav} onSelect={setSelectedNav} />
-
-        <main className="col-span-7 border-r border-slate-800 bg-slate-950 max-lg:col-span-9 max-md:col-span-1 max-md:border-r-0">
-          <div className="grid h-full auto-rows-max gap-4 p-4">
-            <TerminalSection
-              eyebrow="Command Surface"
-              title={`${NAV_LABEL_MAP.get(selectedNav)} Chamber`}
-              description={chamberStatus(selectedNav, gi.score, allTripwires.length, filteredEpicon.length, criticalAlertCount)}
-              actions={
-                <div className="space-y-1 text-right">
-                  <div className="font-mono uppercase tracking-[0.15em] text-slate-500">{operatorMessage}</div>
-                  <div className="text-[11px] uppercase tracking-[0.12em] text-slate-600">
-                    {cycleId} · {terminalStatus} · {streamStatus === 'live' ? 'stream live' : streamStatus === 'reconnecting' ? 'reconnecting' : 'local mode'}
-                  </div>
-                </div>
-              }
-            >
-              <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-slate-500">
-                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Driver · {primaryDriver}</span>
-                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Signals · {filteredSignals.length}</span>
-                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Tripwires · {allTripwires.length}</span>
-                <span className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1">Alerts · {criticalAlertCount}</span>
-              </div>
-            </TerminalSection>
-
-            <IntegrityFilter onFilterChange={setNoiseThreshold} defaultThreshold={noiseThreshold} />
-
-            {showLedger && (
-              <LedgerPanel
-                entries={mergedLedger}
-                duplicateSuppressedCount={duplicateSuppressedCount}
-                promotionCounters={promotionCounters}
-                selectedId={inspectorTarget.kind === 'ledger' ? inspectorTarget.data.id : undefined}
-                onSelect={(entry) => setInspectorTarget({ kind: 'ledger', data: entry })}
-              />
-            )}
-
-            {showEpicon && selectedNav !== 'ledger' && (
-              <TerminalSection
-                eyebrow="Public Memory"
-                title="EPICON Feed"
-                description="Published signals, candidate intake, and current publication context."
-                id="epicon"
-              >
-                <div className="space-y-4">
-                  <EpiconFeedPanel
-                    items={filteredSignals}
-                    selectedId={inspectorTarget.kind === 'epicon' ? inspectorTarget.data.id : ''}
-                    onSelect={(item) => setInspectorTarget({ kind: 'epicon', data: item })}
-                    noiseThreshold={noiseThreshold}
-                  />
-
-                  <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
-                    <div className="mb-3 text-xs uppercase tracking-[0.2em] text-amber-300">
-                      External Candidate Feed
-                    </div>
-                    <CandidateFeed />
-                  </div>
-                </div>
-              </TerminalSection>
-            )}
-
-            {showAgents && (
-              <TerminalSection
-                id="agents"
-                eyebrow="Cortex"
-                title={selectedNav === 'agents' ? 'Agent Grid' : 'Agent Cortex'}
-                description="Canonical Mobius agents, roles, and status."
-              >
-                <div className="space-y-4">
-                  {selectedNav === 'agents' && <AgentGrid />}
-                  <AgentCortexPanel
-                    agents={filteredAgents}
-                    selectedId={inspectorTarget.kind === 'agent' ? inspectorTarget.data.id : undefined}
-                    onSelect={(agent) => setInspectorTarget({ kind: 'agent', data: agent })}
-                  />
-                </div>
-              </TerminalSection>
-            )}
-
-            {showSentinels && (
-              <SubstrateStatusCard
-                sentinels={mockSentinels}
-                selectedId={inspectorTarget.kind === 'sentinel' ? inspectorTarget.data.id : undefined}
-                onSelect={(sentinel) => setInspectorTarget({ kind: 'sentinel', data: sentinel })}
-              />
-            )}
-
-            {showRadar && (
-              <CivicRadarPanel
-                alerts={mergedAlerts}
-                selectedId={inspectorTarget.kind === 'alert' ? inspectorTarget.data.id : undefined}
-                onSelect={(alert) => setInspectorTarget({ kind: 'alert', data: alert })}
-              />
-            )}
-
-            {showSignal && signalScores.length > 0 && (
-              <SignalEnginePanel
-                scores={signalScores}
-                selectedId={inspectorTarget.kind === 'signal' ? inspectorTarget.data.eventId : undefined}
-                onSelect={(score) => setInspectorTarget({ kind: 'signal', data: score })}
-              />
-            )}
-
-            {selectedNav === 'pulse' && (
-              <div className="space-y-4">
-                <div className="grid gap-4 xl:grid-cols-[1.3fr_0.9fr]">
-                  <TerminalSection
-                    eyebrow="Live Intake"
-                    title="Pulse Timeline"
-                    description="Incoming micro-agent signals and current intake state."
-                  >
-                    <PulseTimeline />
-                    <IntegritySignalTicker signal={integritySignal} />
-                  </TerminalSection>
-
-                  <TerminalSection
-                    eyebrow="System State"
-                    title="Global Integrity"
-                    description="Reactive integrity, tripwire, and system state."
-                  >
-                    <div className="space-y-4">
-                      <TripwirePanel />
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <IntegrityMonitorCard gi={gi} onClick={() => setInspectorTarget({ kind: 'gi', data: gi })} />
-                        <TripwireWatchCard
-                          tripwires={allTripwires}
-                          selectedId={inspectorTarget.kind === 'tripwire' ? inspectorTarget.data.id : undefined}
-                          onSelect={(tripwire) => setInspectorTarget({ kind: 'tripwire', data: tripwire })}
-                        />
-                      </div>
-                    </div>
-                  </TerminalSection>
-                </div>
-
-                <div className="grid gap-4 xl:grid-cols-3">
-                  <SentinelPulsePanel />
-                  <EveGlobalNewsPanel />
-                  <TreasuryWatchCard />
-                </div>
-              </div>
-            )}
-
-            {selectedNav === 'markets' && (
-              <div className="space-y-4">
-                <TerminalSection
-                  eyebrow="Fiscal Signal"
-                  title="Treasury → Markets"
-                  description="Treasury debt velocity, freshness, and monthly drift compressed into market-facing posture."
-                >
-                  <TreasuryMarketBridge />
-                </TerminalSection>
-
-                <TerminalSection
-                  eyebrow="Macro Transmission"
-                  title="Rates + Dollar Fusion"
-                  description="Treasury posture fused with long-end rates, dollar, and volatility overlays."
-                >
-                  <RatesDollarFusionCard />
-                </TerminalSection>
-
-                <TerminalSection
-                  eyebrow="Trust Surface"
-                  title="Macro Integrity Pulse"
-                  description="Freshness, completeness, and cross-provider coherence for macro overlays."
-                >
-                  <MacroIntegrityPulseCard />
-                </TerminalSection>
-
-                <TerminalSection
-                  eyebrow="Export"
-                  title="Market Sweep Export"
-                  description="Copy-ready M1 summary composed from fiscal, macro, and trust surfaces."
-                >
-                  <MarketSweepExportCard />
-                </TerminalSection>
-
-                <TerminalSection
-                  eyebrow="Voice"
-                  title="Narrator Mode"
-                  description="AUREA and HERMES convert M1 export canon into operator voice."
-                >
-                  <MarketNarratorCard />
-                </TerminalSection>
-              </div>
-            )}
-
-            {showIntegrity && <IntegrityRatingPanel integrity={echoIntegrity} />}
-
-            {showWallet && (
-              <>
-                <MICWalletPanel gi={gi} integrity={echoIntegrity} />
-                <MFSShardPanel integrity={echoIntegrity} />
-                <MICBlockchainExplorer />
-              </>
-            )}
-
-            {selectedNav === 'search' && (
-              <TerminalSection
-                eyebrow="Query"
-                title="Query Result"
-                description="Private save, follow-up, or publish to EPICON."
-              >
-                <QueryResultCard result={mockQueryResult} />
-              </TerminalSection>
-            )}
-
-            {showMetrics && selectedNav !== 'pulse' && (
-              <TerminalSection
-                eyebrow="System State"
-                title="Global Integrity"
-                description="Reactive integrity posture, tripwire watch, and operator health context."
-              >
-                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <IntegrityMonitorCard gi={gi} onClick={() => setInspectorTarget({ kind: 'gi', data: gi })} />
-                  <TripwireWatchCard
-                    tripwires={allTripwires}
-                    selectedId={inspectorTarget.kind === 'tripwire' ? inspectorTarget.data.id : undefined}
-                    onSelect={(tripwire) => setInspectorTarget({ kind: 'tripwire', data: tripwire })}
-                  />
-                </section>
-              </TerminalSection>
-            )}
-
-            <TerminalSection
-              eyebrow="Command Surface"
-              title="Terminal Commands"
-              description="Exact command matching for weekly digest, GI status, and agent status."
-            >
-              <div className="space-y-4">
-                <CommandInput onResult={setCommandResult} />
-                <CommandResult result={commandResult} />
-              </div>
-            </TerminalSection>
-
-            <CommandPalette
-              onExecute={(command) => {
-                const result = handleCommand(command);
-                setOperatorMessage(result.message);
-                return result;
-              }}
-            />
-
-            <SuggestedNextActions
-              title={showCreateEpicon ? 'Suggested Next Actions · Submission Flow' : 'Suggested Next Actions'}
-              actions={suggestedActions}
-              onSelect={handleSuggestedAction}
-            />
+      <header className="sticky top-0 z-40 h-14 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+        <div className="mx-auto flex h-full max-w-[1800px] items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sky-500 text-slate-950">⌘</div>
+            <div>
+              <div className="text-sm font-semibold">Mobius Civic Terminal</div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400">{cycleId}</div>
+            </div>
           </div>
-        </main>
-
-        <DetailInspectorRail
-          target={inspectorTarget}
-          prependContent={
-            <>
-              <TerminalSection
-                id="mic"
-                eyebrow="Account"
-                title="MIC Account"
-                description="Balance, stake, rewards, and burn state."
+          <nav className="hidden items-center gap-1 md:flex">
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setSelectedNav(tab.key)}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-xs font-mono uppercase tracking-[0.16em] transition',
+                  selectedNav === tab.key ? 'bg-sky-500/20 text-sky-200 ring-1 ring-sky-500/40' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
+                )}
               >
-                <MicAccountPanel />
-              </TerminalSection>
-              {inspectorTarget.kind === 'epicon' ? (
-                <AttestationReplayRail
-                  event={inspectorTarget.data}
-                  relatedLedger={relatedLedgerEntry}
-                  onAction={(actionId) => {
-                    setOperatorMessage(`Replay rail action queued: ${actionId}`);
-                    if (actionId === 'compare') {
-                      setSelectedNav('governance');
-                    }
-                  }}
-                />
-              ) : null}
-            </>
-          }
-          onZeusVerify={async (payload: ZeusVerifyPayload): Promise<ZeusVerifyResult> => {
-            try {
-              const response = await fetch('/api/zeus/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-              });
-              const data = await response.json();
-              if (data.ok) {
-                setEpicon((prev) => prev.map((item) => (
-                  item.id === payload.epiconId
-                    ? { ...item, status: payload.finalStatus, confidenceTier: payload.finalConfidenceTier as 0 | 1 | 2 | 3 | 4 }
-                    : item
-                )));
-              }
-              return {
-                ok: data.ok,
-                miiScore: data.profile?.miiScore,
-                nodeTier: data.profile?.nodeTier,
-              };
-            } catch {
-              return { ok: false };
-            }
-          }}
-        />
-      </div>
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+          <div className="flex items-center gap-3 text-xs font-mono text-slate-400">
+            <span className="flex items-center gap-2">
+              <span className={cn('h-2 w-2 rounded-full', streamStatus === 'live' ? 'bg-emerald-400' : 'bg-amber-400')} />
+              {streamStatus}
+            </span>
+            <span className="hidden lg:inline">{clock}</span>
+            <span>◔</span>
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800">☺</span>
+          </div>
+        </div>
+      </header>
 
-      <CreateEpiconModal
-        open={showCreateEpicon}
-        onClose={() => {
-          setShowCreateEpicon(false);
-          setOperatorMessage('EPICON submission lane closed. Terminal returned to live monitoring.');
-        }}
-        onSubmit={async (draft) => {
-          await submitEpiconDraft(draft);
-        }}
-      />
+      <main className="mx-auto grid w-full max-w-[1800px] grid-cols-12 gap-4 p-4 pb-14">
+        <aside className="col-span-12 space-y-4 xl:col-span-3">
+          <div className="grid grid-cols-2 gap-3">
+            {statCards.map((card) => <StatCard key={card.label} {...card} />)}
+          </div>
+          <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+            <div className="mb-3 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Integrity Trend</div>
+            <MiniChart points={microHistory.length > 1 ? microHistory.map((p) => p.composite) : gi.weekly} />
+          </section>
+          <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+            <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Tripwire Anomalies</div>
+            <div className="space-y-2">
+              {allTripwires.slice(0, 4).map((tripwire) => (
+                <div key={tripwire.id} className="rounded border border-slate-800 bg-slate-950/70 p-2 text-xs">
+                  <div className="font-medium text-slate-200">{tripwire.label}</div>
+                  <div className="font-mono uppercase text-slate-500">{tripwire.severity} · {tripwire.owner}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </aside>
 
-      <footer className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 py-2 text-xs font-mono text-slate-500">
-        <span className="shrink-0">MOBIUS TERMINAL V1</span>
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
-              streamStatus === 'live' ? 'bg-emerald-400' : streamStatus === 'reconnecting' ? 'bg-amber-400' : 'bg-slate-500',
-            )}
-          />
-          <span className="hidden sm:inline">
-            {cycleId} · {allTripwires.length} tripwire{allTripwires.length === 1 ? '' : 's'} · GI {gi.score.toFixed(2)} · MII {liveRibbonMii.toFixed(2)} · MIC {micSupply.toLocaleString()} · {filteredEpicon.length} signals · {streamStatus === 'live' ? 'Stream live' : streamStatus === 'reconnecting' ? 'Reconnecting' : 'Local mode'}
-          </span>
-          <span className="sm:hidden">{cycleId} · GI {gi.score.toFixed(2)}</span>
+        <section className="col-span-12 rounded-lg border border-slate-800 bg-slate-900/40 p-3 xl:col-span-6">
+          <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <div className="text-sm font-semibold">Pulse Ledger</div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Live signal trace</div>
+            </div>
+            <div className="text-xs font-mono text-slate-400">{filteredLedger.length} entries</div>
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {ledgerTags.map((tag) => (
+              <button key={tag} onClick={() => setTagFilter(tag)} className={cn('rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em]', tagFilter === tag ? 'border-sky-500/50 bg-sky-500/15 text-sky-200' : 'border-slate-700 bg-slate-950 text-slate-400')}>
+                {tag}
+              </button>
+            ))}
+          </div>
+          <div className="space-y-2">
+            {filteredLedger.slice(0, 14).map((entry) => (
+              <LedgerRow
+                key={entry.id}
+                entry={entry}
+                isSelected={selectedLedgerId === entry.id}
+                isExpanded={expandedLedgerId === entry.id}
+                onSelect={() => {
+                  setSelectedLedgerId(entry.id);
+                  setExpandedLedgerId(expandedLedgerId === entry.id ? null : entry.id);
+                }}
+              />
+            ))}
+          </div>
+        </section>
+
+        <aside className="col-span-12 space-y-4 xl:col-span-3">
+          <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Agent Roster</div>
+              <div className="text-[10px] font-mono text-slate-500">{visibleAgents.length} online</div>
+            </div>
+            <input value={agentSearch} onChange={(event) => setAgentSearch(event.target.value)} placeholder="Search agent" className="mb-3 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 outline-none ring-sky-500/30 focus:ring-1" />
+            <div className="space-y-2">
+              {visibleAgents.slice(0, 8).map((agent) => {
+                const load = Math.min(100, Math.max(5, Math.round((agent.load ?? 0.6) * 100)));
+                return (
+                  <button key={agent.id} onClick={() => setFocusedAgent(agent)} className="w-full rounded-md border border-slate-800 bg-slate-950/80 p-2 text-left">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-semibold text-slate-100">{agent.name}</div>
+                      <span className={cn('h-2 w-2 rounded-full', agent.status === 'offline' ? 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]' : agent.status === 'idle' ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]' : 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]')} />
+                    </div>
+                    <div className="text-[10px] text-slate-500">{agent.role}</div>
+                    <div className="mt-2 h-1 w-16 overflow-hidden rounded bg-slate-800"><div className={cn('h-full', load > 80 ? 'bg-rose-400' : load > 60 ? 'bg-amber-400' : 'bg-sky-400')} style={{ width: `${load}%` }} /></div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+            <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Micro-Agent Signals</div>
+            <div className="space-y-2">
+              {(micro?.agents ?? []).map((agent) => {
+                const scored = micro?.allSignals.filter((signal) => signal.agentName === agent.agentName) ?? [];
+                const score = scored.length === 0 ? 0 : Math.round((scored.reduce((sum, signal) => sum + signal.value, 0) / scored.length) * 100);
+                const tone = score > 90 ? 'bg-emerald-400' : score > 70 ? 'bg-sky-400' : 'bg-amber-400';
+                return (
+                  <div key={agent.agentName} className="rounded-md border border-slate-800 bg-slate-950/70 p-2">
+                    <div className="flex items-center justify-between text-xs"><span>{agent.agentName}</span><span className="font-mono text-slate-400">{score}%</span></div>
+                    <div className="mt-1 h-1 overflow-hidden rounded bg-slate-800"><div className={tone + ' h-full transition-all'} style={{ width: `${score}%` }} /></div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+            <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">System Integrity</div>
+            <div className="mt-2 text-2xl font-mono font-bold text-slate-100">{giScore.toFixed(3)}</div>
+            <div className="text-xs text-slate-500">Composite {micro?.composite.toFixed(3) ?? '—'} · KV {kvLatency ?? '—'}ms</div>
+          </section>
+        </aside>
+      </main>
+
+      {focusedAgent ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" onClick={() => setFocusedAgent(null)}>
+          <div className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 p-4 transition" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-2 text-lg font-semibold">{focusedAgent.name}</div>
+            <div className="text-xs text-slate-400">{focusedAgent.role} · {focusedAgent.tier ?? 'core'} tier</div>
+            <div className="mt-3 h-1.5 overflow-hidden rounded bg-slate-800"><div className="h-full bg-sky-400" style={{ width: `${Math.min(100, Math.round((focusedAgent.load ?? 0.6) * 100))}%` }} /></div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
+              <div>Status: {focusedAgent.status}</div>
+              <div>Uptime: {focusedAgent.uptime ?? 'n/a'}</div>
+              <div className="col-span-2">Last action: {focusedAgent.lastAction ?? 'Awaiting task'}</div>
+              <div className="col-span-2">{focusedAgent.detail ?? 'Canonical substrate agent participating in consensus and signal routing.'}</div>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button className="rounded-md border border-slate-600 px-3 py-1.5 text-xs">Diagnostics</button>
+              <button className="rounded-md border border-slate-600 px-3 py-1.5 text-xs">Logs</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-8 items-center justify-between border-t border-slate-800 bg-slate-950 px-4 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />System Ready</span>
+          <span>CPU 27%</span>
+          <span>MEM 61%</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span>Latency {kvLatency ?? '--'}ms</span>
+          <span>Uptime {micro?.healthy ? '99.98%' : 'degraded'}</span>
+          <span>Node mobius-us-east-1</span>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function StatCard({ label, value, trend, icon }: { label: string; value: string; trend: number; icon: string }) {
+  const positive = trend >= 0;
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 transition hover:border-sky-500/50">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{label}</span>
+        <span className="text-slate-500">{icon}</span>
+      </div>
+      <div className="text-xl font-mono font-bold text-slate-100">{value}</div>
+      <div className={cn('text-[11px] font-mono', positive ? 'text-emerald-300' : 'text-rose-300')}>
+        {positive ? '▲' : '▼'} {(Math.abs(trend) * 100).toFixed(1)}%
+      </div>
+    </div>
+  );
+}
+
+function MiniChart({ points }: { points: number[] }) {
+  const normalized = points.length > 1 ? points : [0.5, 0.52, 0.49, 0.53, 0.55, 0.56, 0.57];
+  const path = normalized.map((value, index) => {
+    const x = (index / Math.max(1, normalized.length - 1)) * 100;
+    const y = 100 - (Math.max(0, Math.min(1, value)) * 100);
+    return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+  }).join(' ');
+
+  return (
+    <svg viewBox="0 0 100 100" className="h-40 w-full rounded border border-slate-800 bg-slate-950/50">
+      <path d={path} fill="none" stroke="#38bdf8" strokeWidth="1.5" />
+      <path d={`${path} L 100 100 L 0 100 Z`} fill="url(#integrity-fill)" stroke="none" />
+      <defs>
+        <linearGradient id="integrity-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function LedgerRow({ entry, isSelected, isExpanded, onSelect }: { entry: LedgerEntry; isSelected: boolean; isExpanded: boolean; onSelect: () => void }) {
+  const confidence = Math.min(100, Math.max(10, Math.round(((entry.confidenceTier ?? 2) / 4) * 100)));
+  return (
+    <div className={cn('rounded-md border border-slate-800 bg-slate-950/70 p-3 transition', isSelected && 'border-sky-500/30 ring-1 ring-sky-500/20')}>
+      <button onClick={onSelect} className="w-full text-left">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-xs font-mono text-slate-300">{entry.agentOrigin.slice(0, 2).toUpperCase()}</div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-slate-100">{entry.title ?? entry.summary}</div>
+              <div className="truncate text-xs text-slate-500">{entry.summary}</div>
+            </div>
+          </div>
+          <div className="text-right text-[10px] font-mono text-slate-500">{new Date(entry.timestamp).toLocaleTimeString()}</div>
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-[10px] font-mono text-slate-400">
+          <span>confidence</span>
+          <div className="h-1.5 flex-1 overflow-hidden rounded bg-slate-800"><div className="h-full bg-emerald-400" style={{ width: `${confidence}%` }} /></div>
+          <span>{confidence}%</span>
+        </div>
+      </button>
+      {isExpanded ? (
+        <div className="mt-3 border-t border-slate-800 pt-3 text-xs text-slate-300">
+          <div className="mb-2 flex flex-wrap gap-1">
+            {(entry.tags ?? []).map((tag) => (
+              <span key={`${entry.id}-${tag}`} className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-mono uppercase text-slate-400">{tag}</span>
+            ))}
+            {entry.source === 'eve-synthesis' ? <span className="rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-mono uppercase text-rose-300">EVE SYN</span> : null}
+          </div>
+          <div className="text-right text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">hash {entry.id}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

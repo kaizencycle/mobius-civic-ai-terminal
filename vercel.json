@@ -30,5 +30,6 @@
       "path": "/api/runtime/heartbeat",
       "schedule": "45 5 * * *"
     }
-  ]
+  ],
+  "installCommand": "pnpm install --no-frozen-lockfile"
 }
