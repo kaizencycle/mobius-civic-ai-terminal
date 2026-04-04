@@ -64,13 +64,6 @@ function extractAuthorizationToken(authorization: string | null): string | null 
   return raw.length > 0 ? raw : null;
 }
 
-/** Authorization header as sent on the wire (trimmed), for exact-match checks (e.g. Vercel CRON_SECRET). */
-function trimmedAuthorizationHeader(authorization: string | null): string | null {
-  if (authorization === null) return null;
-  const t = authorization.trim();
-  return t.length > 0 ? t : null;
-}
-
 export function serviceAuthorizationHeaderValue(): string | null {
   const material = outboundBearerMaterial();
   return material ? `Bearer ${material}` : null;
@@ -98,21 +91,15 @@ export function isVercelCronInvocation(request: NextRequest): boolean {
  * CRON_SECRET is set (see Vercel cron docs). That header is checked before the
  * generic service-secret list so scheduled `/api/runtime/heartbeat` succeeds when
  * MOBIUS_SERVICE_SECRET and CRON_SECRET differ.
+ *
+ * Compare using the same normalization as inbound service auth (quotes, embedded
+ * `Bearer ` in env or token) so ops-pasted values and Vercel’s header stay aligned.
  */
 export function isValidCronSecretBearer(authorization: string | null): boolean {
   const cronEnv = process.env.CRON_SECRET;
-  if (typeof cronEnv !== 'string') return false;
-  const cronTrimmed = cronEnv.trim();
-  if (cronTrimmed.length === 0) return false;
-
-  // Vercel sends Authorization: Bearer ${CRON_SECRET} byte-for-byte against the env value (see Vercel cron docs).
-  const header = trimmedAuthorizationHeader(authorization);
-  if (header !== null && header === `Bearer ${cronTrimmed}`) {
-    return true;
-  }
-
   const cronMaterial = normalizeServiceSecretMaterial(cronEnv);
   if (cronMaterial === null) return false;
+
   const token = extractAuthorizationToken(authorization);
   if (token === null) return false;
   const tokenMaterial = normalizeServiceSecretMaterial(token);
