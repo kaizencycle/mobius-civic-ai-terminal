@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import HardHalt from '@/components/modals/HardHalt';
 import TerminalShellFallback from '@/components/terminal/TerminalShellFallback';
 import { WalletProvider } from '@/contexts/WalletContext';
@@ -44,6 +44,8 @@ const TABS: Array<{ key: NavKey; label: string }> = [
   { key: 'wallet', label: 'Wallet' },
 ];
 
+const TERMINAL_PREFS_KEY = 'mobius-terminal-prefs-v1';
+
 export default function TerminalPageWrapper() {
   return (
     <WalletProvider>
@@ -66,6 +68,7 @@ function TerminalPage() {
   const [microHistory, setMicroHistory] = useState<Array<{ time: string; composite: number }>>([]);
   const [kvLatency, setKvLatency] = useState<number | null>(null);
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
+  const agentSearchRef = useRef<HTMLInputElement>(null);
 
   const { allTripwires, filteredEpicon, gi, integrityStatus, mergedLedger, streamStatus } = useTerminalData(selectedNav);
 
@@ -75,6 +78,49 @@ function TerminalPage() {
     }, 1000);
     setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
     return () => window.clearInterval(timer);
+  }, []);
+
+  // Optimization 6: persist operator preferences across refreshes/session reconnects.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(TERMINAL_PREFS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { selectedNav?: NavKey; tagFilter?: string; ledgerExpanded?: boolean };
+      if (parsed.selectedNav && TABS.some((tab) => tab.key === parsed.selectedNav)) setSelectedNav(parsed.selectedNav);
+      if (typeof parsed.tagFilter === 'string') setTagFilter(parsed.tagFilter);
+      if (typeof parsed.ledgerExpanded === 'boolean') setLedgerExpanded(parsed.ledgerExpanded);
+    } catch {
+      // no-op
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(TERMINAL_PREFS_KEY, JSON.stringify({ selectedNav, tagFilter, ledgerExpanded }));
+  }, [selectedNav, tagFilter, ledgerExpanded]);
+
+  // Optimization 7: keyboard-first controls inspired by shell omnibar workflows.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (event.key === '/') {
+        event.preventDefault();
+        agentSearchRef.current?.focus();
+        return;
+      }
+      if (event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        setLedgerExpanded((prev) => !prev);
+        return;
+      }
+      if (!event.altKey) return;
+      const idx = Number(event.key) - 1;
+      if (idx >= 0 && idx < TABS.length) {
+        event.preventDefault();
+        setSelectedNav(TABS[idx].key);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   useEffect(() => {
@@ -175,6 +221,19 @@ function TerminalPage() {
               </button>
             ))}
           </nav>
+          <div className="md:hidden">
+            {/* Optimization 8: mobile tab selector so chamber switching is available on small screens. */}
+            <select
+              aria-label="Select terminal chamber"
+              value={selectedNav}
+              onChange={(event) => setSelectedNav(event.target.value as NavKey)}
+              className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-200"
+            >
+              {TABS.map((tab) => (
+                <option key={tab.key} value={tab.key}>{tab.label}</option>
+              ))}
+            </select>
+          </div>
           <div className="flex items-center gap-3 text-xs font-mono text-slate-400">
             <span className="flex items-center gap-2">
               <span className={cn('h-2 w-2 rounded-full', streamStatus === 'live' ? 'bg-emerald-400' : 'bg-amber-400')} />
@@ -217,6 +276,12 @@ function TerminalPage() {
             </div>
             <div className="text-xs font-mono text-slate-400">{filteredLedger.length} entries</div>
           </div>
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">
+            {/* Optimization 9: inline shortcut hints for faster operator discovery. */}
+            <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">Alt+1..5 switch chambers</span>
+            <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">/ focus agent search</span>
+            <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">L toggle ledger</span>
+          </div>
           <div className="mb-3 flex flex-wrap gap-2">
             {ledgerTags.map((tag) => (
               <button key={tag} onClick={() => setTagFilter(tag)} className={cn('rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em]', tagFilter === tag ? 'border-sky-500/50 bg-sky-500/15 text-sky-200' : 'border-slate-700 bg-slate-950 text-slate-400')}>
@@ -235,6 +300,11 @@ function TerminalPage() {
               />
             ))}
           </div>
+          {filteredLedger.length === 0 ? (
+            <div className="rounded-md border border-dashed border-slate-700 bg-slate-950/60 p-4 text-center text-xs text-slate-400">
+              No ledger entries match this filter. Try <button onClick={() => setTagFilter('all')} className="text-sky-300 underline underline-offset-2">resetting to all tags</button>.
+            </div>
+          ) : null}
           {filteredLedger.length > 14 && (
             <button
               onClick={() => setLedgerExpanded((prev) => !prev)}
@@ -251,7 +321,7 @@ function TerminalPage() {
               <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Agent Roster</div>
               <div className="text-[10px] font-mono text-slate-500">{visibleAgents.length} online</div>
             </div>
-            <input value={agentSearch} onChange={(event) => setAgentSearch(event.target.value)} placeholder="Search agent" className="mb-3 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 outline-none ring-sky-500/30 focus:ring-1" />
+            <input ref={agentSearchRef} value={agentSearch} onChange={(event) => setAgentSearch(event.target.value)} placeholder="Search agent" className="mb-3 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 outline-none ring-sky-500/30 focus:ring-1" />
             <div className="space-y-2">
               {!rosterLoaded
                 ? Array.from({ length: 4 }).map((_, i) => <SkeletonAgentRow key={i} />)
