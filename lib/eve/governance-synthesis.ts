@@ -93,7 +93,25 @@ export async function readLedgerRowsForEve(limit = 400): Promise<EpiconLedgerFee
   }
 
   rows.push(...getMemoryLedgerEntries(limit));
-  return rows;
+
+  const byId = new Map<string, EpiconLedgerFeedEntry>();
+  for (const row of rows) {
+    if (typeof row.id !== 'string' || !row.id) continue;
+    const existing = byId.get(row.id);
+    if (!existing) {
+      byId.set(row.id, row);
+      continue;
+    }
+    const tNew = Date.parse(row.timestamp);
+    const tOld = Date.parse(existing.timestamp);
+    if (!Number.isNaN(tNew) && !Number.isNaN(tOld) && tNew > tOld) {
+      byId.set(row.id, row);
+    }
+  }
+
+  return [...byId.values()].sort(
+    (a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp) || b.id.localeCompare(a.id),
+  );
 }
 
 function severityRank(severity: Severity): number {
@@ -441,9 +459,10 @@ export async function publishEveGovernanceSynthesis(
   input: EveGovernanceSynthesisInput,
   output: EveGovernanceSynthesisOutput,
   idempotencyTag: string,
-  allRows: EpiconLedgerFeedEntry[],
+  _allRowsSnapshot: EpiconLedgerFeedEntry[],
 ): Promise<PublishEveGovernanceResult> {
-  if (ledgerHasIdempotencyTag(allRows, idempotencyTag)) {
+  const latestRows = await readLedgerRowsForEve(400);
+  if (ledgerHasIdempotencyTag(latestRows, idempotencyTag)) {
     return { published: false, entryId: null, idempotencyTag, ledgerSeverity: ledgerSeverityFromSignals(output.severity) };
   }
 
@@ -458,6 +477,9 @@ export async function publishEveGovernanceSynthesis(
     output.category,
     ...output.ethicsFlags.map((f) => `ethics:${f}`),
   ];
+
+  const derivedFromIds = output.derivedFrom.slice(0, 32);
+  const derivedFromCompact = derivedFromIds.join('|').slice(0, 512);
 
   await pushLedgerEntry({
     id: entryId,
@@ -474,7 +496,8 @@ export async function publishEveGovernanceSynthesis(
     cycle: input.cycleId,
     category: output.category,
     confidenceTier: output.confidenceTier,
-    derivedFrom: output.derivedFrom.slice(0, 32).join('|').slice(0, 512),
+    derivedFrom: derivedFromCompact,
+    derivedFromIds,
     status: 'committed',
     agentOrigin: 'EVE',
   });

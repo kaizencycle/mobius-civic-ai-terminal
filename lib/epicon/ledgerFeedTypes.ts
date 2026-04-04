@@ -19,6 +19,8 @@ export type EpiconLedgerFeedEntry = {
   category?: string;
   confidenceTier?: number;
   derivedFrom?: string;
+  /** Structured provenance (EPICON IDs, civic:alertId, etc.) when the row supports it. */
+  derivedFromIds?: string[];
   status?: 'committed' | 'pending' | 'failed';
   agentOrigin?: string;
   zeusVerdict?: string;

@@ -40,6 +40,7 @@ type EpiconEntry = {
   patternType?: string;
   dominantRegion?: string;
   derivedFrom?: string;
+  derivedFromIds?: string[];
   status?: 'committed' | 'pending' | 'failed';
   agentOrigin?: string;
   promotion_state?: 'pending' | 'selected' | 'promoted' | 'failed';
@@ -313,6 +314,7 @@ function fromLocalMemoryLedger(): EpiconEntry[] {
       patternType: row.patternType,
       dominantRegion: row.dominantRegion,
       derivedFrom: row.derivedFrom,
+      derivedFromIds: row.derivedFromIds,
       status: row.status,
       agentOrigin: row.agentOrigin,
     };
