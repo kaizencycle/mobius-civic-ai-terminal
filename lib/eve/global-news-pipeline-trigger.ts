@@ -15,7 +15,7 @@ async function readJson(res: Response): Promise<unknown> {
 
 export function triggerEveSynthesisPipelineAfterObservation(baseUrl: string): void {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  /** Bearer must match POST /api/eve/cycle-synthesize (BACKFILL_SECRET first). */
+  /** Bearer must match POST /api/eve/pipeline-synthesize (service secrets). */
   const secret = process.env.BACKFILL_SECRET ?? process.env.MOBIUS_SERVICE_SECRET;
   if (!apiKey?.trim() || !secret?.trim()) {
     return;
@@ -35,7 +35,7 @@ export function triggerEveSynthesisPipelineAfterObservation(baseUrl: string): vo
       }
       lastPipelineCycleTriggered = cycleId;
 
-      const pipeRes = await fetch(`${baseUrl}/api/eve/cycle-synthesize`, {
+      const pipeRes = await fetch(`${baseUrl}/api/eve/pipeline-synthesize`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${secret}`,
