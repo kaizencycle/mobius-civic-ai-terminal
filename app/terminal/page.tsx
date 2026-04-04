@@ -513,7 +513,9 @@ const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSel
             {(entry.tags ?? []).map((tag) => (
               <span key={`${entry.id}-${tag}`} className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-mono uppercase text-slate-400">{tag}</span>
             ))}
-            {entry.source === 'eve-synthesis' ? <span className="rounded border border-rose-400/30 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-mono uppercase text-rose-300">EVE SYN</span> : null}
+            {entry.source === 'eve-synthesis' || entry.agentOrigin === 'EVE' ? (
+              <span className="rounded border border-fuchsia-400/35 bg-fuchsia-500/10 px-1.5 py-0.5 text-[10px] font-mono uppercase text-fuchsia-300">EVE</span>
+            ) : null}
           </div>
           <div className="text-right text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">hash {entry.id}</div>
         </div>

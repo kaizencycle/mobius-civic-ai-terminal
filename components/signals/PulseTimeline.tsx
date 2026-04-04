@@ -57,6 +57,7 @@ type EveSynthesisLedgerRow = {
   timestamp: string;
   body?: string;
   source?: string;
+  agentOrigin?: string;
 };
 
 function isEveSynthesisLedgerRow(value: unknown): value is EveSynthesisLedgerRow {
@@ -67,7 +68,8 @@ function isEveSynthesisLedgerRow(value: unknown): value is EveSynthesisLedgerRow
     typeof o.title === 'string' &&
     typeof o.timestamp === 'string' &&
     (o.body === undefined || typeof o.body === 'string') &&
-    (o.source === undefined || typeof o.source === 'string')
+    (o.source === undefined || typeof o.source === 'string') &&
+    (o.agentOrigin === undefined || typeof o.agentOrigin === 'string')
   );
 }
 
@@ -145,7 +147,9 @@ export default function PulseTimeline() {
           : [];
       const items = Array.isArray(itemsRaw) ? itemsRaw.filter(isEveSynthesisLedgerRow) : [];
       setEveLedger(
-        items.filter((row) => row.source === 'eve-synthesis').slice(0, 5),
+        items
+          .filter((row) => row.source === 'eve-synthesis' || row.agentOrigin === 'EVE')
+          .slice(0, 5),
       );
     } catch {
       // Preserve previous state if a refresh fails.
@@ -285,9 +289,9 @@ export default function PulseTimeline() {
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-100">
                   <span>{row.title}</span>
-                  {row.source === 'eve-synthesis' ? (
-                    <span className="text-[10px] font-mono text-rose-400 border border-rose-400/30 rounded px-1 py-0.5 ml-1">
-                      EVE SYN
+                  {row.source === 'eve-synthesis' || row.agentOrigin === 'EVE' ? (
+                    <span className="text-[10px] font-mono text-fuchsia-300 border border-fuchsia-400/35 rounded px-1 py-0.5 ml-1">
+                      EVE
                     </span>
                   ) : null}
                 </div>

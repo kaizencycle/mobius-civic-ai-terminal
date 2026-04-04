@@ -31,6 +31,8 @@ export type EpiconItem = {
   trace: string[];
   /** Present on feed entries (e.g. EVE synthesis pipeline) */
   feedSource?: string;
+  /** Ledger author lane when present (e.g. EVE governance synthesis) */
+  agentOrigin?: string;
   promotionState?: 'pending' | 'selected' | 'promoted' | 'failed';
   assignedAgents?: string[];
   committedEntries?: string[];

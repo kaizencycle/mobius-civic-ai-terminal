@@ -192,9 +192,9 @@ export default function LedgerPanel({
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-100">
                   <span>{entry.title ?? entry.summary}</span>
-                  {entry.source === 'eve-synthesis' ? (
-                    <span className="text-[10px] font-mono text-rose-400 border border-rose-400/30 rounded px-1 py-0.5 ml-1">
-                      EVE SYN
+                  {entry.source === 'eve-synthesis' || entry.agentOrigin === 'EVE' ? (
+                    <span className="text-[10px] font-mono text-fuchsia-300 border border-fuchsia-400/35 rounded px-1 py-0.5 ml-1">
+                      EVE
                     </span>
                   ) : null}
                 </div>

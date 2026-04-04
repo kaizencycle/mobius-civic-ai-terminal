@@ -1,10 +1,14 @@
 /**
- * POST /api/eve/cycle-synthesize — Full EVE → EPICON → ZEUS → ledger pipeline (C-626)
- * Protected: Authorization Bearer BACKFILL_SECRET (C-626)
+ * POST /api/eve/cycle-synthesize
+ * - Default (C-270): idempotent governance/ethics synthesis → live EPICON ledger (`eve-synthesis`).
+ * - `mode: "anthropic"`: legacy full pipeline (C-626) when ANTHROPIC_API_KEY + BACKFILL_SECRET are set.
  */
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+
+import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { runEveGovernanceSynthesis } from '@/lib/eve/governance-synthesis';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,20 +28,71 @@ async function readJson(res: Response): Promise<unknown> {
   }
 }
 
+function governanceAuthOk(request: NextRequest): boolean {
+  const secret = process.env.BACKFILL_SECRET;
+  if (!secret || !secret.trim()) return true;
+  const auth = request.headers.get('authorization');
+  return auth === `Bearer ${secret}`;
+}
+
+type PostBody = {
+  mode?: string;
+};
+
 export async function GET(request: NextRequest) {
   const base = serverBaseUrl(request);
   const cycleRes = await fetch(`${base}/api/eve/cycle-advance`, { cache: 'no-store' });
   const cycleJson = (await readJson(cycleRes)) as { currentCycle?: string } | null;
+  const currentCycle =
+    typeof cycleJson?.currentCycle === 'string' && cycleJson.currentCycle.trim()
+      ? cycleJson.currentCycle.trim()
+      : currentCycleId();
 
   return NextResponse.json({
     ok: true,
-    info: 'POST to run full EVE synthesis pipeline for current cycle',
-    pipeline: ['synthesize', 'candidate', 'verify', 'publish'],
-    currentCycle: cycleJson?.currentCycle ?? null,
+    info: 'POST with {} for C-270 governance synthesis, or {"mode":"anthropic"} for legacy Claude pipeline',
+    governance: 'POST /api/eve/cycle-synthesize — committed eve-synthesis ledger entry (idempotent per cycle)',
+    legacy: 'mode "anthropic" requires ANTHROPIC_API_KEY and Authorization: Bearer BACKFILL_SECRET',
+    currentCycle,
   });
 }
 
 export async function POST(request: NextRequest) {
+  let body: PostBody = {};
+  try {
+    const raw = await request.json();
+    if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
+      body = raw as PostBody;
+    }
+  } catch {
+    body = {};
+  }
+
+  const mode = body.mode === 'anthropic' ? 'anthropic' : 'governance';
+
+  if (mode === 'governance') {
+    if (!governanceAuthOk(request)) {
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const result = await runEveGovernanceSynthesis({ mode: 'cycle' });
+
+    return NextResponse.json({
+      ok: true,
+      cycleId: result.cycleId,
+      mode: 'cycle' as const,
+      published: result.published,
+      entryId: result.entryId,
+      reason: result.reason,
+      derivedFromCount: result.derivedFromCount,
+      trace: {
+        governancePosture: result.synthesis?.governancePosture ?? null,
+        civicRiskLevel: result.synthesis?.civicRiskLevel ?? null,
+        category: result.synthesis?.category ?? null,
+      },
+    });
+  }
+
   const secret = process.env.BACKFILL_SECRET;
   if (!secret || !secret.trim()) {
     return NextResponse.json(
@@ -53,7 +108,7 @@ export async function POST(request: NextRequest) {
 
   if (!process.env.ANTHROPIC_API_KEY?.trim()) {
     return NextResponse.json(
-      { ok: false, error: 'ANTHROPIC_API_KEY is not configured — synthesis disabled' },
+      { ok: false, error: 'ANTHROPIC_API_KEY is not configured — anthropic synthesis disabled' },
       { status: 503 },
     );
   }
