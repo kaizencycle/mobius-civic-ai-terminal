@@ -20,6 +20,8 @@ type EveResponse = {
   global_tension: Tension;
   pattern_notes: string[];
   items: EveItem[];
+  /** Present when main feed failed but substrate preview succeeded */
+  governance_source?: 'substrate-preview';
 };
 
 const REFRESH_MS = 3 * 60 * 1000;
@@ -58,6 +60,26 @@ export default function EveGlobalNewsPanel() {
           setLoading(false);
         }
       } catch (e) {
+        try {
+          const prev = await fetch('/api/eve/governance-preview', { cache: 'no-store' });
+          if (prev.ok) {
+            const g = (await prev.json()) as EveResponse & {
+              cycleId?: string;
+              externalDegraded?: boolean;
+            };
+            if (g.ok && !cancelled) {
+              setData({
+                ...g,
+                governance_source: 'substrate-preview',
+              });
+              setError(null);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch {
+          // fall through to error state
+        }
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Unable to load EVE feed');
           setLoading(false);
@@ -81,9 +103,16 @@ export default function EveGlobalNewsPanel() {
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="text-xs uppercase tracking-[0.18em] text-slate-400">EVE Governance / Ethics</div>
         {data && (
-          <span className={`rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em] ${tensionClass(data.global_tension)}`}>
-            {data.global_tension}
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {data.governance_source === 'substrate-preview' ? (
+              <span className="rounded-md border border-fuchsia-500/35 bg-fuchsia-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em] text-fuchsia-200">
+                Substrate preview
+              </span>
+            ) : null}
+            <span className={`rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em] ${tensionClass(data.global_tension)}`}>
+              {data.global_tension}
+            </span>
+          </div>
         )}
       </div>
 

@@ -55,6 +55,12 @@ export function transformEpicon(raw: any): EpiconItem {
     summary,
     trace,
     feedSource: typeof raw.source === 'string' ? raw.source : undefined,
+    agentOrigin:
+      typeof raw.agentOrigin === 'string'
+        ? raw.agentOrigin
+        : typeof raw.agent_origin === 'string'
+          ? raw.agent_origin
+          : undefined,
     promotionState:
       raw.promotion_state === 'pending' ||
       raw.promotion_state === 'selected' ||

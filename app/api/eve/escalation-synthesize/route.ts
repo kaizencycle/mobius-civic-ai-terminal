@@ -108,6 +108,18 @@ export async function POST(request: NextRequest) {
     idempotencyTag: publishResult.idempotencyTag,
     escalationFingerprint: fingerprint,
     governancePosture: output.governancePosture,
+    category: output.category,
+    civicRiskLevel: output.civicRiskLevel,
+    ethicsFlags: output.ethicsFlags,
+    summary: output.summary,
     externalDegraded: input.externalDegraded,
+    trace: {
+      committedAgentRows: input.committedAgentRows.length,
+      tripwireLevel: input.tripwire.level,
+      civicAlertCount: input.civicAlerts.length,
+      gi: input.gi,
+      mii: input.mii,
+      treasuryStatus: input.treasuryStatus,
+    },
   });
 }

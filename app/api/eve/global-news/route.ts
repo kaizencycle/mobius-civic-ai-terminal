@@ -80,10 +80,12 @@ function combineWithInternal(
 
 export async function GET(request: NextRequest) {
   const now = Date.now();
-  const internal = await buildAndCommitEveInternalSynthesis();
 
   if (cached && now - cached.ts < CACHE_TTL_MS) {
     const freshExternalItems = cached.data.items.filter((item) => isFresh(item.timestamp, FRESH_MS));
+    const internal = await buildAndCommitEveInternalSynthesis({
+      externalItemCount: freshExternalItems.length,
+    });
     const combined = combineWithInternal(
       { ...cached.data, items: freshExternalItems },
       internal,
@@ -119,6 +121,9 @@ export async function GET(request: NextRequest) {
     };
     cached = { data: freshSynthesis, ts: now };
 
+    const internal = await buildAndCommitEveInternalSynthesis({
+      externalItemCount: freshExternalItems.length,
+    });
     const combined = combineWithInternal(freshSynthesis, internal);
 
     scheduleSynthesisPipelineTrigger(serverBaseUrl(request), request);
@@ -135,6 +140,10 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     if (cached) {
+      const internal = await buildAndCommitEveInternalSynthesis({
+        externalItemCount: cached.data.items.length,
+        externalDegradedReason: 'stale_cache_external',
+      });
       const combined = combineWithInternal(cached.data, internal);
       return NextResponse.json(
         {
@@ -164,6 +173,10 @@ export async function GET(request: NextRequest) {
       global_tension: 'low' as const,
     };
 
+    const internal = await buildAndCommitEveInternalSynthesis({
+      externalItemCount: 0,
+      externalDegradedReason: 'external_fetch_failed',
+    });
     const combined = combineWithInternal(mock, internal);
 
     console.error('EVE global-news fetch failed', error);

@@ -21,15 +21,33 @@ type InternalSynthesisResult = {
   committed: false;
 };
 
-export async function buildAndCommitEveInternalSynthesis(): Promise<InternalSynthesisResult> {
+export type EveInternalSynthesisBuildOptions = {
+  externalItemCount?: number;
+  externalDegradedReason?: string;
+};
+
+export async function buildAndCommitEveInternalSynthesis(
+  options?: EveInternalSynthesisBuildOptions,
+): Promise<InternalSynthesisResult> {
   const input = await gatherEveGovernanceSynthesisInput();
   const output = buildEveGovernanceSynthesisOutput(input);
   const preview = buildInternalPreviewFromInput(input, output);
 
+  const contextNotes: string[] = [];
+  if (typeof options?.externalItemCount === 'number') {
+    contextNotes.push(`External observation lane: ${options.externalItemCount} fresh item(s) in blend window.`);
+  }
+  if (options?.externalDegradedReason && options.externalDegradedReason.trim()) {
+    contextNotes.push(
+      `External feed degraded (${options.externalDegradedReason.trim()}); substrate-first synthesis retained.`,
+    );
+  }
+  const pattern_notes = [...contextNotes, ...preview.pattern_notes].slice(0, 6);
+
   return {
     cycleId: input.cycleId,
     items: preview.items,
-    pattern_notes: preview.pattern_notes,
+    pattern_notes,
     dominant_category: preview.dominant_category,
     dominant_region: preview.dominant_region,
     global_tension: preview.global_tension,

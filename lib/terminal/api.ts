@@ -86,6 +86,12 @@ function epiconFeedRowToLedger(raw: Record<string, unknown>): LedgerEntry | null
   const cycleId =
     typeof raw.cycle === 'string' && raw.cycle.trim() ? raw.cycle.trim() : 'C-0';
   const author = typeof raw.author === 'string' && raw.author.trim() ? raw.author : 'operator';
+  const agentLane =
+    typeof raw.agentOrigin === 'string' && raw.agentOrigin.trim()
+      ? raw.agentOrigin.trim()
+      : typeof raw.agent_origin === 'string' && raw.agent_origin.trim()
+        ? raw.agent_origin.trim()
+        : author;
   const timestamp =
     typeof raw.timestamp === 'string' && raw.timestamp.trim()
       ? raw.timestamp
@@ -124,7 +130,7 @@ function epiconFeedRowToLedger(raw: Record<string, unknown>): LedgerEntry | null
     id,
     cycleId,
     type: 'epicon',
-    agentOrigin: author,
+    agentOrigin: agentLane,
     timestamp,
     title,
     summary,

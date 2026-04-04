@@ -61,6 +61,15 @@ export function triggerEveSynthesisPipelineAfterObservation(baseUrl: string): vo
       if (pipeJson?.ok !== true) {
         lastPipelineCycleTriggered = null;
         console.error('EVE observation pipeline rejected', JSON.stringify(pipeJson));
+        return;
+      }
+
+      const published = (pipeJson as { published?: unknown }).published;
+      if (published === false) {
+        const reason = (pipeJson as { reason?: unknown }).reason;
+        if (reason === 'already_synthesized_for_window') {
+          return;
+        }
       }
     } catch (err) {
       lastPipelineCycleTriggered = null;
