@@ -1,5 +1,6 @@
 'use client';
 
+import { AnimatePresence, motion } from 'motion/react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -76,6 +77,31 @@ const SEVERITY_STYLES: Record<string, string> = {
   high: 'border-orange-500/35 bg-orange-500/10 text-orange-300',
   critical: 'border-red-500/35 bg-red-500/10 text-red-300',
 };
+
+function initialsForAgent(author: string): string {
+  const parts = author.trim().split(/[\s_-]+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${(parts[0]![0] ?? '?').toUpperCase()}${(parts[1]![0] ?? '?').toUpperCase()}`;
+}
+
+function formatTimestampIso(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  return d.toISOString();
+}
+
+function severityStyle(severity: string): string {
+  const key = severity.toLowerCase();
+  return SEVERITY_STYLES[key] ?? 'border-slate-700 bg-slate-800/50 text-slate-300';
+}
+
+function giFillTone(gi: number): string {
+  if (gi >= 0.85) return 'bg-emerald-500';
+  if (gi >= 0.72) return 'bg-amber-400';
+  if (gi >= 0.55) return 'bg-orange-500';
+  return 'bg-rose-500';
+}
 
 function timeAgo(timestamp: string): string {
   const time = new Date(timestamp).getTime();
