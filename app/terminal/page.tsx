@@ -9,7 +9,7 @@ import { checkCovenantCompliance } from '@/lib/integrity-check';
 import { cn } from '@/lib/utils';
 import type { LedgerEntry, NavKey } from '@/lib/terminal/types';
 import AgentGrid from '@/components/agents/AgentGrid';
-import LedgerPanel from '@/components/terminal/LedgerPanel';
+import EventScreener, { type EpiconFeedItem } from '@/components/terminal/EventScreener';
 import TripwirePanel from '@/components/tripwire/TripwirePanel';
 import MICWalletPanel from '@/components/terminal/MICWalletPanel';
 
@@ -39,6 +39,14 @@ type MicroSweepResponse = {
 };
 
 type KvHealthResponse = { ok: boolean; latencyMs: number | null };
+type EpiconFeedResponse = {
+  ok: boolean;
+  count: number;
+  total: number;
+  sources: { github: number; kv: number };
+  summary: { latestGI?: number; degradedCount?: number; lastHeartbeat?: string };
+  items: EpiconFeedItem[];
+};
 
 const TABS: Array<{ key: NavKey; label: string }> = [
   { key: 'pulse', label: 'Pulse' },
@@ -72,6 +80,7 @@ function TerminalPage() {
   const [microHistory, setMicroHistory] = useState<Array<{ time: string; composite: number }>>([]);
   const [kvLatency, setKvLatency] = useState<number | null>(null);
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
+  const [epiconFeed, setEpiconFeed] = useState<EpiconFeedResponse | null>(null);
   const agentSearchRef = useRef<HTMLInputElement>(null);
 
   const { allTripwires, filteredEpicon, gi, integrityStatus, mergedLedger, streamStatus } = useTerminalData(selectedNav);
@@ -161,6 +170,29 @@ function TerminalPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadEpiconFeed() {
+      try {
+        const response = await fetch('/api/epicon/feed', { cache: 'no-store' });
+        const json = (await response.json()) as EpiconFeedResponse;
+        if (mounted && json && json.ok) {
+          setEpiconFeed(json);
+        }
+      } catch {
+        // keep screener in loading/degraded mode
+      }
+    }
+
+    loadEpiconFeed();
+    const poll = window.setInterval(loadEpiconFeed, 30000);
+    return () => {
+      mounted = false;
+      window.clearInterval(poll);
+    };
+  }, []);
+
   const covenantStatus = checkCovenantCompliance(gi?.score ?? 0);
   const cycleId = integrityStatus?.cycle ?? 'C-271';
   const giScore = gi?.score ?? 0;
@@ -230,10 +262,11 @@ function TerminalPage() {
     if (selectedNav === 'ledger') {
       return (
         <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-          <LedgerPanel
-            entries={mergedLedger}
-            selectedId={selectedLedgerId ?? undefined}
-            onSelect={(entry) => handleLedgerSelect(entry.id)}
+          <EventScreener
+            items={epiconFeed?.items}
+            summary={epiconFeed?.summary ?? {}}
+            sources={epiconFeed?.sources ?? { github: 0, kv: 0 }}
+            total={epiconFeed?.total ?? 0}
           />
         </section>
       );
