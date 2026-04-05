@@ -1,0 +1,399 @@
+'use client';
+
+import { type ReactNode, useMemo, useState } from 'react';
+import { cn } from '@/lib/utils';
+
+export interface EpiconFeedItem {
+  id: string;
+  timestamp: string;
+  author: string;
+  title: string;
+  type: 'merge' | 'heartbeat' | 'catalog' | 'epicon' | 'zeus-verify' | string;
+  severity: string;
+  tags: string[];
+  source: string;
+  verified: boolean;
+  sha?: string;
+  gi?: number;
+}
+
+interface EventScreenerProps {
+  items: EpiconFeedItem[] | null | undefined;
+  summary: { latestGI?: number; degradedCount?: number; lastHeartbeat?: string };
+  sources: { github: number; kv: number };
+  total: number;
+}
+
+const PAGE_SIZE = 12;
+
+type SortColumn = 'time' | 'type' | 'author' | 'gi';
+type TypeFilter = 'all' | 'merge' | 'heartbeat' | 'catalog' | 'epicon' | 'zeus-verify';
+type AuthorFilter = 'all' | 'kaizencycle' | 'mobius-bot' | 'cursor-agent';
+
+const TYPE_LABELS: Record<TypeFilter, string> = {
+  all: 'All',
+  merge: 'Merge',
+  heartbeat: 'Heartbeat',
+  catalog: 'Catalog',
+  epicon: 'EPICON',
+  'zeus-verify': 'ZEUS',
+};
+
+const TYPE_STYLES: Record<string, string> = {
+  merge: 'bg-blue-950 text-blue-300 border-blue-800',
+  heartbeat: 'bg-purple-950 text-purple-300 border-purple-800',
+  catalog: 'bg-emerald-950 text-emerald-300 border-emerald-800',
+  epicon: 'bg-amber-950 text-amber-300 border-amber-800',
+  'zeus-verify': 'bg-red-950 text-red-300 border-red-800',
+};
+
+const AUTHOR_STYLES: Record<string, string> = {
+  kaizencycle: 'text-blue-400',
+  'mobius-bot': 'text-purple-400',
+  'cursor-agent': 'text-emerald-400',
+};
+
+function timeAgo(timestamp: string): string {
+  const time = new Date(timestamp).getTime();
+  if (Number.isNaN(time)) return '—';
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - time) / 1000));
+  if (diffSeconds < 60) return `${diffSeconds}s ago`;
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
+function giTone(gi: number | undefined) {
+  if (typeof gi !== 'number') {
+    return {
+      shell: 'bg-slate-800/40 text-slate-400 border border-slate-700',
+      label: 'unknown',
+    };
+  }
+
+  if (gi > 0.85) {
+    return { shell: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30', label: 'nominal' };
+  }
+  if (gi > 0.7) {
+    return { shell: 'bg-amber-500/10 text-amber-400 border border-amber-500/30', label: 'stressed' };
+  }
+  return { shell: 'bg-red-500/10 text-red-400 border border-red-500/30', label: 'critical' };
+}
+
+function sourceLabel(source: string): string {
+  if (source === 'github-commit') return 'gh';
+  if (source === 'eve-synthesis') return 'eve';
+  if (source === 'kv-ledger' || source === 'kv') return 'kv';
+  return source.length > 10 ? source.slice(0, 10) : source;
+}
+
+export default function EventScreener({ items, summary, sources, total }: EventScreenerProps) {
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [authorFilter, setAuthorFilter] = useState<AuthorFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortCol, setSortCol] = useState<SortColumn>('time');
+  const [sortDir, setSortDir] = useState<1 | -1>(-1);
+  const [page, setPage] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const list = items ?? [];
+
+  const filteredAndSorted = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+
+    const filtered = list.filter((item) => {
+      if (typeFilter !== 'all' && item.type !== typeFilter) return false;
+      if (authorFilter !== 'all' && item.author !== authorFilter) return false;
+      if (!needle) return true;
+      const haystack = `${item.title} ${item.id} ${item.source} ${(item.tags ?? []).join(' ')}`.toLowerCase();
+      return haystack.includes(needle);
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sortCol === 'time') {
+        return sortDir * (new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      }
+      if (sortCol === 'type') {
+        return sortDir * a.type.localeCompare(b.type);
+      }
+      if (sortCol === 'author') {
+        return sortDir * a.author.localeCompare(b.author);
+      }
+      return sortDir * ((a.gi ?? -1) - (b.gi ?? -1));
+    });
+  }, [authorFilter, list, searchQuery, sortCol, sortDir, typeFilter]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredAndSorted.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const pagedRows = filteredAndSorted.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+
+  const selected = useMemo(
+    () => filteredAndSorted.find((item) => item.id === selectedId) ?? list.find((item) => item.id === selectedId) ?? null,
+    [filteredAndSorted, list, selectedId],
+  );
+
+  const gi = summary.latestGI;
+  const giBadgeTone = giTone(gi);
+
+  const merges = list.filter((item) => item.type === 'merge').length;
+  const heartbeats = list.filter((item) => item.type === 'heartbeat').length;
+
+  const handleSort = (col: SortColumn) => {
+    if (sortCol === col) {
+      setSortDir((prev) => (prev === 1 ? -1 : 1));
+      return;
+    }
+    setSortCol(col);
+    setSortDir(col === 'time' ? -1 : 1);
+  };
+
+  const sortIndicator = (col: SortColumn) => {
+    if (sortCol !== col) return '↕';
+    return sortDir === 1 ? '↑' : '↓';
+  };
+
+  if (items == null) {
+    return (
+      <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+        <div className="h-5 w-32 animate-pulse rounded bg-slate-800" />
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-16 animate-pulse rounded-md border border-slate-800 bg-slate-900/50" />
+          ))}
+        </div>
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-10 animate-pulse rounded-md border border-slate-800 bg-slate-900/30" />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs font-mono uppercase tracking-widest text-slate-400">Event Screener</div>
+        <div className="flex items-center gap-2">
+          <span className={cn('rounded-full px-2 py-1 text-[10px] font-mono', giBadgeTone.shell)}>
+            GI {typeof gi === 'number' ? gi.toFixed(2) : '—'} · {giBadgeTone.label}
+          </span>
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <StatCard label="Total Events" value={String(total || list.length)} />
+        <StatCard label="Merges" value={String(merges)} />
+        <StatCard label="Heartbeats" value={String(heartbeats)} />
+        <StatCard label="KV Source" value={`${sources.kv} vs ${sources.github}`} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {(Object.keys(TYPE_LABELS) as TypeFilter[]).map((type) => {
+          const active = typeFilter === type;
+          return (
+            <button
+              key={type}
+              onClick={() => {
+                setTypeFilter(type);
+                setPage(0);
+              }}
+              className={cn(
+                'rounded-full border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em]',
+                active
+                  ? 'border-sky-500/30 bg-sky-500/10 text-sky-400'
+                  : 'border-slate-700 bg-transparent text-slate-500',
+              )}
+            >
+              {TYPE_LABELS[type]}
+            </button>
+          );
+        })}
+
+        <input
+          value={searchQuery}
+          onChange={(event) => {
+            setSearchQuery(event.target.value);
+            setPage(0);
+          }}
+          placeholder="Search title, id, tags..."
+          className="min-w-48 flex-1 rounded border border-slate-800 bg-slate-900 px-2 py-1 text-[10px] font-mono text-slate-200 placeholder:text-slate-600"
+        />
+
+        <select
+          value={authorFilter}
+          onChange={(event) => {
+            setAuthorFilter(event.target.value as AuthorFilter);
+            setPage(0);
+          }}
+          className="rounded border border-slate-800 bg-slate-900 px-2 py-1 text-[10px] font-mono text-slate-300"
+        >
+          <option value="all">all authors</option>
+          <option value="kaizencycle">kaizencycle</option>
+          <option value="mobius-bot">mobius-bot</option>
+          <option value="cursor-agent">cursor-agent</option>
+        </select>
+      </div>
+
+      <div className="overflow-x-auto rounded-md border border-slate-800">
+        <table className="w-full min-w-[820px] border-collapse text-left text-[10px] font-mono">
+          <thead className="bg-slate-950/80 text-slate-500">
+            <tr>
+              <TableHeader label="Time" onClick={() => handleSort('time')} indicator={sortIndicator('time')} />
+              <TableHeader label="Type" onClick={() => handleSort('type')} indicator={sortIndicator('type')} />
+              <TableHeader label="Author" onClick={() => handleSort('author')} indicator={sortIndicator('author')} />
+              <th className="px-2 py-2">Event</th>
+              <TableHeader label="GI" onClick={() => handleSort('gi')} indicator={sortIndicator('gi')} />
+              <th className="px-2 py-2">Src</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pagedRows.map((item) => {
+              const isSelected = selectedId === item.id;
+              const tone = giTone(item.gi);
+              const isEve = item.source === 'eve-synthesis';
+              return (
+                <tr
+                  key={item.id}
+                  onClick={() => setSelectedId((prev) => (prev === item.id ? null : item.id))}
+                  className={cn(
+                    'cursor-pointer border-t border-slate-800 transition hover:bg-slate-900/50',
+                    isSelected && 'bg-sky-500/5 ring-1 ring-inset ring-sky-500/20',
+                  )}
+                >
+                  <td className="px-2 py-2 text-slate-500">{timeAgo(item.timestamp)}</td>
+                  <td className="px-2 py-2">
+                    <span className={cn('rounded border px-1.5 py-0.5 uppercase', TYPE_STYLES[item.type] ?? 'border-slate-700 text-slate-300')}>
+                      {item.type}
+                    </span>
+                  </td>
+                  <td className={cn('px-2 py-2', AUTHOR_STYLES[item.author] ?? 'text-slate-300')}>{item.author}</td>
+                  <td className="px-2 py-2 text-[11px] text-slate-300">
+                    <div className="flex items-center gap-1">
+                      <span className="max-w-[260px] truncate">{item.title}</span>
+                      {isEve ? (
+                        <span className="rounded border border-rose-500/35 bg-rose-500/10 px-1 py-0.5 text-[9px] uppercase text-rose-300">EVE SYN</span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="px-2 py-2">
+                    {item.type === 'heartbeat' && typeof item.gi === 'number' ? (
+                      <span className={cn('rounded border px-1.5 py-0.5', tone.shell)}>{item.gi.toFixed(3)}</span>
+                    ) : (
+                      <span className="text-slate-600">—</span>
+                    )}
+                  </td>
+                  <td className="px-2 py-2">
+                    <span className={cn('rounded border px-1.5 py-0.5 text-[9px] uppercase', isEve ? 'border-rose-500/35 bg-rose-500/10 text-rose-300' : 'border-slate-700 text-slate-400')}>
+                      {sourceLabel(item.source)}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {pagedRows.length === 0 ? (
+          <div className="p-4 text-center text-xs text-slate-500">No events match the current filters.</div>
+        ) : null}
+      </div>
+
+      <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((prev) => Math.max(0, prev - 1))}
+            disabled={currentPage === 0}
+            className="rounded border border-slate-700 px-2 py-1 disabled:opacity-40"
+          >
+            Prev
+          </button>
+          <button
+            onClick={() => setPage((prev) => Math.min(pageCount - 1, prev + 1))}
+            disabled={currentPage >= pageCount - 1}
+            className="rounded border border-slate-700 px-2 py-1 disabled:opacity-40"
+          >
+            Next
+          </button>
+          <span>page {currentPage + 1} of {pageCount}</span>
+        </div>
+        <span>{filteredAndSorted.length} events</span>
+      </div>
+
+      {selected ? (
+        <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+          <div className="grid gap-3 text-xs md:grid-cols-2">
+            <DetailField label="Event ID" value={selected.id} />
+            <DetailField label="Timestamp" value={selected.timestamp} />
+            <DetailField label="Type" value={<span className={cn('rounded border px-1.5 py-0.5 uppercase', TYPE_STYLES[selected.type] ?? 'border-slate-700')}>{selected.type}</span>} />
+            <DetailField label="Author" value={selected.author} />
+            <DetailField label="Title" value={selected.title} />
+            <DetailField label="SHA" value={selected.sha ? selected.sha.slice(0, 12) : '—'} />
+            <DetailField label="GI Delta" value={typeof selected.gi === 'number' ? selected.gi.toFixed(3) : '—'} />
+            <DetailField label="Source" value={selected.source} />
+            <DetailField
+              label="Verified"
+              value={<span className={selected.verified ? 'text-emerald-300' : 'text-rose-300'}>{selected.verified ? 'yes' : 'no'}</span>}
+            />
+            {summary.lastHeartbeat ? <DetailField label="Last Heartbeat" value={summary.lastHeartbeat} /> : null}
+            {typeof summary.degradedCount === 'number' ? <DetailField label="Degraded Count" value={String(summary.degradedCount)} /> : null}
+          </div>
+
+          {(selected.tags ?? []).length > 0 ? (
+            <div className="mt-3 border-t border-slate-800 pt-3">
+              <div className="mb-1 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">Tags</div>
+              <div className="flex flex-wrap gap-1">
+                {selected.tags.map((tag) => (
+                  <span key={tag} className="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[10px] font-mono text-slate-300">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-800 pt-3">
+            <a href="/api/epicon/candidates" className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300">
+              Analyze event
+            </a>
+            <a href="/api/zeus/verify?concept=event" className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300">
+              ZEUS verify
+            </a>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-slate-800 bg-slate-900/50 p-2">
+      <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500">{label}</div>
+      <div className="text-lg font-mono font-bold text-slate-100">{value}</div>
+    </div>
+  );
+}
+
+function TableHeader({ label, onClick, indicator }: { label: string; onClick: () => void; indicator: string }) {
+  return (
+    <th className="px-2 py-2">
+      <button onClick={onClick} className="inline-flex items-center gap-1 uppercase hover:text-slate-300">
+        {label}
+        <span>{indicator}</span>
+      </button>
+    </th>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div>
+      <div className="text-[9px] font-mono uppercase tracking-[0.14em] text-slate-500">{label}</div>
+      <div className="mt-1 text-slate-200">{value}</div>
+    </div>
+  );
+}
