@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMICAccount, getOrCreateIdentity } from '@/lib/identity/identityStore';
+import { getMICAccount, getOrCreateIdentity, type MICAccount } from '@/lib/identity/identityStore';
+import { kvSet } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,11 +17,49 @@ export async function OPTIONS() {
 }
 
 export async function GET(_req: NextRequest) {
-  const [identity, account] = await Promise.all([getOrCreateIdentity(), getMICAccount()]);
+  const username = 'kaizencycle';
+  const renderMicUrl = process.env.RENDER_MIC_URL;
+  let degraded = false;
+  const identity = await getOrCreateIdentity();
+  let account: MICAccount | null = null;
+
+  if (renderMicUrl) {
+    try {
+      const response = await fetch(`${renderMicUrl}/wallet/${encodeURIComponent(username)}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(5000),
+        cache: 'no-store',
+      });
+
+      if (response.ok) {
+        const payload = (await response.json()) as { account?: MICAccount } | MICAccount;
+        const resolved = (payload as { account?: MICAccount }).account ?? (payload as MICAccount);
+        if (resolved && typeof resolved === 'object' && typeof resolved.balance === 'number') {
+          account = resolved;
+          await kvSet(`mic:${username}`, account);
+        }
+      } else {
+        degraded = true;
+        console.error(`[render:mic] ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      degraded = true;
+      console.error('[render:mic] request failed', error);
+    }
+  }
+
+  if (!account) {
+    account = await getMICAccount();
+    degraded = true;
+  }
 
   return NextResponse.json(
     {
       ok: true,
+      degraded,
       account: {
         login: account.login,
         balance: account.balance,

@@ -36,6 +36,17 @@ type SynthesizeBody = {
   cycleId?: string;
 };
 
+type SynthesisTheme = 'geopolitical' | 'market' | 'infrastructure' | 'governance' | 'narrative';
+
+function mapThoughtTheme(value: string): SynthesisTheme | null {
+  if (value === 'geopolitical') return 'geopolitical';
+  if (value === 'market') return 'market';
+  if (value === 'infrastructure') return 'infrastructure';
+  if (value === 'governance') return 'governance';
+  if (value === 'narrative') return 'narrative';
+  return null;
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -123,13 +134,63 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: result.error, raw: result.raw }, { status: 502 });
   }
 
+  const renderThoughtBrokerUrl = process.env.RENDER_THOUGHT_BROKER_URL;
+  let degraded = false;
+  let routingMetadata: Record<string, unknown> | null = null;
+  let dominantTheme = result.parsed.dominantTheme;
+
+  if (renderThoughtBrokerUrl) {
+    try {
+      const routeResponse = await fetch(`${renderThoughtBrokerUrl}/classify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          title: result.parsed.epiconTitle,
+          category: result.parsed.patternType,
+          severity: result.parsed.severity,
+          source: 'eve-synthesis',
+        }),
+        signal: AbortSignal.timeout(5000),
+        cache: 'no-store',
+      });
+
+      if (routeResponse.ok) {
+        const routeData = (await routeResponse.json()) as Record<string, unknown>;
+        routingMetadata = routeData;
+        const candidateTheme =
+          (typeof routeData.dominantTheme === 'string' && routeData.dominantTheme) ||
+          (typeof routeData.theme === 'string' && routeData.theme) ||
+          (typeof routeData.category === 'string' && routeData.category) ||
+          '';
+        const mappedTheme = mapThoughtTheme(candidateTheme);
+        if (mappedTheme) {
+          dominantTheme = mappedTheme;
+        }
+      } else {
+        degraded = true;
+        console.error(`[render:thought-broker] ${routeResponse.status} ${routeResponse.statusText}`);
+      }
+    } catch (error) {
+      degraded = true;
+      console.error('[render:thought-broker] request failed', error);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     agent: 'EVE',
     cycleId,
     timestamp: new Date().toISOString(),
     itemCount: freshItems.length,
-    synthesis: result.parsed,
+    degraded,
+    routingMetadata,
+    synthesis: {
+      ...result.parsed,
+      dominantTheme,
+    },
     source: 'claude-synthesis',
   });
 }
