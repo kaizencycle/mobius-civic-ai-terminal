@@ -96,7 +96,7 @@ export default function AgentCortexPanel({
       : 'border-amber-500/20 bg-amber-500/5 text-amber-200';
   }
 
-  function sourceTone(status: SourceHealth) {
+function sourceTone(status: SourceHealth) {
     switch (status) {
       case 'ok':
         return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
@@ -109,6 +109,15 @@ export default function AgentCortexPanel({
         return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
     }
   }
+
+  const statusBadgeText: Record<Agent['status'], string> = {
+    idle: '■ IDLE',
+    listening: '◉ LISTENING',
+    verifying: '✓ VERIFYING',
+    routing: '⇄ ROUTING',
+    analyzing: '≈ ANALYZING',
+    alert: '⚠ ALERT',
+  };
 
   return (
     <section
@@ -193,62 +202,72 @@ export default function AgentCortexPanel({
         </div>
       ) : null}
 
-      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 xl:grid-cols-4">
-        {visibleAgents.map((agent) => (
-          <button
-            key={agent.id}
-            onClick={() => onSelect?.(agent)}
-            className={cn(
-              'rounded-lg border p-3 text-left transition',
-              selectedId === agent.id
-                ? 'border-sky-500/40 bg-sky-500/10'
-                : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-900',
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-mono font-semibold text-white">
-                {agent.name}
+      {visibleAgents.length === 0 ? (
+        <div className="mt-3 rounded-lg border border-dashed border-slate-800 bg-slate-950/50 px-4 py-6 text-center">
+          <p className="text-sm font-mono text-slate-300">No agents available for this identity.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Check identity permissions or substrate connection to load the Cortex roster.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {visibleAgents.map((agent) => (
+            <button
+              key={agent.id}
+              onClick={() => onSelect?.(agent)}
+              className={cn(
+                'rounded-lg border p-3 text-left transition',
+                selectedId === agent.id
+                  ? 'border-sky-500/40 bg-sky-500/10'
+                  : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-900',
+              )}
+              aria-label={`${agent.name} ${statusBadgeText[agent.status]}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-mono font-semibold text-white">
+                  {agent.name}
+                </div>
+                <div className={cn(
+                  'h-2.5 w-2.5 rounded-full',
+                  agent.color,
+                  agent.status !== 'idle' && 'agent-glow',
+                )} />
               </div>
-              <div className={cn(
-                'h-2.5 w-2.5 rounded-full',
-                agent.color,
-                agent.status !== 'idle' && 'agent-glow',
-              )} />
-            </div>
-            <div className="mt-1 text-xs font-sans text-slate-400">
-              {agent.role}
-            </div>
+              <div className="mt-1 text-xs font-sans text-slate-400">
+                {agent.role}
+              </div>
 
-            <div className="mt-3 flex items-center gap-2">
-              <div
-                className={cn(
-                  'h-2 w-2 rounded-full',
-                  statusColor(agent.status),
-                  agent.status !== 'idle' && 'agent-pulse',
-                )}
-              />
-              <span className="text-xs font-mono uppercase tracking-[0.15em] text-slate-300">
-                {agent.status}
-              </span>
-            </div>
+              <div className="mt-3 flex items-center gap-2">
+                <div
+                  className={cn(
+                    'h-2 w-2 rounded-full',
+                    statusColor(agent.status),
+                    agent.status !== 'idle' && 'agent-pulse',
+                  )}
+                />
+                <span className="rounded border border-slate-700/80 bg-slate-900 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-300">
+                  {statusBadgeText[agent.status]}
+                </span>
+              </div>
 
-            <div className="mt-3 text-xs font-sans text-slate-400">
-              {agent.lastAction}
-            </div>
+              <div className="mt-3 text-xs font-sans text-slate-400">
+                {agent.lastAction}
+              </div>
 
-            <div className="mt-3 flex items-center justify-between text-[11px] font-mono">
-              <span className="text-slate-500">Heartbeat</span>
-              <span
-                className={
-                  agent.heartbeatOk ? 'text-emerald-300' : 'text-red-300'
-                }
-              >
-                {agent.heartbeatOk ? 'OK' : 'FAIL'}
-              </span>
-            </div>
-          </button>
-        ))}
-      </div>
+              <div className="mt-3 flex items-center justify-between text-[11px] font-mono">
+                <span className="text-slate-500">Heartbeat</span>
+                <span
+                  className={
+                    agent.heartbeatOk ? 'text-emerald-300' : 'text-red-300'
+                  }
+                >
+                  {agent.heartbeatOk ? 'OK' : 'FAIL'}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
       {degraded ? (
         <div className="mt-3 text-xs text-amber-300">
           Showing mock/cached data — live source offline
