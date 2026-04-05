@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTripwireState, setTripwireState, type RuntimeTripwireState } from '@/lib/tripwire/store';
 import { mockTripwire } from '@/lib/mock-data';
 import { liveEnvelope, mockEnvelope } from '@/lib/response-envelope';
+import { saveTripwireState } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,10 +44,18 @@ function parsePayload(value: unknown): TripwireUpdatePayload | null {
 
 export async function GET() {
   try {
+    const tripwire = getTripwireState();
+    await saveTripwireState({
+      active: tripwire.active,
+      level: tripwire.active ? 'elevated' : 'none',
+      reason: tripwire.reason,
+      last_updated: tripwire.last_updated,
+    }).catch(() => {});
+
     return NextResponse.json({
       ok: true,
       ...liveEnvelope(),
-      tripwire: getTripwireState(),
+      tripwire,
       last_updated: new Date().toISOString(),
       freshness: { status: 'fresh', seconds: 0 },
     });
@@ -93,6 +102,12 @@ export async function POST(request: NextRequest) {
       };
 
   setTripwireState(nextTripwire);
+  await saveTripwireState({
+    active: nextTripwire.active,
+    level: nextTripwire.active ? 'elevated' : 'none',
+    reason: nextTripwire.reason,
+    last_updated: nextTripwire.last_updated,
+  }).catch(() => {});
 
   return NextResponse.json({
     ok: true,

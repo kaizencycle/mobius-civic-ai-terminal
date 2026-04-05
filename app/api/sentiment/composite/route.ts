@@ -75,6 +75,7 @@ export async function GET() {
     const hermesSignals = microByAgent.get('HERMES-µ')?.signals ?? [];
     const narrativeScore = mean(hermesSignals.map((signal) => signal.value));
     const hermesSources = hermesSignals.map((signal) => signal.source);
+    const sonarEnabled = Boolean(process.env.PERPLEXITY_API_KEY);
     const daedalusScore = mean((microByAgent.get('DAEDALUS-µ')?.signals ?? []).map((signal) => signal.value));
     const themisSignals = microByAgent.get('THEMIS')?.signals ?? [];
     const civicScore = mean(themisSignals.map((signal) => signal.value));
@@ -88,7 +89,13 @@ export async function GET() {
         label: 'NARRATIVE',
         agent: 'HERMES',
         score: narrativeScore,
-        sourceLabel: hermesSources.includes('GDELT') ? 'HN + Wikipedia + Sonar + GDELT' : 'HN + Wikipedia + Sonar',
+        sourceLabel: sonarEnabled
+          ? hermesSources.includes('GDELT')
+            ? 'HN + Wikipedia + Sonar + GDELT'
+            : 'HN + Wikipedia + Sonar'
+          : hermesSources.includes('GDELT')
+            ? 'HN + Wikipedia + GDELT (Sonar unavailable)'
+            : 'HN + Wikipedia (Sonar unavailable)',
       },
       { key: 'infrastructure', label: 'INFRASTR', agent: 'DAEDALUS', score: daedalusScore, sourceLabel: 'GitHub + npm + self-ping' },
       { key: 'institutional', label: 'INSTITUTIONAL', agent: 'JADE', score: civicScore, sourceLabel: 'data.gov + FRED (future)' },
