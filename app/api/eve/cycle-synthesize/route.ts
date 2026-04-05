@@ -1,6 +1,9 @@
 /**
  * POST /api/eve/cycle-synthesize — EVE governance / ethics synthesis → live EPICON ledger (C-270).
  * Bearer: MOBIUS_SERVICE_SECRET | CRON_SECRET | BACKFILL_SECRET
+ *
+ * Body: `{}` for cycle window synthesis, or `{ "mode": "escalation", "reason": "gi_critical" }`
+ * for escalation-class synthesis (same auth; distinct idempotency when reason is set).
  */
 
 import type { NextRequest } from 'next/server';
@@ -45,7 +48,7 @@ function parseCycleBody(body: unknown): {
   return { cycleId, force, mode, reason };
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const cycleId = currentCycleId();
   const windowBucket = cycleWindowBucket(Date.now());
   const idempotencyTag = cycleSynthesisIdempotencyTag(cycleId, windowBucket);

@@ -295,16 +295,17 @@ function isEpiconSeverity(value: string): value is EpiconSeverity {
   );
 }
 
+function ledgerRowToEpiconSource(row: EpiconLedgerFeedEntry): EpiconSource {
+  if (row.source === 'eve-synthesis') return 'eve-synthesis';
+  if (row.source === 'agent_commit') return 'agent_commit';
+  return 'kv-ledger';
+}
+
 function fromLocalMemoryLedger(): EpiconEntry[] {
   return getMemoryLedgerEntries(100).map((row: EpiconLedgerFeedEntry): EpiconEntry => {
     const sev = isEpiconSeverity(row.severity) ? row.severity : 'info';
     const typ = row.type as EpiconEntry['type'];
-    const src: EpiconSource =
-      row.source === 'eve-synthesis'
-        ? 'eve-synthesis'
-        : row.source === 'agent_commit'
-          ? 'agent_commit'
-          : 'kv-ledger';
+    const src = ledgerRowToEpiconSource(row);
     return {
       id: row.id,
       cycle: row.cycle,

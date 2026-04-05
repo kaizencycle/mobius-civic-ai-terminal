@@ -577,9 +577,8 @@ export async function processEveEscalationSynthesis(
   const input = await gatherEveGovernanceSynthesisInput(cycleId, { ledgerRows: allRows });
 
   const trimmedReason = typeof callerReason === 'string' ? callerReason.trim() : '';
-  const bypassEscalationGate = trimmedReason === 'gi_critical';
 
-  if (!force && !bypassEscalationGate && !escalationWarranted(input)) {
+  if (!force && !escalationWarranted(input)) {
     return {
       ok: true,
       cycleId,
@@ -590,7 +589,9 @@ export async function processEveEscalationSynthesis(
     };
   }
 
-  const fingerprint = force ? `force-${Date.now()}` : escalationFingerprint(input);
+  const baseFp = escalationFingerprint(input);
+  const fingerprint =
+    force ? `force-${Date.now()}` : trimmedReason !== '' ? `${baseFp}|${trimmedReason}` : baseFp;
   const idempotencyTag = escalationIdempotencyTag(cycleId, fingerprint);
 
   if (!force && ledgerHasIdempotencyTag(allRows, idempotencyTag)) {
@@ -602,6 +603,7 @@ export async function processEveEscalationSynthesis(
       reason: 'already_synthesized_for_escalation_class',
       idempotencyTag,
       derivedFromCount: 0,
+      escalationFingerprint: fingerprint,
     };
   }
 
@@ -625,6 +627,7 @@ export async function processEveEscalationSynthesis(
     derivedFromCount: output.derivedFrom.length,
     idempotencyTag: publishResult.idempotencyTag,
     escalationFingerprint: fingerprint,
+    ...(trimmedReason !== '' ? { escalationReason: trimmedReason } : {}),
     governancePosture: output.governancePosture,
     category: output.category,
     civicRiskLevel: output.civicRiskLevel,

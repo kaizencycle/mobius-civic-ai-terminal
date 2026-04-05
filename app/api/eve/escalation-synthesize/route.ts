@@ -16,17 +16,20 @@ export const dynamic = 'force-dynamic';
 type EscBody = {
   cycleId?: unknown;
   force?: unknown;
+  reason?: unknown;
 };
 
-function parseBody(body: unknown): { cycleId: string | null; force: boolean } {
+function parseBody(body: unknown): { cycleId: string | null; force: boolean; reason: string | null } {
   if (body === null || typeof body !== 'object') {
-    return { cycleId: null, force: false };
+    return { cycleId: null, force: false, reason: null };
   }
   const o = body as EscBody;
   const raw = o.cycleId;
   const cycleId = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
   const force = o.force === true;
-  return { cycleId, force };
+  const reasonRaw = o.reason;
+  const reason = typeof reasonRaw === 'string' && reasonRaw.trim() ? reasonRaw.trim() : null;
+  return { cycleId, force, reason };
 }
 
 export async function GET() {
@@ -51,11 +54,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { cycleId: bodyCycle, force } = parseBody(body);
+  const { cycleId: bodyCycle, force, reason } = parseBody(body);
   const cycleId = bodyCycle ?? currentCycleId();
 
   await runSignalEngine();
 
-  const payload = await processEveEscalationSynthesis(cycleId, force, null);
+  const payload = await processEveEscalationSynthesis(cycleId, force, reason);
+
   return NextResponse.json(payload);
 }
