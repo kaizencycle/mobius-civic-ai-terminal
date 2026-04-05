@@ -1,7 +1,7 @@
 // ============================================================================
 // GAIA — Environment Micro Sub-Agent
 //
-// Polls Open-Meteo (weather), OpenAQ-compatible AQI, and USGS earthquake API.
+// Polls Open-Meteo (weather), USGS earthquake API, and NASA EONET events.
 // All free, no API key required.
 // CC0 Public Domain
 // ============================================================================
@@ -15,12 +15,13 @@ import {
   normalizeDirect,
   safeFetch,
 } from './core';
+import { fetchEonetEvents, scoreEonetEvents } from '@/lib/signals/eonet';
 
 export const GAIA_CONFIG: MicroAgentConfig = {
   name: 'GAIA',
-  description: 'Ecological integrity — weather extremes, air quality, seismic activity',
+  description: 'Ecological integrity — weather extremes, natural hazards, seismic activity',
   pollIntervalMs: 5 * 60 * 1000, // 5 minutes
-  sources: ['Open-Meteo', 'USGS Earthquake'],
+  sources: ['Open-Meteo', 'USGS Earthquake', 'NASA EONET'],
 };
 
 // ── Open-Meteo: current weather for NYC (Merrick, LI area) ────────────────
@@ -109,18 +110,45 @@ async function pollEarthquakes(): Promise<MicroSignal | null> {
   };
 }
 
+async function pollEonet(): Promise<MicroSignal | null> {
+  return fetchEonetEvents(7)
+    .then((events) => {
+      const storms = events.filter((event) => event.categories.some((category) => category.id === 'severeStorms')).length;
+      const fires = events.filter((event) => event.categories.some((category) => category.id === 'wildfires')).length;
+
+      return {
+        agentName: 'GAIA',
+        source: 'NASA EONET',
+        timestamp: new Date().toISOString(),
+        value: scoreEonetEvents(events),
+        label: `EONET: ${events.length} open natural events (${storms} storms, ${fires} fires)`,
+        severity: events.length > 30 ? 'elevated' : 'nominal',
+        raw: {
+          count: events.length,
+          topEvent: events[0]?.title ?? null,
+          severeStorms: storms,
+          wildfires: fires,
+        },
+      } satisfies MicroSignal;
+    })
+    .catch(() => null);
+}
+
 // ── Poll all GAIA sources ─────────────────────────────────────────────────
 export async function pollGaia(): Promise<AgentPollResult> {
   const errors: string[] = [];
   const signals: MicroSignal[] = [];
 
-  const weather = await pollWeather();
+  const [weather, quakes, eonet] = await Promise.all([pollWeather(), pollEarthquakes(), pollEonet()]);
+
   if (weather) signals.push(weather);
   else errors.push('Open-Meteo weather fetch failed');
 
-  const quakes = await pollEarthquakes();
   if (quakes) signals.push(quakes);
   else errors.push('USGS earthquake fetch failed');
+
+  if (eonet) signals.push(eonet);
+  else errors.push('NASA EONET fetch failed');
 
   return {
     agentName: 'GAIA',
