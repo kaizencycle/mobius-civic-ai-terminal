@@ -10,7 +10,7 @@ export type StreamMessage =
 
 const API_BASE =
   (typeof window !== 'undefined'
-    ? process.env.NEXT_PUBLIC_MOBIUS_API_BASE
+    ? process.env.NEXT_PUBLIC_MOBIUS_API_BASE ?? process.env.NEXT_PUBLIC_TERMINAL_API_BASE
     : ''
   )?.replace(/\/$/, '') || '';
 
