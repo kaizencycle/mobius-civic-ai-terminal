@@ -22,7 +22,8 @@ type EpiconSource =
   | 'memory-feed'
   | 'backfill'
   | 'eve-synthesis'
-  | 'agent_commit';
+  | 'agent_commit'
+  | 'ledger-api';
 
 type EpiconEntry = {
   id: string;
@@ -258,6 +259,72 @@ function fromMemoryFeed(): EpiconEntry[] {
   }));
 }
 
+type RenderLedgerEntry = Partial<EpiconEntry> & { id?: unknown; timestamp?: unknown; title?: unknown };
+
+function normalizeLedgerEntry(raw: RenderLedgerEntry): EpiconEntry | null {
+  if (typeof raw.id !== 'string' || typeof raw.timestamp !== 'string' || typeof raw.title !== 'string') {
+    return null;
+  }
+
+  return {
+    id: raw.id,
+    timestamp: raw.timestamp,
+    title: raw.title,
+    author: typeof raw.author === 'string' ? raw.author : 'ledger',
+    body: typeof raw.body === 'string' ? raw.body : undefined,
+    type: (typeof raw.type === 'string' ? raw.type : 'epicon') as EpiconType,
+    severity: (typeof raw.severity === 'string' && isEpiconSeverity(raw.severity) ? raw.severity : 'info') as EpiconSeverity,
+    source: 'ledger-api',
+    tags: Array.isArray(raw.tags) ? raw.tags.filter((tag): tag is string => typeof tag === 'string') : [],
+    verified: Boolean(raw.verified),
+    cycle: typeof raw.cycle === 'string' ? raw.cycle : undefined,
+    gi: typeof raw.gi === 'number' ? raw.gi : undefined,
+    verifiedBy: typeof raw.verifiedBy === 'string' ? raw.verifiedBy : undefined,
+    category: typeof raw.category === 'string' ? raw.category : undefined,
+    confidenceTier: typeof raw.confidenceTier === 'number' ? raw.confidenceTier : undefined,
+    zeusVerdict: typeof raw.zeusVerdict === 'string' ? raw.zeusVerdict : undefined,
+    patternType: typeof raw.patternType === 'string' ? raw.patternType : undefined,
+    dominantRegion: typeof raw.dominantRegion === 'string' ? raw.dominantRegion : undefined,
+    derivedFrom: typeof raw.derivedFrom === 'string' ? raw.derivedFrom : undefined,
+    derivedFromIds: Array.isArray(raw.derivedFromIds)
+      ? raw.derivedFromIds.filter((id): id is string => typeof id === 'string')
+      : undefined,
+    status: raw.status === 'committed' || raw.status === 'pending' || raw.status === 'failed' ? raw.status : undefined,
+    agentOrigin: typeof raw.agentOrigin === 'string' ? raw.agentOrigin : undefined,
+  };
+}
+
+async function fetchRenderLedgerEntries(limit = 50): Promise<{ entries: EpiconEntry[]; degraded: boolean }> {
+  const renderLedgerUrl = process.env.RENDER_LEDGER_URL;
+  if (!renderLedgerUrl) {
+    return { entries: [], degraded: true };
+  }
+
+  try {
+    const response = await fetch(`${renderLedgerUrl}/ledger/entries?limit=${limit}`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(5000),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      console.error(`[render:ledger] ${response.status} ${response.statusText}`);
+      return { entries: [], degraded: true };
+    }
+
+    const payload = (await response.json()) as { entries?: RenderLedgerEntry[]; items?: RenderLedgerEntry[] };
+    const rows = Array.isArray(payload.entries) ? payload.entries : Array.isArray(payload.items) ? payload.items : [];
+    const entries = rows.map((row) => normalizeLedgerEntry(row)).filter((row): row is EpiconEntry => row !== null);
+    return { entries, degraded: false };
+  } catch (error) {
+    console.error('[render:ledger] request failed', error);
+    return { entries: [], degraded: true };
+  }
+}
+
 /** Align KV JSON rows with live authoring metadata (C-270 EVE synthesis). */
 function coerceLedgerEntrySource(entry: EpiconEntry): EpiconEntry {
   const governanceSynthTagged = entry.tags?.includes('eve-governance-synthesis') === true;
@@ -367,12 +434,17 @@ export async function GET(request: NextRequest) {
   const minGI = params.get('minGI');
   const minGiValue = minGI ? Number.parseFloat(minGI) : undefined;
 
-  const [commits, kvEntries] = await Promise.all([fetchGitHubCommits(80), fromRedis()]);
+  const [{ entries: ledgerEntries, degraded: ledgerDegraded }, commits, kvEntries] = await Promise.all([
+    fetchRenderLedgerEntries(50),
+    fetchGitHubCommits(80),
+    fromRedis(),
+  ]);
   const commitEntries = commits.map(toEpiconEntry).filter((entry): entry is EpiconEntry => entry !== null);
   const memoryEntries = fromMemoryFeed();
   const localLedgerEntries = fromLocalMemoryLedger();
 
   let entries = dedupeSort([
+    ...ledgerEntries,
     ...kvEntries,
     ...localLedgerEntries,
     ...commitEntries,
@@ -396,11 +468,13 @@ export async function GET(request: NextRequest) {
       total: entries.length,
       sources: {
         github: commitEntries.length,
+        ledgerApi: ledgerEntries.length,
         kv: kvEntries.length,
         memory: memoryEntries.length,
         memoryLedger: localLedgerEntries.length,
         kvConfigured: !!getRedisClient(),
       },
+      degraded: ledgerDegraded,
       summary: {
         latestGI: heartbeats.find((entry) => entry.gi !== undefined)?.gi ?? null,
         degradedCount: heartbeats.filter((entry) => entry.severity === 'degraded' || entry.severity === 'critical')
@@ -414,7 +488,7 @@ export async function GET(request: NextRequest) {
     {
       headers: {
         'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
-        'X-Mobius-Source': 'epicon-github-bridge',
+        'X-Mobius-Source': ledgerEntries.length > 0 ? 'epicon-ledger-api' : 'epicon-github-bridge',
         'X-Mobius-KV': getRedisClient() ? 'active' : 'unconfigured',
       },
     },
