@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    info: 'POST with service Authorization to run EVE governance synthesis (live EPICON ledger). Vercel Cron GET runs cycle synthesis when scheduled.',
+    info: 'GET is preview-only and does not run synthesis (unless Vercel Cron headers are present). Use POST with service Authorization to execute EVE governance synthesis.',
     mode: 'cycle',
     currentCycle: cycleId,
     windowBucket,

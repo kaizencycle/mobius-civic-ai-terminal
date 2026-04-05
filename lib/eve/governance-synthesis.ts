@@ -21,6 +21,7 @@ import { getTripwireState } from '@/lib/tripwire/store';
 
 export const EVE_GOVERNANCE_SYNTH_TAG = 'eve-governance-synthesis';
 export const EVE_SYNTHESIS_SOURCE = 'eve-synthesis' as const;
+const EVE_SYNTHESIS_KV_KEY = 'epicon:eve-synthesis';
 
 /** Align with EVE automation cadence (every 4h). */
 const CYCLE_WINDOW_MS = 4 * 60 * 60 * 1000;
@@ -658,6 +659,7 @@ export async function publishEveGovernanceSynthesis(
   const ledgerSeverity = ledgerSeverityFromSignals(output.severity);
 
   const tags = [
+    'eve',
     EVE_GOVERNANCE_SYNTH_TAG,
     idempotencyTag,
     output.category,
@@ -667,10 +669,10 @@ export async function publishEveGovernanceSynthesis(
   const derivedFromIds = output.derivedFrom.slice(0, 32);
   const derivedFromCompact = derivedFromIds.join('|').slice(0, 512);
 
-  await pushLedgerEntry({
+  const entry: EpiconLedgerFeedEntry = {
     id: entryId,
     timestamp,
-    author: 'EVE',
+    author: 'eve',
     title: output.title,
     body: output.body,
     type: 'epicon',
@@ -687,7 +689,16 @@ export async function publishEveGovernanceSynthesis(
     derivedFromIds,
     status: 'committed',
     agentOrigin: 'EVE',
-  });
+  };
+
+  await pushLedgerEntry(entry);
+
+  const redis = getRedisClient();
+  if (redis) {
+    const payload = JSON.stringify(entry);
+    await redis.lpush(EVE_SYNTHESIS_KV_KEY, payload);
+    await redis.ltrim(EVE_SYNTHESIS_KV_KEY, 0, 199);
+  }
 
   return { published: true, entryId, idempotencyTag, ledgerSeverity };
 }

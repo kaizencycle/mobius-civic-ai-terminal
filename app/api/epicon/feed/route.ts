@@ -330,11 +330,13 @@ function coerceLedgerEntrySource(entry: EpiconEntry): EpiconEntry {
   const governanceSynthTagged = entry.tags?.includes('eve-governance-synthesis') === true;
   const eveOrigin = entry.agentOrigin?.trim() === 'EVE';
   if (entry.source === 'eve-synthesis' || eveOrigin || governanceSynthTagged) {
+    const currentTags = Array.isArray(entry.tags) ? entry.tags : [];
     return {
       ...entry,
       source: 'eve-synthesis',
-      author: entry.author?.trim() ? entry.author : 'EVE',
+      author: 'eve',
       agentOrigin: entry.agentOrigin?.trim() ? entry.agentOrigin : 'EVE',
+      tags: currentTags.includes('eve') ? currentTags : [...currentTags, 'eve'],
     };
   }
   return entry;
@@ -354,6 +356,33 @@ async function fromRedis(): Promise<EpiconEntry[]> {
       .map((entry) => {
         try {
           return coerceLedgerEntrySource(JSON.parse(entry) as EpiconEntry);
+        } catch {
+          return null;
+        }
+      })
+      .filter((entry): entry is EpiconEntry => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
+async function fromEveSynthesisRedis(): Promise<EpiconEntry[]> {
+  const redis = getRedisClient();
+  if (!redis) return [];
+
+  try {
+    const rows = await redis.lrange<string>('epicon:eve-synthesis', 0, 99);
+    return rows
+      .map((entry) => {
+        try {
+          const parsed = JSON.parse(entry) as EpiconEntry;
+          return coerceLedgerEntrySource({
+            ...parsed,
+            source: 'eve-synthesis',
+            author: 'eve',
+            agentOrigin: 'EVE',
+            tags: Array.isArray(parsed.tags) ? Array.from(new Set([...parsed.tags, 'eve'])) : ['eve'],
+          });
         } catch {
           return null;
         }
@@ -434,10 +463,11 @@ export async function GET(request: NextRequest) {
   const minGI = params.get('minGI');
   const minGiValue = minGI ? Number.parseFloat(minGI) : undefined;
 
-  const [{ entries: ledgerEntries, degraded: ledgerDegraded }, commits, kvEntries] = await Promise.all([
+  const [{ entries: ledgerEntries, degraded: ledgerDegraded }, commits, kvEntries, eveKvEntries] = await Promise.all([
     fetchRenderLedgerEntries(50),
     fetchGitHubCommits(80),
     fromRedis(),
+    fromEveSynthesisRedis(),
   ]);
   const commitEntries = commits.map(toEpiconEntry).filter((entry): entry is EpiconEntry => entry !== null);
   const memoryEntries = fromMemoryFeed();
@@ -446,6 +476,7 @@ export async function GET(request: NextRequest) {
   let entries = dedupeSort([
     ...ledgerEntries,
     ...kvEntries,
+    ...eveKvEntries,
     ...localLedgerEntries,
     ...commitEntries,
     ...memoryEntries,
@@ -470,6 +501,7 @@ export async function GET(request: NextRequest) {
         github: commitEntries.length,
         ledgerApi: ledgerEntries.length,
         kv: kvEntries.length,
+        eveKv: eveKvEntries.length,
         memory: memoryEntries.length,
         memoryLedger: localLedgerEntries.length,
         kvConfigured: !!getRedisClient(),
