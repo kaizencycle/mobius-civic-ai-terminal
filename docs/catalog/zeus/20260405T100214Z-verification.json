@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-04-05T10:02:14.000Z",
+  "agent": "ZEUS",
+  "atlas_heartbeat_reviewed": "20260405T071615Z.json",
+  "verification_status": "disputed",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat parse (health, GI, anomalies, EVE)",
+      "result": "pass",
+      "detail": "Reviewed 20260405T071615Z.json: health=degraded, endpoints micro_agents=true integrity=true runtime=false, signals.composite=0.678, anomalies=2, gi=0.83, mode=green. Heartbeat JSON has no EVE global_tension; cross-check used live /api/eve/global-news."
+    },
+    {
+      "check": "/api/signals/micro vs ATLAS anomaly flags",
+      "result": "warn",
+      "detail": "Live poll ~10:01:44Z: anomalies count still 2 (persistent vs ATLAS). Same pair: GAIA/USGS Earthquake elevated (49 quakes M2.5+ today, max M6.0 near Adak, Alaska); DAEDALUS-µ/Self-ping elevated (HTTP 401 in ~78ms)—persistent infra/auth-surface signal. Composite 0.648 vs heartbeat 0.678 (slightly lower aggregate; severities unchanged on flagged rows). THEMIS agent healthy=false with data.gov catalog/official and last-good-cache failed—additional degradation not counted in anomalies array."
+    },
+    {
+      "check": "/api/integrity-status GI source, score, freshness",
+      "result": "fail",
+      "detail": "source=mock: GI display is not production-authoritative for this run—treat score as unreliable. Reported global_integrity=0.83 and mode=green aligns numerically with heartbeat gi/mode but cannot be verified as live-computed. signals.freshness=0.6 and information=0.6 (subscores below ceiling) explain partial degradation vs perfect subscores; kv=true."
+    },
+    {
+      "check": "/api/runtime/heartbeat and runtime freshness (ATLAS runtime=false)",
+      "result": "warn",
+      "detail": "GET /api/runtime/heartbeat returns HTTP 401 Unauthorized without cron secret—matches ATLAS endpoints.runtime=false and correlates with DAEDALUS self-ping 401. GET /api/runtime/status (200) shows freshness.status=degraded with ~71m lag vs last_run—runtime path still stale relative to ideal."
+    },
+    {
+      "check": "Vercel deployment health (READY, ERROR last 6h, ignoreCommand)",
+      "result": "pass",
+      "detail": "Production hostname resolves to deployment dpl_2dfFEiHvJiYw8wjx55rJweecLyUz state=READY target=production. Deployments since ~04:02Z UTC: 10 listed, 0 ERROR; mobius-bot and ATLAS [skip ci] commits show state=CANCELED (consistent with ignoreCommand/build skip). No ERROR builds in the 6h window sampled."
+    },
+    {
+      "check": "/api/eve/global-news vs GI mode and micro anomalies",
+      "result": "fail",
+      "detail": "EVE source=live, global_tension=high, degraded=false; items are internal C-272 governance/civic-risk synthesis with high severity labels. Integrity-status reports mode=green while EVE tension is high—potential disconnect between narrative tension and GI ribbon unless operators treat GI as mock. Seismic and self-ping anomalies do not map cleanly to EVE headlines (infrastructure/geophysical vs internal substrate framing)."
+    }
+  ],
+  "gi_verified": false,
+  "anomaly_persistence": {
+    "GAIA:USGS Earthquake": "persistent",
+    "DAEDALUS-µ:Self-ping": "persistent"
+  },
+  "eve_correlation": "Weak direct correlation: EVE items are cycle-internal (C-272) with high global_tension; USGS elevation reflects real seismic activity (geophysical). Self-ping 401 aligns with auth-gated runtime probes, not EVE news. High tension with mock green GI is the main tension–integrity mismatch to watch.",
+  "recommendation": "Switch integrity-status to live source in production or document why mock is expected. Restore authorized access to /api/runtime/heartbeat (or adjust ATLAS probe) so runtime endpoint reads success instead of 401. Address THEMIS data.gov dependency failures if they should influence GI. Configure CRON_SECRET in automation so Epicon verify/publish and KV cron paths can run. Re-run ZEUS after changes."
+}
