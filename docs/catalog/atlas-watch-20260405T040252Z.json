@@ -1,0 +1,24 @@
+{
+  "gi": 0.83,
+  "mode": "green",
+  "cycle": "C-272",
+  "anomalies": [
+    {
+      "label": "Seismic: 61 quakes M2.5+ today, max M6.0 near 1 km N of Liborio Negron Torres, Puerto Rico",
+      "severity": "elevated"
+    },
+    {
+      "label": "Self-ping: HTTP 401 in 61ms",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": false,
+    "GI_STATE": false,
+    "ECHO_STATE": false,
+    "TRIPWIRE_STATE": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "timestamp": "2026-04-05T04:02:52.087Z"
+}
