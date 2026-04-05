@@ -195,6 +195,33 @@ async function tryExternalEnrichment(): Promise<{ line: string | null; degraded:
   }
 }
 
+function parseLedgerTimestampMs(row: EpiconLedgerFeedEntry): number {
+  const t = Date.parse(row.timestamp);
+  return Number.isNaN(t) ? 0 : t;
+}
+
+/**
+ * Prefer committed agent rows for the active cycle; if none (e.g. fresh cycle or KV lag),
+ * use the most recent committed agent rows from any cycle so synthesis stays substrate-grounded.
+ */
+export function selectCommittedAgentRowsForSynthesis(
+  ledgerRows: EpiconLedgerFeedEntry[],
+  cycleId: string,
+  crossCycleLimit = 24,
+): EpiconLedgerFeedEntry[] {
+  const forCycle = ledgerRows.filter(
+    (row) => row.source === 'agent_commit' && row.status === 'committed' && row.cycle === cycleId,
+  );
+  if (forCycle.length > 0) return forCycle;
+
+  return [...ledgerRows]
+    .filter((row) => row.source === 'agent_commit' && row.status === 'committed')
+    .sort(
+      (a, b) => parseLedgerTimestampMs(b) - parseLedgerTimestampMs(a) || b.id.localeCompare(a.id),
+    )
+    .slice(0, crossCycleLimit);
+}
+
 export async function gatherEveGovernanceSynthesisInput(
   cycleId?: string,
   options?: { ledgerRows?: EpiconLedgerFeedEntry[] },
@@ -202,9 +229,7 @@ export async function gatherEveGovernanceSynthesisInput(
   const resolvedCycle = cycleId?.trim() || currentCycleId();
   const ledgerRows = options?.ledgerRows ?? (await readLedgerRowsForEve(400));
 
-  const committedAgentRows = ledgerRows.filter(
-    (row) => row.source === 'agent_commit' && row.status === 'committed' && row.cycle === resolvedCycle,
-  );
+  const committedAgentRows = selectCommittedAgentRowsForSynthesis(ledgerRows, resolvedCycle);
 
   const tripwire = getTripwireState();
   const echoAlerts = getEchoAlerts();
@@ -249,7 +274,10 @@ export async function gatherEveGovernanceSynthesisInput(
 
 export function escalationWarranted(input: EveGovernanceSynthesisInput): boolean {
   if (input.gi < GI_STRESS_THRESHOLD) return true;
+  if (input.tripwire.active) return true;
   if (
+    input.tripwire.level === 'watch' ||
+    input.tripwire.level === 'medium' ||
     input.tripwire.level === 'elevated' ||
     input.tripwire.level === 'high' ||
     input.tripwire.level === 'triggered' ||
@@ -315,6 +343,9 @@ export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisI
   }
   for (const a of input.civicAlerts.slice(0, 5)) {
     if (typeof a.id === 'string') derivedFrom.push(`civic:${a.id}`);
+  }
+  if (input.tripwire.level !== 'none') {
+    derivedFrom.push(`tripwire:${input.tripwire.level}`);
   }
 
   const governanceSummary =
