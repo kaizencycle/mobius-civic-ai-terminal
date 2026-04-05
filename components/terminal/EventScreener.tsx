@@ -108,7 +108,7 @@ export default function EventScreener({ items, summary, sources, total }: EventS
       if (typeFilter !== 'all' && item.type !== typeFilter) return false;
       if (authorFilter !== 'all' && item.author !== authorFilter) return false;
       if (!needle) return true;
-      const haystack = `${item.title} ${item.id} ${item.source} ${(item.tags ?? []).join(' ')}`.toLowerCase();
+      const haystack = `${item.title} ${item.author} ${item.type} ${item.id} ${item.source} ${(item.tags ?? []).join(' ')}`.toLowerCase();
       return haystack.includes(needle);
     });
 
@@ -220,7 +220,7 @@ export default function EventScreener({ items, summary, sources, total }: EventS
             setSearchQuery(event.target.value);
             setPage(0);
           }}
-          placeholder="Search title, id, tags..."
+          placeholder="Search title, author, type..."
           className="min-w-48 flex-1 rounded border border-slate-800 bg-slate-900 px-2 py-1 text-[10px] font-mono text-slate-200 placeholder:text-slate-600"
         />
 
@@ -356,10 +356,32 @@ export default function EventScreener({ items, summary, sources, total }: EventS
           ) : null}
 
           <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-800 pt-3">
-            <a href="/api/epicon/candidates" className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300">
-              Analyze event
+            <a
+              href={`/terminal?chat=${encodeURIComponent(`Analyze event ${selected.id}: ${selected.title}`)}`}
+              className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300"
+            >
+              Analyze
             </a>
-            <a href="/api/zeus/verify?concept=event" className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300">
+            <a
+              href={`/terminal?chat=${encodeURIComponent(`Estimate GI impact for event ${selected.id}`)}`}
+              className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300"
+            >
+              GI impact
+            </a>
+            <a
+              href={`/terminal?chat=${encodeURIComponent(
+                selected.sha
+                  ? `Explain commit ${selected.sha.slice(0, 12)} and its civic impact`
+                  : `Explain GI context for event ${selected.id}`,
+              )}`}
+              className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300"
+            >
+              {selected.sha ? 'Explain commit' : 'Explain GI'}
+            </a>
+            <a
+              href="/api/zeus/verify?concept=event"
+              className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300"
+            >
               ZEUS verify
             </a>
           </div>
