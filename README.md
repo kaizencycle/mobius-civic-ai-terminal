@@ -196,6 +196,36 @@ The system tracks a **Global Integrity Score (GI)** that measures information he
 
 Without a configured API, the terminal falls back to mock data automatically.
 
+## Integrity Signal Ingestion Layer
+
+To support broader Mobius ecosystem ingestion, the terminal now includes a normalized ingestion stack:
+
+- `lib/ingestion/MobiusDataClient.ts` — registers terminal and substrate data sources, connects via SSE/polling, and emits standardized integrity signals through an in-app signal bus.
+- `lib/ingestion/processors/EPICONProcessor.ts` — maps EPICON events into confidence tiers, provenance status, threat indicators, sentiment metadata, and GI deltas.
+- `lib/ingestion/processors/AgentProcessor.ts` — computes agent health, constitutional compliance, activity velocity, and integrity contribution.
+- `hooks/useIntegritySignals.ts` — React hook for subscribing to all processed signals, retrieving filtered subsets, and computing an aggregated GI trend.
+
+This ingestion layer is additive and can be used by new dashboard modules without replacing existing `useTerminalData` flows.
+
+### Ingestion Environment Variables
+
+```bash
+# Terminal API (primary)
+NEXT_PUBLIC_TERMINAL_API_BASE=http://localhost:8000/api/v1
+
+# Mobius-Substrate Services
+NEXT_PUBLIC_LEDGER_URL=http://localhost:3000
+NEXT_PUBLIC_GI_URL=http://localhost:3001
+NEXT_PUBLIC_MIC_URL=http://localhost:4002
+NEXT_PUBLIC_BROKER_URL=http://localhost:4005
+NEXT_PUBLIC_OAA_URL=http://localhost:3004
+
+# Ingestion Settings
+NEXT_PUBLIC_SSE_RECONNECT_MS=5000
+NEXT_PUBLIC_POLL_INTERVAL_MS=30000
+NEXT_PUBLIC_MAX_SIGNAL_HISTORY=1000
+```
+
 ---
 
 ## Boot Modes
