@@ -150,6 +150,31 @@ export type LedgerEntry = {
   source?: 'mock' | 'echo' | 'backfill' | 'eve-synthesis' | 'agent_commit';
 };
 
+export type AgentJournalStatus = 'draft' | 'committed' | 'contested' | 'verified';
+export type AgentJournalCategory = 'observation' | 'inference' | 'alert' | 'recommendation' | 'close';
+export type AgentJournalSeverity = 'nominal' | 'elevated' | 'critical';
+
+export interface AgentJournalEntry {
+  id: string;
+  agent: string;
+  cycle: string;
+  timestamp: string;
+  scope: string;
+  observation: string;
+  inference: string;
+  recommendation: string;
+  confidence: number;
+  derivedFrom: string[];
+  relatedAgents: string[];
+  status: AgentJournalStatus;
+  contestedBy?: string[];
+  verifiedBy?: string;
+  category: AgentJournalCategory;
+  severity: AgentJournalSeverity;
+  source: 'agent-journal';
+  agentOrigin: string;
+}
+
 export type MFSShard = {
   id: string;
   citizenId: string;

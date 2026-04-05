@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError, serviceAuthorizationHeaderValue } from '@/lib/security/serviceAuth';
+import { appendAgentJournalEntry } from '@/lib/agents/journal';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,6 +89,23 @@ export async function GET(request: NextRequest) {
     source: 'watchdog',
   };
   console.info('[watchdog] daily run', logResult);
+
+  const failed = actions.filter((action) => action.includes('fail')).length;
+  void appendAgentJournalEntry({
+    agent: 'ATLAS',
+    cycle: currentCycleId(),
+    observation: `Sentinel watchdog ran checks: ${actions.join(', ')}.`,
+    inference: failed === 0 ? 'System integrity checks passed in this cycle.' : `${failed} watchdog checks failed and require operator review.`,
+    recommendation: failed === 0
+      ? 'Continue scheduled watch cadence.'
+      : 'Inspect failed watchdog actions and confirm CRON_SECRET / KV health before next run.',
+    confidence: failed === 0 ? 0.9 : 0.62,
+    derivedFrom: ['watchdog:kv-health', 'watchdog:seed-kv', 'watchdog:integrity-status'],
+    relatedAgents: ['DAEDALUS', 'ZEUS'],
+    status: 'committed',
+    category: failed === 0 ? 'observation' : 'alert',
+    severity: failed === 0 ? 'nominal' : 'elevated',
+  }).catch(() => {});
 
   return NextResponse.json({
     ok: kvHealth.ok && seedResult.ok && giResult.ok,

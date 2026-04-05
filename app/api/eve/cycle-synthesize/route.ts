@@ -20,6 +20,7 @@ import {
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getEveSynthesisAuthError, isVercelCronInvocation } from '@/lib/security/serviceAuth';
 import { runSignalEngine } from '@/lib/signals/engine';
+import { appendAgentJournalEntry } from '@/lib/agents/journal';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,29 @@ type CycleBody = {
   mode?: unknown;
   reason?: unknown;
 };
+
+function inferEveConfidence(payload: unknown): number {
+  if (payload && typeof payload === 'object') {
+    const row = payload as Record<string, unknown>;
+    const c = row.confidence;
+    if (typeof c === 'number' && Number.isFinite(c)) return Math.max(0, Math.min(1, c));
+    const score = row.qualityScore;
+    if (typeof score === 'number' && Number.isFinite(score)) return Math.max(0, Math.min(1, score));
+    const promoted = row.promotedCount;
+    if (typeof promoted === 'number' && promoted > 0) return 0.82;
+  }
+  return 0.74;
+}
+
+function inferEveSeverity(payload: unknown): 'nominal' | 'elevated' | 'critical' {
+  if (payload && typeof payload === 'object') {
+    const row = payload as Record<string, unknown>;
+    if (row.mode === 'escalation') return 'critical';
+    const contested = row.contestedCount;
+    if (typeof contested === 'number' && contested > 0) return 'elevated';
+  }
+  return 'nominal';
+}
 
 function parseCycleBody(body: unknown): {
   cycleId: string | null;
@@ -95,6 +119,20 @@ export async function POST(request: NextRequest) {
     mode === 'escalation'
       ? await processEveEscalationSynthesis(cycleId, force, reason)
       : await processEveCycleWindowSynthesis(cycleId, force);
+
+  void appendAgentJournalEntry({
+    agent: 'EVE',
+    cycle: cycleId,
+    observation: `EVE ${mode} synthesis executed${reason ? ` for reason ${reason}` : ''}.`,
+    inference: mode === 'escalation' ? 'Civic risk required escalation-class synthesis output.' : 'Cycle-window synthesis completed and staged for EPICON flow.',
+    recommendation: mode === 'escalation' ? 'Prioritize ZEUS verification and ATLAS oversight checks.' : 'Continue normal verification cadence across ZEUS and ATLAS.',
+    confidence: inferEveConfidence(payload),
+    derivedFrom: ['signal-engine:run', `eve-synthesis:${cycleId}`],
+    relatedAgents: ['ZEUS', 'ATLAS'],
+    status: 'committed',
+    category: mode === 'escalation' ? 'alert' : 'inference',
+    severity: inferEveSeverity(payload),
+  }).catch(() => {});
 
   return NextResponse.json(payload);
 }

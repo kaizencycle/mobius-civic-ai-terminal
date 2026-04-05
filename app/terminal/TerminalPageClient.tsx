@@ -8,6 +8,8 @@ import { useTerminalData } from '@/hooks/useTerminalData';
 import { checkCovenantCompliance } from '@/lib/integrity-check';
 import { cn } from '@/lib/utils';
 import type { LedgerEntry, NavKey } from '@/lib/terminal/types';
+import type { AgentJournalEntry } from '@/lib/terminal/types';
+import { AGENT_MANIFESTS, AGENT_ORDER } from '@/lib/agents/manifests';
 import AgentGrid from '@/components/agents/AgentGrid';
 import EventScreener, { type EpiconFeedItem } from '@/components/terminal/EventScreener';
 import TripwirePanel from '@/components/tripwire/TripwirePanel';
@@ -47,6 +49,11 @@ type EpiconFeedResponse = {
   summary: { latestGI?: number; degradedCount?: number; lastHeartbeat?: string };
   items: EpiconFeedItem[];
 };
+type AgentJournalResponse = {
+  ok: boolean;
+  count: number;
+  entries: AgentJournalEntry[];
+};
 
 const TABS: Array<{ key: NavKey; label: string }> = [
   { key: 'pulse', label: 'Pulse' },
@@ -81,12 +88,15 @@ function TerminalPage() {
   const [kvLatency, setKvLatency] = useState<number | null>(null);
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
   const [epiconFeed, setEpiconFeed] = useState<EpiconFeedResponse | null>(null);
+  const [journalFeed, setJournalFeed] = useState<AgentJournalEntry[]>([]);
+  const [ledgerView, setLedgerView] = useState<'events' | 'journal'>('events');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'time-desc' | 'time-asc' | 'type' | 'author' | 'gi-desc' | 'severity'>('time-desc');
   const [resultCount, setResultCount] = useState(0);
   const agentSearchRef = useRef<HTMLInputElement>(null);
 
   const { allTripwires, filteredEpicon, gi, integrityStatus, mergedLedger, streamStatus } = useTerminalData(selectedNav);
+  const cycleId = integrityStatus?.cycle ?? 'C-271';
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -95,6 +105,29 @@ function TerminalPage() {
     setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadJournal() {
+      try {
+        const response = await fetch(`/api/agents/journal?cycle=${encodeURIComponent(cycleId)}`, { cache: 'no-store' });
+        const json = (await response.json()) as AgentJournalResponse;
+        if (mounted && json.ok) {
+          setJournalFeed(json.entries ?? []);
+        }
+      } catch {
+        if (mounted) setJournalFeed([]);
+      }
+    }
+
+    loadJournal();
+    const poll = window.setInterval(loadJournal, 30000);
+    return () => {
+      mounted = false;
+      window.clearInterval(poll);
+    };
+  }, [cycleId]);
 
   // Optimization 6: persist operator preferences across refreshes/session reconnects.
   useEffect(() => {
@@ -197,7 +230,6 @@ function TerminalPage() {
   }, []);
 
   const covenantStatus = checkCovenantCompliance(gi?.score ?? 0);
-  const cycleId = integrityStatus?.cycle ?? 'C-271';
   const giScore = gi?.score ?? 0;
   const giDelta = gi?.delta ?? 0;
 
@@ -265,15 +297,39 @@ function TerminalPage() {
     if (selectedNav === 'ledger') {
       return (
         <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-          <EventScreener
-            items={epiconFeed?.items}
-            summary={epiconFeed?.summary ?? {}}
-            sources={epiconFeed?.sources ?? { github: 0, kv: 0 }}
-            total={epiconFeed?.total ?? 0}
-            searchQuery={searchQuery}
-            sortBy={sortBy}
-            onResultCountChange={setResultCount}
-          />
+          <div className="mb-3 flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <div className="text-sm font-semibold">Ledger Chamber</div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Events and reasoning journal</div>
+            </div>
+            <div className="inline-flex rounded-md border border-slate-700 bg-slate-950 p-0.5 text-[10px] font-mono uppercase tracking-[0.12em]">
+              <button
+                onClick={() => setLedgerView('events')}
+                className={cn('rounded px-2 py-1', ledgerView === 'events' ? 'bg-sky-500/20 text-sky-200' : 'text-slate-400')}
+              >
+                Events
+              </button>
+              <button
+                onClick={() => setLedgerView('journal')}
+                className={cn('rounded px-2 py-1', ledgerView === 'journal' ? 'bg-fuchsia-500/20 text-fuchsia-200' : 'text-slate-400')}
+              >
+                Journal
+              </button>
+            </div>
+          </div>
+          {ledgerView === 'events' ? (
+            <EventScreener
+              items={epiconFeed?.items}
+              summary={epiconFeed?.summary ?? {}}
+              sources={epiconFeed?.sources ?? { github: 0, kv: 0 }}
+              total={epiconFeed?.total ?? 0}
+              searchQuery={searchQuery}
+              sortBy={sortBy}
+              onResultCountChange={setResultCount}
+            />
+          ) : (
+            <JournalView entries={journalFeed} cycleId={cycleId} />
+          )}
         </section>
       );
     }
@@ -639,6 +695,99 @@ const StatCard = memo(function StatCard({ label, value, trend, icon, subtitle, o
     </button>
   );
 });
+
+const AGENT_COLOR: Record<string, string> = {
+  ATLAS: 'border-sky-500/35 text-sky-200 bg-sky-500/10',
+  ZEUS: 'border-indigo-500/35 text-indigo-200 bg-indigo-500/10',
+  EVE: 'border-fuchsia-500/35 text-fuchsia-200 bg-fuchsia-500/10',
+  HERMES: 'border-violet-500/35 text-violet-200 bg-violet-500/10',
+  AUREA: 'border-amber-500/35 text-amber-200 bg-amber-500/10',
+  JADE: 'border-emerald-500/35 text-emerald-200 bg-emerald-500/10',
+  DAEDALUS: 'border-cyan-500/35 text-cyan-200 bg-cyan-500/10',
+  ECHO: 'border-teal-500/35 text-teal-200 bg-teal-500/10',
+};
+
+function JournalView({ entries, cycleId }: { entries: AgentJournalEntry[]; cycleId: string }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const byAgent = useMemo(() => {
+    const grouped = new Map<string, AgentJournalEntry[]>();
+    for (const entry of entries) {
+      const lane = grouped.get(entry.agent) ?? [];
+      lane.push(entry);
+      grouped.set(entry.agent, lane);
+    }
+    return grouped;
+  }, [entries]);
+
+  if (entries.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-slate-700 bg-slate-950/60 p-4 text-center text-xs text-slate-400">
+        No committed journal entries for {cycleId} yet. Agent reasoning will appear here as cycles run.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {AGENT_ORDER.map((agent) => {
+        const rows = byAgent.get(agent) ?? [];
+        const manifest = AGENT_MANIFESTS[agent];
+        return (
+          <div key={agent} className="rounded-md border border-slate-800 bg-slate-950/40">
+            <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <span className={cn('rounded border px-1.5 py-0.5 text-[10px] font-mono uppercase', AGENT_COLOR[agent] ?? 'border-slate-700 text-slate-300')}>
+                  {agent}
+                </span>
+                <span className="text-[11px] text-slate-400">{manifest.scope}</span>
+              </div>
+              <span className="text-[10px] font-mono text-slate-500">{rows.length} entries</span>
+            </div>
+            <div className="space-y-2 p-2">
+              {rows.length === 0 ? (
+                <div className="rounded border border-dashed border-slate-700 bg-slate-950 p-2 text-[11px] text-slate-500">No entries yet.</div>
+              ) : (
+                rows.map((entry) => {
+                  const isOpen = expanded[entry.id] === true;
+                  return (
+                    <div key={entry.id} className="rounded border border-slate-800 bg-slate-950/70">
+                      <button
+                        onClick={() => setExpanded((prev) => ({ ...prev, [entry.id]: !isOpen }))}
+                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
+                      >
+                        <div>
+                          <div className="text-xs font-medium text-slate-200">{entry.category} · {entry.timestamp.slice(11, 16)} UTC</div>
+                          <div className="text-[11px] text-slate-400">{entry.inference}</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] font-mono uppercase text-slate-300">{entry.status}</span>
+                          {entry.contestedBy?.length ? (
+                            <span className="rounded border border-rose-500/40 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-mono uppercase text-rose-300">contested</span>
+                          ) : null}
+                          {entry.verifiedBy ? (
+                            <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-mono uppercase text-emerald-300">verified</span>
+                          ) : null}
+                        </div>
+                      </button>
+                      {isOpen ? (
+                        <div className="space-y-2 border-t border-slate-800 px-3 py-2 text-[11px] text-slate-300">
+                          <div><span className="text-slate-500">Observation:</span> {entry.observation}</div>
+                          <div><span className="text-slate-500">Inference:</span> {entry.inference}</div>
+                          <div><span className="text-slate-500">Recommendation:</span> {entry.recommendation}</div>
+                          <div className="text-[10px] font-mono text-slate-500">confidence {(entry.confidence * 100).toFixed(0)}% · severity {entry.severity}</div>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function MiniChart({ points }: { points: number[] }) {
   const normalized = points.length > 1 ? points : [0.5, 0.52, 0.49, 0.53, 0.55, 0.56, 0.57];

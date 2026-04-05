@@ -1,0 +1,218 @@
+import { kvGet, kvSet } from '@/lib/kv/store';
+import { AGENT_MANIFESTS, AGENT_ORDER, type AgentName } from '@/lib/agents/manifests';
+import type { AgentJournalCategory, AgentJournalEntry, AgentJournalSeverity, AgentJournalStatus } from '@/lib/terminal/types';
+
+const INDEX_KEY = 'journal:index';
+const MAX_ENTRIES_PER_AGENT = 100;
+const MAX_INDEX_ROWS = 500;
+
+type JournalIndexRow = {
+  agent: AgentName;
+  cycle: string;
+  key: string;
+  updatedAt: string;
+};
+
+type NewJournalEntryInput = Omit<AgentJournalEntry, 'id' | 'timestamp' | 'scope' | 'source' | 'agentOrigin'> & {
+  id?: string;
+  timestamp?: string;
+  scope?: string;
+  source?: 'agent-journal';
+  agentOrigin?: string;
+};
+
+const VALID_STATUS: AgentJournalStatus[] = ['draft', 'committed', 'contested', 'verified'];
+const VALID_CATEGORY: AgentJournalCategory[] = ['observation', 'inference', 'alert', 'recommendation', 'close'];
+const VALID_SEVERITY: AgentJournalSeverity[] = ['nominal', 'elevated', 'critical'];
+
+function isAgentName(value: string): value is AgentName {
+  return value in AGENT_MANIFESTS;
+}
+
+function keyFor(agent: AgentName, cycle: string): string {
+  return `journal:${agent}:${cycle}`;
+}
+
+function clampConfidence(input: number): number {
+  return Math.max(0, Math.min(1, input));
+}
+
+function normalizeStringList(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((v) => v.trim());
+}
+
+function asRecord(input: unknown): Record<string, unknown> | null {
+  if (input === null || typeof input !== 'object') return null;
+  return input as Record<string, unknown>;
+}
+
+function makeJournalId(agent: AgentName, cycle: string): string {
+  const seq = Math.floor(Math.random() * 10_000)
+    .toString()
+    .padStart(4, '0');
+  return `journal-${agent}-${cycle}-${seq}`;
+}
+
+export function parseAgentJournalEntry(input: unknown): AgentJournalEntry | null {
+  const row = asRecord(input);
+  if (!row) return null;
+
+  const agent = row.agent;
+  const cycle = row.cycle;
+  const timestamp = row.timestamp;
+  const scope = row.scope;
+  const observation = row.observation;
+  const inference = row.inference;
+  const recommendation = row.recommendation;
+  const confidence = row.confidence;
+  const status = row.status;
+  const category = row.category;
+  const severity = row.severity;
+  const source = row.source;
+  const agentOrigin = row.agentOrigin;
+  const id = row.id;
+
+  if (typeof id !== 'string' || !id.trim()) return null;
+  if (typeof agent !== 'string' || !isAgentName(agent)) return null;
+  if (typeof cycle !== 'string' || !cycle.trim()) return null;
+  if (typeof timestamp !== 'string' || !timestamp.trim()) return null;
+  if (typeof scope !== 'string' || !scope.trim()) return null;
+  if (typeof observation !== 'string' || !observation.trim()) return null;
+  if (typeof inference !== 'string' || !inference.trim()) return null;
+  if (typeof recommendation !== 'string' || !recommendation.trim()) return null;
+  if (typeof confidence !== 'number' || Number.isNaN(confidence)) return null;
+  if (typeof status !== 'string' || !VALID_STATUS.includes(status as AgentJournalStatus)) return null;
+  if (typeof category !== 'string' || !VALID_CATEGORY.includes(category as AgentJournalCategory)) return null;
+  if (typeof severity !== 'string' || !VALID_SEVERITY.includes(severity as AgentJournalSeverity)) return null;
+  if (source !== 'agent-journal') return null;
+  if (typeof agentOrigin !== 'string' || !isAgentName(agentOrigin)) return null;
+
+  const contestedBy = normalizeStringList(row.contestedBy);
+  const verifiedBy = typeof row.verifiedBy === 'string' && row.verifiedBy.trim() ? row.verifiedBy.trim() : undefined;
+
+  return {
+    id: id.trim(),
+    agent,
+    cycle: cycle.trim(),
+    timestamp: timestamp.trim(),
+    scope: scope.trim(),
+    observation: observation.trim(),
+    inference: inference.trim(),
+    recommendation: recommendation.trim(),
+    confidence: clampConfidence(confidence),
+    derivedFrom: normalizeStringList(row.derivedFrom),
+    relatedAgents: normalizeStringList(row.relatedAgents),
+    status: status as AgentJournalStatus,
+    contestedBy: contestedBy.length > 0 ? contestedBy : undefined,
+    verifiedBy,
+    category: category as AgentJournalCategory,
+    severity: severity as AgentJournalSeverity,
+    source: 'agent-journal',
+    agentOrigin,
+  };
+}
+
+export function buildAgentJournalEntry(input: NewJournalEntryInput): AgentJournalEntry {
+  if (!isAgentName(input.agent)) {
+    throw new Error(`Unknown agent: ${input.agent}`);
+  }
+  if (!VALID_STATUS.includes(input.status)) {
+    throw new Error(`Invalid status: ${input.status}`);
+  }
+  if (!VALID_CATEGORY.includes(input.category)) {
+    throw new Error(`Invalid category: ${input.category}`);
+  }
+  if (!VALID_SEVERITY.includes(input.severity)) {
+    throw new Error(`Invalid severity: ${input.severity}`);
+  }
+  const cycle = input.cycle.trim();
+  if (!cycle) {
+    throw new Error('cycle is required');
+  }
+
+  return {
+    id: input.id?.trim() || makeJournalId(input.agent, cycle),
+    agent: input.agent,
+    cycle,
+    timestamp: input.timestamp?.trim() || new Date().toISOString(),
+    scope: input.scope?.trim() || AGENT_MANIFESTS[input.agent].scope,
+    observation: input.observation.trim(),
+    inference: input.inference.trim(),
+    recommendation: input.recommendation.trim(),
+    confidence: clampConfidence(input.confidence),
+    derivedFrom: input.derivedFrom,
+    relatedAgents: input.relatedAgents,
+    status: input.status,
+    contestedBy: input.contestedBy,
+    verifiedBy: input.verifiedBy,
+    category: input.category,
+    severity: input.severity,
+    source: 'agent-journal',
+    agentOrigin: input.agentOrigin?.trim() || input.agent,
+  };
+}
+
+async function upsertIndex(agent: AgentName, cycle: string): Promise<void> {
+  const key = keyFor(agent, cycle);
+  const rows = (await kvGet<JournalIndexRow[]>(INDEX_KEY)) ?? [];
+  const existing = rows.filter((row) => !(row.agent === agent && row.cycle === cycle));
+  existing.unshift({ agent, cycle, key, updatedAt: new Date().toISOString() });
+  await kvSet(INDEX_KEY, existing.slice(0, MAX_INDEX_ROWS));
+}
+
+export async function appendAgentJournalEntry(input: NewJournalEntryInput): Promise<AgentJournalEntry> {
+  const entry = buildAgentJournalEntry(input);
+  const agent = entry.agent as AgentName;
+  const key = keyFor(agent, entry.cycle);
+  const existing = (await kvGet<AgentJournalEntry[]>(key)) ?? [];
+  const next = [...existing, entry].slice(-MAX_ENTRIES_PER_AGENT);
+  await kvSet(key, next);
+  await upsertIndex(agent, entry.cycle);
+  return entry;
+}
+
+export async function getAgentJournalEntries(filters?: {
+  agent?: string | null;
+  cycle?: string | null;
+  category?: string | null;
+  status?: AgentJournalStatus | null;
+}): Promise<AgentJournalEntry[]> {
+  const agentFilter = typeof filters?.agent === 'string' && filters.agent.trim() ? filters.agent.trim().toUpperCase() : null;
+  const cycleFilter = typeof filters?.cycle === 'string' && filters.cycle.trim() ? filters.cycle.trim() : null;
+  const categoryFilter = typeof filters?.category === 'string' && filters.category.trim() ? filters.category.trim() : null;
+  const statusFilter = filters?.status ?? 'committed';
+
+  const keys = new Set<string>();
+
+  if (agentFilter && cycleFilter && isAgentName(agentFilter)) {
+    keys.add(keyFor(agentFilter, cycleFilter));
+  } else {
+    const rows = (await kvGet<JournalIndexRow[]>(INDEX_KEY)) ?? [];
+    for (const row of rows) {
+      if (agentFilter && row.agent !== agentFilter) continue;
+      if (cycleFilter && row.cycle !== cycleFilter) continue;
+      keys.add(row.key);
+    }
+    if (keys.size === 0 && cycleFilter) {
+      for (const agent of AGENT_ORDER) {
+        if (agentFilter && agent !== agentFilter) continue;
+        keys.add(keyFor(agent, cycleFilter));
+      }
+    }
+  }
+
+  const out: AgentJournalEntry[] = [];
+  for (const key of keys) {
+    const rows = (await kvGet<AgentJournalEntry[]>(key)) ?? [];
+    for (const raw of rows) {
+      const entry = parseAgentJournalEntry(raw);
+      if (!entry) continue;
+      if (statusFilter && entry.status !== statusFilter) continue;
+      if (categoryFilter && entry.category !== categoryFilter) continue;
+      out.push(entry);
+    }
+  }
+
+  return out.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
