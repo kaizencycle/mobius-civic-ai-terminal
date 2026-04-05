@@ -28,6 +28,7 @@ export async function GET() {
     ok: health.available,
     ...health,
     keys,
+    perplexity: Boolean(process.env.PERPLEXITY_API_KEY),
     timestamp: new Date().toISOString(),
   }, {
     headers: {
