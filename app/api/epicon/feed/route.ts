@@ -258,6 +258,21 @@ function fromMemoryFeed(): EpiconEntry[] {
   }));
 }
 
+/** Align KV JSON rows with live authoring metadata (C-270 EVE synthesis). */
+function coerceLedgerEntrySource(entry: EpiconEntry): EpiconEntry {
+  const governanceSynthTagged = entry.tags?.includes('eve-governance-synthesis') === true;
+  const eveOrigin = entry.agentOrigin?.trim() === 'EVE';
+  if (entry.source === 'eve-synthesis' || eveOrigin || governanceSynthTagged) {
+    return {
+      ...entry,
+      source: 'eve-synthesis',
+      author: entry.author?.trim() ? entry.author : 'EVE',
+      agentOrigin: entry.agentOrigin?.trim() ? entry.agentOrigin : 'EVE',
+    };
+  }
+  return entry;
+}
+
 async function fromRedis(): Promise<EpiconEntry[]> {
   const redis = getRedisClient();
   if (!redis) return [];
@@ -271,7 +286,7 @@ async function fromRedis(): Promise<EpiconEntry[]> {
     return combined
       .map((entry) => {
         try {
-          return JSON.parse(entry) as EpiconEntry;
+          return coerceLedgerEntrySource(JSON.parse(entry) as EpiconEntry);
         } catch {
           return null;
         }
@@ -306,7 +321,7 @@ function fromLocalMemoryLedger(): EpiconEntry[] {
     const sev = isEpiconSeverity(row.severity) ? row.severity : 'info';
     const typ = row.type as EpiconEntry['type'];
     const src = ledgerRowToEpiconSource(row);
-    return {
+    return coerceLedgerEntrySource({
       id: row.id,
       cycle: row.cycle,
       timestamp: row.timestamp,
@@ -329,7 +344,7 @@ function fromLocalMemoryLedger(): EpiconEntry[] {
       derivedFromIds: row.derivedFromIds,
       status: row.status,
       agentOrigin: row.agentOrigin,
-    };
+    });
   });
 }
 
