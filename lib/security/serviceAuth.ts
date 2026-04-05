@@ -128,3 +128,17 @@ export function getServiceAuthError(request: NextRequest): NextResponse | null {
 
   return null;
 }
+
+/**
+ * EVE synthesis automation: Vercel Cron (GET/POST), Bearer CRON_SECRET, or any service secret.
+ * Matches /api/runtime/heartbeat so scheduled jobs succeed when only CRON_SECRET is wired.
+ */
+export function getEveSynthesisAuthError(request: NextRequest): NextResponse | null {
+  if (isVercelCronInvocation(request)) {
+    return null;
+  }
+  if (isValidCronSecretBearer(request.headers.get('authorization'))) {
+    return null;
+  }
+  return getServiceAuthError(request);
+}
