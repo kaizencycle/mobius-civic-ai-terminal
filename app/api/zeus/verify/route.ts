@@ -19,6 +19,8 @@ import {
   type EpiconCandidate,
 } from '@/lib/eve/synthesis-pipeline-store';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
+import { appendAgentJournalEntry } from '@/lib/agents/journal';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 type VerifyRequest = {
   epiconId: string;
@@ -86,6 +88,20 @@ function verifyEveSynthesisCandidateRecord(
     };
     updatePipelineCandidate(id, patch);
   }
+  void appendAgentJournalEntry({
+    agent: 'ZEUS',
+    cycle: currentCycleId(),
+    observation: `Candidate ${id} reviewed with ${candidate.flags.length} flags at severity ${candidate.severity}.`,
+    inference: `ZEUS verdict: ${verdict}. Candidate transitioned to ${nextStatus}.`,
+    recommendation: verdict === 'contested' ? 'Escalate to ATLAS review before broad promotion.' : 'Proceed with standard ledger promotion checks.',
+    confidence: zeusScore,
+    derivedFrom: [id, `pipeline:candidate:${id}`],
+    relatedAgents: ['EVE', 'ATLAS'],
+    status: 'committed',
+    verifiedBy: verdict === 'contested' ? undefined : 'ZEUS',
+    category: 'inference',
+    severity: verdict === 'contested' ? 'elevated' : 'nominal',
+  }).catch(() => {});
   return NextResponse.json({
     ok: true,
     candidateId: id,
@@ -183,6 +199,21 @@ export async function POST(request: NextRequest) {
       verified: true,
       verifiedBy: 'ZEUS',
       tags: ['zeus', 'verification', confirmed ? 'confirmed' : 'flagged'],
+    }).catch(() => {});
+
+    void appendAgentJournalEntry({
+      agent: 'ZEUS',
+      cycle: currentCycleId(),
+      observation: `EPICON ${body.epiconId} verification completed with outcome ${body.outcome}.`,
+      inference: `Final status set to ${body.finalStatus} at tier ${body.finalConfidenceTier}.`,
+      recommendation: body.outcome === 'miss' ? 'Route contradicted item to operator follow-up.' : 'Allow downstream publication routines.',
+      confidence: zeusScoreForTier(body.finalConfidenceTier),
+      derivedFrom: [body.epiconId, `verification:${body.outcome}`],
+      relatedAgents: ['ECHO', 'ATLAS'],
+      status: 'committed',
+      verifiedBy: 'ZEUS',
+      category: 'recommendation',
+      severity: body.outcome === 'miss' ? 'elevated' : 'nominal',
     }).catch(() => {});
 
     return NextResponse.json({
