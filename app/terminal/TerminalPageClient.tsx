@@ -93,10 +93,52 @@ function TerminalPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'time-desc' | 'time-asc' | 'type' | 'author' | 'gi-desc' | 'severity'>('time-desc');
   const [resultCount, setResultCount] = useState(0);
+  const [runtimeBadge, setRuntimeBadge] = useState<'online' | 'degraded' | 'offline'>('offline');
   const agentSearchRef = useRef<HTMLInputElement>(null);
 
-  const { allTripwires, filteredEpicon, gi, integrityStatus, mergedLedger, streamStatus } = useTerminalData(selectedNav);
+  const { allTripwires, filteredEpicon, gi, integrityStatus, mergedLedger } = useTerminalData(selectedNav);
   const cycleId = integrityStatus?.cycle ?? 'C-271';
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadRuntimeStatus() {
+      try {
+        const response = await fetch('/api/runtime/status', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Runtime status unavailable (${response.status})`);
+
+        const data = (await response.json()) as {
+          ok?: boolean;
+          degraded?: boolean;
+          freshness?: { status?: string };
+        };
+
+        if (!mounted) return;
+
+        if (!data.ok) {
+          setRuntimeBadge('offline');
+          return;
+        }
+
+        const isFresh = data.freshness?.status === 'fresh';
+        if (!data.degraded && isFresh) {
+          setRuntimeBadge('online');
+          return;
+        }
+
+        setRuntimeBadge('degraded');
+      } catch {
+        if (mounted) setRuntimeBadge('offline');
+      }
+    }
+
+    loadRuntimeStatus();
+    const poll = window.setInterval(loadRuntimeStatus, 15000);
+    return () => {
+      mounted = false;
+      window.clearInterval(poll);
+    };
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -463,8 +505,8 @@ function TerminalPage() {
                     ))}
                   </select>
                   <span className="flex items-center gap-2 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-300">
-                    <span className={cn('h-2 w-2 rounded-full', streamStatus === 'live' ? 'bg-emerald-400' : 'bg-amber-400')} />
-                    {streamStatus === 'live' ? 'ONLINE' : 'OFFLINE'}
+                    <span className={cn('h-2 w-2 rounded-full', runtimeBadge === 'online' ? 'bg-emerald-500' : 'bg-amber-500')} />
+                    {runtimeBadge.toUpperCase()}
                   </span>
                   <span className="hidden rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-400 xl:inline">
                     {clock}
