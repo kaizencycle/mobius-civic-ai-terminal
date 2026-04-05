@@ -12,6 +12,7 @@ import { getEchoAlerts, getEchoEpicon } from '@/lib/echo/store';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
+import { getLiveIntegritySnapshot } from '@/lib/integrity/buildStatus';
 import { integrityStatus } from '@/lib/mock/integrityStatus';
 import { mockCivicAlerts } from '@/lib/terminal/mock';
 import type { CivicRadarAlert } from '@/lib/terminal/types';
@@ -21,7 +22,8 @@ import { getTripwireState } from '@/lib/tripwire/store';
 export const EVE_GOVERNANCE_SYNTH_TAG = 'eve-governance-synthesis';
 export const EVE_SYNTHESIS_SOURCE = 'eve-synthesis' as const;
 
-const CYCLE_WINDOW_MS = 3 * 60 * 60 * 1000;
+/** Align with EVE automation cadence (every 4h). */
+const CYCLE_WINDOW_MS = 4 * 60 * 60 * 1000;
 const GI_STRESS_THRESHOLD = 0.72;
 const NARRATIVE_CLUSTER_THRESHOLD = 6;
 
@@ -247,8 +249,15 @@ export async function gatherEveGovernanceSynthesisInput(
     // graceful degradation
   }
 
-  const gi = integrityStatus.global_integrity;
-  const mii = integrityStatus.mii_baseline;
+  let gi = integrityStatus.global_integrity;
+  let mii = integrityStatus.mii_baseline;
+  try {
+    const live = await getLiveIntegritySnapshot();
+    gi = live.global_integrity;
+    mii = live.mii_baseline;
+  } catch {
+    // keep mock baseline; synthesis still runs from substrate rows
+  }
 
   const echoEpicon = getEchoEpicon();
   const narrativeClusterCount = echoEpicon.length;

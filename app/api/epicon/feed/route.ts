@@ -16,7 +16,13 @@ type EpiconSeverity =
   | 'low'
   | 'medium'
   | 'high';
-type EpiconSource = 'github-commit' | 'kv-ledger' | 'memory-feed' | 'backfill' | 'eve-synthesis' | 'agent_commit';
+type EpiconSource =
+  | 'github-commit'
+  | 'kv-ledger'
+  | 'memory-feed'
+  | 'backfill'
+  | 'eve-synthesis'
+  | 'agent_commit';
 
 type EpiconEntry = {
   id: string;
@@ -293,7 +299,12 @@ function fromLocalMemoryLedger(): EpiconEntry[] {
   return getMemoryLedgerEntries(100).map((row: EpiconLedgerFeedEntry): EpiconEntry => {
     const sev = isEpiconSeverity(row.severity) ? row.severity : 'info';
     const typ = row.type as EpiconEntry['type'];
-    const src = row.source === 'eve-synthesis' ? 'eve-synthesis' : 'kv-ledger';
+    const src: EpiconSource =
+      row.source === 'eve-synthesis'
+        ? 'eve-synthesis'
+        : row.source === 'agent_commit'
+          ? 'agent_commit'
+          : 'kv-ledger';
     return {
       id: row.id,
       cycle: row.cycle,
