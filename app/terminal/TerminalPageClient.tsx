@@ -14,6 +14,7 @@ import AgentGrid from '@/components/agents/AgentGrid';
 import EventScreener, { type EpiconFeedItem } from '@/components/terminal/EventScreener';
 import TripwirePanel from '@/components/tripwire/TripwirePanel';
 import MICWalletPanel from '@/components/terminal/MICWalletPanel';
+import SentimentMap from '@/components/terminal/SentimentMap';
 
 type AgentStatusApi = {
   id: string;
@@ -55,11 +56,37 @@ type AgentJournalResponse = {
   entries: AgentJournalEntry[];
 };
 
+type SentimentDomainKey = 'civic' | 'environ' | 'financial' | 'narrative' | 'infrastructure' | 'institutional';
+type SentimentDomain = {
+  key: SentimentDomainKey;
+  label: string;
+  agent: string;
+  score: number | null;
+  trend: 'up' | 'down' | 'flat';
+  status: 'nominal' | 'stressed' | 'critical' | 'unknown';
+  sourceLabel: string;
+};
+type SentimentCompositeResponse = {
+  ok: boolean;
+  cycle: string;
+  timestamp: string;
+  gi: number;
+  overall_sentiment: number | null;
+  domains: Array<{
+    key: SentimentDomainKey;
+    label: string;
+    agent: string;
+    score: number | null;
+    sourceLabel: string;
+  }>;
+};
+
 const TABS: Array<{ key: NavKey; label: string }> = [
   { key: 'pulse', label: 'Pulse' },
   { key: 'ledger', label: 'Epicon' },
   { key: 'agents', label: 'Agents' },
   { key: 'infrastructure', label: 'Tripwire' },
+  { key: 'sentiment', label: 'Sentiment' },
   { key: 'wallet', label: 'MIC' },
 ];
 
@@ -92,6 +119,11 @@ function TerminalPage() {
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
   const [epiconFeed, setEpiconFeed] = useState<EpiconFeedResponse | null>(null);
   const [journalFeed, setJournalFeed] = useState<AgentJournalEntry[]>([]);
+  const [sentiment, setSentiment] = useState<SentimentCompositeResponse | null>(null);
+  const [sentimentDomains, setSentimentDomains] = useState<SentimentDomain[]>([]);
+  const [sentimentHistory, setSentimentHistory] = useState<
+    Partial<Record<SentimentDomainKey, Array<{ timestamp: string; value: number | null; sourceLabel: string }>>>
+  >({});
   const [ledgerView, setLedgerView] = useState<'events' | 'journal'>('events');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('time');
@@ -174,6 +206,71 @@ function TerminalPage() {
       window.clearInterval(poll);
     };
   }, [cycleId]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSentiment() {
+      try {
+        const response = await fetch('/api/sentiment/composite', { cache: 'no-store' });
+        const json = (await response.json()) as SentimentCompositeResponse;
+        if (!mounted || !json.ok) return;
+
+        setSentiment(json);
+        setSentimentDomains((prev) => {
+          const next: SentimentDomain[] = json.domains.map((domain) => {
+            const prior = prev.find((row) => row.key === domain.key)?.score ?? null;
+            const current = domain.score;
+            const trend: 'up' | 'down' | 'flat' =
+              prior === null || current === null ? 'flat' : current > prior ? 'up' : current < prior ? 'down' : 'flat';
+            const status: SentimentDomain['status'] =
+              current === null ? 'unknown' : current >= 0.8 ? 'nominal' : current >= 0.6 ? 'stressed' : 'critical';
+            return { ...domain, trend, status };
+          });
+
+          const domainDefaults: Array<{ key: SentimentDomainKey; label: string; agent: string; sourceLabel: string }> = [
+            { key: 'civic', label: 'CIVIC', agent: 'EVE', sourceLabel: 'Federal Register + Sonar civic' },
+            { key: 'environ', label: 'ENVIRON', agent: 'GAIA', sourceLabel: 'USGS + Open-Meteo + EONET' },
+            { key: 'financial', label: 'FINANCIAL', agent: 'ECHO', sourceLabel: 'crypto prices composite' },
+            { key: 'narrative', label: 'NARRATIVE', agent: 'HERMES', sourceLabel: 'HN + Wikipedia + Sonar + GDELT' },
+            { key: 'infrastructure', label: 'INFRASTR', agent: 'DAEDALUS', sourceLabel: 'GitHub + npm + self-ping' },
+            { key: 'institutional', label: 'INSTITUTIONAL', agent: 'JADE', sourceLabel: 'data.gov + FRED (future)' },
+          ];
+
+          for (const fallback of domainDefaults) {
+            if (!next.some((domain) => domain.key === fallback.key)) {
+              next.push({
+                ...fallback,
+                score: null,
+                trend: 'flat',
+                status: 'unknown',
+              });
+            }
+          }
+
+          return next;
+        });
+
+        setSentimentHistory((prev) => {
+          const next = { ...prev };
+          for (const domain of json.domains) {
+            const lane = next[domain.key] ?? [];
+            next[domain.key] = [...lane, { timestamp: json.timestamp, value: domain.score, sourceLabel: domain.sourceLabel }].slice(-5);
+          }
+          return next;
+        });
+      } catch {
+        // sentiment chamber degrades gracefully
+      }
+    }
+
+    loadSentiment();
+    const poll = window.setInterval(loadSentiment, 30000);
+    return () => {
+      mounted = false;
+      window.clearInterval(poll);
+    };
+  }, []);
 
   // Optimization 6: persist operator preferences across refreshes/session reconnects.
   useEffect(() => {
@@ -286,13 +383,15 @@ function TerminalPage() {
     { label: 'Tripwires', value: String(allTripwires.length), trend: allTripwires.length > 0 ? -0.1 : 0.02, icon: '⚠', subtitle: '2 high / 4 medium', nav: 'infrastructure' },
     { label: 'Agents Live', value: String(agentRoster.length), trend: agentRoster.length >= 6 ? 0.05 : -0.02, icon: '◉', subtitle: 'sentinels online', nav: 'agents' },
   ];
-  const chamberLabel = selectedNav === 'pulse' ? 'PULSE CHAMBER' : selectedNav === 'agents' ? 'AGENT CHAMBER' : selectedNav === 'ledger' ? 'CIVIC LEDGER CHAMBER' : selectedNav === 'infrastructure' ? 'TRIPWIRE CHAMBER' : 'MIC CHAMBER';
-  const commandSurfaceTitle = selectedNav === 'wallet' ? 'Wallet Chamber' : selectedNav === 'agents' ? 'Agent Chamber' : selectedNav === 'ledger' ? 'Civic Ledger Chamber' : selectedNav === 'infrastructure' ? 'Tripwire Chamber' : 'Pulse Chamber';
+  const chamberLabel = selectedNav === 'pulse' ? 'PULSE CHAMBER' : selectedNav === 'agents' ? 'AGENT CHAMBER' : selectedNav === 'ledger' ? 'CIVIC LEDGER CHAMBER' : selectedNav === 'infrastructure' ? 'TRIPWIRE CHAMBER' : selectedNav === 'sentiment' ? 'SENTIMENT CHAMBER' : 'MIC CHAMBER';
+  const commandSurfaceTitle = selectedNav === 'wallet' ? 'Wallet Chamber' : selectedNav === 'agents' ? 'Agent Chamber' : selectedNav === 'ledger' ? 'Civic Ledger Chamber' : selectedNav === 'infrastructure' ? 'Tripwire Chamber' : selectedNav === 'sentiment' ? 'Sentiment Chamber' : 'Pulse Chamber';
   const commandSurfaceButtons: Array<{ label: string; nav: NavKey }> =
     selectedNav === 'wallet'
       ? [{ label: 'Inspect', nav: 'wallet' }, { label: 'Open Chamber', nav: 'wallet' }, { label: 'Review Signals', nav: 'pulse' }]
       : selectedNav === 'agents'
         ? [{ label: 'Inspect', nav: 'agents' }, { label: 'Open Chamber', nav: 'agents' }, { label: 'Review Signals', nav: 'ledger' }]
+        : selectedNav === 'sentiment'
+          ? [{ label: 'Inspect', nav: 'sentiment' }, { label: 'Open Chamber', nav: 'sentiment' }, { label: 'Review Signals', nav: 'pulse' }]
         : [{ label: 'Inspect', nav: 'infrastructure' }, { label: 'Open Chamber', nav: selectedNav }, { label: 'Review Signals', nav: 'ledger' }];
   const statusChips: Array<{ label: string; tone: string; nav: NavKey }> = [
     { label: 'ZEUS ACTIVE', tone: 'border-sky-500/40 bg-sky-500/10 text-sky-200', nav: 'agents' },
@@ -300,6 +399,7 @@ function TerminalPage() {
     { label: 'HERMES ROUTING', tone: 'border-violet-500/40 bg-violet-500/10 text-violet-200', nav: 'infrastructure' },
     { label: 'ATLAS OK', tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200', nav: 'agents' },
     { label: 'TRIPWIRE NOMINAL', tone: 'border-amber-500/40 bg-amber-500/10 text-amber-200', nav: 'infrastructure' },
+    { label: 'SENTIMENT MAP', tone: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200', nav: 'sentiment' },
     { label: 'MINTING PAUSED', tone: 'border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-200', nav: 'wallet' },
     { label: 'DEGRADED', tone: 'border-rose-500/40 bg-rose-500/10 text-rose-200', nav: 'infrastructure' },
   ];
@@ -411,6 +511,23 @@ function TerminalPage() {
         </section>
       );
     }
+    if (selectedNav === 'sentiment') {
+      return (
+        <SentimentMap
+          cycleId={sentiment?.cycle ?? cycleId}
+          timestamp={sentiment?.timestamp ?? new Date().toISOString()}
+          gi={sentiment?.gi ?? gi.score}
+          overallSentiment={sentiment?.overall_sentiment ?? null}
+          domains={sentimentDomains}
+          history={sentimentHistory}
+          journalEntries={journalFeed}
+          onAskAgent={(agent, domain) => {
+            setSearchQuery(`${agent} ${domain}`);
+            setSelectedNav('agents');
+          }}
+        />
+      );
+    }
     if (selectedNav === 'wallet') {
       return (
         <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
@@ -435,7 +552,7 @@ function TerminalPage() {
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">
           {/* Optimization 9: inline shortcut hints for faster operator discovery. */}
-          <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">Alt+1..5 switch chambers</span>
+          <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">Alt+1..6 switch chambers</span>
           <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">/ focus agent search</span>
           <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">L toggle ledger</span>
         </div>

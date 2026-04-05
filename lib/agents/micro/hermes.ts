@@ -20,7 +20,7 @@ export const HERMES_CONFIG: MicroAgentConfig = {
   name: 'HERMES-µ',
   description: 'Information velocity — tech news flow, encyclopedic edit rate',
   pollIntervalMs: 5 * 60 * 1000,
-  sources: ['Hacker News', 'Wikipedia Recent Changes', 'Perplexity Sonar'],
+  sources: ['Hacker News', 'Wikipedia Recent Changes', 'Perplexity Sonar', 'GDELT'],
 };
 
 // ── Hacker News: top story velocity ───────────────────────────────────────
@@ -144,6 +144,56 @@ async function pollSonar(): Promise<MicroSignal | null> {
   };
 }
 
+type GDELTResponse = {
+  articles?: Array<{
+    title?: string;
+    sourcecountry?: string;
+    sourceCountry?: string;
+    domain?: string;
+    tone?: number | string;
+  }>;
+};
+
+async function pollGDELT(): Promise<MicroSignal | null> {
+  const url = 'https://api.gdeltproject.org/api/v2/doc/doc?query=governance+civic+institutions&mode=artlist&maxrecords=10&format=json&timespan=1d';
+  const data = await safeFetch<GDELTResponse>(url, 10000);
+  const articles = data?.articles;
+  if (!articles || articles.length === 0) return null;
+
+  const tones = articles
+    .map((article) => {
+      const tone = article.tone;
+      if (typeof tone === 'number' && Number.isFinite(tone)) return tone;
+      if (typeof tone === 'string') {
+        const parsed = Number.parseFloat(tone);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+      return null;
+    })
+    .filter((tone): tone is number => tone !== null);
+
+  const avgTone = tones.length > 0
+    ? tones.reduce((sum, tone) => sum + tone, 0) / tones.length
+    : 0;
+
+  const normalized = Math.max(0, Math.min(1, (avgTone + 100) / 200));
+
+  return {
+    agentName: 'HERMES-µ',
+    source: 'GDELT',
+    timestamp: new Date().toISOString(),
+    value: Number(normalized.toFixed(3)),
+    label: `GDELT: ${articles.length} articles, avg tone ${avgTone.toFixed(1)}`,
+    severity: classifySeverity(normalized, { watch: 0.45, elevated: 0.3, critical: 0.15 }),
+    raw: {
+      count: articles.length,
+      avgTone: Number(avgTone.toFixed(2)),
+      topDomain: articles[0]?.domain ?? null,
+      topCountry: articles[0]?.sourcecountry ?? articles[0]?.sourceCountry ?? null,
+    },
+  };
+}
+
 // ── Poll all HERMES-µ sources ─────────────────────────────────────────────
 export async function pollHermes(): Promise<AgentPollResult> {
   const errors: string[] = [];
@@ -160,6 +210,10 @@ export async function pollHermes(): Promise<AgentPollResult> {
   const sonar = await pollSonar();
   if (sonar) signals.push(sonar);
   else errors.push('Perplexity Sonar unavailable or not configured');
+
+  const gdelt = await pollGDELT();
+  if (gdelt) signals.push(gdelt);
+  else errors.push('GDELT API fetch failed');
 
   return {
     agentName: 'HERMES-µ',

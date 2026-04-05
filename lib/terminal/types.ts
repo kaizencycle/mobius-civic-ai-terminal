@@ -117,6 +117,7 @@ export type NavKey =
   | 'governance'
   | 'reflections'
   | 'infrastructure'
+  | 'sentiment'
   | 'search'
   | 'settings';
 
