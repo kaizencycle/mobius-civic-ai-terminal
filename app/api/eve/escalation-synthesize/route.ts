@@ -8,7 +8,7 @@ import { NextResponse } from 'next/server';
 
 import { processEveEscalationSynthesis } from '@/lib/eve/governance-synthesis';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
-import { getServiceAuthError } from '@/lib/security/serviceAuth';
+import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
 import { runSignalEngine } from '@/lib/signals/engine';
 
 export const dynamic = 'force-dynamic';
@@ -41,7 +41,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const authErr = getServiceAuthError(request);
+  const authErr = getEveSynthesisAuthError(request);
   if (authErr) return authErr;
 
   let body: unknown = {};

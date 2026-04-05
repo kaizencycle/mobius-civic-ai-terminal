@@ -1,6 +1,8 @@
 /**
- * POST /api/eve/cycle-synthesize — EVE governance / ethics synthesis → live EPICON ledger (C-270).
- * Bearer: MOBIUS_SERVICE_SECRET | CRON_SECRET | BACKFILL_SECRET
+ * EVE governance / ethics synthesis → live EPICON ledger (C-270).
+ *
+ * GET — public preview (windowBucket, idempotencyTagPreview) or Vercel Cron cycle run when platform headers present.
+ * POST — Bearer MOBIUS_SERVICE_SECRET | CRON_SECRET | BACKFILL_SECRET (or Vercel Cron without Bearer).
  *
  * Body: `{}` for cycle window synthesis, or `{ "mode": "escalation", "reason": "gi_critical" }`
  * for escalation-class synthesis (same auth; distinct idempotency when reason is set).
@@ -16,7 +18,7 @@ import {
   processEveEscalationSynthesis,
 } from '@/lib/eve/governance-synthesis';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
-import { getServiceAuthError } from '@/lib/security/serviceAuth';
+import { getEveSynthesisAuthError, isVercelCronInvocation } from '@/lib/security/serviceAuth';
 import { runSignalEngine } from '@/lib/signals/engine';
 
 export const dynamic = 'force-dynamic';
@@ -48,14 +50,21 @@ function parseCycleBody(body: unknown): {
   return { cycleId, force, mode, reason };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const cycleId = currentCycleId();
   const windowBucket = cycleWindowBucket(Date.now());
   const idempotencyTag = cycleSynthesisIdempotencyTag(cycleId, windowBucket);
 
+  /** Platform-scheduled cron only — keeps unauthenticated GET as a safe preview for STEP 2 of external automations. */
+  if (isVercelCronInvocation(request)) {
+    await runSignalEngine();
+    const payload = await processEveCycleWindowSynthesis(cycleId, false);
+    return NextResponse.json(payload);
+  }
+
   return NextResponse.json({
     ok: true,
-    info: 'POST with service Authorization to run EVE governance synthesis (live EPICON ledger)',
+    info: 'POST with service Authorization to run EVE governance synthesis (live EPICON ledger). Vercel Cron GET runs cycle synthesis when scheduled.',
     mode: 'cycle',
     currentCycle: cycleId,
     windowBucket,
@@ -64,7 +73,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const authErr = getServiceAuthError(request);
+  const authErr = getEveSynthesisAuthError(request);
   if (authErr) return authErr;
 
   let body: unknown = {};
