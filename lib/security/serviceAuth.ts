@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-type ServiceSecretName = 'MOBIUS_SERVICE_SECRET' | 'CRON_SECRET' | 'BACKFILL_SECRET';
+type ServiceSecretName =
+  | 'MOBIUS_SERVICE_SECRET'
+  | 'CRON_SECRET'
+  | 'RENDER_SCHEDULER_SECRET'
+  | 'BACKFILL_SECRET';
 
 /**
  * Normalize secret material from env: trim, strip one layer of surrounding quotes,
@@ -33,6 +37,7 @@ function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> 
   const pairs: Array<{ name: ServiceSecretName; value: string | undefined }> = [
     { name: 'MOBIUS_SERVICE_SECRET', value: process.env.MOBIUS_SERVICE_SECRET },
     { name: 'CRON_SECRET', value: process.env.CRON_SECRET },
+    { name: 'RENDER_SCHEDULER_SECRET', value: process.env.RENDER_SCHEDULER_SECRET },
     { name: 'BACKFILL_SECRET', value: process.env.BACKFILL_SECRET },
   ];
 
@@ -46,7 +51,12 @@ function configuredSecrets(): Array<{ name: ServiceSecretName; value: string }> 
 
 /** First non-empty normalized secret for outbound Authorization (MOBIUS first so probes match sentinel / ops). */
 function outboundBearerMaterial(): string | null {
-  const order: ServiceSecretName[] = ['MOBIUS_SERVICE_SECRET', 'CRON_SECRET', 'BACKFILL_SECRET'];
+  const order: ServiceSecretName[] = [
+    'MOBIUS_SERVICE_SECRET',
+    'CRON_SECRET',
+    'RENDER_SCHEDULER_SECRET',
+    'BACKFILL_SECRET',
+  ];
   for (const name of order) {
     const normalized = normalizeServiceSecretMaterial(process.env[name]);
     if (normalized !== null) return normalized;

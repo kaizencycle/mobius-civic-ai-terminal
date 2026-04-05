@@ -7,32 +7,8 @@
   "ignoreCommand": "bash scripts/ignore-build.sh",
   "crons": [
     {
-      "path": "/api/eve/cycle-advance",
-      "schedule": "0 5 * * *"
-    },
-    {
-      "path": "/api/echo/ingest",
-      "schedule": "5 5 * * *"
-    },
-    {
-      "path": "/api/signals/micro",
-      "schedule": "10 5 * * *"
-    },
-    {
-      "path": "/api/integrity-status",
-      "schedule": "15 5 * * *"
-    },
-    {
-      "path": "/api/aurea/oversee",
-      "schedule": "35 5 * * *"
-    },
-    {
-      "path": "/api/runtime/heartbeat",
-      "schedule": "45 5 * * *"
-    },
-    {
-      "path": "/api/eve/cycle-synthesize",
-      "schedule": "0 */4 * * *"
+      "path": "/api/cron/watchdog",
+      "schedule": "0 0 * * *"
     }
   ],
   "installCommand": "pnpm install --no-frozen-lockfile"
