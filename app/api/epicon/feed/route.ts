@@ -259,59 +259,74 @@ function fromMemoryFeed(): EpiconEntry[] {
   }));
 }
 
-type RenderLedgerEntry = Partial<EpiconEntry> & { id?: unknown; timestamp?: unknown; title?: unknown };
+type RenderLedgerEntry = {
+  id?: unknown;
+  entry_id?: unknown;
+  timestamp?: unknown;
+  created_at?: unknown;
+  author?: unknown;
+  agent?: unknown;
+  title?: unknown;
+  summary?: unknown;
+  body?: unknown;
+  category?: unknown;
+  type?: unknown;
+  severity?: unknown;
+  tags?: unknown;
+  verified?: unknown;
+  status?: unknown;
+  gi_at_time?: unknown;
+};
 
 function normalizeLedgerEntry(raw: RenderLedgerEntry): EpiconEntry | null {
-  if (typeof raw.id !== 'string' || typeof raw.timestamp !== 'string' || typeof raw.title !== 'string') {
+  const id = typeof raw.id === 'string' ? raw.id : typeof raw.entry_id === 'string' ? raw.entry_id : null;
+  const timestamp =
+    typeof raw.timestamp === 'string' ? raw.timestamp : typeof raw.created_at === 'string' ? raw.created_at : null;
+  const title = typeof raw.title === 'string' ? raw.title : typeof raw.summary === 'string' ? raw.summary : null;
+  if (!id || !timestamp || !title) {
     return null;
   }
 
+  const agent = typeof raw.agent === 'string' ? raw.agent : undefined;
+  const author =
+    typeof raw.author === 'string' ? raw.author : agent?.trim() ? agent.toLowerCase() : 'ledger';
+  const tags = Array.isArray(raw.tags) ? raw.tags.filter((tag): tag is string => typeof tag === 'string') : [];
+
   return {
-    id: raw.id,
-    timestamp: raw.timestamp,
-    title: raw.title,
-    author: typeof raw.author === 'string' ? raw.author : 'ledger',
+    id,
+    timestamp,
+    title,
+    author,
     body: typeof raw.body === 'string' ? raw.body : undefined,
-    type: (typeof raw.type === 'string' ? raw.type : 'epicon') as EpiconType,
+    type: (typeof raw.category === 'string' ? raw.category : typeof raw.type === 'string' ? raw.type : 'epicon') as EpiconType,
     severity: (typeof raw.severity === 'string' && isEpiconSeverity(raw.severity) ? raw.severity : 'info') as EpiconSeverity,
     source: 'ledger-api',
-    tags: Array.isArray(raw.tags) ? raw.tags.filter((tag): tag is string => typeof tag === 'string') : [],
-    verified: Boolean(raw.verified),
-    cycle: typeof raw.cycle === 'string' ? raw.cycle : undefined,
-    gi: typeof raw.gi === 'number' ? raw.gi : undefined,
-    verifiedBy: typeof raw.verifiedBy === 'string' ? raw.verifiedBy : undefined,
+    tags: tags.length > 0 ? tags : agent ? [agent.toLowerCase()] : [],
+    verified: Boolean(raw.verified) || raw.status === 'committed',
     category: typeof raw.category === 'string' ? raw.category : undefined,
-    confidenceTier: typeof raw.confidenceTier === 'number' ? raw.confidenceTier : undefined,
-    zeusVerdict: typeof raw.zeusVerdict === 'string' ? raw.zeusVerdict : undefined,
-    patternType: typeof raw.patternType === 'string' ? raw.patternType : undefined,
-    dominantRegion: typeof raw.dominantRegion === 'string' ? raw.dominantRegion : undefined,
-    derivedFrom: typeof raw.derivedFrom === 'string' ? raw.derivedFrom : undefined,
-    derivedFromIds: Array.isArray(raw.derivedFromIds)
-      ? raw.derivedFromIds.filter((id): id is string => typeof id === 'string')
-      : undefined,
     status: raw.status === 'committed' || raw.status === 'pending' || raw.status === 'failed' ? raw.status : undefined,
-    agentOrigin: typeof raw.agentOrigin === 'string' ? raw.agentOrigin : undefined,
+    agentOrigin: agent,
+    gi: typeof raw.gi_at_time === 'number' ? raw.gi_at_time : null,
   };
 }
 
-async function fetchRenderLedgerEntries(limit = 50): Promise<{ entries: EpiconEntry[]; degraded: boolean }> {
-  const renderLedgerUrl = process.env.RENDER_LEDGER_URL;
-  if (!renderLedgerUrl) {
-    return { entries: [], degraded: true };
-  }
+async function fetchRenderLedgerEntries(limit = 100): Promise<{ entries: EpiconEntry[]; degraded: boolean }> {
+  const renderLedgerUrl = process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core.onrender.com';
+  const renderApiKey = process.env.RENDER_API_KEY ?? '';
 
   try {
-    const response = await fetch(`${renderLedgerUrl}/ledger/entries?limit=${limit}`, {
+    const response = await fetch(`${renderLedgerUrl}/ledger/entries?limit=${limit}&sort=desc`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
+        'X-Api-Key': renderApiKey,
       },
       signal: AbortSignal.timeout(5000),
       cache: 'no-store',
     });
 
     if (!response.ok) {
-      console.error(`[render:ledger] ${response.status} ${response.statusText}`);
+      console.warn(`[epicon/feed] ledger-api unavailable, falling back to github (${response.status} ${response.statusText})`);
       return { entries: [], degraded: true };
     }
 
@@ -320,7 +335,7 @@ async function fetchRenderLedgerEntries(limit = 50): Promise<{ entries: EpiconEn
     const entries = rows.map((row) => normalizeLedgerEntry(row)).filter((row): row is EpiconEntry => row !== null);
     return { entries, degraded: false };
   } catch (error) {
-    console.error('[render:ledger] request failed', error);
+    console.warn('[epicon/feed] ledger-api unavailable, falling back to github', error);
     return { entries: [], degraded: true };
   }
 }
@@ -479,13 +494,15 @@ function dedupeSort(entries: EpiconEntry[]): EpiconEntry[] {
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const limit = Math.min(Number.parseInt(params.get('limit') ?? '30', 10) || 30, 100);
+  const page = Math.max(0, Number.parseInt(params.get('page') ?? '0', 10) || 0);
+  const limit = Math.min(Math.max(1, Number.parseInt(params.get('limit') ?? '50', 10) || 50), 200);
   const typeFilter = params.get('type');
   const minGI = params.get('minGI');
   const minGiValue = minGI ? Number.parseFloat(minGI) : undefined;
+  const includeCatalog = params.get('include_catalog') === 'true';
 
   const [{ entries: ledgerEntries, degraded: ledgerDegraded }, commits, kvEntries, eveKvEntries] = await Promise.all([
-    fetchRenderLedgerEntries(50),
+    fetchRenderLedgerEntries(100),
     fetchGitHubCommits(80),
     fromRedis(),
     fromEveSynthesisRedis(),
@@ -509,8 +526,12 @@ export async function GET(request: NextRequest) {
       (entry) => entry.gi == null || entry.gi >= minGiValue,
     );
   }
+  if (!includeCatalog) {
+    entries = entries.filter((entry) => !(entry.type === 'catalog' && entry.author === 'mobius-bot'));
+  }
 
-  const items = entries.slice(0, limit);
+  const offset = page * limit;
+  const items = entries.slice(offset, offset + limit);
   const heartbeats = items.filter((entry) => entry.type === 'heartbeat');
 
   return NextResponse.json(
@@ -518,6 +539,8 @@ export async function GET(request: NextRequest) {
       ok: true,
       count: items.length,
       total: entries.length,
+      page,
+      hasMore: offset + items.length < entries.length,
       sources: {
         github: commitEntries.length,
         ledgerApi: ledgerEntries.length,
@@ -529,7 +552,7 @@ export async function GET(request: NextRequest) {
       },
       degraded: ledgerDegraded,
       summary: {
-        latestGI: heartbeats.find((entry) => entry.gi !== undefined)?.gi ?? null,
+        latestGI: heartbeats.find((entry) => entry.gi != null)?.gi ?? null,
         degradedCount: heartbeats.filter((entry) => entry.severity === 'degraded' || entry.severity === 'critical')
           .length,
         lastHeartbeat: heartbeats[0]?.timestamp ?? null,
