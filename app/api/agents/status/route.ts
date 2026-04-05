@@ -8,6 +8,9 @@ import {
   staleCacheEnvelope,
 } from '@/lib/response-envelope';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 type HeartbeatPayload = {
   ok?: boolean;
   timestamp?: string;

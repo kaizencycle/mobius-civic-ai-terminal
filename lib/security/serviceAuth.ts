@@ -64,6 +64,15 @@ function extractAuthorizationToken(authorization: string | null): string | null 
   return raw.length > 0 ? raw : null;
 }
 
+function extractCandidateTokens(request: NextRequest): string[] {
+  const tokens = [
+    extractAuthorizationToken(request.headers.get('authorization')),
+    extractAuthorizationToken(request.headers.get('x-cron-secret')),
+    extractAuthorizationToken(request.headers.get('x-mobius-service-secret')),
+  ];
+  return tokens.filter((value): value is string => typeof value === 'string' && value.length > 0);
+}
+
 export function serviceAuthorizationHeaderValue(): string | null {
   const material = outboundBearerMaterial();
   return material ? `Bearer ${material}` : null;
@@ -115,12 +124,10 @@ export function getServiceAuthError(request: NextRequest): NextResponse | null {
     );
   }
 
-  const rawToken = extractAuthorizationToken(request.headers.get('authorization'));
-  const token =
-    rawToken !== null ? normalizeServiceSecretMaterial(rawToken) : null;
-  const authorized =
-    token !== null &&
-    secrets.some(({ value }) => token === value);
+  const candidateTokens = extractCandidateTokens(request);
+  const authorized = candidateTokens
+    .map((token) => normalizeServiceSecretMaterial(token))
+    .some((token) => token !== null && secrets.some(({ value }) => token === value));
 
   if (!authorized) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
