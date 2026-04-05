@@ -6,16 +6,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import {
-  buildEveGovernanceSynthesisOutput,
-  escalationFingerprint,
-  escalationIdempotencyTag,
-  escalationWarranted,
-  gatherEveGovernanceSynthesisInput,
-  ledgerHasIdempotencyTag,
-  publishEveGovernanceSynthesis,
-  readLedgerRowsForEve,
-} from '@/lib/eve/governance-synthesis';
+import { processEveEscalationSynthesis } from '@/lib/eve/governance-synthesis';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { runSignalEngine } from '@/lib/signals/engine';
@@ -65,61 +56,6 @@ export async function POST(request: NextRequest) {
 
   await runSignalEngine();
 
-  const allRows = await readLedgerRowsForEve(400);
-  const input = await gatherEveGovernanceSynthesisInput(cycleId, { ledgerRows: allRows });
-
-  if (!force && !escalationWarranted(input)) {
-    return NextResponse.json({
-      ok: true,
-      cycleId,
-      mode: 'escalation' as const,
-      published: false,
-      reason: 'no_escalation_signal',
-      derivedFromCount: 0,
-    });
-  }
-
-  const fingerprint = force ? `force-${Date.now()}` : escalationFingerprint(input);
-  const idempotencyTag = escalationIdempotencyTag(cycleId, fingerprint);
-
-  if (!force && ledgerHasIdempotencyTag(allRows, idempotencyTag)) {
-    return NextResponse.json({
-      ok: true,
-      cycleId,
-      mode: 'escalation' as const,
-      published: false,
-      reason: 'already_synthesized_for_escalation_class',
-      idempotencyTag,
-      derivedFromCount: 0,
-    });
-  }
-
-  const output = buildEveGovernanceSynthesisOutput(input);
-  const publishResult = await publishEveGovernanceSynthesis(input, output, idempotencyTag, allRows);
-
-  return NextResponse.json({
-    ok: true,
-    cycleId,
-    mode: 'escalation' as const,
-    published: publishResult.published,
-    entryId: publishResult.entryId,
-    reason: publishResult.published ? 'escalation_signal' : 'already_synthesized_for_escalation_class',
-    derivedFromCount: output.derivedFrom.length,
-    idempotencyTag: publishResult.idempotencyTag,
-    escalationFingerprint: fingerprint,
-    governancePosture: output.governancePosture,
-    category: output.category,
-    civicRiskLevel: output.civicRiskLevel,
-    ethicsFlags: output.ethicsFlags,
-    summary: output.summary,
-    externalDegraded: input.externalDegraded,
-    trace: {
-      committedAgentRows: input.committedAgentRows.length,
-      tripwireLevel: input.tripwire.level,
-      civicAlertCount: input.civicAlerts.length,
-      gi: input.gi,
-      mii: input.mii,
-      treasuryStatus: input.treasuryStatus,
-    },
-  });
+  const payload = await processEveEscalationSynthesis(cycleId, force, null);
+  return NextResponse.json(payload);
 }
