@@ -107,7 +107,7 @@ export default function EventScreener({
   const [sortCol, setSortCol] = useState<SortColumn>('time');
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [page, setPage] = useState(0);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
 
   const searchQuery = externalSearchQuery ?? localSearchQuery;
@@ -166,8 +166,8 @@ export default function EventScreener({
   const pagedRows = filteredAndSorted.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
 
   const selected = useMemo(
-    () => filteredAndSorted.find((item) => item.id === selectedId) ?? list.find((item) => item.id === selectedId) ?? null,
-    [filteredAndSorted, list, selectedId],
+    () => filteredAndSorted.find((item) => item.id === openId) ?? list.find((item) => item.id === openId) ?? null,
+    [filteredAndSorted, list, openId],
   );
 
   const gi = summary.latestGI;
@@ -288,16 +288,16 @@ export default function EventScreener({
           </thead>
           <tbody>
             {pagedRows.map((item) => {
-              const isSelected = selectedId === item.id;
+              const isOpen = openId === item.id;
               const tone = giTone(item.gi);
               const isEve = item.source === 'eve-synthesis';
               return (
                 <tr
                   key={item.id}
-                  onClick={() => setSelectedId((prev) => (prev === item.id ? null : item.id))}
+                  onClick={() => setOpenId((prev) => (prev === item.id ? null : item.id))}
                   className={cn(
                     'cursor-pointer border-t border-slate-800 transition hover:bg-slate-900/50',
-                    isSelected && 'bg-sky-500/5 ring-1 ring-inset ring-sky-500/20',
+                    isOpen && 'bg-sky-500/5 ring-1 ring-inset ring-sky-500/20',
                   )}
                 >
                   <td className="px-2 py-2 text-slate-500">{timeAgo(item.timestamp)}</td>
