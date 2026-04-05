@@ -13,7 +13,15 @@ export function transformAgent(raw: any): Agent {
   };
 }
 
-const EPICON_CATEGORIES = new Set(['geopolitical', 'market', 'governance', 'infrastructure', 'narrative']);
+const EPICON_CATEGORIES = new Set([
+  'geopolitical',
+  'market',
+  'governance',
+  'infrastructure',
+  'narrative',
+  'ethics',
+  'civic-risk',
+]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function transformEpicon(raw: any): EpiconItem {

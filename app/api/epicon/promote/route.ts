@@ -35,6 +35,8 @@ const AGENT_ROUTING: Record<EpiconItem['category'], Agent[]> = {
   infrastructure: ['ATLAS', 'ZEUS'],
   narrative: ['AUREA', 'JADE'],
   governance: ['ZEUS', 'JADE', 'AUREA'],
+  ethics: ['ZEUS', 'AUREA', 'JADE'],
+  'civic-risk': ['ZEUS', 'AUREA', 'HERMES'],
 };
 const PROMOTABLE_CATEGORIES = new Set<PromotableCategory>([
   'market',
