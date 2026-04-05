@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 export interface EpiconFeedItem {
@@ -22,6 +22,9 @@ interface EventScreenerProps {
   summary: { latestGI?: number; degradedCount?: number; lastHeartbeat?: string };
   sources: { github: number; kv: number };
   total: number;
+  searchQuery?: string;
+  sortBy?: 'time-desc' | 'time-asc' | 'type' | 'author' | 'gi-desc' | 'severity';
+  onResultCountChange?: (count: number) => void;
 }
 
 const PAGE_SIZE = 12;
@@ -90,26 +93,54 @@ function sourceLabel(source: string): string {
   return source.length > 10 ? source.slice(0, 10) : source;
 }
 
-export default function EventScreener({ items, summary, sources, total }: EventScreenerProps) {
+export default function EventScreener({
+  items,
+  summary,
+  sources,
+  total,
+  searchQuery: externalSearchQuery,
+  sortBy,
+  onResultCountChange,
+}: EventScreenerProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [authorFilter, setAuthorFilter] = useState<AuthorFilter>('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [sortCol, setSortCol] = useState<SortColumn>('time');
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [page, setPage] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+
+  const searchQuery = externalSearchQuery ?? localSearchQuery;
 
   const list = items ?? [];
 
   const filteredAndSorted = useMemo(() => {
     const needle = searchQuery.trim().toLowerCase();
+    const severityRank: Record<string, number> = { critical: 0, elevated: 1, nominal: 2 };
 
-    const filtered = list.filter((item) => {
+    const externallyFiltered = list.filter((item) => {
+      if (!needle) return true;
+      return (
+        item.title?.toLowerCase().includes(needle) ||
+        item.author?.toLowerCase().includes(needle) ||
+        item.type?.toLowerCase().includes(needle) ||
+        (item.tags ?? []).some((tag) => tag.toLowerCase().includes(needle))
+      );
+    });
+
+    const externallySorted = [...externallyFiltered].sort((a, b) => {
+      if (sortBy === 'time-asc') return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      if (sortBy === 'type') return (a.type ?? '').localeCompare(b.type ?? '');
+      if (sortBy === 'author') return (a.author ?? '').localeCompare(b.author ?? '');
+      if (sortBy === 'gi-desc') return (b.gi ?? -1) - (a.gi ?? -1);
+      if (sortBy === 'severity') return (severityRank[a.severity?.toLowerCase()] ?? Number.MAX_SAFE_INTEGER) - (severityRank[b.severity?.toLowerCase()] ?? Number.MAX_SAFE_INTEGER);
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+
+    const filtered = externallySorted.filter((item) => {
       if (typeFilter !== 'all' && item.type !== typeFilter) return false;
       if (authorFilter !== 'all' && item.author !== authorFilter) return false;
-      if (!needle) return true;
-      const haystack = `${item.title} ${item.author} ${item.type} ${item.id} ${item.source} ${(item.tags ?? []).join(' ')}`.toLowerCase();
-      return haystack.includes(needle);
+      return true;
     });
 
     return [...filtered].sort((a, b) => {
@@ -124,7 +155,11 @@ export default function EventScreener({ items, summary, sources, total }: EventS
       }
       return sortDir * ((a.gi ?? -1) - (b.gi ?? -1));
     });
-  }, [authorFilter, list, searchQuery, sortCol, sortDir, typeFilter]);
+  }, [authorFilter, list, searchQuery, sortBy, sortCol, sortDir, typeFilter]);
+
+  useEffect(() => {
+    onResultCountChange?.(filteredAndSorted.length);
+  }, [filteredAndSorted.length, onResultCountChange]);
 
   const pageCount = Math.max(1, Math.ceil(filteredAndSorted.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -217,7 +252,7 @@ export default function EventScreener({ items, summary, sources, total }: EventS
         <input
           value={searchQuery}
           onChange={(event) => {
-            setSearchQuery(event.target.value);
+            setLocalSearchQuery(event.target.value);
             setPage(0);
           }}
           placeholder="Search title, author, type..."
