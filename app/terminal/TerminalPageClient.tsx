@@ -430,9 +430,106 @@ function TerminalPage() {
   }, [agentTabs, matchesAgentFilter, mergedLedger]);
 
   const filteredLedger = useMemo(() => {
-    if (agentFilter === 'ALL') return mergedLedger;
-    return mergedLedger.filter((entry) => matchesAgentFilter(entry, agentFilter));
-  }, [agentFilter, matchesAgentFilter, mergedLedger]);
+    const needle = searchQuery.trim().toLowerCase();
+    return mergedLedger.filter((entry) => {
+      if (agentFilter !== 'ALL' && !matchesAgentFilter(entry, agentFilter)) return false;
+      if (!needle) return true;
+
+      const searchable = [
+        entry.id,
+        entry.title ?? '',
+        entry.summary,
+        entry.type,
+        entry.status,
+        entry.agentOrigin,
+        entry.source ?? '',
+        ...(entry.tags ?? []),
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return searchable.includes(needle);
+    });
+  }, [agentFilter, matchesAgentFilter, mergedLedger, searchQuery]);
+
+  const sortedLedger = useMemo(() => {
+    const direction = sortDir === 'asc' ? 1 : -1;
+    const rows = [...filteredLedger];
+
+    const rowField = (entry: LedgerEntry, field: 'severity' | 'gi') => {
+      const value = (entry as unknown as Record<string, unknown>)[field];
+      return typeof value === 'string' || typeof value === 'number' ? value : undefined;
+    };
+
+    const compareNullableNumbers = (a: number | undefined, b: number | undefined) => {
+      const aMissing = typeof a !== 'number' || Number.isNaN(a);
+      const bMissing = typeof b !== 'number' || Number.isNaN(b);
+      if (aMissing && bMissing) return 0;
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+      return a - b;
+    };
+
+    const rankFor = (value: string, order: string[]) => {
+      const idx = order.indexOf(value.toLowerCase());
+      return idx >= 0 ? idx : order.length;
+    };
+
+    const timeValue = (value: string) => {
+      const parsed = new Date(value).getTime();
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const agentPriority = ['atlas', 'zeus', 'eve', 'hermes', 'aurea', 'jade', 'daedalus', 'echo', 'kaizencycle', 'mobius-bot', 'cursor-agent'];
+    const typePriority = ['heartbeat', 'epicon', 'zeus-verify', 'merge', 'catalog', 'attestation', 'shard', 'ubi', 'settlement'];
+    const severityPriority = ['critical', 'elevated', 'degraded', 'high', 'medium', 'low', 'nominal', 'info'];
+    const statusPriority = ['committed', 'verified', 'pending', 'draft', 'contested', 'reverted', 'unknown'];
+
+    rows.sort((a, b) => {
+      const compare = (() => {
+        if (sortBy === 'time') return timeValue(a.timestamp) - timeValue(b.timestamp);
+        if (sortBy === 'agent') {
+          const agentA = (a.agentOrigin || '').toLowerCase();
+          const agentB = (b.agentOrigin || '').toLowerCase();
+          const rankDiff = rankFor(agentA, agentPriority) - rankFor(agentB, agentPriority);
+          if (rankDiff !== 0) return rankDiff;
+          return agentA.localeCompare(agentB);
+        }
+        if (sortBy === 'type') {
+          const typeA = (a.type || '').toLowerCase();
+          const typeB = (b.type || '').toLowerCase();
+          const rankDiff = rankFor(typeA, typePriority) - rankFor(typeB, typePriority);
+          if (rankDiff !== 0) return rankDiff;
+          return typeA.localeCompare(typeB);
+        }
+        if (sortBy === 'severity') {
+          const severityA = String(rowField(a, 'severity') ?? '').toLowerCase();
+          const severityB = String(rowField(b, 'severity') ?? '').toLowerCase();
+          const rankDiff = rankFor(severityA, severityPriority) - rankFor(severityB, severityPriority);
+          if (rankDiff !== 0) return rankDiff;
+          return severityA.localeCompare(severityB);
+        }
+        if (sortBy === 'gi') {
+          const giA = typeof rowField(a, 'gi') === 'number' ? (rowField(a, 'gi') as number) : Number.NaN;
+          const giB = typeof rowField(b, 'gi') === 'number' ? (rowField(b, 'gi') as number) : Number.NaN;
+          return compareNullableNumbers(giA, giB);
+        }
+        if (sortBy === 'status') {
+          const statusA = (a.status || 'unknown').toLowerCase();
+          const statusB = (b.status || 'unknown').toLowerCase();
+          const rankDiff = rankFor(statusA, statusPriority) - rankFor(statusB, statusPriority);
+          if (rankDiff !== 0) return rankDiff;
+          return statusA.localeCompare(statusB);
+        }
+        return (a.source || '').localeCompare(b.source || '');
+      })();
+
+      if (compare !== 0) return compare * direction;
+      return (timeValue(b.timestamp) - timeValue(a.timestamp)) * direction;
+    });
+
+    return rows;
+  }, [filteredLedger, sortBy, sortDir]);
 
   const visibleAgents = useMemo(() => {
     const needle = agentSearch.trim().toLowerCase();
@@ -546,8 +643,8 @@ function TerminalPage() {
           </div>
           <div className="text-xs font-mono text-slate-400">
             {agentFilter === 'ALL'
-              ? `${mergedLedger.length} entries`
-              : `${filteredLedger.length} of ${mergedLedger.length} entries · ${agentFilter}`}
+              ? `${sortedLedger.length} entries`
+              : `${sortedLedger.length} of ${mergedLedger.length} entries · ${agentFilter}`}
           </div>
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">
@@ -573,7 +670,7 @@ function TerminalPage() {
           ))}
         </div>
         <div className="space-y-2">
-          {filteredLedger.slice(0, ledgerExpanded ? undefined : 14).map((entry) => (
+          {sortedLedger.slice(0, ledgerExpanded ? undefined : 14).map((entry) => (
             <LedgerRow
               key={entry.id}
               entry={entry}
@@ -583,7 +680,7 @@ function TerminalPage() {
             />
           ))}
         </div>
-        {filteredLedger.length === 0 ? (
+        {sortedLedger.length === 0 ? (
           <div className="rounded-md border border-dashed border-slate-700 bg-slate-950/60 p-4 text-center text-xs text-slate-400">
             No ledger entries match this filter. Try{' '}
             <button onClick={() => setAgentFilter('ALL')} className="text-sky-300 underline underline-offset-2">
@@ -591,12 +688,12 @@ function TerminalPage() {
             </button>.
           </div>
         ) : null}
-        {filteredLedger.length > 14 && (
+        {sortedLedger.length > 14 && (
           <button
             onClick={() => setLedgerExpanded((prev) => !prev)}
             className="mt-3 w-full rounded-md border border-slate-700 bg-slate-950 py-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400 transition hover:border-sky-500/40 hover:text-sky-300"
           >
-            {ledgerExpanded ? '▲ collapse' : `▼ show ${filteredLedger.length - 14} more entries`}
+            {ledgerExpanded ? '▲ collapse' : `▼ show ${sortedLedger.length - 14} more entries`}
           </button>
         )}
       </section>
