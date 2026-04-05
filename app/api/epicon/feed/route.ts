@@ -371,16 +371,37 @@ async function fromEveSynthesisRedis(): Promise<EpiconEntry[]> {
   if (!redis) return [];
 
   try {
-    const rows = await redis.lrange<string>('epicon:eve-synthesis', 0, 99);
+    const rows = await redis.lrange<string>('epicon:eve-synthesis', 0, 19);
     return rows
-      .map((entry) => {
+      .map((entry, index) => {
         try {
-          const parsed = JSON.parse(entry) as EpiconEntry;
+          const parsed = JSON.parse(entry) as Partial<EpiconEntry> & {
+            id?: string;
+            timestamp?: string;
+            created_at?: string;
+            createdAt?: string;
+            summary?: string;
+          };
+          const timestamp = parsed.timestamp ?? parsed.created_at ?? parsed.createdAt ?? new Date().toISOString();
+          const title = typeof parsed.title === 'string' ? parsed.title : parsed.summary ?? 'EVE synthesis';
+          const id =
+            typeof parsed.id === 'string' && parsed.id.trim().length > 0
+              ? parsed.id
+              : `eve-synthesis-${timestamp}-${index}`;
+
           return coerceLedgerEntrySource({
             ...parsed,
+            id,
+            timestamp,
+            title,
             source: 'eve-synthesis',
             author: 'eve',
             agentOrigin: 'EVE',
+            type: parsed.type ?? 'epicon',
+            severity: (typeof parsed.severity === 'string' && isEpiconSeverity(parsed.severity)
+              ? parsed.severity
+              : 'info') as EpiconSeverity,
+            verified: Boolean(parsed.verified),
             tags: Array.isArray(parsed.tags) ? Array.from(new Set([...parsed.tags, 'eve'])) : ['eve'],
           });
         } catch {
