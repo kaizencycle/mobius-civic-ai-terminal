@@ -56,6 +56,27 @@ const AUTHOR_STYLES: Record<string, string> = {
   'cursor-agent': 'text-emerald-400',
 };
 
+const TYPE_DOT_STYLES: Record<string, string> = {
+  merge: 'bg-blue-500',
+  heartbeat: 'bg-purple-400',
+  catalog: 'bg-emerald-400',
+  epicon: 'bg-amber-400',
+  'zeus-verify': 'bg-red-400',
+};
+
+const AGENT_BADGE_STYLES: Record<string, string> = {
+  kaizencycle: 'border-blue-500/30 bg-blue-500/10 text-blue-300',
+  'mobius-bot': 'border-purple-500/30 bg-purple-500/10 text-purple-300',
+  'cursor-agent': 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+};
+
+const SEVERITY_STYLES: Record<string, string> = {
+  low: 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300',
+  medium: 'border-amber-500/35 bg-amber-500/10 text-amber-300',
+  high: 'border-orange-500/35 bg-orange-500/10 text-orange-300',
+  critical: 'border-red-500/35 bg-red-500/10 text-red-300',
+};
+
 function timeAgo(timestamp: string): string {
   const time = new Date(timestamp).getTime();
   if (Number.isNaN(time)) return '—';
@@ -87,8 +108,8 @@ function giTone(gi: number | undefined) {
 }
 
 function sourceLabel(source: string): string {
-  if (source === 'github-commit') return 'gh';
-  if (source === 'eve-synthesis') return 'eve';
+  if (source === 'github-commit') return 'github';
+  if (source === 'eve-synthesis') return 'eve-syn';
   if (source === 'kv-ledger' || source === 'kv') return 'kv';
   return source.length > 10 ? source.slice(0, 10) : source;
 }
@@ -164,11 +185,6 @@ export default function EventScreener({
   const pageCount = Math.max(1, Math.ceil(filteredAndSorted.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
   const pagedRows = filteredAndSorted.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
-
-  const selected = useMemo(
-    () => filteredAndSorted.find((item) => item.id === openId) ?? list.find((item) => item.id === openId) ?? null,
-    [filteredAndSorted, list, openId],
-  );
 
   const gi = summary.latestGI;
   const giBadgeTone = giTone(gi);
@@ -274,64 +290,127 @@ export default function EventScreener({
         </select>
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-slate-800">
-        <table className="w-full min-w-[820px] border-collapse text-left text-[10px] font-mono">
-          <thead className="bg-slate-950/80 text-slate-500">
-            <tr>
-              <TableHeader label="Time" onClick={() => handleSort('time')} indicator={sortIndicator('time')} />
-              <TableHeader label="Type" onClick={() => handleSort('type')} indicator={sortIndicator('type')} />
-              <TableHeader label="Author" onClick={() => handleSort('author')} indicator={sortIndicator('author')} />
-              <th className="px-2 py-2">Event</th>
-              <TableHeader label="GI" onClick={() => handleSort('gi')} indicator={sortIndicator('gi')} />
-              <th className="px-2 py-2">Src</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pagedRows.map((item) => {
-              const isOpen = openId === item.id;
-              const tone = giTone(item.gi);
-              const isEve = item.source === 'eve-synthesis';
-              return (
-                <tr
-                  key={item.id}
+      <div className="rounded-md border border-slate-800">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-950/70 px-2 py-2 text-[10px] font-mono text-slate-500">
+          <span className="uppercase">Sort:</span>
+          <SortButton label="Time" onClick={() => handleSort('time')} indicator={sortIndicator('time')} active={sortCol === 'time'} />
+          <SortButton label="Type" onClick={() => handleSort('type')} indicator={sortIndicator('type')} active={sortCol === 'type'} />
+          <SortButton label="Author" onClick={() => handleSort('author')} indicator={sortIndicator('author')} active={sortCol === 'author'} />
+          <SortButton label="GI" onClick={() => handleSort('gi')} indicator={sortIndicator('gi')} active={sortCol === 'gi'} />
+        </div>
+        <div className="divide-y divide-slate-800">
+          {pagedRows.map((item) => {
+            const isOpen = openId === item.id;
+            const isEve = item.source === 'eve-synthesis';
+            const dotClass = TYPE_DOT_STYLES[item.type] ?? 'bg-slate-500';
+            return (
+              <div key={item.id} className={cn('transition hover:bg-slate-900/40', isOpen && 'bg-sky-500/5')}>
+                <button
+                  type="button"
                   onClick={() => setOpenId((prev) => (prev === item.id ? null : item.id))}
-                  className={cn(
-                    'cursor-pointer border-t border-slate-800 transition hover:bg-slate-900/50',
-                    isOpen && 'bg-sky-500/5 ring-1 ring-inset ring-sky-500/20',
-                  )}
+                  className="flex w-full items-center gap-2 px-2 py-2 text-left text-[10px] font-mono"
                 >
-                  <td className="px-2 py-2 text-slate-500">{timeAgo(item.timestamp)}</td>
-                  <td className="px-2 py-2">
-                    <span className={cn('rounded border px-1.5 py-0.5 uppercase', TYPE_STYLES[item.type] ?? 'border-slate-700 text-slate-300')}>
-                      {item.type}
-                    </span>
-                  </td>
-                  <td className={cn('px-2 py-2', AUTHOR_STYLES[item.author] ?? 'text-slate-300')}>{item.author}</td>
-                  <td className="px-2 py-2 text-[11px] text-slate-300">
-                    <div className="flex items-center gap-1">
-                      <span className="max-w-[260px] truncate">{item.title}</span>
-                      {isEve ? (
-                        <span className="rounded border border-rose-500/35 bg-rose-500/10 px-1 py-0.5 text-[9px] uppercase text-rose-300">EVE SYN</span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="px-2 py-2">
-                    {item.type === 'heartbeat' && typeof item.gi === 'number' ? (
-                      <span className={cn('rounded border px-1.5 py-0.5', tone.shell)}>{item.gi.toFixed(3)}</span>
-                    ) : (
-                      <span className="text-slate-600">—</span>
-                    )}
-                  </td>
-                  <td className="px-2 py-2">
-                    <span className={cn('rounded border px-1.5 py-0.5 text-[9px] uppercase', isEve ? 'border-rose-500/35 bg-rose-500/10 text-rose-300' : 'border-slate-700 text-slate-400')}>
-                      {sourceLabel(item.source)}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  <span className={cn('text-slate-500 transition-transform', isOpen ? 'rotate-90' : 'rotate-0')}>▶</span>
+                  <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dotClass)} />
+                  <span className="min-w-0 flex-1 truncate text-[11px] text-slate-200">{item.title}</span>
+                  {isEve ? (
+                    <span className="rounded border border-rose-500/35 bg-rose-500/10 px-1 py-0.5 text-[9px] uppercase text-rose-300">EVE SYN</span>
+                  ) : null}
+                  <span className="text-slate-500">{timeAgo(item.timestamp)}</span>
+                  <span className={cn('rounded border px-1.5 py-0.5 uppercase', TYPE_STYLES[item.type] ?? 'border-slate-700 text-slate-300')}>
+                    {item.type}
+                  </span>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {isOpen ? (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      style={{ overflow: 'hidden' }}
+                    >
+                      <div className="border-t border-slate-800 px-2 py-2">
+                        <div className="grid gap-2 text-xs md:grid-cols-2">
+                          <AccordionField
+                            label="Agent"
+                            value={(
+                              <div className="flex items-center gap-1.5">
+                                <span className={cn('inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-mono uppercase', AGENT_BADGE_STYLES[item.author] ?? 'border-slate-700 bg-slate-800 text-slate-300')}>
+                                  {initialsForAgent(item.author)}
+                                </span>
+                                <span className={cn(AUTHOR_STYLES[item.author] ?? 'text-slate-300')}>{item.author}</span>
+                              </div>
+                            )}
+                          />
+                          <AccordionField label="Timestamp" value={<span className="font-mono text-[10px] text-slate-300">{formatTimestampIso(item.timestamp)}</span>} />
+                          <AccordionField label="Type" value={<span className={cn('rounded border px-1.5 py-0.5 uppercase', TYPE_STYLES[item.type] ?? 'border-slate-700 text-slate-300')}>{item.type}</span>} />
+                          <AccordionField label="Severity" value={<span className={cn('rounded border px-1.5 py-0.5 uppercase', severityStyle(item.severity))}>{item.severity}</span>} />
+                          <AccordionField
+                            label="Verified"
+                            value={(
+                              <span className={item.verified ? 'text-emerald-300' : 'text-slate-400'}>
+                                {item.verified ? '✓ verified' : '○ pending'}
+                              </span>
+                            )}
+                          />
+                          <AccordionField
+                            label="Source"
+                            value={(
+                              <span className={cn('rounded border px-1.5 py-0.5 text-[10px] uppercase', isEve ? 'border-rose-500/35 bg-rose-500/10 text-rose-300' : 'border-slate-700 text-slate-300')}>
+                                {sourceLabel(item.source)}
+                              </span>
+                            )}
+                          />
+                          <AccordionField label="Commit SHA" value={<span className="font-mono text-[10px] text-slate-300">{item.sha ? item.sha.slice(0, 12) : '—'}</span>} />
+                          <AccordionField label="Event ID" value={<span className="font-mono text-[10px] text-slate-500">{item.id}</span>} />
+                          {typeof item.gi === 'number' ? (
+                            <AccordionField
+                              label="Global Integrity"
+                              value={(
+                                <div className="flex items-center gap-2">
+                                  <div className="h-1.5 w-24 overflow-hidden rounded bg-slate-800">
+                                    <div
+                                      className={cn('h-full rounded', giFillTone(item.gi))}
+                                      style={{ width: `${Math.max(0, Math.min(1, item.gi)) * 100}%` }}
+                                    />
+                                  </div>
+                                  <span className="font-mono text-[10px] text-slate-300">{item.gi.toFixed(3)}</span>
+                                </div>
+                              )}
+                            />
+                          ) : null}
+                          <div className="md:col-span-2">
+                            <div className="text-[9px] font-mono uppercase tracking-[0.14em] text-slate-500">Tags</div>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {(item.tags ?? []).length > 0 ? (
+                                item.tags.map((tag) => (
+                                  <span key={tag} className="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[10px] font-mono text-slate-300">
+                                    {tag}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[10px] text-slate-500">—</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2 border-t border-slate-800 pt-2">
+                          <ActionGhostButton label="Analyze" />
+                          <ActionGhostButton label="GI impact" />
+                          {item.type === 'heartbeat' ? <ActionGhostButton label="Explain heartbeat" /> : null}
+                          {item.type === 'merge' ? <ActionGhostButton label="Explain commit" /> : null}
+                          {item.type === 'epicon' ? <ActionGhostButton label="ZEUS verify" /> : null}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </div>
         {pagedRows.length === 0 ? (
           <div className="p-4 text-center text-xs text-slate-500">No events match the current filters.</div>
         ) : null}
@@ -358,70 +437,6 @@ export default function EventScreener({
         <span>{filteredAndSorted.length} events</span>
       </div>
 
-      {selected ? (
-        <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-          <div className="grid gap-3 text-xs md:grid-cols-2">
-            <DetailField label="Event ID" value={selected.id} />
-            <DetailField label="Timestamp" value={selected.timestamp} />
-            <DetailField label="Type" value={<span className={cn('rounded border px-1.5 py-0.5 uppercase', TYPE_STYLES[selected.type] ?? 'border-slate-700')}>{selected.type}</span>} />
-            <DetailField label="Author" value={selected.author} />
-            <DetailField label="Title" value={selected.title} />
-            <DetailField label="SHA" value={selected.sha ? selected.sha.slice(0, 12) : '—'} />
-            <DetailField label="GI Delta" value={typeof selected.gi === 'number' ? selected.gi.toFixed(3) : '—'} />
-            <DetailField label="Source" value={selected.source} />
-            <DetailField
-              label="Verified"
-              value={<span className={selected.verified ? 'text-emerald-300' : 'text-rose-300'}>{selected.verified ? 'yes' : 'no'}</span>}
-            />
-            {summary.lastHeartbeat ? <DetailField label="Last Heartbeat" value={summary.lastHeartbeat} /> : null}
-            {typeof summary.degradedCount === 'number' ? <DetailField label="Degraded Count" value={String(summary.degradedCount)} /> : null}
-          </div>
-
-          {(selected.tags ?? []).length > 0 ? (
-            <div className="mt-3 border-t border-slate-800 pt-3">
-              <div className="mb-1 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">Tags</div>
-              <div className="flex flex-wrap gap-1">
-                {selected.tags.map((tag) => (
-                  <span key={tag} className="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[10px] font-mono text-slate-300">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-800 pt-3">
-            <a
-              href={`/terminal?chat=${encodeURIComponent(`Analyze event ${selected.id}: ${selected.title}`)}`}
-              className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300"
-            >
-              Analyze
-            </a>
-            <a
-              href={`/terminal?chat=${encodeURIComponent(`Estimate GI impact for event ${selected.id}`)}`}
-              className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300"
-            >
-              GI impact
-            </a>
-            <a
-              href={`/terminal?chat=${encodeURIComponent(
-                selected.sha
-                  ? `Explain commit ${selected.sha.slice(0, 12)} and its civic impact`
-                  : `Explain GI context for event ${selected.id}`,
-              )}`}
-              className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300"
-            >
-              {selected.sha ? 'Explain commit' : 'Explain GI'}
-            </a>
-            <a
-              href="/api/zeus/verify?concept=event"
-              className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300"
-            >
-              ZEUS verify
-            </a>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -435,22 +450,37 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TableHeader({ label, onClick, indicator }: { label: string; onClick: () => void; indicator: string }) {
+function SortButton({ label, onClick, indicator, active }: { label: string; onClick: () => void; indicator: string; active: boolean }) {
   return (
-    <th className="px-2 py-2">
-      <button onClick={onClick} className="inline-flex items-center gap-1 uppercase hover:text-slate-300">
-        {label}
-        <span>{indicator}</span>
-      </button>
-    </th>
+    <button
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1 rounded border px-2 py-1 uppercase transition hover:text-slate-300',
+        active ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' : 'border-slate-700 text-slate-500',
+      )}
+    >
+      {label}
+      <span>{indicator}</span>
+    </button>
   );
 }
 
-function DetailField({ label, value }: { label: string; value: ReactNode }) {
+function AccordionField({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <div className="text-[9px] font-mono uppercase tracking-[0.14em] text-slate-500">{label}</div>
       <div className="mt-1 text-slate-200">{value}</div>
     </div>
+  );
+}
+
+function ActionGhostButton({ label }: { label: string }) {
+  return (
+    <button
+      type="button"
+      className="rounded border border-slate-700 px-2 py-1 text-[10px] font-mono text-slate-300 hover:border-sky-500/40 hover:text-sky-300"
+    >
+      {label}
+    </button>
   );
 }
