@@ -6,16 +6,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import {
-  buildEveGovernanceSynthesisOutput,
-  escalationFingerprint,
-  escalationIdempotencyTag,
-  escalationWarranted,
-  gatherEveGovernanceSynthesisInput,
-  ledgerHasIdempotencyTag,
-  publishEveGovernanceSynthesis,
-  readLedgerRowsForEve,
-} from '@/lib/eve/governance-synthesis';
+import { processEveEscalationSynthesis } from '@/lib/eve/governance-synthesis';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { runSignalEngine } from '@/lib/signals/engine';
@@ -25,17 +16,20 @@ export const dynamic = 'force-dynamic';
 type EscBody = {
   cycleId?: unknown;
   force?: unknown;
+  reason?: unknown;
 };
 
-function parseBody(body: unknown): { cycleId: string | null; force: boolean } {
+function parseBody(body: unknown): { cycleId: string | null; force: boolean; reason: string | null } {
   if (body === null || typeof body !== 'object') {
-    return { cycleId: null, force: false };
+    return { cycleId: null, force: false, reason: null };
   }
   const o = body as EscBody;
   const raw = o.cycleId;
   const cycleId = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
   const force = o.force === true;
-  return { cycleId, force };
+  const reasonRaw = o.reason;
+  const reason = typeof reasonRaw === 'string' && reasonRaw.trim() ? reasonRaw.trim() : null;
+  return { cycleId, force, reason };
 }
 
 export async function GET() {
@@ -60,66 +54,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { cycleId: bodyCycle, force } = parseBody(body);
+  const { cycleId: bodyCycle, force, reason } = parseBody(body);
   const cycleId = bodyCycle ?? currentCycleId();
 
   await runSignalEngine();
 
-  const allRows = await readLedgerRowsForEve(400);
-  const input = await gatherEveGovernanceSynthesisInput(cycleId, { ledgerRows: allRows });
+  const payload = await processEveEscalationSynthesis(cycleId, force, reason);
 
-  if (!force && !escalationWarranted(input)) {
-    return NextResponse.json({
-      ok: true,
-      cycleId,
-      mode: 'escalation' as const,
-      published: false,
-      reason: 'no_escalation_signal',
-      derivedFromCount: 0,
-    });
-  }
-
-  const fingerprint = force ? `force-${Date.now()}` : escalationFingerprint(input);
-  const idempotencyTag = escalationIdempotencyTag(cycleId, fingerprint);
-
-  if (!force && ledgerHasIdempotencyTag(allRows, idempotencyTag)) {
-    return NextResponse.json({
-      ok: true,
-      cycleId,
-      mode: 'escalation' as const,
-      published: false,
-      reason: 'already_synthesized_for_escalation_class',
-      idempotencyTag,
-      derivedFromCount: 0,
-    });
-  }
-
-  const output = buildEveGovernanceSynthesisOutput(input);
-  const publishResult = await publishEveGovernanceSynthesis(input, output, idempotencyTag, allRows);
-
-  return NextResponse.json({
-    ok: true,
-    cycleId,
-    mode: 'escalation' as const,
-    published: publishResult.published,
-    entryId: publishResult.entryId,
-    reason: publishResult.published ? 'escalation_signal' : 'already_synthesized_for_escalation_class',
-    derivedFromCount: output.derivedFrom.length,
-    idempotencyTag: publishResult.idempotencyTag,
-    escalationFingerprint: fingerprint,
-    governancePosture: output.governancePosture,
-    category: output.category,
-    civicRiskLevel: output.civicRiskLevel,
-    ethicsFlags: output.ethicsFlags,
-    summary: output.summary,
-    externalDegraded: input.externalDegraded,
-    trace: {
-      committedAgentRows: input.committedAgentRows.length,
-      tripwireLevel: input.tripwire.level,
-      civicAlertCount: input.civicAlerts.length,
-      gi: input.gi,
-      mii: input.mii,
-      treasuryStatus: input.treasuryStatus,
-    },
-  });
+  return NextResponse.json(payload);
 }

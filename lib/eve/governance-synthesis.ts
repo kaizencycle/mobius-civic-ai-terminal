@@ -12,6 +12,7 @@ import { getEchoAlerts, getEchoEpicon } from '@/lib/echo/store';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
+import { getLiveIntegritySnapshot } from '@/lib/integrity/buildStatus';
 import { integrityStatus } from '@/lib/mock/integrityStatus';
 import { mockCivicAlerts } from '@/lib/terminal/mock';
 import type { CivicRadarAlert } from '@/lib/terminal/types';
@@ -21,7 +22,8 @@ import { getTripwireState } from '@/lib/tripwire/store';
 export const EVE_GOVERNANCE_SYNTH_TAG = 'eve-governance-synthesis';
 export const EVE_SYNTHESIS_SOURCE = 'eve-synthesis' as const;
 
-const CYCLE_WINDOW_MS = 3 * 60 * 60 * 1000;
+/** Align with EVE automation cadence (every 4h). */
+const CYCLE_WINDOW_MS = 4 * 60 * 60 * 1000;
 const GI_STRESS_THRESHOLD = 0.72;
 const NARRATIVE_CLUSTER_THRESHOLD = 6;
 
@@ -247,8 +249,15 @@ export async function gatherEveGovernanceSynthesisInput(
     // graceful degradation
   }
 
-  const gi = integrityStatus.global_integrity;
-  const mii = integrityStatus.mii_baseline;
+  let gi = integrityStatus.global_integrity;
+  let mii = integrityStatus.mii_baseline;
+  try {
+    const live = await getLiveIntegritySnapshot();
+    gi = live.global_integrity;
+    mii = live.mii_baseline;
+  } catch {
+    // keep mock baseline; synthesis still runs from substrate rows
+  }
 
   const echoEpicon = getEchoEpicon();
   const narrativeClusterCount = echoEpicon.length;
@@ -485,6 +494,152 @@ export type PublishEveGovernanceResult = {
   idempotencyTag: string;
   ledgerSeverity: EpiconLedgerFeedEntry['severity'];
 };
+
+/** Trace block returned with synthesis HTTP responses (C-270). */
+export type EveGovernanceSynthTrace = {
+  committedAgentRows: number;
+  tripwireLevel: string;
+  civicAlertCount: number;
+  gi: number;
+  mii: number;
+  treasuryStatus: string;
+};
+
+function buildSynthTrace(input: EveGovernanceSynthesisInput): EveGovernanceSynthTrace {
+  return {
+    committedAgentRows: input.committedAgentRows.length,
+    tripwireLevel: input.tripwire.level,
+    civicAlertCount: input.civicAlerts.length,
+    gi: input.gi,
+    mii: input.mii,
+    treasuryStatus: input.treasuryStatus,
+  };
+}
+
+/**
+ * Cycle-window synthesis (idempotent per window unless force).
+ * Does not run the signal engine — callers invoke that first if needed.
+ */
+export async function processEveCycleWindowSynthesis(
+  cycleId: string,
+  force: boolean,
+): Promise<Record<string, unknown>> {
+  const allRows = await readLedgerRowsForEve(400);
+  const nowMs = Date.now();
+  const windowBucket = force ? `force-${nowMs}` : cycleWindowBucket(nowMs);
+  const idempotencyTag = cycleSynthesisIdempotencyTag(cycleId, windowBucket);
+
+  if (!force && ledgerHasIdempotencyTag(allRows, idempotencyTag)) {
+    return {
+      ok: true,
+      cycleId,
+      mode: 'cycle' as const,
+      published: false,
+      reason: 'already_synthesized_for_window',
+      idempotencyTag,
+      derivedFromCount: 0,
+    };
+  }
+
+  const input = await gatherEveGovernanceSynthesisInput(cycleId, { ledgerRows: allRows });
+  const output = buildEveGovernanceSynthesisOutput(input);
+  const publishResult = await publishEveGovernanceSynthesis(input, output, idempotencyTag, allRows);
+
+  return {
+    ok: true,
+    cycleId,
+    mode: 'cycle' as const,
+    published: publishResult.published,
+    entryId: publishResult.entryId,
+    reason: publishResult.published ? 'cycle_window_due' : 'already_synthesized_for_window',
+    derivedFromCount: output.derivedFrom.length,
+    idempotencyTag: publishResult.idempotencyTag,
+    governancePosture: output.governancePosture,
+    category: output.category,
+    civicRiskLevel: output.civicRiskLevel,
+    ethicsFlags: output.ethicsFlags,
+    summary: output.summary,
+    externalDegraded: input.externalDegraded,
+    trace: buildSynthTrace(input),
+  };
+}
+
+/**
+ * Escalation-class synthesis (idempotent per fingerprint unless force).
+ * Does not run the signal engine — callers invoke that first if needed.
+ */
+export async function processEveEscalationSynthesis(
+  cycleId: string,
+  force: boolean,
+  callerReason?: string | null,
+): Promise<Record<string, unknown>> {
+  const allRows = await readLedgerRowsForEve(400);
+  const input = await gatherEveGovernanceSynthesisInput(cycleId, { ledgerRows: allRows });
+
+  const trimmedReason = typeof callerReason === 'string' ? callerReason.trim() : '';
+
+  if (!force && !escalationWarranted(input)) {
+    return {
+      ok: true,
+      cycleId,
+      mode: 'escalation' as const,
+      published: false,
+      reason: 'no_escalation_signal',
+      derivedFromCount: 0,
+    };
+  }
+
+  const baseFp = escalationFingerprint(input);
+  const fingerprint =
+    force ? `force-${Date.now()}` : trimmedReason !== '' ? `${baseFp}|${trimmedReason}` : baseFp;
+  const idempotencyTag = escalationIdempotencyTag(cycleId, fingerprint);
+
+  if (!force && ledgerHasIdempotencyTag(allRows, idempotencyTag)) {
+    return {
+      ok: true,
+      cycleId,
+      mode: 'escalation' as const,
+      published: false,
+      reason: 'already_synthesized_for_escalation_class',
+      idempotencyTag,
+      derivedFromCount: 0,
+      escalationFingerprint: fingerprint,
+    };
+  }
+
+  const output = buildEveGovernanceSynthesisOutput(input);
+  const publishResult = await publishEveGovernanceSynthesis(input, output, idempotencyTag, allRows);
+
+  const publishReason =
+    publishResult.published && trimmedReason === 'gi_critical'
+      ? 'gi_critical_escalation'
+      : publishResult.published
+        ? 'escalation_signal'
+        : 'already_synthesized_for_escalation_class';
+
+  return {
+    ok: true,
+    cycleId,
+    mode: 'escalation' as const,
+    published: publishResult.published,
+    entryId: publishResult.entryId,
+    reason: publishReason,
+    derivedFromCount: output.derivedFrom.length,
+    idempotencyTag: publishResult.idempotencyTag,
+    escalationFingerprint: fingerprint,
+    ...(trimmedReason !== '' ? { escalationReason: trimmedReason } : {}),
+    governancePosture: output.governancePosture,
+    category: output.category,
+    civicRiskLevel: output.civicRiskLevel,
+    ethicsFlags: output.ethicsFlags,
+    summary: output.summary,
+    externalDegraded: input.externalDegraded,
+    trace: {
+      ...buildSynthTrace(input),
+      ...(trimmedReason ? { callerReason: trimmedReason } : {}),
+    },
+  };
+}
 
 export async function publishEveGovernanceSynthesis(
   input: EveGovernanceSynthesisInput,

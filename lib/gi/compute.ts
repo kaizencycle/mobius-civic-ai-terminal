@@ -1,4 +1,4 @@
-import { getGiMode } from './mode';
+import { getGiMode, type GIMode } from './mode';
 
 type GIInput = {
   zeusScores: number[];
@@ -12,7 +12,20 @@ function avg(values: number[]) {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
-export function computeGI(input: GIInput) {
+export function computeGI(input: GIInput): {
+  global_integrity: number;
+  mode: GIMode;
+  terminal_status: 'nominal' | 'stressed' | 'critical';
+  primary_driver: string;
+  summary: string;
+  signals: {
+    quality: number;
+    freshness: number;
+    stability: number;
+    system: number;
+  };
+  timestamp: string;
+} {
   const quality = avg(input.zeusScores);
 
   const freshnessMap = {

@@ -1,19 +1,19 @@
 /**
  * POST /api/eve/cycle-synthesize — EVE governance / ethics synthesis → live EPICON ledger (C-270).
  * Bearer: MOBIUS_SERVICE_SECRET | CRON_SECRET | BACKFILL_SECRET
+ *
+ * Body: `{}` for cycle window synthesis, or `{ "mode": "escalation", "reason": "gi_critical" }`
+ * for escalation-class synthesis (same auth; distinct idempotency when reason is set).
  */
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 import {
-  buildEveGovernanceSynthesisOutput,
   cycleSynthesisIdempotencyTag,
   cycleWindowBucket,
-  gatherEveGovernanceSynthesisInput,
-  ledgerHasIdempotencyTag,
-  publishEveGovernanceSynthesis,
-  readLedgerRowsForEve,
+  processEveCycleWindowSynthesis,
+  processEveEscalationSynthesis,
 } from '@/lib/eve/governance-synthesis';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
@@ -24,20 +24,31 @@ export const dynamic = 'force-dynamic';
 type CycleBody = {
   cycleId?: unknown;
   force?: unknown;
+  mode?: unknown;
+  reason?: unknown;
 };
 
-function parseCycleBody(body: unknown): { cycleId: string | null; force: boolean } {
+function parseCycleBody(body: unknown): {
+  cycleId: string | null;
+  force: boolean;
+  mode: 'cycle' | 'escalation';
+  reason: string | null;
+} {
   if (body === null || typeof body !== 'object') {
-    return { cycleId: null, force: false };
+    return { cycleId: null, force: false, mode: 'cycle', reason: null };
   }
   const o = body as CycleBody;
   const raw = o.cycleId;
   const cycleId = typeof raw === 'string' && raw.trim() ? raw.trim() : null;
   const force = o.force === true;
-  return { cycleId, force };
+  const modeRaw = o.mode;
+  const mode = modeRaw === 'escalation' ? 'escalation' : 'cycle';
+  const reasonRaw = o.reason;
+  const reason = typeof reasonRaw === 'string' && reasonRaw.trim() ? reasonRaw.trim() : null;
+  return { cycleId, force, mode, reason };
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const cycleId = currentCycleId();
   const windowBucket = cycleWindowBucket(Date.now());
   const idempotencyTag = cycleSynthesisIdempotencyTag(cycleId, windowBucket);
@@ -66,54 +77,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { cycleId: bodyCycle, force } = parseCycleBody(body);
+  const { cycleId: bodyCycle, force, mode, reason } = parseCycleBody(body);
   const cycleId = bodyCycle ?? currentCycleId();
 
   await runSignalEngine();
 
-  const allRows = await readLedgerRowsForEve(400);
-  const nowMs = Date.now();
-  const windowBucket = force ? `force-${nowMs}` : cycleWindowBucket(nowMs);
-  const idempotencyTag = cycleSynthesisIdempotencyTag(cycleId, windowBucket);
+  const payload =
+    mode === 'escalation'
+      ? await processEveEscalationSynthesis(cycleId, force, reason)
+      : await processEveCycleWindowSynthesis(cycleId, force);
 
-  if (!force && ledgerHasIdempotencyTag(allRows, idempotencyTag)) {
-    return NextResponse.json({
-      ok: true,
-      cycleId,
-      mode: 'cycle' as const,
-      published: false,
-      reason: 'already_synthesized_for_window',
-      idempotencyTag,
-      derivedFromCount: 0,
-    });
-  }
-
-  const input = await gatherEveGovernanceSynthesisInput(cycleId, { ledgerRows: allRows });
-  const output = buildEveGovernanceSynthesisOutput(input);
-  const publishResult = await publishEveGovernanceSynthesis(input, output, idempotencyTag, allRows);
-
-  return NextResponse.json({
-    ok: true,
-    cycleId,
-    mode: 'cycle' as const,
-    published: publishResult.published,
-    entryId: publishResult.entryId,
-    reason: publishResult.published ? 'cycle_window_due' : 'already_synthesized_for_window',
-    derivedFromCount: output.derivedFrom.length,
-    idempotencyTag: publishResult.idempotencyTag,
-    governancePosture: output.governancePosture,
-    category: output.category,
-    civicRiskLevel: output.civicRiskLevel,
-    ethicsFlags: output.ethicsFlags,
-    summary: output.summary,
-    externalDegraded: input.externalDegraded,
-    trace: {
-      committedAgentRows: input.committedAgentRows.length,
-      tripwireLevel: input.tripwire.level,
-      civicAlertCount: input.civicAlerts.length,
-      gi: input.gi,
-      mii: input.mii,
-      treasuryStatus: input.treasuryStatus,
-    },
-  });
+  return NextResponse.json(payload);
 }
