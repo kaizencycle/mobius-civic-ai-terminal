@@ -9,7 +9,8 @@ export default function TerminalShellFallback({
   statusLabel?: string;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('time-desc');
+  const [sortBy, setSortBy] = useState<'time' | 'agent' | 'type' | 'severity' | 'gi' | 'status' | 'source'>('time');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const resultCount: number = 0;
   const [gi] = useState<number | null>(null);
 
@@ -63,7 +64,7 @@ export default function TerminalShellFallback({
             <span className="text-[9px] font-mono uppercase tracking-widest text-slate-600">Sort</span>
             <select
               value={sortBy}
-              onChange={(event) => setSortBy(event.target.value)}
+              onChange={(event) => setSortBy(event.target.value as typeof sortBy)}
               className="cursor-pointer appearance-none rounded-md border border-slate-800 bg-slate-900 px-2 py-1.5 pr-6 text-[11px] font-mono text-slate-400 transition-colors focus:border-sky-500/50 focus:outline-none"
               style={{
                 backgroundImage:
@@ -73,13 +74,22 @@ export default function TerminalShellFallback({
                 backgroundSize: '10px',
               }}
             >
-              <option value="time-desc">Newest first</option>
-              <option value="time-asc">Oldest first</option>
-              <option value="type">By type</option>
-              <option value="author">By author</option>
-              <option value="gi-desc">GI high → low</option>
-              <option value="severity">By severity</option>
+              <option value="time">Time</option>
+              <option value="agent">Agent</option>
+              <option value="type">Type</option>
+              <option value="severity">Severity</option>
+              <option value="gi">GI score</option>
+              <option value="status">Status</option>
+              <option value="source">Source</option>
             </select>
+            <button
+              type="button"
+              onClick={() => setSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+              className="inline-flex h-7 w-5 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-[11px] font-mono text-slate-400 transition-colors hover:border-sky-500/40 hover:text-sky-300"
+              aria-label={`Toggle sort direction (currently ${sortDir})`}
+            >
+              {sortDir === 'desc' ? '↓' : '↑'}
+            </button>
           </div>
 
           {searchQuery ? (
