@@ -77,7 +77,7 @@ function TerminalPage() {
   const [selectedNav, setSelectedNav] = useState<NavKey>('pulse');
   const [selectedLedgerId, setSelectedLedgerId] = useState<string | null>(null);
   const [expandedLedgerId, setExpandedLedgerId] = useState<string | null>(null);
-  const [tagFilter, setTagFilter] = useState<string>('all');
+  const [agentFilter, setAgentFilter] = useState<string>('ALL');
   const [clock, setClock] = useState<string>('');
   const [agentSearch, setAgentSearch] = useState('');
   const [focusedAgent, setFocusedAgent] = useState<AgentStatusApi | null>(null);
@@ -134,9 +134,10 @@ function TerminalPage() {
     try {
       const raw = window.localStorage.getItem(TERMINAL_PREFS_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as { selectedNav?: NavKey; tagFilter?: string; ledgerExpanded?: boolean };
+      const parsed = JSON.parse(raw) as { selectedNav?: NavKey; agentFilter?: string; tagFilter?: string; ledgerExpanded?: boolean };
       if (parsed.selectedNav && TABS.some((tab) => tab.key === parsed.selectedNav)) setSelectedNav(parsed.selectedNav);
-      if (typeof parsed.tagFilter === 'string') setTagFilter(parsed.tagFilter);
+      if (typeof parsed.agentFilter === 'string') setAgentFilter(parsed.agentFilter);
+      else if (typeof parsed.tagFilter === 'string') setAgentFilter(parsed.tagFilter === 'all' ? 'ALL' : parsed.tagFilter.toUpperCase());
       if (typeof parsed.ledgerExpanded === 'boolean') setLedgerExpanded(parsed.ledgerExpanded);
     } catch {
       // no-op
@@ -144,8 +145,8 @@ function TerminalPage() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(TERMINAL_PREFS_KEY, JSON.stringify({ selectedNav, tagFilter, ledgerExpanded }));
-  }, [selectedNav, tagFilter, ledgerExpanded]);
+    window.localStorage.setItem(TERMINAL_PREFS_KEY, JSON.stringify({ selectedNav, agentFilter, ledgerExpanded }));
+  }, [selectedNav, agentFilter, ledgerExpanded]);
 
   // Optimization 7: keyboard-first controls inspired by shell omnibar workflows.
   useEffect(() => {
@@ -257,16 +258,35 @@ function TerminalPage() {
     { label: 'DEGRADED', tone: 'border-rose-500/40 bg-rose-500/10 text-rose-200', nav: 'infrastructure' },
   ];
 
-  const ledgerTags = useMemo(() => {
-    const allTags = new Set<string>();
-    for (const entry of mergedLedger) for (const tag of entry.tags ?? []) allTags.add(tag);
-    return ['all', ...Array.from(allTags).slice(0, 8)];
-  }, [mergedLedger]);
+  const agentTabs = useMemo(
+    () => ['ALL', 'ATLAS', 'ZEUS', 'EVE', 'HERMES', 'AUREA', 'JADE', 'DAEDALUS', 'ECHO'],
+    [],
+  );
+
+  const matchesAgentFilter = useCallback((entry: LedgerEntry, selectedAgent: string) => {
+    const agentLower = selectedAgent.toLowerCase();
+    const authorValue = (entry as unknown as Record<string, unknown>)['author'];
+    const authorMatch = typeof authorValue === 'string' && authorValue.toLowerCase() === agentLower;
+    const originMatch = entry.agentOrigin.toUpperCase() === selectedAgent;
+    const tagMatch = (entry.tags ?? []).some((tag) => tag.toLowerCase() === agentLower);
+    return authorMatch || originMatch || tagMatch;
+  }, []);
+
+  const agentTabCounts = useMemo(() => {
+    const counts: Record<string, number> = Object.fromEntries(agentTabs.map((agent) => [agent, 0])) as Record<string, number>;
+    counts.ALL = mergedLedger.length;
+    for (const entry of mergedLedger) {
+      for (const agent of agentTabs.slice(1)) {
+        if (matchesAgentFilter(entry, agent)) counts[agent] += 1;
+      }
+    }
+    return counts;
+  }, [agentTabs, matchesAgentFilter, mergedLedger]);
 
   const filteredLedger = useMemo(() => {
-    if (tagFilter === 'all') return mergedLedger;
-    return mergedLedger.filter((entry) => (entry.tags ?? []).includes(tagFilter));
-  }, [mergedLedger, tagFilter]);
+    if (agentFilter === 'ALL') return mergedLedger;
+    return mergedLedger.filter((entry) => matchesAgentFilter(entry, agentFilter));
+  }, [agentFilter, matchesAgentFilter, mergedLedger]);
 
   const visibleAgents = useMemo(() => {
     const needle = agentSearch.trim().toLowerCase();
@@ -360,7 +380,11 @@ function TerminalPage() {
             <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Live signal trace</div>
             <div className="text-[10px] text-slate-500">Immutable event record — Mobius Substrate</div>
           </div>
-          <div className="text-xs font-mono text-slate-400">{filteredLedger.length} entries</div>
+          <div className="text-xs font-mono text-slate-400">
+            {agentFilter === 'ALL'
+              ? `${mergedLedger.length} entries`
+              : `${filteredLedger.length} of ${mergedLedger.length} entries · ${agentFilter}`}
+          </div>
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">
           {/* Optimization 9: inline shortcut hints for faster operator discovery. */}
@@ -368,10 +392,15 @@ function TerminalPage() {
           <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">/ focus agent search</span>
           <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">L toggle ledger</span>
         </div>
-        <div className="mb-3 flex flex-wrap gap-2">
-          {ledgerTags.map((tag) => (
-            <button key={tag} onClick={() => setTagFilter(tag)} className={cn('rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em]', tagFilter === tag ? 'border-sky-500/50 bg-sky-500/15 text-sky-200' : 'border-slate-700 bg-slate-950 text-slate-400')}>
-              {tag}
+        <div className="mb-3 flex gap-2 overflow-x-auto whitespace-nowrap pb-1">
+          {agentTabs.map((agent) => (
+            <button
+              key={agent}
+              onClick={() => setAgentFilter(agent)}
+              className={cn('rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em]', getAgentTabClass(agent, agentFilter === agent))}
+            >
+              {agent}
+              <span className="ml-1 text-[9px] text-slate-500">({agentTabCounts[agent] ?? 0})</span>
             </button>
           ))}
         </div>
@@ -388,7 +417,10 @@ function TerminalPage() {
         </div>
         {filteredLedger.length === 0 ? (
           <div className="rounded-md border border-dashed border-slate-700 bg-slate-950/60 p-4 text-center text-xs text-slate-400">
-            No ledger entries match this filter. Try <button onClick={() => setTagFilter('all')} className="text-sky-300 underline underline-offset-2">resetting to all tags</button>.
+            No ledger entries match this filter. Try{' '}
+            <button onClick={() => setAgentFilter('ALL')} className="text-sky-300 underline underline-offset-2">
+              resetting to all agents
+            </button>.
           </div>
         ) : null}
         {filteredLedger.length > 14 && (
@@ -697,15 +729,59 @@ const StatCard = memo(function StatCard({ label, value, trend, icon, subtitle, o
 });
 
 const AGENT_COLOR: Record<string, string> = {
-  ATLAS: 'border-sky-500/35 text-sky-200 bg-sky-500/10',
-  ZEUS: 'border-indigo-500/35 text-indigo-200 bg-indigo-500/10',
-  EVE: 'border-fuchsia-500/35 text-fuchsia-200 bg-fuchsia-500/10',
-  HERMES: 'border-violet-500/35 text-violet-200 bg-violet-500/10',
-  AUREA: 'border-amber-500/35 text-amber-200 bg-amber-500/10',
-  JADE: 'border-emerald-500/35 text-emerald-200 bg-emerald-500/10',
-  DAEDALUS: 'border-cyan-500/35 text-cyan-200 bg-cyan-500/10',
-  ECHO: 'border-teal-500/35 text-teal-200 bg-teal-500/10',
+  ATLAS: 'border-sky-500/30 text-sky-400 bg-sky-500/10',
+  ZEUS: 'border-amber-500/30 text-amber-400 bg-amber-500/10',
+  EVE: 'border-rose-500/30 text-rose-400 bg-rose-500/10',
+  HERMES: 'border-orange-500/30 text-orange-400 bg-orange-500/10',
+  AUREA: 'border-yellow-500/30 text-yellow-400 bg-yellow-500/10',
+  JADE: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10',
+  DAEDALUS: 'border-stone-500/30 text-stone-400 bg-stone-500/10',
+  ECHO: 'border-slate-500/30 text-slate-300 bg-slate-500/10',
 };
+
+const LEDGER_AGENT_BADGE: Record<string, { initials: string; tone: string }> = {
+  ATLAS: { initials: 'AT', tone: 'border-sky-500/30 bg-sky-500/10 text-sky-300' },
+  ZEUS: { initials: 'ZS', tone: 'border-amber-500/30 bg-amber-500/10 text-amber-300' },
+  EVE: { initials: 'EV', tone: 'border-rose-500/30 bg-rose-500/10 text-rose-300' },
+  HERMES: { initials: 'HM', tone: 'border-orange-500/30 bg-orange-500/10 text-orange-300' },
+  AUREA: { initials: 'AU', tone: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300' },
+  JADE: { initials: 'JD', tone: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' },
+  DAEDALUS: { initials: 'DA', tone: 'border-stone-500/30 bg-stone-500/10 text-stone-300' },
+  ECHO: { initials: 'EC', tone: 'border-slate-500/30 bg-slate-500/10 text-slate-200' },
+  'KAIZENCYCLE': { initials: 'KZ', tone: 'border-blue-500/30 bg-blue-500/10 text-blue-300' },
+  'MOBIUS-BOT': { initials: 'MB', tone: 'border-purple-500/30 bg-purple-500/10 text-purple-300' },
+  'CURSOR-AGENT': { initials: 'CR', tone: 'border-teal-500/30 bg-teal-500/10 text-teal-300' },
+};
+
+function getAgentTabClass(agent: string, isActive: boolean) {
+  if (agent === 'ALL') {
+    return isActive
+      ? 'border-slate-400/80 bg-slate-500/20 text-slate-100'
+      : 'border-slate-700/70 bg-transparent text-slate-400';
+  }
+  const base = AGENT_COLOR[agent] ?? 'border-slate-700/60 text-slate-400';
+  if (isActive) {
+    return base
+      .replace('/10', '/20')
+      .replace('text-sky-400', 'text-sky-200')
+      .replace('text-amber-400', 'text-amber-200')
+      .replace('text-rose-400', 'text-rose-200')
+      .replace('text-orange-400', 'text-orange-200')
+      .replace('text-yellow-400', 'text-yellow-200')
+      .replace('text-emerald-400', 'text-emerald-200')
+      .replace('text-stone-400', 'text-stone-200')
+      .replace('text-slate-300', 'text-slate-100')
+      .replace('/30', '/70');
+  }
+  return base.replace('/30', '/20').replace('/10', '/0');
+}
+
+function getLedgerAgentBadge(entry: LedgerEntry) {
+  const origin = entry.agentOrigin?.trim();
+  const author = (entry as unknown as Record<string, unknown>)['author'];
+  const normalized = (origin && origin.length > 0 ? origin : typeof author === 'string' ? author : 'ECHO').toUpperCase();
+  return LEDGER_AGENT_BADGE[normalized] ?? { initials: normalized.slice(0, 2), tone: 'border-slate-600 bg-slate-800/60 text-slate-300' };
+}
 
 function JournalView({ entries, cycleId }: { entries: AgentJournalEntry[]; cycleId: string }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -845,6 +921,7 @@ type LedgerRowProps = {
 const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSelect }: LedgerRowProps) {
   const confidence = Math.min(100, Math.max(10, Math.round(((entry.confidenceTier ?? 2) / 4) * 100)));
   const relTime = useRelativeTime(entry.timestamp);
+  const badge = useMemo(() => getLedgerAgentBadge(entry), [entry]);
   const isoTime = useMemo(() => {
     const parsed = new Date(entry.timestamp);
     if (Number.isNaN(parsed.getTime())) return undefined;
@@ -860,7 +937,9 @@ const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSel
       <button onClick={handleSelect} className="w-full text-left">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-xs font-mono text-slate-300">{entry.agentOrigin.slice(0, 2).toUpperCase()}</div>
+            <div className={cn('flex h-5 w-5 items-center justify-center rounded-sm border text-[9px] font-mono font-medium', badge.tone)}>
+              {badge.initials}
+            </div>
             <div className="min-w-0">
               <div className="flex min-w-0 flex-wrap items-center gap-1 truncate text-sm font-medium text-slate-100">
                 <span className="truncate">{entry.title ?? entry.summary}</span>
