@@ -44,9 +44,33 @@ export async function pollAllMicroAgents(): Promise<MicroAgentSweepResult> {
 
   const allSignals = agents.flatMap((a) => a.signals);
 
-  // Composite: weighted average of all signal values
-  const composite = allSignals.length > 0
-    ? Number((allSignals.reduce((sum, s) => sum + s.value, 0) / allSignals.length).toFixed(3))
+  // Composite: average by agent, with GAIA source-aware weighting.
+  const compositeByAgent = agents.map((agent) => {
+    if (agent.signals.length === 0) return 0.5;
+
+    if (agent.agentName === 'GAIA') {
+      const weather = agent.signals.find((signal) => signal.source === 'Open-Meteo')?.value;
+      const quakes = agent.signals.find((signal) => signal.source === 'USGS Earthquake')?.value;
+      const eonet = agent.signals.find((signal) => signal.source === 'NASA EONET')?.value;
+
+      const weights = [
+        { value: quakes, weight: 0.4 },
+        { value: weather, weight: 0.3 },
+        { value: eonet, weight: 0.3 },
+      ].filter((entry): entry is { value: number; weight: number } => typeof entry.value === 'number');
+
+      if (weights.length > 0) {
+        const weightedTotal = weights.reduce((sum, entry) => sum + entry.value * entry.weight, 0);
+        const totalWeight = weights.reduce((sum, entry) => sum + entry.weight, 0);
+        return Number((weightedTotal / totalWeight).toFixed(3));
+      }
+    }
+
+    return Number((agent.signals.reduce((sum, signal) => sum + signal.value, 0) / agent.signals.length).toFixed(3));
+  });
+
+  const composite = compositeByAgent.length > 0
+    ? Number((compositeByAgent.reduce((sum, value) => sum + value, 0) / compositeByAgent.length).toFixed(3))
     : 0.5;
 
   // Anomalies: anything elevated or critical
