@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { mockAgentStatus } from '@/lib/mock-data';
+import { KV_KEYS, kvGet } from '@/lib/kv/store';
 import {
   isFresh,
   liveEnvelope,
@@ -7,16 +8,16 @@ import {
   staleCacheEnvelope,
 } from '@/lib/response-envelope';
 
-type RuntimeFreshnessStatus = 'fresh' | 'nominal' | 'stale' | 'degraded' | 'unknown';
-
-type RuntimeStatusResponse = {
+type HeartbeatPayload = {
   ok?: boolean;
-  last_run: string | null;
-  cycle_id?: string | null;
-  freshness?: {
-    status?: RuntimeFreshnessStatus;
-    seconds?: number | null;
-  };
+  timestamp?: string;
+  cycle?: string;
+  cycleId?: string;
+};
+
+type GiStatePayload = {
+  cycle?: string;
+  cycleId?: string;
 };
 
 const AGENT_BASE = [
@@ -38,7 +39,7 @@ function toAgentStatus(status: 'alive' | 'unknown') {
     status,
     detail:
       status === 'alive'
-        ? 'Live heartbeat observed from runtime status.'
+        ? 'Live heartbeat observed from KV.'
         : 'Heartbeat is stale; agent state is currently unknown.',
     heartbeat_ok: status === 'alive',
     last_action:
@@ -48,19 +49,31 @@ function toAgentStatus(status: 'alive' | 'unknown') {
   }));
 }
 
-export async function GET(request: Request) {
-  try {
-    const runtimeUrl = new URL('/api/runtime/status', request.url);
-    const runtimeRes = await fetch(runtimeUrl, { cache: 'no-store' });
-    if (!runtimeRes.ok) throw new Error(`runtime status ${runtimeRes.status}`);
+function parseHeartbeat(rawHeartbeat: HeartbeatPayload | string | null): HeartbeatPayload | null {
+  if (!rawHeartbeat) return null;
+  if (typeof rawHeartbeat !== 'string') return rawHeartbeat;
 
-    const runtime = (await runtimeRes.json()) as RuntimeStatusResponse;
-    const timestamp = runtime.last_run ?? new Date().toISOString();
-    const cycle = runtime.cycle_id ?? 'unknown';
+  try {
+    return JSON.parse(rawHeartbeat) as HeartbeatPayload;
+  } catch {
+    return null;
+  }
+}
+
+export async function GET() {
+  try {
+    const [rawHeartbeat, giState] = await Promise.all([
+      kvGet<HeartbeatPayload | string>(KV_KEYS.HEARTBEAT),
+      kvGet<GiStatePayload>(KV_KEYS.GI_STATE),
+    ]);
+
+    const heartbeat = parseHeartbeat(rawHeartbeat);
+    const timestamp = heartbeat?.timestamp ?? new Date().toISOString();
+    const cycle = heartbeat?.cycle ?? heartbeat?.cycleId ?? giState?.cycle ?? giState?.cycleId ?? 'unknown';
 
     staleSnapshot = { cycle, timestamp };
 
-    if (runtime.freshness?.status === 'fresh' && runtime.last_run && isFresh(runtime.last_run)) {
+    if (heartbeat?.timestamp && isFresh(heartbeat.timestamp, 10 * 60 * 1000)) {
       return NextResponse.json({
         ok: true,
         ...liveEnvelope(timestamp),
@@ -79,7 +92,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     const mock = mockAgentStatus();
-    console.error('agents/status runtime fetch failed', error);
+    console.error('agents/status KV read failed', error);
 
     if (staleSnapshot) {
       return NextResponse.json({
