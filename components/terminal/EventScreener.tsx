@@ -13,9 +13,11 @@ export interface EpiconFeedItem {
   severity: string;
   tags: string[];
   source: string;
+  status?: string;
   verified: boolean;
   sha?: string;
   gi?: number;
+  agentOrigin?: string;
 }
 
 interface EventScreenerProps {
@@ -24,13 +26,12 @@ interface EventScreenerProps {
   sources: { github: number; kv: number };
   total: number;
   searchQuery?: string;
-  sortBy?: 'time-desc' | 'time-asc' | 'type' | 'author' | 'gi-desc' | 'severity';
+  sortBy?: 'time' | 'agent' | 'type' | 'severity' | 'gi' | 'status' | 'source';
+  sortDir?: 'asc' | 'desc';
   onResultCountChange?: (count: number) => void;
 }
 
 const PAGE_SIZE = 12;
-
-type SortColumn = 'time' | 'type' | 'author' | 'gi';
 type TypeFilter = 'all' | 'merge' | 'heartbeat' | 'catalog' | 'epicon' | 'zeus-verify';
 type AuthorFilter = 'all' | 'kaizencycle' | 'mobius-bot' | 'cursor-agent';
 
@@ -147,12 +148,11 @@ export default function EventScreener({
   total,
   searchQuery: externalSearchQuery,
   sortBy,
+  sortDir,
   onResultCountChange,
 }: EventScreenerProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [authorFilter, setAuthorFilter] = useState<AuthorFilter>('all');
-  const [sortCol, setSortCol] = useState<SortColumn>('time');
-  const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState<string | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
@@ -163,7 +163,32 @@ export default function EventScreener({
 
   const filteredAndSorted = useMemo(() => {
     const needle = searchQuery.trim().toLowerCase();
-    const severityRank: Record<string, number> = { critical: 0, elevated: 1, nominal: 2 };
+    const direction = sortDir === 'asc' ? 1 : -1;
+    const activeSortBy = sortBy ?? 'time';
+
+    const agentPriority = ['atlas', 'zeus', 'eve', 'hermes', 'aurea', 'jade', 'daedalus', 'echo', 'kaizencycle', 'mobius-bot', 'cursor-agent'];
+    const typePriority = ['heartbeat', 'epicon', 'zeus-verify', 'merge', 'catalog'];
+    const severityPriority = ['critical', 'elevated', 'degraded', 'nominal', 'info'];
+    const statusPriority = ['committed', 'pending', 'unknown'];
+
+    const rankFor = (value: string, ordered: string[]) => {
+      const idx = ordered.indexOf(value.toLowerCase());
+      return idx >= 0 ? idx : ordered.length;
+    };
+
+    const timeValue = (value: string) => {
+      const parsed = new Date(value).getTime();
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const compareNullableNumbers = (a: number | undefined, b: number | undefined) => {
+      const aMissing = typeof a !== 'number';
+      const bMissing = typeof b !== 'number';
+      if (aMissing && bMissing) return 0;
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+      return a - b;
+    };
 
     const externallyFiltered = list.filter((item) => {
       if (!needle) return true;
@@ -176,12 +201,42 @@ export default function EventScreener({
     });
 
     const externallySorted = [...externallyFiltered].sort((a, b) => {
-      if (sortBy === 'time-asc') return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
-      if (sortBy === 'type') return (a.type ?? '').localeCompare(b.type ?? '');
-      if (sortBy === 'author') return (a.author ?? '').localeCompare(b.author ?? '');
-      if (sortBy === 'gi-desc') return (b.gi ?? -1) - (a.gi ?? -1);
-      if (sortBy === 'severity') return (severityRank[a.severity?.toLowerCase()] ?? Number.MAX_SAFE_INTEGER) - (severityRank[b.severity?.toLowerCase()] ?? Number.MAX_SAFE_INTEGER);
-      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      const compare = (() => {
+        if (activeSortBy === 'time') return timeValue(a.timestamp) - timeValue(b.timestamp);
+        if (activeSortBy === 'agent') {
+          const agentA = (a.author || a.agentOrigin || '').toLowerCase();
+          const agentB = (b.author || b.agentOrigin || '').toLowerCase();
+          const rankDiff = rankFor(agentA, agentPriority) - rankFor(agentB, agentPriority);
+          if (rankDiff !== 0) return rankDiff;
+          return agentA.localeCompare(agentB);
+        }
+        if (activeSortBy === 'type') {
+          const typeA = (a.type || '').toLowerCase();
+          const typeB = (b.type || '').toLowerCase();
+          const rankDiff = rankFor(typeA, typePriority) - rankFor(typeB, typePriority);
+          if (rankDiff !== 0) return rankDiff;
+          return typeA.localeCompare(typeB);
+        }
+        if (activeSortBy === 'severity') {
+          const severityA = (a.severity || '').toLowerCase();
+          const severityB = (b.severity || '').toLowerCase();
+          const rankDiff = rankFor(severityA, severityPriority) - rankFor(severityB, severityPriority);
+          if (rankDiff !== 0) return rankDiff;
+          return severityA.localeCompare(severityB);
+        }
+        if (activeSortBy === 'gi') return compareNullableNumbers(a.gi, b.gi);
+        if (activeSortBy === 'status') {
+          const statusA = (a.status || 'unknown').toLowerCase();
+          const statusB = (b.status || 'unknown').toLowerCase();
+          const rankDiff = rankFor(statusA, statusPriority) - rankFor(statusB, statusPriority);
+          if (rankDiff !== 0) return rankDiff;
+          return statusA.localeCompare(statusB);
+        }
+        return (a.source || '').localeCompare(b.source || '');
+      })();
+
+      if (compare !== 0) return compare * direction;
+      return (timeValue(b.timestamp) - timeValue(a.timestamp)) * direction;
     });
 
     const filtered = externallySorted.filter((item) => {
@@ -190,19 +245,8 @@ export default function EventScreener({
       return true;
     });
 
-    return [...filtered].sort((a, b) => {
-      if (sortCol === 'time') {
-        return sortDir * (new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-      }
-      if (sortCol === 'type') {
-        return sortDir * a.type.localeCompare(b.type);
-      }
-      if (sortCol === 'author') {
-        return sortDir * a.author.localeCompare(b.author);
-      }
-      return sortDir * ((a.gi ?? -1) - (b.gi ?? -1));
-    });
-  }, [authorFilter, list, searchQuery, sortBy, sortCol, sortDir, typeFilter]);
+    return filtered;
+  }, [authorFilter, list, searchQuery, sortBy, sortDir, typeFilter]);
 
   useEffect(() => {
     onResultCountChange?.(filteredAndSorted.length);
@@ -217,20 +261,6 @@ export default function EventScreener({
 
   const merges = list.filter((item) => item.type === 'merge').length;
   const heartbeats = list.filter((item) => item.type === 'heartbeat').length;
-
-  const handleSort = (col: SortColumn) => {
-    if (sortCol === col) {
-      setSortDir((prev) => (prev === 1 ? -1 : 1));
-      return;
-    }
-    setSortCol(col);
-    setSortDir(col === 'time' ? -1 : 1);
-  };
-
-  const sortIndicator = (col: SortColumn) => {
-    if (sortCol !== col) return '↕';
-    return sortDir === 1 ? '↑' : '↓';
-  };
 
   if (items == null) {
     return (
@@ -317,13 +347,6 @@ export default function EventScreener({
       </div>
 
       <div className="rounded-md border border-slate-800">
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 bg-slate-950/70 px-2 py-2 text-[10px] font-mono text-slate-500">
-          <span className="uppercase">Sort:</span>
-          <SortButton label="Time" onClick={() => handleSort('time')} indicator={sortIndicator('time')} active={sortCol === 'time'} />
-          <SortButton label="Type" onClick={() => handleSort('type')} indicator={sortIndicator('type')} active={sortCol === 'type'} />
-          <SortButton label="Author" onClick={() => handleSort('author')} indicator={sortIndicator('author')} active={sortCol === 'author'} />
-          <SortButton label="GI" onClick={() => handleSort('gi')} indicator={sortIndicator('gi')} active={sortCol === 'gi'} />
-        </div>
         <div className="divide-y divide-slate-800">
           {pagedRows.map((item) => {
             const isOpen = openId === item.id;
@@ -467,21 +490,6 @@ function StatCard({ label, value }: { label: string; value: string }) {
       <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500">{label}</div>
       <div className="text-lg font-mono font-bold text-slate-100">{value}</div>
     </div>
-  );
-}
-
-function SortButton({ label, onClick, indicator, active }: { label: string; onClick: () => void; indicator: string; active: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'inline-flex items-center gap-1 rounded border px-2 py-1 uppercase transition hover:text-slate-300',
-        active ? 'border-sky-500/30 bg-sky-500/10 text-sky-300' : 'border-slate-700 text-slate-500',
-      )}
-    >
-      {label}
-      <span>{indicator}</span>
-    </button>
   );
 }
 
