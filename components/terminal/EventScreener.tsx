@@ -373,7 +373,8 @@ export default function EventScreener({
                   </span>
                 </button>
 
-                {isOpen ? (
+                <AnimatePresence initial={false}>
+                  {isOpen ? (
                     <div className="overflow-hidden">
                       <div className="border-t border-slate-800 px-2 py-2">
                         <div className="grid gap-2 text-xs md:grid-cols-2">
@@ -450,6 +451,7 @@ export default function EventScreener({
                       </div>
                     </div>
                   ) : null}
+                </AnimatePresence>
               </div>
             );
           })}
