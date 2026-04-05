@@ -8,6 +8,8 @@ import { Redis } from '@upstash/redis';
 import type { EveNewsItem, EveSynthesis, NewsCategory, Severity } from '@/lib/eve/global-news';
 import { fetchEveGlobalNews } from '@/lib/eve/global-news';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import type { SonarSignal } from '@/lib/signals/perplexity-sonar';
+import { querySonarForLane } from '@/lib/signals/perplexity-sonar';
 import { getEchoAlerts, getEchoEpicon } from '@/lib/echo/store';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
@@ -44,6 +46,7 @@ export type EveGovernanceSynthesisInput = {
   narrativeClusterCount: number;
   externalDegraded: boolean;
   externalEnrichment: string | null;
+  sonarCivic: SonarSignal | null;
 };
 
 export type EveGovernanceCategory = 'governance' | 'ethics' | 'civic-risk';
@@ -198,6 +201,15 @@ async function tryExternalEnrichment(): Promise<{ line: string | null; degraded:
   }
 }
 
+function formatSonarExternalContext(sonar: SonarSignal | null): string | null {
+  if (!sonar || !sonar.answer.trim()) return null;
+  const sourceLine =
+    sonar.sources.length > 0
+      ? `Sources: ${sonar.sources.slice(0, 5).map((s) => s.url).join(', ')}`
+      : 'Sources: none returned';
+  return `external_context: ${sonar.answer.trim()}\n${sourceLine}`;
+}
+
 function parseLedgerTimestampMs(row: EpiconLedgerFeedEntry): number {
   const t = Date.parse(row.timestamp);
   return Number.isNaN(t) ? 0 : t;
@@ -264,6 +276,13 @@ export async function gatherEveGovernanceSynthesisInput(
   const narrativeClusterCount = echoEpicon.length;
 
   const ext = await tryExternalEnrichment();
+  const sonarCivic = await querySonarForLane(
+    'EVE',
+    'Civic risk, democratic accountability, and institutional governance news today. Focus on verified events.',
+    'day',
+    resolvedCycle,
+  );
+  const sonarContext = formatSonarExternalContext(sonarCivic);
 
   return {
     cycleId: resolvedCycle,
@@ -278,7 +297,8 @@ export async function gatherEveGovernanceSynthesisInput(
     treasuryAlertCount,
     narrativeClusterCount,
     externalDegraded: ext.degraded,
-    externalEnrichment: ext.line,
+    externalEnrichment: [ext.line, sonarContext].filter((line): line is string => typeof line === 'string').join('\n\n') || null,
+    sonarCivic,
   };
 }
 
@@ -356,6 +376,9 @@ export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisI
   }
   if (input.tripwire.level !== 'none') {
     derivedFrom.push(`tripwire:${input.tripwire.level}`);
+  }
+  for (const source of input.sonarCivic?.sources ?? []) {
+    derivedFrom.push(source.url);
   }
 
   const governanceSummary =
@@ -679,7 +702,7 @@ export async function publishEveGovernanceSynthesis(
     severity: ledgerSeverity,
     gi: input.gi,
     tags,
-    source: EVE_SYNTHESIS_SOURCE,
+    source: input.sonarCivic ? 'eve-synthesis+sonar' : EVE_SYNTHESIS_SOURCE,
     verified: true,
     verifiedBy: 'ZEUS',
     cycle: input.cycleId,

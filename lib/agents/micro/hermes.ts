@@ -1,8 +1,7 @@
 // ============================================================================
 // HERMES-µ — News/Information Velocity Micro Sub-Agent
 //
-// Polls Hacker News API and Wikipedia recent changes.
-// Both free, no API key required.
+// Polls Hacker News API, Wikipedia recent changes, and optional Perplexity Sonar.
 // CC0 Public Domain
 // ============================================================================
 
@@ -15,12 +14,13 @@ import {
   normalizeInverse,
   safeFetch,
 } from './core';
+import { querySonarForLane } from '@/lib/signals/perplexity-sonar';
 
 export const HERMES_CONFIG: MicroAgentConfig = {
   name: 'HERMES-µ',
   description: 'Information velocity — tech news flow, encyclopedic edit rate',
   pollIntervalMs: 5 * 60 * 1000,
-  sources: ['Hacker News', 'Wikipedia Recent Changes'],
+  sources: ['Hacker News', 'Wikipedia Recent Changes', 'Perplexity Sonar'],
 };
 
 // ── Hacker News: top story velocity ───────────────────────────────────────
@@ -119,6 +119,31 @@ async function pollWikipedia(): Promise<MicroSignal | null> {
   };
 }
 
+
+async function pollSonar(): Promise<MicroSignal | null> {
+  const result = await querySonarForLane(
+    'HERMES',
+    'Major technology, governance, and civic events globally in the last 24 hours. List top 5 developments.',
+    'day',
+  );
+
+  if (!result) return null;
+
+  return {
+    agentName: 'HERMES-µ',
+    source: 'Perplexity Sonar',
+    timestamp: result.timestamp,
+    value: 0.8,
+    label: `Sonar: ${result.sources.length} cited sources · ${result.answer.slice(0, 80)}...`,
+    severity: 'nominal',
+    raw: {
+      answer: result.answer,
+      sourceCount: result.sources.length,
+      topSource: result.sources[0]?.title ?? null,
+    },
+  };
+}
+
 // ── Poll all HERMES-µ sources ─────────────────────────────────────────────
 export async function pollHermes(): Promise<AgentPollResult> {
   const errors: string[] = [];
@@ -131,6 +156,10 @@ export async function pollHermes(): Promise<AgentPollResult> {
   const wiki = await pollWikipedia();
   if (wiki) signals.push(wiki);
   else errors.push('Wikipedia API fetch failed');
+
+  const sonar = await pollSonar();
+  if (sonar) signals.push(sonar);
+  else errors.push('Perplexity Sonar unavailable or not configured');
 
   return {
     agentName: 'HERMES-µ',
