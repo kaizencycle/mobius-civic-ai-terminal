@@ -140,31 +140,6 @@ function sourceLabel(source: string): string {
   return source.length > 10 ? source.slice(0, 10) : source;
 }
 
-function initialsForAgent(author: string): string {
-  if (!author) return '??';
-  const normalized = author.replace(/[_-]+/g, ' ').trim();
-  const words = normalized.split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '??';
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return `${words[0][0] ?? ''}${words[1][0] ?? ''}`.toUpperCase();
-}
-
-function formatTimestampIso(timestamp: string): string {
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toISOString();
-}
-
-function severityStyle(severity: string): string {
-  return SEVERITY_STYLES[severity?.toLowerCase()] ?? 'border-slate-700 bg-slate-900 text-slate-300';
-}
-
-function giFillTone(gi: number): string {
-  if (gi >= 0.85) return 'bg-emerald-400';
-  if (gi >= 0.7) return 'bg-amber-400';
-  return 'bg-red-400';
-}
-
 export default function EventScreener({
   items,
   summary,
