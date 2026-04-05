@@ -173,6 +173,7 @@ export interface AgentJournalEntry {
   severity: AgentJournalSeverity;
   source: 'agent-journal';
   agentOrigin: string;
+  tags?: string[];
 }
 
 export type MFSShard = {
