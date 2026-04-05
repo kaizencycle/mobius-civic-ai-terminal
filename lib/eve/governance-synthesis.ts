@@ -520,6 +520,7 @@ export async function publishEveGovernanceSynthesis(
     body: output.body,
     type: 'epicon',
     severity: ledgerSeverity,
+    gi: input.gi,
     tags,
     source: EVE_SYNTHESIS_SOURCE,
     verified: true,
