@@ -469,8 +469,6 @@ function TerminalPage() {
                   <span className="hidden rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-400 xl:inline">
                     {clock}
                   </span>
-                  <span className="hidden text-slate-500 xl:inline">◔</span>
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800">☺</span>
                 </div>
               </div>
 
