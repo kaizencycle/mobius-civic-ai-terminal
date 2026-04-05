@@ -128,7 +128,7 @@ export default function EventScreener({
   const [sortCol, setSortCol] = useState<SortColumn>('time');
   const [sortDir, setSortDir] = useState<1 | -1>(-1);
   const [page, setPage] = useState(0);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
 
   const searchQuery = externalSearchQuery ?? localSearchQuery;
