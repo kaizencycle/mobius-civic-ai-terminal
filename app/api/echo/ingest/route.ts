@@ -16,6 +16,7 @@ import { fetchAllSources } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
 import { pushIngestResult, getEchoStatus, getEchoEpicon, getEchoLedger, getEchoAlerts } from '@/lib/echo/store';
 import { writeSnapshot } from '@/lib/echo/snapshot-writer';
+import { saveEchoState } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,19 @@ export async function POST() {
 
     // 3. Push to store
     pushIngestResult(result);
+    const status = getEchoStatus();
+    const dedupDenominator = Math.max(1, status.totalIngested + status.duplicateSuppressedCount);
+    const dedupRate = Number((status.duplicateSuppressedCount / dedupDenominator).toFixed(3));
+    await saveEchoState({
+      lastIngest: status.lastIngest,
+      cycleId: status.cycleId,
+      totalIngested: status.totalIngested,
+      epiconCount: status.counts.epicon,
+      ledgerCount: status.counts.ledger,
+      alertCount: status.counts.alerts,
+      timestamp: new Date().toISOString(),
+      dedupRate,
+    }).catch(() => {});
 
     // 4. Generate docs/echo/ snapshot (fire-and-forget, non-blocking)
     let snapshotWritten = false;

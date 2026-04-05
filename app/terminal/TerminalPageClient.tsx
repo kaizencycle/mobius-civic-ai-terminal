@@ -2,7 +2,6 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import HardHalt from '@/components/modals/HardHalt';
-import TerminalShellFallback from '@/components/terminal/TerminalShellFallback';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { useTerminalData } from '@/hooks/useTerminalData';
 import { checkCovenantCompliance } from '@/lib/integrity-check';
@@ -130,10 +129,15 @@ function TerminalPage() {
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
   const [resultCount, setResultCount] = useState(0);
   const [runtimeBadge, setRuntimeBadge] = useState<'online' | 'degraded' | 'offline'>('offline');
+  const [hydrated, setHydrated] = useState(false);
   const agentSearchRef = useRef<HTMLInputElement>(null);
 
   const { allTripwires, filteredEpicon, gi, integrityStatus, mergedLedger } = useTerminalData(selectedNav);
   const cycleId = integrityStatus?.cycle ?? 'C-271';
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -232,7 +236,7 @@ function TerminalPage() {
             { key: 'civic', label: 'CIVIC', agent: 'EVE', sourceLabel: 'Federal Register + Sonar civic' },
             { key: 'environ', label: 'ENVIRON', agent: 'GAIA', sourceLabel: 'USGS + Open-Meteo + EONET' },
             { key: 'financial', label: 'FINANCIAL', agent: 'ECHO', sourceLabel: 'crypto prices composite' },
-            { key: 'narrative', label: 'NARRATIVE', agent: 'HERMES', sourceLabel: 'HN + Wikipedia + Sonar + GDELT' },
+            { key: 'narrative', label: 'NARRATIVE', agent: 'HERMES', sourceLabel: 'HN + Wikipedia + GDELT (Sonar lane conditional)' },
             { key: 'infrastructure', label: 'INFRASTR', agent: 'DAEDALUS', sourceLabel: 'GitHub + npm + self-ping' },
             { key: 'institutional', label: 'INSTITUTIONAL', agent: 'JADE', sourceLabel: 'data.gov + FRED (future)' },
           ];
@@ -543,7 +547,20 @@ function TerminalPage() {
     setExpandedLedgerId((prev) => (prev === id ? null : id));
   }, []);
 
-  if (!gi) return <TerminalShellFallback statusLabel="Booting Mobius Terminal · syncing integrity surfaces" />;
+  if (!hydrated || !gi) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-200">
+        <header className="border-b border-slate-800 bg-slate-950/95 px-4 py-3">
+          <div className="mx-auto flex w-full max-w-[1800px] items-center justify-between">
+            <div className="text-xs font-mono uppercase tracking-[0.14em] text-slate-400">Mobius Terminal</div>
+            <div className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-slate-300">
+              GI …
+            </div>
+          </div>
+        </header>
+      </div>
+    );
+  }
 
   const renderCenterContent = () => {
     if (selectedNav === 'agents') {
@@ -659,8 +676,6 @@ function TerminalPage() {
               key={agent}
               onClick={() => {
                 setAgentFilter(agent);
-                setSortBy('time');
-                setSortDir('desc');
               }}
               className={cn('rounded-md border px-2 py-1 text-[10px] font-mono uppercase tracking-[0.14em]', getAgentTabClass(agent, agentFilter === agent))}
             >

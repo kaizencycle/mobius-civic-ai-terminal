@@ -38,6 +38,7 @@ type AgentJournalCreateInput = Omit<AgentJournalEntry, 'id' | 'timestamp' | 'sta
 const KEY_ALL = 'journal:all';
 const MAX_LIST_ENTRIES = 200;
 const MAX_READ = 100;
+const GENESIS_AGENTS = ['ATLAS', 'ZEUS', 'EVE', 'HERMES', 'AUREA', 'JADE', 'DAEDALUS', 'ECHO'] as const;
 
 function randomToken(length: number): string {
   const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
@@ -177,15 +178,50 @@ async function loadEntries(redis: Redis | null): Promise<AgentJournalEntry[]> {
   }
 }
 
+async function seedGenesisEntries(redis: Redis, cycle: string): Promise<void> {
+  const timestamp = new Date().toISOString();
+  for (const agent of GENESIS_AGENTS) {
+    const entry: AgentJournalEntry = {
+      id: `journal-${agent}-${cycle}-genesis`,
+      agent,
+      cycle,
+      timestamp,
+      scope: 'agent-journal',
+      observation: `${agent} genesis observation initialized for ${cycle}.`,
+      inference: `${agent} baseline reasoning lane is active and ready for live cycle commits.`,
+      recommendation: `Continue cycle ${cycle} and replace genesis scaffolding with live entries.`,
+      confidence: 0.72,
+      derivedFrom: [],
+      status: 'committed',
+      category: 'observation',
+      severity: 'nominal',
+      source: 'agent-journal',
+      agentOrigin: agent,
+      tags: ['genesis', cycle.toLowerCase()],
+    };
+
+    const packed = JSON.stringify(entry);
+    await redis.lpush(KEY_ALL, packed);
+    await redis.ltrim(KEY_ALL, 0, MAX_LIST_ENTRIES - 1);
+    await redis.lpush(`journal:${agent.toLowerCase()}`, packed);
+    await redis.ltrim(`journal:${agent.toLowerCase()}`, 0, MAX_LIST_ENTRIES - 1);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const redis = getRedisClient();
-  const entries = await loadEntries(redis);
+  let entries = await loadEntries(redis);
 
   const { searchParams } = request.nextUrl;
   const agentFilter = asString(searchParams.get('agent')).toUpperCase();
   const cycleFilter = asString(searchParams.get('cycle'));
   const limitRaw = Number(searchParams.get('limit') ?? '20');
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 100) : 20;
+
+  if (entries.length === 0 && redis) {
+    await seedGenesisEntries(redis, cycleFilter || 'C-272');
+    entries = await loadEntries(redis);
+  }
 
   const filtered = entries
     .filter((entry) => (agentFilter ? entry.agent.toUpperCase() === agentFilter : true))

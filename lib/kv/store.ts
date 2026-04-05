@@ -227,6 +227,7 @@ export type EchoKVState = {
   epiconCount: number;
   ledgerCount: number;
   alertCount: number;
+  dedupRate?: number;
   timestamp: string;
 };
 
