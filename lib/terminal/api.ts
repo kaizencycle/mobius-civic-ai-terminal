@@ -106,7 +106,9 @@ function epiconFeedRowToLedger(raw: Record<string, unknown>): LedgerEntry | null
     cat === 'market' ||
     cat === 'governance' ||
     cat === 'infrastructure' ||
-    cat === 'narrative'
+    cat === 'narrative' ||
+    cat === 'ethics' ||
+    cat === 'civic-risk'
       ? cat
       : undefined;
 

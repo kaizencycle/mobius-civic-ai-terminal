@@ -21,7 +21,14 @@ export type EpiconStatus = 'verified' | 'pending' | 'contradicted';
 export type EpiconItem = {
   id: string;
   title: string;
-  category: 'geopolitical' | 'market' | 'governance' | 'infrastructure' | 'narrative';
+  category:
+    | 'geopolitical'
+    | 'market'
+    | 'governance'
+    | 'infrastructure'
+    | 'narrative'
+    | 'ethics'
+    | 'civic-risk';
   status: EpiconStatus;
   confidenceTier: 0 | 1 | 2 | 3 | 4;
   ownerAgent: string;
@@ -130,7 +137,14 @@ export type LedgerEntry = {
   summary: string;
   integrityDelta: number;
   status: 'committed' | 'pending' | 'reverted';
-  category?: 'geopolitical' | 'market' | 'governance' | 'infrastructure' | 'narrative';
+  category?:
+    | 'geopolitical'
+    | 'market'
+    | 'governance'
+    | 'infrastructure'
+    | 'narrative'
+    | 'ethics'
+    | 'civic-risk';
   confidenceTier?: number;
   tags?: string[];
   source?: 'mock' | 'echo' | 'backfill' | 'eve-synthesis' | 'agent_commit';

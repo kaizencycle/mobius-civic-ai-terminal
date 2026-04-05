@@ -3,7 +3,14 @@ export type LedgerBackfillEntry = {
   cycle: string;
   timestamp: string;
   agent: 'ECHO' | 'ZEUS' | 'HERMES' | 'ATLAS' | 'AUREA';
-  category: 'geopolitical' | 'market' | 'governance' | 'infrastructure' | 'narrative';
+  category:
+    | 'geopolitical'
+    | 'market'
+    | 'governance'
+    | 'infrastructure'
+    | 'narrative'
+    | 'ethics'
+    | 'civic-risk';
   title: string;
   status: 'pending' | 'developing' | 'verified' | 'contradicted';
   confidence_tier: number;
