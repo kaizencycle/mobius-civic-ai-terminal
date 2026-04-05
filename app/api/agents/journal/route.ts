@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type AgentJournalStatus = 'draft' | 'committed' | 'contested' | 'verified';
 type AgentJournalCategory = 'observation' | 'inference' | 'alert' | 'recommendation' | 'close';
@@ -193,13 +194,20 @@ export async function GET(request: NextRequest) {
 
   const agents = Array.from(new Set(filtered.map((entry) => entry.agent)));
 
-  return NextResponse.json({
-    ok: true,
-    count: filtered.length,
-    entries: filtered,
-    agents,
-    timestamp: new Date().toISOString(),
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      count: filtered.length,
+      entries: filtered,
+      agents,
+      timestamp: new Date().toISOString(),
+    },
+    {
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    },
+  );
 }
 
 export async function POST(request: NextRequest) {

@@ -36,17 +36,17 @@ const AGENT_BASE = [
 
 let staleSnapshot: { cycle: string; timestamp: string } | null = null;
 
-function toAgentStatus(status: 'alive' | 'unknown') {
+function toAgentStatus(status: 'active' | 'unknown') {
   return AGENT_BASE.map((agent) => ({
     ...agent,
     status,
     detail:
-      status === 'alive'
+      status === 'active'
         ? 'Live heartbeat observed from KV.'
         : 'Heartbeat is stale; agent state is currently unknown.',
-    heartbeat_ok: status === 'alive',
+    heartbeat_ok: status === 'active',
     last_action:
-      status === 'alive'
+      status === 'active'
         ? 'Live heartbeat received'
         : 'Awaiting fresh runtime heartbeat',
   }));
@@ -80,15 +80,17 @@ export async function GET() {
       return NextResponse.json({
         ok: true,
         ...liveEnvelope(timestamp),
+        source: 'kv-heartbeat',
         cycle,
         timestamp,
-        agents: toAgentStatus('alive'),
+        agents: toAgentStatus('active'),
       });
     }
 
     return NextResponse.json({
       ok: true,
       ...staleCacheEnvelope(timestamp, 'Heartbeat stale'),
+      source: 'stale-cache',
       cycle,
       timestamp,
       agents: toAgentStatus('unknown'),
@@ -101,6 +103,7 @@ export async function GET() {
       return NextResponse.json({
         ok: true,
         ...staleCacheEnvelope(staleSnapshot.timestamp, 'Heartbeat stale'),
+        source: 'stale-cache',
         cycle: staleSnapshot.cycle,
         timestamp: staleSnapshot.timestamp,
         agents: toAgentStatus('unknown'),
