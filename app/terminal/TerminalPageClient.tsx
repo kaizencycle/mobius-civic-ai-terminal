@@ -3,8 +3,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import HardHalt from '@/components/modals/HardHalt';
 import { WalletProvider } from '@/contexts/WalletContext';
-import { useTerminalData } from '@/hooks/useTerminalData';
-import { checkCovenantCompliance } from '@/lib/integrity-check';
+import { useTerminalData, type TerminalBootstrapSeed } from '@/hooks/useTerminalData';
+import { evaluateCircuitBreaker } from '@/lib/integrity-check';
 import { cn } from '@/lib/utils';
 import type { LedgerEntry, NavKey } from '@/lib/terminal/types';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
@@ -91,15 +91,19 @@ const TABS: Array<{ key: NavKey; label: string }> = [
 
 const TERMINAL_PREFS_KEY = 'mobius-terminal-prefs-v1';
 
-export default function TerminalPageWrapper() {
+type TerminalPageWrapperProps = {
+  bootstrap?: TerminalBootstrapSeed;
+};
+
+export default function TerminalPageWrapper({ bootstrap }: TerminalPageWrapperProps) {
   return (
     <WalletProvider>
-      <TerminalPage />
+      <TerminalPage bootstrap={bootstrap} />
     </WalletProvider>
   );
 }
 
-function TerminalPage() {
+function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   type SortField = 'time' | 'agent' | 'type' | 'severity' | 'gi' | 'status' | 'source';
   type SortDirection = 'asc' | 'desc';
 
@@ -132,7 +136,15 @@ function TerminalPage() {
   const [hydrated, setHydrated] = useState(false);
   const agentSearchRef = useRef<HTMLInputElement>(null);
 
-  const { allTripwires, filteredEpicon, gi, integrityStatus, mergedLedger } = useTerminalData(selectedNav);
+  const {
+    allTripwires,
+    dominantTripwireState,
+    filteredEpicon,
+    gi,
+    integrityStatus,
+    mergedLedger,
+    semanticDriftDetected,
+  } = useTerminalData(selectedNav, bootstrap);
   const cycleId = integrityStatus?.cycle ?? 'C-271';
 
   useEffect(() => {
@@ -377,7 +389,11 @@ function TerminalPage() {
     };
   }, []);
 
-  const covenantStatus = checkCovenantCompliance(gi?.score ?? 0);
+  const breaker = evaluateCircuitBreaker({
+    giScore: gi?.score ?? 0,
+    tripwireState: dominantTripwireState,
+    semanticDriftDetected,
+  });
   const giScore = gi?.score ?? 0;
   const giDelta = gi?.delta ?? 0;
 
@@ -717,7 +733,7 @@ function TerminalPage() {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100">
-      <HardHalt isOpen={covenantStatus.status === 'HALT'} giScore={gi.score} reason="Semantic drift detected in active civic signal lanes." />
+      <HardHalt isOpen={breaker.stage === 'halt'} giScore={gi.score} reason={breaker.message} />
 
       <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
         <div className="mx-auto max-w-[1800px] px-4 py-3">
@@ -745,6 +761,18 @@ function TerminalPage() {
                   <span className="flex items-center gap-2 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-300">
                     <span className={cn('h-2 w-2 rounded-full', runtimeBadge === 'online' ? 'bg-emerald-500' : 'bg-amber-500')} />
                     {runtimeBadge.toUpperCase()}
+                  </span>
+                  <span className={cn(
+                    'rounded-md border px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em]',
+                    breaker.stage === 'nominal'
+                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                      : breaker.stage === 'guarded'
+                        ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+                        : breaker.stage === 'containment'
+                          ? 'border-orange-500/40 bg-orange-500/10 text-orange-200'
+                          : 'border-rose-500/40 bg-rose-500/10 text-rose-200',
+                  )}>
+                    {breaker.stage.toUpperCase()}
                   </span>
                   <span className="hidden rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-400 xl:inline">
                     {clock}

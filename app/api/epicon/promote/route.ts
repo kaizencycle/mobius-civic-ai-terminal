@@ -307,21 +307,11 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
   return { pending, promoted, committed, failed, trace: postRun.trace };
 }
 
-export async function GET(request: NextRequest) {
-  const runCycle = request.nextUrl.searchParams.get('trigger') === '1';
-  const maxItems = Number.parseInt(request.nextUrl.searchParams.get('maxItems') ?? '5', 10);
-  const boundedMaxItems = Number.isFinite(maxItems) ? Math.min(Math.max(maxItems, 1), 10) : 5;
+export async function GET() {
   const nowIso = new Date().toISOString();
   const cycleId = currentCycleId();
   const state = await getPromotionState();
-  let lastRunAt: string | null = null;
-  let promotedIdsThisCycle: string[] = [];
-  if (runCycle) {
-    const run = await runPromotionCycle(boundedMaxItems, nowIso, cycleId, state);
-    lastRunAt = nowIso;
-    promotedIdsThisCycle = run.trace.promoted_ids_this_cycle;
-  }
-  const promotable = await getPromotablePending(state, nowIso, promotedIdsThisCycle);
+  const promotable = await getPromotablePending(state, nowIso);
   const pending = promotable.pending;
 
   let promotedThisCycle = 0;
@@ -359,7 +349,7 @@ export async function GET(request: NextRequest) {
     },
     diagnostics: {
       ...promotable.trace,
-      last_promotion_run_at: lastRunAt,
+      last_promotion_run_at: promotable.trace.last_promotion_run_at,
     },
     items: pending.map((item) => {
       const entry = state[item.id] ?? defaultPromotionState(nowIso);

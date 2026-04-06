@@ -38,6 +38,12 @@ async function fetchInternalJson(path: string): Promise<any | null> {
   }
 }
 
+async function fetchWithNormalizedFallback(internalPath: string, externalPath?: string): Promise<any | null> {
+  const internal = await fetchInternalJson(internalPath);
+  if (internal) return internal;
+  return fetchJson(externalPath ?? internalPath);
+}
+
 export function integrityStatusToGISnapshot(
   status: IntegrityStatusResponse,
   previousScore?: number,
@@ -170,11 +176,27 @@ function backfillEntryToLedger(entry: LedgerBackfillEntry): LedgerEntry {
 }
 
 export async function getAgents(): Promise<Agent[]> {
-  const raw = await fetchJson('/agents/status');
-  if (!raw) return mockAgents;
-  const agents = raw.agents;
+  const raw = await fetchWithNormalizedFallback('/api/agents/status', '/agents/status');
+  if (!raw || typeof raw !== 'object') return mockAgents;
+  const agents = (raw as { agents?: unknown }).agents;
   if (!Array.isArray(agents)) return mockAgents;
-  return agents.map(transformAgent);
+  return agents.map((agent) => {
+    if (!agent || typeof agent !== 'object') return null;
+    const transformed = transformAgent(agent);
+    const status = (agent as { status?: unknown }).status;
+    const normalizedStatus =
+      transformed.status === 'idle' ||
+      transformed.status === 'listening' ||
+      transformed.status === 'verifying' ||
+      transformed.status === 'routing' ||
+      transformed.status === 'analyzing' ||
+      transformed.status === 'alert'
+        ? transformed.status
+        : status === 'active'
+          ? 'listening'
+          : 'idle';
+    return { ...transformed, status: normalizedStatus };
+  }).filter((agent): agent is Agent => agent !== null);
 }
 
 export type EpiconFeedBundle = {
@@ -183,9 +205,7 @@ export type EpiconFeedBundle = {
 };
 
 export async function getEpiconFeed(): Promise<EpiconFeedBundle> {
-  const raw = API_BASE
-    ? await fetchJson('/epicon/feed')
-    : await fetchInternalJson('/api/epicon/feed');
+  const raw = await fetchWithNormalizedFallback('/api/epicon/feed', '/epicon/feed');
   if (!raw || typeof raw !== 'object') {
     return { epicon: mockEpicon, ledgerRows: [] };
   }
@@ -207,7 +227,7 @@ export async function getEpiconFeed(): Promise<EpiconFeedBundle> {
 }
 
 export async function getIntegrityStatus(): Promise<IntegrityStatusResponse> {
-  const raw = await fetchInternalJson('/api/integrity-status');
+  const raw = await fetchWithNormalizedFallback('/api/integrity-status');
   if (!raw || typeof raw !== 'object' || !(raw as Record<string, unknown>).ok) return integrityStatus;
   return raw as IntegrityStatusResponse;
 }
@@ -218,11 +238,38 @@ export async function getGISnapshot(): Promise<GISnapshot> {
 }
 
 export async function getTripwires(): Promise<Tripwire[]> {
-  const raw = await fetchJson('/tripwires/active');
-  if (!raw) return mockTripwires;
-  const tripwires = raw.tripwires;
-  if (!Array.isArray(tripwires)) return mockTripwires;
-  return tripwires.map(transformTripwire);
+  const raw = await fetchWithNormalizedFallback('/api/tripwire/status', '/tripwires/active');
+  if (!raw || typeof raw !== 'object') return mockTripwires;
+
+  const tripwireStatus = (raw as { tripwire?: unknown }).tripwire;
+  if (tripwireStatus && typeof tripwireStatus === 'object') {
+    const tripwire = tripwireStatus as Record<string, unknown>;
+    const active = Boolean(tripwire.active);
+    if (!active) return [];
+
+    const severity = tripwire.level === 'high' || tripwire.level === 'medium' || tripwire.level === 'low'
+      ? tripwire.level
+      : 'medium';
+
+    return [{
+      id: 'runtime-tripwire',
+      label: typeof tripwire.reason === 'string' && tripwire.reason ? tripwire.reason : 'Runtime tripwire active',
+      severity,
+      owner:
+        typeof tripwire.triggeredBy === 'string' && tripwire.triggeredBy.trim()
+          ? tripwire.triggeredBy
+          : 'operator',
+      openedAt:
+        typeof tripwire.last_updated === 'string' && tripwire.last_updated
+          ? tripwire.last_updated
+          : new Date().toISOString(),
+      action: 'Investigate and keep write lanes constrained until resolved.',
+    }];
+  }
+
+  const externalTripwires = (raw as { tripwires?: unknown }).tripwires;
+  if (Array.isArray(externalTripwires)) return externalTripwires.map(transformTripwire);
+  return mockTripwires;
 }
 
 export async function getLedgerBackfill(): Promise<LedgerEntry[]> {
@@ -288,7 +335,7 @@ export async function getEchoFeed(): Promise<EchoFeedData | null> {
 }
 
 export async function getPromotionStatus(): Promise<PromotionStatus | null> {
-  const raw = await fetchInternalJson('/api/epicon/promote?trigger=1');
+  const raw = await fetchInternalJson('/api/epicon/promotion-status');
   if (!raw || typeof raw !== 'object') return null;
   const counters = (raw as { counters?: unknown }).counters;
   if (!counters || typeof counters !== 'object') return null;
