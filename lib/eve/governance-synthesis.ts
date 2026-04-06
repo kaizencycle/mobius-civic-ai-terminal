@@ -12,6 +12,7 @@ import type { SonarSignal } from '@/lib/signals/perplexity-sonar';
 import { querySonarForLane } from '@/lib/signals/perplexity-sonar';
 import { getEchoAlerts, getEchoEpicon } from '@/lib/echo/store';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
+import { EVE_LEDGER_SYNTHESIS_SOURCE, isEveSynthesisLedgerSource } from '@/lib/epicon/eveLedgerSource';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import { getLiveIntegritySnapshot } from '@/lib/integrity/buildStatus';
@@ -22,7 +23,7 @@ import { getTreasuryAlerts } from '@/lib/treasury/alerts';
 import { getTripwireState } from '@/lib/tripwire/store';
 
 export const EVE_GOVERNANCE_SYNTH_TAG = 'eve-governance-synthesis';
-export const EVE_SYNTHESIS_SOURCE = 'eve-synthesis' as const;
+export const EVE_SYNTHESIS_SOURCE = EVE_LEDGER_SYNTHESIS_SOURCE;
 const EVE_SYNTHESIS_KV_KEY = 'epicon:eve-synthesis';
 
 /** Align with EVE automation cadence (every 4h). */
@@ -63,6 +64,76 @@ export type EveGovernanceSynthesisOutput = {
   civicRiskLevel: 'low' | 'medium' | 'high';
   derivedFrom: string[];
 };
+
+/** Serializable substrate snapshot for `/api/eve/synthesis-input` (no model blobs). */
+export type EveSynthesisInputPublic = {
+  cycleId: string;
+  gatheredAt: string;
+  committedAgentMemory: Array<{
+    id: string;
+    timestamp: string;
+    title: string;
+    cycle?: string;
+    author?: string;
+    agentOrigin?: string;
+  }>;
+  tripwire: {
+    active: boolean;
+    level: string;
+    reason: string;
+    last_updated: string;
+  };
+  civicRadarAlerts: Array<Pick<CivicRadarAlert, 'id' | 'title' | 'severity' | 'timestamp'>>;
+  integrity: { gi: number; mii: number };
+  treasury: { status: string; tripwireCount: number; alertCount: number };
+  narrativeClusterCount: number;
+  external: { degraded: boolean; enrichmentPreview: string | null; sonarPreview: string | null };
+};
+
+export function buildNormalizedEveSynthesisInputSnapshot(
+  input: EveGovernanceSynthesisInput,
+): EveSynthesisInputPublic {
+  const sonarAnswer = input.sonarCivic?.answer?.trim() ?? '';
+  const sonarPreview =
+    sonarAnswer.length > 0 ? `${sonarAnswer.slice(0, 280)}${sonarAnswer.length > 280 ? '…' : ''}` : null;
+
+  return {
+    cycleId: input.cycleId,
+    gatheredAt: input.gatheredAt,
+    committedAgentMemory: input.committedAgentRows.slice(0, 24).map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      title: row.title,
+      cycle: row.cycle,
+      author: row.author,
+      agentOrigin: row.agentOrigin,
+    })),
+    tripwire: {
+      active: input.tripwire.active,
+      level: input.tripwire.level,
+      reason: input.tripwire.reason,
+      last_updated: input.tripwire.last_updated,
+    },
+    civicRadarAlerts: input.civicAlerts.slice(0, 12).map((a) => ({
+      id: a.id,
+      title: a.title,
+      severity: a.severity,
+      timestamp: a.timestamp,
+    })),
+    integrity: { gi: input.gi, mii: input.mii },
+    treasury: {
+      status: input.treasuryStatus,
+      tripwireCount: input.treasuryTripwireCount,
+      alertCount: input.treasuryAlertCount,
+    },
+    narrativeClusterCount: input.narrativeClusterCount,
+    external: {
+      degraded: input.externalDegraded,
+      enrichmentPreview: input.externalEnrichment,
+      sonarPreview,
+    },
+  };
+}
 
 function getRedisClient(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -177,7 +248,7 @@ export function escalationIdempotencyTag(cycleId: string, fingerprint: string): 
 export function ledgerHasIdempotencyTag(rows: EpiconLedgerFeedEntry[], tag: string): boolean {
   return rows.some(
     (row) =>
-      row.source === EVE_SYNTHESIS_SOURCE &&
+      isEveSynthesisLedgerSource(row.source) &&
       row.status === 'committed' &&
       Array.isArray(row.tags) &&
       row.tags.includes(tag),
@@ -560,6 +631,7 @@ export async function processEveCycleWindowSynthesis(
       mode: 'cycle' as const,
       published: false,
       reason: 'already_synthesized_for_window',
+      windowBucket,
       idempotencyTag,
       derivedFromCount: 0,
     };
@@ -576,6 +648,7 @@ export async function processEveCycleWindowSynthesis(
     published: publishResult.published,
     entryId: publishResult.entryId,
     reason: publishResult.published ? 'cycle_window_due' : 'already_synthesized_for_window',
+    windowBucket,
     derivedFromCount: output.derivedFrom.length,
     idempotencyTag: publishResult.idempotencyTag,
     governancePosture: output.governancePosture,
@@ -681,21 +754,22 @@ export async function publishEveGovernanceSynthesis(
   const timestamp = nowIso();
   const ledgerSeverity = ledgerSeverityFromSignals(output.severity);
 
-  const tags = [
+  const sonarEnriched = Boolean(input.sonarCivic?.answer.trim());
+  const tags: string[] = [
     'eve',
     EVE_GOVERNANCE_SYNTH_TAG,
     idempotencyTag,
     output.category,
     ...output.ethicsFlags.map((f) => `ethics:${f}`),
   ];
+  if (sonarEnriched) {
+    tags.push('external-sonar-enriched', 'eve:sonar-enriched');
+  }
 
   const derivedFromIds = output.derivedFrom.slice(0, 32);
   const derivedFromCompact = derivedFromIds.join('|').slice(0, 512);
 
-  const tagsWithEnrichment =
-    input.sonarCivic && input.sonarCivic.answer.trim()
-      ? [...tags, 'eve:sonar-enriched']
-      : tags;
+  const ledgerSource = sonarEnriched ? `${EVE_LEDGER_SYNTHESIS_SOURCE}+sonar` : EVE_LEDGER_SYNTHESIS_SOURCE;
 
   const entry: EpiconLedgerFeedEntry = {
     id: entryId,
@@ -706,8 +780,8 @@ export async function publishEveGovernanceSynthesis(
     type: 'epicon',
     severity: ledgerSeverity,
     gi: input.gi,
-    tags: tagsWithEnrichment,
-    source: EVE_SYNTHESIS_SOURCE,
+    tags,
+    source: ledgerSource,
     verified: true,
     verifiedBy: 'ZEUS',
     cycle: input.cycleId,

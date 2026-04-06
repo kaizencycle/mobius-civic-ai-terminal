@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import type { LedgerEntry } from '@/lib/terminal/types';
 import type { DataSource } from '@/lib/response-envelope';
 import { cn } from '@/lib/terminal/utils';
@@ -85,7 +86,12 @@ export default function LedgerPanel({
     [sorted],
   );
   const liveCommittedEntries = useMemo(
-    () => sorted.filter((entry) => (entry.source === 'echo' || entry.source === 'eve-synthesis' || entry.source === 'agent_commit') && entry.status === 'committed'),
+    () =>
+      sorted.filter(
+        (entry) =>
+          (entry.source === 'echo' || isEveSynthesisFeedSource(entry.source) || entry.source === 'agent_commit') &&
+          entry.status === 'committed',
+      ),
     [sorted],
   );
   const backfillEntries = useMemo(
@@ -95,7 +101,7 @@ export default function LedgerPanel({
   const cycleId = liveIngestEntries[0]?.cycleId ?? liveCommittedEntries[0]?.cycleId ?? sorted[0]?.cycleId ?? 'unknown';
   const source = useMemo<DataSource>(() => {
     if (entries.some((entry) => entry.source === 'echo')) return 'live';
-    if (entries.some((entry) => entry.source === 'eve-synthesis')) return 'live';
+    if (entries.some((entry) => isEveSynthesisFeedSource(entry.source))) return 'live';
     if (entries.some((entry) => entry.source === 'backfill')) return 'stale-cache';
     return 'mock';
   }, [entries]);
@@ -192,7 +198,7 @@ export default function LedgerPanel({
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-100">
                   <span>{entry.title ?? entry.summary}</span>
-                  {entry.source === 'eve-synthesis' || entry.agentOrigin === 'EVE' ? (
+                  {isEveSynthesisFeedSource(entry.source) || entry.agentOrigin === 'EVE' ? (
                     <span className="text-[10px] font-mono text-fuchsia-300 border border-fuchsia-400/35 rounded px-1 py-0.5 ml-1">
                       EVE
                     </span>

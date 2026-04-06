@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import type { EpiconItem } from '@/lib/terminal/types';
 import { confidenceLabel, epiconStatusStyle, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
@@ -86,7 +87,7 @@ export default function EpiconFeedPanel({
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-white">
                   <span>{item.title}</span>
-                  {item.feedSource === 'eve-synthesis' || item.agentOrigin === 'EVE' ? (
+                  {isEveSynthesisFeedSource(item.feedSource) || item.agentOrigin === 'EVE' ? (
                     <span className="text-[10px] font-mono text-fuchsia-300 border border-fuchsia-400/35 rounded px-1 py-0.5 ml-1">
                       EVE
                     </span>

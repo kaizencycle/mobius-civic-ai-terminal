@@ -1,3 +1,4 @@
+import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import type { PublicEpiconRecord } from '@/lib/epicon/feedStore';
 
 function statusTone(status: PublicEpiconRecord['status']) {
@@ -27,7 +28,7 @@ export default function EpiconFeedCard({
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-white">
             <span>{item.title}</span>
-            {item.source === 'eve-synthesis' || item.submitted_by_login === 'EVE' ? (
+            {isEveSynthesisFeedSource(item.source) || item.submitted_by_login === 'EVE' ? (
               <span className="text-[10px] font-mono text-fuchsia-300 border border-fuchsia-400/35 rounded px-1 py-0.5 ml-1">
                 EVE
               </span>

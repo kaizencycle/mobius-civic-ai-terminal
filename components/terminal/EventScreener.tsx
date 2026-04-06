@@ -2,6 +2,7 @@
 
 import { AnimatePresence } from 'motion/react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import { cn } from '@/lib/utils';
 
 export interface EpiconFeedItem {
@@ -145,14 +146,17 @@ function giTone(gi: number | undefined) {
 
 function sourceLabel(source: string): string {
   if (source === 'github-commit') return 'github';
-  if (source === 'eve-synthesis') return 'eve-syn';
+  if (isEveSynthesisFeedSource(source)) return 'eve-syn';
   if (source === 'kv-ledger' || source === 'kv') return 'kv';
   return source.length > 10 ? source.slice(0, 10) : source;
 }
 
 function governanceSignals(item: EpiconFeedItem) {
   const haystack = `${item.title} ${(item.tags ?? []).join(' ')}`.toLowerCase();
-  const isEve = (item.agentOrigin ?? '').toUpperCase() === 'EVE' || (item.author ?? '').toLowerCase() === 'eve' || item.source === 'eve-synthesis';
+  const isEve =
+    (item.agentOrigin ?? '').toUpperCase() === 'EVE' ||
+    (item.author ?? '').toLowerCase() === 'eve' ||
+    isEveSynthesisFeedSource(item.source);
   const governance = haystack.includes('governance');
   const ethics = haystack.includes('ethic');
   const civicRisk = haystack.includes('civic-risk') || haystack.includes('civic_risk') || haystack.includes('civic risk');
