@@ -33,6 +33,10 @@ type AgentJournalCreateInput = Omit<AgentJournalEntry, 'id' | 'timestamp' | 'sta
   timestamp?: string;
   status?: AgentJournalStatus;
   source?: 'agent-journal';
+  type?: string;
+  gi_snapshot?: number;
+  gi_trend?: number;
+  summary?: string;
 };
 
 const KEY_ALL = 'journal:all';
@@ -117,9 +121,17 @@ function parseEntry(input: unknown): AgentJournalEntry | null {
 function buildEntry(input: AgentJournalCreateInput): AgentJournalEntry | null {
   const agent = asString(input.agent).toUpperCase();
   const cycle = asString(input.cycle);
-  const observation = asString(input.observation);
-  const inference = asString(input.inference);
-  const recommendation = asString(input.recommendation);
+  const isDailyClose = asString(input.type).toLowerCase() === 'daily_close';
+  const summary = asString(input.summary);
+  const trend = typeof input.gi_trend === 'number' ? input.gi_trend : null;
+  const giSnapshot = typeof input.gi_snapshot === 'number' ? input.gi_snapshot : null;
+  const observation = asString(input.observation) || (isDailyClose ? summary : '');
+  const inference = asString(input.inference) || (isDailyClose
+    ? `Daily close context — GI snapshot ${giSnapshot?.toFixed(2) ?? 'n/a'}, trend ${trend != null ? trend.toFixed(2) : 'n/a'}.`
+    : '');
+  const recommendation = asString(input.recommendation) || (isDailyClose
+    ? 'Validate scheduler continuity and confirm ledger integration environment variables before next cycle.'
+    : '');
 
   if (!agent || !cycle || !observation || !inference || !recommendation) {
     return null;
@@ -129,7 +141,7 @@ function buildEntry(input: AgentJournalCreateInput): AgentJournalEntry | null {
     id: `journal-${agent}-${cycle}-${randomToken(6)}`,
     agent,
     cycle,
-    timestamp: new Date().toISOString(),
+    timestamp: asString(input.timestamp) || new Date().toISOString(),
     scope: asString(input.scope) || 'agent-journal',
     observation,
     inference,
@@ -137,7 +149,9 @@ function buildEntry(input: AgentJournalCreateInput): AgentJournalEntry | null {
     confidence: typeof input.confidence === 'number' ? Math.max(0, Math.min(1, input.confidence)) : 0.5,
     derivedFrom: asStringArray(input.derivedFrom),
     status: 'committed',
-    category: (['observation', 'inference', 'alert', 'recommendation', 'close'].includes(asString(input.category))
+    category: (isDailyClose
+      ? 'close'
+      : ['observation', 'inference', 'alert', 'recommendation', 'close'].includes(asString(input.category))
       ? asString(input.category)
       : 'observation') as AgentJournalCategory,
     severity: (['nominal', 'elevated', 'critical'].includes(asString(input.severity))

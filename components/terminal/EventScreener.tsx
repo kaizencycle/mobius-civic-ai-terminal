@@ -29,6 +29,8 @@ interface EventScreenerProps {
   sortBy?: 'time' | 'agent' | 'type' | 'severity' | 'gi' | 'status' | 'source';
   sortDir?: 'asc' | 'desc';
   onResultCountChange?: (count: number) => void;
+  includeCatalog?: boolean;
+  onIncludeCatalogChange?: (next: boolean) => void;
 }
 
 const PAGE_SIZE = 12;
@@ -178,6 +180,8 @@ export default function EventScreener({
   sortBy,
   sortDir,
   onResultCountChange,
+  includeCatalog = false,
+  onIncludeCatalogChange,
 }: EventScreenerProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [authorFilter, setAuthorFilter] = useState<AuthorFilter>('all');
@@ -318,7 +322,16 @@ export default function EventScreener({
     <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-xs font-mono uppercase tracking-widest text-slate-400">Event Screener</div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-400">
+            <input
+              type="checkbox"
+              checked={includeCatalog}
+              onChange={(event) => onIncludeCatalogChange?.(event.target.checked)}
+              className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-cyan-400 focus:ring-cyan-500/30"
+            />
+            Show catalog entries
+          </label>
           <span className={cn('rounded-full px-2 py-1 text-[10px] font-mono', giBadgeTone.shell)}>
             GI {typeof gi === 'number' ? gi.toFixed(2) : '—'} · {giBadgeTone.label}
           </span>

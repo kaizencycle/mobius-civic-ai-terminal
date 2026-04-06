@@ -86,15 +86,17 @@ type RuntimeStatusResponse = {
 };
 type TerminalSnapshotResponse = {
   ok: boolean;
-  data: {
-    agents?: AgentStatusResponse;
-    micro?: MicroSweepResponse;
-    kv?: KvHealthResponse;
-    epicon?: EpiconFeedResponse;
-    journal?: AgentJournalResponse;
-    sentiment?: SentimentCompositeResponse;
-    runtime?: RuntimeStatusResponse;
-  };
+  integrity: { ok: boolean; status: number; data: unknown; error: string | null };
+  signals: { ok: boolean; status: number; data: unknown; error: string | null };
+  kvHealth: { ok: boolean; status: number; data: unknown; error: string | null };
+  agents: { ok: boolean; status: number; data: unknown; error: string | null };
+  epicon: { ok: boolean; status: number; data: unknown; error: string | null };
+  echo: { ok: boolean; status: number; data: unknown; error: string | null };
+  journal: { ok: boolean; status: number; data: unknown; error: string | null };
+  sentiment: { ok: boolean; status: number; data: unknown; error: string | null };
+  runtime: { ok: boolean; status: number; data: unknown; error: string | null };
+  promotion: { ok: boolean; status: number; data: unknown; error: string | null };
+  eve: { ok: boolean; status: number; data: unknown; error: string | null };
 };
 
 const TABS: Array<{ key: NavKey; label: string }> = [
@@ -148,6 +150,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('time');
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
+  const [includeCatalog, setIncludeCatalog] = useState(false);
   const [resultCount, setResultCount] = useState(0);
   const [runtimeBadge, setRuntimeBadge] = useState<'online' | 'degraded' | 'offline'>('offline');
   const [hydrated, setHydrated] = useState(false);
@@ -271,12 +274,12 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
 
     async function loadSnapshot() {
       try {
-        const response = await fetch(`/api/terminal/snapshot?cycle=${encodeURIComponent(cycleId)}`, { cache: 'no-store' });
+        const response = await fetch(`/api/terminal/snapshot?cycle=${encodeURIComponent(cycleId)}&include_catalog=${includeCatalog ? 'true' : 'false'}`, { cache: 'no-store' });
         const json = (await response.json()) as TerminalSnapshotResponse;
-        if (!mounted || !json?.data) return;
+        if (!mounted || !json) return;
 
-        const runtime = json.data.runtime;
-        if (!runtime?.ok) {
+        const runtime = json.runtime.data as RuntimeStatusResponse | null;
+        if (!json.runtime.ok || !runtime?.ok) {
           setRuntimeBadge('offline');
         } else if (!runtime.degraded && runtime.freshness?.status === 'fresh') {
           setRuntimeBadge('online');
@@ -284,20 +287,29 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
           setRuntimeBadge('degraded');
         }
 
-        if (json.data.agents?.ok) setAgentRoster(json.data.agents.agents ?? []);
+        const agents = json.agents.data as AgentStatusResponse | null;
+        if (json.agents.ok && agents?.ok) setAgentRoster(agents.agents ?? []);
         setRosterLoaded(true);
 
-        if (json.data.micro?.ok) {
-          const microJson = json.data.micro;
+        const microPayload = json.signals.data as MicroSweepResponse | null;
+        if (json.signals.ok && microPayload?.ok) {
+          const microJson = microPayload;
           setMicro(microJson);
           const time = new Date(microJson.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           setMicroHistory((prev) => [...prev, { time, composite: microJson.composite }].slice(-12));
         }
 
-        if (json.data.kv) setKvLatency(json.data.kv.latencyMs ?? null);
-        if (json.data.epicon?.ok) setEpiconFeed(json.data.epicon);
-        if (json.data.journal?.ok) setJournalFeed(json.data.journal.entries ?? []);
-        if (json.data.sentiment?.ok) applySentiment(json.data.sentiment);
+        const kvPayload = json.kvHealth.data as KvHealthResponse | null;
+        if (kvPayload) setKvLatency(kvPayload.latencyMs ?? null);
+
+        const epiconPayload = json.epicon.data as EpiconFeedResponse | null;
+        if (json.epicon.ok && epiconPayload?.ok) setEpiconFeed(epiconPayload);
+
+        const journalPayload = json.journal.data as AgentJournalResponse | null;
+        if (json.journal.ok && journalPayload?.ok) setJournalFeed(journalPayload.entries ?? []);
+
+        const sentimentPayload = json.sentiment.data as SentimentCompositeResponse | null;
+        if (json.sentiment.ok && sentimentPayload?.ok) applySentiment(sentimentPayload);
       } catch {
         if (mounted) setRuntimeBadge('offline');
       }
@@ -309,7 +321,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
       mounted = false;
       window.clearInterval(poll);
     };
-  }, [applySentiment, cycleId]);
+  }, [applySentiment, cycleId, includeCatalog]);
 
   const breaker = evaluateCircuitBreaker({
     giScore: gi?.score ?? 0,
@@ -567,6 +579,8 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
               sortBy={sortBy}
               sortDir={sortDir}
               onResultCountChange={setResultCount}
+              includeCatalog={includeCatalog}
+              onIncludeCatalogChange={setIncludeCatalog}
             />
           ) : (
             <JournalView entries={journalFeed} cycleId={cycleId} />
