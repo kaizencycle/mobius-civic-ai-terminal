@@ -10,3 +10,6 @@ export function isEveSynthesisLedgerSource(source: string | undefined): boolean 
   if (typeof source !== 'string' || !source) return false;
   return source === EVE_LEDGER_SYNTHESIS_SOURCE || source.startsWith('eve-synthesis+');
 }
+
+/** Alias for UI / feed consumers (same matching rules as ledger idempotency). */
+export const isEveSynthesisFeedSource = isEveSynthesisLedgerSource;
