@@ -38,6 +38,7 @@ import {
 } from '@/lib/terminal/stream';
 import type { StreamStatus } from '@/components/terminal/TopStatusBar';
 import type { MobiusCivicIntegritySignal } from '@/lib/integrity-signal';
+import type { TerminalBootstrapSnapshot } from '@/lib/terminal/bootstrap-types';
 
 const CATEGORY_MAP: Partial<Record<NavKey, EpiconItem['category']>> = {
   markets: 'market',
@@ -67,15 +68,33 @@ function resolveInitialInspectorTarget(
   return null;
 }
 
-export function useTerminalData(selectedNav: NavKey) {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [epicon, setEpicon] = useState<EpiconItem[]>([]);
-  const [gi, setGi] = useState<GISnapshot | null>(null);
-  const [tripwires, setTripwires] = useState<Tripwire[]>([]);
-  const [integrityStatus, setIntegrityStatus] = useState<IntegrityStatusResponse | null>(null);
+export type TerminalBootstrapSeed = TerminalBootstrapSnapshot;
+
+const DEFAULT_PROMOTION_COUNTERS = {
+  pending_promotable_count: 0,
+  promoted_this_cycle_count: 0,
+  committed_agent_count: 0,
+  failed_promotion_count: 0,
+  diagnostics: {
+    last_promotion_run_at: null as string | null,
+    promoter_input_count: 0,
+    promoter_eligible_count: 0,
+    promoter_excluded_reasons: {} as Record<string, number>,
+    promoted_ids_this_cycle: [] as string[],
+  },
+};
+
+export function useTerminalData(selectedNav: NavKey, initialData?: TerminalBootstrapSeed) {
+  const [agents, setAgents] = useState<Agent[]>(() => initialData?.agents ?? []);
+  const [epicon, setEpicon] = useState<EpiconItem[]>(() => initialData?.epicon ?? []);
+  const [gi, setGi] = useState<GISnapshot | null>(() =>
+    initialData?.integrityStatus ? integrityStatusToGISnapshot(initialData.integrityStatus) : null,
+  );
+  const [tripwires, setTripwires] = useState<Tripwire[]>(() => initialData?.tripwires ?? []);
+  const [integrityStatus, setIntegrityStatus] = useState<IntegrityStatusResponse | null>(() => initialData?.integrityStatus ?? null);
   const [backfillLedger, setBackfillLedger] = useState<LedgerEntry[]>([]);
   const [integritySignal, setIntegritySignal] = useState<MobiusCivicIntegritySignal | null>(null);
-  const [feedLedgerRows, setFeedLedgerRows] = useState<LedgerEntry[]>([]);
+  const [feedLedgerRows, setFeedLedgerRows] = useState<LedgerEntry[]>(() => initialData?.feedLedgerRows ?? []);
   const [inspectorTarget, setInspectorTarget] = useState<InspectorTarget | null>(null);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>(isLiveAPI ? 'reconnecting' : 'offline');
   const [echoLedger, setEchoLedger] = useState<LedgerEntry[]>([]);
@@ -84,18 +103,12 @@ export function useTerminalData(selectedNav: NavKey) {
   const [showCreateEpicon, setShowCreateEpicon] = useState(false);
   const [operatorMessage, setOperatorMessage] = useState('Terminal live. Awaiting operator action.');
   const [duplicateSuppressedCount, setDuplicateSuppressedCount] = useState(0);
-  const [promotionCounters, setPromotionCounters] = useState({
-    pending_promotable_count: 0,
-    promoted_this_cycle_count: 0,
-    committed_agent_count: 0,
-    failed_promotion_count: 0,
-    diagnostics: {
-      last_promotion_run_at: null as string | null,
-      promoter_input_count: 0,
-      promoter_eligible_count: 0,
-      promoter_excluded_reasons: {} as Record<string, number>,
-      promoted_ids_this_cycle: [] as string[],
-    },
+  const [promotionCounters, setPromotionCounters] = useState(() => {
+    if (!initialData?.promotion) return DEFAULT_PROMOTION_COUNTERS;
+    return {
+      ...initialData.promotion.counters,
+      diagnostics: initialData.promotion.diagnostics ?? DEFAULT_PROMOTION_COUNTERS.diagnostics,
+    };
   });
 
   const mergedLedger = useMemo(() => {
@@ -234,13 +247,7 @@ export function useTerminalData(selectedNav: NavKey) {
       if (promotion) {
         setPromotionCounters({
           ...promotion.counters,
-          diagnostics: promotion.diagnostics ?? {
-            last_promotion_run_at: null,
-            promoter_input_count: 0,
-            promoter_eligible_count: 0,
-            promoter_excluded_reasons: {},
-            promoted_ids_this_cycle: [],
-          },
+          diagnostics: promotion.diagnostics ?? DEFAULT_PROMOTION_COUNTERS.diagnostics,
         });
         const promotionMap = new Map((promotion.items ?? []).map((item) => [item.epicon_id, item]));
         setEpicon((prev) => prev.map((item) => {
@@ -306,6 +313,12 @@ export function useTerminalData(selectedNav: NavKey) {
     return 'stable' as const;
   }, [allTripwires]);
 
+  const semanticDriftDetected = useMemo(() => {
+    const driftScore = integritySignal?.layers?.geo_layer?.semantic_drift;
+    if (typeof driftScore !== 'number') return false;
+    return driftScore >= 0.7;
+  }, [integritySignal]);
+
   const submitEpiconDraft = async (draft: SubmitDraft): Promise<CommandResult> => {
     const sources = [draft.source1, draft.source2, draft.source3].map((source) => source.trim()).filter(Boolean);
     const tags = draft.tags.split(',').map((tag) => tag.trim()).filter(Boolean);
@@ -347,6 +360,7 @@ export function useTerminalData(selectedNav: NavKey) {
     agents,
     dataRef,
     dominantTripwireState,
+    semanticDriftDetected,
     echoAlerts,
     echoIntegrity,
     echoLedger,
