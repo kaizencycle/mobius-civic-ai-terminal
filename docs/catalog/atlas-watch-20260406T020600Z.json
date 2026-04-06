@@ -1,0 +1,24 @@
+{
+  "gi": 0.92,
+  "mode": "green",
+  "cycle": "C-272",
+  "anomalies": [
+    {
+      "label": "Seismic: 42 quakes M2.5+ today, max M5.5 near south of the Kermadec Islands",
+      "severity": "elevated"
+    },
+    {
+      "label": "Self-ping: HTTP 401 in 33ms",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": false,
+    "GI_STATE": true,
+    "ECHO_STATE": false,
+    "TRIPWIRE_STATE": true,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "timestamp": "2026-04-06T02:06:00.000Z"
+}
