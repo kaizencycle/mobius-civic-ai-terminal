@@ -57,9 +57,15 @@ export async function POST(request: NextRequest) {
   const { cycleId: bodyCycle, force, reason } = parseBody(body);
   const cycleId = bodyCycle ?? currentCycleId();
 
-  await runSignalEngine();
-
-  const payload = await processEveEscalationSynthesis(cycleId, force, reason);
-
-  return NextResponse.json(payload);
+  try {
+    await runSignalEngine();
+    const payload = await processEveEscalationSynthesis(cycleId, force, reason);
+    return NextResponse.json(payload);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'EVE escalation synthesis failed';
+    return NextResponse.json(
+      { ok: false, cycleId, mode: 'escalation' as const, published: false, error: message },
+      { status: 500 },
+    );
+  }
 }

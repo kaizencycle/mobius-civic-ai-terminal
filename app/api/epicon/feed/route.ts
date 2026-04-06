@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { isEveSynthesisLedgerSource } from '@/lib/epicon/eveLedgerSource';
 import { getPublicEpiconFeed } from '@/lib/epicon/feedStore';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
@@ -326,7 +327,6 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<{ entries: EpiconE
     });
 
     if (!response.ok) {
-      console.warn(`[epicon/feed] ledger-api unavailable, falling back to github (${response.status} ${response.statusText})`);
       return { entries: [], degraded: true };
     }
 
@@ -334,8 +334,7 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<{ entries: EpiconE
     const rows = Array.isArray(payload.entries) ? payload.entries : Array.isArray(payload.items) ? payload.items : [];
     const entries = rows.map((row) => normalizeLedgerEntry(row)).filter((row): row is EpiconEntry => row !== null);
     return { entries, degraded: false };
-  } catch (error) {
-    console.warn('[epicon/feed] ledger-api unavailable, falling back to github', error);
+  } catch {
     return { entries: [], degraded: true };
   }
 }
@@ -344,12 +343,13 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<{ entries: EpiconE
 function coerceLedgerEntrySource(entry: EpiconEntry): EpiconEntry {
   const governanceSynthTagged = entry.tags?.includes('eve-governance-synthesis') === true;
   const eveOrigin = entry.agentOrigin?.trim() === 'EVE';
-  if (entry.source === 'eve-synthesis' || eveOrigin || governanceSynthTagged) {
+  const eveLegacyAuthor = typeof entry.author === 'string' && entry.author.trim().toLowerCase() === 'eve';
+  if (isEveSynthesisLedgerSource(entry.source) || eveOrigin || governanceSynthTagged || eveLegacyAuthor) {
     const currentTags = Array.isArray(entry.tags) ? entry.tags : [];
     return {
       ...entry,
       source: 'eve-synthesis',
-      author: 'eve',
+      author: 'EVE',
       agentOrigin: entry.agentOrigin?.trim() ? entry.agentOrigin : 'EVE',
       tags: currentTags.includes('eve') ? currentTags : [...currentTags, 'eve'],
     };
@@ -410,7 +410,7 @@ async function fromEveSynthesisRedis(): Promise<EpiconEntry[]> {
             timestamp,
             title,
             source: 'eve-synthesis',
-            author: 'eve',
+            author: 'EVE',
             agentOrigin: 'EVE',
             type: parsed.type ?? 'epicon',
             severity: (typeof parsed.severity === 'string' && isEpiconSeverity(parsed.severity)
@@ -443,7 +443,7 @@ function isEpiconSeverity(value: string): value is EpiconSeverity {
 }
 
 function ledgerRowToEpiconSource(row: EpiconLedgerFeedEntry): EpiconSource {
-  if (row.source === 'eve-synthesis') return 'eve-synthesis';
+  if (isEveSynthesisLedgerSource(row.source)) return 'eve-synthesis';
   if (row.source === 'agent_commit') return 'agent_commit';
   return 'kv-ledger';
 }

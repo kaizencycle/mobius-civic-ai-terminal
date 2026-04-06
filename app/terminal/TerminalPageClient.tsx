@@ -5,6 +5,7 @@ import HardHalt from '@/components/modals/HardHalt';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { useTerminalData, type TerminalBootstrapSeed } from '@/hooks/useTerminalData';
 import { evaluateCircuitBreaker } from '@/lib/integrity-check';
+import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import { cn } from '@/lib/utils';
 import type { LedgerEntry, NavKey } from '@/lib/terminal/types';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
@@ -1303,7 +1304,7 @@ const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSel
     const civicRisk = tags.some((tag) => tag.includes('civic-risk') || tag.includes('civic risk') || tag.includes('civic_risk'));
     return { governance, ethics, civicRisk };
   }, [entry.tags]);
-  const isEveLane = entry.source === 'eve-synthesis' || entry.agentOrigin === 'EVE';
+  const isEveLane = isEveSynthesisFeedSource(entry.source) || entry.agentOrigin === 'EVE';
   const isoTime = useMemo(() => {
     const parsed = new Date(entry.timestamp);
     if (Number.isNaN(parsed.getTime())) return undefined;

@@ -129,10 +129,14 @@ function epiconFeedRowToLedger(raw: Record<string, unknown>): LedgerEntry | null
       : undefined;
 
   const src = raw.source;
-  const source: LedgerEntry['source'] | undefined =
-    src === 'eve-synthesis' || src === 'echo' || src === 'backfill' || src === 'mock' || src === 'agent_commit'
-      ? src
-      : undefined;
+  let source: LedgerEntry['source'] | undefined;
+  if (typeof src === 'string') {
+    if (src === 'eve-synthesis' || src.startsWith('eve-synthesis')) source = 'eve-synthesis';
+    else if (src === 'echo') source = 'echo';
+    else if (src === 'backfill') source = 'backfill';
+    else if (src === 'mock') source = 'mock';
+    else if (src === 'agent_commit') source = 'agent_commit';
+  }
 
   return {
     id,

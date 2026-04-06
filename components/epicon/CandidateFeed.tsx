@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useMobiusIdentity } from '@/hooks/useMobiusIdentity';
+import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import CandidateCard from './CandidateCard';
 
 type Candidate = {
@@ -85,7 +86,7 @@ export default function CandidateFeed() {
           onVerify={onVerify}
           canVerify={hasPermission('epicon:verify')}
           canContradict={hasPermission('epicon:contradict')}
-          pipelineManaged={item.source === 'eve-synthesis'}
+          pipelineManaged={isEveSynthesisFeedSource(item.source)}
         />
       ))}
     </div>

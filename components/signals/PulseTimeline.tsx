@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { DataSource } from '@/lib/response-envelope';
 import DataSourceBadge from '@/components/terminal/DataSourceBadge';
+import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 
 type Signal = {
   id: string;
@@ -148,7 +149,7 @@ export default function PulseTimeline() {
       const items = Array.isArray(itemsRaw) ? itemsRaw.filter(isEveSynthesisLedgerRow) : [];
       setEveLedger(
         items
-          .filter((row) => row.source === 'eve-synthesis' || row.agentOrigin === 'EVE')
+          .filter((row) => isEveSynthesisFeedSource(row.source) || row.agentOrigin === 'EVE')
           .slice(0, 5),
       );
     } catch {
@@ -289,7 +290,7 @@ export default function PulseTimeline() {
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-100">
                   <span>{row.title}</span>
-                  {row.source === 'eve-synthesis' || row.agentOrigin === 'EVE' ? (
+                  {isEveSynthesisFeedSource(row.source) || row.agentOrigin === 'EVE' ? (
                     <span className="text-[10px] font-mono text-fuchsia-300 border border-fuchsia-400/35 rounded px-1 py-0.5 ml-1">
                       EVE
                     </span>

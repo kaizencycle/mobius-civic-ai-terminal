@@ -113,26 +113,46 @@ export async function POST(request: NextRequest) {
   const { cycleId: bodyCycle, force, mode, reason } = parseCycleBody(body);
   const cycleId = bodyCycle ?? currentCycleId();
 
-  await runSignalEngine();
+  try {
+    await runSignalEngine();
 
-  const payload =
-    mode === 'escalation'
-      ? await processEveEscalationSynthesis(cycleId, force, reason)
-      : await processEveCycleWindowSynthesis(cycleId, force);
+    const payload =
+      mode === 'escalation'
+        ? await processEveEscalationSynthesis(cycleId, force, reason)
+        : await processEveCycleWindowSynthesis(cycleId, force);
 
-  void appendAgentJournalEntry({
-    agent: 'EVE',
-    cycle: cycleId,
-    observation: `EVE ${mode} synthesis executed${reason ? ` for reason ${reason}` : ''}.`,
-    inference: mode === 'escalation' ? 'Civic risk required escalation-class synthesis output.' : 'Cycle-window synthesis completed and staged for EPICON flow.',
-    recommendation: mode === 'escalation' ? 'Prioritize ZEUS verification and ATLAS oversight checks.' : 'Continue normal verification cadence across ZEUS and ATLAS.',
-    confidence: inferEveConfidence(payload),
-    derivedFrom: ['signal-engine:run', `eve-synthesis:${cycleId}`],
-    relatedAgents: ['ZEUS', 'ATLAS'],
-    status: 'committed',
-    category: mode === 'escalation' ? 'alert' : 'inference',
-    severity: inferEveSeverity(payload),
-  }).catch(() => {});
+    void appendAgentJournalEntry({
+      agent: 'EVE',
+      cycle: cycleId,
+      observation: `EVE ${mode} synthesis executed${reason ? ` for reason ${reason}` : ''}.`,
+      inference:
+        mode === 'escalation'
+          ? 'Civic risk required escalation-class synthesis output.'
+          : 'Cycle-window synthesis completed and published to the live EPICON ledger.',
+      recommendation:
+        mode === 'escalation'
+          ? 'Prioritize ZEUS verification and ATLAS oversight checks.'
+          : 'Continue normal verification cadence across ZEUS and ATLAS.',
+      confidence: inferEveConfidence(payload),
+      derivedFrom: ['signal-engine:run', `eve-synthesis:${cycleId}`],
+      relatedAgents: ['ZEUS', 'ATLAS'],
+      status: 'committed',
+      category: mode === 'escalation' ? 'alert' : 'inference',
+      severity: inferEveSeverity(payload),
+    }).catch(() => {});
 
-  return NextResponse.json(payload);
+    return NextResponse.json(payload);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'EVE synthesis failed';
+    return NextResponse.json(
+      {
+        ok: false,
+        cycleId,
+        mode,
+        published: false,
+        error: message,
+      },
+      { status: 500 },
+    );
+  }
 }
