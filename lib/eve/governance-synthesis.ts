@@ -65,6 +65,76 @@ export type EveGovernanceSynthesisOutput = {
   derivedFrom: string[];
 };
 
+/** Serializable substrate snapshot for `/api/eve/synthesis-input` (no model blobs). */
+export type EveSynthesisInputPublic = {
+  cycleId: string;
+  gatheredAt: string;
+  committedAgentMemory: Array<{
+    id: string;
+    timestamp: string;
+    title: string;
+    cycle?: string;
+    author?: string;
+    agentOrigin?: string;
+  }>;
+  tripwire: {
+    active: boolean;
+    level: string;
+    reason: string;
+    last_updated: string;
+  };
+  civicRadarAlerts: Array<Pick<CivicRadarAlert, 'id' | 'title' | 'severity' | 'timestamp'>>;
+  integrity: { gi: number; mii: number };
+  treasury: { status: string; tripwireCount: number; alertCount: number };
+  narrativeClusterCount: number;
+  external: { degraded: boolean; enrichmentPreview: string | null; sonarPreview: string | null };
+};
+
+export function buildNormalizedEveSynthesisInputSnapshot(
+  input: EveGovernanceSynthesisInput,
+): EveSynthesisInputPublic {
+  const sonarAnswer = input.sonarCivic?.answer?.trim() ?? '';
+  const sonarPreview =
+    sonarAnswer.length > 0 ? `${sonarAnswer.slice(0, 280)}${sonarAnswer.length > 280 ? '…' : ''}` : null;
+
+  return {
+    cycleId: input.cycleId,
+    gatheredAt: input.gatheredAt,
+    committedAgentMemory: input.committedAgentRows.slice(0, 24).map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      title: row.title,
+      cycle: row.cycle,
+      author: row.author,
+      agentOrigin: row.agentOrigin,
+    })),
+    tripwire: {
+      active: input.tripwire.active,
+      level: input.tripwire.level,
+      reason: input.tripwire.reason,
+      last_updated: input.tripwire.last_updated,
+    },
+    civicRadarAlerts: input.civicAlerts.slice(0, 12).map((a) => ({
+      id: a.id,
+      title: a.title,
+      severity: a.severity,
+      timestamp: a.timestamp,
+    })),
+    integrity: { gi: input.gi, mii: input.mii },
+    treasury: {
+      status: input.treasuryStatus,
+      tripwireCount: input.treasuryTripwireCount,
+      alertCount: input.treasuryAlertCount,
+    },
+    narrativeClusterCount: input.narrativeClusterCount,
+    external: {
+      degraded: input.externalDegraded,
+      enrichmentPreview: input.externalEnrichment,
+      sonarPreview,
+    },
+  };
+}
+
 function getRedisClient(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -561,6 +631,7 @@ export async function processEveCycleWindowSynthesis(
       mode: 'cycle' as const,
       published: false,
       reason: 'already_synthesized_for_window',
+      windowBucket,
       idempotencyTag,
       derivedFromCount: 0,
     };
@@ -577,6 +648,7 @@ export async function processEveCycleWindowSynthesis(
     published: publishResult.published,
     entryId: publishResult.entryId,
     reason: publishResult.published ? 'cycle_window_due' : 'already_synthesized_for_window',
+    windowBucket,
     derivedFromCount: output.derivedFrom.length,
     idempotencyTag: publishResult.idempotencyTag,
     governancePosture: output.governancePosture,

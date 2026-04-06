@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { isEveSynthesisLedgerSource } from '@/lib/epicon/eveLedgerSource';
 import { integrityStatus as mockIntegrityStatus, type IntegrityStatusResponse } from '@/lib/mock/integrityStatus';
 import { mockAgents, mockEpicon, mockTripwires } from '@/lib/terminal/mock';
 import { transformAgent, transformEpicon } from '@/lib/terminal/transforms';
@@ -33,11 +34,29 @@ function epiconFeedRowToLedger(raw: JsonRecord): LedgerEntry | null {
   const timestamp = typeof raw.timestamp === 'string' ? raw.timestamp : new Date().toISOString();
   const summary = typeof raw.body === 'string' ? raw.body : typeof raw.title === 'string' ? raw.title : '';
   const category = raw.category;
+  const author = typeof raw.author === 'string' && raw.author.trim() ? raw.author.trim() : '';
+  const agentOrigin =
+    typeof raw.agentOrigin === 'string' && raw.agentOrigin.trim()
+      ? raw.agentOrigin.trim()
+      : author.toLowerCase() === 'eve'
+        ? 'EVE'
+        : author || 'operator';
+
+  const src = raw.source;
+  let source: LedgerEntry['source'] = 'echo';
+  if (typeof src === 'string') {
+    if (isEveSynthesisLedgerSource(src)) source = 'eve-synthesis';
+    else if (src === 'agent_commit') source = 'agent_commit';
+    else if (src === 'echo') source = 'echo';
+    else if (src === 'backfill') source = 'backfill';
+    else if (src === 'mock') source = 'mock';
+  }
+
   return {
     id,
     cycleId: typeof raw.cycle === 'string' && raw.cycle ? raw.cycle : 'C-0',
     type: 'epicon',
-    agentOrigin: typeof raw.agentOrigin === 'string' && raw.agentOrigin ? raw.agentOrigin : 'operator',
+    agentOrigin,
     timestamp,
     title: typeof raw.title === 'string' ? raw.title : undefined,
     summary,
@@ -55,7 +74,7 @@ function epiconFeedRowToLedger(raw: JsonRecord): LedgerEntry | null {
         : undefined,
     confidenceTier: typeof raw.confidenceTier === 'number' ? raw.confidenceTier : undefined,
     tags: Array.isArray(raw.tags) ? raw.tags.filter((tag): tag is string => typeof tag === 'string') : undefined,
-    source: 'echo',
+    source,
   };
 }
 

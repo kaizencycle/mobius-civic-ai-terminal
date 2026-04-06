@@ -327,7 +327,6 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<{ entries: EpiconE
     });
 
     if (!response.ok) {
-      console.warn(`[epicon/feed] ledger-api unavailable, falling back to github (${response.status} ${response.statusText})`);
       return { entries: [], degraded: true };
     }
 
@@ -335,8 +334,7 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<{ entries: EpiconE
     const rows = Array.isArray(payload.entries) ? payload.entries : Array.isArray(payload.items) ? payload.items : [];
     const entries = rows.map((row) => normalizeLedgerEntry(row)).filter((row): row is EpiconEntry => row !== null);
     return { entries, degraded: false };
-  } catch (error) {
-    console.warn('[epicon/feed] ledger-api unavailable, falling back to github', error);
+  } catch {
     return { entries: [], degraded: true };
   }
 }
