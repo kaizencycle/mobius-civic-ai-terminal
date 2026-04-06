@@ -692,17 +692,22 @@ export async function publishEveGovernanceSynthesis(
   const derivedFromIds = output.derivedFrom.slice(0, 32);
   const derivedFromCompact = derivedFromIds.join('|').slice(0, 512);
 
+  const tagsWithEnrichment =
+    input.sonarCivic && input.sonarCivic.answer.trim()
+      ? [...tags, 'eve:sonar-enriched']
+      : tags;
+
   const entry: EpiconLedgerFeedEntry = {
     id: entryId,
     timestamp,
-    author: 'eve',
+    author: 'EVE',
     title: output.title,
     body: output.body,
     type: 'epicon',
     severity: ledgerSeverity,
     gi: input.gi,
-    tags,
-    source: input.sonarCivic ? 'eve-synthesis+sonar' : EVE_SYNTHESIS_SOURCE,
+    tags: tagsWithEnrichment,
+    source: EVE_SYNTHESIS_SOURCE,
     verified: true,
     verifiedBy: 'ZEUS',
     cycle: input.cycleId,

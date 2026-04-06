@@ -349,7 +349,7 @@ function coerceLedgerEntrySource(entry: EpiconEntry): EpiconEntry {
     return {
       ...entry,
       source: 'eve-synthesis',
-      author: 'eve',
+      author: 'EVE',
       agentOrigin: entry.agentOrigin?.trim() ? entry.agentOrigin : 'EVE',
       tags: currentTags.includes('eve') ? currentTags : [...currentTags, 'eve'],
     };
@@ -410,7 +410,7 @@ async function fromEveSynthesisRedis(): Promise<EpiconEntry[]> {
             timestamp,
             title,
             source: 'eve-synthesis',
-            author: 'eve',
+            author: 'EVE',
             agentOrigin: 'EVE',
             type: parsed.type ?? 'epicon',
             severity: (typeof parsed.severity === 'string' && isEpiconSeverity(parsed.severity)
@@ -443,7 +443,7 @@ function isEpiconSeverity(value: string): value is EpiconSeverity {
 }
 
 function ledgerRowToEpiconSource(row: EpiconLedgerFeedEntry): EpiconSource {
-  if (row.source === 'eve-synthesis') return 'eve-synthesis';
+  if (row.source === 'eve-synthesis' || row.source.startsWith('eve-synthesis')) return 'eve-synthesis';
   if (row.source === 'agent_commit') return 'agent_commit';
   return 'kv-ledger';
 }
