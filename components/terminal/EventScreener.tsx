@@ -34,6 +34,7 @@ interface EventScreenerProps {
 const PAGE_SIZE = 12;
 type TypeFilter = 'all' | 'merge' | 'heartbeat' | 'catalog' | 'epicon' | 'zeus-verify';
 type AuthorFilter = 'all' | 'kaizencycle' | 'mobius-bot' | 'cursor-agent';
+type LaneFilter = 'all' | 'eve-governance';
 
 const TYPE_LABELS: Record<TypeFilter, string> = {
   all: 'All',
@@ -70,6 +71,14 @@ const AGENT_BADGE_STYLES: Record<string, string> = {
   kaizencycle: 'border-blue-500/30 bg-blue-500/10 text-blue-300',
   'mobius-bot': 'border-purple-500/30 bg-purple-500/10 text-purple-300',
   'cursor-agent': 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+  eve: 'border-rose-500/30 bg-rose-500/10 text-rose-300',
+  atlas: 'border-sky-500/30 bg-sky-500/10 text-sky-300',
+  zeus: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+  hermes: 'border-orange-500/30 bg-orange-500/10 text-orange-300',
+  aurea: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300',
+  jade: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+  daedalus: 'border-stone-500/30 bg-stone-500/10 text-stone-300',
+  echo: 'border-slate-500/30 bg-slate-500/10 text-slate-300',
 };
 
 const SEVERITY_STYLES: Record<string, string> = {
@@ -153,6 +162,7 @@ export default function EventScreener({
 }: EventScreenerProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [authorFilter, setAuthorFilter] = useState<AuthorFilter>('all');
+  const [laneFilter, setLaneFilter] = useState<LaneFilter>('all');
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState<string | null>(null);
   const [localSearchQuery, setLocalSearchQuery] = useState('');
@@ -242,11 +252,19 @@ export default function EventScreener({
     const filtered = externallySorted.filter((item) => {
       if (typeFilter !== 'all' && item.type !== typeFilter) return false;
       if (authorFilter !== 'all' && item.author !== authorFilter) return false;
+      if (laneFilter === 'eve-governance') {
+        const isEveOrigin = (item.agentOrigin ?? '').toUpperCase() === 'EVE' || (item.author ?? '').toLowerCase() === 'eve';
+        const hasGovernanceTag = (item.tags ?? []).some((tag) => {
+          const normalized = tag.toLowerCase();
+          return normalized.includes('governance') || normalized.includes('ethic') || normalized.includes('civic');
+        });
+        if (!isEveOrigin && item.source !== 'eve-synthesis' && !hasGovernanceTag) return false;
+      }
       return true;
     });
 
     return filtered;
-  }, [authorFilter, list, searchQuery, sortBy, sortDir, typeFilter]);
+  }, [authorFilter, laneFilter, list, searchQuery, sortBy, sortDir, typeFilter]);
 
   useEffect(() => {
     onResultCountChange?.(filteredAndSorted.length);
@@ -344,6 +362,34 @@ export default function EventScreener({
           <option value="mobius-bot">mobius-bot</option>
           <option value="cursor-agent">cursor-agent</option>
         </select>
+        <div className="inline-flex items-center gap-1 rounded border border-slate-800 bg-slate-900 p-0.5">
+          <button
+            type="button"
+            onClick={() => {
+              setLaneFilter('all');
+              setPage(0);
+            }}
+            className={cn(
+              'rounded px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em]',
+              laneFilter === 'all' ? 'bg-slate-800 text-slate-200' : 'text-slate-500',
+            )}
+          >
+            All lanes
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setLaneFilter('eve-governance');
+              setPage(0);
+            }}
+            className={cn(
+              'rounded px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em]',
+              laneFilter === 'eve-governance' ? 'bg-rose-500/20 text-rose-200' : 'text-slate-500',
+            )}
+          >
+            EVE governance
+          </button>
+        </div>
       </div>
 
       <div className="rounded-md border border-slate-800">
@@ -351,6 +397,7 @@ export default function EventScreener({
           {pagedRows.map((item) => {
             const isOpen = openId === item.id;
             const isEve = item.source === 'eve-synthesis';
+            const rowAgent = (item.agentOrigin || item.author || '').toLowerCase();
             const dotClass = TYPE_DOT_STYLES[item.type] ?? 'bg-slate-500';
             return (
               <div key={item.id} className={cn('transition hover:bg-slate-900/40', isOpen && 'bg-sky-500/5')}>
@@ -380,10 +427,12 @@ export default function EventScreener({
                             label="Agent"
                             value={(
                               <div className="flex items-center gap-1.5">
-                                <span className={cn('inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-mono uppercase', AGENT_BADGE_STYLES[item.author] ?? 'border-slate-700 bg-slate-800 text-slate-300')}>
-                                  {initialsForAgent(item.author)}
+                                <span className={cn('inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-mono uppercase', AGENT_BADGE_STYLES[rowAgent] ?? AGENT_BADGE_STYLES[item.author] ?? 'border-slate-700 bg-slate-800 text-slate-300')}>
+                                  {initialsForAgent(item.agentOrigin || item.author)}
                                 </span>
-                                <span className={cn(AUTHOR_STYLES[item.author] ?? 'text-slate-300')}>{item.author}</span>
+                                <span className={cn(AUTHOR_STYLES[item.author] ?? 'text-slate-300')}>
+                                  {item.agentOrigin || item.author}
+                                </span>
                               </div>
                             )}
                           />
