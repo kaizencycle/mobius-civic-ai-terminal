@@ -9,6 +9,7 @@ import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 import type { EpiconItem } from '@/lib/terminal/types';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { defaultPromotionState, getPromotionState, savePromotionState } from '@/lib/epicon/promotion';
+import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,6 +102,38 @@ function buildCommit(agent: Agent, epicon: EpiconItem, cycleId: string, seq: num
     status: 'committed',
     agentOrigin: agent,
   };
+}
+
+
+function toJournalSeverity(level: EpiconLedgerFeedEntry['severity']): 'nominal' | 'elevated' | 'critical' {
+  if (level === 'high') return 'critical';
+  if (level === 'medium') return 'elevated';
+  return 'nominal';
+}
+
+async function writeCommitJournalEntry(commit: EpiconLedgerFeedEntry, epicon: EpiconItem): Promise<void> {
+  const redis = getJournalRedisClient();
+  if (!redis) return;
+
+  const agent = (commit.agentOrigin || commit.author || 'ZEUS').toUpperCase();
+  const cycle = commit.cycle || currentCycleId();
+  const derived = [commit.derivedFrom || epicon.id];
+
+  await appendJournalLaneEntry(redis, {
+    agent,
+    cycle,
+    scope: `${agent} reasoning lane`,
+    observation: `${agent} committed ${epicon.id} (${epicon.category}) at confidence tier ${epicon.confidenceTier}.`,
+    inference: `${agent} judged the event suitable for ledger-level publication in ${cycle}.`,
+    recommendation: `Track downstream corroboration and GI impact for ${epicon.id}.`,
+    confidence: Math.max(0.5, Math.min(0.96, 0.55 + epicon.confidenceTier * 0.1)),
+    derivedFrom: derived,
+    status: 'committed',
+    category: 'observation',
+    severity: toJournalSeverity(commit.severity),
+    agentOrigin: agent,
+    tags: ['agent-commit', epicon.category, epicon.id],
+  });
 }
 
 function parsePendingLedgerEntry(row: EpiconLedgerFeedEntry): EpiconItem | null {
@@ -286,6 +319,7 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
 
         const commit = buildCommit(agent, epicon, cycleId, seq++);
         await pushLedgerEntry(commit);
+        await writeCommitJournalEntry(commit, epicon);
         existing.committed_entries.push(commit.id);
         committed += 1;
       }
