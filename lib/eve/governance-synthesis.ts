@@ -20,7 +20,7 @@ import { integrityStatus } from '@/lib/mock/integrityStatus';
 import { mockCivicAlerts } from '@/lib/terminal/mock';
 import type { CivicRadarAlert } from '@/lib/terminal/types';
 import { getTreasuryAlerts } from '@/lib/treasury/alerts';
-import { getTripwireState } from '@/lib/tripwire/store';
+import { getTripwireState, type RuntimeTripwireState } from '@/lib/tripwire/store';
 
 export const EVE_GOVERNANCE_SYNTH_TAG = 'eve-governance-synthesis';
 export const EVE_SYNTHESIS_SOURCE = EVE_LEDGER_SYNTHESIS_SOURCE;
@@ -373,17 +373,20 @@ export async function gatherEveGovernanceSynthesisInput(
   };
 }
 
+const SUBSTANTIVE_TRIPWIRE_LEVELS = new Set<RuntimeTripwireState['level']>([
+  'watch',
+  'elevated',
+  'low',
+  'medium',
+  'high',
+  'triggered',
+  'suspended',
+]);
+
 export function escalationWarranted(input: EveGovernanceSynthesisInput): boolean {
   if (input.gi < GI_STRESS_THRESHOLD) return true;
   if (input.tripwire.active) return true;
-  if (
-    input.tripwire.level === 'watch' ||
-    input.tripwire.level === 'medium' ||
-    input.tripwire.level === 'elevated' ||
-    input.tripwire.level === 'high' ||
-    input.tripwire.level === 'triggered' ||
-    input.tripwire.level === 'suspended'
-  ) {
+  if (SUBSTANTIVE_TRIPWIRE_LEVELS.has(input.tripwire.level)) {
     return true;
   }
   if (input.civicAlerts.some((a) => a.severity === 'critical')) return true;
