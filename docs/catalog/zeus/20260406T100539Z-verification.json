@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-04-06T10:05:39.000Z",
+  "agent": "ZEUS",
+  "atlas_heartbeat_reviewed": "20260406T075410Z.json",
+  "verification_status": "disputed",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat parse (health, GI, anomalies, EVE)",
+      "result": "pass",
+      "detail": "Reviewed 20260406T075410Z.json: health=degraded, endpoints micro_agents=true integrity=true runtime=false, signals.composite=0.713, anomalies=2, gi=0.83, mode=green. Heartbeat JSON has no EVE global_tension; cross-check used live /api/eve/global-news."
+    },
+    {
+      "check": "/api/signals/micro vs ATLAS anomaly flags",
+      "result": "warn",
+      "detail": "Live poll ~10:04:35Z: anomalies count still 2 (persistent). Pair matches ATLAS theme: GAIA/USGS Earthquake elevated (49 quakes M2.5+ today, max M5.5 near Nikolski, Alaska); DAEDALUS-µ/Self-ping elevated (HTTP 401 in ~63ms)—infra/auth-surface, aligns with runtime probe failure. Composite 0.743 vs heartbeat 0.713 (slightly improved aggregate; flagged severities unchanged). HERMES-µ reports Perplexity unavailable and GDELT fetch failed (errors[]) but not in anomalies array."
+    },
+    {
+      "check": "/api/integrity-status GI source, score, freshness",
+      "result": "fail",
+      "detail": "source=mock: GI is not production-authoritative for this run—flag as unreliable. global_integrity=0.83 and mode=green match heartbeat numerically but cannot be treated as live-computed. degraded=true on payload; signals.freshness=0.6 and information=0.6 explain partial subscore drag; kv=true."
+    },
+    {
+      "check": "/api/runtime/heartbeat (ATLAS runtime=false)",
+      "result": "pass",
+      "detail": "GET /api/runtime/heartbeat without cron credentials returns HTTP 401—consistent with ATLAS endpoints.runtime=false and DAEDALUS self-ping 401."
+    },
+    {
+      "check": "Vercel deployment health (READY, ERROR last 6h, ignoreCommand)",
+      "result": "warn",
+      "detail": "VERCEL_TOKEN not set in this automation environment; Vercel CLI not available. Deployment state, ERROR builds in last 6h, and ignoreCommand behavior could not be verified this run—treat as inconclusive (previous ZEUS run on 2026-04-05 reported READY, 0 ERROR, CANCELED bot builds when token was available)."
+    },
+    {
+      "check": "/api/eve/global-news vs GI mode and micro anomalies",
+      "result": "fail",
+      "detail": "EVE source=live, global_tension=high, degraded=false; items are internal C-273 governance/civic-risk/ethics synthesis with high-severity labels on two rows. Integrity-status mode=green while EVE tension is high—disconnect if operators treat GI as ground truth; amplified because GI source is mock. Seismic elevation is geophysical; self-ping 401 is operational—not explained by EVE headlines."
+    },
+    {
+      "check": "Epicon candidate sweep (/api/epicon/candidates, verify, publish)",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates returned count=0; no pending work. Skipped POST /api/zeus/verify and /api/epicon/publish (CRON_SECRET absent would matter only if candidates existed; no 401 on this path)."
+    }
+  ],
+  "gi_verified": false,
+  "anomaly_persistence": {
+    "GAIA:USGS Earthquake": "persistent",
+    "DAEDALUS-µ:Self-ping": "persistent"
+  },
+  "eve_correlation": "Weak: EVE high global_tension reflects internal cycle framing (C-273) and civic-risk synthesis, not USGS counts. Self-ping 401 matches auth-gated runtime rather than EVE items. Main tension–integrity mismatch remains high EVE tension vs green, mock-driven GI.",
+  "recommendation": "Move integrity-status to live source in production or document mock as intentional. Ensure CRON_SECRET is available to automation for Epicon verify/publish when candidates exist. Restore authorized cron/service access to /api/runtime/heartbeat for ATLAS runtime=true. Re-run ZEUS with VERCEL_TOKEN to re-validate deployment health and ignoreCommand."
+}
