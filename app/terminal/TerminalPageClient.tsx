@@ -396,6 +396,21 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   });
   const giScore = gi?.score ?? 0;
   const giDelta = gi?.delta ?? 0;
+  const committedEventRows = useMemo(
+    () => (epiconFeed?.items ?? []).filter((item) => (item.status ?? '').toLowerCase() === 'committed'),
+    [epiconFeed?.items],
+  );
+  const committedAgentRowsThisCycle = useMemo(
+    () => committedEventRows.filter((item) => AGENT_ORDER.includes((item.agentOrigin ?? '').toUpperCase() as (typeof AGENT_ORDER)[number])).length,
+    [committedEventRows],
+  );
+  const journalEntriesThisCycle = journalFeed.filter((entry) => entry.cycle === cycleId).length;
+
+  useEffect(() => {
+    if (committedAgentRowsThisCycle > 0) {
+      setLedgerView('events');
+    }
+  }, [cycleId, committedAgentRowsThisCycle]);
 
   const statCards: Array<{ label: string; value: string; trend: number; icon: string; subtitle: string; nav: NavKey }> = [
     { label: 'Global Integrity', value: giScore.toFixed(3), trend: giDelta, icon: '◎', subtitle: 'GI stable', nav: 'pulse' },
@@ -612,6 +627,13 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                 Journal
               </button>
             </div>
+          </div>
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-slate-800 bg-slate-950/60 px-2 py-1.5 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-400">
+            <span>Committed agent rows this cycle: <span className="text-sky-300">{committedAgentRowsThisCycle}</span></span>
+            <span className="text-slate-600">•</span>
+            <span>Journal entries this cycle: <span className="text-fuchsia-300">{journalEntriesThisCycle}</span></span>
+            <span className="text-slate-600">•</span>
+            <span>Current view: <span className={ledgerView === 'events' ? 'text-sky-300' : 'text-fuchsia-300'}>{ledgerView}</span></span>
           </div>
           {ledgerView === 'events' ? (
             <EventScreener
@@ -920,8 +942,16 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
             <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
               <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-300">Command Surface</div>
               <div className="mt-1 text-lg font-semibold text-slate-100">{commandSurfaceTitle}</div>
-              <div className="mt-2 text-sm text-slate-300">GI stable. {allTripwires.length} tripwires active. {filteredEpicon.length} signals in feed. {allTripwires.filter((t) => t.severity.toLowerCase() === 'high').length} alerts.</div>
-              <div className="mt-2 text-[10px] font-mono uppercase tracking-[0.14em] text-sky-300">TERMINAL LIVE · AWAITING OPERATOR ACTION</div>
+              <div className="mt-2 text-sm text-slate-300">
+                GI stable. {allTripwires.length} tripwires active. {filteredEpicon.length} signals in feed. {allTripwires.filter((t) => t.severity.toLowerCase() === 'high').length} alerts.
+              </div>
+              <div className="mt-1 text-[11px] text-slate-400">
+                Breaker posture: <span className="font-mono uppercase text-slate-200">{breaker.stage}</span>
+                {selectedNav === 'ledger' ? ` · Ledger view: ${ledgerView} · Committed rows: ${committedAgentRowsThisCycle}` : ''}
+              </div>
+              <div className="mt-2 text-[10px] font-mono uppercase tracking-[0.14em] text-sky-300">
+                TERMINAL LIVE · {selectedNav === 'ledger' ? `${ledgerView.toUpperCase()} VIEW ACTIVE` : 'AWAITING OPERATOR ACTION'}
+              </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {commandSurfaceButtons.map((action) => (
                   <button key={action.label} onClick={() => setSelectedNav(action.nav)} className="rounded-md border border-slate-600 px-3 py-1.5 text-xs">
@@ -1113,7 +1143,7 @@ function JournalView({ entries, cycleId }: { entries: AgentJournalEntry[]; cycle
   if (entries.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-slate-700 bg-slate-950/60 p-4 text-center text-xs text-slate-400">
-        No committed journal entries for {cycleId} yet. Agent reasoning will appear here as cycles run.
+        No journal reasoning entries for {cycleId} yet. Live committed event rows may still be present in Events.
       </div>
     );
   }
