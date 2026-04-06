@@ -372,3 +372,30 @@ export async function getPulseSnapshot(): Promise<PulseSnapshot | null> {
     integrity_signal: typedSignal,
   };
 }
+
+export type FinvizSignalsResponse = {
+  ok: boolean;
+  degraded: boolean;
+  reason?: string | null;
+  source: 'finviz' | 'fallback';
+  fetchedAt: string | null;
+  items: {
+    momentum: Array<Record<string, unknown>>;
+    volatility: Array<Record<string, unknown>>;
+    volume: Array<Record<string, unknown>>;
+    breadth: Array<Record<string, unknown>>;
+    news: Array<Record<string, unknown>>;
+  };
+  diagnostics: {
+    screenerDegraded: boolean;
+    newsDegraded: boolean;
+    screenerItems: number;
+    newsItems: number;
+  };
+};
+
+export async function getFinvizSignals(): Promise<FinvizSignalsResponse | null> {
+  const raw = await fetchInternalJson('/api/markets/finviz/signals');
+  if (!raw || typeof raw !== 'object') return null;
+  return raw as FinvizSignalsResponse;
+}
