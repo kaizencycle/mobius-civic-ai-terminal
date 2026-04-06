@@ -79,6 +79,23 @@ type SentimentCompositeResponse = {
     sourceLabel: string;
   }>;
 };
+type RuntimeStatusResponse = {
+  ok?: boolean;
+  degraded?: boolean;
+  freshness?: { status?: string };
+};
+type TerminalSnapshotResponse = {
+  ok: boolean;
+  data: {
+    agents?: AgentStatusResponse;
+    micro?: MicroSweepResponse;
+    kv?: KvHealthResponse;
+    epicon?: EpiconFeedResponse;
+    journal?: AgentJournalResponse;
+    sentiment?: SentimentCompositeResponse;
+    runtime?: RuntimeStatusResponse;
+  };
+};
 
 const TABS: Array<{ key: NavKey; label: string }> = [
   { key: 'pulse', label: 'Pulse' },
@@ -152,47 +169,6 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-
-    async function loadRuntimeStatus() {
-      try {
-        const response = await fetch('/api/runtime/status', { cache: 'no-store' });
-        if (!response.ok) throw new Error(`Runtime status unavailable (${response.status})`);
-
-        const data = (await response.json()) as {
-          ok?: boolean;
-          degraded?: boolean;
-          freshness?: { status?: string };
-        };
-
-        if (!mounted) return;
-
-        if (!data.ok) {
-          setRuntimeBadge('offline');
-          return;
-        }
-
-        const isFresh = data.freshness?.status === 'fresh';
-        if (!data.degraded && isFresh) {
-          setRuntimeBadge('online');
-          return;
-        }
-
-        setRuntimeBadge('degraded');
-      } catch {
-        if (mounted) setRuntimeBadge('offline');
-      }
-    }
-
-    loadRuntimeStatus();
-    const poll = window.setInterval(loadRuntimeStatus, 15000);
-    return () => {
-      mounted = false;
-      window.clearInterval(poll);
-    };
-  }, []);
-
-  useEffect(() => {
     const timer = window.setInterval(() => {
       setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
     }, 1000);
@@ -200,92 +176,50 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
+  const applySentiment = useCallback((json: SentimentCompositeResponse) => {
+    setSentiment(json);
+    setSentimentDomains((prev) => {
+      const next: SentimentDomain[] = json.domains.map((domain) => {
+        const prior = prev.find((row) => row.key === domain.key)?.score ?? null;
+        const current = domain.score;
+        const trend: 'up' | 'down' | 'flat' =
+          prior === null || current === null ? 'flat' : current > prior ? 'up' : current < prior ? 'down' : 'flat';
+        const status: SentimentDomain['status'] =
+          current === null ? 'unknown' : current >= 0.8 ? 'nominal' : current >= 0.6 ? 'stressed' : 'critical';
+        return { ...domain, trend, status };
+      });
 
-    async function loadJournal() {
-      try {
-        const response = await fetch(`/api/agents/journal?cycle=${encodeURIComponent(cycleId)}`, { cache: 'no-store' });
-        const json = (await response.json()) as AgentJournalResponse;
-        if (mounted && json.ok) {
-          setJournalFeed(json.entries ?? []);
-        }
-      } catch {
-        if (mounted) setJournalFeed([]);
-      }
-    }
+      const domainDefaults: Array<{ key: SentimentDomainKey; label: string; agent: string; sourceLabel: string }> = [
+        { key: 'civic', label: 'CIVIC', agent: 'EVE', sourceLabel: 'Federal Register + Sonar civic' },
+        { key: 'environ', label: 'ENVIRON', agent: 'GAIA', sourceLabel: 'USGS + Open-Meteo + EONET' },
+        { key: 'financial', label: 'FINANCIAL', agent: 'ECHO', sourceLabel: 'crypto prices composite' },
+        { key: 'narrative', label: 'NARRATIVE', agent: 'HERMES', sourceLabel: 'HN + Wikipedia + GDELT (Sonar lane conditional)' },
+        { key: 'infrastructure', label: 'INFRASTR', agent: 'DAEDALUS', sourceLabel: 'GitHub + npm + self-ping' },
+        { key: 'institutional', label: 'INSTITUTIONAL', agent: 'JADE', sourceLabel: 'data.gov + FRED (future)' },
+      ];
 
-    loadJournal();
-    const poll = window.setInterval(loadJournal, 30000);
-    return () => {
-      mounted = false;
-      window.clearInterval(poll);
-    };
-  }, [cycleId]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadSentiment() {
-      try {
-        const response = await fetch('/api/sentiment/composite', { cache: 'no-store' });
-        const json = (await response.json()) as SentimentCompositeResponse;
-        if (!mounted || !json.ok) return;
-
-        setSentiment(json);
-        setSentimentDomains((prev) => {
-          const next: SentimentDomain[] = json.domains.map((domain) => {
-            const prior = prev.find((row) => row.key === domain.key)?.score ?? null;
-            const current = domain.score;
-            const trend: 'up' | 'down' | 'flat' =
-              prior === null || current === null ? 'flat' : current > prior ? 'up' : current < prior ? 'down' : 'flat';
-            const status: SentimentDomain['status'] =
-              current === null ? 'unknown' : current >= 0.8 ? 'nominal' : current >= 0.6 ? 'stressed' : 'critical';
-            return { ...domain, trend, status };
+      for (const fallback of domainDefaults) {
+        if (!next.some((domain) => domain.key === fallback.key)) {
+          next.push({
+            ...fallback,
+            score: null,
+            trend: 'flat',
+            status: 'unknown',
           });
-
-          const domainDefaults: Array<{ key: SentimentDomainKey; label: string; agent: string; sourceLabel: string }> = [
-            { key: 'civic', label: 'CIVIC', agent: 'EVE', sourceLabel: 'Federal Register + Sonar civic' },
-            { key: 'environ', label: 'ENVIRON', agent: 'GAIA', sourceLabel: 'USGS + Open-Meteo + EONET' },
-            { key: 'financial', label: 'FINANCIAL', agent: 'ECHO', sourceLabel: 'crypto prices composite' },
-            { key: 'narrative', label: 'NARRATIVE', agent: 'HERMES', sourceLabel: 'HN + Wikipedia + GDELT (Sonar lane conditional)' },
-            { key: 'infrastructure', label: 'INFRASTR', agent: 'DAEDALUS', sourceLabel: 'GitHub + npm + self-ping' },
-            { key: 'institutional', label: 'INSTITUTIONAL', agent: 'JADE', sourceLabel: 'data.gov + FRED (future)' },
-          ];
-
-          for (const fallback of domainDefaults) {
-            if (!next.some((domain) => domain.key === fallback.key)) {
-              next.push({
-                ...fallback,
-                score: null,
-                trend: 'flat',
-                status: 'unknown',
-              });
-            }
-          }
-
-          return next;
-        });
-
-        setSentimentHistory((prev) => {
-          const next = { ...prev };
-          for (const domain of json.domains) {
-            const lane = next[domain.key] ?? [];
-            next[domain.key] = [...lane, { timestamp: json.timestamp, value: domain.score, sourceLabel: domain.sourceLabel }].slice(-5);
-          }
-          return next;
-        });
-      } catch {
-        // sentiment chamber degrades gracefully
+        }
       }
-    }
 
-    loadSentiment();
-    const poll = window.setInterval(loadSentiment, 30000);
-    return () => {
-      mounted = false;
-      window.clearInterval(poll);
-    };
+      return next;
+    });
+
+    setSentimentHistory((prev) => {
+      const next = { ...prev };
+      for (const domain of json.domains) {
+        const lane = next[domain.key] ?? [];
+        next[domain.key] = [...lane, { timestamp: json.timestamp, value: domain.score, sourceLabel: domain.sourceLabel }].slice(-5);
+      }
+      return next;
+    });
   }, []);
 
   // Optimization 6: persist operator preferences across refreshes/session reconnects.
@@ -335,59 +269,47 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   useEffect(() => {
     let mounted = true;
 
-    async function loadSidePanels() {
-      const [agentsResult, microResult, kvResult] = await Promise.allSettled([
-        fetch('/api/agents/status', { cache: 'no-store' }).then((r) => r.json() as Promise<AgentStatusResponse>),
-        fetch('/api/signals/micro', { cache: 'no-store' }).then((r) => r.json() as Promise<MicroSweepResponse>),
-        fetch('/api/kv/health', { cache: 'no-store' }).then((r) => r.json() as Promise<KvHealthResponse>),
-      ]);
-      if (!mounted) return;
-
-      if (agentsResult.status === 'fulfilled' && agentsResult.value.ok) {
-        setAgentRoster(agentsResult.value.agents ?? []);
-      }
-      setRosterLoaded(true);
-      if (microResult.status === 'fulfilled' && microResult.value.ok) {
-        const microJson = microResult.value;
-        setMicro(microJson);
-        const time = new Date(microJson.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        setMicroHistory((prev) => [...prev, { time, composite: microJson.composite }].slice(-12));
-      }
-      if (kvResult.status === 'fulfilled') {
-        setKvLatency(kvResult.value.latencyMs ?? null);
-      }
-    }
-
-    loadSidePanels();
-    const poll = window.setInterval(loadSidePanels, 30000);
-    return () => {
-      mounted = false;
-      window.clearInterval(poll);
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadEpiconFeed() {
+    async function loadSnapshot() {
       try {
-        const response = await fetch('/api/epicon/feed', { cache: 'no-store' });
-        const json = (await response.json()) as EpiconFeedResponse;
-        if (mounted && json && json.ok) {
-          setEpiconFeed(json);
+        const response = await fetch(`/api/terminal/snapshot?cycle=${encodeURIComponent(cycleId)}`, { cache: 'no-store' });
+        const json = (await response.json()) as TerminalSnapshotResponse;
+        if (!mounted || !json?.data) return;
+
+        const runtime = json.data.runtime;
+        if (!runtime?.ok) {
+          setRuntimeBadge('offline');
+        } else if (!runtime.degraded && runtime.freshness?.status === 'fresh') {
+          setRuntimeBadge('online');
+        } else {
+          setRuntimeBadge('degraded');
         }
+
+        if (json.data.agents?.ok) setAgentRoster(json.data.agents.agents ?? []);
+        setRosterLoaded(true);
+
+        if (json.data.micro?.ok) {
+          const microJson = json.data.micro;
+          setMicro(microJson);
+          const time = new Date(microJson.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          setMicroHistory((prev) => [...prev, { time, composite: microJson.composite }].slice(-12));
+        }
+
+        if (json.data.kv) setKvLatency(json.data.kv.latencyMs ?? null);
+        if (json.data.epicon?.ok) setEpiconFeed(json.data.epicon);
+        if (json.data.journal?.ok) setJournalFeed(json.data.journal.entries ?? []);
+        if (json.data.sentiment?.ok) applySentiment(json.data.sentiment);
       } catch {
-        // keep screener in loading/degraded mode
+        if (mounted) setRuntimeBadge('offline');
       }
     }
 
-    loadEpiconFeed();
-    const poll = window.setInterval(loadEpiconFeed, 30000);
+    loadSnapshot();
+    const poll = window.setInterval(loadSnapshot, 30000);
     return () => {
       mounted = false;
       window.clearInterval(poll);
     };
-  }, []);
+  }, [applySentiment, cycleId]);
 
   const breaker = evaluateCircuitBreaker({
     giScore: gi?.score ?? 0,
