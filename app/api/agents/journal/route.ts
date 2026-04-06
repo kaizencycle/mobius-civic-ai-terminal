@@ -1,6 +1,6 @@
-import { Redis } from '@upstash/redis';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
+import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -46,12 +46,6 @@ function randomToken(length: number): string {
   return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
 }
 
-function getRedisClient(): Redis | null {
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
-  return new Redis({ url, token });
-}
 
 function asRecord(input: unknown): Record<string, unknown> | null {
   if (!input || typeof input !== 'object') return null;
@@ -157,7 +151,7 @@ function buildEntry(input: AgentJournalCreateInput): AgentJournalEntry | null {
   return entry;
 }
 
-async function loadEntries(redis: Redis | null): Promise<AgentJournalEntry[]> {
+async function loadEntries(redis: ReturnType<typeof getJournalRedisClient>): Promise<AgentJournalEntry[]> {
   if (!redis) return [];
 
   try {
@@ -178,7 +172,7 @@ async function loadEntries(redis: Redis | null): Promise<AgentJournalEntry[]> {
   }
 }
 
-async function seedGenesisEntries(redis: Redis, cycle: string): Promise<void> {
+async function seedGenesisEntries(redis: NonNullable<ReturnType<typeof getJournalRedisClient>>, cycle: string): Promise<void> {
   const timestamp = new Date().toISOString();
   for (const agent of GENESIS_AGENTS) {
     const entry: AgentJournalEntry = {
@@ -209,7 +203,7 @@ async function seedGenesisEntries(redis: Redis, cycle: string): Promise<void> {
 }
 
 export async function GET(request: NextRequest) {
-  const redis = getRedisClient();
+  const redis = getJournalRedisClient();
   let entries = await loadEntries(redis);
 
   const { searchParams } = request.nextUrl;
@@ -267,18 +261,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const redis = getRedisClient();
+  const redis = getJournalRedisClient();
   if (!redis) {
     return NextResponse.json({ ok: false, error: 'Redis not configured' }, { status: 503 });
   }
 
-  const agentKey = `journal:${entry.agent.toLowerCase()}`;
-  const packed = JSON.stringify(entry);
+  const writeResult = await appendJournalLaneEntry(redis, {
+    ...entry,
+    id: entry.id,
+    timestamp: entry.timestamp,
+  });
 
-  await redis.lpush(KEY_ALL, packed);
-  await redis.ltrim(KEY_ALL, 0, MAX_LIST_ENTRIES - 1);
-  await redis.lpush(agentKey, packed);
-  await redis.ltrim(agentKey, 0, MAX_LIST_ENTRIES - 1);
+  if (!writeResult.written) {
+    return NextResponse.json({ ok: true, duplicate: true, token: writeResult.token });
+  }
 
-  return NextResponse.json({ ok: true, entryId: entry.id, timestamp: entry.timestamp });
+  return NextResponse.json({ ok: true, entryId: writeResult.entry.id, timestamp: writeResult.entry.timestamp });
 }
