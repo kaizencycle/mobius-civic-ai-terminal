@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
+import { isEveSynthesisLedgerSource } from '@/lib/epicon/eveLedgerSource';
 import { getPublicEpiconFeed } from '@/lib/epicon/feedStore';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
@@ -344,11 +345,8 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<{ entries: EpiconE
 function coerceLedgerEntrySource(entry: EpiconEntry): EpiconEntry {
   const governanceSynthTagged = entry.tags?.includes('eve-governance-synthesis') === true;
   const eveOrigin = entry.agentOrigin?.trim() === 'EVE';
-  const eveSynthSource =
-    entry.source === 'eve-synthesis' ||
-    (typeof entry.source === 'string' && entry.source.startsWith('eve-synthesis+'));
   const eveLegacyAuthor = typeof entry.author === 'string' && entry.author.trim().toLowerCase() === 'eve';
-  if (eveSynthSource || eveOrigin || governanceSynthTagged || eveLegacyAuthor) {
+  if (isEveSynthesisLedgerSource(entry.source) || eveOrigin || governanceSynthTagged || eveLegacyAuthor) {
     const currentTags = Array.isArray(entry.tags) ? entry.tags : [];
     return {
       ...entry,
@@ -447,7 +445,7 @@ function isEpiconSeverity(value: string): value is EpiconSeverity {
 }
 
 function ledgerRowToEpiconSource(row: EpiconLedgerFeedEntry): EpiconSource {
-  if (row.source === 'eve-synthesis' || row.source.startsWith('eve-synthesis+')) return 'eve-synthesis';
+  if (isEveSynthesisLedgerSource(row.source)) return 'eve-synthesis';
   if (row.source === 'agent_commit') return 'agent_commit';
   return 'kv-ledger';
 }

@@ -12,6 +12,7 @@ import type { SonarSignal } from '@/lib/signals/perplexity-sonar';
 import { querySonarForLane } from '@/lib/signals/perplexity-sonar';
 import { getEchoAlerts, getEchoEpicon } from '@/lib/echo/store';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
+import { EVE_LEDGER_SYNTHESIS_SOURCE, isEveSynthesisLedgerSource } from '@/lib/epicon/eveLedgerSource';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import { getLiveIntegritySnapshot } from '@/lib/integrity/buildStatus';
@@ -22,7 +23,7 @@ import { getTreasuryAlerts } from '@/lib/treasury/alerts';
 import { getTripwireState } from '@/lib/tripwire/store';
 
 export const EVE_GOVERNANCE_SYNTH_TAG = 'eve-governance-synthesis';
-export const EVE_SYNTHESIS_SOURCE = 'eve-synthesis' as const;
+export const EVE_SYNTHESIS_SOURCE = EVE_LEDGER_SYNTHESIS_SOURCE;
 const EVE_SYNTHESIS_KV_KEY = 'epicon:eve-synthesis';
 
 /** Align with EVE automation cadence (every 4h). */
@@ -172,11 +173,6 @@ export function escalationFingerprint(input: EveGovernanceSynthesisInput): strin
 
 export function escalationIdempotencyTag(cycleId: string, fingerprint: string): string {
   return `eve-syn-esc|${cycleId}|${fingerprint}`;
-}
-
-function isEveSynthesisLedgerSource(source: string | undefined): boolean {
-  if (source === EVE_SYNTHESIS_SOURCE) return true;
-  return typeof source === 'string' && source.startsWith(`${EVE_SYNTHESIS_SOURCE}+`);
 }
 
 export function ledgerHasIdempotencyTag(rows: EpiconLedgerFeedEntry[], tag: string): boolean {
@@ -708,7 +704,7 @@ export async function publishEveGovernanceSynthesis(
     severity: ledgerSeverity,
     gi: input.gi,
     tags,
-    source: EVE_SYNTHESIS_SOURCE,
+    source: EVE_LEDGER_SYNTHESIS_SOURCE,
     verified: true,
     verifiedBy: 'ZEUS',
     cycle: input.cycleId,
