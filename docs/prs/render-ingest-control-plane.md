@@ -1,125 +1,142 @@
-# PR Title
+# PR title
 
-Promote Render backend as terminal ingest control plane and harden live bootstrap paths
+refactor(ingest): align terminal with live Render-backed intake and safe promotion flow
 
-## PR Body
+# PR body
 
 ## Summary
 
-Use the Mobius Render backend as the primary ingest control plane for terminal live data surfaces.
+This PR aligns the terminal with the ingest architecture that is already live in the repo.
 
-This PR intentionally builds on existing live substrate instead of replacing it:
+It does not rebuild Mobius from scratch.
+It hardens and clarifies the existing flow:
 
-- multi-source `/api/epicon/feed`
-- Redis-backed EPICON feed lanes
-- live promotion pipeline in `/api/epicon/promote`
-- Redis-backed journal lane in `/api/agents/journal`
-- chambered terminal client surfaces (Pulse / Ledger / Agents / Infrastructure / Wallet / Sentiment)
+Render/backend ingest → pending intake → promotion → committed memory → terminal read model
 
 ## What is already live
 
-### Feed and ledger
+### EPICON feed
 `/api/epicon/feed` already merges:
 - Render ledger API entries
-- KV feed entries (`mobius:epicon:feed`, `epicon:feed`)
+- Redis feed entries (`mobius:epicon:feed`, `epicon:feed`)
 - EVE synthesis Redis entries
-- local memory ledger
-- GitHub commit-derived feed events
+- local memory ledger rows
+- GitHub-derived feed events
 - memory-feed rows
 
 ### Promotion
 `/api/epicon/promote` already:
 - reads pending EPICON intake
-- routes by category to agent lanes
+- routes items by category to agent lanes
 - writes committed `agent_commit` rows
 - appends journal-lane entries after commit
 
 ### Journal
-`/api/agents/journal` already exists as a separate Redis-backed reasoning lane:
-- aggregate lane: `journal:all`
-- per-agent lanes: `journal:<agent>`
-- POST writes require service auth
+`/api/agents/journal` already exists as a separate Redis-backed reasoning lane using:
+- `journal:all`
+- `journal:<agent>`
 
 ## Problem
 
-The substrate is live, but ingest behavior is still fragmented in key paths:
+The substrate is more alive than the terminal presentation.
 
-- public terminal bootstrap falls to resilient shell too easily
-- some adapters use internal `/api/...` routes while others jump directly to mocks
-- promotion status checks and promotion triggers are too tightly coupled
-- events and journal truth lanes are not always clearly represented
-- Render ingest is not yet enforced as the authoritative ingress spine
+Current gaps:
+- public terminal bootstrap still falls back too easily to the resilient shell
+- adapter behavior is inconsistent across live/degraded/mock paths
+- promotion status and promotion execution are too tightly coupled
+- Events and Journal are separate truth lanes but are not surfaced clearly in the terminal
+- ingest is live, but the terminal does not always reflect that truth cleanly
 
-## Goal
+## Goals
 
-Establish a cleaner ingest architecture:
+1. Make terminal bootstrap more reliable
+2. Make promotion status polling side-effect free
+3. Normalize adapter fallback behavior
+4. Treat Render-backed intake as the primary authoritative ingest surface
+5. Make Ledger chamber truthfulness clearer
 
-- normalize incoming signals into a single ingest envelope
-- keep pending intake separate from committed ledger memory
-- keep promotion side effects explicit and safe
-- improve server-first bootstrap reliability
-- clarify Events vs Journal truth in the UI
+## Changes
 
-## Proposed changes
+### 1. Server bootstrap snapshot for `/terminal`
+- fetch initial terminal snapshot on the server
+- pass initial state into the client
+- reduce first-load dependency on fragile client hydration
 
-1. **Server bootstrap snapshot for `/terminal`**
-   - fetch initial terminal snapshot on the server
-   - inject initial state into client hydration
-   - reduce first-paint degraded shell states
+### 2. Separate promotion status from promotion execution
+- add side-effect-free promotion status read path
+- keep promotion execution on explicit POST
+- prevent browser polling from triggering promotion-like behavior
 
-2. **Separate promotion status from promotion execution**
-   - add side-effect-free status route
-   - keep promotion execution behind explicit POST
-   - avoid browser polling against trigger-like endpoints
+### 3. Normalize adapter fallbacks
+- standardize live → degraded → mock behavior across:
+  - agents
+  - tripwires
+  - EPICON feed
+  - integrity
+  - related chamber surfaces
+- prefer internal `/api/...` routes before mock fallback
 
-3. **Normalize adapter fallback contract**
-   - align agents, tripwires, EPICON, integrity, and related panels to one live/degraded/mock contract
-   - prefer internal `/api/...` routes before mock fallback
+### 4. Strengthen ingest truthfulness
+- preserve source labels consistently:
+  - `ledger-api`
+  - `agent_commit`
+  - `eve-synthesis`
+  - `github-commit`
+  - `memory-feed`
+- reduce false degraded states caused by adapter mismatch
+- keep pending intake separate from committed memory
 
-4. **Treat Render ledger ingest as authoritative input**
-   - standardize ingest envelope fields across sources
-   - preserve source labels (`ledger-api`, `agent_commit`, `eve-synthesis`, etc.)
-   - dedupe prior to promotion where feasible
-
-5. **Improve ledger chamber truthfulness**
-   - explicitly separate **Events** and **Journal** views
-   - default to Events when committed agent rows exist
-   - surface counts for committed event rows, journal rows, and pending promotable rows
+### 5. Clarify Ledger chamber
+- make Events and Journal clearly distinct
+- default to Events when committed rows exist in active cycle
+- expose counts for:
+  - committed event rows
+  - journal rows
+  - pending promotable rows
 
 ## Non-goals
 
-This PR does **not**:
-- replace the existing EPICON pipeline
-- remove Redis-backed lanes
+This PR does not:
+- replace Redis-backed lanes
 - redesign all terminal chambers
-- rewrite agent routing logic from scratch
+- rewrite agent routing from scratch
+- replace the existing EPICON pipeline
 
 ## Validation
 
-- `/terminal` renders server-bootstrapped live data on first load
-- promotion status polling has no write side effects
-- adapters no longer fall to mocks when internal routes are healthy
-- EPICON feed still contains committed rows from live sources
-- journal lane still receives writes after promotion
-- Ledger chamber clearly reflects Events vs Journal truth
+- `/terminal` renders live bootstrap data on first load
+- promotion status polling is side-effect free
+- internal routes are preferred before mock fallback
+- committed EPICON rows still appear in feed
+- journal lane remains writable after promotion
+- Ledger chamber clearly distinguishes Events from Journal
 
-## Why this matters
+## Why
 
-The live substrate already exists. This PR aligns it into a coherent ingest flow:
+Mobius already has live substrate pieces.
+This PR makes the terminal reflect that reality more faithfully and reduces friction in the ingest/promotion/read-model loop.
 
-**Render/backend ingest → pending intake → promotion → committed memory → terminal read model**
-
-This reduces false degraded states and makes terminal behavior match live system truth more reliably.
+## Suggested checklist
 
 ## Checklist
 
-- [ ] Add server bootstrap snapshot plumbing for `/terminal`
-- [ ] Add side-effect-free promotion status endpoint
+- [ ] Add server bootstrap snapshot for `/terminal`
+- [ ] Pass initial terminal state into client
+- [ ] Add side-effect-free promotion status route
 - [ ] Keep promotion execution on explicit POST only
-- [ ] Unify client adapter fallback contract (live → degraded → mock)
-- [ ] Standardize ingest envelope fields across feed sources
-- [ ] Apply pre-promotion dedupe where possible
-- [ ] Expose committed/journal/pending counts in Ledger chamber
-- [ ] Verify journal writes continue post-promotion
-- [ ] Validate first-load experience avoids resilient-shell false degrade
-- [ ] Document operational fallback behavior for degraded ledger API scenarios
+- [ ] Normalize adapter fallback behavior
+- [ ] Prefer internal `/api/...` routes before mocks
+- [ ] Clarify Events vs Journal in Ledger chamber
+- [ ] Default Ledger to Events when committed rows exist
+- [ ] Preserve source labels across feed rows
+- [ ] Verify no new client-side terminal regressions
+
+## Blunt implementation note
+
+The cleanest merge order is:
+1. bootstrap snapshot
+2. promotion status split
+3. adapter normalization
+4. ledger chamber truthfulness
+
+That’s the least-resistance micromouse route.
