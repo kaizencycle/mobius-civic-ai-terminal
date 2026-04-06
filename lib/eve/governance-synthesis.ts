@@ -174,10 +174,15 @@ export function escalationIdempotencyTag(cycleId: string, fingerprint: string): 
   return `eve-syn-esc|${cycleId}|${fingerprint}`;
 }
 
+function isEveSynthesisLedgerSource(source: string | undefined): boolean {
+  if (source === EVE_SYNTHESIS_SOURCE) return true;
+  return typeof source === 'string' && source.startsWith(`${EVE_SYNTHESIS_SOURCE}+`);
+}
+
 export function ledgerHasIdempotencyTag(rows: EpiconLedgerFeedEntry[], tag: string): boolean {
   return rows.some(
     (row) =>
-      row.source === EVE_SYNTHESIS_SOURCE &&
+      isEveSynthesisLedgerSource(row.source) &&
       row.status === 'committed' &&
       Array.isArray(row.tags) &&
       row.tags.includes(tag),
@@ -686,6 +691,7 @@ export async function publishEveGovernanceSynthesis(
     EVE_GOVERNANCE_SYNTH_TAG,
     idempotencyTag,
     output.category,
+    ...(input.sonarCivic?.answer.trim() ? (['external-sonar-enriched'] as const) : []),
     ...output.ethicsFlags.map((f) => `ethics:${f}`),
   ];
 
@@ -695,14 +701,14 @@ export async function publishEveGovernanceSynthesis(
   const entry: EpiconLedgerFeedEntry = {
     id: entryId,
     timestamp,
-    author: 'eve',
+    author: 'EVE',
     title: output.title,
     body: output.body,
     type: 'epicon',
     severity: ledgerSeverity,
     gi: input.gi,
     tags,
-    source: input.sonarCivic ? 'eve-synthesis+sonar' : EVE_SYNTHESIS_SOURCE,
+    source: EVE_SYNTHESIS_SOURCE,
     verified: true,
     verifiedBy: 'ZEUS',
     cycle: input.cycleId,
