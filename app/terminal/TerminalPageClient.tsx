@@ -756,15 +756,16 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#020617] text-slate-100">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-0 top-0 h-[28rem] w-[28rem] bg-cyan-500/10 blur-[140px]" />
-        <div className="absolute right-0 top-16 h-[24rem] w-[24rem] bg-fuchsia-500/10 blur-[160px]" />
+        <div className="absolute left-0 top-0 h-[24rem] w-[24rem] bg-cyan-500/10 blur-[160px]" />
+        <div className="absolute right-0 top-16 h-[20rem] w-[20rem] bg-fuchsia-500/10 blur-[170px]" />
       </div>
       <HardHalt isOpen={breaker.stage === 'halt'} giScore={gi.score} reason={breaker.message} />
 
-      <header className="sticky top-0 z-40 border-b border-cyan-500/20 bg-slate-950/90 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-cyan-500/20 bg-slate-950/92 backdrop-blur-md">
         <div className="mx-auto max-w-[1800px] px-4 py-3">
-          <section className="relative overflow-hidden rounded-xl border border-slate-700/80 bg-slate-900/70 p-3 shadow-[0_0_0_1px_rgba(8,47,73,0.4),0_14px_40px_rgba(2,6,23,0.65)]">
+          <section className="relative overflow-hidden rounded-xl border border-cyan-400/20 bg-slate-900/70 p-3 shadow-[0_0_0_1px_rgba(34,211,238,0.12),0_16px_40px_rgba(2,6,23,0.68)]">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-cyan-500/0 via-cyan-300/80 to-fuchsia-400/0" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-fuchsia-400/0 via-fuchsia-300/35 to-fuchsia-400/0" />
             <div className="flex flex-col gap-3 xl:gap-2">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                 <div className="flex items-center gap-3">
@@ -815,9 +816,9 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                       key={tab.key}
                       onClick={() => setSelectedNav(tab.key)}
                       className={cn(
-                        'whitespace-nowrap rounded-md border px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.16em] transition',
+                        'whitespace-nowrap rounded-md border px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.16em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50',
                         active
-                          ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.24)]'
+                          ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,0.22)]'
                           : 'border-slate-700/80 bg-slate-900/50 text-slate-400 hover:border-slate-500 hover:text-slate-200',
                       )}
                     >
@@ -936,7 +937,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                 ))}
               </div>
             </section>
-            <section className="rounded-lg border border-slate-800/90 bg-slate-900/50 p-3 shadow-[inset_0_1px_0_rgba(148,163,184,0.08)]">
+            <section className="rounded-lg border border-slate-800/90 bg-slate-900/45 p-3 shadow-[inset_0_1px_0_rgba(148,163,184,0.05)]">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-300">Integrity Trend</div>
@@ -953,18 +954,18 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
           </div>
 
           <aside className="space-y-4">
-            <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+            <section className="rounded-lg border border-slate-800 bg-slate-900/45 p-3">
               <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-300">Tripwire Anomalies</div>
               <div className="space-y-2">
                 {allTripwires.slice(0, 4).map((tripwire) => (
-                  <div key={tripwire.id} className={cn('rounded border bg-slate-950/70 p-2 text-xs', tripwire.severity.toLowerCase() === 'high' ? 'border-rose-500/40' : 'border-amber-500/30')}>
+                  <div key={tripwire.id} className={cn('rounded border bg-slate-950/75 p-2.5 text-xs', tripwire.severity.toLowerCase() === 'high' ? 'border-rose-500/45' : 'border-amber-500/35')}>
                     <div className="font-medium text-slate-200">{tripwire.label}</div>
                     <div className="font-mono uppercase text-slate-500">{tripwire.severity} · {tripwire.owner} · monitoring escalation</div>
                   </div>
                 ))}
               </div>
             </section>
-            <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <section className="rounded-lg border border-cyan-500/20 bg-slate-900/55 p-4 shadow-[inset_0_1px_0_rgba(34,211,238,0.08)]">
               <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-300">Command Surface</div>
               <div className="mt-1 text-lg font-semibold text-slate-100">{commandSurfaceTitle}</div>
               <div className="mt-2 text-sm text-slate-300">
@@ -979,7 +980,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {commandSurfaceButtons.map((action) => (
-                  <button key={action.label} onClick={() => setSelectedNav(action.nav)} className="rounded-md border border-slate-600 px-3 py-1.5 text-xs">
+                  <button key={action.label} onClick={() => setSelectedNav(action.nav)} className="rounded-md border border-slate-600 px-3 py-1.5 text-xs transition hover:border-cyan-400/45 hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50">
                     {action.label}
                   </button>
                 ))}
@@ -991,7 +992,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
         <section className="col-span-12">{renderCenterContent()}</section>
 
         <aside className="col-span-12 space-y-4 xl:col-span-3">
-          <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+          <section className="rounded-lg border border-slate-800 bg-slate-900/45 p-3">
             <div className="mb-2 flex items-center justify-between">
               <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Agent Roster</div>
               <div className="text-[10px] font-mono text-slate-500">{visibleAgents.length} online</div>
@@ -1003,7 +1004,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                 : visibleAgents.slice(0, 8).map((agent) => {
                     const load = Math.min(100, Math.max(5, Math.round((agent.load ?? 0.6) * 100)));
                     return (
-                      <button key={agent.id} onClick={() => setFocusedAgent(agent)} className="w-full rounded-md border border-slate-800 bg-slate-950/80 p-2 text-left">
+                      <button key={agent.id} onClick={() => setFocusedAgent(agent)} className="w-full rounded-md border border-slate-800 bg-slate-950/80 p-2 text-left transition hover:border-cyan-500/35">
                         <div className="flex items-center justify-between">
                           <div className="text-xs font-semibold text-slate-100">{agent.name}</div>
                           <span className={cn('h-2 w-2 rounded-full', agent.status === 'offline' ? 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]' : agent.status === 'idle' ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]' : 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]')} />
@@ -1016,7 +1017,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+          <section className="rounded-lg border border-slate-800 bg-slate-900/45 p-3">
             <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">Micro-Agent Signals</div>
             <div className="space-y-2">
               {!rosterLoaded
@@ -1026,7 +1027,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                     const score = scored.length === 0 ? 0 : Math.round((scored.reduce((sum, signal) => sum + signal.value, 0) / scored.length) * 100);
                     const tone = score > 90 ? 'bg-emerald-400' : score > 70 ? 'bg-sky-400' : 'bg-amber-400';
                     return (
-                      <div key={agent.agentName} className="rounded-md border border-slate-800 bg-slate-950/70 p-2">
+                      <div key={agent.agentName} className="rounded-md border border-slate-800 bg-slate-950/75 p-2">
                         <div className="flex items-center justify-between text-xs"><span>{agent.agentName}</span><span className="font-mono text-slate-400">{score}%</span></div>
                         <div className="mt-1 h-1 overflow-hidden rounded bg-slate-800"><div className={tone + ' h-full transition-all'} style={{ width: `${score}%` }} /></div>
                       </div>
@@ -1035,7 +1036,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
             </div>
           </section>
 
-          <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+          <section className="rounded-lg border border-slate-800 bg-slate-900/45 p-3">
             <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-400">System Integrity</div>
             <div className="mt-2 text-2xl font-mono font-bold text-slate-100">{giScore.toFixed(3)}</div>
             <div className="text-xs text-slate-500">Composite {micro?.composite.toFixed(3) ?? '—'} · KV {kvLatency ?? '—'}ms</div>
@@ -1086,7 +1087,7 @@ const StatCard = memo(function StatCard({ label, value, trend, icon, subtitle, o
   return (
     <button
       onClick={onClick}
-      className="rounded-lg border border-slate-700/90 bg-slate-900/60 p-3 text-left shadow-[inset_0_1px_0_rgba(148,163,184,0.07)] transition hover:border-cyan-400/45 hover:shadow-[0_0_20px_rgba(34,211,238,0.14)]"
+      className="rounded-lg border border-slate-700/90 bg-slate-900/50 p-3 text-left shadow-[inset_0_1px_0_rgba(148,163,184,0.06)] transition hover:border-cyan-400/45 hover:shadow-[0_0_14px_rgba(34,211,238,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/40"
     >
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{label}</span>
@@ -1182,7 +1183,7 @@ function JournalView({ entries, cycleId }: { entries: AgentJournalEntry[]; cycle
         const rows = byAgent.get(agent) ?? [];
         const manifest = AGENT_MANIFESTS[agent];
         return (
-          <div key={agent} className="rounded-md border border-slate-800 bg-slate-950/40">
+          <div key={agent} className="rounded-md border border-slate-800 bg-slate-950/45">
             <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
               <div className="flex items-center gap-2">
                 <span className={cn('rounded border px-1.5 py-0.5 text-[10px] font-mono uppercase', AGENT_COLOR[agent] ?? 'border-slate-700 text-slate-300')}>
@@ -1199,7 +1200,7 @@ function JournalView({ entries, cycleId }: { entries: AgentJournalEntry[]; cycle
                 rows.map((entry) => {
                   const isOpen = expanded[entry.id] === true;
                   return (
-                    <div key={entry.id} className="rounded border border-slate-800 bg-slate-950/70">
+                    <div key={entry.id} className="rounded border border-slate-800 bg-slate-950/75">
                       <button
                         onClick={() => setExpanded((prev) => ({ ...prev, [entry.id]: !isOpen }))}
                         className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
@@ -1316,11 +1317,12 @@ const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSel
   return (
     <div
       className={cn(
-        'rounded-md border border-slate-800 bg-slate-950/70 p-3 transition',
-        isSelected && 'border-sky-500/30 ring-1 ring-sky-500/20',
+        'relative rounded-md border border-slate-800 bg-slate-950/75 p-3 transition',
+        isSelected && 'border-sky-500/35 ring-1 ring-sky-500/15',
         isEveLane && 'border-fuchsia-400/35 bg-fuchsia-500/[0.03]',
       )}
     >
+      {isEveLane ? <div className="pointer-events-none absolute inset-y-0 left-0 w-0.5 rounded-l-md bg-fuchsia-300/75" /> : null}
       <button onClick={handleSelect} className="w-full text-left">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 gap-3">
@@ -1342,7 +1344,7 @@ const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSel
         </div>
         <div className="mt-2 flex items-center gap-2 text-[10px] font-mono uppercase text-slate-400">
           <span>{entry.agentOrigin}</span>
-          <div className="h-1.5 flex-1 overflow-hidden rounded bg-slate-800"><div className="h-full bg-emerald-400" style={{ width: `${confidence}%` }} /></div>
+          <div className="h-1.5 flex-1 overflow-hidden rounded bg-slate-800"><div className="h-full bg-emerald-400/90" style={{ width: `${confidence}%` }} /></div>
           <span>{entry.status ?? `${confidence}%`}</span>
           <span className="text-slate-500">→</span>
         </div>
