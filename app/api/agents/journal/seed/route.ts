@@ -73,7 +73,8 @@ function seedEntries(cycle = 'C-272'): SeedEntry[] {
       scope: 'Governance, ethics, civic risk, narrative patterns',
       observation: 'Internal substrate synthesis running. 3 governance entries generated per cycle. External news lane degraded — 0 external items in blend window. Civic radar: 4 alerts active.',
       inference: "Synthesis is substrate-first as designed. The absence from the public feed is a routing gap, not a synthesis failure. Pattern: seismic + auth instability co-occurring.",
-      recommendation: "Feed route must read from KV eve-synthesis list. Author field must normalize to 'eve'.",
+      recommendation:
+        'Committed EVE governance synthesis is written to mobius:epicon:feed (and epicon:feed mirror). Feed normalizes EVE rows to source eve-synthesis and author EVE.',
       confidence: 0.79,
       derivedFrom: [],
       category: 'inference',

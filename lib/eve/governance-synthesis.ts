@@ -24,7 +24,6 @@ import { getTripwireState } from '@/lib/tripwire/store';
 
 export const EVE_GOVERNANCE_SYNTH_TAG = 'eve-governance-synthesis';
 export const EVE_SYNTHESIS_SOURCE = EVE_LEDGER_SYNTHESIS_SOURCE;
-const EVE_SYNTHESIS_KV_KEY = 'epicon:eve-synthesis';
 
 /** Align with EVE automation cadence (every 4h). */
 const CYCLE_WINDOW_MS = 4 * 60 * 60 * 1000;
@@ -245,14 +244,15 @@ export function escalationIdempotencyTag(cycleId: string, fingerprint: string): 
   return `eve-syn-esc|${cycleId}|${fingerprint}`;
 }
 
+/** True if this row is EVE governance synthesis (committed) carrying the window/escalation idempotency tag. */
 export function ledgerHasIdempotencyTag(rows: EpiconLedgerFeedEntry[], tag: string): boolean {
-  return rows.some(
-    (row) =>
-      isEveSynthesisLedgerSource(row.source) &&
-      row.status === 'committed' &&
-      Array.isArray(row.tags) &&
-      row.tags.includes(tag),
-  );
+  return rows.some((row) => {
+    if (row.status !== 'committed' || !Array.isArray(row.tags) || !row.tags.includes(tag)) {
+      return false;
+    }
+    if (isEveSynthesisLedgerSource(row.source)) return true;
+    return row.agentOrigin === 'EVE' && row.tags.includes(EVE_GOVERNANCE_SYNTH_TAG);
+  });
 }
 
 async function tryExternalEnrichment(): Promise<{ line: string | null; degraded: boolean }> {
@@ -638,8 +638,22 @@ export async function processEveCycleWindowSynthesis(
   }
 
   const input = await gatherEveGovernanceSynthesisInput(cycleId, { ledgerRows: allRows });
+  const afterGather = await readLedgerRowsForEve(400);
+  if (!force && ledgerHasIdempotencyTag(afterGather, idempotencyTag)) {
+    return {
+      ok: true,
+      cycleId,
+      mode: 'cycle' as const,
+      published: false,
+      reason: 'already_synthesized_for_window',
+      windowBucket,
+      idempotencyTag,
+      derivedFromCount: 0,
+    };
+  }
+
   const output = buildEveGovernanceSynthesisOutput(input);
-  const publishResult = await publishEveGovernanceSynthesis(input, output, idempotencyTag, allRows);
+  const publishResult = await publishEveGovernanceSynthesis(input, output, idempotencyTag, afterGather);
 
   return {
     ok: true,
@@ -705,7 +719,21 @@ export async function processEveEscalationSynthesis(
   }
 
   const output = buildEveGovernanceSynthesisOutput(input);
-  const publishResult = await publishEveGovernanceSynthesis(input, output, idempotencyTag, allRows);
+  const afterBuild = await readLedgerRowsForEve(400);
+  if (!force && ledgerHasIdempotencyTag(afterBuild, idempotencyTag)) {
+    return {
+      ok: true,
+      cycleId,
+      mode: 'escalation' as const,
+      published: false,
+      reason: 'already_synthesized_for_escalation_class',
+      idempotencyTag,
+      derivedFromCount: 0,
+      escalationFingerprint: fingerprint,
+    };
+  }
+
+  const publishResult = await publishEveGovernanceSynthesis(input, output, idempotencyTag, afterBuild);
 
   const publishReason =
     publishResult.published && trimmedReason === 'gi_critical'
@@ -760,6 +788,7 @@ export async function publishEveGovernanceSynthesis(
     EVE_GOVERNANCE_SYNTH_TAG,
     idempotencyTag,
     output.category,
+    ...(input.sonarCivic && input.sonarCivic.answer.trim() ? ['eve-sonar-enriched'] : []),
     ...output.ethicsFlags.map((f) => `ethics:${f}`),
   ];
   if (sonarEnriched) {
@@ -794,13 +823,6 @@ export async function publishEveGovernanceSynthesis(
   };
 
   await pushLedgerEntry(entry);
-
-  const redis = getRedisClient();
-  if (redis) {
-    const payload = JSON.stringify(entry);
-    await redis.lpush(EVE_SYNTHESIS_KV_KEY, payload);
-    await redis.ltrim(EVE_SYNTHESIS_KV_KEY, 0, 199);
-  }
 
   return { published: true, entryId, idempotencyTag, ledgerSeverity };
 }
