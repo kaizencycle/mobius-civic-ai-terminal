@@ -34,7 +34,7 @@ interface EventScreenerProps {
 const PAGE_SIZE = 12;
 type TypeFilter = 'all' | 'merge' | 'heartbeat' | 'catalog' | 'epicon' | 'zeus-verify';
 type AuthorFilter = 'all' | 'kaizencycle' | 'mobius-bot' | 'cursor-agent';
-type LaneFilter = 'all' | 'eve-governance';
+type LaneFilter = 'all' | 'eve' | 'governance' | 'ethics' | 'civic-risk';
 
 const TYPE_LABELS: Record<TypeFilter, string> = {
   all: 'All',
@@ -150,6 +150,25 @@ function sourceLabel(source: string): string {
   return source.length > 10 ? source.slice(0, 10) : source;
 }
 
+function governanceSignals(item: EpiconFeedItem) {
+  const haystack = `${item.title} ${(item.tags ?? []).join(' ')}`.toLowerCase();
+  const isEve = (item.agentOrigin ?? '').toUpperCase() === 'EVE' || (item.author ?? '').toLowerCase() === 'eve' || item.source === 'eve-synthesis';
+  const governance = haystack.includes('governance');
+  const ethics = haystack.includes('ethic');
+  const civicRisk = haystack.includes('civic-risk') || haystack.includes('civic_risk') || haystack.includes('civic risk');
+  return { isEve, governance, ethics, civicRisk };
+}
+
+function roleTone(agent: string) {
+  const key = agent.toLowerCase();
+  if (key === 'eve') return 'border-fuchsia-400/40 bg-fuchsia-500/10 text-fuchsia-200';
+  if (key === 'zeus') return 'border-amber-500/35 bg-amber-500/10 text-amber-200';
+  if (key === 'hermes') return 'border-orange-500/35 bg-orange-500/10 text-orange-200';
+  if (key === 'atlas') return 'border-sky-500/35 bg-sky-500/10 text-sky-200';
+  if (key === 'aurea') return 'border-yellow-500/35 bg-yellow-500/10 text-yellow-200';
+  return 'border-slate-700 bg-slate-800/70 text-slate-300';
+}
+
 export default function EventScreener({
   items,
   summary,
@@ -252,14 +271,11 @@ export default function EventScreener({
     const filtered = externallySorted.filter((item) => {
       if (typeFilter !== 'all' && item.type !== typeFilter) return false;
       if (authorFilter !== 'all' && item.author !== authorFilter) return false;
-      if (laneFilter === 'eve-governance') {
-        const isEveOrigin = (item.agentOrigin ?? '').toUpperCase() === 'EVE' || (item.author ?? '').toLowerCase() === 'eve';
-        const hasGovernanceTag = (item.tags ?? []).some((tag) => {
-          const normalized = tag.toLowerCase();
-          return normalized.includes('governance') || normalized.includes('ethic') || normalized.includes('civic');
-        });
-        if (!isEveOrigin && item.source !== 'eve-synthesis' && !hasGovernanceTag) return false;
-      }
+      const lane = governanceSignals(item);
+      if (laneFilter === 'eve' && !lane.isEve) return false;
+      if (laneFilter === 'governance' && !lane.governance) return false;
+      if (laneFilter === 'ethics' && !lane.ethics) return false;
+      if (laneFilter === 'civic-risk' && !lane.civicRisk) return false;
       return true;
     });
 
@@ -362,33 +378,29 @@ export default function EventScreener({
           <option value="mobius-bot">mobius-bot</option>
           <option value="cursor-agent">cursor-agent</option>
         </select>
-        <div className="inline-flex items-center gap-1 rounded border border-slate-800 bg-slate-900 p-0.5">
-          <button
-            type="button"
-            onClick={() => {
-              setLaneFilter('all');
-              setPage(0);
-            }}
-            className={cn(
-              'rounded px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em]',
-              laneFilter === 'all' ? 'bg-slate-800 text-slate-200' : 'text-slate-500',
-            )}
-          >
-            All lanes
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setLaneFilter('eve-governance');
-              setPage(0);
-            }}
-            className={cn(
-              'rounded px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em]',
-              laneFilter === 'eve-governance' ? 'bg-rose-500/20 text-rose-200' : 'text-slate-500',
-            )}
-          >
-            EVE governance
-          </button>
+        <div className="inline-flex flex-wrap items-center gap-1 rounded border border-slate-800 bg-slate-900 p-0.5">
+          {[
+            { key: 'all' as const, label: 'All lanes', active: 'bg-slate-800 text-slate-200' },
+            { key: 'eve' as const, label: 'EVE', active: 'bg-fuchsia-500/20 text-fuchsia-100' },
+            { key: 'governance' as const, label: 'Governance', active: 'bg-rose-500/20 text-rose-100' },
+            { key: 'ethics' as const, label: 'Ethics', active: 'bg-pink-500/20 text-pink-100' },
+            { key: 'civic-risk' as const, label: 'Civic Risk', active: 'bg-violet-500/20 text-violet-100' },
+          ].map((lane) => (
+            <button
+              key={lane.key}
+              type="button"
+              onClick={() => {
+                setLaneFilter(lane.key);
+                setPage(0);
+              }}
+              className={cn(
+                'rounded px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em]',
+                laneFilter === lane.key ? lane.active : 'text-slate-500',
+              )}
+            >
+              {lane.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -396,11 +408,19 @@ export default function EventScreener({
         <div className="divide-y divide-slate-800">
           {pagedRows.map((item) => {
             const isOpen = openId === item.id;
-            const isEve = item.source === 'eve-synthesis';
+            const lane = governanceSignals(item);
+            const isEve = lane.isEve;
             const rowAgent = (item.agentOrigin || item.author || '').toLowerCase();
             const dotClass = TYPE_DOT_STYLES[item.type] ?? 'bg-slate-500';
             return (
-              <div key={item.id} className={cn('transition hover:bg-slate-900/40', isOpen && 'bg-sky-500/5')}>
+              <div
+                key={item.id}
+                className={cn(
+                  'transition hover:bg-slate-900/40',
+                  isOpen && 'bg-sky-500/5',
+                  isEve && 'border-l border-fuchsia-400/35 bg-fuchsia-500/[0.03]',
+                )}
+              >
                 <button
                   type="button"
                   onClick={() => setOpenId((prev) => (prev === item.id ? null : item.id))}
@@ -409,9 +429,10 @@ export default function EventScreener({
                   <span className={cn('text-slate-500 transition-transform', isOpen ? 'rotate-90' : 'rotate-0')}>▶</span>
                   <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dotClass)} />
                   <span className="min-w-0 flex-1 truncate text-[11px] text-slate-200">{item.title}</span>
-                  {isEve ? (
-                    <span className="rounded border border-rose-500/35 bg-rose-500/10 px-1 py-0.5 text-[9px] uppercase text-rose-300">EVE SYN</span>
-                  ) : null}
+                  {isEve ? <span className="rounded border border-fuchsia-400/35 bg-fuchsia-500/10 px-1 py-0.5 text-[9px] uppercase text-fuchsia-200">EVE</span> : null}
+                  {lane.governance ? <span className="rounded border border-rose-400/35 bg-rose-500/10 px-1 py-0.5 text-[9px] uppercase text-rose-200">governance</span> : null}
+                  {lane.ethics ? <span className="rounded border border-pink-400/35 bg-pink-500/10 px-1 py-0.5 text-[9px] uppercase text-pink-200">ethics</span> : null}
+                  {lane.civicRisk ? <span className="rounded border border-violet-400/35 bg-violet-500/10 px-1 py-0.5 text-[9px] uppercase text-violet-200">civic-risk</span> : null}
                   <span className="text-slate-500">{timeAgo(item.timestamp)}</span>
                   <span className={cn('rounded border px-1.5 py-0.5 uppercase', TYPE_STYLES[item.type] ?? 'border-slate-700 text-slate-300')}>
                     {item.type}
@@ -433,6 +454,9 @@ export default function EventScreener({
                                 <span className={cn(AUTHOR_STYLES[item.author] ?? 'text-slate-300')}>
                                   {item.agentOrigin || item.author}
                                 </span>
+                                <span className={cn('rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase', roleTone(item.agentOrigin || item.author))}>
+                                  {(item.agentOrigin || item.author || 'agent').toUpperCase()}
+                                </span>
                               </div>
                             )}
                           />
@@ -450,7 +474,7 @@ export default function EventScreener({
                           <AccordionField
                             label="Source"
                             value={(
-                              <span className={cn('rounded border px-1.5 py-0.5 text-[10px] uppercase', isEve ? 'border-rose-500/35 bg-rose-500/10 text-rose-300' : 'border-slate-700 text-slate-300')}>
+                              <span className={cn('rounded border px-1.5 py-0.5 text-[10px] uppercase', isEve ? 'border-fuchsia-400/35 bg-fuchsia-500/10 text-fuchsia-200' : 'border-slate-700 text-slate-300')}>
                                 {sourceLabel(item.source)}
                               </span>
                             )}
@@ -478,7 +502,16 @@ export default function EventScreener({
                             <div className="mt-1 flex flex-wrap gap-1">
                               {(item.tags ?? []).length > 0 ? (
                                 item.tags.map((tag) => (
-                                  <span key={tag} className="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[10px] font-mono text-slate-300">
+                                  <span
+                                    key={tag}
+                                    className={cn(
+                                      'rounded border bg-slate-950 px-1.5 py-0.5 text-[10px] font-mono text-slate-300',
+                                      tag.toLowerCase().includes('governance') && 'border-rose-400/30 text-rose-200',
+                                      tag.toLowerCase().includes('ethic') && 'border-pink-400/30 text-pink-200',
+                                      (tag.toLowerCase().includes('civic-risk') || tag.toLowerCase().includes('civic risk')) && 'border-violet-400/30 text-violet-200',
+                                      !tag.toLowerCase().includes('governance') && !tag.toLowerCase().includes('ethic') && !tag.toLowerCase().includes('civic-risk') && !tag.toLowerCase().includes('civic risk') && 'border-slate-700',
+                                    )}
+                                  >
                                     {tag}
                                   </span>
                                 ))

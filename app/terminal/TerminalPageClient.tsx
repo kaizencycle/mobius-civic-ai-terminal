@@ -754,18 +754,23 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-100">
+    <div className="relative min-h-screen overflow-x-hidden bg-[#020617] text-slate-100">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-0 top-0 h-[28rem] w-[28rem] bg-cyan-500/10 blur-[140px]" />
+        <div className="absolute right-0 top-16 h-[24rem] w-[24rem] bg-fuchsia-500/10 blur-[160px]" />
+      </div>
       <HardHalt isOpen={breaker.stage === 'halt'} giScore={gi.score} reason={breaker.message} />
 
-      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-cyan-500/20 bg-slate-950/90 backdrop-blur-md">
         <div className="mx-auto max-w-[1800px] px-4 py-3">
-          <section className="rounded-xl border border-slate-800 bg-slate-900/55 p-3">
+          <section className="relative overflow-hidden rounded-xl border border-slate-700/80 bg-slate-900/70 p-3 shadow-[0_0_0_1px_rgba(8,47,73,0.4),0_14px_40px_rgba(2,6,23,0.65)]">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-cyan-500/0 via-cyan-300/80 to-fuchsia-400/0" />
             <div className="flex flex-col gap-3 xl:gap-2">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sky-500 text-slate-950">⌘</div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md border border-cyan-300/60 bg-cyan-400/20 text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.35)]">⌘</div>
                   <div>
-                    <div className="text-sm font-semibold uppercase tracking-[0.12em]">MOBIUS CIVIC TERMINAL</div>
+                    <div className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-100">MOBIUS CIVIC TERMINAL</div>
                     <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · {chamberLabel} · LIVE SIGNAL TRACE</div>
                   </div>
                 </div>
@@ -774,13 +779,13 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                     aria-label="Select terminal chamber"
                     value={selectedNav}
                     onChange={(event) => setSelectedNav(event.target.value as NavKey)}
-                    className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-200"
+                    className="rounded-md border border-slate-600 bg-slate-900/90 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-100"
                   >
                     {TABS.map((tab) => (
                       <option key={tab.key} value={tab.key}>{tab.label}</option>
                     ))}
                   </select>
-                  <span className="flex items-center gap-2 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-300">
+                  <span className="flex items-center gap-2 rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-200">
                     <span className={cn('h-2 w-2 rounded-full', runtimeBadge === 'online' ? 'bg-emerald-500' : 'bg-amber-500')} />
                     {runtimeBadge.toUpperCase()}
                   </span>
@@ -796,10 +801,30 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                   )}>
                     {breaker.stage.toUpperCase()}
                   </span>
-                  <span className="hidden rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-400 xl:inline">
+                  <span className="hidden rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-300 xl:inline">
                     {clock}
                   </span>
                 </div>
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {TABS.map((tab) => {
+                  const active = selectedNav === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setSelectedNav(tab.key)}
+                      className={cn(
+                        'whitespace-nowrap rounded-md border px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.16em] transition',
+                        active
+                          ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.24)]'
+                          : 'border-slate-700/80 bg-slate-900/50 text-slate-400 hover:border-slate-500 hover:text-slate-200',
+                      )}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="border-t border-slate-800/80 pt-2">
@@ -819,7 +844,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                       placeholder="Search events, agents, signals..."
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
-                      className="w-full rounded-md border border-slate-800 bg-slate-900 py-1.5 pl-8 pr-3 text-[11px] font-mono uppercase tracking-[0.06em] text-slate-300 placeholder:text-slate-600 transition-colors focus:border-sky-500/50 focus:outline-none focus:ring-1 focus:ring-sky-500/20"
+                      className="w-full rounded-md border border-slate-700 bg-slate-900/80 py-1.5 pl-8 pr-3 text-[11px] font-mono uppercase tracking-[0.06em] text-slate-200 placeholder:text-slate-600 transition-colors focus:border-cyan-400/60 focus:outline-none focus:ring-1 focus:ring-cyan-500/20"
                     />
                     {searchQuery ? (
                       <button
@@ -838,7 +863,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                     <select
                       value={sortBy}
                       onChange={(event) => setSortBy(event.target.value as SortField)}
-                      className="cursor-pointer appearance-none rounded-md border border-slate-800 bg-slate-900 px-2 py-1.5 pr-6 text-[11px] font-mono text-slate-400 transition-colors focus:border-sky-500/50 focus:outline-none"
+                      className="cursor-pointer appearance-none rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 pr-6 text-[11px] font-mono text-slate-300 transition-colors focus:border-cyan-500/50 focus:outline-none"
                       style={{
                         backgroundImage:
                           "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E\")",
@@ -858,7 +883,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                     <button
                       type="button"
                       onClick={() => setSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
-                      className="inline-flex h-7 w-5 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-[11px] font-mono text-slate-400 transition-colors hover:border-sky-500/40 hover:text-sky-300"
+                      className="inline-flex h-7 w-5 items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-[11px] font-mono text-slate-300 transition-colors hover:border-cyan-400/40 hover:text-cyan-200"
                       aria-label={`Toggle sort direction (currently ${sortDir})`}
                     >
                       {sortDir === 'desc' ? '↓' : '↑'}
@@ -892,7 +917,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-[1800px] grid-cols-12 gap-4 p-4 pb-14">
+      <main className="relative mx-auto grid w-full max-w-[1800px] grid-cols-12 gap-4 p-4 pb-14">
         <section className="col-span-12 grid gap-4 xl:grid-cols-[minmax(700px,2fr)_minmax(340px,1fr)]">
           <div className="space-y-4">
             <section className="space-y-3">
@@ -911,7 +936,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                 ))}
               </div>
             </section>
-            <section className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+            <section className="rounded-lg border border-slate-800/90 bg-slate-900/50 p-3 shadow-[inset_0_1px_0_rgba(148,163,184,0.08)]">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div>
                   <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-300">Integrity Trend</div>
@@ -1059,7 +1084,10 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
 const StatCard = memo(function StatCard({ label, value, trend, icon, subtitle, onClick }: { label: string; value: string; trend: number; icon: string; subtitle: string; onClick: () => void }) {
   const positive = trend >= 0;
   return (
-    <button onClick={onClick} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 text-left transition hover:border-sky-500/50">
+    <button
+      onClick={onClick}
+      className="rounded-lg border border-slate-700/90 bg-slate-900/60 p-3 text-left shadow-[inset_0_1px_0_rgba(148,163,184,0.07)] transition hover:border-cyan-400/45 hover:shadow-[0_0_20px_rgba(34,211,238,0.14)]"
+    >
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{label}</span>
         <span className="text-slate-500">{icon}</span>
@@ -1267,6 +1295,14 @@ const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSel
   const confidence = Math.min(100, Math.max(10, Math.round(((entry.confidenceTier ?? 2) / 4) * 100)));
   const relTime = useRelativeTime(entry.timestamp);
   const badge = useMemo(() => getLedgerAgentBadge(entry), [entry]);
+  const governanceSignals = useMemo(() => {
+    const tags = (entry.tags ?? []).map((tag) => tag.toLowerCase());
+    const governance = tags.some((tag) => tag.includes('governance'));
+    const ethics = tags.some((tag) => tag.includes('ethic'));
+    const civicRisk = tags.some((tag) => tag.includes('civic-risk') || tag.includes('civic risk') || tag.includes('civic_risk'));
+    return { governance, ethics, civicRisk };
+  }, [entry.tags]);
+  const isEveLane = entry.source === 'eve-synthesis' || entry.agentOrigin === 'EVE';
   const isoTime = useMemo(() => {
     const parsed = new Date(entry.timestamp);
     if (Number.isNaN(parsed.getTime())) return undefined;
@@ -1278,7 +1314,13 @@ const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSel
   }, [onSelect, entry.id]);
 
   return (
-    <div className={cn('rounded-md border border-slate-800 bg-slate-950/70 p-3 transition', isSelected && 'border-sky-500/30 ring-1 ring-sky-500/20')}>
+    <div
+      className={cn(
+        'rounded-md border border-slate-800 bg-slate-950/70 p-3 transition',
+        isSelected && 'border-sky-500/30 ring-1 ring-sky-500/20',
+        isEveLane && 'border-fuchsia-400/35 bg-fuchsia-500/[0.03]',
+      )}
+    >
       <button onClick={handleSelect} className="w-full text-left">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 gap-3">
@@ -1288,11 +1330,10 @@ const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSel
             <div className="min-w-0">
               <div className="flex min-w-0 flex-wrap items-center gap-1 truncate text-sm font-medium text-slate-100">
                 <span className="truncate">{entry.title ?? entry.summary}</span>
-                {entry.source === 'eve-synthesis' || entry.agentOrigin === 'EVE' ? (
-                  <span className="shrink-0 text-[10px] font-mono text-fuchsia-300 border border-fuchsia-400/35 rounded px-1 py-0.5">
-                    EVE
-                  </span>
-                ) : null}
+                {isEveLane ? <span className="shrink-0 rounded border border-fuchsia-400/35 px-1 py-0.5 text-[10px] font-mono text-fuchsia-200">EVE</span> : null}
+                {governanceSignals.governance ? <span className="shrink-0 rounded border border-rose-400/35 bg-rose-500/10 px-1 py-0.5 text-[10px] font-mono text-rose-200">governance</span> : null}
+                {governanceSignals.ethics ? <span className="shrink-0 rounded border border-pink-400/35 bg-pink-500/10 px-1 py-0.5 text-[10px] font-mono text-pink-200">ethics</span> : null}
+                {governanceSignals.civicRisk ? <span className="shrink-0 rounded border border-violet-400/35 bg-violet-500/10 px-1 py-0.5 text-[10px] font-mono text-violet-200">civic-risk</span> : null}
               </div>
               <div className="truncate text-xs text-slate-500">{entry.summary}</div>
             </div>
@@ -1312,11 +1353,7 @@ const LedgerRow = memo(function LedgerRow({ entry, isSelected, isExpanded, onSel
             {(entry.tags ?? []).map((tag) => (
               <span key={`${entry.id}-${tag}`} className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-mono uppercase text-slate-400">{tag}</span>
             ))}
-            {entry.source === 'eve-synthesis' || entry.agentOrigin === 'EVE' ? (
-              <span className="rounded border border-fuchsia-400/35 bg-fuchsia-500/10 px-1.5 py-0.5 text-[10px] font-mono uppercase text-fuchsia-300">
-                EVE
-              </span>
-            ) : null}
+            {isEveLane ? <span className="rounded border border-fuchsia-400/35 bg-fuchsia-500/10 px-1.5 py-0.5 text-[10px] font-mono uppercase text-fuchsia-200">EVE</span> : null}
           </div>
           <div className="text-right text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">hash {entry.id}</div>
         </div>
