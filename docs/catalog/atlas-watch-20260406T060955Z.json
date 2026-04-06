@@ -1,0 +1,24 @@
+{
+  "gi": 0.83,
+  "mode": "green",
+  "cycle": "C-273",
+  "anomalies": [
+    {
+      "label": "Seismic: 47 quakes M2.5+ today, max M5.5 near 80 km SSE of Kaktovik, Alaska",
+      "severity": "elevated"
+    },
+    {
+      "label": "Self-ping: HTTP 401 in 30ms",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": false,
+    "GI_STATE": false,
+    "ECHO_STATE": false,
+    "TRIPWIRE_STATE": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "timestamp": "2026-04-06T06:09:55Z"
+}
