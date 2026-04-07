@@ -95,3 +95,93 @@ export function getLabLaunchUrl(labId: LabId): string {
   return `${base}${LAB_PATHS[labId]}`;
 }
 
+
+export interface SubstrateEntry {
+  agent: string;
+  agentOrigin: string;
+  cycle: string;
+  title: string;
+  summary: string;
+  category:
+    | 'governance'
+    | 'ethics'
+    | 'civic-risk'
+    | 'observation'
+    | 'inference'
+    | 'alert'
+    | 'recommendation'
+    | 'close'
+    | 'heartbeat'
+    | 'verification'
+    | 'ingest';
+  severity: 'nominal' | 'elevated' | 'critical' | 'info' | 'degraded';
+  source: 'agent-journal' | 'eve-synthesis' | 'atlas-heartbeat' | 'zeus-verify' | 'aurea-close' | 'echo-ingest';
+  gi_at_time?: number;
+  confidence?: number;
+  derivedFrom?: string[];
+  tags?: string[];
+  verified?: boolean;
+}
+
+async function writeJournalToKV(entry: SubstrateEntry): Promise<void> {
+  const { getJournalRedisClient } = await import('@/lib/agents/journalLane');
+  const redis = getJournalRedisClient();
+  if (!redis) return;
+
+  const now = new Date().toISOString();
+  const record = {
+    id: `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`,
+    agent: entry.agent,
+    cycle: entry.cycle,
+    timestamp: now,
+    scope: entry.category,
+    observation: entry.summary,
+    inference: entry.title,
+    recommendation: entry.title,
+    confidence: entry.confidence ?? 0.5,
+    derivedFrom: entry.derivedFrom ?? [],
+    status: 'committed',
+    category: entry.category,
+    severity: entry.severity,
+    source: 'agent-journal',
+    agentOrigin: entry.agentOrigin,
+    tags: entry.tags ?? [],
+  };
+
+  await redis.lpush(`journal:${entry.agentOrigin.toLowerCase()}`, JSON.stringify(record));
+  await redis.ltrim(`journal:${entry.agentOrigin.toLowerCase()}`, 0, 199);
+  await redis.lpush('journal:all', JSON.stringify(record));
+  await redis.ltrim('journal:all', 0, 499);
+}
+
+export async function writeToSubstrate(
+  entry: SubstrateEntry,
+): Promise<{ ok: boolean; entryId?: string; error?: string }> {
+  const ledgerUrl = process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core.onrender.com';
+  const apiKey = process.env.RENDER_API_KEY ?? '';
+
+  try {
+    const res = await fetch(`${ledgerUrl}/ledger/entries`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Api-Key': apiKey,
+        'X-Agent-Origin': entry.agentOrigin,
+      },
+      body: JSON.stringify({
+        ...entry,
+        timestamp: new Date().toISOString(),
+        id: `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`,
+      }),
+      signal: AbortSignal.timeout(5000),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) throw new Error(`ledger ${res.status}`);
+    const data = (await res.json()) as { id?: string; entry_id?: string };
+    return { ok: true, entryId: data.id ?? data.entry_id };
+  } catch (err) {
+    await writeJournalToKV(entry);
+    return { ok: false, error: String(err) };
+  }
+}

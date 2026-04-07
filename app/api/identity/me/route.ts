@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPermissionsForRole } from '@/lib/identity/permissions';
 import { getOrCreateIdentity, type MobiusIdentity } from '@/lib/identity/identityStore';
 import { kvGet, kvSet } from '@/lib/kv/store';
+import { getOperatorSession } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,8 @@ export async function OPTIONS() {
 }
 
 export async function GET(_req: NextRequest) {
-  const username = 'kaizencycle';
+  const operator = await getOperatorSession();
+  const username = operator?.username ?? 'kaizencycle';
   const identityKey = `identity:${username}`;
   const renderIdentityUrl = process.env.RENDER_IDENTITY_URL;
   let identity: MobiusIdentity | null = null;
@@ -61,12 +63,22 @@ export async function GET(_req: NextRequest) {
     degraded = true;
   }
 
+  if (operator) {
+    identity = {
+      ...identity,
+      username: operator.username,
+      mobius_id: operator.mobius_id,
+      mii_score: operator.mii_score,
+      mic_balance: operator.mic_balance,
+    };
+  }
+
   return NextResponse.json(
     {
       ok: true,
       identity,
       degraded,
-      permissions: getPermissionsForRole(identity.role === 'operator' ? 'developer' : identity.role),
+      permissions: operator?.permissions ?? getPermissionsForRole(identity.role === 'operator' ? 'developer' : identity.role),
     },
     {
       headers: CORS_HEADERS,

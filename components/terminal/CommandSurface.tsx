@@ -1,0 +1,221 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { signIn, signOut, useSession } from 'next-auth/react';
+import type { NavKey } from '@/lib/terminal/types';
+
+type CommandOutput = {
+  timestamp: string;
+  command: string;
+  type: 'success' | 'error' | 'info';
+  response: string;
+};
+
+const COMMANDS = [
+  '/help', '/status', '/agents', '/pulse', '/signals', '/ledger', '/wallet', '/journal', '/ask', '/login', '/logout', '/whoami', '/epicon', '/gi', '/clear',
+];
+
+export default function CommandSurface({
+  onSwitchChamber,
+}: {
+  onSwitchChamber: (nav: NavKey) => void;
+}) {
+  const [input, setInput] = useState('');
+  const [history, setHistory] = useState<string[]>([]);
+  const [output, setOutput] = useState<CommandOutput[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const { data: session } = useSession();
+
+  const matches = useMemo(() => COMMANDS.filter((c) => c.startsWith(input.trim().toLowerCase())), [input]);
+
+  useEffect(() => {
+    let active = true;
+    async function boot() {
+      const integrity = await fetch('/api/integrity-status', { cache: 'no-store' }).then((r) => r.json()).catch(() => null);
+      if (!active || !integrity) return;
+      const greeting = session?.user?.githubUsername
+        ? `Welcome back, ${session.user.githubUsername}.`
+        : 'Type /login to authenticate as operator.';
+      setOutput([
+        {
+          timestamp: new Date().toISOString(),
+          command: 'boot',
+          type: 'info',
+          response: `MOBIUS CIVIC TERMINAL — ${integrity.cycle}
+GI ${integrity.global_integrity} · ${integrity.mode}
+8 agents standing by.
+Type /help for available commands.
+${greeting}`,
+        },
+      ]);
+    }
+    void boot();
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.githubUsername]);
+
+  function push(command: string, response: string, type: CommandOutput['type'] = 'info') {
+    setOutput((prev) => [{ timestamp: new Date().toISOString(), command, response, type }, ...prev].slice(0, 25));
+  }
+
+  async function runCommand(raw: string) {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    setHistory((prev) => [trimmed, ...prev].slice(0, 50));
+    setHistoryIndex(-1);
+
+    const [base, ...rest] = trimmed.split(' ');
+
+    if (base === '/clear') {
+      setOutput([]);
+      return;
+    }
+    if (base === '/help') {
+      push(trimmed, COMMANDS.join('\n'));
+      return;
+    }
+    if (base === '/pulse') {
+      onSwitchChamber('pulse');
+      push(trimmed, '→ Pulse chamber', 'success');
+      return;
+    }
+    if (base === '/signals') {
+      onSwitchChamber('sentiment');
+      push(trimmed, '→ Signals chamber', 'success');
+      return;
+    }
+    if (base === '/ledger') {
+      onSwitchChamber('ledger');
+      push(trimmed, '→ Ledger chamber', 'success');
+      return;
+    }
+    if (base === '/wallet') {
+      if (!session?.user) {
+        push(trimmed, 'Login required — /login', 'error');
+        return;
+      }
+      onSwitchChamber('wallet');
+      push(trimmed, '→ Wallet chamber', 'success');
+      return;
+    }
+    if (base === '/login') {
+      push(trimmed, 'Redirecting to GitHub...');
+      await signIn('github', { callbackUrl: '/terminal' });
+      return;
+    }
+    if (base === '/logout') {
+      const name = session?.user?.githubUsername ?? 'operator';
+      await signOut({ callbackUrl: '/terminal' });
+      push(trimmed, `Session cleared. Goodbye, ${name}.`, 'success');
+      return;
+    }
+    if (base === '/whoami') {
+      const identity = await fetch('/api/identity/session', { cache: 'no-store' }).then((r) => r.json());
+      if (!identity.user) {
+        push(trimmed, 'Not logged in. Type /login to authenticate.', 'error');
+      } else {
+        push(trimmed, `${identity.user.username} · ${identity.user.mobius_id}\nMII ${identity.user.mii_score} · MIC ${identity.user.mic_balance} · Tier: ${identity.user.tier}`, 'success');
+      }
+      return;
+    }
+
+    if (base === '/status' || base === '/gi') {
+      const [integrity, kv] = await Promise.all([
+        fetch('/api/integrity-status', { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/kv/health', { cache: 'no-store' }).then((r) => r.json()),
+      ]);
+      if (base === '/gi') {
+        const gi = Number(integrity.global_integrity ?? 0);
+        const bar = `${'█'.repeat(Math.round(gi * 16)).padEnd(16, '░')}`;
+        push(trimmed, `GI ${gi.toFixed(2)}  ${bar}  ${String(integrity.mode ?? 'unknown').toUpperCase()}`, 'success');
+      } else {
+        const activeKeys = Object.values(kv.keys ?? {}).filter(Boolean).length;
+        push(trimmed, `MOBIUS ${integrity.cycle} · GI ${integrity.global_integrity} · ${integrity.mode}\nKV: ${activeKeys} keys active\nSource: ${integrity.source ?? 'unknown'}\nAgents: 8/8`, 'success');
+      }
+      return;
+    }
+
+    if (base === '/agents') {
+      const agents = await fetch('/api/agents/status', { cache: 'no-store' }).then((r) => r.json());
+      const text = (agents.agents ?? []).map((agent: { name: string; status: string }) => `${agent.name} · ${agent.status}`).join('\n');
+      push(trimmed, text || 'No agents found', 'info');
+      return;
+    }
+
+    if (base === '/journal') {
+      const agent = rest[0] ?? '';
+      const url = agent ? `/api/agents/journal?agent=${encodeURIComponent(agent)}&limit=3` : '/api/agents/journal?limit=3';
+      const journal = await fetch(url, { cache: 'no-store' }).then((r) => r.json());
+      const text = (journal.entries ?? []).slice(0, 3).map((entry: { cycle: string; observation: string }) => `[${entry.cycle}] ${entry.observation}`).join('\n');
+      push(trimmed, text || 'No journal entries', 'info');
+      return;
+    }
+
+    if (base === '/epicon') {
+      const id = rest[0];
+      if (!id) {
+        push(trimmed, 'Usage: /epicon [id]', 'error');
+        return;
+      }
+      const feed = await fetch('/api/epicon/feed?limit=100', { cache: 'no-store' }).then((r) => r.json());
+      const item = (feed.items ?? []).find((row: { id: string }) => row.id === id);
+      push(trimmed, item ? JSON.stringify(item, null, 2) : `No EPICON entry found for ${id}`, item ? 'success' : 'error');
+      return;
+    }
+
+    if (base === '/ask') {
+      const agent = rest[0] ?? 'ATLAS';
+      push(trimmed, `${agent} is listening...`, 'info');
+      return;
+    }
+
+    push(trimmed, `Unknown command: ${base}`, 'error');
+  }
+
+  return (
+    <div className="fixed bottom-7 left-0 right-0 z-40 border-t border-slate-800 bg-slate-950 px-3 py-2 font-mono text-[11px] tracking-wide">
+      <div className="mb-2 max-h-40 overflow-y-auto">
+        {output.map((row) => (
+          <div key={`${row.timestamp}-${row.command}`} className="mb-2 border-b border-slate-900 pb-2">
+            <div className="text-slate-500">{row.timestamp}</div>
+            <div className="text-slate-500">&gt; {row.command}</div>
+            <pre className={row.type === 'error' ? 'whitespace-pre-wrap text-red-400' : row.type === 'success' ? 'whitespace-pre-wrap text-emerald-400' : 'whitespace-pre-wrap text-slate-300'}>{row.response}</pre>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-slate-500">&gt;</span>
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              void runCommand(input);
+              setInput('');
+            }
+            if (event.key === 'Escape') setInput('');
+            if (event.key === 'ArrowUp' && history.length > 0) {
+              event.preventDefault();
+              const next = Math.min(historyIndex + 1, history.length - 1);
+              setHistoryIndex(next);
+              setInput(history[next] ?? '');
+            }
+            if (event.key === 'ArrowDown' && history.length > 0) {
+              event.preventDefault();
+              const next = Math.max(historyIndex - 1, -1);
+              setHistoryIndex(next);
+              setInput(next === -1 ? '' : history[next] ?? '');
+            }
+            if (event.key === 'Tab') {
+              event.preventDefault();
+              if (matches[0]) setInput(matches[0]);
+            }
+          }}
+          className="w-full bg-transparent text-sky-300 outline-none"
+          placeholder="Type /help"
+        />
+      </div>
+    </div>
+  );
+}

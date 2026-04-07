@@ -15,6 +15,7 @@ import EventScreener, { type EpiconFeedItem } from '@/components/terminal/EventS
 import TripwirePanel from '@/components/tripwire/TripwirePanel';
 import MICWalletPanel from '@/components/terminal/MICWalletPanel';
 import SentimentMap from '@/components/terminal/SentimentMap';
+import CommandSurface from '@/components/terminal/CommandSurface';
 
 type AgentStatusApi = {
   id: string;
@@ -1000,6 +1001,8 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
           </div>
         </div>
       ) : null}
+
+      <CommandSurface onSwitchChamber={setSelectedNav} />
 
       <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-7 items-center justify-between border-t border-slate-800 bg-slate-950 px-4 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
         <div className="flex items-center gap-3">

@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { MobiusStructuredData } from '@/components/seo/MobiusStructuredData';
+import SessionClientProvider from '@/components/auth/SessionClientProvider';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -85,7 +86,7 @@ export default function RootLayout({
       <head>
         <MobiusStructuredData />
       </head>
-      <body className="font-sans">{children}</body>
+      <body className="font-sans"><SessionClientProvider>{children}</SessionClientProvider></body>
     </html>
   );
 }

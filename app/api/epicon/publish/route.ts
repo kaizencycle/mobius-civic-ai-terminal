@@ -10,6 +10,7 @@ import { incrementEpiconCount } from '@/lib/identity/store';
 import { getEveSynthesisCandidateById, removeEveSynthesisCandidate } from '@/lib/epicon/eveSynthesisCandidates';
 import { getPipelineCandidateById, removePipelineCandidate } from '@/lib/eve/synthesis-pipeline-store';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
+import { getOperatorSession } from '@/lib/auth/session';
 
 type LegacyPublishBody = {
   submitted_by_login?: string;
@@ -232,7 +233,8 @@ export async function POST(req: NextRequest) {
     }
 
     const authError = getServiceAuthError(req);
-    if (authError) return authError;
+    const operator = await getOperatorSession();
+    if (authError && !operator) return authError;
 
     // Fallback to legacy publish mode.
     return publishLegacyRecord(body);
