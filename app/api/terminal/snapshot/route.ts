@@ -10,10 +10,14 @@ import { GET as getSentiment } from '@/app/api/sentiment/composite/route';
 import { GET as getRuntime } from '@/app/api/runtime/status/route';
 import { GET as getPromotion } from '@/app/api/epicon/promotion-status/route';
 import { GET as getEve } from '@/app/api/eve/cycle-advance/route';
+import {
+  normalizeAllSnapshotLanes,
+  type SnapshotLaneKey,
+  type SnapshotLaneState,
+  type SnapshotLeaf,
+} from '@/lib/terminal/snapshotLanes';
 
 export const dynamic = 'force-dynamic';
-
-type SnapshotLeaf = { ok: boolean; status: number; data: unknown; error: string | null };
 
 async function callHandler(request: NextRequest, handler: (request: NextRequest) => Promise<NextResponse>): Promise<SnapshotLeaf> {
   try {
@@ -62,12 +66,34 @@ export async function GET(request: NextRequest) {
     callHandler(makeRequest(baseUrl, '/api/eve/cycle-advance'), getEve),
   ]);
 
+  const leaves: Record<SnapshotLaneKey, SnapshotLeaf> = {
+    integrity,
+    signals,
+    kvHealth,
+    agents,
+    epicon,
+    echo,
+    journal,
+    sentiment,
+    runtime,
+    promotion,
+    eve,
+  };
+
+  const lanes: SnapshotLaneState[] = normalizeAllSnapshotLanes(leaves);
+  const laneSummary = lanes.every((lane) => lane.state === 'healthy' || lane.state === 'empty');
+
   return NextResponse.json(
     {
-      ok: [integrity, signals, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve].every((row) => row.ok),
+      ok: laneSummary,
       cycle: cycle ?? null,
       include_catalog: includeCatalog === 'true',
       timestamp: new Date().toISOString(),
+      deployment: {
+        commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+        environment: process.env.VERCEL_ENV ?? null,
+      },
+      lanes,
       integrity,
       signals,
       kvHealth,
