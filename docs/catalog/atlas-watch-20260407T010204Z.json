@@ -1,0 +1,24 @@
+{
+  "gi": 0.66,
+  "mode": "yellow",
+  "cycle": "C-273",
+  "anomalies": [
+    {
+      "label": "Seismic: 44 quakes M2.5+ today, max M5.9 near 254 km ESE of Chiniak, Alaska",
+      "severity": "elevated"
+    },
+    {
+      "label": "Self-ping: HTTP 401 in 58ms",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": true,
+    "ECHO_STATE": false,
+    "TRIPWIRE_STATE": true,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "timestamp": "2026-04-07T01:02:04.749Z"
+}
