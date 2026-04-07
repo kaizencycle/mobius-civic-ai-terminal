@@ -1,5 +1,6 @@
 import type { MicroSignal } from '@/lib/agents/micro/core';
 import type { EpiconItem } from '@/lib/terminal/types';
+import type { GlobeVisualAsset } from '@/lib/globe/types';
 
 export type GlobePinSeverity = 'nominal' | 'elevated' | 'critical';
 
@@ -9,12 +10,23 @@ export type GlobePin = {
   lng: number;
   source: string;
   title: string;
+  /** 0–1 confidence / signal strength (distinct from severity) */
   value: number;
+  confidence: number;
   severity: GlobePinSeverity;
   agent: string;
   meta: Record<string, string | number | boolean | null>;
   pulse: boolean;
   domainKey: SentimentDomainKey;
+  updatedAt: string;
+  ageSec: number;
+  provisional: boolean;
+  /** Regional / investigative grouping (e.g. Pacific Rim seismic) */
+  clusterKey: string | null;
+  clusterLabel: string | null;
+  provenance: string;
+  narrativeWhy: string;
+  visualAsset?: GlobeVisualAsset | null;
 };
 
 export type SentimentDomainKey =
@@ -79,16 +91,76 @@ type MicroSweepLike = {
   allSignals?: MicroSignal[];
 };
 
-function pushPin(
-  pins: GlobePin[],
-  seen: Set<string>,
-  pin: Omit<GlobePin, 'pulse'> & { pulse?: boolean },
-) {
+type GlobePinInput = Pick<
+  GlobePin,
+  'id' | 'lat' | 'lng' | 'source' | 'title' | 'value' | 'severity' | 'agent' | 'meta' | 'domainKey'
+> & {
+  pulse?: boolean;
+  confidence?: number;
+  signalTimestamp?: string;
+  clusterKey?: string | null;
+  clusterLabel?: string | null;
+  provenance?: string;
+  narrativeWhy?: string;
+  provisional?: boolean;
+  visualAsset?: GlobeVisualAsset | null;
+};
+
+function seismicCluster(lat: number, lng: number): { key: string; label: string } | null {
+  const pacificRim =
+    (lng <= -70 && lng >= -180 && lat >= -55 && lat <= 72)
+    || (lng >= 95 && lat >= -50 && lat <= 55)
+    || (lng >= -180 && lng <= -90 && lat >= -60 && lat <= 35);
+  if (pacificRim) return { key: 'pacific_rim_seismic', label: 'Pacific Rim seismic activity' };
+  if (lat >= 25 && lat <= 50 && lng >= -15 && lng <= 40) return { key: 'europe_mena', label: 'Europe / MENA corridor' };
+  return null;
+}
+
+function pushPin(pins: GlobePin[], seen: Set<string>, pin: GlobePinInput) {
   if (seen.has(pin.id)) return;
   seen.add(pin.id);
   const pulse =
     pin.pulse ?? (pin.severity === 'elevated' || pin.severity === 'critical');
-  pins.push({ ...pin, pulse });
+  const confidence = typeof pin.confidence === 'number' ? pin.confidence : pin.value;
+  const updatedAt = pin.signalTimestamp ?? new Date().toISOString();
+  const ageSec = Math.max(0, Math.floor((Date.now() - new Date(updatedAt).getTime()) / 1000));
+  let clusterKey = pin.clusterKey ?? null;
+  let clusterLabel = pin.clusterLabel ?? null;
+  if (clusterKey == null && pin.source.includes('USGS')) {
+    const c = seismicCluster(pin.lat, pin.lng);
+    if (c) {
+      clusterKey = c.key;
+      clusterLabel = c.label;
+    }
+  }
+  const provisional =
+    pin.provisional
+    ?? (pin.source.includes('Wikipedia') || pin.source.includes('npm Registry') || confidence < 0.45);
+  const out: GlobePin = {
+    id: pin.id,
+    lat: pin.lat,
+    lng: pin.lng,
+    source: pin.source,
+    title: pin.title,
+    value: pin.value,
+    severity: pin.severity,
+    agent: pin.agent,
+    meta: pin.meta,
+    domainKey: pin.domainKey,
+    pulse,
+    confidence,
+    ageSec,
+    updatedAt,
+    clusterKey,
+    clusterLabel,
+    provisional,
+    provenance: pin.provenance ?? `${pin.agent} synthesis · ${pin.source}`,
+    narrativeWhy:
+      pin.narrativeWhy
+      ?? `Elevated attention for ${pin.domainKey} lane — operators should verify against ledger and journal context.`,
+  };
+  if (pin.visualAsset !== undefined) out.visualAsset = pin.visualAsset;
+  pins.push(out);
 }
 
 /**
@@ -121,6 +193,7 @@ export function buildGlobePinsFromMicro(
           const q = samples[i];
           const id = `usgs-${i}-${q.lat!.toFixed(2)}-${q.lng!.toFixed(2)}`;
           const magNorm = Math.max(0, Math.min(1, 1 - (q.mag - 2.5) / 5.5));
+          const pinSev = q.mag >= 5.5 ? 'critical' : q.mag >= 4 ? 'elevated' : sev;
           pushPin(pins, seen, {
             id,
             lat: q.lat!,
@@ -128,9 +201,16 @@ export function buildGlobePinsFromMicro(
             source: `${agent} · USGS Earthquake`,
             title: `M ${q.mag.toFixed(1)} — ${q.place}`,
             value: magNorm,
-            severity: q.mag >= 5.5 ? 'critical' : q.mag >= 4 ? 'elevated' : sev,
+            confidence: Math.min(1, 0.55 + (q.mag / 8) * 0.45),
+            severity: pinSev,
             agent,
             domainKey,
+            signalTimestamp: sig.timestamp,
+            provenance: 'USGS public feed · GAIA micro-agent sweep',
+            narrativeWhy:
+              pinSev !== 'nominal'
+                ? 'Seismic stress on globe — verify cascading civic and infrastructure risk if activity clusters persist.'
+                : 'Background seismicity within sweep tolerance.',
             meta: {
               mag: q.mag,
               place: q.place,
@@ -148,9 +228,14 @@ export function buildGlobePinsFromMicro(
         source: `${agent} · USGS Earthquake`,
         title: sig.label,
         value: sig.value,
+        confidence: sig.value,
         severity: sev,
         agent,
         domainKey,
+        signalTimestamp: sig.timestamp,
+        provenance: 'USGS aggregate · GAIA sweep (no per-event coordinates)',
+        narrativeWhy: 'Aggregate seismic lane — open inspection for sweep context.',
+        provisional: true,
         meta: { note: 'aggregate (no per-event coordinates)' },
       });
       continue;
@@ -173,9 +258,15 @@ export function buildGlobePinsFromMicro(
             source: `${agent} · NASA EONET`,
             title: ev.title,
             value: sig.value,
+            confidence: Math.min(1, 0.5 + sig.value * 0.5),
             severity: sev,
             agent,
             domainKey,
+            signalTimestamp: sig.timestamp,
+            clusterKey: 'eonet_natural',
+            clusterLabel: 'Global natural events (EONET)',
+            provenance: 'NASA EONET · GAIA',
+            narrativeWhy: 'Environmental hazard layer — cross-check with civic readiness and supply routes.',
             meta: { category: ev.category, openEvents: raw?.count ?? samples.length },
           });
         }
@@ -204,6 +295,12 @@ export function buildGlobePinsFromMicro(
     }
 
     const id = `micro-${sig.source.replace(/\s+/g, '-').toLowerCase()}-${sig.timestamp.slice(0, 13)}`;
+    const prov =
+      sig.source === 'Federal Register' || sig.source.startsWith('data.gov')
+        ? 'Federal Register / data.gov · THEMIS sweep'
+        : sig.source === 'Hacker News'
+          ? 'Hacker News API · HERMES-µ'
+          : `${agent} · ${sig.source}`;
     pushPin(pins, seen, {
       id,
       lat,
@@ -211,10 +308,22 @@ export function buildGlobePinsFromMicro(
       source: `${agent} · ${sig.source}`,
       title: sig.label,
       value: sig.value,
+      confidence: sig.value,
       severity: sev,
       agent,
       domainKey,
-      meta: flattenRaw(sig.raw),
+      signalTimestamp: sig.timestamp,
+      provenance: prov,
+      narrativeWhy:
+        sig.source === 'Federal Register'
+          ? 'Regulatory volume shapes civic risk surface — JADE / THEMIS attestation path applies.'
+          : sig.source.includes('data.gov')
+            ? 'Institutional data freshness signals transparency health.'
+            : `Information or systems signal for ${domainKey} — HERMES / DAEDALUS verification lanes.`,
+      meta: {
+        ...flattenRaw(sig.raw),
+        freshnessSec: Math.max(0, Math.floor((Date.now() - new Date(sig.timestamp).getTime()) / 1000)),
+      },
     });
   }
 
@@ -245,6 +354,8 @@ export function buildGlobePinsFromMicro(
 
     const agent = item.ownerAgent ?? 'ECHO';
 
+    const echoTs = parseEpiconTimestamp(item.timestamp);
+
     pushPin(pins, seen, {
       id,
       lat,
@@ -252,14 +363,30 @@ export function buildGlobePinsFromMicro(
       source: `${agent} · ${src}`,
       title,
       value,
+      confidence: Math.min(1, 0.4 + Math.abs(change) / 15),
       severity: echoSev,
       agent,
       domainKey: sourceDomain(src),
-      meta: flattenRaw(meta),
+      signalTimestamp: echoTs,
+      provenance: 'CoinGecko · ECHO ingest · EPICON pipeline',
+      narrativeWhy: 'Market pulse on financial lane — ECHO routes to HERMES narrative coupling.',
+      meta: {
+        ...flattenRaw(meta),
+        epiconId: item.id,
+        ledger: 'ECHO EPICON row (see Events chamber)',
+        freshnessSec: Math.max(0, Math.floor((Date.now() - new Date(echoTs).getTime()) / 1000)),
+      },
     });
   }
 
   return pins;
+}
+
+function parseEpiconTimestamp(ts: string): string {
+  const m = ts.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) UTC$/);
+  if (m) return `${m[1]}T${m[2]}:00.000Z`;
+  const d = new Date(ts);
+  return Number.isFinite(d.getTime()) ? d.toISOString() : new Date().toISOString();
 }
 
 function flattenRaw(raw: unknown): Record<string, string | number | boolean | null> {
