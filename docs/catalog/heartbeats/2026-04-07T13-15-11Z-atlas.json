@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-04-07T13:15:11.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-274",
+  "gi": 0.75,
+  "mode": "yellow",
+  "source": "mock",
+  "anomalies": [
+    "Seismic: 38 quakes M2.5+ today, max M5.2 near 32 km SW of Petersville, Alaska",
+    "Self-ping: HTTP 401 in 31ms"
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": true,
+    "ECHO_STATE": false,
+    "TRIPWIRE_STATE": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "seed_attempted": true,
+  "seed_result": "401"
+}
