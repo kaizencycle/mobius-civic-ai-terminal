@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAgentBearerToken } from '@/lib/substrate/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,8 +17,8 @@ export async function GET(request: NextRequest) {
   const baseUrl = normalizeLedgerBaseUrl(
     process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core-ledger.onrender.com',
   );
-  const apiKey = process.env.RENDER_API_KEY ?? '';
-  const authorization = apiKey.trim().length > 0 ? `Bearer ${apiKey}` : '';
+  const token = getAgentBearerToken();
+  const authorization = token.length > 0 ? `Bearer ${token}` : '';
 
   try {
     const health = await fetch(`${baseUrl}/health`, {
