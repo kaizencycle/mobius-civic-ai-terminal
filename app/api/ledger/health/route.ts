@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getAgentBearerToken } from '@/lib/substrate/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +12,8 @@ export async function GET() {
   const renderLedgerUrl = normalizeLedgerBaseUrl(
     process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core-ledger.onrender.com',
   );
-  const renderApiKey = process.env.RENDER_API_KEY ?? '';
-  const authorization = renderApiKey.trim().length > 0 ? `Bearer ${renderApiKey}` : '';
+  const agentToken = getAgentBearerToken();
+  const authorization = agentToken.length > 0 ? `Bearer ${agentToken}` : '';
 
   try {
     const response = await fetch(`${renderLedgerUrl}/health`, {
@@ -37,7 +38,7 @@ export async function GET() {
           return 'invalid-ledger-url';
         }
       })(),
-      hasApiKey: renderApiKey.trim().length > 0,
+      hasAgentToken: agentToken.length > 0,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

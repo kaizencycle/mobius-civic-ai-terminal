@@ -96,6 +96,17 @@ export function getLabLaunchUrl(labId: LabId): string {
 }
 
 
+function normalizeLedgerBaseUrl(url: string): string {
+  return url.trim().replace(/\/+$/, '');
+}
+
+/** JWT for Civic Protocol ledger + MIC (identity login). Falls back to legacy RENDER_API_KEY. */
+export function getAgentBearerToken(): string {
+  const primary = process.env.AGENT_SERVICE_TOKEN?.trim() ?? '';
+  if (primary.length > 0) return primary;
+  return process.env.RENDER_API_KEY?.trim() ?? '';
+}
+
 export interface SubstrateEntry {
   id?: string;
   timestamp?: string;
@@ -137,6 +148,94 @@ export interface SubstrateEntry {
   verified?: boolean;
 }
 
+export type AttestToLedgerResult = { ok: boolean; entryId?: string; error?: string };
+
+/**
+ * Write a civic ledger attestation (Civic Protocol Core) and optionally trigger MIC earn (fire-and-forget).
+ */
+export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLedgerResult> {
+  const LEDGER_BASE = normalizeLedgerBaseUrl(
+    process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core-ledger.onrender.com',
+  );
+  const AGENT_TOKEN = getAgentBearerToken();
+  const authorization = AGENT_TOKEN.length > 0 ? `Bearer ${AGENT_TOKEN}` : '';
+  const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
+  const attestTimestamp = new Date().toISOString();
+
+  try {
+    const health = await fetch(`${LEDGER_BASE}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000),
+      cache: 'no-store',
+    });
+    if (!health.ok) throw new Error(`ledger health ${health.status}`);
+
+    const res = await fetch(`${LEDGER_BASE}/ledger/attest`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authorization ? { Authorization: authorization } : {}),
+      },
+      body: JSON.stringify({
+        agent_id: entry.agentOrigin.toLowerCase(),
+        event_type: entry.category,
+        civic_id: `mobius-${entry.agentOrigin.toLowerCase()}`,
+        lab_source: entry.source,
+        payload: {
+          event_id: eventId,
+          title: entry.title,
+          summary: entry.summary,
+          cycle: entry.cycle,
+          gi_at_time: entry.gi_at_time,
+          mii: entry.confidence,
+          severity: entry.severity,
+          source: entry.source,
+          tags: entry.tags ?? [],
+          agent: entry.agent,
+          agent_origin: entry.agentOrigin,
+          derived_from: entry.derivedFrom ?? [],
+          verified: entry.verified ?? false,
+        },
+        timestamp: attestTimestamp,
+      }),
+      signal: AbortSignal.timeout(8000),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) throw new Error(`ledger ${res.status}`);
+    const data = (await res.json()) as { id?: string; event_id?: string };
+    const entryId = data.event_id ?? data.id ?? eventId;
+
+    const MIC_URL = (process.env.MIC_WALLET_URL ?? process.env.RENDER_MIC_URL ?? '').trim();
+    if (MIC_URL.length > 0 && AGENT_TOKEN.length > 0) {
+      void fetch(`${MIC_URL.replace(/\/+$/, '')}/mic/earn`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${AGENT_TOKEN}`,
+        },
+        body: JSON.stringify({
+          source: 'agent_epicon_attest',
+          mii: entry.confidence ?? 0.85,
+          metadata: {
+            agent: entry.agentOrigin,
+            cycle: entry.cycle,
+            category: entry.category,
+          },
+        }),
+        signal: AbortSignal.timeout(8000),
+      }).catch((err: unknown) => {
+        console.error('[mic] earn failed:', err);
+      });
+    }
+
+    return { ok: true, entryId };
+  } catch (err) {
+    await writeJournalToKV(entry);
+    return { ok: false, error: String(err) };
+  }
+}
+
 async function writeJournalToKV(entry: SubstrateEntry): Promise<void> {
   const { getJournalRedisClient } = await import('@/lib/agents/journalLane');
   const redis = getJournalRedisClient();
@@ -171,56 +270,9 @@ async function writeJournalToKV(entry: SubstrateEntry): Promise<void> {
 export async function writeToSubstrate(
   entry: SubstrateEntry,
 ): Promise<{ ok: boolean; entryId?: string; error?: string }> {
-  const ledgerUrl = process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core-ledger.onrender.com';
-  const apiKey = process.env.RENDER_API_KEY ?? '';
-  const authorization = apiKey.trim().length > 0 ? `Bearer ${apiKey}` : '';
-  const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
-  const timestamp = entry.timestamp ?? new Date().toISOString();
-
-  try {
-    const health = await fetch(`${ledgerUrl}/health`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(5000),
-      cache: 'no-store',
-    });
-    if (!health.ok) throw new Error(`ledger health ${health.status}`);
-
-    const res = await fetch(`${ledgerUrl}/ledger/attest`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authorization ? { Authorization: authorization } : {}),
-      },
-      body: JSON.stringify({
-        event_type: entry.category,
-        civic_id: `mobius-${entry.agentOrigin.toLowerCase()}`,
-        lab_source: entry.source,
-        payload: {
-          event_id: eventId,
-          agent: entry.agent,
-          agent_origin: entry.agentOrigin,
-          cycle: entry.cycle,
-          title: entry.title,
-          summary: entry.summary,
-          severity: entry.severity,
-          source: entry.source,
-          gi_at_time: entry.gi_at_time,
-          confidence: entry.confidence,
-          derived_from: entry.derivedFrom ?? [],
-          tags: entry.tags ?? [],
-          verified: entry.verified ?? false,
-          timestamp,
-        },
-      }),
-      signal: AbortSignal.timeout(8000),
-      cache: 'no-store',
-    });
-
-    if (!res.ok) throw new Error(`ledger ${res.status}`);
-    const data = (await res.json()) as { id?: string; event_id?: string };
-    return { ok: true, entryId: data.event_id ?? data.id ?? eventId };
-  } catch (err) {
-    await writeJournalToKV(entry);
-    return { ok: false, error: String(err) };
-  }
+  const withTimestamp: SubstrateEntry = {
+    ...entry,
+    timestamp: entry.timestamp ?? new Date().toISOString(),
+  };
+  return attestToLedger(withTimestamp);
 }

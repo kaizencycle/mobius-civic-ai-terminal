@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeToSubstrate } from '@/lib/substrate/client';
+import { attestToLedger } from '@/lib/substrate/client';
 import type { EpiconItem } from '@/lib/terminal/types';
 import { getOperatorSession } from '@/lib/auth/session';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,22 @@ type EchoFeedItem = {
   category: EpiconItem['category'];
   timestamp: string;
 };
+
+/** ECHO transform timestamps: `YYYY-MM-DD HH:MM UTC` */
+function parseEchoFeedTimestampUtcMs(ts: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})\s+UTC$/i.exec(ts.trim());
+  if (!m) return null;
+  const [, y, mo, d, h, mi] = m;
+  return Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi));
+}
+
+function isSameMobiusCycleDay(timestamp: string, ref: Date = new Date()): boolean {
+  const ms = parseEchoFeedTimestampUtcMs(timestamp);
+  if (ms === null) return false;
+  const feedDay = new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const refDay = ref.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  return feedDay === refDay;
+}
 
 async function isAuthorized(request: NextRequest): Promise<boolean> {
   const secret = process.env.CRON_SECRET?.trim();
@@ -37,24 +54,27 @@ export async function POST(request: NextRequest) {
 
   const payload = (await echoRes.json()) as { epicon?: EchoFeedItem[] };
   const epiconRows = Array.isArray(payload.epicon) ? payload.epicon : [];
-  const committed = epiconRows.filter((row) => row.status === 'verified');
+  const cycleId = currentCycleId();
+  const committed = epiconRows.filter(
+    (row) => row.status === 'verified' && isSameMobiusCycleDay(row.timestamp),
+  );
 
   const results = await Promise.all(
     committed.map((row) =>
-      writeToSubstrate({
-        id: `seed-${row.id}`,
+      attestToLedger({
+        id: `c274-seed-${row.id}`,
         timestamp: row.timestamp,
         agent: row.ownerAgent,
-        agentOrigin: row.ownerAgent.toUpperCase(),
-        cycle: 'seed',
+        agentOrigin: row.ownerAgent,
+        cycle: cycleId,
         title: row.title,
         summary: row.summary,
         category: row.category,
         severity: row.confidenceTier >= 3 ? 'critical' : row.confidenceTier >= 2 ? 'elevated' : 'nominal',
-        source: 'seed-backfill',
+        source: 'echo-ingest',
         confidence: Math.max(0.2, Math.min(0.98, row.confidenceTier / 4)),
-        tags: ['seed-backfill', row.category],
-        verified: row.status === 'verified',
+        tags: ['c274-seed', 'echo-ingest', row.category],
+        verified: true,
       }),
     ),
   );

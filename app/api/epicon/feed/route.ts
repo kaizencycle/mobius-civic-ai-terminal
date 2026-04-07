@@ -5,6 +5,7 @@ import { getPublicEpiconFeed } from '@/lib/epicon/feedStore';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 import { loadGIState } from '@/lib/kv/store';
+import { getAgentBearerToken } from '@/lib/substrate/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -335,9 +336,9 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult>
   const renderLedgerUrl = normalizeLedgerBaseUrl(
     process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core-ledger.onrender.com',
   );
-  const renderApiKey = process.env.RENDER_API_KEY ?? '';
+  const agentToken = getAgentBearerToken();
   const ledgerHost = describeLedgerHost(renderLedgerUrl);
-  const authorization = renderApiKey.trim().length > 0 ? `Bearer ${renderApiKey}` : '';
+  const authorization = agentToken.length > 0 ? `Bearer ${agentToken}` : '';
 
   if (!process.env.RENDER_LEDGER_URL) {
     console.warn(`[ledger-api] RENDER_LEDGER_URL missing, using fallback host=${ledgerHost}`);
@@ -345,7 +346,7 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult>
 
   try {
     console.info(
-      `[ledger-api] connecting host=${ledgerHost} limit=${limit} hasApiKey=${renderApiKey.trim().length > 0}`,
+      `[ledger-api] connecting host=${ledgerHost} limit=${limit} hasAgentToken=${agentToken.length > 0}`,
     );
     const health = await fetch(`${renderLedgerUrl}/health`, {
       method: 'GET',
