@@ -17,13 +17,22 @@ This policy separates **code change workflows** from **runtime signal workflows*
 Git is for reviewable source changes.  
 KV is for live agent emissions, heartbeats, verification events, and ledger-feed runtime data.
 
-### STEP 0 — Terminal snapshot (C-274)
+### STEP 0 — Read shared world state (C-274)
 
 Automations that reason about live terminal state should begin from:
 
 **GET** `https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot`
 
-Use **gi**, **cycle**, **signals**, **echo** / **epicon**, **sentiment**, and **`substrate.latest`** as shared context. Prefer this over re-fetching raw public APIs (USGS, CoinGecko, EONET, etc.) when the snapshot already carries normalized values.
+Extract and use:
+
+- **cycle** — current cycle ID
+- **gi** — current global integrity score (from the integrity lane / composite as applicable)
+- **anomalies** — active signal anomalies (where present in snapshot lanes)
+- **echo** / **epicon** — latest entries this cycle (including **echo.epicon**-shaped data when exposed)
+- **sentiment** — domain scores (financial, environmental, etc.)
+- **substrate** — what other agents last wrote to Mobius-Substrate (`substrate.agents` with `lastEntry` / `entryCount`, plus `substrate.latest` for the same rows)
+
+Use this as the base context for all reasoning. **Do not** separately fetch USGS, CoinGecko, EONET, or similar when the snapshot already carries a normalized view.
 
 ---
 

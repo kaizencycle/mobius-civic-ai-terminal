@@ -2,13 +2,13 @@
 
 This runbook migrates scheduler duties from Vercel cron to the Render thought-broker service.
 
-## STEP 0 — Terminal snapshot (C-274)
+## STEP 0 — Read shared world state (C-274)
 
 Before scheduling or interpreting failures, workers may use:
 
 **GET** `https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot`
 
-Extract **gi**, **cycle**, **signals.composite**, **anomalies**, **echo** / **epicon** (latest), **sentiment.domains**, **`substrate.latest`**. Use as shared context; avoid duplicate fetches of USGS / CoinGecko / EONET when the snapshot already normalizes them.
+Extract **cycle**, **gi**, **anomalies**, **echo** / **epicon**, **sentiment**, **substrate** (**`substrate.agents`** / **`substrate.latest`**). Use as shared context; avoid duplicate fetches of USGS / CoinGecko / EONET when the snapshot already normalizes them.
 
 ## 1) Install runtime dependency on thought-broker
 

@@ -1,3 +1,5 @@
+# STEP 0 — Read shared world state (C-274): GET https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot
+# (cycle, gi, anomalies, echo/epicon, sentiment, substrate.agents / substrate.latest). Do not duplicate USGS/CoinGecko/EONET fetches.
 # EPICON KV Sync — short-cycle keepalive for terminal UI KV reads
 # Class B at runtime: POST seed-kv + GET kv/health only (no repo writes).
 # Schedule: every 15 minutes UTC

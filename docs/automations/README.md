@@ -5,13 +5,13 @@ All automations follow the Mobius two-class taxonomy (Class A: code+git, Class B
 
 ---
 
-## STEP 0 — Read shared context from terminal (C-274)
+## STEP 0 — Read shared world state (C-274)
 
 Before other checks, every automation should start from the normalized terminal snapshot:
 
 **GET** `https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot`
 
-Extract at minimum: **GI**, **cycle**, **signals** (composite), **anomalies** (where present), **echo** / **epicon** (latest entries), **sentiment** (domains), **`substrate.latest`** (recent agent journal rows from Mobius-Substrate).
+Extract and use: **cycle**, **gi**, **anomalies** (where present), **echo** / **epicon** (latest entries this cycle), **sentiment** (domain scores), **substrate** (other agents’ recent journal rows in Mobius-Substrate — **`substrate.agents`** and legacy **`substrate.latest`**).
 
 Use this as base context for all reasoning. **Do not** re-fetch USGS, CoinGecko, EONET, or similar separately when the snapshot already carries the normalized view.
 
