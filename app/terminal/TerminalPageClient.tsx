@@ -4,7 +4,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import HardHalt from '@/components/modals/HardHalt';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { useTerminalData, type TerminalBootstrapSeed } from '@/hooks/useTerminalData';
+import { integrityStatus as mockIntegrityStatus } from '@/lib/mock/integrityStatus';
 import { evaluateCircuitBreaker } from '@/lib/integrity-check';
+import { integrityStatusToGISnapshot } from '@/lib/terminal/api';
 import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import { cn } from '@/lib/utils';
 import type { LedgerEntry, NavKey } from '@/lib/terminal/types';
@@ -196,7 +198,6 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   const [includeCatalog, setIncludeCatalog] = useState(false);
   const [resultCount, setResultCount] = useState(0);
   const [runtimeBadge, setRuntimeBadge] = useState<'online' | 'degraded' | 'offline'>('offline');
-  const [hydrated, setHydrated] = useState(false);
   const [snapshotLanes, setSnapshotLanes] = useState<SnapshotLaneState[]>([]);
   const [snapshotAt, setSnapshotAt] = useState<string | null>(null);
   const [snapshotDeployment, setSnapshotDeployment] = useState<SnapshotDeployment | null>(null);
@@ -223,6 +224,15 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   } = useTerminalData(selectedNav, bootstrap);
   const cycleId = integrityStatus?.cycle ?? 'C-271';
 
+  const bootstrapGi = useMemo(
+    () =>
+      integrityStatusToGISnapshot(
+        bootstrap?.integrityStatus ?? mockIntegrityStatus,
+      ),
+    [bootstrap?.integrityStatus],
+  );
+  const effectiveGi = gi ?? bootstrapGi;
+
   const laneByKey = useMemo(() => Object.fromEntries(snapshotLanes.map((lane) => [lane.key, lane])) as Record<string, SnapshotLaneState>, [snapshotLanes]);
 
   const tripwireFreshAt = useMemo(() => {
@@ -238,10 +248,6 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
     const ts = integrityStatus?.timestamp;
     if (ts) setGiFreshAt(ts);
   }, [integrityStatus?.timestamp]);
-
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -435,12 +441,12 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   }, [applySentiment, cycleId, includeCatalog]);
 
   const breaker = evaluateCircuitBreaker({
-    giScore: gi?.score ?? 0,
+    giScore: effectiveGi.score,
     tripwireState: dominantTripwireState,
     semanticDriftDetected,
   });
-  const giScore = gi?.score ?? 0;
-  const giDelta = gi?.delta ?? 0;
+  const giScore = effectiveGi.score;
+  const giDelta = effectiveGi.delta;
   const committedEventRows = useMemo(
     () => (epiconFeed?.items ?? []).filter((item) => (item.status ?? '').toLowerCase() === 'committed'),
     [epiconFeed?.items],
@@ -677,30 +683,6 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
     setExpandedLedgerId((prev) => (prev === id ? null : id));
   }, []);
 
-  if (!hydrated || !gi) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-200">
-        <header className="border-b border-slate-800 bg-slate-950/95 px-4 py-3">
-          <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-mono uppercase tracking-[0.14em] text-slate-400">Mobius Terminal</div>
-              <div className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-slate-300">
-                Loading integrity layer…
-              </div>
-            </div>
-            <p className="text-[11px] text-slate-500">
-              Fetching `/api/integrity-status` and ledger merge. Shell stays responsive; snapshot lane strip appears once the first bundle returns.
-            </p>
-            {snapshotLanes.length > 0 ? <LaneHealthBadgeRow lanes={snapshotLanes} /> : null}
-            {snapshotLoadError ? (
-              <div className="rounded border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[10px] font-mono text-rose-200">{snapshotLoadError}</div>
-            ) : null}
-          </div>
-        </header>
-      </div>
-    );
-  }
-
   const renderCenterContent = () => {
     if (selectedNav === 'agents') {
       return (
@@ -846,7 +828,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
             cycleId={sentiment?.cycle ?? cycleId}
             timestamp={sentiment?.timestamp ?? new Date().toISOString()}
             sentimentTimestamp={sentiment?.timestamp ?? null}
-            gi={sentiment?.gi ?? gi.score}
+            gi={sentiment?.gi ?? effectiveGi.score}
             overallSentiment={sentiment?.overall_sentiment ?? null}
             domains={sentimentDomains}
             history={sentimentHistory}
@@ -862,7 +844,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
     if (selectedNav === 'wallet') {
       return (
         <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-          <MICWalletPanel gi={gi} integrity={null} />
+          <MICWalletPanel gi={effectiveGi} integrity={null} />
         </section>
       );
     }
@@ -940,7 +922,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
         <div className="absolute left-0 top-0 h-[24rem] w-[24rem] bg-cyan-500/10 blur-[160px]" />
         <div className="absolute right-0 top-16 h-[20rem] w-[20rem] bg-fuchsia-500/10 blur-[170px]" />
       </div>
-      <HardHalt isOpen={breaker.stage === 'halt'} giScore={gi.score} reason={breaker.message} />
+      <HardHalt isOpen={breaker.stage === 'halt'} giScore={effectiveGi.score} reason={breaker.message} />
 
       <header className="sticky top-0 z-40 border-b border-cyan-500/20 bg-slate-950/92 backdrop-blur-md">
         <div className="mx-auto max-w-[1800px] px-4 py-3">
@@ -1158,7 +1140,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                   <button className="rounded border border-slate-700 px-1.5 py-0.5 text-slate-400">30C</button>
                 </div>
               </div>
-              <MiniChart points={microHistory.length > 1 ? microHistory.map((p) => p.composite) : gi.weekly} />
+              <MiniChart points={microHistory.length > 1 ? microHistory.map((p) => p.composite) : effectiveGi.weekly} />
             </section>
           </div>
 
