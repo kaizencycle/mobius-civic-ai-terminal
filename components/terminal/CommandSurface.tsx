@@ -12,7 +12,7 @@ type CommandOutput = {
 };
 
 const COMMANDS = [
-  '/help', '/status', '/agents', '/pulse', '/signals', '/ledger', '/wallet', '/journal', '/ask', '/login', '/logout', '/whoami', '/epicon', '/gi', '/clear',
+  '/help', '/status', '/agents', '/globe', '/pulse', '/signals', '/sentinel', '/ledger', '/wallet', '/journal', '/ask', '/login', '/logout', '/whoami', '/epicon', '/gi', '/clear',
 ];
 
 export default function CommandSurface({
@@ -75,6 +75,11 @@ ${greeting}`,
       push(trimmed, COMMANDS.join('\n'));
       return;
     }
+    if (base === '/globe') {
+      onSwitchChamber('globe');
+      push(trimmed, '→ Globe chamber', 'success');
+      return;
+    }
     if (base === '/pulse') {
       onSwitchChamber('pulse');
       push(trimmed, '→ Pulse chamber', 'success');
@@ -83,6 +88,11 @@ ${greeting}`,
     if (base === '/signals') {
       onSwitchChamber('sentiment');
       push(trimmed, '→ Signals chamber', 'success');
+      return;
+    }
+    if (base === '/sentinel') {
+      onSwitchChamber('agents');
+      push(trimmed, '→ Sentinel chamber', 'success');
       return;
     }
     if (base === '/ledger') {

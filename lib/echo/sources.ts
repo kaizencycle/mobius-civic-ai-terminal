@@ -84,12 +84,21 @@ export async function fetchUSGS(): Promise<RawEvent[]> {
         tsunami?: number;
       };
       id: string;
+      geometry?: { type?: string; coordinates?: number[] | number[][] | number[][][] };
     }> = data?.features ?? [];
 
     return features.slice(0, 6).map((f) => {
       const mag = f.properties.mag ?? 0;
       const severity: RawEvent['severity'] =
         mag >= 6 ? 'high' : mag >= 4 ? 'medium' : 'low';
+
+      const coords = f.geometry?.coordinates;
+      let lat: number | undefined;
+      let lng: number | undefined;
+      if (Array.isArray(coords) && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+        lng = coords[0];
+        lat = coords[1];
+      }
 
       return {
         sourceId: `usgs-${f.id}`,
@@ -106,6 +115,8 @@ export async function fetchUSGS(): Promise<RawEvent[]> {
           magnitude: mag,
           alert: f.properties.alert,
           tsunami: f.properties.tsunami,
+          lat,
+          lng,
         },
       };
     });

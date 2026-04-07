@@ -43,6 +43,12 @@ export type EpiconItem = {
   promotionState?: 'pending' | 'selected' | 'promoted' | 'failed';
   assignedAgents?: string[];
   committedEntries?: string[];
+  /** ECHO pipeline: original external source + metadata for globe / inspectors */
+  echoIngest?: {
+    source: string;
+    severity: 'low' | 'medium' | 'high';
+    metadata?: Record<string, unknown>;
+  };
 };
 
 export type TripwireLayer =
@@ -108,6 +114,7 @@ export type GISnapshot = {
 };
 
 export type NavKey =
+  | 'globe'
   | 'pulse'
   | 'agents'
   | 'ledger'

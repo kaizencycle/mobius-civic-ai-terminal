@@ -17,7 +17,9 @@ import type {
 } from '@/lib/terminal/types';
 
 const NAV_COMMANDS: Record<string, { nav: NavKey; label: string }> = {
+  '/globe': { nav: 'globe', label: 'Globe' },
   '/pulse': { nav: 'pulse', label: 'Pulse' },
+  '/sentinel': { nav: 'agents', label: 'Sentinel' },
   '/markets': { nav: 'markets', label: 'Markets' },
   '/market': { nav: 'markets', label: 'Markets' },
   '/ledger': { nav: 'ledger', label: 'Ledger' },

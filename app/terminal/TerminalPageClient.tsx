@@ -9,7 +9,9 @@ import { evaluateCircuitBreaker } from '@/lib/integrity-check';
 import { integrityStatusToGISnapshot } from '@/lib/terminal/api';
 import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import { cn } from '@/lib/utils';
-import type { LedgerEntry, NavKey } from '@/lib/terminal/types';
+import type { MicroAgentSweepResult } from '@/lib/agents/micro';
+import type { EpiconItem, LedgerEntry, NavKey } from '@/lib/terminal/types';
+import GlobeChamber from '@/components/terminal/chambers/GlobeChamber';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
 import { AGENT_MANIFESTS, AGENT_ORDER } from '@/lib/agents/manifests';
 import AgentGrid from '@/components/agents/AgentGrid';
@@ -37,15 +39,12 @@ type AgentStatusApi = {
 
 type AgentStatusResponse = { ok: boolean; agents: AgentStatusApi[] };
 
-type MicroSignal = { agentName: string; value: number };
 type MicroAgent = { agentName: string; healthy: boolean };
-type MicroSweepResponse = {
-  ok: boolean;
-  timestamp: string;
-  composite: number;
-  healthy: boolean;
-  agents: MicroAgent[];
-  allSignals: MicroSignal[];
+type MicroSweepResponse = MicroAgentSweepResult & {
+  ok?: boolean;
+  cached?: boolean;
+  kv?: boolean;
+  source?: string;
 };
 
 type KvHealthResponse = { ok: boolean; latencyMs: number | null };
@@ -113,11 +112,12 @@ type TerminalSnapshotResponse = {
 };
 
 const TABS: Array<{ key: NavKey; label: string }> = [
+  { key: 'globe', label: 'Globe' },
   { key: 'pulse', label: 'Pulse' },
-  { key: 'ledger', label: 'Epicon' },
-  { key: 'agents', label: 'Agents' },
+  { key: 'sentiment', label: 'Signals' },
+  { key: 'agents', label: 'Sentinel' },
+  { key: 'ledger', label: 'Ledger' },
   { key: 'infrastructure', label: 'Tripwire' },
-  { key: 'sentiment', label: 'Sentiment' },
   { key: 'wallet', label: 'MIC' },
 ];
 
@@ -171,7 +171,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   type SortField = 'time' | 'agent' | 'type' | 'severity' | 'gi' | 'status' | 'source';
   type SortDirection = 'asc' | 'desc';
 
-  const [selectedNav, setSelectedNav] = useState<NavKey>('pulse');
+  const [selectedNav, setSelectedNav] = useState<NavKey>('globe');
   const [selectedLedgerId, setSelectedLedgerId] = useState<string | null>(null);
   const [expandedLedgerId, setExpandedLedgerId] = useState<string | null>(null);
   const [agentFilter, setAgentFilter] = useState<string>('ALL');
@@ -191,6 +191,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   const [sentimentHistory, setSentimentHistory] = useState<
     Partial<Record<SentimentDomainKey, Array<{ timestamp: string; value: number | null; sourceLabel: string }>>>
   >({});
+  const [echoEpicon, setEchoEpicon] = useState<EpiconItem[]>([]);
   const [ledgerView, setLedgerView] = useState<'events' | 'journal' | 'runtime'>('events');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('time');
@@ -424,6 +425,11 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
         } else if (sentimentLane?.fallbackMode === 'cached' && sentimentRef.current) {
           applySentiment(sentimentRef.current);
         }
+
+        const echoPayload = json.echo.data as { epicon?: EpiconItem[] } | null;
+        if (json.echo.ok && echoPayload && Array.isArray(echoPayload.epicon)) {
+          setEchoEpicon(echoPayload.epicon);
+        }
       } catch (err) {
         if (mounted) {
           setRuntimeBadge('offline');
@@ -439,6 +445,38 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
       window.clearInterval(poll);
     };
   }, [applySentiment, cycleId, includeCatalog]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function pullGlobeFeeds() {
+      try {
+        const [microRes, echoRes] = await Promise.all([
+          fetch('/api/signals/micro', { cache: 'no-store' }),
+          fetch('/api/echo/feed', { cache: 'no-store' }),
+        ]);
+        const microJson = (await microRes.json()) as MicroSweepResponse;
+        const echoJson = (await echoRes.json()) as { epicon?: EpiconItem[] };
+        if (!mounted) return;
+        if (microJson?.ok) {
+          microRef.current = microJson;
+          setMicro(microJson);
+        }
+        if (Array.isArray(echoJson?.epicon)) {
+          setEchoEpicon(echoJson.epicon);
+        }
+      } catch {
+        // no-op — snapshot lane still supplies cached micro
+      }
+    }
+
+    pullGlobeFeeds();
+    const id = window.setInterval(pullGlobeFeeds, 60_000);
+    return () => {
+      mounted = false;
+      window.clearInterval(id);
+    };
+  }, []);
 
   const breaker = evaluateCircuitBreaker({
     giScore: effectiveGi.score,
@@ -513,8 +551,34 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
     rosterLoaded,
     tripwireFreshAt,
   ]);
-  const chamberLabel = selectedNav === 'pulse' ? 'PULSE CHAMBER' : selectedNav === 'agents' ? 'AGENT CHAMBER' : selectedNav === 'ledger' ? 'CIVIC LEDGER CHAMBER' : selectedNav === 'infrastructure' ? 'TRIPWIRE CHAMBER' : selectedNav === 'sentiment' ? 'SENTIMENT CHAMBER' : 'MIC CHAMBER';
-  const commandSurfaceTitle = selectedNav === 'wallet' ? 'Wallet Chamber' : selectedNav === 'agents' ? 'Agent Chamber' : selectedNav === 'ledger' ? 'Civic Ledger Chamber' : selectedNav === 'infrastructure' ? 'Tripwire Chamber' : selectedNav === 'sentiment' ? 'Sentiment Chamber' : 'Pulse Chamber';
+  const chamberLabel =
+    selectedNav === 'globe'
+      ? 'GLOBE CHAMBER'
+      : selectedNav === 'pulse'
+        ? 'PULSE CHAMBER'
+        : selectedNav === 'agents'
+          ? 'SENTINEL CHAMBER'
+          : selectedNav === 'ledger'
+            ? 'CIVIC LEDGER CHAMBER'
+            : selectedNav === 'infrastructure'
+              ? 'TRIPWIRE CHAMBER'
+              : selectedNav === 'sentiment'
+                ? 'SIGNALS CHAMBER'
+                : 'MIC CHAMBER';
+  const commandSurfaceTitle =
+    selectedNav === 'globe'
+      ? 'Globe Chamber'
+      : selectedNav === 'wallet'
+        ? 'Wallet Chamber'
+        : selectedNav === 'agents'
+          ? 'Sentinel Chamber'
+          : selectedNav === 'ledger'
+            ? 'Civic Ledger Chamber'
+            : selectedNav === 'infrastructure'
+              ? 'Tripwire Chamber'
+              : selectedNav === 'sentiment'
+                ? 'Signals Chamber'
+                : 'Pulse Chamber';
 
   const snapshotSummaryLine = useMemo(() => {
     const parts: string[] = [];
@@ -526,13 +590,15 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
 
   const integrityDisplayTs = integrityStatus?.timestamp ?? giFreshAt;
   const commandSurfaceButtons: Array<{ label: string; nav: NavKey }> =
-    selectedNav === 'wallet'
-      ? [{ label: 'Inspect', nav: 'wallet' }, { label: 'Open Chamber', nav: 'wallet' }, { label: 'Review Signals', nav: 'pulse' }]
-      : selectedNav === 'agents'
-        ? [{ label: 'Inspect', nav: 'agents' }, { label: 'Open Chamber', nav: 'agents' }, { label: 'Review Signals', nav: 'ledger' }]
-        : selectedNav === 'sentiment'
-          ? [{ label: 'Inspect', nav: 'sentiment' }, { label: 'Open Chamber', nav: 'sentiment' }, { label: 'Review Signals', nav: 'pulse' }]
-        : [{ label: 'Inspect', nav: 'infrastructure' }, { label: 'Open Chamber', nav: selectedNav }, { label: 'Review Signals', nav: 'ledger' }];
+    selectedNav === 'globe'
+      ? [{ label: 'Inspect', nav: 'globe' }, { label: 'Open Chamber', nav: 'globe' }, { label: 'Pulse feed', nav: 'pulse' }]
+      : selectedNav === 'wallet'
+        ? [{ label: 'Inspect', nav: 'wallet' }, { label: 'Open Chamber', nav: 'wallet' }, { label: 'Review Signals', nav: 'pulse' }]
+        : selectedNav === 'agents'
+          ? [{ label: 'Inspect', nav: 'agents' }, { label: 'Open Chamber', nav: 'agents' }, { label: 'Review Signals', nav: 'ledger' }]
+          : selectedNav === 'sentiment'
+            ? [{ label: 'Inspect', nav: 'sentiment' }, { label: 'Open Chamber', nav: 'sentiment' }, { label: 'Review Signals', nav: 'pulse' }]
+            : [{ label: 'Inspect', nav: 'infrastructure' }, { label: 'Open Chamber', nav: selectedNav }, { label: 'Review Signals', nav: 'ledger' }];
   const statusChips: Array<{ label: string; tone: string; nav: NavKey }> = [
     { label: 'ZEUS ACTIVE', tone: 'border-sky-500/40 bg-sky-500/10 text-sky-200', nav: 'agents' },
     { label: 'ECHO LIVE', tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200', nav: 'pulse' },
@@ -684,6 +750,19 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   }, []);
 
   const renderCenterContent = () => {
+    if (selectedNav === 'globe') {
+      return (
+        <GlobeChamber
+          micro={micro}
+          echoEpicon={echoEpicon}
+          domains={sentimentDomains}
+          cycleId={cycleId}
+          clockLabel={clock ? `${clock.slice(11, 16)} UTC` : ''}
+          giScore={giScore}
+          miiScore={sentiment?.overall_sentiment ?? null}
+        />
+      );
+    }
     if (selectedNav === 'agents') {
       return (
         <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
@@ -867,7 +946,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-500">
           {/* Optimization 9: inline shortcut hints for faster operator discovery. */}
-          <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">Alt+1..6 switch chambers</span>
+          <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">Alt+1..7 switch chambers</span>
           <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">/ focus agent search</span>
           <span className="rounded border border-slate-700 bg-slate-950 px-2 py-1">L toggle ledger</span>
         </div>
