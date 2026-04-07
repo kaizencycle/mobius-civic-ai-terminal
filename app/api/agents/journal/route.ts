@@ -3,8 +3,12 @@ import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 import { writeToSubstrate } from '@/lib/substrate/client';
 import { getOperatorSession } from '@/lib/auth/session';
-import { writeJournalToSubstrate, type JournalEntry as SubstrateGithubJournalEntry } from '@/lib/substrate/github-journal';
-import { readAgentJournal, readAllAgentJournals } from '@/lib/substrate/github-reader';
+import {
+  writeJournalToSubstrate,
+  type SubstrateJournalEntry,
+  type SubstrateJournalWriteInput,
+} from '@/lib/substrate/github-journal';
+import { readAgentJournals } from '@/lib/substrate/github-reader';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -74,27 +78,7 @@ function asOptionalTags(input: unknown): string[] | undefined {
   return tags.length > 0 ? tags : undefined;
 }
 
-function toSubstrateGithubJournalEntry(entry: AgentJournalEntry): SubstrateGithubJournalEntry {
-  return {
-    id: entry.id,
-    agent: entry.agent,
-    agentOrigin: entry.agentOrigin,
-    cycle: entry.cycle,
-    scope: entry.scope,
-    category: entry.category,
-    severity: entry.severity,
-    observation: entry.observation,
-    inference: entry.inference,
-    recommendation: entry.recommendation,
-    confidence: entry.confidence,
-    derivedFrom: entry.derivedFrom,
-    source: entry.source,
-    tags: entry.tags ?? [],
-    status: entry.status,
-  };
-}
-
-function substrateRecordToAgentEntry(row: SubstrateGithubJournalEntry & { id: string; timestamp: string }): AgentJournalEntry | null {
+function substrateRecordToAgentEntry(row: SubstrateJournalEntry): AgentJournalEntry | null {
   const id = asString(row.id);
   const agent = asString(row.agent).toUpperCase();
   const cycle = asString(row.cycle);
@@ -103,7 +87,7 @@ function substrateRecordToAgentEntry(row: SubstrateGithubJournalEntry & { id: st
   const observation = asString(row.observation);
   const inference = asString(row.inference);
   const recommendation = asString(row.recommendation);
-  const status = asString(row.status) as AgentJournalStatus;
+  const status = (asString(row.status) || 'committed') as AgentJournalStatus;
   const category = asString(row.category) as AgentJournalCategory;
   const severity = asString(row.severity) as AgentJournalSeverity;
   const agentOrigin = asString(row.agentOrigin).toUpperCase();
@@ -302,26 +286,28 @@ export async function GET(request: NextRequest) {
 
   let substrateError: string | null = null;
   let substrateEntries: AgentJournalEntry[] = [];
-  try {
-    if (agentFilter) {
-      const rows = await readAgentJournal(agentFilter.toLowerCase(), 10);
+  if (agentFilter) {
+    try {
+      const substrateRead = readAgentJournals(agentFilter.toLowerCase(), 10);
+      const rows = await Promise.race([
+        substrateRead,
+        new Promise<SubstrateJournalEntry[]>((_, reject) =>
+          setTimeout(() => reject(new Error('substrate_timeout')), 5000),
+        ),
+      ]);
       for (const row of rows) {
         const mapped = substrateRecordToAgentEntry(row);
         if (mapped) substrateEntries.push(mapped);
       }
-    } else {
-      const byAgent = await readAllAgentJournals(3);
-      for (const rows of Object.values(byAgent)) {
-        for (const row of rows) {
-          const mapped = substrateRecordToAgentEntry(row);
-          if (mapped) substrateEntries.push(mapped);
-        }
-      }
+    } catch (error) {
+      console.error('[journal] substrate read error', error);
+      substrateError = error instanceof Error ? error.message : 'substrate read failed';
     }
-  } catch (error) {
-    console.error('[journal] substrate read error', error);
-    substrateError = error instanceof Error ? error.message : 'substrate read failed';
   }
+
+  const kvForSources = agentFilter
+    ? kvEntries.filter((e) => e.agent.toUpperCase() === agentFilter)
+    : kvEntries;
 
   const all = [...kvEntries, ...substrateEntries];
   const seen = new Set<string>();
@@ -342,7 +328,7 @@ export async function GET(request: NextRequest) {
 
   const maxTs = (list: AgentJournalEntry[]) =>
     list.reduce((acc, e) => Math.max(acc, new Date(e.timestamp).getTime() || 0), 0);
-  const kvMax = maxTs(kvEntries);
+  const kvMax = maxTs(kvForSources);
   const subMax = maxTs(substrateEntries);
   const archiveStale =
     substrateEntries.length > 0 && kvMax > 0 && subMax > 0 && kvMax - subMax > 60 * 60 * 1000;
@@ -355,7 +341,7 @@ export async function GET(request: NextRequest) {
       agents,
       timestamp: new Date().toISOString(),
       sources: {
-        kv: kvEntries.length,
+        kv: kvForSources.length,
         substrate: substrateEntries.length,
       },
       merged_from_archive: substrateEntries.length > 0,
@@ -393,6 +379,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const redis = getJournalRedisClient();
+  if (redis) {
+    const writeResult = await appendJournalLaneEntry(redis, {
+      ...entry,
+      id: entry.id,
+      timestamp: entry.timestamp,
+    });
+
+    if (!writeResult.written) {
+      return NextResponse.json({ ok: true, duplicate: true, token: writeResult.token, substrate: 'writing' });
+    }
+    entry.id = writeResult.entry.id;
+    entry.timestamp = writeResult.entry.timestamp;
+  }
+
   void writeToSubstrate({
     agent: entry.agent,
     agentOrigin: entry.agentOrigin,
@@ -409,34 +410,38 @@ export async function POST(request: NextRequest) {
     console.error('[ledger] journal attest error', error);
   });
 
-  void writeJournalToSubstrate(toSubstrateGithubJournalEntry(entry)).catch((err) => {
+  const giAt =
+    input && typeof input.gi_snapshot === 'number' && Number.isFinite(input.gi_snapshot)
+      ? input.gi_snapshot
+      : undefined;
+
+  const substratePayload: SubstrateJournalWriteInput = {
+    id: entry.id,
+    agent: entry.agent,
+    agentOrigin: entry.agentOrigin,
+    cycle: entry.cycle,
+    scope: entry.scope,
+    category: entry.category,
+    severity: entry.severity,
+    observation: entry.observation,
+    inference: entry.inference,
+    recommendation: entry.recommendation,
+    confidence: entry.confidence,
+    derivedFrom: entry.derivedFrom,
+    source: entry.source,
+    tags: entry.tags ?? [],
+    ...(giAt !== undefined ? { gi_at_time: giAt } : {}),
+    status: entry.status,
+  };
+
+  void writeJournalToSubstrate(substratePayload).catch((err) => {
     console.error('[journal] substrate write failed:', err);
   });
 
-  const redis = getJournalRedisClient();
-  if (!redis) {
-    return NextResponse.json({
-      ok: true,
-      entryId: entry.id,
-      timestamp: entry.timestamp,
-      substrate: 'writing',
-    });
-  }
-
-  const writeResult = await appendJournalLaneEntry(redis, {
-    ...entry,
-    id: entry.id,
-    timestamp: entry.timestamp,
-  });
-
-  if (!writeResult.written) {
-    return NextResponse.json({ ok: true, duplicate: true, token: writeResult.token, substrate: 'writing' });
-  }
-
   return NextResponse.json({
     ok: true,
-    entryId: writeResult.entry.id,
-    timestamp: writeResult.entry.timestamp,
+    entryId: entry.id,
+    timestamp: entry.timestamp,
     substrate: 'writing',
   });
 }

@@ -16,8 +16,8 @@ import {
   type SnapshotLaneState,
   type SnapshotLeaf,
 } from '@/lib/terminal/snapshotLanes';
-import type { JournalStoredRecord } from '@/lib/substrate/github-journal';
-import { readAllAgentJournals } from '@/lib/substrate/github-reader';
+import type { SubstrateJournalEntry } from '@/lib/substrate/github-journal';
+import { readAllSubstrateJournals } from '@/lib/substrate/github-reader';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,34 +68,49 @@ export async function GET(request: NextRequest) {
     callHandler(makeRequest(baseUrl, '/api/eve/cycle-advance'), getEve),
   ]);
 
-  type SubstrateLatestRow = { agent: string; lastEntry: JournalStoredRecord };
+  type SubstrateAgentRow = {
+    agent: string;
+    lastEntry: SubstrateJournalEntry | null;
+    entryCount: number;
+  };
+
+  const SUBSTRATE_JOURNALS_TREE =
+    'https://github.com/kaizencycle/Mobius-Substrate/tree/main/journals';
 
   let substrate: {
     ok: boolean;
-    agents: string[];
     totalEntries: number;
-    latest: SubstrateLatestRow[];
+    agents: SubstrateAgentRow[];
+    repoUrl: string;
+    /** @deprecated Prefer `agents` (same rows as before C-274 shape refresh). */
+    latest: { agent: string; lastEntry: SubstrateJournalEntry }[];
   };
   try {
-    const substrateJournals = await readAllAgentJournals(3);
+    const substrateJournals = await readAllSubstrateJournals(3);
     const totalEntries = Object.values(substrateJournals).reduce((sum, arr) => sum + arr.length, 0);
+    const agentRows: SubstrateAgentRow[] = Object.entries(substrateJournals).map(([agent, entries]) => ({
+      agent,
+      lastEntry: entries[0] ?? null,
+      entryCount: entries.length,
+    }));
+    const withEntries = agentRows.filter((x) => x.lastEntry !== null);
     substrate = {
       ok: true,
-      agents: Object.keys(substrateJournals),
       totalEntries,
-      latest: Object.entries(substrateJournals)
-        .map(([agent, entries]) => ({
-          agent,
-          lastEntry: entries[0] ?? null,
-        }))
-        .filter((x): x is SubstrateLatestRow => x.lastEntry !== null),
+      agents: withEntries,
+      repoUrl: SUBSTRATE_JOURNALS_TREE,
+      latest: withEntries.map(({ agent, lastEntry }) => ({
+        agent,
+        lastEntry: lastEntry as SubstrateJournalEntry,
+      })),
     };
   } catch (error) {
     console.error('[terminal/snapshot] substrate journals read failed', error);
     substrate = {
       ok: false,
-      agents: [],
       totalEntries: 0,
+      agents: [],
+      repoUrl: SUBSTRATE_JOURNALS_TREE,
       latest: [],
     };
   }
