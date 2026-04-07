@@ -172,12 +172,15 @@ export type SignalSnapshot = {
   healthy: boolean;
 };
 
+/** TTL seconds — must exceed EPICON KV Sync cadence (15m) so health checks stay true between runs. */
+export const SIGNAL_SNAPSHOT_TTL_SECONDS = 1200;
+
 /**
  * Save the latest signal snapshot to Redis.
- * TTL: 10 minutes (signals older than this are stale).
+ * TTL: 20 minutes (covers 15m keepalive + margin; stale UI logic uses snapshot timestamps).
  */
 export async function saveSignalSnapshot(snapshot: SignalSnapshot): Promise<void> {
-  await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, snapshot, 600);
+  await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, snapshot, SIGNAL_SNAPSHOT_TTL_SECONDS);
 }
 
 /**

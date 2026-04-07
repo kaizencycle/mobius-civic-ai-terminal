@@ -12,7 +12,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
-import { kvSet, KV_KEYS, saveGIState, saveSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
+import {
+  kvSet,
+  KV_KEYS,
+  loadSignalSnapshot,
+  saveGIState,
+  saveSignalSnapshot,
+  isRedisAvailable,
+} from '@/lib/kv/store';
 import { computeGI } from '@/lib/gi/compute';
 import { getEchoEpicon } from '@/lib/echo/store';
 import { scoreBatch } from '@/lib/echo/signal-engine';
@@ -110,7 +117,19 @@ export async function POST(request: NextRequest) {
     });
     seeded.push('SIGNAL_SNAPSHOT');
   } catch {
-    // Non-fatal — GI_STATE, HEARTBEAT, and LAST_INGEST are already written
+    const prev = await loadSignalSnapshot();
+    if (prev) {
+      await saveSignalSnapshot(prev);
+    } else {
+      await saveSignalSnapshot({
+        composite: 0,
+        anomalies: 0,
+        allSignals: [],
+        timestamp,
+        healthy: false,
+      });
+    }
+    seeded.push('SIGNAL_SNAPSHOT');
   }
 
   return NextResponse.json({ ok: true, seeded, timestamp });
