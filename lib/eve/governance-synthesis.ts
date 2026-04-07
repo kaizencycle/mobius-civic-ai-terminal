@@ -373,10 +373,10 @@ export async function gatherEveGovernanceSynthesisInput(
   };
 }
 
-const SUBSTANTIVE_TRIPWIRE_LEVELS = new Set<RuntimeTripwireState['level']>([
+/** Tripwire levels that count as elevated/degraded for escalation (not baseline/nominal). */
+const ESCALATION_TRIPWIRE_LEVELS = new Set<RuntimeTripwireState['level']>([
   'watch',
   'elevated',
-  'low',
   'medium',
   'high',
   'triggered',
@@ -386,7 +386,7 @@ const SUBSTANTIVE_TRIPWIRE_LEVELS = new Set<RuntimeTripwireState['level']>([
 export function escalationWarranted(input: EveGovernanceSynthesisInput): boolean {
   if (input.gi < GI_STRESS_THRESHOLD) return true;
   if (input.tripwire.active) return true;
-  if (SUBSTANTIVE_TRIPWIRE_LEVELS.has(input.tripwire.level)) {
+  if (ESCALATION_TRIPWIRE_LEVELS.has(input.tripwire.level)) {
     return true;
   }
   if (input.civicAlerts.some((a) => a.severity === 'critical')) return true;
