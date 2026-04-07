@@ -4,6 +4,7 @@ import { isEveSynthesisLedgerSource } from '@/lib/epicon/eveLedgerSource';
 import { getPublicEpiconFeed } from '@/lib/epicon/feedStore';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
+import { loadGIState } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -311,11 +312,40 @@ function normalizeLedgerEntry(raw: RenderLedgerEntry): EpiconEntry | null {
   };
 }
 
-async function fetchRenderLedgerEntries(limit = 100): Promise<{ entries: EpiconEntry[]; degraded: boolean }> {
-  const renderLedgerUrl = process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core.onrender.com';
+type LedgerFetchResult = {
+  entries: EpiconEntry[];
+  degraded: boolean;
+  error?: string;
+  statusCode?: number;
+};
+
+function normalizeLedgerBaseUrl(url: string): string {
+  return url.trim().replace(/\/+$/, '');
+}
+
+function describeLedgerHost(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return 'invalid-ledger-url';
+  }
+}
+
+async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult> {
+  const renderLedgerUrl = normalizeLedgerBaseUrl(
+    process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core.onrender.com',
+  );
   const renderApiKey = process.env.RENDER_API_KEY ?? '';
+  const ledgerHost = describeLedgerHost(renderLedgerUrl);
+
+  if (!process.env.RENDER_LEDGER_URL) {
+    console.warn(`[ledger-api] RENDER_LEDGER_URL missing, using fallback host=${ledgerHost}`);
+  }
 
   try {
+    console.info(
+      `[ledger-api] connecting host=${ledgerHost} limit=${limit} hasApiKey=${renderApiKey.trim().length > 0}`,
+    );
     const response = await fetch(`${renderLedgerUrl}/ledger/entries?limit=${limit}&sort=desc`, {
       method: 'GET',
       headers: {
@@ -327,15 +357,20 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<{ entries: EpiconE
     });
 
     if (!response.ok) {
-      return { entries: [], degraded: true };
+      const bodyPreview = (await response.text()).slice(0, 200).replace(/\s+/g, ' ').trim();
+      const error = `ledger_api_http_${response.status}`;
+      console.error(`[ledger-api] ${error} host=${ledgerHost} body="${bodyPreview}"`);
+      return { entries: [], degraded: true, error, statusCode: response.status };
     }
 
     const payload = (await response.json()) as { entries?: RenderLedgerEntry[]; items?: RenderLedgerEntry[] };
     const rows = Array.isArray(payload.entries) ? payload.entries : Array.isArray(payload.items) ? payload.items : [];
     const entries = rows.map((row) => normalizeLedgerEntry(row)).filter((row): row is EpiconEntry => row !== null);
-    return { entries, degraded: false };
-  } catch {
-    return { entries: [], degraded: true };
+    return { entries, degraded: false, statusCode: response.status };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown_fetch_error';
+    console.error(`[ledger-api] request_failed host=${ledgerHost} error="${message}"`);
+    return { entries: [], degraded: true, error: `ledger_api_unreachable:${message}` };
   }
 }
 
@@ -501,12 +536,14 @@ export async function GET(request: NextRequest) {
   const minGiValue = minGI ? Number.parseFloat(minGI) : undefined;
   const includeCatalog = params.get('include_catalog') === 'true';
 
-  const [{ entries: ledgerEntries, degraded: ledgerDegraded }, commits, kvEntries, eveKvEntries] = await Promise.all([
+  const [ledgerResult, commits, kvEntries, eveKvEntries, giState] = await Promise.all([
     fetchRenderLedgerEntries(100),
     fetchGitHubCommits(80),
     fromRedis(),
     fromEveSynthesisRedis(),
+    loadGIState(),
   ]);
+  const { entries: ledgerEntries, degraded: ledgerDegraded, error: ledgerError, statusCode: ledgerStatusCode } = ledgerResult;
   const commitEntries = commits.map(toEpiconEntry).filter((entry): entry is EpiconEntry => entry !== null);
   const memoryEntries = fromMemoryFeed();
   const localLedgerEntries = fromLocalMemoryLedger();
@@ -551,8 +588,10 @@ export async function GET(request: NextRequest) {
         kvConfigured: !!getRedisClient(),
       },
       degraded: ledgerDegraded,
+      ledgerError: ledgerError ?? null,
+      ledgerStatusCode: ledgerStatusCode ?? null,
       summary: {
-        latestGI: heartbeats.find((entry) => entry.gi != null)?.gi ?? null,
+        latestGI: giState?.global_integrity ?? heartbeats.find((entry) => entry.gi != null)?.gi ?? null,
         degradedCount: heartbeats.filter((entry) => entry.severity === 'degraded' || entry.severity === 'critical')
           .length,
         lastHeartbeat: heartbeats[0]?.timestamp ?? null,
