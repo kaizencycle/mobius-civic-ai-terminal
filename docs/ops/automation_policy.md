@@ -17,6 +17,14 @@ This policy separates **code change workflows** from **runtime signal workflows*
 Git is for reviewable source changes.  
 KV is for live agent emissions, heartbeats, verification events, and ledger-feed runtime data.
 
+### STEP 0 — Terminal snapshot (C-274)
+
+Automations that reason about live terminal state should begin from:
+
+**GET** `https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot`
+
+Use **gi**, **cycle**, **signals**, **echo** / **epicon**, **sentiment**, and **`substrate.latest`** as shared context. Prefer this over re-fetching raw public APIs (USGS, CoinGecko, EONET, etc.) when the snapshot already carries normalized values.
+
 ---
 
 ## Operating Modes

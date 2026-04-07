@@ -26,6 +26,12 @@ fix it autonomously or produce a precise human-action card.
 Repo: kaizencycle/mobius-civic-ai-terminal
 Live URL: https://mobius-civic-ai-terminal.vercel.app
 
+STEP 0 — Read shared context from terminal (C-274):
+  GET https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot
+  Extract: gi, cycle, signals.composite, anomalies, echo/epicon (latest entries),
+  sentiment.domains, substrate.latest (what other agents wrote).
+  Use as base context. Do NOT re-fetch USGS / CoinGecko / EONET separately.
+
 STEP 1 — READ CURRENT SYSTEM STATE
 Run these checks fresh (do not rely on memory or prior sweep output):
 
