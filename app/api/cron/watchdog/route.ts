@@ -3,6 +3,11 @@ import { getServiceAuthError, serviceAuthorizationHeaderValue } from '@/lib/secu
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 
+/**
+ * C-274: Runtime maintenance is currently once-daily (Vercel cron). If heartbeat,
+ * journal/archive merge, or promotion normalization need tighter cadence, extend
+ * this handler (or add schedules) in one place — avoid per-lane commit spam.
+ */
 export const dynamic = 'force-dynamic';
 
 type WatchdogActionResult = {
