@@ -14,10 +14,13 @@ async function readJson(res: Response): Promise<unknown> {
 }
 
 export function triggerEveSynthesisPipelineAfterObservation(baseUrl: string): void {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  /** Bearer must match POST /api/eve/pipeline-synthesize (service secrets). */
-  const secret = process.env.BACKFILL_SECRET ?? process.env.MOBIUS_SERVICE_SECRET;
-  if (!apiKey?.trim() || !secret?.trim()) {
+  /** Bearer must match POST /api/eve/pipeline-synthesize → cycle-synthesize (service secrets). */
+  const secret =
+    process.env.BACKFILL_SECRET ??
+    process.env.MOBIUS_SERVICE_SECRET ??
+    process.env.CRON_SECRET ??
+    process.env.RENDER_SCHEDULER_SECRET;
+  if (!secret?.trim()) {
     return;
   }
 
@@ -50,17 +53,11 @@ export function triggerEveSynthesisPipelineAfterObservation(baseUrl: string): vo
 
       if (!pipeRes.ok) {
         lastPipelineCycleTriggered = null;
-        console.error(
-          'EVE observation pipeline HTTP error',
-          pipeRes.status,
-          pipeJson !== null && typeof pipeJson === 'object' ? JSON.stringify(pipeJson) : 'empty body',
-        );
         return;
       }
 
       if (pipeJson?.ok !== true) {
         lastPipelineCycleTriggered = null;
-        console.error('EVE observation pipeline rejected', JSON.stringify(pipeJson));
         return;
       }
 
@@ -71,9 +68,8 @@ export function triggerEveSynthesisPipelineAfterObservation(baseUrl: string): vo
           return;
         }
       }
-    } catch (err) {
+    } catch {
       lastPipelineCycleTriggered = null;
-      console.error('EVE observation pipeline trigger failed', err);
     }
   })();
 }
