@@ -12,7 +12,7 @@
     },
     {
       "path": "/api/eve/cycle-synthesize",
-      "schedule": "0 */4 * * *"
+      "schedule": "15 0 * * *"
     }
   ],
   "installCommand": "pnpm install --no-frozen-lockfile"
