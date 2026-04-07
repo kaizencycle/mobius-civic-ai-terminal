@@ -1,8 +1,11 @@
 const SUBSTRATE_REPO = 'kaizencycle/Mobius-Substrate';
-const SUBSTRATE_API = 'https://api.github.com';
+const GITHUB_API = 'https://api.github.com';
+
 const GITHUB_TOKEN = process.env.SUBSTRATE_GITHUB_TOKEN;
 
-export interface JournalEntry {
+/** Persisted journal JSON under Mobius-Substrate `journals/{agent}/`. */
+export interface SubstrateJournalEntry {
+  id: string;
   agent: string;
   agentOrigin: string;
   cycle: string;
@@ -17,42 +20,41 @@ export interface JournalEntry {
   source: string;
   tags: string[];
   gi_at_time?: number;
-  /** When set (e.g. from terminal KV), reused so GET merge can dedupe on `id`. */
-  id?: string;
-  /** Persisted for round-trip with terminal `AgentJournalEntry`. */
+  timestamp: string;
+  /** Terminal journal lane status when bridged from the app. */
   status?: string;
 }
 
-/** Shape of a journal JSON file in Mobius-Substrate `docs/catalog/{agent}/`. */
-export type JournalStoredRecord = JournalEntry & {
-  id: string;
-  timestamp: string;
+/** Input for GitHub write: server assigns `id` and ISO `timestamp` when omitted. */
+export type SubstrateJournalWriteInput = Omit<SubstrateJournalEntry, 'id' | 'timestamp'> & {
+  id?: string;
 };
 
 export async function writeJournalToSubstrate(
-  entry: JournalEntry,
-): Promise<{ ok: boolean; path?: string; sha?: string; error?: string }> {
+  entry: SubstrateJournalWriteInput,
+): Promise<{ ok: boolean; path?: string; error?: string }> {
   if (!GITHUB_TOKEN) {
     console.error('[substrate] SUBSTRATE_GITHUB_TOKEN not set');
     return { ok: false, error: 'token_missing' };
   }
 
-  const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-');
+  const timestampIso = new Date().toISOString();
+  const fileStamp = timestampIso.replace(/:/g, '-').replace(/\./g, '-');
   const agent = entry.agent.toLowerCase();
-  const path = `docs/catalog/${agent}/${timestamp}-journal.json`;
+  const path = `journals/${agent}/${fileStamp}-journal.json`;
 
-  const payload: Record<string, unknown> = {
+  const id = entry.id ?? `journal-${agent}-${Date.now()}`;
+
+  const payload: SubstrateJournalEntry = {
     ...entry,
-    timestamp,
-    id: entry.id ?? `journal-${agent}-${Date.now()}`,
-    status: entry.status ?? 'committed',
-    source: entry.source || 'agent-journal',
+    id,
+    timestamp: timestampIso,
   };
 
   const content = Buffer.from(JSON.stringify(payload, null, 2)).toString('base64');
 
   try {
-    const res = await fetch(`${SUBSTRATE_API}/repos/${SUBSTRATE_REPO}/contents/${path}`, {
+    const res = await fetch(`${GITHUB_API}/repos/${SUBSTRATE_REPO}/contents/${path}`, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${GITHUB_TOKEN}`,
@@ -61,7 +63,7 @@ export async function writeJournalToSubstrate(
         'X-GitHub-Api-Version': '2022-11-28',
       },
       body: JSON.stringify({
-        message: `${agent}: journal entry · ${entry.cycle} [skip ci]`,
+        message: `${agent}: journal · ${entry.cycle} [skip ci]`,
         content,
         committer: {
           name: entry.agent,
@@ -73,18 +75,13 @@ export async function writeJournalToSubstrate(
 
     if (!res.ok) {
       const err = await res.text();
-      console.error(`[substrate] github write failed ${res.status}: ${err}`);
+      console.error(`[substrate] write failed ${res.status}: ${err}`);
       return { ok: false, error: `github_${res.status}` };
     }
 
-    const data = (await res.json()) as { content?: { sha?: string } };
-    return {
-      ok: true,
-      path,
-      sha: data.content?.sha,
-    };
+    return { ok: true, path };
   } catch (err) {
-    console.error('[substrate] github write error:', err);
+    console.error('[substrate] write error:', err);
     return { ok: false, error: String(err) };
   }
 }

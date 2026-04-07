@@ -1,4 +1,4 @@
-import type { JournalStoredRecord } from '@/lib/substrate/github-journal';
+import type { SubstrateJournalEntry } from '@/lib/substrate/github-journal';
 
 const SUBSTRATE_REPO = 'kaizencycle/Mobius-Substrate';
 
@@ -14,7 +14,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function isJournalStoredRecord(value: unknown): value is JournalStoredRecord {
+function isSubstrateJournalEntry(value: unknown): value is SubstrateJournalEntry {
   if (!isRecord(value)) return false;
   const id = value.id;
   const agent = value.agent;
@@ -31,9 +31,11 @@ function isJournalStoredRecord(value: unknown): value is JournalStoredRecord {
   const source = value.source;
   const tags = value.tags;
   const agentOrigin = value.agentOrigin;
+  const giAt = value.gi_at_time;
 
   const tagsOk =
     tags === undefined || (Array.isArray(tags) && tags.every((x): x is string => typeof x === 'string'));
+  const giOk = giAt === undefined || (typeof giAt === 'number' && Number.isFinite(giAt));
 
   return (
     typeof id === 'string' &&
@@ -52,15 +54,16 @@ function isJournalStoredRecord(value: unknown): value is JournalStoredRecord {
     derivedFrom.every((x): x is string => typeof x === 'string') &&
     typeof source === 'string' &&
     tagsOk &&
-    typeof agentOrigin === 'string'
+    typeof agentOrigin === 'string' &&
+    giOk
   );
 }
 
-export async function readAgentJournal(agent: string, limit = 10): Promise<JournalStoredRecord[]> {
+export async function readAgentJournals(agent: string, limit = 10): Promise<SubstrateJournalEntry[]> {
   const agentLower = agent.toLowerCase();
 
   const listRes = await fetch(
-    `https://api.github.com/repos/${SUBSTRATE_REPO}/contents/docs/catalog/${agentLower}`,
+    `https://api.github.com/repos/${SUBSTRATE_REPO}/contents/journals/${agentLower}`,
     {
       headers: {
         Accept: 'application/vnd.github+json',
@@ -92,25 +95,27 @@ export async function readAgentJournal(agent: string, limit = 10): Promise<Journ
       const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
       if (!res.ok) return null;
       const json: unknown = await res.json();
-      return isJournalStoredRecord(json) ? json : null;
+      return isSubstrateJournalEntry(json) ? json : null;
     }),
   );
 
   return entries
-    .filter((r): r is PromiseFulfilledResult<JournalStoredRecord | null> => r.status === 'fulfilled')
+    .filter((r): r is PromiseFulfilledResult<SubstrateJournalEntry | null> => r.status === 'fulfilled')
     .map((r) => r.value)
-    .filter((v): v is JournalStoredRecord => v !== null);
+    .filter((v): v is SubstrateJournalEntry => v !== null);
 }
 
-export async function readAllAgentJournals(limit = 5): Promise<Record<string, JournalStoredRecord[]>> {
+export async function readAllSubstrateJournals(
+  limitPerAgent = 3,
+): Promise<Record<string, SubstrateJournalEntry[]>> {
   const results = await Promise.allSettled(
     AGENT_SLUGS.map(async (a) => ({
       agent: a,
-      entries: await readAgentJournal(a, limit),
+      entries: await readAgentJournals(a, limitPerAgent),
     })),
   );
 
-  const pairs: [string, JournalStoredRecord[]][] = [];
+  const pairs: [string, SubstrateJournalEntry[]][] = [];
   for (const r of results) {
     if (r.status === 'fulfilled') {
       pairs.push([r.value.agent, r.value.entries]);

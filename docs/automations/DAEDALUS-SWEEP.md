@@ -26,10 +26,10 @@ report.
 Repo: kaizencycle/mobius-civic-ai-terminal
 Live URL: https://mobius-civic-ai-terminal.vercel.app
 
-STEP 0 — Read shared context from terminal (C-274):
+STEP 0 — Read shared world state (C-274):
   GET https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot
-  Extract: gi, cycle, signals.composite, anomalies, echo/epicon (latest entries),
-  sentiment.domains, substrate.latest (what other agents wrote).
+  Extract: cycle, gi, anomalies, echo/epicon (latest entries), sentiment,
+  substrate (substrate.agents / substrate.latest — what other agents wrote).
   Use as base context. Do NOT re-fetch USGS / CoinGecko / EONET separately.
 
 SWEEP CHECKLIST — run each check in order:
