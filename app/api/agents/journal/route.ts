@@ -3,6 +3,7 @@ import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 import { writeToSubstrate } from '@/lib/substrate/client';
 import { getOperatorSession } from '@/lib/auth/session';
+import { readJournalEntriesFromArchive, writeJournalEntryToArchive } from '@/lib/agents/journalArchive';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -220,7 +221,6 @@ async function seedGenesisEntries(redis: NonNullable<ReturnType<typeof getJourna
 
 export async function GET(request: NextRequest) {
   const redis = getJournalRedisClient();
-  let entries = await loadEntries(redis);
 
   const { searchParams } = request.nextUrl;
   const agentFilter = asString(searchParams.get('agent')).toUpperCase();
@@ -228,12 +228,24 @@ export async function GET(request: NextRequest) {
   const limitRaw = Number(searchParams.get('limit') ?? '20');
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 100) : 20;
 
-  if (entries.length === 0 && redis) {
+  let kvEntries = await loadEntries(redis);
+  if (kvEntries.length === 0 && redis) {
     await seedGenesisEntries(redis, cycleFilter || 'C-272');
-    entries = await loadEntries(redis);
+    kvEntries = await loadEntries(redis);
   }
 
-  const filtered = entries
+  const archiveEntries = await readJournalEntriesFromArchive(agentFilter || undefined, 10).catch((error) => {
+    console.error('[journal] archive read error', error);
+    return [];
+  });
+
+  const deduped = new Map<string, AgentJournalEntry>();
+  for (const entry of [...kvEntries, ...archiveEntries]) {
+    if (!deduped.has(entry.id)) deduped.set(entry.id, entry);
+  }
+
+  const filtered = Array.from(deduped.values())
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
     .filter((entry) => (agentFilter ? entry.agent.toUpperCase() === agentFilter : true))
     .filter((entry) => (cycleFilter ? entry.cycle === cycleFilter : true))
     .slice(0, limit);
@@ -292,6 +304,10 @@ export async function POST(request: NextRequest) {
     tags: entry.tags,
   }).catch((error) => {
     console.error('[ledger] journal attest error', error);
+  });
+
+  void writeJournalEntryToArchive(entry).catch((error) => {
+    console.error('[journal] archive write error', error);
   });
 
   const redis = getJournalRedisClient();
