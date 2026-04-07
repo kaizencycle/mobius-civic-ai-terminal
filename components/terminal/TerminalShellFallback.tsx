@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 export default function TerminalShellFallback({
-  statusLabel = 'Booting Mobius Terminal...',
+  statusLabel = 'Client shell loading; waiting for integrity bundle…',
 }: {
   statusLabel?: string;
 }) {
@@ -128,9 +128,9 @@ export default function TerminalShellFallback({
 
         <main className="col-span-7 border-r border-slate-800 p-4 max-md:border-r-0">
           <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 p-4">
-            <div className="text-xs font-mono uppercase tracking-[0.18em] text-sky-300">Resilient shell</div>
+            <div className="text-xs font-mono uppercase tracking-[0.18em] text-sky-300">Offline layout preview</div>
             <div className="mt-2 text-sm text-slate-400">
-              If live data is delayed, the terminal still explains what it does, shows freshness placeholders, and signals degraded or disconnected states instead of rendering a blank loading screen.
+              This surface is a static shell when the full terminal bundle is not mounted. On the live app, `/api/terminal/snapshot` drives lane health; use the production `/terminal` route for operator truth.
             </div>
           </div>
 
@@ -146,7 +146,7 @@ export default function TerminalShellFallback({
             <div className="text-xs font-mono uppercase tracking-[0.18em] text-slate-500">Inspector fallback</div>
             <div className="mt-2 h-56 rounded-lg border border-slate-800 bg-slate-950" />
             <div className="mt-3 text-xs text-slate-500">
-              Degraded mode keeps the operator context visible while live hydration completes.
+              Partial outages should mark specific lanes (EPICON, journal, sentiment, runtime) instead of blanking the whole console.
             </div>
           </div>
         </section>

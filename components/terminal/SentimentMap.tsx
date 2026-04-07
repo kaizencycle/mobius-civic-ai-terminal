@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
+import { formatRelativeAge, isoHoverTitle } from '@/lib/terminal/freshnessDisplay';
 
 type DomainKey = 'civic' | 'environ' | 'financial' | 'narrative' | 'infrastructure' | 'institutional';
 
@@ -25,6 +26,8 @@ type DomainReading = {
 type Props = {
   cycleId: string;
   timestamp: string;
+  /** ISO timestamp for composite snapshot freshness */
+  sentimentTimestamp?: string | null;
   gi: number;
   overallSentiment: number | null;
   domains: DomainSnapshot[];
@@ -57,6 +60,7 @@ function barTone(value: number | null): string {
 export default function SentimentMap({
   cycleId,
   timestamp,
+  sentimentTimestamp,
   gi,
   overallSentiment,
   domains,
@@ -84,8 +88,16 @@ export default function SentimentMap({
       <div className="mb-3 border-b border-slate-800 pb-3">
         <div className="text-sm font-semibold uppercase tracking-[0.08em]">Global Sentiment Map</div>
         <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
-          {cycleId} · {timestamp.slice(11, 16)} UTC · GI {gi.toFixed(3)} · Overall {overallSentiment === null ? '--' : overallSentiment.toFixed(3)}
+          {cycleId} · sample {timestamp.slice(11, 16)} UTC · GI {gi.toFixed(3)} · Overall {overallSentiment === null ? '--' : overallSentiment.toFixed(3)}
         </div>
+        {sentimentTimestamp ? (
+          <div className="mt-1 text-[10px] font-mono text-slate-500">
+            Composite updated{' '}
+            <time dateTime={sentimentTimestamp} title={isoHoverTitle(sentimentTimestamp)} className="text-cyan-300/90">
+              {formatRelativeAge(sentimentTimestamp)}
+            </time>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
