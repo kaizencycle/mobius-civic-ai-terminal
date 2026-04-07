@@ -16,6 +16,10 @@ import TripwirePanel from '@/components/tripwire/TripwirePanel';
 import MICWalletPanel from '@/components/terminal/MICWalletPanel';
 import SentimentMap from '@/components/terminal/SentimentMap';
 import CommandSurface from '@/components/terminal/CommandSurface';
+import LaneHealthBadgeRow, { runtimeStateSummary } from '@/components/terminal/LaneHealthBadgeRow';
+import SnapshotDiagnostics from '@/components/terminal/SnapshotDiagnostics';
+import { formatRelativeAge, isoHoverTitle } from '@/lib/terminal/freshnessDisplay';
+import type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
 
 type AgentStatusApi = {
   id: string;
@@ -86,8 +90,13 @@ type RuntimeStatusResponse = {
   degraded?: boolean;
   freshness?: { status?: string };
 };
+type SnapshotDeployment = { commit_sha: string | null; environment: string | null };
+
 type TerminalSnapshotResponse = {
   ok: boolean;
+  timestamp?: string;
+  deployment?: SnapshotDeployment;
+  lanes?: SnapshotLaneState[];
   integrity: { ok: boolean; status: number; data: unknown; error: string | null };
   signals: { ok: boolean; status: number; data: unknown; error: string | null };
   kvHealth: { ok: boolean; status: number; data: unknown; error: string | null };
@@ -115,6 +124,38 @@ const TERMINAL_PREFS_KEY = 'mobius-terminal-prefs-v1';
 type TerminalPageWrapperProps = {
   bootstrap?: TerminalBootstrapSeed;
 };
+
+function PanelLaneNotice({ lane, label }: { lane: SnapshotLaneState | undefined; label: string }) {
+  if (!lane || lane.state === 'healthy') return null;
+  const rel = formatRelativeAge(lane.lastUpdated);
+  const tone =
+    lane.state === 'offline'
+      ? 'border-rose-500/40 bg-rose-500/10 text-rose-100'
+      : lane.state === 'stale'
+        ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-100'
+        : lane.state === 'empty'
+          ? 'border-slate-600 bg-slate-800/60 text-slate-200'
+          : 'border-amber-500/40 bg-amber-500/10 text-amber-100';
+  return (
+    <div className={cn('mb-3 rounded-md border px-2.5 py-2 text-[11px] leading-snug', tone)} role="status">
+      <span className="font-mono uppercase tracking-[0.1em] text-[10px] opacity-90">{label}</span>
+      <div className="mt-0.5">{lane.message}</div>
+      <div className="mt-1 font-mono text-[10px] text-slate-400">
+        Lane: {lane.key} · {lane.state}
+        {lane.lastUpdated ? (
+          <>
+            {' '}
+            ·{' '}
+            <time dateTime={lane.lastUpdated} title={isoHoverTitle(lane.lastUpdated)}>
+              {rel}
+            </time>
+          </>
+        ) : null}
+        {lane.fallbackMode === 'cached' ? ' · cached view' : null}
+      </div>
+    </div>
+  );
+}
 
 export default function TerminalPageWrapper({ bootstrap }: TerminalPageWrapperProps) {
   return (
@@ -148,7 +189,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   const [sentimentHistory, setSentimentHistory] = useState<
     Partial<Record<SentimentDomainKey, Array<{ timestamp: string; value: number | null; sourceLabel: string }>>>
   >({});
-  const [ledgerView, setLedgerView] = useState<'events' | 'journal'>('events');
+  const [ledgerView, setLedgerView] = useState<'events' | 'journal' | 'runtime'>('events');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('time');
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
@@ -156,7 +197,19 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   const [resultCount, setResultCount] = useState(0);
   const [runtimeBadge, setRuntimeBadge] = useState<'online' | 'degraded' | 'offline'>('offline');
   const [hydrated, setHydrated] = useState(false);
+  const [snapshotLanes, setSnapshotLanes] = useState<SnapshotLaneState[]>([]);
+  const [snapshotAt, setSnapshotAt] = useState<string | null>(null);
+  const [snapshotDeployment, setSnapshotDeployment] = useState<SnapshotDeployment | null>(null);
+  const [snapshotLoadError, setSnapshotLoadError] = useState<string | null>(null);
+  const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
+  const [giFreshAt, setGiFreshAt] = useState<string | null>(null);
   const agentSearchRef = useRef<HTMLInputElement>(null);
+  const laneByKeyRef = useRef<Record<string, SnapshotLaneState>>({});
+  const epiconFeedRef = useRef<EpiconFeedResponse | null>(null);
+  const journalFeedRef = useRef<AgentJournalEntry[]>([]);
+  const sentimentRef = useRef<SentimentCompositeResponse | null>(null);
+  const microRef = useRef<MicroSweepResponse | null>(null);
+  const agentRosterRef = useRef<AgentStatusApi[]>([]);
 
   const {
     allTripwires,
@@ -166,8 +219,25 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
     integrityStatus,
     mergedLedger,
     semanticDriftDetected,
+    promotionCounters,
   } = useTerminalData(selectedNav, bootstrap);
   const cycleId = integrityStatus?.cycle ?? 'C-271';
+
+  const laneByKey = useMemo(() => Object.fromEntries(snapshotLanes.map((lane) => [lane.key, lane])) as Record<string, SnapshotLaneState>, [snapshotLanes]);
+
+  const tripwireFreshAt = useMemo(() => {
+    let best = 0;
+    for (const tw of allTripwires) {
+      const t = new Date(tw.openedAt).getTime();
+      if (Number.isFinite(t) && t > best) best = t;
+    }
+    return best > 0 ? new Date(best).toISOString() : null;
+  }, [allTripwires]);
+
+  useEffect(() => {
+    const ts = integrityStatus?.timestamp;
+    if (ts) setGiFreshAt(ts);
+  }, [integrityStatus?.timestamp]);
 
   useEffect(() => {
     setHydrated(true);
@@ -280,6 +350,14 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
         const json = (await response.json()) as TerminalSnapshotResponse;
         if (!mounted || !json) return;
 
+        setSnapshotLoadError(null);
+        if (json.timestamp) setSnapshotAt(json.timestamp);
+        if (json.deployment) setSnapshotDeployment(json.deployment);
+        if (Array.isArray(json.lanes) && json.lanes.length > 0) {
+          setSnapshotLanes(json.lanes);
+          laneByKeyRef.current = Object.fromEntries(json.lanes.map((lane) => [lane.key, lane]));
+        }
+
         const runtime = json.runtime.data as RuntimeStatusResponse | null;
         if (!json.runtime.ok || !runtime?.ok) {
           setRuntimeBadge('offline');
@@ -290,30 +368,61 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
         }
 
         const agents = json.agents.data as AgentStatusResponse | null;
-        if (json.agents.ok && agents?.ok) setAgentRoster(agents.agents ?? []);
+        const agentsLane = json.lanes?.find((l) => l.key === 'agents');
+        if (json.agents.ok && agents?.ok) {
+          agentRosterRef.current = agents.agents ?? [];
+          setAgentRoster(agents.agents ?? []);
+        } else if (agentsLane?.fallbackMode === 'cached' && agentRosterRef.current.length > 0) {
+          setAgentRoster(agentRosterRef.current);
+        }
+
         setRosterLoaded(true);
 
         const microPayload = json.signals.data as MicroSweepResponse | null;
+        const signalsLane = json.lanes?.find((l) => l.key === 'signals');
         if (json.signals.ok && microPayload?.ok) {
-          const microJson = microPayload;
-          setMicro(microJson);
-          const time = new Date(microJson.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          setMicroHistory((prev) => [...prev, { time, composite: microJson.composite }].slice(-12));
+          microRef.current = microPayload;
+          setMicro(microPayload);
+          const time = new Date(microPayload.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          setMicroHistory((prev) => [...prev, { time, composite: microPayload.composite }].slice(-12));
+        } else if (signalsLane?.fallbackMode === 'cached' && microRef.current) {
+          setMicro(microRef.current);
         }
 
         const kvPayload = json.kvHealth.data as KvHealthResponse | null;
         if (kvPayload) setKvLatency(kvPayload.latencyMs ?? null);
 
         const epiconPayload = json.epicon.data as EpiconFeedResponse | null;
-        if (json.epicon.ok && epiconPayload?.ok) setEpiconFeed(epiconPayload);
+        const epiconLane = json.lanes?.find((l) => l.key === 'epicon');
+        if (json.epicon.ok && epiconPayload?.ok) {
+          epiconFeedRef.current = epiconPayload;
+          setEpiconFeed(epiconPayload);
+        } else if (epiconLane?.fallbackMode === 'cached' && epiconFeedRef.current) {
+          setEpiconFeed(epiconFeedRef.current);
+        }
 
         const journalPayload = json.journal.data as AgentJournalResponse | null;
-        if (json.journal.ok && journalPayload?.ok) setJournalFeed(journalPayload.entries ?? []);
+        const journalLane = json.lanes?.find((l) => l.key === 'journal');
+        if (json.journal.ok && journalPayload?.ok) {
+          journalFeedRef.current = journalPayload.entries ?? [];
+          setJournalFeed(journalPayload.entries ?? []);
+        } else if (journalLane?.fallbackMode === 'cached' && journalFeedRef.current.length > 0) {
+          setJournalFeed(journalFeedRef.current);
+        }
 
         const sentimentPayload = json.sentiment.data as SentimentCompositeResponse | null;
-        if (json.sentiment.ok && sentimentPayload?.ok) applySentiment(sentimentPayload);
-      } catch {
-        if (mounted) setRuntimeBadge('offline');
+        const sentimentLane = json.lanes?.find((l) => l.key === 'sentiment');
+        if (json.sentiment.ok && sentimentPayload?.ok) {
+          sentimentRef.current = sentimentPayload;
+          applySentiment(sentimentPayload);
+        } else if (sentimentLane?.fallbackMode === 'cached' && sentimentRef.current) {
+          applySentiment(sentimentRef.current);
+        }
+      } catch (err) {
+        if (mounted) {
+          setRuntimeBadge('offline');
+          setSnapshotLoadError(err instanceof Error ? err.message : 'Snapshot fetch failed');
+        }
       }
     }
 
@@ -348,14 +457,68 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
     }
   }, [cycleId, committedAgentRowsThisCycle]);
 
-  const statCards: Array<{ label: string; value: string; trend: number; icon: string; subtitle: string; nav: NavKey }> = [
-    { label: 'Global Integrity', value: giScore.toFixed(3), trend: giDelta, icon: '◎', subtitle: 'GI stable', nav: 'pulse' },
-    { label: 'Signal Feed', value: String(filteredEpicon.length), trend: filteredEpicon.length > 8 ? 0.08 : -0.04, icon: '∿', subtitle: 'live entries', nav: 'pulse' },
-    { label: 'Tripwires', value: String(allTripwires.length), trend: allTripwires.length > 0 ? -0.1 : 0.02, icon: '⚠', subtitle: '2 high / 4 medium', nav: 'infrastructure' },
-    { label: 'Agents Live', value: String(agentRoster.length), trend: agentRoster.length >= 6 ? 0.05 : -0.02, icon: '◉', subtitle: 'sentinels online', nav: 'agents' },
-  ];
+  const statCards = useMemo(() => {
+    const integ = laneByKey.integrity;
+    const sig = laneByKey.signals;
+    const ag = laneByKey.agents;
+    const highTw = allTripwires.filter((t) => t.severity.toLowerCase() === 'high').length;
+    const medTw = allTripwires.filter((t) => t.severity.toLowerCase() === 'medium').length;
+    const giSub =
+      integ?.lastUpdated != null
+        ? `updated ${formatRelativeAge(integ.lastUpdated)}${integ.state !== 'healthy' ? ` · ${integ.state}` : ''}`
+      : giFreshAt
+        ? `updated ${formatRelativeAge(giFreshAt)}`
+        : 'timestamp pending';
+    const sigSub =
+      sig?.lastUpdated != null
+        ? `sweep ${formatRelativeAge(sig.lastUpdated)}${sig.state !== 'healthy' ? ` · ${sig.state}` : ''}`
+      : micro?.timestamp
+        ? `sweep ${formatRelativeAge(micro.timestamp)}`
+        : 'micro lane pending';
+    const twSub =
+      tripwireFreshAt != null
+        ? `latest ${formatRelativeAge(tripwireFreshAt)} · ${highTw} high / ${medTw} medium`
+        : `${highTw} high / ${medTw} medium`;
+    const agSub =
+      ag?.lastUpdated != null
+        ? `roster ${formatRelativeAge(ag.lastUpdated)}${ag.state !== 'healthy' ? ` · ${ag.state}` : ''}`
+        : rosterLoaded
+          ? 'roster live'
+          : 'roster loading';
+
+    const cards: Array<{ label: string; value: string; trend: number; icon: string; subtitle: string; nav: NavKey }> = [
+      { label: 'Global Integrity', value: giScore.toFixed(3), trend: giDelta, icon: '◎', subtitle: giSub, nav: 'pulse' },
+      { label: 'Signal Feed', value: String(filteredEpicon.length), trend: filteredEpicon.length > 8 ? 0.08 : -0.04, icon: '∿', subtitle: sigSub, nav: 'pulse' },
+      { label: 'Tripwires', value: String(allTripwires.length), trend: allTripwires.length > 0 ? -0.1 : 0.02, icon: '⚠', subtitle: twSub, nav: 'infrastructure' },
+      { label: 'Agents Live', value: String(agentRoster.length), trend: agentRoster.length >= 6 ? 0.05 : -0.02, icon: '◉', subtitle: agSub, nav: 'agents' },
+    ];
+    return cards;
+  }, [
+    agentRoster.length,
+    allTripwires,
+    filteredEpicon.length,
+    giDelta,
+    giFreshAt,
+    giScore,
+    laneByKey.agents,
+    laneByKey.integrity,
+    laneByKey.signals,
+    micro?.timestamp,
+    rosterLoaded,
+    tripwireFreshAt,
+  ]);
   const chamberLabel = selectedNav === 'pulse' ? 'PULSE CHAMBER' : selectedNav === 'agents' ? 'AGENT CHAMBER' : selectedNav === 'ledger' ? 'CIVIC LEDGER CHAMBER' : selectedNav === 'infrastructure' ? 'TRIPWIRE CHAMBER' : selectedNav === 'sentiment' ? 'SENTIMENT CHAMBER' : 'MIC CHAMBER';
   const commandSurfaceTitle = selectedNav === 'wallet' ? 'Wallet Chamber' : selectedNav === 'agents' ? 'Agent Chamber' : selectedNav === 'ledger' ? 'Civic Ledger Chamber' : selectedNav === 'infrastructure' ? 'Tripwire Chamber' : selectedNav === 'sentiment' ? 'Sentiment Chamber' : 'Pulse Chamber';
+
+  const snapshotSummaryLine = useMemo(() => {
+    const parts: string[] = [];
+    if (snapshotAt) parts.push(`snapshot ${formatRelativeAge(snapshotAt)}`);
+    parts.push(runtimeStateSummary(snapshotLanes));
+    if (snapshotLoadError) parts.push(`fetch: ${snapshotLoadError}`);
+    return parts.join(' · ');
+  }, [snapshotAt, snapshotLanes, snapshotLoadError]);
+
+  const integrityDisplayTs = integrityStatus?.timestamp ?? giFreshAt;
   const commandSurfaceButtons: Array<{ label: string; nav: NavKey }> =
     selectedNav === 'wallet'
       ? [{ label: 'Inspect', nav: 'wallet' }, { label: 'Open Chamber', nav: 'wallet' }, { label: 'Review Signals', nav: 'pulse' }]
@@ -518,11 +681,20 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-200">
         <header className="border-b border-slate-800 bg-slate-950/95 px-4 py-3">
-          <div className="mx-auto flex w-full max-w-[1800px] items-center justify-between">
-            <div className="text-xs font-mono uppercase tracking-[0.14em] text-slate-400">Mobius Terminal</div>
-            <div className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-slate-300">
-              GI …
+          <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-mono uppercase tracking-[0.14em] text-slate-400">Mobius Terminal</div>
+              <div className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-slate-300">
+                Loading integrity layer…
+              </div>
             </div>
+            <p className="text-[11px] text-slate-500">
+              Fetching `/api/integrity-status` and ledger merge. Shell stays responsive; snapshot lane strip appears once the first bundle returns.
+            </p>
+            {snapshotLanes.length > 0 ? <LaneHealthBadgeRow lanes={snapshotLanes} /> : null}
+            {snapshotLoadError ? (
+              <div className="rounded border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[10px] font-mono text-rose-200">{snapshotLoadError}</div>
+            ) : null}
           </div>
         </header>
       </div>
@@ -537,6 +709,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
             <div className="text-sm font-semibold">Agent Roster</div>
             <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Live agent status</div>
           </div>
+          <PanelLaneNotice lane={laneByKey.agents} label="Agent status API" />
           <AgentGrid />
         </section>
       );
@@ -544,12 +717,14 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
     if (selectedNav === 'ledger') {
       return (
         <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-          <div className="mb-3 flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="mb-3 flex flex-col gap-2 border-b border-slate-800 pb-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-sm font-semibold">Ledger Chamber</div>
-              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Events and reasoning journal</div>
+              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
+                {cycleId} · Facts (events) · Reasoning (journals) · Runtime (promotion + lanes)
+              </div>
             </div>
-            <div className="inline-flex rounded-md border border-slate-700 bg-slate-950 p-0.5 text-[10px] font-mono uppercase tracking-[0.12em]">
+            <div className="inline-flex flex-wrap rounded-md border border-slate-700 bg-slate-950 p-0.5 text-[10px] font-mono uppercase tracking-[0.12em]">
               <button
                 onClick={() => setLedgerView('events')}
                 className={cn('rounded px-2 py-1', ledgerView === 'events' ? 'bg-sky-500/20 text-sky-200' : 'text-slate-400')}
@@ -560,7 +735,13 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                 onClick={() => setLedgerView('journal')}
                 className={cn('rounded px-2 py-1', ledgerView === 'journal' ? 'bg-fuchsia-500/20 text-fuchsia-200' : 'text-slate-400')}
               >
-                Journal
+                Journals
+              </button>
+              <button
+                onClick={() => setLedgerView('runtime')}
+                className={cn('rounded px-2 py-1', ledgerView === 'runtime' ? 'bg-emerald-500/20 text-emerald-200' : 'text-slate-400')}
+              >
+                Runtime
               </button>
             </div>
           </div>
@@ -569,23 +750,78 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
             <span className="text-slate-600">•</span>
             <span>Journal entries this cycle: <span className="text-fuchsia-300">{journalEntriesThisCycle}</span></span>
             <span className="text-slate-600">•</span>
-            <span>Current view: <span className={ledgerView === 'events' ? 'text-sky-300' : 'text-fuchsia-300'}>{ledgerView}</span></span>
+            <span>
+              View:{' '}
+              <span
+                className={
+                  ledgerView === 'events' ? 'text-sky-300' : ledgerView === 'journal' ? 'text-fuchsia-300' : 'text-emerald-300'
+                }
+              >
+                {ledgerView}
+              </span>
+            </span>
           </div>
           {ledgerView === 'events' ? (
-            <EventScreener
-              items={epiconFeed?.items}
-              summary={epiconFeed?.summary ?? {}}
-              sources={epiconFeed?.sources ?? { github: 0, kv: 0 }}
-              total={epiconFeed?.total ?? 0}
-              searchQuery={searchQuery}
-              sortBy={sortBy}
-              sortDir={sortDir}
-              onResultCountChange={setResultCount}
-              includeCatalog={includeCatalog}
-              onIncludeCatalogChange={setIncludeCatalog}
-            />
+            <>
+              <PanelLaneNotice lane={laneByKey.epicon} label="EPICON / events lane" />
+              <EventScreener
+                items={epiconFeed?.items}
+                summary={epiconFeed?.summary ?? {}}
+                sources={epiconFeed?.sources ?? { github: 0, kv: 0 }}
+                total={epiconFeed?.total ?? 0}
+                searchQuery={searchQuery}
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onResultCountChange={setResultCount}
+                includeCatalog={includeCatalog}
+                onIncludeCatalogChange={setIncludeCatalog}
+              />
+            </>
+          ) : ledgerView === 'journal' ? (
+            <>
+              <PanelLaneNotice lane={laneByKey.journal} label="Agent journal lane" />
+              <JournalView entries={journalFeed} cycleId={cycleId} />
+            </>
           ) : (
-            <JournalView entries={journalFeed} cycleId={cycleId} />
+            <>
+              <PanelLaneNotice lane={laneByKey.promotion} label="Promotion lane" />
+              <PanelLaneNotice lane={laneByKey.runtime} label="Deployment / GitHub heartbeat" />
+              <PanelLaneNotice lane={laneByKey.eve} label="Cycle engine (EVE)" />
+              <div className="space-y-3 rounded-md border border-slate-800 bg-slate-950/50 p-3 text-[11px] text-slate-300">
+                <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500">Promotion counters</div>
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  <li className="rounded border border-slate-800 bg-slate-900/60 px-2 py-1.5">
+                    Pending promotable{' '}
+                    <span className="font-mono text-sky-300">{promotionCounters.pending_promotable_count}</span>
+                  </li>
+                  <li className="rounded border border-slate-800 bg-slate-900/60 px-2 py-1.5">
+                    Promoted this cycle{' '}
+                    <span className="font-mono text-emerald-300">{promotionCounters.promoted_this_cycle_count}</span>
+                  </li>
+                  <li className="rounded border border-slate-800 bg-slate-900/60 px-2 py-1.5">
+                    Committed agent rows{' '}
+                    <span className="font-mono text-slate-200">{promotionCounters.committed_agent_count}</span>
+                  </li>
+                  <li className="rounded border border-slate-800 bg-slate-900/60 px-2 py-1.5">
+                    Failed promotions{' '}
+                    <span className="font-mono text-rose-300">{promotionCounters.failed_promotion_count}</span>
+                  </li>
+                </ul>
+                {promotionCounters.diagnostics?.last_promotion_run_at ? (
+                  <div className="font-mono text-[10px] text-slate-500">
+                    Last promotion run{' '}
+                    <time
+                      dateTime={promotionCounters.diagnostics.last_promotion_run_at}
+                      title={isoHoverTitle(promotionCounters.diagnostics.last_promotion_run_at)}
+                    >
+                      {formatRelativeAge(promotionCounters.diagnostics.last_promotion_run_at)}
+                    </time>
+                  </div>
+                ) : (
+                  <div className="font-mono text-[10px] text-slate-500">No promotion run timestamp recorded yet.</div>
+                )}
+              </div>
+            </>
           )}
         </section>
       );
@@ -597,25 +833,30 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
             <div className="text-sm font-semibold">Tripwire Infrastructure</div>
             <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · System tripwire status</div>
           </div>
+          <PanelLaneNotice lane={laneByKey.echo} label="ECHO ingest (feeds tripwire context)" />
           <TripwirePanel />
         </section>
       );
     }
     if (selectedNav === 'sentiment') {
       return (
-        <SentimentMap
-          cycleId={sentiment?.cycle ?? cycleId}
-          timestamp={sentiment?.timestamp ?? new Date().toISOString()}
-          gi={sentiment?.gi ?? gi.score}
-          overallSentiment={sentiment?.overall_sentiment ?? null}
-          domains={sentimentDomains}
-          history={sentimentHistory}
-          journalEntries={journalFeed}
-          onAskAgent={(agent, domain) => {
-            setSearchQuery(`${agent} ${domain}`);
-            setSelectedNav('agents');
-          }}
-        />
+        <>
+          <PanelLaneNotice lane={laneByKey.sentiment} label="Sentiment composite lane" />
+          <SentimentMap
+            cycleId={sentiment?.cycle ?? cycleId}
+            timestamp={sentiment?.timestamp ?? new Date().toISOString()}
+            sentimentTimestamp={sentiment?.timestamp ?? null}
+            gi={sentiment?.gi ?? gi.score}
+            overallSentiment={sentiment?.overall_sentiment ?? null}
+            domains={sentimentDomains}
+            history={sentimentHistory}
+            journalEntries={journalFeed}
+            onAskAgent={(agent, domain) => {
+              setSearchQuery(`${agent} ${domain}`);
+              setSelectedNav('agents');
+            }}
+          />
+        </>
       );
     }
     if (selectedNav === 'wallet') {
@@ -628,11 +869,13 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
     // default: pulse
     return (
       <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+        <PanelLaneNotice lane={laneByKey.integrity} label="Integrity / GI lane" />
+        <PanelLaneNotice lane={laneByKey.signals} label="Micro-signal sweep" />
         <div className="mb-3 flex items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
             <div className="text-sm font-semibold uppercase tracking-[0.08em]">Pulse Ledger</div>
             <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · Live signal trace</div>
-            <div className="text-[10px] text-slate-500">Immutable event record — Mobius Substrate</div>
+            <div className="text-[10px] text-slate-500">Facts: merged ledger (EPICON + ECHO + backfill)</div>
           </div>
           <div className="text-xs font-mono text-slate-400">
             {agentFilter === 'ALL'
@@ -711,6 +954,17 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                   <div>
                     <div className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-100">MOBIUS CIVIC TERMINAL</div>
                     <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">{cycleId} · {chamberLabel} · LIVE SIGNAL TRACE</div>
+                    {integrityDisplayTs ? (
+                      <div className="mt-0.5 text-[10px] font-mono text-slate-500">
+                        GI layer{' '}
+                        <time dateTime={integrityDisplayTs} title={isoHoverTitle(integrityDisplayTs)} className="text-slate-400">
+                          {formatRelativeAge(integrityDisplayTs)}
+                        </time>
+                        {laneByKey.integrity && laneByKey.integrity.state !== 'healthy' ? (
+                          <span className="text-amber-400/90"> · {laneByKey.integrity.state}</span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -724,8 +978,15 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                       <option key={tab.key} value={tab.key}>{tab.label}</option>
                     ))}
                   </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowLaneDiagnostics((v) => !v)}
+                    className="rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.12em] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-200"
+                  >
+                    {showLaneDiagnostics ? 'Hide lanes' : 'Lane diag'}
+                  </button>
                   <span className="flex items-center gap-2 rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-[11px] font-mono uppercase tracking-[0.12em] text-slate-200">
-                    <span className={cn('h-2 w-2 rounded-full', runtimeBadge === 'online' ? 'bg-emerald-500' : 'bg-amber-500')} />
+                    <span className={cn('h-2 w-2 rounded-full', runtimeBadge === 'online' ? 'bg-emerald-500' : runtimeBadge === 'offline' ? 'bg-rose-500' : 'bg-amber-500')} />
                     {runtimeBadge.toUpperCase()}
                   </span>
                   <span className={cn(
@@ -765,6 +1026,16 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                   );
                 })}
               </div>
+
+              {snapshotLanes.length > 0 ? (
+                <div className="space-y-1">
+                  <div className="text-[9px] font-mono uppercase tracking-[0.16em] text-slate-500">Snapshot lanes</div>
+                  <LaneHealthBadgeRow lanes={snapshotLanes} />
+                </div>
+              ) : null}
+              {showLaneDiagnostics && snapshotLanes.length > 0 ? (
+                <SnapshotDiagnostics lanes={snapshotLanes} snapshotAt={snapshotAt} deployment={snapshotDeployment} />
+              ) : null}
 
               <div className="border-t border-slate-800/80 pt-2">
                 <div className="flex items-center gap-3">
@@ -907,14 +1178,16 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
               <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-slate-300">Command Surface</div>
               <div className="mt-1 text-lg font-semibold text-slate-100">{commandSurfaceTitle}</div>
               <div className="mt-2 text-sm text-slate-300">
-                GI stable. {allTripwires.length} tripwires active. {filteredEpicon.length} signals in feed. {allTripwires.filter((t) => t.severity.toLowerCase() === 'high').length} alerts.
+                GI {giScore.toFixed(3)} ({breaker.stage}). {allTripwires.length} tripwire(s). {filteredEpicon.length} EPICON in model.{' '}
+                {allTripwires.filter((t) => t.severity.toLowerCase() === 'high').length} high-severity.
               </div>
               <div className="mt-1 text-[11px] text-slate-400">
                 Breaker posture: <span className="font-mono uppercase text-slate-200">{breaker.stage}</span>
-                {selectedNav === 'ledger' ? ` · Ledger view: ${ledgerView} · Committed rows: ${committedAgentRowsThisCycle}` : ''}
+                {selectedNav === 'ledger' ? ` · Ledger: ${ledgerView} · committed rows this cycle: ${committedAgentRowsThisCycle}` : ''}
               </div>
+              <div className="mt-1 text-[10px] font-mono text-slate-500 leading-snug">{snapshotSummaryLine}</div>
               <div className="mt-2 text-[10px] font-mono uppercase tracking-[0.14em] text-sky-300">
-                TERMINAL LIVE · {selectedNav === 'ledger' ? `${ledgerView.toUpperCase()} VIEW ACTIVE` : 'AWAITING OPERATOR ACTION'}
+                COMMAND SHELL ACTIVE · {selectedNav === 'ledger' ? `${ledgerView.toUpperCase()} SUBVIEW` : chamberLabel}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {commandSurfaceButtons.map((action) => (
@@ -1004,16 +1277,30 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
 
       <CommandSurface onSwitchChamber={setSelectedNav} />
 
-      <footer className="fixed bottom-0 left-0 right-0 z-40 flex h-7 items-center justify-between border-t border-slate-800 bg-slate-950 px-4 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />System Ready</span>
-          <span>CPU 27%</span>
-          <span>MEM 61%</span>
+      <footer className="fixed bottom-0 left-0 right-0 z-40 flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-slate-800 bg-slate-950 px-4 py-1 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex items-center gap-1">
+            <span className={cn('h-1.5 w-1.5 rounded-full', runtimeBadge === 'online' ? 'bg-emerald-400' : runtimeBadge === 'offline' ? 'bg-rose-400' : 'bg-amber-400')} />
+            Runtime {runtimeBadge}
+          </span>
+          {snapshotDeployment?.commit_sha ? (
+            <span title={snapshotDeployment.commit_sha} className="normal-case text-slate-500">
+              build {snapshotDeployment.commit_sha.slice(0, 7)}
+            </span>
+          ) : null}
         </div>
-        <div className="flex items-center gap-3">
-          <span>Latency {kvLatency ?? '--'}ms</span>
-          <span>Uptime {micro?.healthy ? '99.98%' : 'degraded'}</span>
-          <span>Node MOBIUS-US-EAST-1</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <span>
+            KV {kvLatency != null ? `${kvLatency}ms` : '—'}
+            {laneByKey.kvHealth && laneByKey.kvHealth.state !== 'healthy' ? ` · ${laneByKey.kvHealth.state}` : ''}
+          </span>
+          <span>
+            Signals {micro?.timestamp ? formatRelativeAge(micro.timestamp) : '—'}
+            {laneByKey.signals && laneByKey.signals.state === 'stale' ? ' · stale' : ''}
+          </span>
+          <span className="max-w-[14rem] truncate normal-case text-slate-500" title={snapshotSummaryLine}>
+            {snapshotLanes.length ? `${snapshotLanes.filter((l) => l.state !== 'healthy' && l.state !== 'empty').length} lane warn` : 'lanes —'}
+          </span>
         </div>
       </footer>
     </div>

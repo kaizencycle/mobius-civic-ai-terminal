@@ -234,8 +234,10 @@ export async function GET(request: NextRequest) {
     kvEntries = await loadEntries(redis);
   }
 
+  let archiveError: string | null = null;
   const archiveEntries = await readJournalEntriesFromArchive(agentFilter || undefined, 10).catch((error) => {
     console.error('[journal] archive read error', error);
+    archiveError = error instanceof Error ? error.message : 'archive read failed';
     return [];
   });
 
@@ -252,6 +254,13 @@ export async function GET(request: NextRequest) {
 
   const agents = Array.from(new Set(filtered.map((entry) => entry.agent)));
 
+  const maxTs = (list: AgentJournalEntry[]) =>
+    list.reduce((acc, e) => Math.max(acc, new Date(e.timestamp).getTime() || 0), 0);
+  const kvMax = maxTs(kvEntries);
+  const archMax = maxTs(archiveEntries);
+  const archiveStale =
+    archiveEntries.length > 0 && kvMax > 0 && archMax > 0 && kvMax - archMax > 60 * 60 * 1000;
+
   return NextResponse.json(
     {
       ok: true,
@@ -259,6 +268,10 @@ export async function GET(request: NextRequest) {
       entries: filtered,
       agents,
       timestamp: new Date().toISOString(),
+      merged_from_archive: archiveEntries.length > 0,
+      archive_error: archiveError,
+      archive_fetched_count: archiveEntries.length,
+      archive_stale: archiveStale,
     },
     {
       headers: {
