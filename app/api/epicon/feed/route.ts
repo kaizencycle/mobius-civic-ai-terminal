@@ -333,10 +333,11 @@ function describeLedgerHost(url: string): string {
 
 async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult> {
   const renderLedgerUrl = normalizeLedgerBaseUrl(
-    process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core.onrender.com',
+    process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core-ledger.onrender.com',
   );
   const renderApiKey = process.env.RENDER_API_KEY ?? '';
   const ledgerHost = describeLedgerHost(renderLedgerUrl);
+  const authorization = renderApiKey.trim().length > 0 ? `Bearer ${renderApiKey}` : '';
 
   if (!process.env.RENDER_LEDGER_URL) {
     console.warn(`[ledger-api] RENDER_LEDGER_URL missing, using fallback host=${ledgerHost}`);
@@ -346,11 +347,21 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult>
     console.info(
       `[ledger-api] connecting host=${ledgerHost} limit=${limit} hasApiKey=${renderApiKey.trim().length > 0}`,
     );
-    const response = await fetch(`${renderLedgerUrl}/ledger/entries?limit=${limit}&sort=desc`, {
+    const health = await fetch(`${renderLedgerUrl}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000),
+      cache: 'no-store',
+    });
+    if (!health.ok) {
+      console.error(`[ledger-api] ledger health check failed host=${ledgerHost} status=${health.status}`);
+      return { entries: [], degraded: true, error: `ledger_health_http_${health.status}`, statusCode: health.status };
+    }
+
+    const response = await fetch(`${renderLedgerUrl}/ledger/events?limit=${limit}&offset=0`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
-        'X-Api-Key': renderApiKey,
+        ...(authorization ? { Authorization: authorization } : {}),
       },
       signal: AbortSignal.timeout(5000),
       cache: 'no-store',
@@ -359,12 +370,22 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult>
     if (!response.ok) {
       const bodyPreview = (await response.text()).slice(0, 200).replace(/\s+/g, ' ').trim();
       const error = `ledger_api_http_${response.status}`;
-      console.error(`[ledger-api] ${error} host=${ledgerHost} body="${bodyPreview}"`);
+      console.error(`[ledger-api] ${error} host=${ledgerHost} path=/ledger/events body="${bodyPreview}"`);
       return { entries: [], degraded: true, error, statusCode: response.status };
     }
 
-    const payload = (await response.json()) as { entries?: RenderLedgerEntry[]; items?: RenderLedgerEntry[] };
-    const rows = Array.isArray(payload.entries) ? payload.entries : Array.isArray(payload.items) ? payload.items : [];
+    const payload = (await response.json()) as
+      | RenderLedgerEntry[]
+      | { events?: RenderLedgerEntry[]; items?: RenderLedgerEntry[]; entries?: RenderLedgerEntry[] };
+    const rows = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload.events)
+        ? payload.events
+        : Array.isArray(payload.items)
+          ? payload.items
+          : Array.isArray(payload.entries)
+            ? payload.entries
+            : [];
     const entries = rows.map((row) => normalizeLedgerEntry(row)).filter((row): row is EpiconEntry => row !== null);
     return { entries, degraded: false, statusCode: response.status };
   } catch (error) {

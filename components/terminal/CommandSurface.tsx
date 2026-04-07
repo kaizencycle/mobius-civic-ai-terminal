@@ -86,6 +86,24 @@ ${greeting}`,
       return;
     }
     if (base === '/ledger') {
+      const sub = (rest[0] ?? '').toLowerCase();
+      if (sub === 'stats') {
+        const stats = await fetch('/api/ledger/proxy?target=stats', { cache: 'no-store' }).then((r) => r.json());
+        push(trimmed, JSON.stringify(stats, null, 2), 'info');
+        return;
+      }
+      if (sub === 'chain') {
+        const chain = await fetch('/api/ledger/proxy?target=chain', { cache: 'no-store' }).then((r) => r.json());
+        push(trimmed, JSON.stringify(chain, null, 2), 'info');
+        return;
+      }
+      if (sub === 'seed') {
+        const seed = await fetch('/api/admin/seed-ledger', {
+          method: 'POST',
+        }).then((r) => r.json());
+        push(trimmed, JSON.stringify(seed, null, 2), seed?.ok ? 'success' : 'error');
+        return;
+      }
       onSwitchChamber('ledger');
       push(trimmed, '→ Ledger chamber', 'success');
       return;

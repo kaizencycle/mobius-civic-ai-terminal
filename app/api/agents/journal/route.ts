@@ -278,7 +278,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const substrateResult = await writeToSubstrate({
+  void writeToSubstrate({
     agent: entry.agent,
     agentOrigin: entry.agentOrigin,
     cycle: entry.cycle,
@@ -290,15 +290,17 @@ export async function POST(request: NextRequest) {
     confidence: entry.confidence,
     derivedFrom: entry.derivedFrom,
     tags: entry.tags,
+  }).catch((error) => {
+    console.error('[ledger] journal attest error', error);
   });
 
   const redis = getJournalRedisClient();
   if (!redis) {
     return NextResponse.json({
       ok: true,
-      entryId: substrateResult.entryId ?? entry.id,
+      entryId: entry.id,
       timestamp: entry.timestamp,
-      substrate: substrateResult.ok ? 'ledger' : 'kv-fallback',
+      substrate: 'queued',
     });
   }
 
@@ -314,8 +316,8 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    entryId: substrateResult.entryId ?? writeResult.entry.id,
+    entryId: writeResult.entry.id,
     timestamp: writeResult.entry.timestamp,
-    substrate: substrateResult.ok ? 'ledger' : 'kv-fallback',
+    substrate: 'queued',
   });
 }

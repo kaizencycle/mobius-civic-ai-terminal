@@ -9,16 +9,17 @@ function normalizeLedgerBaseUrl(url: string): string {
 export async function GET() {
   const startedAt = Date.now();
   const renderLedgerUrl = normalizeLedgerBaseUrl(
-    process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core.onrender.com',
+    process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core-ledger.onrender.com',
   );
   const renderApiKey = process.env.RENDER_API_KEY ?? '';
+  const authorization = renderApiKey.trim().length > 0 ? `Bearer ${renderApiKey}` : '';
 
   try {
-    const response = await fetch(`${renderLedgerUrl}/ledger/entries?limit=1&sort=desc`, {
+    const response = await fetch(`${renderLedgerUrl}/health`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
-        'X-Api-Key': renderApiKey,
+        ...(authorization ? { Authorization: authorization } : {}),
       },
       signal: AbortSignal.timeout(5000),
       cache: 'no-store',
