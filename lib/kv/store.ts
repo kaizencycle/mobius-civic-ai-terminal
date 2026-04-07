@@ -174,10 +174,11 @@ export type SignalSnapshot = {
 
 /**
  * Save the latest signal snapshot to Redis.
- * TTL: 10 minutes (signals older than this are stale).
+ * No TTL — snapshot is refreshed by micro-agent polls and EPICON KV sync; short TTLs
+ * caused /api/kv/health to report false between 15m sync cycles.
  */
 export async function saveSignalSnapshot(snapshot: SignalSnapshot): Promise<void> {
-  await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, snapshot, 600);
+  await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, snapshot);
 }
 
 /**
@@ -205,10 +206,10 @@ export type GIState = {
 };
 
 /**
- * Save the latest GI state. TTL: 15 minutes.
+ * Save the latest GI state. No TTL — same rationale as saveSignalSnapshot (KV health + sync).
  */
 export async function saveGIState(state: GIState): Promise<void> {
-  await kvSet(KV_KEYS.GI_STATE, state, 900);
+  await kvSet(KV_KEYS.GI_STATE, state);
 }
 
 /**
