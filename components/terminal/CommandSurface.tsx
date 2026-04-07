@@ -12,7 +12,7 @@ type CommandOutput = {
 };
 
 const COMMANDS = [
-  '/help', '/status', '/agents', '/pulse', '/signals', '/ledger', '/wallet', '/journal', '/ask', '/login', '/logout', '/whoami', '/epicon', '/gi', '/clear',
+  '/help', '/status', '/agents', '/globe', '/pulse', '/signals', '/sentinel', '/ledger', '/wallet', '/journal', '/ask', '/login', '/logout', '/whoami', '/epicon', '/gi', '/render', '/clear',
 ];
 
 export default function CommandSurface({
@@ -75,6 +75,11 @@ ${greeting}`,
       push(trimmed, COMMANDS.join('\n'));
       return;
     }
+    if (base === '/globe') {
+      onSwitchChamber('globe');
+      push(trimmed, '→ Globe chamber', 'success');
+      return;
+    }
     if (base === '/pulse') {
       onSwitchChamber('pulse');
       push(trimmed, '→ Pulse chamber', 'success');
@@ -83,6 +88,82 @@ ${greeting}`,
     if (base === '/signals') {
       onSwitchChamber('sentiment');
       push(trimmed, '→ Signals chamber', 'success');
+      return;
+    }
+    if (base === '/sentinel') {
+      onSwitchChamber('agents');
+      push(trimmed, '→ Sentinel chamber', 'success');
+      return;
+    }
+    if (base === '/render') {
+      const sub = (rest[0] ?? '').toLowerCase();
+      const arg = rest.slice(1).join(' ').trim();
+      if (sub === 'cycle') {
+        const integrity = await fetch('/api/integrity-status', { cache: 'no-store' }).then((r) => r.json());
+        const cycle = String(integrity.cycle ?? 'C-current');
+        const gi = Number(integrity.global_integrity ?? 0);
+        const res = await fetch('/api/globe/render-asset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'cycle_hero',
+            title: `${cycle} world state`,
+            cycle,
+            severity: gi > 0.85 ? 'nominal' : gi > 0.7 ? 'elevated' : 'critical',
+            metadata: {
+              giBand: gi > 0.85 ? 'nominal' : gi > 0.7 ? 'watch' : 'stressed',
+              highlights: [`GI ${gi.toFixed(2)}`],
+            },
+          }),
+        }).then((r) => r.json());
+        if (res?.ok && res.imageUrl) {
+          push(trimmed, `Cycle hero ready: ${res.imageUrl}${res.cached ? ' (cached)' : ''}`, 'success');
+        } else {
+          push(trimmed, res?.error ?? 'Render failed', 'error');
+        }
+        return;
+      }
+      if (sub === 'incident') {
+        if (!arg) {
+          push(trimmed, 'Usage: /render incident <title text>', 'error');
+          return;
+        }
+        const res = await fetch('/api/globe/render-asset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'incident_card', title: arg }),
+        }).then((r) => r.json());
+        if (res?.ok && res.imageUrl) {
+          push(trimmed, `Incident art: ${res.imageUrl}`, 'success');
+        } else {
+          push(trimmed, res?.error ?? 'Render failed', 'error');
+        }
+        return;
+      }
+      if (sub === 'domain') {
+        const dom = (rest[1] ?? '').toLowerCase();
+        const allowed = ['civic', 'environ', 'financial', 'narrative', 'infrastructure', 'institutional'];
+        if (!allowed.includes(dom)) {
+          push(trimmed, `Usage: /render domain (${allowed.join('|')})`, 'error');
+          return;
+        }
+        const res = await fetch('/api/globe/render-asset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'domain_icon',
+            title: `${dom} domain sigil`,
+            domain: dom,
+          }),
+        }).then((r) => r.json());
+        if (res?.ok && res.imageUrl) {
+          push(trimmed, `Domain icon: ${res.imageUrl}`, 'success');
+        } else {
+          push(trimmed, res?.error ?? 'Render failed', 'error');
+        }
+        return;
+      }
+      push(trimmed, 'Usage: /render cycle | /render incident <title> | /render domain <civic|environ|…>', 'error');
       return;
     }
     if (base === '/ledger') {

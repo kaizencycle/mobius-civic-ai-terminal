@@ -295,7 +295,10 @@ export function useTerminalData(selectedNav: NavKey, initialData?: TerminalBoots
   );
 
   const filteredAgents = useMemo(
-    () => (selectedNav === 'pulse' || selectedNav === 'agents' ? agents : agents.filter((agent) => agent.status !== 'idle')),
+    () =>
+      selectedNav === 'pulse' || selectedNav === 'agents' || selectedNav === 'globe'
+        ? agents
+        : agents.filter((agent) => agent.status !== 'idle'),
     [agents, selectedNav],
   );
 

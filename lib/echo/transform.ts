@@ -92,6 +92,11 @@ export function toEpiconItem(raw: RawEvent): EpiconItem {
     timestamp: formatTimestamp(raw.timestamp),
     sources: [raw.source, ...(raw.url ? [new URL(raw.url).hostname] : [])],
     summary: raw.summary,
+    echoIngest: {
+      source: raw.source,
+      severity: raw.severity,
+      metadata: raw.metadata,
+    },
     trace: [
       `ECHO captured signal from ${raw.source}`,
       `${agent} classified as ${raw.category}`,
