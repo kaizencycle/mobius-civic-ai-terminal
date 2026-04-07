@@ -97,12 +97,18 @@ export function getLabLaunchUrl(labId: LabId): string {
 
 
 export interface SubstrateEntry {
+  id?: string;
+  timestamp?: string;
   agent: string;
   agentOrigin: string;
   cycle: string;
   title: string;
   summary: string;
   category:
+    | 'market'
+    | 'geopolitical'
+    | 'infrastructure'
+    | 'narrative'
     | 'governance'
     | 'ethics'
     | 'civic-risk'
@@ -115,7 +121,15 @@ export interface SubstrateEntry {
     | 'verification'
     | 'ingest';
   severity: 'nominal' | 'elevated' | 'critical' | 'info' | 'degraded';
-  source: 'agent-journal' | 'eve-synthesis' | 'atlas-heartbeat' | 'zeus-verify' | 'aurea-close' | 'echo-ingest';
+  source:
+    | 'agent-journal'
+    | 'eve-synthesis'
+    | 'atlas-heartbeat'
+    | 'zeus-verify'
+    | 'aurea-close'
+    | 'echo-ingest'
+    | 'epicon-promotion'
+    | 'seed-backfill';
   gi_at_time?: number;
   confidence?: number;
   derivedFrom?: string[];
@@ -157,29 +171,54 @@ async function writeJournalToKV(entry: SubstrateEntry): Promise<void> {
 export async function writeToSubstrate(
   entry: SubstrateEntry,
 ): Promise<{ ok: boolean; entryId?: string; error?: string }> {
-  const ledgerUrl = process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core.onrender.com';
+  const ledgerUrl = process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core-ledger.onrender.com';
   const apiKey = process.env.RENDER_API_KEY ?? '';
+  const authorization = apiKey.trim().length > 0 ? `Bearer ${apiKey}` : '';
+  const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
+  const timestamp = entry.timestamp ?? new Date().toISOString();
 
   try {
-    const res = await fetch(`${ledgerUrl}/ledger/entries`, {
+    const health = await fetch(`${ledgerUrl}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000),
+      cache: 'no-store',
+    });
+    if (!health.ok) throw new Error(`ledger health ${health.status}`);
+
+    const res = await fetch(`${ledgerUrl}/ledger/attest`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Api-Key': apiKey,
-        'X-Agent-Origin': entry.agentOrigin,
+        ...(authorization ? { Authorization: authorization } : {}),
       },
       body: JSON.stringify({
-        ...entry,
-        timestamp: new Date().toISOString(),
-        id: `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`,
+        event_type: entry.category,
+        civic_id: `mobius-${entry.agentOrigin.toLowerCase()}`,
+        lab_source: entry.source,
+        payload: {
+          event_id: eventId,
+          agent: entry.agent,
+          agent_origin: entry.agentOrigin,
+          cycle: entry.cycle,
+          title: entry.title,
+          summary: entry.summary,
+          severity: entry.severity,
+          source: entry.source,
+          gi_at_time: entry.gi_at_time,
+          confidence: entry.confidence,
+          derived_from: entry.derivedFrom ?? [],
+          tags: entry.tags ?? [],
+          verified: entry.verified ?? false,
+          timestamp,
+        },
       }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
       cache: 'no-store',
     });
 
     if (!res.ok) throw new Error(`ledger ${res.status}`);
-    const data = (await res.json()) as { id?: string; entry_id?: string };
-    return { ok: true, entryId: data.id ?? data.entry_id };
+    const data = (await res.json()) as { id?: string; event_id?: string };
+    return { ok: true, entryId: data.event_id ?? data.id ?? eventId };
   } catch (err) {
     await writeJournalToKV(entry);
     return { ok: false, error: String(err) };

@@ -10,6 +10,7 @@ import type { EpiconItem } from '@/lib/terminal/types';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { defaultPromotionState, getPromotionState, savePromotionState } from '@/lib/epicon/promotion';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
+import { writeToSubstrate } from '@/lib/substrate/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -320,6 +321,24 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
         const commit = buildCommit(agent, epicon, cycleId, seq++);
         await pushLedgerEntry(commit);
         await writeCommitJournalEntry(commit, epicon);
+        void writeToSubstrate({
+          id: commit.id,
+          timestamp: commit.timestamp,
+          agent,
+          agentOrigin: agent,
+          cycle: cycleId,
+          title: commit.title,
+          summary: commit.body ?? commit.title,
+          category: 'observation',
+          severity: commit.severity === 'high' ? 'critical' : commit.severity === 'medium' ? 'elevated' : 'nominal',
+          source: 'epicon-promotion',
+          confidence: Math.max(0.5, Math.min(0.98, 0.55 + epicon.confidenceTier * 0.1)),
+          derivedFrom: [epicon.id],
+          tags: ['agent-commit', epicon.category, epicon.id],
+          verified: true,
+        }).catch((error) => {
+          console.error('[ledger] promotion attest error', { commitId: commit.id, error });
+        });
         existing.committed_entries.push(commit.id);
         committed += 1;
       }
