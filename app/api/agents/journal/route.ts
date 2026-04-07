@@ -3,7 +3,8 @@ import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 import { writeToSubstrate } from '@/lib/substrate/client';
 import { getOperatorSession } from '@/lib/auth/session';
-import { readJournalEntriesFromArchive, writeJournalEntryToArchive } from '@/lib/agents/journalArchive';
+import { writeJournalToSubstrate, type JournalEntry as SubstrateGithubJournalEntry } from '@/lib/substrate/github-journal';
+import { readAgentJournal, readAllAgentJournals } from '@/lib/substrate/github-reader';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -71,6 +72,71 @@ function asStringArray(input: unknown): string[] {
 function asOptionalTags(input: unknown): string[] | undefined {
   const tags = asStringArray(input);
   return tags.length > 0 ? tags : undefined;
+}
+
+function toSubstrateGithubJournalEntry(entry: AgentJournalEntry): SubstrateGithubJournalEntry {
+  return {
+    id: entry.id,
+    agent: entry.agent,
+    agentOrigin: entry.agentOrigin,
+    cycle: entry.cycle,
+    scope: entry.scope,
+    category: entry.category,
+    severity: entry.severity,
+    observation: entry.observation,
+    inference: entry.inference,
+    recommendation: entry.recommendation,
+    confidence: entry.confidence,
+    derivedFrom: entry.derivedFrom,
+    source: entry.source,
+    tags: entry.tags ?? [],
+    status: entry.status,
+  };
+}
+
+function substrateRecordToAgentEntry(row: SubstrateGithubJournalEntry & { id: string; timestamp: string }): AgentJournalEntry | null {
+  const id = asString(row.id);
+  const agent = asString(row.agent).toUpperCase();
+  const cycle = asString(row.cycle);
+  const timestamp = asString(row.timestamp);
+  const scope = asString(row.scope);
+  const observation = asString(row.observation);
+  const inference = asString(row.inference);
+  const recommendation = asString(row.recommendation);
+  const status = asString(row.status) as AgentJournalStatus;
+  const category = asString(row.category) as AgentJournalCategory;
+  const severity = asString(row.severity) as AgentJournalSeverity;
+  const agentOrigin = asString(row.agentOrigin).toUpperCase();
+  const source = row.source;
+  const confidence = typeof row.confidence === 'number' ? Math.max(0, Math.min(1, row.confidence)) : Number.NaN;
+
+  if (!id || !agent || !cycle || !timestamp || !scope || !observation || !inference || !recommendation || !agentOrigin) {
+    return null;
+  }
+  if (!['draft', 'committed', 'contested', 'verified'].includes(status)) return null;
+  if (!['observation', 'inference', 'alert', 'recommendation', 'close'].includes(category)) return null;
+  if (!['nominal', 'elevated', 'critical'].includes(severity)) return null;
+  if (source !== 'agent-journal') return null;
+  if (Number.isNaN(confidence)) return null;
+
+  return {
+    id,
+    agent,
+    cycle,
+    timestamp,
+    scope,
+    observation,
+    inference,
+    recommendation,
+    confidence,
+    derivedFrom: asStringArray(row.derivedFrom),
+    status,
+    category,
+    severity,
+    source: 'agent-journal',
+    agentOrigin,
+    tags: asOptionalTags(row.tags),
+  };
 }
 
 function parseEntry(input: unknown): AgentJournalEntry | null {
@@ -234,20 +300,40 @@ export async function GET(request: NextRequest) {
     kvEntries = await loadEntries(redis);
   }
 
-  let archiveError: string | null = null;
-  const archiveEntries = await readJournalEntriesFromArchive(agentFilter || undefined, 10).catch((error) => {
-    console.error('[journal] archive read error', error);
-    archiveError = error instanceof Error ? error.message : 'archive read failed';
-    return [];
-  });
-
-  const deduped = new Map<string, AgentJournalEntry>();
-  for (const entry of [...kvEntries, ...archiveEntries]) {
-    if (!deduped.has(entry.id)) deduped.set(entry.id, entry);
+  let substrateError: string | null = null;
+  let substrateEntries: AgentJournalEntry[] = [];
+  try {
+    if (agentFilter) {
+      const rows = await readAgentJournal(agentFilter.toLowerCase(), 10);
+      for (const row of rows) {
+        const mapped = substrateRecordToAgentEntry(row);
+        if (mapped) substrateEntries.push(mapped);
+      }
+    } else {
+      const byAgent = await readAllAgentJournals(3);
+      for (const rows of Object.values(byAgent)) {
+        for (const row of rows) {
+          const mapped = substrateRecordToAgentEntry(row);
+          if (mapped) substrateEntries.push(mapped);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[journal] substrate read error', error);
+    substrateError = error instanceof Error ? error.message : 'substrate read failed';
   }
 
-  const filtered = Array.from(deduped.values())
-    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+  const all = [...kvEntries, ...substrateEntries];
+  const seen = new Set<string>();
+  const merged = all
+    .filter((e) => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    })
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  const filtered = merged
     .filter((entry) => (agentFilter ? entry.agent.toUpperCase() === agentFilter : true))
     .filter((entry) => (cycleFilter ? entry.cycle === cycleFilter : true))
     .slice(0, limit);
@@ -257,9 +343,9 @@ export async function GET(request: NextRequest) {
   const maxTs = (list: AgentJournalEntry[]) =>
     list.reduce((acc, e) => Math.max(acc, new Date(e.timestamp).getTime() || 0), 0);
   const kvMax = maxTs(kvEntries);
-  const archMax = maxTs(archiveEntries);
+  const subMax = maxTs(substrateEntries);
   const archiveStale =
-    archiveEntries.length > 0 && kvMax > 0 && archMax > 0 && kvMax - archMax > 60 * 60 * 1000;
+    substrateEntries.length > 0 && kvMax > 0 && subMax > 0 && kvMax - subMax > 60 * 60 * 1000;
 
   return NextResponse.json(
     {
@@ -268,9 +354,13 @@ export async function GET(request: NextRequest) {
       entries: filtered,
       agents,
       timestamp: new Date().toISOString(),
-      merged_from_archive: archiveEntries.length > 0,
-      archive_error: archiveError,
-      archive_fetched_count: archiveEntries.length,
+      sources: {
+        kv: kvEntries.length,
+        substrate: substrateEntries.length,
+      },
+      merged_from_archive: substrateEntries.length > 0,
+      archive_error: substrateError,
+      archive_fetched_count: substrateEntries.length,
       archive_stale: archiveStale,
     },
     {
@@ -319,8 +409,8 @@ export async function POST(request: NextRequest) {
     console.error('[ledger] journal attest error', error);
   });
 
-  void writeJournalEntryToArchive(entry).catch((error) => {
-    console.error('[journal] archive write error', error);
+  void writeJournalToSubstrate(toSubstrateGithubJournalEntry(entry)).catch((err) => {
+    console.error('[journal] substrate write failed:', err);
   });
 
   const redis = getJournalRedisClient();
@@ -329,7 +419,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       entryId: entry.id,
       timestamp: entry.timestamp,
-      substrate: 'queued',
+      substrate: 'writing',
     });
   }
 
@@ -340,13 +430,13 @@ export async function POST(request: NextRequest) {
   });
 
   if (!writeResult.written) {
-    return NextResponse.json({ ok: true, duplicate: true, token: writeResult.token });
+    return NextResponse.json({ ok: true, duplicate: true, token: writeResult.token, substrate: 'writing' });
   }
 
   return NextResponse.json({
     ok: true,
     entryId: writeResult.entry.id,
     timestamp: writeResult.entry.timestamp,
-    substrate: 'queued',
+    substrate: 'writing',
   });
 }

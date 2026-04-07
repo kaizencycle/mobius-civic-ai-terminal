@@ -16,6 +16,8 @@ import {
   type SnapshotLaneState,
   type SnapshotLeaf,
 } from '@/lib/terminal/snapshotLanes';
+import type { JournalStoredRecord } from '@/lib/substrate/github-journal';
+import { readAllAgentJournals } from '@/lib/substrate/github-reader';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +68,38 @@ export async function GET(request: NextRequest) {
     callHandler(makeRequest(baseUrl, '/api/eve/cycle-advance'), getEve),
   ]);
 
+  type SubstrateLatestRow = { agent: string; lastEntry: JournalStoredRecord };
+
+  let substrate: {
+    ok: boolean;
+    agents: string[];
+    totalEntries: number;
+    latest: SubstrateLatestRow[];
+  };
+  try {
+    const substrateJournals = await readAllAgentJournals(3);
+    const totalEntries = Object.values(substrateJournals).reduce((sum, arr) => sum + arr.length, 0);
+    substrate = {
+      ok: true,
+      agents: Object.keys(substrateJournals),
+      totalEntries,
+      latest: Object.entries(substrateJournals)
+        .map(([agent, entries]) => ({
+          agent,
+          lastEntry: entries[0] ?? null,
+        }))
+        .filter((x): x is SubstrateLatestRow => x.lastEntry !== null),
+    };
+  } catch (error) {
+    console.error('[terminal/snapshot] substrate journals read failed', error);
+    substrate = {
+      ok: false,
+      agents: [],
+      totalEntries: 0,
+      latest: [],
+    };
+  }
+
   const leaves: Record<SnapshotLaneKey, SnapshotLeaf> = {
     integrity,
     signals,
@@ -105,6 +139,7 @@ export async function GET(request: NextRequest) {
       runtime,
       promotion,
       eve,
+      substrate,
     },
     {
       headers: {
