@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
+import { writeToSubstrate } from '@/lib/substrate/client';
+import { getOperatorSession } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -256,7 +258,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const authError = getServiceAuthError(request);
-  if (authError) return authError;
+  const operator = await getOperatorSession();
+  if (authError && !operator) return authError;
 
   let payload: unknown;
   try {
@@ -275,9 +278,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const substrateResult = await writeToSubstrate({
+    agent: entry.agent,
+    agentOrigin: entry.agentOrigin,
+    cycle: entry.cycle,
+    title: entry.inference,
+    summary: entry.observation,
+    category: entry.category,
+    severity: entry.severity,
+    source: 'agent-journal',
+    confidence: entry.confidence,
+    derivedFrom: entry.derivedFrom,
+    tags: entry.tags,
+  });
+
   const redis = getJournalRedisClient();
   if (!redis) {
-    return NextResponse.json({ ok: false, error: 'Redis not configured' }, { status: 503 });
+    return NextResponse.json({
+      ok: true,
+      entryId: substrateResult.entryId ?? entry.id,
+      timestamp: entry.timestamp,
+      substrate: substrateResult.ok ? 'ledger' : 'kv-fallback',
+    });
   }
 
   const writeResult = await appendJournalLaneEntry(redis, {
@@ -290,5 +312,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, duplicate: true, token: writeResult.token });
   }
 
-  return NextResponse.json({ ok: true, entryId: writeResult.entry.id, timestamp: writeResult.entry.timestamp });
+  return NextResponse.json({
+    ok: true,
+    entryId: substrateResult.entryId ?? writeResult.entry.id,
+    timestamp: writeResult.entry.timestamp,
+    substrate: substrateResult.ok ? 'ledger' : 'kv-fallback',
+  });
 }
