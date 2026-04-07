@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-04-07T10:02:32.000Z",
+  "agent": "ZEUS",
+  "atlas_heartbeat_reviewed": "20260407T074058Z.json",
+  "verification_status": "inconclusive",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat vs live micro signals (anomaly count, composite)",
+      "result": "pass",
+      "detail": "Heartbeat at 2026-04-07T07:40:58Z reported health degraded, 2 anomalies, GI 0.83, mode green, composite 0.653. Live /api/signals/micro at 2026-04-07T10:02:05Z still reports 2 anomalies, composite 0.669, healthy true. Count and character match; composite slightly improved (~0.653→0.669), not escalating."
+    },
+    {
+      "check": "Anomaly 1 — GAIA / USGS Earthquake elevated seismic",
+      "result": "warn",
+      "detail": "Still present: elevated seismic (39 quakes M2.5+, max M5.9). Persistent geophysical signal, not explained by EVE news headlines (EVE items are governance/civic-risk synthesis). Severity unchanged (elevated)."
+    },
+    {
+      "check": "Anomaly 2 — DAEDALUS-µ Self-ping HTTP 401",
+      "result": "warn",
+      "detail": "Still present: Self-ping returns HTTP 401 in ~64ms, severity elevated. Persistent infrastructure/auth expectation for unauthenticated ping; correlates with internal/system stress in EVE summaries (e.g. substrate/operator framing) more than with geopolitical items."
+    },
+    {
+      "check": "EVE cross-reference for flagged anomalies",
+      "result": "warn",
+      "detail": "Live /api/eve/global-news: global_tension \"high\", items reference C-274 governance/civic-risk/ethics. Loose thematic alignment with degraded operator posture; no direct correlation with seismic counts. Suggests mixed drivers: natural-world signal + internal/auth + synthesis tension."
+    },
+    {
+      "check": "/api/integrity-status source and GI plausibility",
+      "result": "fail",
+      "detail": "Response source is \"mock\" with degraded true, global_integrity 0.83, mode green, timestamp 2026-04-07T10:01:55Z. GI cannot be treated as production-verified while source is mock. signals.freshness 0.6 indicates degraded freshness vs quality 0.8; explains partial staleness in the blend."
+    },
+    {
+      "check": "EVE global_tension vs GI mode (disconnect)",
+      "result": "warn",
+      "detail": "global_tension \"high\" while integrity-status shows mode green and GI 0.83. Potential disconnect between world/synthesis narrative and integrity presentation; compounded by mock GI source — operator should not read green as full relief."
+    },
+    {
+      "check": "Vercel deployment health (last 6h, READY, ERROR, ignoreCommand)",
+      "result": "inconclusive",
+      "detail": "No VERCEL_TOKEN and Vercel CLI not available in this environment. Cannot list deployments or verify ignoreCommand/bot-skip behavior via API."
+    },
+    {
+      "check": "ATLAS heartbeat runtime endpoint",
+      "result": "pass",
+      "detail": "Heartbeat records endpoints.runtime false; not re-probed here. Live public APIs responded HTTP 200 for micro, integrity-status, eve/global-news, epicon/candidates."
+    }
+  ],
+  "gi_verified": false,
+  "anomaly_persistence": {
+    "GAIA/USGS Earthquake elevated seismic": "persistent",
+    "DAEDALUS-µ Self-ping HTTP 401": "persistent"
+  },
+  "eve_correlation": "High global_tension and high-severity EVE items align with operator/governance framing; seismic and self-ping 401 persist without direct EVE headline linkage — likely infrastructure and natural signals rather than a single geopolitical story.",
+  "recommendation": "Treat GI as unverified until integrity-status source is live; investigate self-ping 401 if it should be 200 for health checks; treat seismic elevation as environmental unless product scope requires suppression; obtain Vercel deployment logs or API access to close the deployment-health gap."
+}
