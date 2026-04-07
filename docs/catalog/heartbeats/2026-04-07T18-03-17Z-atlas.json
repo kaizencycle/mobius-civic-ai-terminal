@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-04-07T18:03:17.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-274",
+  "gi": 0.83,
+  "mode": "green",
+  "source": "mock",
+  "anomalies": [
+    "Seismic: 38 quakes M2.5+ today, max M5.2 near 130 km E of Chignik, Alaska",
+    "Self-ping: HTTP 401 in 45ms"
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": false,
+    "GI_STATE": true,
+    "ECHO_STATE": false,
+    "TRIPWIRE_STATE": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "seed_attempted": true,
+  "seed_result": "401"
+}
