@@ -1,0 +1,24 @@
+{
+  "gi": 0.83,
+  "mode": "green",
+  "cycle": "C-274",
+  "anomalies": [
+    {
+      "label": "Seismic: 43 quakes M2.5+ today, max M5.9 near 126 km ESE of Bitung, Indonesia",
+      "severity": "elevated"
+    },
+    {
+      "label": "Self-ping: HTTP 401 in 55ms",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": false,
+    "GI_STATE": false,
+    "ECHO_STATE": false,
+    "TRIPWIRE_STATE": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "timestamp": "2026-04-07T05:01:05.000Z"
+}
