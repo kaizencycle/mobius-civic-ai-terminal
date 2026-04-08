@@ -807,7 +807,7 @@ export default function GlobeChamber({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-lg border border-slate-800 bg-[#020408] font-mono text-slate-200">
+    <div className="relative -mx-0.5 overflow-hidden border-y border-slate-800 bg-[#020408] font-mono text-slate-200 sm:mx-0 sm:rounded-lg sm:border">
       <style
         dangerouslySetInnerHTML={{
           __html: `@keyframes globeInsp { from { opacity: 0; transform: translateY(-50%) translateX(8px); } to { opacity: 1; transform: translateY(-50%) translateX(0); } }`,
@@ -824,17 +824,11 @@ export default function GlobeChamber({
         ))}
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between bg-gradient-to-b from-[#020408]/95 to-transparent px-4 py-3">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Mobius Civic Terminal</div>
-          <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-slate-600">
-            Globe chamber · live world state
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1">
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-end bg-gradient-to-b from-[#020408]/95 to-transparent px-3 py-2 sm:px-4 sm:py-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div
             className={cn(
-              'pointer-events-none rounded border px-3 py-1 text-[11px] uppercase tracking-[0.12em]',
+              'pointer-events-none rounded border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] sm:px-3 sm:py-1 sm:text-[11px]',
               giChipClass(giScore),
             )}
           >
@@ -848,9 +842,9 @@ export default function GlobeChamber({
           >
             {heroBusy ? 'Rendering…' : 'Render cycle hero'}
           </button>
-        </div>
-        <div className="text-[10px] tracking-[0.1em] text-slate-600">
-          {cycleId} · {clockLabel}
+          <div className="text-[9px] tracking-[0.1em] text-slate-600 sm:text-[10px]">
+            {cycleId} · {clockLabel}
+          </div>
         </div>
       </div>
 
@@ -899,8 +893,8 @@ export default function GlobeChamber({
 
       {selected ? (
         <div
-          className="fixed right-4 top-1/2 z-50 max-h-[min(88vh,640px)] w-[min(92vw,280px)] overflow-y-auto rounded-md border border-white/10 bg-[#020408]/95 p-5 shadow-xl backdrop-blur-md"
-          style={{ top: '50%', animation: 'globeInsp 0.2s ease' }}
+          className="fixed inset-x-2 bottom-2 z-50 max-h-[68vh] overflow-y-auto rounded-md border border-white/10 bg-[#020408]/95 p-4 shadow-xl backdrop-blur-md md:inset-x-auto md:bottom-auto md:right-4 md:top-1/2 md:max-h-[min(88vh,640px)] md:w-[min(92vw,280px)] md:p-5"
+          style={{ animation: 'globeInsp 0.2s ease' }}
         >
           <button
             type="button"

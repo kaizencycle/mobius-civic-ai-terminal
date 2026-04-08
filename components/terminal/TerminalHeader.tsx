@@ -6,15 +6,11 @@ import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 const CHAMBERS = [
-  { label: 'Globe', href: '/terminal', icon: '◎' },
+  { label: 'Globe', href: '/terminal/globe', icon: '◎' },
   { label: 'Pulse', href: '/terminal/pulse', icon: '∿' },
   { label: 'Signals', href: '/terminal/signals', icon: '⊕' },
   { label: 'Sentinel', href: '/terminal/sentinel', icon: '◉' },
   { label: 'Ledger', href: '/terminal/ledger', icon: '⛓' },
-  { label: 'Tripwire', href: '/terminal/tripwire', icon: '⚠' },
-  { label: 'Sentiment', href: '/terminal/sentiment', icon: '◈' },
-  { label: 'MIC', href: '/terminal/mic', icon: '◇' },
-  { label: 'Journal', href: '/terminal/journal', icon: '◻' },
 ] as const;
 
 type IntegrityStatus = { cycle?: string; global_integrity?: number };
@@ -41,6 +37,30 @@ export default function TerminalHeader() {
 
   const gi = Number(integrity?.global_integrity ?? 0);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
+
+      const routeMap: Record<string, string> = {
+        '1': '/terminal/globe',
+        '2': '/terminal/pulse',
+        '3': '/terminal/signals',
+        '4': '/terminal/sentinel',
+        '5': '/terminal/ledger',
+      };
+      const route = routeMap[event.key];
+      if (!route) return;
+      event.preventDefault();
+      window.location.assign(route);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/95 px-4 py-3 backdrop-blur">
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -55,7 +75,7 @@ export default function TerminalHeader() {
       </div>
       <nav className="flex gap-2 overflow-x-auto pb-1">
         {CHAMBERS.map((tab) => {
-          const active = tab.href === '/terminal' ? pathname === '/terminal' : pathname.startsWith(tab.href);
+          const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
           return (
             <Link
               key={tab.href}
