@@ -2,7 +2,6 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import HardHalt from '@/components/modals/HardHalt';
-import { WalletProvider } from '@/contexts/WalletContext';
 import { useTerminalData, type TerminalBootstrapSeed } from '@/hooks/useTerminalData';
 import { integrityStatus as mockIntegrityStatus } from '@/lib/mock/integrityStatus';
 import { evaluateCircuitBreaker } from '@/lib/integrity-check';
@@ -160,11 +159,7 @@ function PanelLaneNotice({ lane, label }: { lane: SnapshotLaneState | undefined;
 }
 
 export default function TerminalPageWrapper({ bootstrap }: TerminalPageWrapperProps) {
-  return (
-    <WalletProvider>
-      <TerminalPage bootstrap={bootstrap} />
-    </WalletProvider>
-  );
+  return <TerminalPage bootstrap={bootstrap} />;
 }
 
 function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
