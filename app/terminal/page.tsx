@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
-import GlobePageClient from './GlobePageClient';
+import TerminalPageClient from './TerminalPageClient';
+import { getTerminalBootstrapSnapshot } from '@/lib/terminal/bootstrap';
 
 export const metadata: Metadata = {
-  title: 'Globe · Mobius Terminal',
+  title: 'Terminal · Mobius Terminal',
 };
 
-export default function TerminalPage() {
-  return <GlobePageClient />;
+export default async function TerminalPage() {
+  const bootstrap = await getTerminalBootstrapSnapshot();
+  return <TerminalPageClient bootstrap={bootstrap} />;
 }
