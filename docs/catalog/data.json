@@ -1,17 +1,17 @@
 {
   "repo": "kaizencycle/mobius-civic-ai-terminal",
-  "generated_at": "2026-04-07T22:44:07Z",
+  "generated_at": "2026-04-08T02:52:28Z",
   "cycle": "C-271",
   "epoch": "FOUNDATION",
   "version": "0.1.0",
   "stats": {
-    "total_commits": 895,
-    "total_files": 652,
-    "lines_of_code": 36037,
-    "api_routes": 71,
+    "total_commits": 912,
+    "total_files": 688,
+    "lines_of_code": 39286,
+    "api_routes": 72,
     "components": 16,
-    "hooks": 6,
-    "lib_modules": 33
+    "hooks": 7,
+    "lib_modules": 34
   },
   "integrity": {
     "gi": 0.74,
