@@ -17,67 +17,72 @@ export type TerminalSnapshot = {
   kvHealth?: SnapshotLeaf;
   agents?: SnapshotLeaf;
   epicon?: SnapshotLeaf;
+  echo?: SnapshotLeaf;
   journal?: SnapshotLeaf;
   sentiment?: SnapshotLeaf;
   runtime?: SnapshotLeaf;
   promotion?: SnapshotLeaf;
   eve?: SnapshotLeaf;
-  substrate?: unknown;
 };
 
-let cachedSnapshot: TerminalSnapshot | null = null;
-let cachedAt = 0;
-let inflight: Promise<TerminalSnapshot> | null = null;
+let _cache: TerminalSnapshot | null = null;
+let _lastFetch = 0;
+let _inflight: Promise<TerminalSnapshot> | null = null;
 
-const TTL_MS = 60_000;
+const STALE_MS = 60_000;
 
-async function fetchSnapshot(): Promise<TerminalSnapshot> {
+async function loadSnapshot(): Promise<TerminalSnapshot> {
   const now = Date.now();
-  if (cachedSnapshot && now - cachedAt < TTL_MS) return cachedSnapshot;
-  if (inflight) return inflight;
+  if (_cache && now - _lastFetch < STALE_MS) return _cache;
+  if (_inflight) return _inflight;
 
-  inflight = fetch('/api/terminal/snapshot', { cache: 'no-store' })
+  _inflight = fetch('/api/terminal/snapshot', { cache: 'no-store' })
     .then(async (res) => {
       if (!res.ok) throw new Error(`snapshot failed (${res.status})`);
-      const json = (await res.json()) as TerminalSnapshot;
-      cachedSnapshot = json;
-      cachedAt = Date.now();
-      return json;
+      const data = (await res.json()) as TerminalSnapshot;
+      _cache = data;
+      _lastFetch = Date.now();
+      return data;
     })
     .finally(() => {
-      inflight = null;
+      _inflight = null;
     });
 
-  return inflight;
+  return _inflight;
 }
 
 export function useTerminalSnapshot() {
-  const [snapshot, setSnapshot] = useState<TerminalSnapshot | null>(cachedSnapshot);
-  const [loading, setLoading] = useState(!cachedSnapshot);
+  const [snapshot, setSnapshot] = useState<TerminalSnapshot | null>(_cache);
+  const [loading, setLoading] = useState(!_cache);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let alive = true;
+    let mounted = true;
 
-    const load = async () => {
+    const refresh = async () => {
       try {
-        const next = await fetchSnapshot();
-        if (!alive) return;
-        setSnapshot(next);
+        const data = await loadSnapshot();
+        if (!mounted) return;
+        setSnapshot(data);
+        setError(null);
+      } catch (err) {
+        if (!mounted) return;
+        setError(err instanceof Error ? err.message : 'Snapshot load failed');
       } finally {
-        if (alive) setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
-    void load();
-    const interval = window.setInterval(() => {
-      void load();
-    }, TTL_MS);
+    void refresh();
+    const id = window.setInterval(() => {
+      void refresh();
+    }, STALE_MS);
 
     return () => {
-      alive = false;
-      window.clearInterval(interval);
+      mounted = false;
+      window.clearInterval(id);
     };
   }, []);
 
-  return { snapshot, loading };
+  return { snapshot, loading, error };
 }
