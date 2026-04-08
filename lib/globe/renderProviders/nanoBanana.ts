@@ -1,6 +1,5 @@
 /**
- * Nano Banana–style image API wrapper (server-only).
- * Endpoint shape is configurable; ecosystem varies by vendor.
+ * Nano Banana wrapper for Replicate-hosted Flux Schnell (server-only).
  */
 
 import { createHash } from 'crypto';
@@ -18,40 +17,40 @@ export type NanoBananaGenerateResult =
 function getConfig() {
   const apiKey = process.env.NANO_BANANA_API_KEY?.trim();
   const baseUrl = (process.env.NANO_BANANA_BASE_URL ?? '').replace(/\/$/, '');
-  const model = process.env.NANO_BANANA_MODEL?.trim() || 'default';
   const timeoutMs = Math.min(120_000, Math.max(5_000, Number(process.env.NANO_BANANA_TIMEOUT_MS) || 45_000));
-  return { apiKey, baseUrl, model, timeoutMs };
+  return { apiKey, baseUrl, timeoutMs };
 }
 
 /**
  * Attempt sync generation. If API returns async job id, caller may poll separately (v1 returns failed with hint).
  */
 export async function nanoBananaGenerate(input: NanoBananaGenerateInput): Promise<NanoBananaGenerateResult> {
-  const { apiKey, baseUrl, model, timeoutMs } = getConfig();
+  const { apiKey, baseUrl, timeoutMs } = getConfig();
 
   if (!apiKey || !baseUrl) {
     return { ok: false, error: 'Provider not configured (NANO_BANANA_API_KEY / NANO_BANANA_BASE_URL)' };
   }
 
-  const url = `${baseUrl}/api/v1/generate`;
+  const url = `${baseUrl}/v1/models/black-forest-labs/flux-schnell/predictions`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const body: Record<string, unknown> = {
-      prompt: input.prompt,
-      model,
-      mode: input.asyncMode ? 'async' : 'sync',
+      input: {
+        prompt: input.prompt,
+        aspect_ratio: '16:9',
+        output_format: 'webp',
+        num_outputs: 1,
+      },
     };
-    if (input.referenceImageUrls?.length) {
-      body.referenceImageUrls = input.referenceImageUrls;
-    }
 
     const res = await fetch(url, {
       method: 'POST',
       headers: {
+        Authorization: `Token ${apiKey}`,
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        Prefer: 'wait',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -68,17 +67,11 @@ export async function nanoBananaGenerate(input: NanoBananaGenerateInput): Promis
       return { ok: false, error: 'Empty provider response' };
     }
 
-    const dataUrl =
-      json.data && typeof json.data === 'object' && json.data !== null && 'url' in json.data
-        ? (json.data as { url?: unknown }).url
+    const output =
+      json.output && Array.isArray(json.output) && json.output.length > 0
+        ? json.output
         : undefined;
-
-    const imageUrl =
-      (typeof json.imageUrl === 'string' && json.imageUrl) ||
-      (typeof json.url === 'string' && json.url) ||
-      (typeof json.output_url === 'string' && json.output_url) ||
-      (typeof dataUrl === 'string' && dataUrl) ||
-      '';
+    const imageUrl = output && typeof output[0] === 'string' ? output[0] : '';
 
     if (imageUrl) {
       return { ok: true, imageUrl, raw: json };
