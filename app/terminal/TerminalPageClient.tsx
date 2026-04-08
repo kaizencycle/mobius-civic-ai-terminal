@@ -1336,7 +1336,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
         </div>
       ) : null}
 
-      <CommandSurface onSwitchChamber={setSelectedNav} />
+      <CommandSurface />
 
       <footer className="fixed bottom-0 left-0 right-0 z-40 flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-slate-800 bg-slate-950 px-4 py-1 text-[10px] font-mono uppercase tracking-[0.14em] text-slate-400">
         <div className="flex flex-wrap items-center gap-3">

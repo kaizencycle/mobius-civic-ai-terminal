@@ -1,11 +1,10 @@
-'use client';
+import type { Metadata } from 'next';
+import TripwirePageClient from './TripwirePageClient';
 
-import TripwirePanel from '@/components/tripwire/TripwirePanel';
+export const metadata: Metadata = {
+  title: 'Tripwire · Mobius Terminal',
+};
 
 export default function TripwirePage() {
-  return (
-    <div className="h-full overflow-y-auto p-4">
-      <TripwirePanel />
-    </div>
-  );
+  return <TripwirePageClient />;
 }
