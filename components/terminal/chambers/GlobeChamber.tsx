@@ -25,6 +25,8 @@ type SentimentDomain = {
 };
 
 const THREE_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+const TOPOJSON_CLIENT_CDN = 'https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js';
+const WORLD_ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 const DRAG_CLICK_THRESHOLD = 8;
 const FRESH_SEC = 120;
 const AGING_SEC = 900;
@@ -46,6 +48,31 @@ function loadThreeScript(): Promise<void> {
     s.async = true;
     s.onload = () => resolve();
     s.onerror = () => reject(new Error('Three.js load failed'));
+    document.head.appendChild(s);
+  });
+}
+
+function loadExternalScript(src: string): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${src}"]`) as HTMLScriptElement | null;
+    if (existing) {
+      if (existing.dataset.loaded === 'true') {
+        resolve();
+        return;
+      }
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error(`Script load failed: ${src}`)), { once: true });
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.onload = () => {
+      s.dataset.loaded = 'true';
+      resolve();
+    };
+    s.onerror = () => reject(new Error(`Script load failed: ${src}`));
     document.head.appendChild(s);
   });
 }
@@ -89,6 +116,102 @@ function giChipLabel(score: number): string {
   return 'RED';
 }
 
+type GeoPosition = [number, number];
+type GeoRing = GeoPosition[];
+type GeoFeature = {
+  geometry: {
+    type: 'Polygon' | 'MultiPolygon';
+    coordinates: number[][][] | number[][][][];
+  };
+};
+type GeoFeatureCollection = { features: GeoFeature[] };
+type TopologyCountries = {
+  type: string;
+  objects: { countries: unknown };
+};
+
+function extractCoords(geometry: GeoFeature['geometry']): GeoRing[] {
+  const rings: GeoRing[] = [];
+  if (geometry.type === 'Polygon') {
+    (geometry.coordinates as number[][][]).forEach((r) => rings.push(r as GeoRing));
+  } else if (geometry.type === 'MultiPolygon') {
+    (geometry.coordinates as number[][][][]).forEach((poly) => {
+      poly.forEach((r) => rings.push(r as GeoRing));
+    });
+  }
+  return rings;
+}
+
+function drawGeoFeaturePath(
+  ctx: CanvasRenderingContext2D,
+  feature: GeoFeature,
+  width: number,
+  height: number,
+) {
+  const coords = extractCoords(feature.geometry);
+  for (const ring of coords) {
+    if (ring.length < 3) continue;
+    const [lng0, lat0] = ring[0];
+    ctx.moveTo(((lng0 + 180) / 360) * width, ((90 - lat0) / 180) * height);
+    for (const [lng, lat] of ring.slice(1)) {
+      ctx.lineTo(((lng + 180) / 360) * width, ((90 - lat) / 180) * height);
+    }
+    ctx.closePath();
+  }
+}
+
+function createGlobeTexture(THREE: any, countries: GeoFeatureCollection) {
+  const width = 2048;
+  const height = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#030d1f';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.beginPath();
+  for (const feature of countries.features) {
+    drawGeoFeaturePath(ctx, feature, width, height);
+  }
+  ctx.fillStyle = '#0a1f3d';
+  ctx.fill();
+  ctx.strokeStyle = '#1e3a5f';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function addGraticule(globeGroup: any, THREE: any) {
+  const material = new THREE.LineBasicMaterial({
+    color: 0x0a1f3d,
+    transparent: true,
+    opacity: 0.25,
+  });
+  const R = 1.002;
+
+  for (let lat = -60; lat <= 60; lat += 30) {
+    const points: unknown[] = [];
+    for (let lng = -180; lng <= 180; lng += 2) {
+      points.push(latLngToXYZ(THREE, lat, lng, R));
+    }
+    globeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material));
+  }
+
+  for (let lng = -180; lng < 180; lng += 30) {
+    const points: unknown[] = [];
+    for (let lat = -90; lat <= 90; lat += 2) {
+      points.push(latLngToXYZ(THREE, lat, lng, R));
+    }
+    globeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material));
+  }
+}
+
 type GlobeSceneState = {
   THREE: any;
   scene: any;
@@ -114,6 +237,49 @@ type GlobeSceneState = {
   resize: () => void;
   t: number;
 };
+
+async function addCountryGeographyLayers(THREE: any, globeGroup: any, globe: any) {
+  try {
+    await loadExternalScript(TOPOJSON_CLIENT_CDN);
+    const res = await fetch(WORLD_ATLAS_URL);
+    if (!res.ok) throw new Error(`world atlas fetch failed: ${res.status}`);
+    const topology = (await res.json()) as TopologyCountries;
+
+    const topo = window as unknown as {
+      topojson?: { feature: (topologyData: TopologyCountries, objectData: unknown) => GeoFeatureCollection };
+    };
+    if (!topo.topojson?.feature) throw new Error('topojson client unavailable');
+
+    const countries = topo.topojson.feature(topology, topology.objects.countries);
+    const texture = createGlobeTexture(THREE, countries);
+    if (texture) {
+      globe.material.map = texture;
+      globe.material.color = new THREE.Color('#030d1f');
+      globe.material.needsUpdate = true;
+    }
+
+    const borderMaterial = new THREE.LineBasicMaterial({
+      color: 0x1e3a5f,
+      transparent: true,
+      opacity: 0.5,
+    });
+
+    for (const feature of countries.features) {
+      const coords = extractCoords(feature.geometry);
+      for (const ring of coords) {
+        const points = ring.map(([lng, lat]) => latLngToXYZ(THREE, lat, lng, 1.001));
+        if (points.length < 2) continue;
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const line = new THREE.Line(geometry, borderMaterial);
+        globeGroup.add(line);
+      }
+    }
+
+    addGraticule(globeGroup, THREE);
+  } catch (err) {
+    console.error('[globe] country geography failed:', err);
+  }
+}
 
 function rotateGlobeTargetToLatLng(THREE: any, lat: number, lng: number) {
   return {
@@ -491,6 +657,7 @@ export default function GlobeChamber({
         renderer.render(scene, camera);
       }
       animate();
+      void addCountryGeographyLayers(THREE, globeGroup, globe);
       setWebglReady(true);
     }
 
