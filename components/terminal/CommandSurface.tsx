@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { signIn, signOut, useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import type { NavKey } from '@/lib/terminal/types';
+import { signIn, signOut, useSession } from 'next-auth/react';
 
 type CommandOutput = {
   timestamp: string;
@@ -12,19 +13,16 @@ type CommandOutput = {
 };
 
 const COMMANDS = [
-  '/help', '/status', '/agents', '/globe', '/pulse', '/signals', '/sentinel', '/ledger', '/wallet', '/journal', '/ask', '/login', '/logout', '/whoami', '/epicon', '/gi', '/render', '/clear',
+  '/help', '/status', '/agents', '/globe', '/pulse', '/signals', '/sentinel', '/ledger', '/tripwire', '/sentiment', '/mic', '/wallet', '/journal', '/ask', '/login', '/logout', '/whoami', '/epicon', '/gi', '/render', '/clear',
 ];
 
-export default function CommandSurface({
-  onSwitchChamber,
-}: {
-  onSwitchChamber: (nav: NavKey) => void;
-}) {
+export default function CommandSurface({ onSwitchChamber }: { onSwitchChamber?: (nav: NavKey) => void } = {}) {
   const [input, setInput] = useState('');
   const [history, setHistory] = useState<string[]>([]);
   const [output, setOutput] = useState<CommandOutput[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const { data: session } = useSession();
+  const router = useRouter();
 
   const matches = useMemo(() => COMMANDS.filter((c) => c.startsWith(input.trim().toLowerCase())), [input]);
 
@@ -76,23 +74,40 @@ ${greeting}`,
       return;
     }
     if (base === '/globe') {
-      onSwitchChamber('globe');
+      onSwitchChamber?.('globe');
+      router.push('/terminal');
       push(trimmed, '→ Globe chamber', 'success');
       return;
     }
     if (base === '/pulse') {
-      onSwitchChamber('pulse');
+      onSwitchChamber?.('pulse');
+      router.push('/terminal/pulse');
       push(trimmed, '→ Pulse chamber', 'success');
       return;
     }
     if (base === '/signals') {
-      onSwitchChamber('sentiment');
+      onSwitchChamber?.('sentiment');
+      router.push('/terminal/signals');
       push(trimmed, '→ Signals chamber', 'success');
       return;
     }
     if (base === '/sentinel') {
-      onSwitchChamber('agents');
+      onSwitchChamber?.('agents');
+      router.push('/terminal/sentinel');
       push(trimmed, '→ Sentinel chamber', 'success');
+      return;
+    }
+
+    if (base === '/tripwire') {
+      onSwitchChamber?.('infrastructure');
+      router.push('/terminal/tripwire');
+      push(trimmed, '→ Tripwire chamber', 'success');
+      return;
+    }
+    if (base === '/sentiment') {
+      onSwitchChamber?.('sentiment');
+      router.push('/terminal/sentiment');
+      push(trimmed, '→ Sentiment chamber', 'success');
       return;
     }
     if (base === '/render') {
@@ -185,16 +200,18 @@ ${greeting}`,
         push(trimmed, JSON.stringify(seed, null, 2), seed?.ok ? 'success' : 'error');
         return;
       }
-      onSwitchChamber('ledger');
+      onSwitchChamber?.('ledger');
+      router.push('/terminal/ledger');
       push(trimmed, '→ Ledger chamber', 'success');
       return;
     }
-    if (base === '/wallet') {
+    if (base === '/wallet' || base === '/mic') {
       if (!session?.user) {
         push(trimmed, 'Login required — /login', 'error');
         return;
       }
-      onSwitchChamber('wallet');
+      onSwitchChamber?.('wallet');
+      router.push('/terminal/mic');
       push(trimmed, '→ Wallet chamber', 'success');
       return;
     }
@@ -243,6 +260,11 @@ ${greeting}`,
     }
 
     if (base === '/journal') {
+      if (!rest[0]) {
+        router.push('/terminal/journal');
+        push(trimmed, '→ Journal chamber', 'success');
+        return;
+      }
       const agent = rest[0] ?? '';
       const url = agent ? `/api/agents/journal?agent=${encodeURIComponent(agent)}&limit=3` : '/api/agents/journal?limit=3';
       const journal = await fetch(url, { cache: 'no-store' }).then((r) => r.json());
