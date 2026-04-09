@@ -16,6 +16,9 @@ from app.schemas import (
     TripwireResponse,
     SystemHealthResponse,
 )
+from api.routes.heartbeat import router as heartbeat_router
+from api.routes.epicon import router as epicon_router
+from api.routes.stream import router as stream_router, start_journal_watcher
 
 app = FastAPI(
     title=settings.app_name,
@@ -33,6 +36,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(heartbeat_router, prefix="/api/v1/system")
+app.include_router(epicon_router, prefix="/api/v1")
+app.include_router(stream_router, prefix="/api/v1")
+
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    asyncio.create_task(start_journal_watcher())
 
 
 def now_utc() -> datetime:
@@ -268,30 +280,6 @@ def get_agents_status():
         "cycle": settings.default_cycle,
         "timestamp": now_utc(),
         "agents": build_mock_agents(),
-    }
-
-
-@app.get(
-    "/api/v1/epicon/feed",
-    response_model=EpiconFeedResponse,
-    tags=["epicon"],
-)
-def get_epicon_feed(
-    limit: int = Query(default=20, ge=1, le=100),
-    category: Optional[str] = Query(default=None),
-    status: Optional[str] = Query(default=None),
-):
-    items = build_mock_epicon()
-
-    if category:
-        items = [item for item in items if item["category"] == category]
-    if status:
-        items = [item for item in items if item["status"] == status]
-
-    return {
-        "cycle": settings.default_cycle,
-        "timestamp": now_utc(),
-        "items": items[:limit],
     }
 
 
