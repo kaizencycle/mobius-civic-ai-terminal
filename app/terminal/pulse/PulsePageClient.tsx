@@ -12,10 +12,32 @@ type PulseItem = {
   title?: string;
   timestamp?: string;
   severity?: string;
+  type?: string;
+  category?: string;
+  tags?: string[];
   mii_score?: number;
   source?: string;
   status?: string;
 };
+
+const EVENT_TYPES = ['HEARTBEAT', 'WATCH', 'CATALOG', 'EPICON', 'JOURNAL', 'VERIFY', 'ROUTING', 'PROMOTION', 'SIGNAL'] as const;
+
+function mapEventType(item: PulseItem): (typeof EVENT_TYPES)[number] | 'OTHER' {
+  const raw = [item.type, item.category, item.title, ...(item.tags ?? [])]
+    .filter((v): v is string => Boolean(v))
+    .join(' ')
+    .toLowerCase();
+  if (raw.includes('heartbeat')) return 'HEARTBEAT';
+  if (raw.includes('watch') || raw.includes('tripwire')) return 'WATCH';
+  if (raw.includes('catalog')) return 'CATALOG';
+  if (raw.includes('journal')) return 'JOURNAL';
+  if (raw.includes('verify') || raw.includes('verification') || raw.includes('zeus')) return 'VERIFY';
+  if (raw.includes('routing') || raw.includes('route')) return 'ROUTING';
+  if (raw.includes('promotion') || raw.includes('promoted') || raw.includes('promoter')) return 'PROMOTION';
+  if (raw.includes('signal') || raw.includes('integrity')) return 'SIGNAL';
+  if (raw.includes('epicon') || item.id.startsWith('epi_') || item.id.startsWith('epicon')) return 'EPICON';
+  return 'OTHER';
+}
 
 export default function PulsePageClient() {
   const { snapshot, loading } = useTerminalSnapshot();
@@ -44,15 +66,28 @@ export default function PulsePageClient() {
       </div>
       <div className="space-y-2">
         {filtered.map((item) => (
-          <article key={item.id} className="rounded border border-slate-800 bg-slate-900/60 p-3">
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="rounded border border-slate-700 px-1.5 py-0.5 font-mono">{item.agent ?? 'UNKNOWN'}</span>
-              <span className="text-slate-300">{item.title ?? 'Untitled EPICON event'}</span>
+          <article key={item.id} className="rounded border border-slate-800 bg-slate-900/60 p-2.5 md:p-3">
+            <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px] md:text-xs">
+              <span className="rounded border border-cyan-600/40 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-cyan-100">
+                {mapEventType(item)}
+              </span>
+              <span className="rounded border border-slate-700 px-1.5 py-0.5 font-mono text-slate-400">{item.agent ?? 'SYSTEM'}</span>
+              <span className="text-slate-500">{item.status ?? 'active'}</span>
             </div>
-            <div className="mt-1 text-xs text-slate-400">
-              {item.timestamp ?? '—'} · severity {item.severity ?? 'unknown'} · MII {item.mii_score ?? '—'} · source {item.source ?? '—'}
+            <div className="text-sm font-semibold leading-snug text-slate-100">
+              {item.title ?? 'Untitled EPICON event'}
             </div>
-            <div className="mt-1 text-xs text-cyan-200">{item.status ?? 'active'}</div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
+              <span>{item.timestamp ?? '—'}</span>
+              <span>sev {item.severity ?? 'unknown'}</span>
+              <span>MII {item.mii_score ?? '—'}</span>
+            </div>
+            <details className="mt-1.5 text-[10px] text-slate-500">
+              <summary className="cursor-pointer list-none text-slate-500 underline decoration-dotted underline-offset-2">
+                More details
+              </summary>
+              <div className="mt-1">source {item.source ?? '—'} · id {item.id}</div>
+            </details>
           </article>
         ))}
       </div>

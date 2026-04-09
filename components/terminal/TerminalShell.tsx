@@ -70,27 +70,27 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#020617] text-slate-100">
-      <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/95 px-4 py-3 backdrop-blur">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="rounded border border-cyan-400/60 bg-cyan-400/10 px-2 py-0.5 font-mono text-xs">⌘</div>
-            <div className="text-sm font-semibold tracking-wide">MOBIUS CIVIC TERMINAL</div>
+      <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/95 px-3 py-2 backdrop-blur md:px-4 md:py-3">
+        <div className="mb-1.5 flex items-center justify-between gap-2 md:mb-2 md:gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="rounded border border-cyan-400/60 bg-cyan-400/10 px-1.5 py-0.5 font-mono text-[10px] md:px-2 md:text-xs">⌘</div>
+            <div className="text-[13px] font-semibold tracking-[0.04em] md:text-sm md:tracking-wide">MOBIUS CIVIC TERMINAL</div>
           </div>
-          <div className="flex items-center gap-2 text-[11px] font-mono">
-            <span className={cn('rounded border px-2 py-1', giTone)}>GI {gi.toFixed(2)}</span>
-            <span className={cn('rounded border px-2 py-1 uppercase', runtimeBadgeClass(runtime))}>{runtime}</span>
+          <div className="flex items-center gap-1.5 text-[10px] font-mono md:gap-2 md:text-[11px]">
+            <span className={cn('rounded border px-1.5 py-0.5 md:px-2 md:py-1', giTone)}>GI {gi.toFixed(2)}</span>
+            <span className={cn('rounded border px-1.5 py-0.5 uppercase md:px-2 md:py-1', runtimeBadgeClass(runtime))}>{runtime}</span>
             <span className="hidden rounded border border-slate-700 px-2 py-1 md:inline">{clock}</span>
-            <span className="rounded border border-slate-700 px-2 py-1">{integrity?.cycle ?? 'C-—'}</span>
+            <span className="rounded border border-slate-700 px-1.5 py-0.5 md:px-2 md:py-1">{integrity?.cycle ?? 'C-—'}</span>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-1.5 md:gap-2">
           <ChamberSwitcher />
           <button
             type="button"
             onClick={() => setShowLaneDiagnostics((current) => !current)}
             className={cn(
-              'shrink-0 rounded border px-2 py-1 text-[10px] font-mono uppercase tracking-wide',
+              'shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.12em] md:px-2 md:py-1 md:text-[10px] md:tracking-wide',
               showLaneDiagnostics ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-700 text-slate-400',
             )}
           >
@@ -99,7 +99,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-hidden pb-28">{children}</main>
+      <main className="min-h-0 flex-1 overflow-hidden pb-16 md:pb-28">{children}</main>
     </div>
   );
 }
