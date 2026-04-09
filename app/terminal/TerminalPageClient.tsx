@@ -111,7 +111,7 @@ type TerminalSnapshotResponse = {
 };
 
 const TABS: Array<{ key: NavKey; label: string }> = [
-  { key: 'globe', label: 'Globe' },
+  { key: 'globe', label: 'World State' },
   { key: 'pulse', label: 'Pulse' },
   { key: 'sentiment', label: 'Signals' },
   { key: 'agents', label: 'Sentinel' },
@@ -548,7 +548,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
   ]);
   const chamberLabel =
     selectedNav === 'globe'
-      ? 'GLOBE CHAMBER'
+      ? 'WORLD STATE'
       : selectedNav === 'pulse'
         ? 'PULSE CHAMBER'
         : selectedNav === 'agents'
@@ -562,7 +562,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
                 : 'MIC CHAMBER';
   const commandSurfaceTitle =
     selectedNav === 'globe'
-      ? 'Globe Chamber'
+      ? 'World State Chamber'
       : selectedNav === 'wallet'
         ? 'Wallet Chamber'
         : selectedNav === 'agents'

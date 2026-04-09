@@ -11,6 +11,7 @@ import {
 } from '@/lib/terminal/globePins';
 import { computeGlobeDeltaLines } from '@/lib/globe/globeDelta';
 import { cn } from '@/lib/utils';
+import { WORLD_STATE_THEME, toneToHexNumber, type WorldStateSignalTone } from '@/lib/terminal/worldStateTheme';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Three.js loaded from CDN at runtime */
 
@@ -87,10 +88,14 @@ function latLngToXYZ(THREE: any, lat: number, lng: number, r = 1.015) {
   );
 }
 
-function severityColor(sev: GlobePin['severity']): number {
-  if (sev === 'critical') return 0xef4444;
-  if (sev === 'elevated') return 0xf59e0b;
-  return 0x10b981;
+function pinTone(pin: GlobePin): WorldStateSignalTone {
+  const signalLabel = `${pin.title} ${pin.narrativeWhy} ${pin.meta.place ?? ''} ${pin.meta.region ?? ''}`.toLowerCase();
+  if (signalLabel.includes('storm') || signalLabel.includes('flood') || signalLabel.includes('water')) {
+    return 'water';
+  }
+  if (pin.severity === 'critical') return 'critical';
+  if (pin.severity === 'elevated') return 'elevated';
+  return 'nominal';
 }
 
 function freshnessHeadOpacity(ageSec: number): number {
@@ -169,16 +174,16 @@ function createGlobeTexture(THREE: any, countries: GeoFeatureCollection) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
 
-  ctx.fillStyle = '#030d1f';
+  ctx.fillStyle = WORLD_STATE_THEME.background.deepNavy;
   ctx.fillRect(0, 0, width, height);
 
   ctx.beginPath();
   for (const feature of countries.features) {
     drawGeoFeaturePath(ctx, feature, width, height);
   }
-  ctx.fillStyle = '#0a1f3d';
+  ctx.fillStyle = WORLD_STATE_THEME.land.fill;
   ctx.fill();
-  ctx.strokeStyle = '#1e3a5f';
+  ctx.strokeStyle = WORLD_STATE_THEME.land.highlight;
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
@@ -189,7 +194,7 @@ function createGlobeTexture(THREE: any, countries: GeoFeatureCollection) {
 
 function addGraticule(globeGroup: any, THREE: any) {
   const material = new THREE.LineBasicMaterial({
-    color: 0x0a1f3d,
+    color: toneToHexNumber('unknown'),
     transparent: true,
     opacity: 0.25,
   });
@@ -210,6 +215,20 @@ function addGraticule(globeGroup: any, THREE: any) {
     }
     globeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material));
   }
+}
+
+const MAP_CONTINENT_PATHS = [
+  'M 140 120 L 190 90 L 225 105 L 250 145 L 220 175 L 180 172 L 152 146 Z',
+  'M 248 196 L 275 206 L 286 246 L 271 286 L 250 305 L 236 271 L 238 228 Z',
+  'M 360 98 L 410 80 L 468 98 L 488 124 L 472 142 L 426 132 L 386 142 L 351 124 Z',
+  'M 382 162 L 422 154 L 452 176 L 444 216 L 412 256 L 392 232 L 402 202 Z',
+  'M 510 222 L 548 216 L 580 235 L 584 262 L 552 281 L 516 262 Z',
+];
+
+function mapPointForPin(pin: GlobePin) {
+  const x = ((pin.lng + 180) / 360) * 640;
+  const y = ((90 - pin.lat) / 180) * 320;
+  return { x, y };
 }
 
 type GlobeSceneState = {
@@ -254,14 +273,14 @@ async function addCountryGeographyLayers(THREE: any, globeGroup: any, globe: any
     const texture = createGlobeTexture(THREE, countries);
     if (texture) {
       globe.material.map = texture;
-      globe.material.color = new THREE.Color('#030d1f');
+      globe.material.color = new THREE.Color(WORLD_STATE_THEME.background.deepNavy);
       globe.material.needsUpdate = true;
     }
 
     const borderMaterial = new THREE.LineBasicMaterial({
-      color: 0x1e3a5f,
+      color: toneToHexNumber('nominal'),
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.35,
     });
 
     for (const feature of countries.features) {
@@ -319,6 +338,8 @@ export default function GlobeChamber({
   >({ status: 'idle' });
   const [heroBusy, setHeroBusy] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [viewMode, setViewMode] = useState<'map' | 'globe' | null>(null);
+  const [mapFilter, setMapFilter] = useState<'all' | WorldStateSignalTone>('all');
   const [sheetOffset, setSheetOffset] = useState(0);
   const sheetTouchStartY = useRef<number | null>(null);
   const prevPinsRef = useRef<GlobePin[]>([]);
@@ -344,6 +365,11 @@ export default function GlobeChamber({
   }, []);
 
   useEffect(() => {
+    if (viewMode != null) return;
+    setViewMode(isMobile ? 'map' : 'globe');
+  }, [isMobile, viewMode]);
+
+  useEffect(() => {
     if (!selected) setSheetOffset(0);
   }, [selected]);
 
@@ -353,6 +379,7 @@ export default function GlobeChamber({
   );
 
   const sceneRef = useRef<GlobeSceneState | null>(null);
+  const activeView = isMobile ? 'map' : (viewMode ?? 'globe');
 
   const pinsKey = useMemo(
     () =>
@@ -454,6 +481,10 @@ export default function GlobeChamber({
   }, [pins, cycleId, giScore]);
 
   useEffect(() => {
+    if (activeView !== 'globe') {
+      setWebglReady(false);
+      return;
+    }
     const host = containerRef.current;
     if (!host) return;
 
@@ -496,9 +527,9 @@ export default function GlobeChamber({
 
       const globeGeo = new THREE.SphereGeometry(1, 64, 64);
       const globeMat = new THREE.MeshPhongMaterial({
-        color: 0x0a1628,
-        emissive: 0x040d1a,
-        specular: 0x1e3a5f,
+        color: WORLD_STATE_THEME.background.deepNavy,
+        emissive: WORLD_STATE_THEME.land.fill,
+        specular: WORLD_STATE_THEME.land.highlight,
         shininess: 8,
         transparent: true,
         opacity: 0.95,
@@ -508,7 +539,7 @@ export default function GlobeChamber({
 
       const wireGeo = new THREE.SphereGeometry(1.001, 24, 24);
       const wireMat = new THREE.MeshBasicMaterial({
-        color: 0x0f2744,
+        color: WORLD_STATE_THEME.land.grid,
         wireframe: true,
         transparent: true,
         opacity: 0.15,
@@ -517,18 +548,18 @@ export default function GlobeChamber({
 
       const atmGeo = new THREE.SphereGeometry(1.08, 64, 64);
       const atmMat = new THREE.MeshPhongMaterial({
-        color: 0x0a3060,
+        color: WORLD_STATE_THEME.land.highlight,
         transparent: true,
-        opacity: 0.08,
+        opacity: 0.05,
         side: THREE.BackSide,
       });
       globeGroup.add(new THREE.Mesh(atmGeo, atmMat));
 
-      scene.add(new THREE.AmbientLight(0x112244, 0.6));
-      const sun = new THREE.DirectionalLight(0x4488cc, 0.8);
+      scene.add(new THREE.AmbientLight(toneToHexNumber('unknown'), 0.6));
+      const sun = new THREE.DirectionalLight(toneToHexNumber('nominal'), 0.6);
       sun.position.set(5, 3, 5);
       scene.add(sun);
-      const rim = new THREE.DirectionalLight(0x001133, 0.4);
+      const rim = new THREE.DirectionalLight(toneToHexNumber('unknown'), 0.4);
       rim.position.set(-5, -3, -5);
       scene.add(rim);
 
@@ -697,7 +728,7 @@ export default function GlobeChamber({
       }
       sceneRef.current = null;
     };
-  }, []);
+  }, [activeView]);
 
   const focusDomain = useCallback(
     (key: SentimentDomainKey) => {
@@ -745,7 +776,7 @@ export default function GlobeChamber({
 
     for (const sig of pins) {
       const pos = latLngToXYZ(THREE, sig.lat, sig.lng);
-      const color = severityColor(sig.severity);
+      const color = toneToHexNumber(pinTone(sig));
       const headOp = freshnessHeadOpacity(sig.ageSec);
       const stemOp = stemOpacity(sig.ageSec);
 
@@ -821,6 +852,10 @@ export default function GlobeChamber({
     if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
     return `${Math.floor(sec / 3600)}h ago`;
   };
+  const filteredMapPins = pins.filter((pin) => {
+    if (mapFilter === 'all') return true;
+    return pinTone(pin) === mapFilter;
+  });
 
   return (
     <div className="relative -mx-0.5 overflow-hidden border-y border-slate-800 bg-[#020408] font-mono text-slate-200 sm:mx-0 sm:rounded-lg sm:border">
@@ -829,9 +864,86 @@ export default function GlobeChamber({
           __html: `@keyframes globeInsp { from { opacity: 0; transform: translateY(-50%) translateX(8px); } to { opacity: 1; transform: translateY(-50%) translateX(0); } }`,
         }}
       />
-      <div ref={containerRef} className="relative h-[min(72vh,640px)] w-full" />
+      <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[14rem] rounded border border-white/[0.06] bg-[#020408]/85 px-2.5 py-2 backdrop-blur-sm">
+        <div className="text-[10px] uppercase tracking-[0.16em] text-emerald-300">WORLD STATE</div>
+        <div className="text-[8px] uppercase tracking-[0.15em] text-slate-500">
+          {isMobile ? 'SIGNAL MAP · LIVE EVENTS' : activeView === 'globe' ? 'GLOBE VIEW · LIVE WORLD STATE' : 'SIGNAL MAP · LIVE EVENTS'}
+        </div>
+      </div>
 
-      <div className="pointer-events-none absolute left-3 top-12 z-10 max-w-[14rem] rounded border border-white/[0.06] bg-[#020408]/85 px-2.5 py-2 backdrop-blur-sm">
+      {!isMobile ? (
+        <div className="absolute right-3 top-3 z-20 flex rounded border border-white/10 bg-[#020408]/90 p-0.5 text-[9px] uppercase tracking-[0.12em]">
+          <button
+            type="button"
+            onClick={() => setViewMode('map')}
+            className={cn('rounded px-2 py-1', activeView === 'map' ? 'bg-emerald-500/20 text-emerald-200' : 'text-slate-400')}
+          >
+            Map
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('globe')}
+            className={cn('rounded px-2 py-1', activeView === 'globe' ? 'bg-emerald-500/20 text-emerald-200' : 'text-slate-400')}
+          >
+            Globe
+          </button>
+        </div>
+      ) : null}
+
+      <div ref={containerRef} className={cn('relative h-[min(72vh,640px)] w-full', activeView === 'globe' ? 'block' : 'hidden')} />
+
+      {activeView === 'map' ? (
+        <div className="relative h-[min(72vh,640px)] w-full bg-gradient-to-b from-[#03101a] via-[#020408] to-[#020617]">
+          <svg viewBox="0 0 640 320" className="h-full w-full">
+            <rect x="0" y="0" width="640" height="320" fill={WORLD_STATE_THEME.background.deepNavy} />
+            {Array.from({ length: 11 }).map((_, idx) => (
+              <line key={`lat-${idx}`} x1="0" x2="640" y1={idx * 32} y2={idx * 32} stroke={WORLD_STATE_THEME.land.grid} strokeOpacity="0.45" strokeWidth="0.7" />
+            ))}
+            {Array.from({ length: 17 }).map((_, idx) => (
+              <line key={`lng-${idx}`} y1="0" y2="320" x1={idx * 40} x2={idx * 40} stroke={WORLD_STATE_THEME.land.grid} strokeOpacity="0.35" strokeWidth="0.7" />
+            ))}
+            {MAP_CONTINENT_PATHS.map((path, idx) => (
+              <path key={path} d={path} fill={idx % 2 === 0 ? WORLD_STATE_THEME.land.fill : WORLD_STATE_THEME.land.highlight} fillOpacity="0.85" stroke={WORLD_STATE_THEME.land.grid} strokeWidth="1" />
+            ))}
+            {filteredMapPins.map((pin) => {
+              const point = mapPointForPin(pin);
+              const tone = pinTone(pin);
+              return (
+                <g key={`map-${pin.id}`}>
+                  <circle cx={point.x} cy={point.y} r={Math.max(3, 3 + pin.confidence * 2)} fill={WORLD_STATE_THEME.signal[tone]} fillOpacity="0.95" onClick={() => setSelected(pin)} className="cursor-pointer" />
+                  {pin.pulse ? <circle cx={point.x} cy={point.y} r={8} fill="none" stroke={WORLD_STATE_THEME.signal[tone]} strokeOpacity="0.45" /> : null}
+                </g>
+              );
+            })}
+          </svg>
+          <div className="pointer-events-none absolute left-3 top-12 z-10 max-w-[14rem] rounded border border-white/[0.06] bg-[#020408]/85 px-2.5 py-2 backdrop-blur-sm">
+            <div className="text-[8px] uppercase tracking-[0.16em] text-slate-500">World state delta</div>
+            {deltaLines.map((line) => (
+              <div key={line} className="text-[9px] leading-snug text-slate-400">
+                {line}
+              </div>
+            ))}
+          </div>
+          <div className="absolute inset-x-2 bottom-2 z-20 flex gap-1 overflow-x-auto rounded border border-white/10 bg-[#020408]/90 p-1 text-[9px] uppercase tracking-[0.12em]">
+            {(['all', 'nominal', 'elevated', 'critical', 'water'] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setMapFilter(filter)}
+                className={cn(
+                  'shrink-0 rounded px-2 py-1',
+                  mapFilter === filter ? 'bg-emerald-500/20 text-emerald-200' : 'text-slate-400',
+                )}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {activeView === 'globe' ? (
+        <div className="pointer-events-none absolute left-3 top-12 z-10 max-w-[14rem] rounded border border-white/[0.06] bg-[#020408]/85 px-2.5 py-2 backdrop-blur-sm">
         <div className="text-[8px] uppercase tracking-[0.16em] text-slate-500">World state delta</div>
         {deltaLines.map((line) => (
           <div key={line} className="text-[9px] leading-snug text-slate-400">
@@ -839,6 +951,7 @@ export default function GlobeChamber({
           </div>
         ))}
       </div>
+      ) : null}
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-end bg-gradient-to-b from-[#020408]/95 to-transparent px-3 py-2 sm:px-4 sm:py-3">
         <div className="flex items-center gap-2 sm:gap-3">
@@ -864,9 +977,11 @@ export default function GlobeChamber({
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-14 left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-[0.12em] text-slate-600">
-        Drag to rotate · Click pins to inspect
-      </div>
+      {activeView === 'globe' ? (
+        <div className="pointer-events-none absolute bottom-14 left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-[0.12em] text-slate-600">
+          Drag to rotate · Click pins to inspect
+        </div>
+      ) : null}
 
       <div className="flex overflow-x-auto border-t border-white/[0.06] bg-[#020408]/90 [-webkit-overflow-scrolling:touch]">
         {GLOBE_DOMAIN_ORDER.map((key) => {
