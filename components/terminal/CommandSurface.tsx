@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
 
@@ -20,6 +20,11 @@ export default function CommandSurface() {
   const [history, setHistory] = useState<string[]>([]);
   const [output, setOutput] = useState<CommandOutput[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false,
+  );
+  const [expanded, setExpanded] = useState(false);
+  const touchStartY = useRef<number | null>(null);
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -51,6 +56,19 @@ ${greeting}`,
       active = false;
     };
   }, [session?.user?.githubUsername]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 767px)');
+    const sync = () => {
+      const nextMobile = mql.matches;
+      setIsMobile(nextMobile);
+      setExpanded((prev) => (nextMobile ? prev : true));
+    };
+    sync();
+    mql.addEventListener('change', sync);
+    return () => mql.removeEventListener('change', sync);
+  }, []);
 
   function push(command: string, response: string, type: CommandOutput['type'] = 'info') {
     setOutput((prev) => [{ timestamp: new Date().toISOString(), command, response, type }, ...prev].slice(0, 25));
@@ -285,48 +303,78 @@ ${greeting}`,
     push(trimmed, `Unknown command: ${base}`, 'error');
   }
 
+  const isOpen = isMobile ? expanded : true;
+
   return (
-    <div className="fixed bottom-7 left-0 right-0 z-40 border-t border-slate-800 bg-slate-950 px-3 py-2 font-mono text-[11px] tracking-wide">
-      <div className="mb-2 max-h-40 overflow-y-auto">
-        {output.map((row) => (
-          <div key={`${row.timestamp}-${row.command}`} className="mb-2 border-b border-slate-900 pb-2">
-            <div className="text-slate-500">{row.timestamp}</div>
-            <div className="text-slate-500">&gt; {row.command}</div>
-            <pre className={row.type === 'error' ? 'whitespace-pre-wrap text-red-400' : row.type === 'success' ? 'whitespace-pre-wrap text-emerald-400' : 'whitespace-pre-wrap text-slate-300'}>{row.response}</pre>
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="text-slate-500">&gt;</span>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              void runCommand(input);
-              setInput('');
-            }
-            if (event.key === 'Escape') setInput('');
-            if (event.key === 'ArrowUp' && history.length > 0) {
-              event.preventDefault();
-              const next = Math.min(historyIndex + 1, history.length - 1);
-              setHistoryIndex(next);
-              setInput(history[next] ?? '');
-            }
-            if (event.key === 'ArrowDown' && history.length > 0) {
-              event.preventDefault();
-              const next = Math.max(historyIndex - 1, -1);
-              setHistoryIndex(next);
-              setInput(next === -1 ? '' : history[next] ?? '');
-            }
-            if (event.key === 'Tab') {
-              event.preventDefault();
-              if (matches[0]) setInput(matches[0]);
-            }
-          }}
-          className="w-full bg-transparent text-sky-300 outline-none"
-          placeholder="Type /help"
-        />
+    <div className="fixed bottom-7 left-0 right-0 z-40 border-t border-slate-800 bg-slate-950 font-mono text-[11px] tracking-wide">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        onTouchStart={(event) => {
+          touchStartY.current = event.touches[0]?.clientY ?? null;
+        }}
+        onTouchEnd={(event) => {
+          const startY = touchStartY.current;
+          const endY = event.changedTouches[0]?.clientY;
+          touchStartY.current = null;
+          if (!isMobile || startY == null || endY == null) return;
+          if (endY - startY > 36) setExpanded(false);
+        }}
+        className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-400 md:hidden"
+        aria-expanded={isOpen}
+        aria-controls="mobius-command-console"
+      >
+        <span>Command console</span>
+        <span className="rounded border border-slate-700 px-2 py-0.5 text-[9px]">
+          {isOpen ? 'Collapse' : 'Open'}
+        </span>
+      </button>
+
+      <div
+        id="mobius-command-console"
+        className={`${isOpen ? 'max-h-[56vh] px-3 py-2' : 'max-h-0 px-3 py-0'} overflow-hidden transition-all duration-300`}
+      >
+        <div className="mb-2 max-h-40 overflow-y-auto">
+          {output.map((row) => (
+            <div key={`${row.timestamp}-${row.command}`} className="mb-2 border-b border-slate-900 pb-2">
+              <div className="text-slate-500">{row.timestamp}</div>
+              <div className="text-slate-500">&gt; {row.command}</div>
+              <pre className={row.type === 'error' ? 'whitespace-pre-wrap text-red-400' : row.type === 'success' ? 'whitespace-pre-wrap text-emerald-400' : 'whitespace-pre-wrap text-slate-300'}>{row.response}</pre>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-slate-500">&gt;</span>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                void runCommand(input);
+                setInput('');
+              }
+              if (event.key === 'Escape') setInput('');
+              if (event.key === 'ArrowUp' && history.length > 0) {
+                event.preventDefault();
+                const next = Math.min(historyIndex + 1, history.length - 1);
+                setHistoryIndex(next);
+                setInput(history[next] ?? '');
+              }
+              if (event.key === 'ArrowDown' && history.length > 0) {
+                event.preventDefault();
+                const next = Math.max(historyIndex - 1, -1);
+                setHistoryIndex(next);
+                setInput(next === -1 ? '' : history[next] ?? '');
+              }
+              if (event.key === 'Tab') {
+                event.preventDefault();
+                if (matches[0]) setInput(matches[0]);
+              }
+            }}
+            className="w-full bg-transparent text-sky-300 outline-none"
+            placeholder="Type /help"
+          />
+        </div>
       </div>
     </div>
   );

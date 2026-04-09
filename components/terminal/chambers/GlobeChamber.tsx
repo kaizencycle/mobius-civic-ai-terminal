@@ -318,6 +318,9 @@ export default function GlobeChamber({
     | { status: 'unavailable'; message: string }
   >({ status: 'idle' });
   const [heroBusy, setHeroBusy] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [sheetOffset, setSheetOffset] = useState(0);
+  const sheetTouchStartY = useRef<number | null>(null);
   const prevPinsRef = useRef<GlobePin[]>([]);
   const [deltaLines, setDeltaLines] = useState<string[]>([]);
 
@@ -330,6 +333,19 @@ export default function GlobeChamber({
     setDeltaLines(computeGlobeDeltaLines(prevPinsRef.current, pins, giScore));
     prevPinsRef.current = pins;
   }, [pins, giScore]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsMobile(mql.matches);
+    sync();
+    mql.addEventListener('change', sync);
+    return () => mql.removeEventListener('change', sync);
+  }, []);
+
+  useEffect(() => {
+    if (!selected) setSheetOffset(0);
+  }, [selected]);
 
   const domainByKey = useMemo(
     () => Object.fromEntries(domains.map((d) => [d.key, d])) as Record<string, SentimentDomain>,
@@ -892,10 +908,50 @@ export default function GlobeChamber({
       ) : null}
 
       {selected ? (
-        <div
-          className="fixed inset-x-2 bottom-2 z-50 max-h-[68vh] overflow-y-auto rounded-md border border-white/10 bg-[#020408]/95 p-4 shadow-xl backdrop-blur-md md:inset-x-auto md:bottom-auto md:right-4 md:top-1/2 md:max-h-[min(88vh,640px)] md:w-[min(92vw,280px)] md:p-5"
-          style={{ animation: 'globeInsp 0.2s ease' }}
-        >
+        <>
+          {isMobile ? (
+            <button
+              type="button"
+              aria-label="Dismiss inspection"
+              className="fixed inset-0 z-40 bg-black/35"
+              onClick={() => {
+                setSelected(null);
+                setSelectedDomain(null);
+              }}
+            />
+          ) : null}
+          <div
+            className="fixed inset-x-0 bottom-0 z-50 max-h-[74vh] overflow-y-auto rounded-t-xl border border-white/10 bg-[#020408]/95 p-4 shadow-xl backdrop-blur-md md:inset-x-auto md:bottom-auto md:right-4 md:top-1/2 md:max-h-[min(88vh,640px)] md:w-[min(92vw,280px)] md:rounded-md md:p-5"
+            style={{
+              animation: 'globeInsp 0.2s ease',
+              transform: isMobile ? `translateY(${sheetOffset}px)` : undefined,
+              transition: isMobile ? 'transform 120ms ease' : undefined,
+            }}
+            onTouchStart={(event) => {
+              if (!isMobile) return;
+              sheetTouchStartY.current = event.touches[0]?.clientY ?? null;
+            }}
+            onTouchMove={(event) => {
+              if (!isMobile) return;
+              const startY = sheetTouchStartY.current;
+              const currentY = event.touches[0]?.clientY;
+              if (startY == null || currentY == null) return;
+              const delta = Math.max(0, currentY - startY);
+              setSheetOffset(Math.min(220, delta));
+            }}
+            onTouchEnd={() => {
+              if (!isMobile) return;
+              if (sheetOffset > 120) {
+                setSelected(null);
+                setSelectedDomain(null);
+                setSheetOffset(0);
+              } else {
+                setSheetOffset(0);
+              }
+              sheetTouchStartY.current = null;
+            }}
+          >
+            {isMobile ? <div className="mx-auto mb-2 h-1.5 w-10 rounded-full bg-slate-700/90" /> : null}
           <button
             type="button"
             className="absolute right-3 top-3 text-slate-500 hover:text-slate-300"
@@ -935,7 +991,7 @@ export default function GlobeChamber({
 
           <div className="mb-1 text-[9px] uppercase tracking-[0.12em] text-slate-500">{selected.source}</div>
           <div className="mb-2 text-[13px] leading-snug text-slate-200">{selected.title}</div>
-          <p className="mb-3 text-[10px] leading-relaxed text-slate-500">{selected.narrativeWhy}</p>
+          <p className="mb-3 rounded border border-cyan-500/20 bg-cyan-500/5 px-2 py-1.5 text-[10px] leading-relaxed text-cyan-100/90">{selected.narrativeWhy}</p>
 
           <div className="mb-2 flex flex-wrap gap-1 text-[8px] uppercase tracking-[0.08em]">
             <span className="rounded border border-slate-600/60 px-1.5 py-0.5 text-slate-500">Feed</span>
@@ -1020,7 +1076,8 @@ export default function GlobeChamber({
           <div className="mt-3 inline-block rounded border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-sky-300">
             {selected.agent}
           </div>
-        </div>
+          </div>
+        </>
       ) : null}
 
       {loadError ? (
