@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-04-09T14:05:23.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-276",
+  "gi": 0.75,
+  "mode": "yellow",
+  "source": "mock",
+  "anomalies": [
+    "Self-ping: HTTP 401 in 115ms"
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": true,
+    "ECHO_STATE": false,
+    "TRIPWIRE_STATE": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "seed_attempted": true,
+  "seed_result": "401"
+}
