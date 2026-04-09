@@ -92,7 +92,7 @@ ${greeting}`,
     }
     if (base === '/globe') {
       router.push('/terminal');
-      push(trimmed, '→ Globe chamber', 'success');
+      push(trimmed, '→ World State chamber', 'success');
       return;
     }
     if (base === '/pulse') {
