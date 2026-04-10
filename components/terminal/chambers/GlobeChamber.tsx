@@ -387,7 +387,7 @@ export default function GlobeChamber({
     | { status: 'unavailable'; message: string }
   >({ status: 'idle' });
   const [heroBusy, setHeroBusy] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [viewMode, setViewMode] = useState<'map' | 'globe' | null>(null);
   const [mapFilter, setMapFilter] = useState<'all' | WorldStateSignalTone>('all');
   const [mapTransform, setMapTransform] = useState({ scale: 1, x: 0, y: 0 });
@@ -414,8 +414,8 @@ export default function GlobeChamber({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mql = window.matchMedia('(max-width: 767px)');
-    const sync = () => setIsMobile(mql.matches);
+    const mql = window.matchMedia('(max-width: 1023px)');
+    const sync = () => setIsCompactViewport(mql.matches);
     sync();
     mql.addEventListener('change', sync);
     return () => mql.removeEventListener('change', sync);
@@ -423,8 +423,8 @@ export default function GlobeChamber({
 
   useEffect(() => {
     if (viewMode != null) return;
-    setViewMode(isMobile ? 'map' : 'globe');
-  }, [isMobile, viewMode]);
+    setViewMode(isCompactViewport ? 'map' : 'globe');
+  }, [isCompactViewport, viewMode]);
 
   useEffect(() => {
     if (!selected && !selectedNode) setSheetOffset(0);
@@ -436,7 +436,7 @@ export default function GlobeChamber({
   );
 
   const sceneRef = useRef<GlobeSceneState | null>(null);
-  const activeView = isMobile ? 'map' : (viewMode ?? 'globe');
+  const activeView = isCompactViewport ? 'map' : (viewMode ?? 'globe');
 
   const pinsKey = useMemo(
     () =>
@@ -1017,11 +1017,11 @@ export default function GlobeChamber({
       <div className="pointer-events-none absolute left-3 top-3 z-10 max-w-[14rem] rounded border border-white/[0.06] bg-[#020408]/85 px-2.5 py-2 backdrop-blur-sm">
         <div className="text-[10px] uppercase tracking-[0.16em] text-emerald-300">WORLD STATE</div>
         <div className="text-[8px] uppercase tracking-[0.15em] text-slate-500">
-          {isMobile ? 'SIGNAL MAP · LIVE EVENTS' : activeView === 'globe' ? 'GLOBE VIEW · LIVE WORLD STATE' : 'SIGNAL MAP · LIVE EVENTS'}
+          {isCompactViewport ? 'SIGNAL MAP · LIVE EVENTS' : activeView === 'globe' ? 'GLOBE VIEW · LIVE WORLD STATE' : 'SIGNAL MAP · LIVE EVENTS'}
         </div>
       </div>
 
-      {!isMobile ? (
+      {!isCompactViewport ? (
         <div className="absolute right-3 top-3 z-20 flex rounded border border-white/10 bg-[#020408]/90 p-0.5 text-[9px] uppercase tracking-[0.12em]">
           <button
             type="button"
@@ -1239,7 +1239,7 @@ export default function GlobeChamber({
 
       {selected || selectedNode ? (
         <>
-          {isMobile ? (
+          {isCompactViewport ? (
             <button
               type="button"
               aria-label="Dismiss inspection"
@@ -1255,15 +1255,15 @@ export default function GlobeChamber({
             className="fixed inset-x-0 bottom-0 z-50 max-h-[74vh] overflow-y-auto rounded-t-xl border border-white/10 bg-[#020408]/95 p-4 shadow-xl backdrop-blur-md md:inset-x-auto md:bottom-auto md:right-4 md:top-1/2 md:max-h-[min(88vh,640px)] md:w-[min(92vw,280px)] md:rounded-md md:p-5"
             style={{
               animation: 'globeInsp 0.2s ease',
-              transform: isMobile ? `translateY(${sheetOffset}px)` : undefined,
-              transition: isMobile ? 'transform 120ms ease' : undefined,
+              transform: isCompactViewport ? `translateY(${sheetOffset}px)` : undefined,
+              transition: isCompactViewport ? 'transform 120ms ease' : undefined,
             }}
             onTouchStart={(event) => {
-              if (!isMobile) return;
+              if (!isCompactViewport) return;
               sheetTouchStartY.current = event.touches[0]?.clientY ?? null;
             }}
             onTouchMove={(event) => {
-              if (!isMobile) return;
+              if (!isCompactViewport) return;
               const startY = sheetTouchStartY.current;
               const currentY = event.touches[0]?.clientY;
               if (startY == null || currentY == null) return;
@@ -1271,7 +1271,7 @@ export default function GlobeChamber({
               setSheetOffset(Math.min(220, delta));
             }}
             onTouchEnd={() => {
-              if (!isMobile) return;
+              if (!isCompactViewport) return;
               if (sheetOffset > 120) {
                 setSelected(null);
                 setSelectedNode(null);
@@ -1283,7 +1283,7 @@ export default function GlobeChamber({
               sheetTouchStartY.current = null;
             }}
           >
-            {isMobile ? <div className="mx-auto mb-2 h-1.5 w-10 rounded-full bg-slate-700/90" /> : null}
+            {isCompactViewport ? <div className="mx-auto mb-2 h-1.5 w-10 rounded-full bg-slate-700/90" /> : null}
           <button
             type="button"
             className="absolute right-3 top-3 text-slate-500 hover:text-slate-300"
