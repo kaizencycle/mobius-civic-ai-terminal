@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
 import type { MicroAgentSweepResult } from '@/lib/agents/micro';
 import type { EpiconItem } from '@/lib/terminal/types';
 import {
@@ -25,6 +25,21 @@ type SentimentDomain = {
   status: 'nominal' | 'stressed' | 'critical' | 'unknown';
 };
 
+type MobiusNodeType = 'shell' | 'terminal' | 'substrate' | 'ledger' | 'witness' | 'mixed';
+type MobiusNodeStatus = 'online' | 'degraded' | 'offline' | 'syncing';
+type MobiusNode = {
+  id: string;
+  type: MobiusNodeType;
+  status: MobiusNodeStatus;
+  label: string;
+  region: string;
+  lat: number;
+  lng: number;
+  weight: number;
+  lastSync: string;
+  roleSummary?: string;
+};
+
 const THREE_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
 const TOPOJSON_CLIENT_CDN = 'https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js';
 const WORLD_ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
@@ -32,6 +47,20 @@ const DRAG_CLICK_THRESHOLD = 8;
 const FRESH_SEC = 120;
 const AGING_SEC = 900;
 const STALE_SEC = 3600;
+const MAP_WIDTH = 640;
+const MAP_HEIGHT = 320;
+const MAP_MIN_SCALE = 1;
+const MAP_MAX_SCALE = 5;
+const DOUBLE_TAP_MS = 260;
+
+const MOBIUS_NODES: MobiusNode[] = [
+  { id: 'mobius-shell-na', type: 'shell', status: 'online', label: 'Shell NA', region: 'US East', lat: 39.1, lng: -77.2, weight: 0.9, lastSync: '24s ago', roleSummary: 'Public shell ingress + civic intake' },
+  { id: 'mobius-terminal-eu', type: 'terminal', status: 'syncing', label: 'Terminal EU', region: 'Frankfurt', lat: 50.1, lng: 8.68, weight: 0.86, lastSync: 'syncing now', roleSummary: 'Operator terminal + relay coordination' },
+  { id: 'mobius-ledger-apac', type: 'ledger', status: 'online', label: 'Ledger APAC', region: 'Singapore', lat: 1.35, lng: 103.8, weight: 0.8, lastSync: '42s ago', roleSummary: 'Ledger consensus + historical attestations' },
+  { id: 'mobius-substrate-latam', type: 'substrate', status: 'degraded', label: 'Substrate LATAM', region: 'São Paulo', lat: -23.55, lng: -46.63, weight: 0.74, lastSync: '12m ago', roleSummary: 'Substrate processing + enrichment' },
+  { id: 'mobius-witness-africa', type: 'witness', status: 'online', label: 'Witness Africa', region: 'Nairobi', lat: -1.28, lng: 36.82, weight: 0.77, lastSync: '1m ago', roleSummary: 'Witness lane + sentinel observation' },
+  { id: 'mobius-mixed-oce', type: 'mixed', status: 'offline', label: 'Mixed OCE', region: 'Sydney', lat: -33.86, lng: 151.2, weight: 0.66, lastSync: '2h ago', roleSummary: 'Mixed cell (shell/ledger) recovery mode' },
+];
 
 function loadThreeScript(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve();
@@ -226,9 +255,29 @@ const MAP_CONTINENT_PATHS = [
 ];
 
 function mapPointForPin(pin: GlobePin) {
-  const x = ((pin.lng + 180) / 360) * 640;
-  const y = ((90 - pin.lat) / 180) * 320;
+  const x = ((pin.lng + 180) / 360) * MAP_WIDTH;
+  const y = ((90 - pin.lat) / 180) * MAP_HEIGHT;
   return { x, y };
+}
+
+function mapPointForNode(node: MobiusNode) {
+  const x = ((node.lng + 180) / 360) * MAP_WIDTH;
+  const y = ((90 - node.lat) / 180) * MAP_HEIGHT;
+  return { x, y };
+}
+
+function nodeStatusClass(status: MobiusNodeStatus) {
+  if (status === 'online') return 'border-cyan-400/40 bg-cyan-500/10 text-cyan-200';
+  if (status === 'syncing') return 'border-sky-400/40 bg-sky-500/10 text-sky-200';
+  if (status === 'degraded') return 'border-amber-400/40 bg-amber-500/10 text-amber-200';
+  return 'border-slate-500/40 bg-slate-500/10 text-slate-300';
+}
+
+function nodeBeamColor(status: MobiusNodeStatus) {
+  if (status === 'online') return '#38bdf8';
+  if (status === 'syncing') return '#22d3ee';
+  if (status === 'degraded') return '#67e8f9';
+  return '#1e3a8a';
 }
 
 type GlobeSceneState = {
@@ -326,6 +375,7 @@ export default function GlobeChamber({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<GlobePin | null>(null);
+  const [selectedNode, setSelectedNode] = useState<MobiusNode | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<SentimentDomainKey | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -340,7 +390,14 @@ export default function GlobeChamber({
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState<'map' | 'globe' | null>(null);
   const [mapFilter, setMapFilter] = useState<'all' | WorldStateSignalTone>('all');
+  const [mapTransform, setMapTransform] = useState({ scale: 1, x: 0, y: 0 });
   const [sheetOffset, setSheetOffset] = useState(0);
+  const mapTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+  const gestureRef = useRef<
+    | { kind: 'pan'; x: number; y: number; startX: number; startY: number }
+    | { kind: 'pinch'; startDistance: number; startScale: number; centerX: number; centerY: number; startX: number; startY: number }
+    | null
+  >(null);
   const sheetTouchStartY = useRef<number | null>(null);
   const prevPinsRef = useRef<GlobePin[]>([]);
   const [deltaLines, setDeltaLines] = useState<string[]>([]);
@@ -370,8 +427,8 @@ export default function GlobeChamber({
   }, [isMobile, viewMode]);
 
   useEffect(() => {
-    if (!selected) setSheetOffset(0);
-  }, [selected]);
+    if (!selected && !selectedNode) setSheetOffset(0);
+  }, [selected, selectedNode]);
 
   const domainByKey = useMemo(
     () => Object.fromEntries(domains.map((d) => [d.key, d])) as Record<string, SentimentDomain>,
@@ -856,6 +913,99 @@ export default function GlobeChamber({
     if (mapFilter === 'all') return true;
     return pinTone(pin) === mapFilter;
   });
+  const clampTransform = useCallback((scale: number, x: number, y: number) => {
+    const nextScale = Math.min(MAP_MAX_SCALE, Math.max(MAP_MIN_SCALE, scale));
+    const maxX = ((nextScale - 1) * MAP_WIDTH) / 2;
+    const maxY = ((nextScale - 1) * MAP_HEIGHT) / 2;
+    return {
+      scale: nextScale,
+      x: Math.max(-maxX, Math.min(maxX, x)),
+      y: Math.max(-maxY, Math.min(maxY, y)),
+    };
+  }, []);
+  const resetMapView = useCallback(() => {
+    setMapTransform({ scale: MAP_MIN_SCALE, x: 0, y: 0 });
+  }, []);
+
+  const handleMapTouchStart = useCallback((event: TouchEvent<SVGSVGElement>) => {
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      if (!touch) return;
+      gestureRef.current = {
+        kind: 'pan',
+        x: touch.clientX,
+        y: touch.clientY,
+        startX: mapTransform.x,
+        startY: mapTransform.y,
+      };
+      return;
+    }
+    if (event.touches.length === 2) {
+      const [a, b] = [event.touches[0], event.touches[1]];
+      if (!a || !b) return;
+      const centerX = (a.clientX + b.clientX) / 2;
+      const centerY = (a.clientY + b.clientY) / 2;
+      const distance = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+      gestureRef.current = {
+        kind: 'pinch',
+        startDistance: distance,
+        startScale: mapTransform.scale,
+        centerX,
+        centerY,
+        startX: mapTransform.x,
+        startY: mapTransform.y,
+      };
+    }
+  }, [mapTransform.scale, mapTransform.x, mapTransform.y]);
+
+  const handleMapTouchMove = useCallback((event: TouchEvent<SVGSVGElement>) => {
+    const gesture = gestureRef.current;
+    if (!gesture) return;
+    if (gesture.kind === 'pan' && event.touches.length === 1) {
+      event.preventDefault();
+      const touch = event.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - gesture.x;
+      const dy = touch.clientY - gesture.y;
+      setMapTransform(clampTransform(mapTransform.scale, gesture.startX + dx, gesture.startY + dy));
+      return;
+    }
+    if (gesture.kind === 'pinch' && event.touches.length === 2) {
+      event.preventDefault();
+      const [a, b] = [event.touches[0], event.touches[1]];
+      if (!a || !b) return;
+      const distance = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+      const scaleFactor = distance / Math.max(gesture.startDistance, 1);
+      const nextScale = gesture.startScale * scaleFactor;
+      const centerX = (a.clientX + b.clientX) / 2;
+      const centerY = (a.clientY + b.clientY) / 2;
+      const dx = centerX - gesture.centerX;
+      const dy = centerY - gesture.centerY;
+      setMapTransform(clampTransform(nextScale, gesture.startX + dx, gesture.startY + dy));
+    }
+  }, [clampTransform, mapTransform.scale]);
+
+  const handleMapTouchEnd = useCallback(() => {
+    gestureRef.current = null;
+  }, []);
+
+  const handleMapDoubleTapZoom = useCallback((event: TouchEvent<SVGSVGElement>) => {
+    if (event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const now = Date.now();
+    const prev = mapTapRef.current;
+    if (prev && now - prev.time <= DOUBLE_TAP_MS) {
+      const dx = touch.clientX - prev.x;
+      const dy = touch.clientY - prev.y;
+      if (Math.hypot(dx, dy) < 26) {
+        setMapTransform((current) => clampTransform(current.scale * 1.4, current.x, current.y));
+      }
+      mapTapRef.current = null;
+      return;
+    }
+    mapTapRef.current = { time: now, x: touch.clientX, y: touch.clientY };
+  }, [clampTransform]);
 
   return (
     <div className="relative -mx-0.5 overflow-hidden border-y border-slate-800 bg-[#020408] font-mono text-slate-200 sm:mx-0 sm:rounded-lg sm:border">
@@ -894,27 +1044,80 @@ export default function GlobeChamber({
 
       {activeView === 'map' ? (
         <div className="relative h-[min(72vh,640px)] w-full bg-gradient-to-b from-[#03101a] via-[#020408] to-[#020617]">
-          <svg viewBox="0 0 640 320" className="h-full w-full">
-            <rect x="0" y="0" width="640" height="320" fill={WORLD_STATE_THEME.background.deepNavy} />
+          <svg
+            viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+            className="h-full w-full touch-none"
+            style={{ touchAction: 'none' }}
+            onTouchStart={handleMapTouchStart}
+            onTouchMove={handleMapTouchMove}
+            onTouchEnd={(event) => {
+              handleMapDoubleTapZoom(event);
+              handleMapTouchEnd();
+            }}
+            onTouchCancel={handleMapTouchEnd}
+          >
+            <rect x="0" y="0" width={MAP_WIDTH} height={MAP_HEIGHT} fill={WORLD_STATE_THEME.background.deepNavy} />
+            <g
+              transform={`translate(${mapTransform.x}, ${mapTransform.y}) scale(${mapTransform.scale})`}
+              transform-origin={`${MAP_WIDTH / 2} ${MAP_HEIGHT / 2}`}
+            >
             {Array.from({ length: 11 }).map((_, idx) => (
-              <line key={`lat-${idx}`} x1="0" x2="640" y1={idx * 32} y2={idx * 32} stroke={WORLD_STATE_THEME.land.grid} strokeOpacity="0.45" strokeWidth="0.7" />
+              <line key={`lat-${idx}`} x1="0" x2={MAP_WIDTH} y1={idx * 32} y2={idx * 32} stroke={WORLD_STATE_THEME.land.grid} strokeOpacity="0.45" strokeWidth="0.7" />
             ))}
             {Array.from({ length: 17 }).map((_, idx) => (
-              <line key={`lng-${idx}`} y1="0" y2="320" x1={idx * 40} x2={idx * 40} stroke={WORLD_STATE_THEME.land.grid} strokeOpacity="0.35" strokeWidth="0.7" />
+              <line key={`lng-${idx}`} y1="0" y2={MAP_HEIGHT} x1={idx * 40} x2={idx * 40} stroke={WORLD_STATE_THEME.land.grid} strokeOpacity="0.35" strokeWidth="0.7" />
             ))}
             {MAP_CONTINENT_PATHS.map((path, idx) => (
               <path key={path} d={path} fill={idx % 2 === 0 ? WORLD_STATE_THEME.land.fill : WORLD_STATE_THEME.land.highlight} fillOpacity="0.85" stroke={WORLD_STATE_THEME.land.grid} strokeWidth="1" />
             ))}
+            {MOBIUS_NODES.map((node) => {
+              const point = mapPointForNode(node);
+              const beamHeight = 14 + node.weight * 26;
+              const beamColor = nodeBeamColor(node.status);
+              const pulseClass = node.status === 'syncing' ? 'animate-pulse' : '';
+              return (
+                <g key={node.id}>
+                  <circle cx={point.x} cy={point.y} r={8 + node.weight * 4} fill={beamColor} fillOpacity={node.status === 'offline' ? 0.14 : 0.2} />
+                  <rect
+                    x={point.x - 3}
+                    y={point.y - beamHeight}
+                    width="6"
+                    height={beamHeight}
+                    rx="3"
+                    fill={beamColor}
+                    fillOpacity={node.status === 'offline' ? 0.3 : 0.8}
+                    className={pulseClass}
+                    onClick={() => {
+                      setSelectedNode(node);
+                      setSelected(null);
+                    }}
+                  />
+                  <circle cx={point.x} cy={point.y} r="4" fill="#67e8f9" fillOpacity={node.status === 'offline' ? 0.4 : 0.95} />
+                </g>
+              );
+            })}
             {filteredMapPins.map((pin) => {
               const point = mapPointForPin(pin);
               const tone = pinTone(pin);
               return (
                 <g key={`map-${pin.id}`}>
-                  <circle cx={point.x} cy={point.y} r={Math.max(3, 3 + pin.confidence * 2)} fill={WORLD_STATE_THEME.signal[tone]} fillOpacity="0.95" onClick={() => setSelected(pin)} className="cursor-pointer" />
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={Math.max(3, 3 + pin.confidence * 2)}
+                    fill={WORLD_STATE_THEME.signal[tone]}
+                    fillOpacity="0.95"
+                    onClick={() => {
+                      setSelected(pin);
+                      setSelectedNode(null);
+                    }}
+                    className="cursor-pointer"
+                  />
                   {pin.pulse ? <circle cx={point.x} cy={point.y} r={8} fill="none" stroke={WORLD_STATE_THEME.signal[tone]} strokeOpacity="0.45" /> : null}
                 </g>
               );
             })}
+            </g>
           </svg>
           <div className="pointer-events-none absolute left-3 top-12 z-10 max-w-[14rem] rounded border border-white/[0.06] bg-[#020408]/85 px-2.5 py-2 backdrop-blur-sm">
             <div className="text-[8px] uppercase tracking-[0.16em] text-slate-500">World state delta</div>
@@ -938,6 +1141,18 @@ export default function GlobeChamber({
                 {filter}
               </button>
             ))}
+          </div>
+          <div className="absolute right-3 top-12 z-20 flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={resetMapView}
+              className="rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-[9px] uppercase tracking-[0.12em] text-cyan-200"
+            >
+              View all
+            </button>
+            <div className="pointer-events-none rounded border border-white/10 bg-[#020408]/90 px-2 py-1 text-[8px] uppercase tracking-[0.1em] text-slate-400">
+              Dots: events · beams: nodes
+            </div>
           </div>
         </div>
       ) : null}
@@ -1022,7 +1237,7 @@ export default function GlobeChamber({
         </div>
       ) : null}
 
-      {selected ? (
+      {selected || selectedNode ? (
         <>
           {isMobile ? (
             <button
@@ -1031,6 +1246,7 @@ export default function GlobeChamber({
               className="fixed inset-0 z-40 bg-black/35"
               onClick={() => {
                 setSelected(null);
+                setSelectedNode(null);
                 setSelectedDomain(null);
               }}
             />
@@ -1058,6 +1274,7 @@ export default function GlobeChamber({
               if (!isMobile) return;
               if (sheetOffset > 120) {
                 setSelected(null);
+                setSelectedNode(null);
                 setSelectedDomain(null);
                 setSheetOffset(0);
               } else {
@@ -1073,18 +1290,19 @@ export default function GlobeChamber({
             aria-label="Close inspection"
             onClick={() => {
               setSelected(null);
+              setSelectedNode(null);
               setSelectedDomain(null);
             }}
           >
             ✕
           </button>
 
-          {incidentAsset.status === 'loading' ? (
+          {selected && incidentAsset.status === 'loading' ? (
             <div className="mb-3 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-2 text-[9px] text-amber-200/90">
               Rendering visual asset…
             </div>
           ) : null}
-          {incidentAsset.status === 'ready' ? (
+          {selected && incidentAsset.status === 'ready' ? (
             <div className="mb-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -1098,27 +1316,29 @@ export default function GlobeChamber({
               ) : null}
             </div>
           ) : null}
-          {incidentAsset.status === 'unavailable' ? (
+          {selected && incidentAsset.status === 'unavailable' ? (
             <div className="mb-3 rounded border border-slate-700/80 bg-slate-900/50 px-2 py-2 text-[9px] text-slate-500">
               Visual asset unavailable — {incidentAsset.message}
             </div>
           ) : null}
 
-          <div className="mb-1 text-[9px] uppercase tracking-[0.12em] text-slate-500">{selected.source}</div>
-          <div className="mb-2 text-[13px] leading-snug text-slate-200">{selected.title}</div>
-          <p className="mb-3 rounded border border-cyan-500/20 bg-cyan-500/5 px-2 py-1.5 text-[10px] leading-relaxed text-cyan-100/90">{selected.narrativeWhy}</p>
+          {selected ? (
+            <>
+              <div className="mb-1 text-[9px] uppercase tracking-[0.12em] text-slate-500">{selected.source}</div>
+              <div className="mb-2 text-[13px] leading-snug text-slate-200">{selected.title}</div>
+              <p className="mb-3 rounded border border-cyan-500/20 bg-cyan-500/5 px-2 py-1.5 text-[10px] leading-relaxed text-cyan-100/90">{selected.narrativeWhy}</p>
 
-          <div className="mb-2 flex flex-wrap gap-1 text-[8px] uppercase tracking-[0.08em]">
-            <span className="rounded border border-slate-600/60 px-1.5 py-0.5 text-slate-500">Feed</span>
-            <span className="text-slate-600">{selected.source.split('·')[1]?.trim() ?? 'micro'}</span>
-            {selected.meta.epiconId ? (
-              <span className="rounded border border-sky-500/25 px-1.5 py-0.5 text-sky-400/90">
-                EPICON {String(selected.meta.epiconId).slice(0, 12)}…
-              </span>
-            ) : (
-              <span className="rounded border border-slate-700 px-1.5 py-0.5 text-slate-500">Ledger pending path</span>
-            )}
-          </div>
+              <div className="mb-2 flex flex-wrap gap-1 text-[8px] uppercase tracking-[0.08em]">
+                <span className="rounded border border-slate-600/60 px-1.5 py-0.5 text-slate-500">Feed</span>
+                <span className="text-slate-600">{selected.source.split('·')[1]?.trim() ?? 'micro'}</span>
+                {selected.meta.epiconId ? (
+                  <span className="rounded border border-sky-500/25 px-1.5 py-0.5 text-sky-400/90">
+                    EPICON {String(selected.meta.epiconId).slice(0, 12)}…
+                  </span>
+                ) : (
+                  <span className="rounded border border-slate-700 px-1.5 py-0.5 text-slate-500">Ledger pending path</span>
+                )}
+              </div>
 
           <div className="mb-2 flex items-center gap-2">
             <span className="text-[10px] text-slate-500">Integrity</span>
@@ -1188,9 +1408,35 @@ export default function GlobeChamber({
               </div>
             ))}
           </div>
-          <div className="mt-3 inline-block rounded border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-sky-300">
-            {selected.agent}
-          </div>
+              <div className="mt-3 inline-block rounded border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-sky-300">
+                {selected.agent}
+              </div>
+            </>
+          ) : null}
+          {selectedNode ? (
+            <>
+              <div className="mb-1 text-[9px] uppercase tracking-[0.12em] text-cyan-300">Mobius node</div>
+              <div className="mb-1 text-[13px] leading-snug text-slate-200">{selectedNode.label}</div>
+              <div className="mb-3 text-[10px] text-slate-500">{selectedNode.region}</div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.1em] text-cyan-200">
+                  {selectedNode.type}
+                </span>
+                <span className={cn('rounded border px-2 py-0.5 text-[9px] uppercase tracking-[0.1em]', nodeStatusClass(selectedNode.status))}>
+                  {selectedNode.status}
+                </span>
+              </div>
+              <div className="mb-2 text-[10px] text-slate-500">
+                Last sync <span className="text-slate-300">{selectedNode.lastSync}</span>
+              </div>
+              <div className="mb-2 text-[10px] text-slate-500">
+                Capability weight <span className="text-cyan-200">{selectedNode.weight.toFixed(2)}</span>
+              </div>
+              <p className="rounded border border-cyan-500/20 bg-cyan-500/5 px-2 py-1.5 text-[10px] leading-relaxed text-cyan-100/90">
+                {selectedNode.roleSummary ?? 'Regional civic witness cell.'}
+              </p>
+            </>
+          ) : null}
           </div>
         </>
       ) : null}
