@@ -16,7 +16,7 @@ function pinTone(label: string): WorldStateSignalTone {
   return 'nominal';
 }
 
-export default function WorldMapView({ micro, echoEpicon, cycleId, giScore }: GlobeChamberProps) {
+export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = '—', giScore = 0 }: Partial<GlobeChamberProps> = {}) {
   const pins = useMemo(() => buildGlobePinsFromMicro(micro, echoEpicon), [micro, echoEpicon]);
 
   return (
