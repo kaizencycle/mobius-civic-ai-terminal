@@ -108,7 +108,7 @@ export default function GlobeView(_props: GlobeChamberProps) {
       if (cancelled || !containerRef.current) return;
 
       const el = containerRef.current;
-      const globe = new Globe(el);
+      const globe = Globe()(el);
       globeRef.current = globe;
 
       globe
