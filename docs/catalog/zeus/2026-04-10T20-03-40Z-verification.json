@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-04-10T20:03:40Z",
+  "agent": "ZEUS",
+  "cycle": "C-277",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "mock",
+  "anomaly_persistence": {
+    "ATLAS_heartbeat_anomalies": "partially-confirmed",
+    "NASA EONET": "persistent",
+    "DAEDALUS-µ Self-ping 401": "persistent",
+    "USGS Earthquake": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "atlas-heartbeat",
+      "result": "pass",
+      "detail": "Latest GitHub main heartbeat was docs/catalog/heartbeats/20260410T190307Z.json with GI 0.83, mode green, anomalies 2, and no source/kv_keys/seed_result fields present."
+    },
+    {
+      "check": "signals-micro",
+      "result": "warn",
+      "detail": "Live /api/signals/micro at 2026-04-10T20:03Z returned composite 0.732 with 3 elevated anomalies: USGS Earthquake load, NASA EONET wildfire load, and DAEDALUS-µ self-ping HTTP 401."
+    },
+    {
+      "check": "integrity-status",
+      "result": "fail",
+      "detail": "Live /api/integrity-status returned GI 0.75, mode yellow, terminal_status stressed, source mock, kv true. GI remains non-authoritative while mock sourcing persists."
+    },
+    {
+      "check": "epicon-candidates",
+      "result": "pass",
+      "detail": "Live /api/epicon/candidates returned count 0, so verification and publish were skipped."
+    },
+    {
+      "check": "journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal succeeded with duplicate=true for token zeus:c-277:epicon-candidates-integrity-status-signals-micro."
+    }
+  ],
+  "recommendation": "Treat the last ATLAS heartbeat as stale for GI state, restore live integrity sourcing, and investigate the persistent self-ping 401 before trusting green-mode claims."
+}
