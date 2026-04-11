@@ -12,6 +12,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { Redis } from '@upstash/redis';
 import { fetchAllSources } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
 import { pushIngestResult, getEchoStatus, getEchoEpicon, getEchoLedger, getEchoAlerts } from '@/lib/echo/store';
@@ -19,6 +20,56 @@ import { writeSnapshot } from '@/lib/echo/snapshot-writer';
 import { saveEchoState } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
+
+type KvEpiconEntry = {
+  id: string;
+  timestamp: string;
+  author: string;
+  title: string;
+  type: 'epicon';
+  severity: 'nominal' | 'elevated' | 'critical' | 'degraded' | 'info';
+  source: 'kv-ledger';
+  tags: string[];
+  verified: boolean;
+};
+
+function getRedisClient(): Redis | null {
+  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+
+  try {
+    return new Redis({ url, token });
+  } catch {
+    return null;
+  }
+}
+
+function toFeedSeverity(confidenceTier: number): KvEpiconEntry['severity'] {
+  if (confidenceTier >= 3) return 'critical';
+  if (confidenceTier >= 2) return 'elevated';
+  if (confidenceTier >= 1) return 'nominal';
+  return 'info';
+}
+
+function toFeedTimestamp(rawTimestamp: string): string {
+  const ts = new Date(rawTimestamp);
+  if (Number.isNaN(ts.getTime())) return new Date().toISOString();
+  return ts.toISOString();
+}
+
+async function flushEpiconFeed(entries: KvEpiconEntry[]): Promise<void> {
+  const redis = getRedisClient();
+  if (!redis || entries.length === 0) return;
+
+  try {
+    const payload = entries.map((entry) => JSON.stringify(entry));
+    await redis.lpush('epicon:feed', ...payload);
+    await redis.ltrim('epicon:feed', 0, 99);
+  } catch (error) {
+    console.error('[echo] epicon feed flush failed:', error);
+  }
+}
 
 export async function GET() {
   const status = getEchoStatus();
@@ -64,6 +115,19 @@ export async function POST() {
       timestamp: new Date().toISOString(),
       dedupRate,
     }).catch(() => {});
+
+    const kvFeedEntries: KvEpiconEntry[] = result.epicon.map((entry) => ({
+      id: entry.id,
+      timestamp: toFeedTimestamp(entry.timestamp),
+      author: entry.ownerAgent,
+      title: entry.title,
+      type: 'epicon',
+      severity: entry.status === 'contradicted' ? 'degraded' : toFeedSeverity(entry.confidenceTier),
+      source: 'kv-ledger',
+      tags: entry.sources,
+      verified: entry.status === 'verified',
+    }));
+    await flushEpiconFeed(kvFeedEntries);
 
     // 4. Generate docs/echo/ snapshot (fire-and-forget, non-blocking)
     let snapshotWritten = false;

@@ -295,9 +295,11 @@ export async function GET(request: NextRequest) {
 
   let substrateError: string | null = null;
   let substrateEntries: AgentJournalEntry[] = [];
-  if (agentFilter) {
+  const substrateAgents = agentFilter ? [agentFilter] : [...GENESIS_AGENTS];
+  const substrateLimit = agentFilter ? 10 : Math.max(3, Math.ceil(limit / substrateAgents.length));
+  for (const agent of substrateAgents) {
     try {
-      const substrateRead = readAgentJournals(agentFilter.toLowerCase(), 10);
+      const substrateRead = readAgentJournals(agent.toLowerCase(), substrateLimit);
       const rows = await Promise.race([
         substrateRead,
         new Promise<SubstrateJournalEntry[]>((_, reject) =>
@@ -309,8 +311,8 @@ export async function GET(request: NextRequest) {
         if (mapped) substrateEntries.push(mapped);
       }
     } catch (error) {
-      console.error('[journal] substrate read error', error);
-      substrateError = error instanceof Error ? error.message : 'substrate read failed';
+      console.error('[journal] substrate fetch failed:', error instanceof Error ? error.message : error);
+      if (!substrateError) substrateError = error instanceof Error ? error.message : 'substrate read failed';
     }
   }
 
