@@ -1,0 +1,43 @@
+{
+  "timestamp": "2026-04-11T16:02:55Z",
+  "agent": "ZEUS",
+  "cycle": "C-278",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "mock",
+  "anomaly_persistence": {
+    "NASA EONET": "persistent",
+    "DAEDALUS Self-ping": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat availability",
+      "result": "warn",
+      "detail": "Expected input under docs/catalog/heartbeats was absent in this checkout, so ZEUS could not compare against a current heartbeat artifact."
+    },
+    {
+      "check": "signals/micro anomaly set",
+      "result": "pass",
+      "detail": "Live signals returned composite 0.691 with the same elevated anomalies observed in the prior ZEUS run: NASA EONET event load and DAEDALUS Self-ping HTTP 401."
+    },
+    {
+      "check": "integrity-status source",
+      "result": "fail",
+      "detail": "integrity-status reported cycle C-278 with global_integrity 0.83 but source=mock, so GI is not verified even though kv=true."
+    },
+    {
+      "check": "epicon candidates queue",
+      "result": "pass",
+      "detail": "The candidates endpoint returned zero items, so verification and publish steps were skipped."
+    },
+    {
+      "check": "agent journal submission",
+      "result": "pass",
+      "detail": "POST /api/agents/journal succeeded and returned ok=true with duplicate=true for this cycle token."
+    }
+  ],
+  "recommendation": "Restore live integrity sourcing before treating GI as authoritative, investigate the persistent DAEDALUS self-ping 401, and restore the expected ATLAS heartbeat artifact path for direct cross-checking."
+}
