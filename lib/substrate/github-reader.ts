@@ -10,6 +10,17 @@ type GitHubContentItem = {
   download_url: string | null;
 };
 
+function githubHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+
+  const token = process.env.SUBSTRATE_GITHUB_TOKEN?.trim();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -62,18 +73,19 @@ function isSubstrateJournalEntry(value: unknown): value is SubstrateJournalEntry
 export async function readAgentJournals(agent: string, limit = 10): Promise<SubstrateJournalEntry[]> {
   const agentLower = agent.toLowerCase();
 
-  const listRes = await fetch(
-    `https://api.github.com/repos/${SUBSTRATE_REPO}/contents/journals/${agentLower}`,
-    {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-      signal: AbortSignal.timeout(5000),
-    },
-  ).catch(() => null);
+  const listRes = await fetch(`https://api.github.com/repos/${SUBSTRATE_REPO}/contents/journals/${agentLower}`, {
+    headers: githubHeaders(),
+    signal: AbortSignal.timeout(5000),
+  }).catch((error) => {
+    throw new Error(
+      `[substrate] fetch failed for ${agentLower}: ${error instanceof Error ? error.message : 'unknown_error'}`,
+    );
+  });
 
-  if (!listRes?.ok) return [];
+  if (!listRes.ok) {
+    const errorBody = await listRes.text().catch(() => '');
+    throw new Error(`[substrate] journals/${agentLower} -> ${listRes.status} ${errorBody.slice(0, 180)}`);
+  }
 
   const rawList: unknown = await listRes.json();
   if (!Array.isArray(rawList)) return [];
@@ -92,7 +104,7 @@ export async function readAgentJournals(agent: string, limit = 10): Promise<Subs
     journalFiles.map(async (f) => {
       const url = f.download_url;
       if (!url) return null;
-      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      const res = await fetch(url, { headers: githubHeaders(), signal: AbortSignal.timeout(3000) });
       if (!res.ok) return null;
       const json: unknown = await res.json();
       return isSubstrateJournalEntry(json) ? json : null;
