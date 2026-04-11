@@ -220,12 +220,16 @@ function buildEntry(input: AgentJournalCreateInput): AgentJournalEntry | null {
 
 async function loadEntries(
   redis: ReturnType<typeof getJournalRedisClient>,
-  agentFilter?: string,
+  agentFilters?: string[],
 ): Promise<AgentJournalEntry[]> {
   if (!redis) return [];
 
   try {
-    const keys = agentFilter ? [KEY_ALL, `journal:${agentFilter.toLowerCase()}`] : [KEY_ALL];
+    const normalized = (agentFilters ?? []).map((agent) => agent.toLowerCase());
+    const keys =
+      normalized.length > 0
+        ? [KEY_ALL, ...normalized.map((agent) => `journal:${agent}`)]
+        : [KEY_ALL, ...GENESIS_AGENTS.map((agent) => `journal:${agent.toLowerCase()}`)];
     const keyRows = await Promise.all(keys.map((key) => redis.lrange<string[]>(key, 0, MAX_READ - 1)));
     const rows = keyRows.flat();
     const seen = new Set<string>();
@@ -282,21 +286,29 @@ export async function GET(request: NextRequest) {
   const redis = getJournalRedisClient();
 
   const { searchParams } = request.nextUrl;
-  const agentFilter = asString(searchParams.get('agent')).toUpperCase();
+  const agentFilters = Array.from(
+    new Set(
+      searchParams
+        .getAll('agent')
+        .map((agent) => asString(agent).toUpperCase())
+        .filter(Boolean),
+    ),
+  );
+  const agentFilterSet = new Set(agentFilters);
   const cycleFilter = asString(searchParams.get('cycle'));
   const limitRaw = Number(searchParams.get('limit') ?? '20');
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 100) : 20;
 
-  let kvEntries = await loadEntries(redis, agentFilter || undefined);
+  let kvEntries = await loadEntries(redis, agentFilters);
   if (kvEntries.length === 0 && redis) {
     await seedGenesisEntries(redis, cycleFilter || 'C-278');
-    kvEntries = await loadEntries(redis, agentFilter || undefined);
+    kvEntries = await loadEntries(redis, agentFilters);
   }
 
   let substrateError: string | null = null;
   let substrateEntries: AgentJournalEntry[] = [];
-  const substrateAgents = agentFilter ? [agentFilter] : [...GENESIS_AGENTS];
-  const substrateLimit = agentFilter ? 10 : Math.max(3, Math.ceil(limit / substrateAgents.length));
+  const substrateAgents = agentFilters.length > 0 ? agentFilters : [...GENESIS_AGENTS];
+  const substrateLimit = agentFilters.length === 1 ? 10 : Math.max(3, Math.ceil(limit / substrateAgents.length));
   for (const agent of substrateAgents) {
     try {
       const substrateRead = readAgentJournals(agent.toLowerCase(), substrateLimit);
@@ -316,8 +328,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const kvForSources = agentFilter
-    ? kvEntries.filter((e) => e.agent.toUpperCase() === agentFilter)
+  const kvForSources = agentFilters.length > 0
+    ? kvEntries.filter((e) => agentFilterSet.has(e.agent.toUpperCase()))
     : kvEntries;
 
   const all = [...kvEntries, ...substrateEntries];
@@ -331,7 +343,7 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const filtered = merged
-    .filter((entry) => (agentFilter ? entry.agent.toUpperCase() === agentFilter : true))
+    .filter((entry) => (agentFilters.length > 0 ? agentFilterSet.has(entry.agent.toUpperCase()) : true))
     .filter((entry) => (cycleFilter ? entry.cycle === cycleFilter : true))
     .slice(0, limit);
 
