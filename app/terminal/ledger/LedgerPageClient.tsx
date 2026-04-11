@@ -53,7 +53,7 @@ export default function LedgerPageClient() {
       .catch(() => setFeed({ items: [] }));
   }, []);
 
-  const entries = feed?.items ?? [];
+  const entries = useMemo(() => feed?.items ?? [], [feed]);
   const authors = useMemo(() => ['ALL', ...new Set(entries.map((e) => e.author || 'unknown'))], [entries]);
   const filtered = useMemo(
     () => (authorFilter === 'ALL' ? entries : entries.filter((entry) => (entry.author || 'unknown') === authorFilter)),

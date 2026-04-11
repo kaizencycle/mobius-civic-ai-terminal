@@ -42,14 +42,17 @@ function mapEventType(item: PulseItem): (typeof EVENT_TYPES)[number] | 'OTHER' {
 export default function PulsePageClient() {
   const { snapshot, loading } = useTerminalSnapshot();
   const [selected, setSelected] = useState<(typeof AGENT_FILTERS)[number]>('ALL');
-  if (loading && !snapshot) return <ChamberSkeleton blocks={8} />;
 
-  const epicon = (snapshot?.epicon?.data ?? {}) as { items?: PulseItem[] };
-  const items = epicon.items ?? [];
+  const items = useMemo(
+    () => ((snapshot?.epicon?.data ?? {}) as { items?: PulseItem[] }).items ?? [],
+    [snapshot],
+  );
   const filtered = useMemo(
     () => (selected === 'ALL' ? items : items.filter((item) => (item.agent ?? '').toUpperCase() === selected)),
     [items, selected],
   );
+
+  if (loading && !snapshot) return <ChamberSkeleton blocks={8} />;
 
   return (
     <div className="h-full overflow-y-auto p-4">
