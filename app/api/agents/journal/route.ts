@@ -218,17 +218,26 @@ function buildEntry(input: AgentJournalCreateInput): AgentJournalEntry | null {
   return entry;
 }
 
-async function loadEntries(redis: ReturnType<typeof getJournalRedisClient>): Promise<AgentJournalEntry[]> {
+async function loadEntries(
+  redis: ReturnType<typeof getJournalRedisClient>,
+  agentFilter?: string,
+): Promise<AgentJournalEntry[]> {
   if (!redis) return [];
 
   try {
-    const rows = await redis.lrange<string[]>(KEY_ALL, 0, MAX_READ - 1);
+    const keys = agentFilter ? [KEY_ALL, `journal:${agentFilter.toLowerCase()}`] : [KEY_ALL];
+    const keyRows = await Promise.all(keys.map((key) => redis.lrange<string[]>(key, 0, MAX_READ - 1)));
+    const rows = keyRows.flat();
+    const seen = new Set<string>();
     const out: AgentJournalEntry[] = [];
     for (const row of rows ?? []) {
       if (typeof row !== 'string') continue;
       try {
         const parsed = parseEntry(JSON.parse(row));
-        if (parsed) out.push(parsed);
+        if (parsed && !seen.has(parsed.id)) {
+          seen.add(parsed.id);
+          out.push(parsed);
+        }
       } catch {
         continue;
       }
@@ -278,10 +287,10 @@ export async function GET(request: NextRequest) {
   const limitRaw = Number(searchParams.get('limit') ?? '20');
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 100) : 20;
 
-  let kvEntries = await loadEntries(redis);
+  let kvEntries = await loadEntries(redis, agentFilter || undefined);
   if (kvEntries.length === 0 && redis) {
-    await seedGenesisEntries(redis, cycleFilter || 'C-272');
-    kvEntries = await loadEntries(redis);
+    await seedGenesisEntries(redis, cycleFilter || 'C-278');
+    kvEntries = await loadEntries(redis, agentFilter || undefined);
   }
 
   let substrateError: string | null = null;
