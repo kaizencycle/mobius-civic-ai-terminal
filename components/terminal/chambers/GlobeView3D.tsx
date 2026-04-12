@@ -377,13 +377,13 @@ export default function GlobeView3D({
     const st = sceneRef.current;
     if (!st) return;
     for (const m of st.pinMeshes) {
-      st.scene.remove(m);
+      st.globe.remove(m);
       if (m.geometry) m.geometry.dispose();
       const mat = m.material as { dispose?: () => void };
       mat?.dispose?.();
     }
     for (const m of st.pulseMeshes) {
-      st.scene.remove(m);
+      st.globe.remove(m);
       if (m.geometry) m.geometry.dispose();
       const mat = m.material as { dispose?: () => void };
       mat?.dispose?.();
@@ -401,14 +401,14 @@ export default function GlobeView3D({
       stem.position.copy(pos.clone().multiplyScalar(0.97));
       stem.lookAt(0, 0, 0);
       stem.rotateX(Math.PI / 2);
-      st.scene.add(stem);
+      st.globe.add(stem);
       st.pinMeshes.push(stem);
       const headGeo = new THREE.SphereGeometry(0.018, 8, 8);
       const headMat = new THREE.MeshBasicMaterial({ color });
       const head = new THREE.Mesh(headGeo, headMat);
       head.position.copy(pos.clone().multiplyScalar(1.04));
       head.userData = { pin: sig, kind: 'head' };
-      st.scene.add(head);
+      st.globe.add(head);
       st.pinMeshes.push(head);
       if (sig.pulse) {
         const ringGeo = new THREE.RingGeometry(0.02, 0.028, 16);
@@ -422,7 +422,7 @@ export default function GlobeView3D({
         ring.position.copy(pos.clone().multiplyScalar(1.04));
         ring.lookAt(pos.clone().multiplyScalar(2));
         ring.userData = { phase: Math.random() * Math.PI * 2, speed: 0.02 + Math.random() * 0.01 };
-        st.scene.add(ring);
+        st.globe.add(ring);
         st.pulseMeshes.push(ring);
       }
     }
