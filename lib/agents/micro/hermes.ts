@@ -212,8 +212,22 @@ export async function pollHermes(): Promise<AgentPollResult> {
   else errors.push('Perplexity Sonar unavailable or not configured');
 
   const gdelt = await pollGDELT();
-  if (gdelt) signals.push(gdelt);
-  else errors.push('GDELT API fetch failed');
+  if (gdelt) {
+    signals.push(gdelt);
+  } else {
+    // Graceful fallback: GDELT is persistently unreachable. Push a neutral
+    // mid-range signal so the HERMES-µ composite is not penalized by the outage.
+    signals.push({
+      agentName: 'HERMES-µ',
+      source: 'GDELT',
+      timestamp: new Date().toISOString(),
+      value: 0.5,
+      label: 'GDELT unavailable — neutral baseline',
+      severity: 'nominal',
+      raw: { fallback: true },
+    });
+    errors.push('GDELT API fetch failed (neutral fallback applied)');
+  }
 
   return {
     agentName: 'HERMES-µ',

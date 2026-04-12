@@ -10,6 +10,7 @@ import { GET as getSentiment } from '@/app/api/sentiment/composite/route';
 import { GET as getRuntime } from '@/app/api/runtime/status/route';
 import { GET as getPromotion } from '@/app/api/epicon/promotion-status/route';
 import { GET as getEve } from '@/app/api/eve/cycle-advance/route';
+import { GET as getMii } from '@/app/api/mii/feed/route';
 import {
   normalizeAllSnapshotLanes,
   type SnapshotLaneKey,
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
   const journalPath = cycle ? `/api/agents/journal?cycle=${encodeURIComponent(cycle)}` : '/api/agents/journal';
   const epiconPath = includeCatalog === 'true' ? '/api/epicon/feed?include_catalog=true' : '/api/epicon/feed';
 
-  const [integrity, signals, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve] = await Promise.all([
+  const [integrity, signals, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve, mii] = await Promise.all([
     callHandler(makeRequest(baseUrl, '/api/integrity-status'), getIntegrity),
     callHandler(makeRequest(baseUrl, '/api/signals/micro'), getSignals),
     callHandler(makeRequest(baseUrl, '/api/kv/health'), getKvHealth),
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
     callHandler(makeRequest(baseUrl, '/api/runtime/status'), getRuntime),
     callHandler(makeRequest(baseUrl, '/api/epicon/promotion-status'), getPromotion),
     callHandler(makeRequest(baseUrl, '/api/eve/cycle-advance'), getEve),
+    callHandler(makeRequest(baseUrl, '/api/mii/feed'), getMii),
   ]);
 
   type SubstrateAgentRow = {
@@ -127,10 +129,13 @@ export async function GET(request: NextRequest) {
     runtime,
     promotion,
     eve,
+    mii,
   };
 
   const lanes: SnapshotLaneState[] = normalizeAllSnapshotLanes(leaves);
-  const laneSummary = lanes.every((lane) => lane.state === 'healthy' || lane.state === 'empty');
+  const laneSummary = lanes.every(
+    (lane) => lane.state === 'healthy' || lane.state === 'empty' || lane.state === 'stale',
+  );
 
   return NextResponse.json(
     {
@@ -154,6 +159,7 @@ export async function GET(request: NextRequest) {
       runtime,
       promotion,
       eve,
+      mii,
       substrate,
     },
     {

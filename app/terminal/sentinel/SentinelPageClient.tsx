@@ -7,10 +7,43 @@ import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 type Agent = { id: string; name: string; role: string; status: string; lastAction?: string; tier?: string; mii_avg?: number };
 type JournalEntry = { id: string; observation?: string; cycle?: string };
 
+/** Inline SVG sparkline — zero bundle impact, no recharts needed */
+function MiiSparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return null;
+  const W = 64;
+  const H = 16;
+  const pad = 1;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 0.01;
+
+  const pts = values
+    .map((v, i) => {
+      const x = pad + (i / (values.length - 1)) * (W - 2 * pad);
+      const y = pad + (1 - (v - min) / range) * (H - 2 * pad);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+
+  return (
+    <svg width={W} height={H} className="inline-block align-middle" aria-hidden="true">
+      <polyline
+        points={pts}
+        fill="none"
+        stroke="rgb(34 211 238 / 0.7)"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function SentinelPageClient() {
   const { snapshot, loading } = useTerminalSnapshot();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [journal, setJournal] = useState<JournalEntry[]>([]);
+  const [miiData, setMiiData] = useState<Record<string, number[]>>({});
 
   if (loading && !snapshot) return <ChamberSkeleton blocks={8} />;
 
@@ -22,10 +55,31 @@ export default function SentinelPageClient() {
       return;
     }
     setExpanded(name);
-    const data = await fetch(`/api/agents/journal?agent=${encodeURIComponent(name)}&limit=5`, { cache: 'no-store' })
-      .then((r) => r.json())
-      .catch(() => ({ entries: [] }));
-    setJournal((data.entries ?? []) as JournalEntry[]);
+
+    const [journalResult, miiResult] = await Promise.allSettled([
+      fetch(`/api/agents/journal?agent=${encodeURIComponent(name)}&limit=5`, { cache: 'no-store' })
+        .then((r) => r.json())
+        .catch(() => ({ entries: [] })),
+      fetch(`/api/mii/feed?agent=${encodeURIComponent(name)}`, { cache: 'no-store' })
+        .then((r) => r.json())
+        .catch(() => ({ entries: [] })),
+    ]);
+
+    if (journalResult.status === 'fulfilled') {
+      setJournal((journalResult.value.entries ?? []) as JournalEntry[]);
+    }
+
+    if (miiResult.status === 'fulfilled') {
+      type MiiEntry = { mii: number; timestamp: string };
+      const entries: MiiEntry[] = miiResult.value.entries ?? [];
+      const scores = entries
+        .slice(0, 10)
+        .map((e) => e.mii)
+        .reverse(); // oldest → newest for left-to-right rendering
+      if (scores.length >= 2) {
+        setMiiData((prev) => ({ ...prev, [name]: scores }));
+      }
+    }
   };
 
   return (
@@ -39,7 +93,12 @@ export default function SentinelPageClient() {
             </div>
             <div className="text-xs text-slate-400">{agent.role} · {agent.tier ?? '—'}</div>
             <div className="mt-2 text-xs text-slate-500">{agent.lastAction ?? 'No action yet.'}</div>
-            <div className="mt-1 text-xs text-cyan-200">MII avg {agent.mii_avg ?? '—'}</div>
+            <div className="mt-1 flex items-center gap-2 text-xs text-cyan-200">
+              <span>MII avg {agent.mii_avg ?? '—'}</span>
+              {miiData[agent.name] && miiData[agent.name]!.length >= 2 ? (
+                <MiiSparkline values={miiData[agent.name]!} />
+              ) : null}
+            </div>
           </button>
         ))}
       </div>

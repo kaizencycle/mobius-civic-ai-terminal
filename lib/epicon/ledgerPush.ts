@@ -13,8 +13,8 @@ export const EPICON_LEDGER_LIST_KEY = 'mobius:epicon:feed';
 const EPICON_LEDGER_LIST_KEY_ALIAS = 'epicon:feed';
 
 function getRedisClient(): Redis | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
   try {
     return new Redis({ url, token });

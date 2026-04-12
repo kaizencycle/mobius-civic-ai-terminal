@@ -86,6 +86,16 @@ export async function GET(request: NextRequest) {
   const giResult = await fetchWithTimeout(request, '/api/integrity-status');
   actions.push(`integrity-status:${giResult.ok ? 'ok' : `fail:${giResult.status}`}`);
 
+  const echoResult = await fetchWithTimeout(request, '/api/echo/ingest', { method: 'POST' });
+  actions.push(`echo-ingest:${echoResult.ok ? 'ok' : `fail:${echoResult.status}`}`);
+
+  const promoteResult = await fetchWithTimeout(request, '/api/epicon/promote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ maxItems: 5 }),
+  });
+  actions.push(`promote:${promoteResult.ok ? 'ok' : `fail:${promoteResult.status}`}`);
+
   const logResult = {
     seeded: seedResult.body,
     gi: giResult.body,

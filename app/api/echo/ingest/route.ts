@@ -14,11 +14,13 @@
 import { NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 import { fetchAllSources } from '@/lib/echo/sources';
+import type { RawEvent } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
 import { pushIngestResult, getEchoStatus, getEchoEpicon, getEchoLedger, getEchoAlerts } from '@/lib/echo/store';
 import { writeSnapshot } from '@/lib/echo/snapshot-writer';
 import { saveEchoState, loadGIState } from '@/lib/kv/store';
 import { writeMiiState, readMiiFeed } from '@/lib/kv/mii';
+import { querySonarForLane } from '@/lib/signals/perplexity-sonar';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,6 +89,47 @@ export async function POST() {
   try {
     // 1. Fetch from all sources
     const rawEvents = await fetchAllSources();
+
+    // 1b. Sonar → EPICON bridge: inject a synthetic governance event when
+    // Perplexity Sonar detects relevant civic/governance developments.
+    // Uses the 4-hour window cache shared with HERMES-µ — no duplicate API calls.
+    if (process.env.PERPLEXITY_API_KEY) {
+      try {
+        const sonar = await querySonarForLane(
+          'HERMES',
+          'Recent governance, civic institutions, democracy, and policy developments globally in the last 24 hours.',
+          'day',
+        );
+        if (sonar?.answer) {
+          const CIVIC_KEYWORDS = [
+            'governance', 'civic', 'democracy', 'legislature', 'parliament',
+            'election', 'policy', 'regulation', 'institution', 'senate', 'congress',
+            'un ', 'united nations', 'european union', 'imf', 'world bank',
+          ];
+          const lowerAnswer = sonar.answer.toLowerCase();
+          if (CIVIC_KEYWORDS.some((kw) => lowerAnswer.includes(kw))) {
+            const sonarEvent: RawEvent = {
+              sourceId: `sonar-hermes-gov-${Date.now()}`,
+              source: 'Perplexity Sonar',
+              title: `Governance signal: ${sonar.answer.slice(0, 120)}`,
+              summary: sonar.answer.slice(0, 500),
+              url: sonar.sources[0]?.url ?? '',
+              timestamp: sonar.timestamp,
+              category: 'governance',
+              severity: 'medium',
+              metadata: {
+                ownerAgent: 'HERMES',
+                confidenceTier: 2,
+                citedSources: sonar.sources.slice(0, 3).map((s) => s.url),
+              },
+            };
+            rawEvents.push(sonarEvent);
+          }
+        }
+      } catch {
+        // Sonar bridge is best-effort — never fail ingest on Sonar error
+      }
+    }
 
     if (rawEvents.length === 0) {
       const emptyStatus = getEchoStatus();

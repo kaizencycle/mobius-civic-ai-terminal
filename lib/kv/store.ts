@@ -233,10 +233,10 @@ export type EchoKVState = {
 };
 
 /**
- * Save ECHO store summary. TTL: 30 minutes.
+ * Save ECHO store summary. TTL: 2 hours (matches /api/cron/echo-ingest cadence).
  */
 export async function saveEchoState(state: EchoKVState): Promise<void> {
-  await kvSet(KV_KEYS.ECHO_STATE, state, 1800);
+  await kvSet(KV_KEYS.ECHO_STATE, state, 7200);
 }
 
 /**

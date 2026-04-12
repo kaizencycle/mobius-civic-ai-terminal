@@ -57,6 +57,19 @@ async function fetchCryptoComposite(): Promise<{ value: number | null; sourceLab
       sourceLabel: `Crypto 24h avg ${avgChange >= 0 ? '+' : ''}${avgChange.toFixed(2)}%`,
     };
   } catch {
+    // On failure, try reading the last known financial score from the KV snapshot
+    // so the domain shows cached data rather than a null gap.
+    if (isRedisAvailable()) {
+      try {
+        const cached = await kvGet<SentimentSnapshot>(CACHE_KEY);
+        const financialDomain = cached?.domains?.find((d) => d.key === 'financial');
+        if (typeof financialDomain?.score === 'number') {
+          return { value: financialDomain.score, sourceLabel: 'Crypto (cached fallback)' };
+        }
+      } catch {
+        // ignore — return null below
+      }
+    }
     return { value: null, sourceLabel: 'CoinGecko fetch failed' };
   }
 }

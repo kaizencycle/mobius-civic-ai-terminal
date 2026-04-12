@@ -14,7 +14,8 @@ export type SnapshotLaneKey =
   | 'sentiment'
   | 'runtime'
   | 'promotion'
-  | 'eve';
+  | 'eve'
+  | 'mii';
 
 export type SnapshotLaneSemanticState = 'healthy' | 'degraded' | 'offline' | 'stale' | 'empty';
 
@@ -53,6 +54,7 @@ export const SNAPSHOT_LANE_KEYS: readonly SnapshotLaneKey[] = [
   'runtime',
   'promotion',
   'eve',
+  'mii',
 ] as const;
 
 function asRecord(data: unknown): Record<string, unknown> | null {
@@ -132,6 +134,8 @@ export function extractLaneLastUpdated(key: SnapshotLaneKey, data: unknown): str
       return d ?? pick('timestamp');
     }
     case 'eve':
+      return pick('timestamp');
+    case 'mii':
       return pick('timestamp');
     default:
       return null;
@@ -663,6 +667,37 @@ function normalizeEveLane(leaf: SnapshotLeaf): SnapshotLaneState {
   };
 }
 
+function normalizeMiiLane(leaf: SnapshotLeaf): SnapshotLaneState {
+  const lastUpdated = extractLaneLastUpdated('mii', leaf.data);
+  if (!leaf.ok) {
+    const { state, message } = classifyHttpFailure(leaf.status, leaf.error);
+    return { key: 'mii', ok: false, state, statusCode: leaf.status, message, lastUpdated, fallbackMode: 'offline' };
+  }
+  const row = asRecord(leaf.data);
+  if (row?.ok !== true) {
+    return {
+      key: 'mii',
+      ok: false,
+      state: 'degraded',
+      statusCode: leaf.status,
+      message: 'MII feed not ok',
+      lastUpdated,
+      fallbackMode: 'offline',
+    };
+  }
+  const count = typeof row.count === 'number' ? row.count : 0;
+  const agentCount = Array.isArray(row.agents) ? row.agents.length : 0;
+  return {
+    key: 'mii',
+    ok: true,
+    state: count === 0 ? 'empty' : 'healthy',
+    statusCode: leaf.status,
+    message: count === 0 ? 'MII feed empty' : `MII feed · ${count} entries · ${agentCount} agent(s)`,
+    lastUpdated,
+    fallbackMode: count === 0 ? 'empty' : 'live',
+  };
+}
+
 export function normalizeSnapshotLane(key: SnapshotLaneKey, leaf: SnapshotLeaf): SnapshotLaneState {
   switch (key) {
     case 'integrity':
@@ -687,6 +722,8 @@ export function normalizeSnapshotLane(key: SnapshotLaneKey, leaf: SnapshotLeaf):
       return normalizePromotionLane(leaf);
     case 'eve':
       return normalizeEveLane(leaf);
+    case 'mii':
+      return normalizeMiiLane(leaf);
     default:
       return {
         key,

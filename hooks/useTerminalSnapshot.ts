@@ -23,6 +23,7 @@ export type TerminalSnapshot = {
   runtime?: SnapshotLeaf;
   promotion?: SnapshotLeaf;
   eve?: SnapshotLeaf;
+  mii?: SnapshotLeaf;
 };
 
 let _cache: TerminalSnapshot | null = null;

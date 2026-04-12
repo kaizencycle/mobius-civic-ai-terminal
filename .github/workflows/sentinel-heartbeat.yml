@@ -13,7 +13,7 @@ name: Sentinel Heartbeat
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
+    - cron: '*/30 * * * *'  # Every 30 minutes
   workflow_dispatch:
     inputs:
       dry_run:
