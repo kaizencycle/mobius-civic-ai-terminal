@@ -25,6 +25,8 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   const [runtime, setRuntime] = useState<'online' | 'degraded' | 'offline'>('offline');
   const [clock, setClock] = useState('—');
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [consoleCollapsed, setConsoleCollapsed] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -52,6 +54,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
       }
 
       setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
+      setIsLoading(false);
     };
 
     void load();
@@ -60,6 +63,21 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
       mounted = false;
       window.clearInterval(id);
     };
+  }, []);
+
+  // Read persisted console collapse state on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('mobius_console_collapsed');
+    if (stored === 'true') setConsoleCollapsed(true);
+  }, []);
+
+  // Sync console collapse state when CommandSurface toggles
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setConsoleCollapsed((e as CustomEvent<{ collapsed: boolean }>).detail.collapsed);
+    };
+    window.addEventListener('mobius:console-toggle', handler as EventListener);
+    return () => window.removeEventListener('mobius:console-toggle', handler as EventListener);
   }, []);
 
   const gi = Number(integrity?.global_integrity ?? 0);
@@ -77,8 +95,12 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
             <div className="text-[13px] font-semibold tracking-[0.04em] md:text-sm md:tracking-wide">MOBIUS CIVIC TERMINAL</div>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] font-mono md:gap-2 md:text-[11px]">
-            <span className={cn('rounded border px-1.5 py-0.5 md:px-2 md:py-1', giTone)}>GI {gi.toFixed(2)}</span>
-            <span className={cn('rounded border px-1.5 py-0.5 uppercase md:px-2 md:py-1', runtimeBadgeClass(runtime))}>{runtime}</span>
+            <span className={cn('rounded border px-1.5 py-0.5 md:px-2 md:py-1', isLoading ? 'border-slate-700 text-slate-500' : giTone)}>
+              GI {isLoading ? '—' : gi.toFixed(2)}
+            </span>
+            <span className={cn('rounded border px-1.5 py-0.5 uppercase md:px-2 md:py-1', isLoading ? 'border-slate-700 bg-slate-800/40 text-slate-500' : runtimeBadgeClass(runtime))}>
+              {isLoading ? 'loading' : runtime}
+            </span>
             <span className="hidden rounded border border-slate-700 px-2 py-1 md:inline">{clock}</span>
             <span className="rounded border border-slate-700 px-1.5 py-0.5 md:px-2 md:py-1">{integrity?.cycle ?? 'C-—'}</span>
           </div>
@@ -99,7 +121,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-hidden pb-16 md:pb-28">{children}</main>
+      <main className={cn('min-h-0 flex-1 overflow-hidden', consoleCollapsed ? 'pb-7' : 'pb-16 md:pb-28')}>{children}</main>
     </div>
   );
 }
