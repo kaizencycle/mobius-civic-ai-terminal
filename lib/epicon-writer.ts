@@ -3,6 +3,13 @@ import { createClient, kv } from '@vercel/kv';
 /** Same Redis list as `app/api/epicon/feed/route.ts` (do not change without updating feed). */
 const EPICON_FEED_LIST_KEY = 'mobius:epicon:feed';
 
+export type SignalAnomalyIdentity = {
+  agentName: string;
+  source: string;
+  severity: string;
+  label: string;
+};
+
 export interface EpiconWritePayload {
   type: 'heartbeat' | 'catalog' | 'zeus-verify' | 'zeus-report' | 'epicon' | 'merge';
   severity: 'nominal' | 'degraded' | 'elevated' | 'critical' | 'info';
@@ -10,6 +17,7 @@ export interface EpiconWritePayload {
   author: string;
   gi?: number;
   anomalies?: string[];
+  signalAnomalies?: SignalAnomalyIdentity[];
   cycle?: string;
   tags?: string[];
   verified?: boolean;

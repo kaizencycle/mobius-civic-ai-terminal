@@ -224,6 +224,7 @@ export type EchoKVState = {
   lastIngest: string | null;
   cycleId: string;
   totalIngested: number;
+  healthy: boolean;
   epiconCount: number;
   ledgerCount: number;
   alertCount: number;
@@ -248,10 +249,10 @@ export async function loadEchoState(): Promise<EchoKVState | null> {
 // ── Tripwire state persistence ───────────────────────────────
 
 export type TripwireKVState = {
-  active: boolean;
-  level: 'none' | 'watch' | 'elevated';
-  reason: string;
-  last_updated: string;
+  cycleId: string;
+  tripwireCount: number;
+  elevated: boolean;
+  timestamp: string;
 };
 
 /**

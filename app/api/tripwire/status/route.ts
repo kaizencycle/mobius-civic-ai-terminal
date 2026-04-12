@@ -3,6 +3,7 @@ import { getTripwireState, setTripwireState, type RuntimeTripwireState } from '@
 import { mockTripwire } from '@/lib/mock-data';
 import { liveEnvelope, mockEnvelope } from '@/lib/response-envelope';
 import { saveTripwireState } from '@/lib/kv/store';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,10 +47,10 @@ export async function GET() {
   try {
     const tripwire = getTripwireState();
     await saveTripwireState({
-      active: tripwire.active,
-      level: tripwire.active ? 'elevated' : 'none',
-      reason: tripwire.reason,
-      last_updated: tripwire.last_updated,
+      cycleId: currentCycleId(),
+      tripwireCount: tripwire.active ? 1 : 0,
+      elevated: tripwire.active,
+      timestamp: new Date().toISOString(),
     }).catch(() => {});
 
     return NextResponse.json({
@@ -103,10 +104,10 @@ export async function POST(request: NextRequest) {
 
   setTripwireState(nextTripwire);
   await saveTripwireState({
-    active: nextTripwire.active,
-    level: nextTripwire.active ? 'elevated' : 'none',
-    reason: nextTripwire.reason,
-    last_updated: nextTripwire.last_updated,
+    cycleId: currentCycleId(),
+    tripwireCount: nextTripwire.active ? 1 : 0,
+    elevated: nextTripwire.active,
+    timestamp: new Date().toISOString(),
   }).catch(() => {});
 
   return NextResponse.json({
