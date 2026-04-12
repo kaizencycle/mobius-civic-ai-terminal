@@ -64,21 +64,38 @@ export default function JournalPageClient() {
   useEffect(() => {
     let mounted = true;
     void (async () => {
-      const [journalRes, epiconRes] = await Promise.allSettled([
-        fetch('/api/agents/journal?agent=ALL&limit=200', { cache: 'no-store' }).then((r) => r.json() as Promise<JournalResponse>),
-        fetch('/api/epicon/feed?limit=100', { cache: 'no-store' }).then((r) => r.json() as Promise<{ items?: EpiconItem[] }>),
-      ]);
+      // Fetch journal independently — passing agent=ALL treats "ALL" as a literal agent name
+      // and returns zero results. Omitting the agent param returns entries for all agents.
+      let journalEntries: JournalEntry[] = [];
+      try {
+        const res = await fetch('/api/agents/journal?limit=100', { cache: 'no-store' });
+        const data = (await res.json()) as JournalResponse;
+        journalEntries = data.entries ?? [];
+      } catch {
+        // network failure — fall through to epicon fallback
+      }
 
       if (!mounted) return;
 
-      const journalEntries = journalRes.status === 'fulfilled' ? (journalRes.value.entries ?? []) : [];
       if (journalEntries.length > 0) {
         setDerivedMode(false);
         setEntries(journalEntries);
         return;
       }
 
-      const epiconItems = epiconRes.status === 'fulfilled' ? epiconRes.value.items ?? [] : [];
+      // Only fetch epicon when journal has no entries so a slow/hung epicon endpoint
+      // cannot block the journal UI indefinitely.
+      let epiconItems: EpiconItem[] = [];
+      try {
+        const res = await fetch('/api/epicon/feed?limit=100', { cache: 'no-store' });
+        const data = (await res.json()) as { items?: EpiconItem[] };
+        epiconItems = data.items ?? [];
+      } catch {
+        // ignore
+      }
+
+      if (!mounted) return;
+
       const derived = epiconItems
         .filter((item) => item.type === 'zeus-verify' || item.author === 'cursor-agent' || item.author === 'mobius-bot' || item.type === 'heartbeat')
         .map(toDerivedEntry);
@@ -114,7 +131,7 @@ export default function JournalPageClient() {
       {entries.length === 0 ? (
         <div className="space-y-4">
           <ChamberEmptyState
-            title="Journal archive initializing"
+            title="No journal entries yet for this cycle"
             reason="Agent journals initialize when automations run."
             action="To activate: set SUBSTRATE_GITHUB_TOKEN in Vercel"
             actionDetail="Use a fine-grained PAT for kaizencycle/Mobius-Substrate with Contents read + write permissions."
