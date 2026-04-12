@@ -18,7 +18,7 @@ import { transformBatch } from '@/lib/echo/transform';
 import { pushIngestResult, getEchoStatus, getEchoEpicon, getEchoLedger, getEchoAlerts } from '@/lib/echo/store';
 import { writeSnapshot } from '@/lib/echo/snapshot-writer';
 import { saveEchoState, loadGIState } from '@/lib/kv/store';
-import { writeMiiState } from '@/lib/kv/mii';
+import { writeMiiState, readMiiFeed } from '@/lib/kv/mii';
 
 export const dynamic = 'force-dynamic';
 
@@ -151,20 +151,46 @@ export async function POST() {
         const agentAverages = result.integrity.agentAverages;
         const agents = ['ATLAS', 'ZEUS', 'JADE', 'EVE'] as const;
 
+        const ratedAgents = agents.filter((agent) => typeof agentAverages[agent] === 'number');
         await Promise.all(
-          agents
-            .filter((agent) => typeof agentAverages[agent] === 'number')
-            .map((agent) =>
+          ratedAgents.map((agent) =>
+            writeMiiState({
+              agent,
+              mii: Number(agentAverages[agent].toFixed(4)),
+              gi: currentGi,
+              cycle: result.cycleId,
+              timestamp: miiTimestamp,
+              source: 'live',
+            }),
+          ),
+        );
+
+        // Heartbeat: when all EPICONs are duplicates, agentAverages is empty and the
+        // write above skips every agent. Fall back to the last known score from the
+        // feed (or a 0.90 baseline) so mii:feed always has entries after the first
+        // real rating cycle, and the time series stays alive on duplicate-only cycles.
+        const unratedAgents = agents.filter((agent) => typeof agentAverages[agent] !== 'number');
+        if (unratedAgents.length > 0) {
+          const recentFeed = await readMiiFeed();
+          const lastKnown: Record<string, number> = {};
+          for (const entry of recentFeed) {
+            if (!(entry.agent in lastKnown)) {
+              lastKnown[entry.agent] = entry.mii;
+            }
+          }
+          await Promise.all(
+            unratedAgents.map((agent) =>
               writeMiiState({
                 agent,
-                mii: Number(agentAverages[agent].toFixed(4)),
+                mii: Number((lastKnown[agent] ?? 0.90).toFixed(4)),
                 gi: currentGi,
                 cycle: result.cycleId,
                 timestamp: miiTimestamp,
                 source: 'live',
               }),
             ),
-        );
+          );
+        }
       } catch (err) {
         console.error('[echo] mii write failed:', err instanceof Error ? err.message : err);
       }
