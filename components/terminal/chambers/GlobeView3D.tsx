@@ -304,6 +304,53 @@ export default function GlobeView3D({
         renderer.render(scene, camera);
       }
       animate();
+
+      // ── Country border lines ──────────────────────────────────────────
+      // Fetched async so the globe renders immediately; added as children
+      // of the globe mesh so they rotate with it for free.
+      void (async () => {
+        try {
+          const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+          if (!res.ok || disposed) return;
+          const topo = await res.json() as any;
+          if (disposed) return;
+
+          const tf = topo.transform as { scale: [number, number]; translate: [number, number] } | undefined;
+          const borderMat = new THREE.LineBasicMaterial({ color: 0x1e4a7a, transparent: true, opacity: 0.5 });
+
+          const arcCoords = (idx: number): [number, number][] => {
+            const raw: [number, number][] = topo.arcs[idx < 0 ? ~idx : idx];
+            let x = 0, y = 0;
+            const pts = raw.map(([dx, dy]: [number, number]) => {
+              x += dx; y += dy;
+              const lng = tf ? x * tf.scale[0] + tf.translate[0] : x;
+              const lat = tf ? y * tf.scale[1] + tf.translate[1] : y;
+              return [lng, lat] as [number, number];
+            });
+            return idx < 0 ? pts.reverse() : pts;
+          };
+
+          const R = 1.002; // just above the sphere surface to avoid z-fighting
+          for (const geo of topo.objects.countries.geometries as any[]) {
+            const rings: number[][] =
+              geo.type === 'Polygon' ? (geo.arcs as number[][]) :
+              geo.type === 'MultiPolygon' ? (geo.arcs as number[][][]).flat() : [];
+            for (const ring of rings) {
+              const pts3d: any[] = [];
+              for (const arcIdx of ring) {
+                for (const [lng, lat] of arcCoords(arcIdx)) {
+                  pts3d.push(latLngToXYZ(THREE, lat, lng, R));
+                }
+              }
+              if (pts3d.length < 2) continue;
+              globe.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts3d), borderMat));
+            }
+          }
+        } catch {
+          // country borders are optional — fail silently
+        }
+      })();
+
       setWebglReady(true);
     }
     void boot();
