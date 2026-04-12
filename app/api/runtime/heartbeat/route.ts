@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runSignalEngine } from '@/lib/signals/engine';
+import { pollAllMicroAgents } from '@/lib/agents/micro';
 import { setHeartbeat } from '@/lib/runtime/heartbeat';
 import { writeEpiconEntry } from '@/lib/epicon-writer';
 import { getEchoEpicon } from '@/lib/echo/store';
@@ -32,7 +33,11 @@ async function writeHeartbeatKV() {
 }
 
 async function runHeartbeat() {
-  const { tripwire } = await runSignalEngine();
+  // Run signal engine and micro-agent sweep in parallel — independent data sources.
+  const [{ tripwire }, microResult] = await Promise.all([
+    runSignalEngine(),
+    pollAllMicroAgents().catch(() => null),
+  ]);
   setHeartbeat();
 
   const epicon = getEchoEpicon();
@@ -69,16 +74,30 @@ async function runHeartbeat() {
     }
   }
 
-  const anomalyCount = anomalyLines.length;
+  // Signal-level anomalies from micro-agents: { agentName, source, severity, label }
+  const signalAnomalies = (microResult?.anomalies ?? []).map((s) => ({
+    agentName: s.agentName,
+    source: s.source,
+    severity: s.severity,
+    label: s.label,
+  }));
+
+  const anomalyCount = signalAnomalies.length > 0 ? signalAnomalies.length : anomalyLines.length;
+  const titleSuffix =
+    signalAnomalies.length > 0
+      ? `anomalies: ${signalAnomalies.map((s) => s.source).join(', ')}`
+      : `${anomalyCount} anomalies`;
+
   const timestamp = new Date().toISOString();
 
   writeEpiconEntry({
     type: 'heartbeat',
     severity,
-    title: `Heartbeat: ${severity.toUpperCase()} · GI ${giScore} · ${anomalyCount} anomalies`,
+    title: `Heartbeat: ${severity.toUpperCase()} · GI ${giScore} · ${titleSuffix}`,
     author: 'cursor-agent',
     gi: giScore,
     anomalies: anomalyLines,
+    signalAnomalies,
     tags: ['heartbeat', severity, 'automated'],
   }).catch(() => {});
 

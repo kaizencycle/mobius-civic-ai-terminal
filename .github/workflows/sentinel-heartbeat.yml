@@ -97,6 +97,13 @@ jobs:
           # Extract values
           COMPOSITE=$(python3 -c "import json; d=json.load(open('/tmp/micro.json')); print(d.get('composite', 0.5))" 2>/dev/null || echo "0.5")
           ANOMALY_COUNT=$(python3 -c "import json; d=json.load(open('/tmp/micro.json')); print(len(d.get('anomalies', [])))" 2>/dev/null || echo "0")
+          ANOMALY_NAMES=$(python3 -c "
+import json
+d = json.load(open('/tmp/micro.json'))
+anomalies = d.get('anomalies', [])
+names = [a.get('source', a.get('label', '?')) for a in anomalies if isinstance(a, dict)]
+print(', '.join(names) if names else '')
+" 2>/dev/null || echo "")
           GI=$(python3 -c "import json; d=json.load(open('/tmp/integrity.json')); print(d.get('global_integrity', 0))" 2>/dev/null || echo "0")
           MODE=$(python3 -c "import json; d=json.load(open('/tmp/integrity.json')); print(d.get('mode', 'unknown'))" 2>/dev/null || echo "unknown")
 
@@ -105,6 +112,7 @@ jobs:
           echo "runtime_ok=$RUNTIME_OK" >> $GITHUB_OUTPUT
           echo "composite=$COMPOSITE" >> $GITHUB_OUTPUT
           echo "anomaly_count=$ANOMALY_COUNT" >> $GITHUB_OUTPUT
+          echo "anomaly_names=$ANOMALY_NAMES" >> $GITHUB_OUTPUT
           echo "gi=$GI" >> $GITHUB_OUTPUT
           echo "mode=$MODE" >> $GITHUB_OUTPUT
 
@@ -137,6 +145,7 @@ jobs:
             "signals": {
               "composite": ${{ steps.poll.outputs.composite }},
               "anomalies": ${{ steps.poll.outputs.anomaly_count }},
+              "anomaly_names": "${{ steps.poll.outputs.anomaly_names }}",
               "gi": ${{ steps.poll.outputs.gi }},
               "mode": "${{ steps.poll.outputs.mode }}"
             }
@@ -156,7 +165,14 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes"
           else
-            git commit -m "heartbeat: ${{ steps.poll.outputs.health }} · GI ${{ steps.poll.outputs.gi }} · ${{ steps.poll.outputs.anomaly_count }} anomalies [skip ci]"
+            ANOMALY_COUNT="${{ steps.poll.outputs.anomaly_count }}"
+            ANOMALY_NAMES="${{ steps.poll.outputs.anomaly_names }}"
+            if [ -n "$ANOMALY_NAMES" ] && [ "$ANOMALY_COUNT" != "0" ]; then
+              COMMIT_MSG="heartbeat: ${{ steps.poll.outputs.health }} · GI ${{ steps.poll.outputs.gi }} · anomalies: ${ANOMALY_NAMES} [skip ci]"
+            else
+              COMMIT_MSG="heartbeat: ${{ steps.poll.outputs.health }} · GI ${{ steps.poll.outputs.gi }} · ${ANOMALY_COUNT} anomalies [skip ci]"
+            fi
+            git commit -m "$COMMIT_MSG"
             git push
           fi
 
@@ -173,6 +189,7 @@ jobs:
           echo "| Mode | ${{ steps.poll.outputs.mode }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Composite signal | ${{ steps.poll.outputs.composite }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Anomalies | ${{ steps.poll.outputs.anomaly_count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Anomaly names | ${{ steps.poll.outputs.anomaly_names || 'none' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Micro-agents | ${{ steps.poll.outputs.micro_ok }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Integrity API | ${{ steps.poll.outputs.integrity_ok }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Runtime | ${{ steps.poll.outputs.runtime_ok }} |" >> $GITHUB_STEP_SUMMARY
