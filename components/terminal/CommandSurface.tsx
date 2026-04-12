@@ -23,8 +23,9 @@ export default function CommandSurface() {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false,
   );
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const touchStartY = useRef<number | null>(null);
+  const isMountedRef = useRef(false);
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -60,15 +61,27 @@ ${greeting}`,
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const mql = window.matchMedia('(max-width: 767px)');
-    const sync = () => {
-      const nextMobile = mql.matches;
-      setIsMobile(nextMobile);
-      setExpanded((prev) => (nextMobile ? prev : true));
-    };
+    const sync = () => setIsMobile(mql.matches);
     sync();
     mql.addEventListener('change', sync);
     return () => mql.removeEventListener('change', sync);
   }, []);
+
+  // Read persisted collapse state on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('mobius_console_collapsed');
+    if (stored === 'true') setExpanded(false);
+  }, []);
+
+  // Persist collapse state and notify layout when it changes
+  useEffect(() => {
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      return;
+    }
+    localStorage.setItem('mobius_console_collapsed', String(!expanded));
+    window.dispatchEvent(new CustomEvent('mobius:console-toggle', { detail: { collapsed: !expanded } }));
+  }, [expanded]);
 
   function push(command: string, response: string, type: CommandOutput['type'] = 'info') {
     setOutput((prev) => [{ timestamp: new Date().toISOString(), command, response, type }, ...prev].slice(0, 25));
@@ -303,7 +316,7 @@ ${greeting}`,
     push(trimmed, `Unknown command: ${base}`, 'error');
   }
 
-  const isOpen = isMobile ? expanded : true;
+  const isOpen = expanded;
 
   return (
     <div className="fixed bottom-7 left-0 right-0 z-40 border-t border-slate-800 bg-slate-950 font-mono text-[11px] tracking-wide">
@@ -320,11 +333,11 @@ ${greeting}`,
           if (!isMobile || startY == null || endY == null) return;
           if (endY - startY > 36) setExpanded(false);
         }}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-400 md:hidden"
+        className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-400"
         aria-expanded={isOpen}
         aria-controls="mobius-command-console"
       >
-        <span>Command console</span>
+        <span>{isOpen ? '▾ Console' : '▸ Console'}</span>
         <span className="rounded border border-slate-700 px-2 py-0.5 text-[9px]">
           {isOpen ? 'Collapse' : 'Open'}
         </span>
