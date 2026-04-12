@@ -88,6 +88,17 @@ export async function POST() {
     const rawEvents = await fetchAllSources();
 
     if (rawEvents.length === 0) {
+      const emptyStatus = getEchoStatus();
+      await saveEchoState({
+        lastIngest: emptyStatus.lastIngest,
+        cycleId: emptyStatus.cycleId,
+        totalIngested: emptyStatus.totalIngested,
+        healthy: false,
+        epiconCount: emptyStatus.counts.epicon,
+        ledgerCount: emptyStatus.counts.ledger,
+        alertCount: emptyStatus.counts.alerts,
+        timestamp: new Date().toISOString(),
+      }).catch(() => {});
       return NextResponse.json({
         agent: 'ECHO',
         action: 'ingest',
@@ -109,6 +120,7 @@ export async function POST() {
       lastIngest: status.lastIngest,
       cycleId: status.cycleId,
       totalIngested: status.totalIngested,
+      healthy: true,
       epiconCount: status.counts.epicon,
       ledgerCount: status.counts.ledger,
       alertCount: status.counts.alerts,
