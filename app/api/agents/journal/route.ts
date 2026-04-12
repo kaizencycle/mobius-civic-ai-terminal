@@ -47,8 +47,6 @@ type AgentJournalCreateInput = Omit<AgentJournalEntry, 'id' | 'timestamp' | 'sta
   summary?: string;
 };
 
-const KEY_ALL = 'journal:all';
-const MAX_LIST_ENTRIES = 200;
 const MAX_READ = 100;
 const GENESIS_AGENTS = ['ATLAS', 'ZEUS', 'EVE', 'HERMES', 'AUREA', 'JADE', 'DAEDALUS', 'ECHO'] as const;
 
@@ -123,33 +121,32 @@ function substrateRecordToAgentEntry(row: SubstrateJournalEntry): AgentJournalEn
   };
 }
 
-function parseEntry(input: unknown): AgentJournalEntry | null {
+function parseEntry(input: unknown, fallbackAgent?: string, fallbackCycle?: string): AgentJournalEntry | null {
   const row = asRecord(input);
   if (!row) return null;
 
   const id = asString(row.id);
-  const agent = asString(row.agent).toUpperCase();
-  const cycle = asString(row.cycle);
+  const agent = (asString(row.agent) || asString(fallbackAgent)).toUpperCase();
+  const cycle = asString(row.cycle) || asString(fallbackCycle);
   const timestamp = asString(row.timestamp);
-  const scope = asString(row.scope);
+  const scope = asString(row.scope) || 'agent-journal';
   const observation = asString(row.observation);
   const inference = asString(row.inference);
   const recommendation = asString(row.recommendation);
-  const status = asString(row.status) as AgentJournalStatus;
-  const category = asString(row.category) as AgentJournalCategory;
-  const severity = asString(row.severity) as AgentJournalSeverity;
+  const status = (asString(row.status) || 'committed') as AgentJournalStatus;
+  const category = (asString(row.category) || 'observation') as AgentJournalCategory;
+  const severity = (asString(row.severity) || 'nominal') as AgentJournalSeverity;
   const agentOrigin = asString(row.agentOrigin).toUpperCase();
   const source = row.source;
-  const confidence = typeof row.confidence === 'number' ? Math.max(0, Math.min(1, row.confidence)) : Number.NaN;
+  const confidence = typeof row.confidence === 'number' ? Math.max(0, Math.min(1, row.confidence)) : 0.5;
 
-  if (!id || !agent || !cycle || !timestamp || !scope || !observation || !inference || !recommendation || !agentOrigin) {
+  if (!id || !agent || !cycle || !timestamp || !observation || !inference || !recommendation || !agentOrigin) {
     return null;
   }
   if (!['draft', 'committed', 'contested', 'verified'].includes(status)) return null;
   if (!['observation', 'inference', 'alert', 'recommendation', 'close'].includes(category)) return null;
   if (!['nominal', 'elevated', 'critical'].includes(severity)) return null;
   if (source !== 'agent-journal') return null;
-  if (Number.isNaN(confidence)) return null;
 
   return {
     id,
@@ -225,60 +222,51 @@ async function loadEntries(
   if (!redis) return [];
 
   try {
-    const normalized = (agentFilters ?? []).map((agent) => agent.toLowerCase());
-    const keys =
-      normalized.length > 0
-        ? [KEY_ALL, ...normalized.map((agent) => `journal:${agent}`)]
-        : [KEY_ALL, ...GENESIS_AGENTS.map((agent) => `journal:${agent.toLowerCase()}`)];
-    const keyRows = await Promise.all(keys.map((key) => redis.lrange<string[]>(key, 0, MAX_READ - 1)));
-    const rows = keyRows.flat();
+    const normalized = new Set((agentFilters ?? []).map((agent) => agent.trim().toUpperCase()).filter(Boolean));
+    const keys = await redis.keys('journal:*');
     const seen = new Set<string>();
     const out: AgentJournalEntry[] = [];
-    for (const row of rows ?? []) {
-      if (typeof row !== 'string') continue;
-      try {
-        const parsed = parseEntry(JSON.parse(row));
-        if (parsed && !seen.has(parsed.id)) {
-          seen.add(parsed.id);
-          out.push(parsed);
-        }
-      } catch {
-        continue;
+
+    for (const key of keys) {
+      const segments = key.split(':');
+      if (segments.length !== 3) continue;
+      if (segments[0] !== 'journal') continue;
+      const keyAgent = asString(segments[1]).toUpperCase();
+      const keyCycle = asString(segments[2]);
+      if (!keyAgent || !keyCycle) continue;
+      if (normalized.size > 0 && !normalized.has(keyAgent)) continue;
+
+      const raw = await redis.get<unknown>(key);
+      const rows = Array.isArray(raw) ? raw : [raw];
+      for (const row of rows) {
+        const candidate =
+          typeof row === 'string'
+            ? (() => {
+                try {
+                  return JSON.parse(row) as unknown;
+                } catch {
+                  return null;
+                }
+              })()
+            : row;
+        if (!candidate) continue;
+
+        const parsed = parseEntry(candidate, keyAgent, keyCycle);
+        if (!parsed) continue;
+        if (parsed.source !== 'agent-journal') continue;
+        if (!asString(parsed.agentOrigin)) continue;
+        if (normalized.size > 0 && !normalized.has(parsed.agentOrigin.toUpperCase())) continue;
+        if (seen.has(parsed.id)) continue;
+        seen.add(parsed.id);
+        out.push(parsed);
       }
     }
-    return out;
+
+    return out
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, MAX_READ);
   } catch {
     return [];
-  }
-}
-
-async function seedGenesisEntries(redis: NonNullable<ReturnType<typeof getJournalRedisClient>>, cycle: string): Promise<void> {
-  const timestamp = new Date().toISOString();
-  for (const agent of GENESIS_AGENTS) {
-    const entry: AgentJournalEntry = {
-      id: `journal-${agent}-${cycle}-genesis`,
-      agent,
-      cycle,
-      timestamp,
-      scope: 'agent-journal',
-      observation: `${agent} genesis observation initialized for ${cycle}.`,
-      inference: `${agent} baseline reasoning lane is active and ready for live cycle commits.`,
-      recommendation: `Continue cycle ${cycle} and replace genesis scaffolding with live entries.`,
-      confidence: 0.72,
-      derivedFrom: [],
-      status: 'committed',
-      category: 'observation',
-      severity: 'nominal',
-      source: 'agent-journal',
-      agentOrigin: agent,
-      tags: ['genesis', cycle.toLowerCase()],
-    };
-
-    const packed = JSON.stringify(entry);
-    await redis.lpush(KEY_ALL, packed);
-    await redis.ltrim(KEY_ALL, 0, MAX_LIST_ENTRIES - 1);
-    await redis.lpush(`journal:${agent.toLowerCase()}`, packed);
-    await redis.ltrim(`journal:${agent.toLowerCase()}`, 0, MAX_LIST_ENTRIES - 1);
   }
 }
 
@@ -299,11 +287,7 @@ export async function GET(request: NextRequest) {
   const limitRaw = Number(searchParams.get('limit') ?? '20');
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 100) : 20;
 
-  let kvEntries = await loadEntries(redis, agentFilters);
-  if (kvEntries.length === 0 && redis) {
-    await seedGenesisEntries(redis, cycleFilter || 'C-278');
-    kvEntries = await loadEntries(redis, agentFilters);
-  }
+  const kvEntries = await loadEntries(redis, agentFilters);
 
   let substrateError: string | null = null;
   let substrateEntries: AgentJournalEntry[] = [];
@@ -329,7 +313,7 @@ export async function GET(request: NextRequest) {
   }
 
   const kvForSources = agentFilters.length > 0
-    ? kvEntries.filter((e) => agentFilterSet.has(e.agent.toUpperCase()))
+    ? kvEntries.filter((e) => agentFilterSet.has(e.agentOrigin.toUpperCase()))
     : kvEntries;
 
   const all = [...kvEntries, ...substrateEntries];
@@ -343,7 +327,7 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const filtered = merged
-    .filter((entry) => (agentFilters.length > 0 ? agentFilterSet.has(entry.agent.toUpperCase()) : true))
+    .filter((entry) => (agentFilters.length > 0 ? agentFilterSet.has(entry.agentOrigin.toUpperCase()) : true))
     .filter((entry) => (cycleFilter ? entry.cycle === cycleFilter : true))
     .slice(0, limit);
 
