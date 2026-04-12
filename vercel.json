@@ -17,10 +17,6 @@
     {
       "path": "/api/cron/promote",
       "schedule": "30 0 * * *"
-    },
-    {
-      "path": "/api/cron/echo-ingest",
-      "schedule": "0 */2 * * *"
     }
   ],
   "installCommand": "pnpm install --no-frozen-lockfile"
