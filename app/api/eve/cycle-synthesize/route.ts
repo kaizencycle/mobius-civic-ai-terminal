@@ -21,6 +21,8 @@ import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getEveSynthesisAuthError, isVercelCronInvocation } from '@/lib/security/serviceAuth';
 import { runSignalEngine } from '@/lib/signals/engine';
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
+import { loadGIState } from '@/lib/kv/store';
+import { writeMiiState } from '@/lib/kv/mii';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,6 +123,8 @@ export async function POST(request: NextRequest) {
         ? await processEveEscalationSynthesis(cycleId, force, reason)
         : await processEveCycleWindowSynthesis(cycleId, force);
 
+    const eveMii = inferEveConfidence(payload);
+
     void appendAgentJournalEntry({
       agent: 'EVE',
       cycle: cycleId,
@@ -133,13 +137,29 @@ export async function POST(request: NextRequest) {
         mode === 'escalation'
           ? 'Prioritize ZEUS verification and ATLAS oversight checks.'
           : 'Continue normal verification cadence across ZEUS and ATLAS.',
-      confidence: inferEveConfidence(payload),
+      confidence: eveMii,
       derivedFrom: ['signal-engine:run', `eve-synthesis:${cycleId}`],
       relatedAgents: ['ZEUS', 'ATLAS'],
       status: 'committed',
       category: mode === 'escalation' ? 'alert' : 'inference',
       severity: inferEveSeverity(payload),
     }).catch(() => {});
+
+    void (async () => {
+      try {
+        const giState = await loadGIState();
+        await writeMiiState({
+          agent: 'EVE',
+          mii: Number(eveMii.toFixed(4)),
+          gi: Number((giState?.global_integrity ?? 0.74).toFixed(4)),
+          cycle: cycleId,
+          timestamp: new Date().toISOString(),
+          source: 'live',
+        });
+      } catch (err) {
+        console.error('[eve] mii write failed:', err instanceof Error ? err.message : err);
+      }
+    })();
 
     return NextResponse.json(payload);
   } catch (err) {

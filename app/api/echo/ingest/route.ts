@@ -17,7 +17,8 @@ import { fetchAllSources } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
 import { pushIngestResult, getEchoStatus, getEchoEpicon, getEchoLedger, getEchoAlerts } from '@/lib/echo/store';
 import { writeSnapshot } from '@/lib/echo/snapshot-writer';
-import { saveEchoState } from '@/lib/kv/store';
+import { saveEchoState, loadGIState } from '@/lib/kv/store';
+import { writeMiiState } from '@/lib/kv/mii';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,6 +141,34 @@ export async function POST() {
       verified: entry.status === 'verified',
     }));
     await flushEpiconFeed(kvFeedEntries);
+
+    // 5. Write MII state for each rated agent (fire-and-forget)
+    void (async () => {
+      try {
+        const giState = await loadGIState();
+        const currentGi = Number((giState?.global_integrity ?? 0.74).toFixed(4));
+        const miiTimestamp = new Date().toISOString();
+        const agentAverages = result.integrity.agentAverages;
+        const agents = ['ATLAS', 'ZEUS', 'JADE', 'EVE'] as const;
+
+        await Promise.all(
+          agents
+            .filter((agent) => typeof agentAverages[agent] === 'number')
+            .map((agent) =>
+              writeMiiState({
+                agent,
+                mii: Number(agentAverages[agent].toFixed(4)),
+                gi: currentGi,
+                cycle: result.cycleId,
+                timestamp: miiTimestamp,
+                source: 'live',
+              }),
+            ),
+        );
+      } catch (err) {
+        console.error('[echo] mii write failed:', err instanceof Error ? err.message : err);
+      }
+    })();
 
     // 4. Generate docs/echo/ snapshot (fire-and-forget, non-blocking)
     let snapshotWritten = false;
