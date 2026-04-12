@@ -108,6 +108,7 @@ type TerminalSnapshotResponse = {
   runtime: { ok: boolean; status: number; data: unknown; error: string | null };
   promotion: { ok: boolean; status: number; data: unknown; error: string | null };
   eve: { ok: boolean; status: number; data: unknown; error: string | null };
+  mii?: { ok: boolean; status: number; data: unknown; error: string | null };
 };
 
 const TABS: Array<{ key: NavKey; label: string }> = [
