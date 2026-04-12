@@ -56,34 +56,23 @@ export type IntegrityPayload = {
   terminal_status: 'nominal' | 'stressed' | 'critical';
   primary_driver: string;
   summary: string;
-  source: 'live' | 'mock' | 'cached';
+  source: 'live' | 'mock' | 'cached' | 'kv';
   kv?: boolean;
   signals: Record<string, number>;
 };
 
 /**
  * Same GI/MII posture as the integrity ribbon (including Redis cold-start cache when applicable).
+ *
+ * Source priority:
+ *   1. KV (gi:latest) — primary when KV is reachable and GI_STATE key exists and is fresh
+ *   2. local computation — fallback when KV is unreachable or GI_STATE key is missing/stale
  */
 export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
-  const freshness = getStalenessStatus(getHeartbeat());
-  const tripwire = getTripwireState();
-  const signalData = resolveSignalQuality();
-
-  const effectiveFreshness =
-    signalData.source === 'mock' && freshness.status === 'fresh' ? ('degraded' as const) : freshness.status;
-
-  const computed = computeGI({
-    zeusScores: signalData.scores,
-    freshness: effectiveFreshness,
-    tripwire: normalizeTripwireLevel(tripwire.level),
-    activeAgents: resolveActiveAgentCount(),
-  });
-
-  let source: 'live' | 'mock' | 'cached' = signalData.source;
-
-  if (signalData.source === 'mock' && isRedisAvailable()) {
+  // 1. Primary: read from KV when available
+  if (isRedisAvailable()) {
     const cached = await loadGIState();
-    if (cached && cached.source !== 'mock') {
+    if (cached) {
       const age = Date.now() - new Date(cached.timestamp).getTime();
       const mode = parseGIMode(cached.mode);
       const terminal_status = parseTerminalStatus(cached.terminal_status);
@@ -98,7 +87,7 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
           terminal_status,
           primary_driver: cached.primary_driver,
           summary: 'GI reflects signal quality, freshness, tripwire stability, and active system health.',
-          source: 'cached',
+          source: 'kv',
           kv: true,
           signals: {
             ...cached.signals,
@@ -111,6 +100,23 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
       }
     }
   }
+
+  // 2. Fallback: compute locally from in-process signals
+  const freshness = getStalenessStatus(getHeartbeat());
+  const tripwire = getTripwireState();
+  const signalData = resolveSignalQuality();
+
+  const effectiveFreshness =
+    signalData.source === 'mock' && freshness.status === 'fresh' ? ('degraded' as const) : freshness.status;
+
+  const computed = computeGI({
+    zeusScores: signalData.scores,
+    freshness: effectiveFreshness,
+    tripwire: normalizeTripwireLevel(tripwire.level),
+    activeAgents: resolveActiveAgentCount(),
+  });
+
+  const source: 'live' | 'mock' | 'cached' = signalData.source;
 
   if (isRedisAvailable()) {
     const giState: GIState = {
