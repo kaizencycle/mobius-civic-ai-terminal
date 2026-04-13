@@ -20,7 +20,16 @@ export interface DataSourceConfig {
   };
   retryConfig: {
     maxRetries: number;
+    /** Initial backoff for SSE reconnect (ms). */
     backoffMs: number;
+    /** Cap for exponential backoff (ms). */
+    maxBackoffMs?: number;
+    /** Consecutive SSE errors before opening the circuit. */
+    circuitBreakerThreshold?: number;
+    /** Pause all reconnects while circuit is open (ms). */
+    circuitCooldownMs?: number;
+    /** Upper bound on random jitter added to each delay (ms). */
+    jitterMaxMs?: number;
   };
 }
 
