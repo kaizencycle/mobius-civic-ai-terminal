@@ -281,6 +281,78 @@ export async function loadTripwireState(): Promise<TripwireKVState | null> {
 /**
  * Check Redis health and return diagnostic info.
  */
+export type KvInspectKeyRow = {
+  key: string;
+  type: string;
+  ttlSeconds: number | null;
+  sample: unknown;
+};
+
+/**
+ * Operator debug: list Redis keys matching pattern and sample values.
+ * Uses raw Redis key names (includes `mobius:` prefix where writers use `kvSet`).
+ */
+export async function kvInspectSamples(pattern: string, limit: number): Promise<{
+  ok: boolean;
+  error: string | null;
+  totalMatched: number;
+  keys: KvInspectKeyRow[];
+}> {
+  const redis = getRedis();
+  if (!redis) {
+    return { ok: false, error: 'Redis unavailable or not configured', totalMatched: 0, keys: [] };
+  }
+
+  const safeLimit = Math.min(Math.max(limit, 1), 50);
+  const safePattern = pattern.trim() || '*';
+
+  try {
+    const matched = await redis.keys(safePattern);
+    const totalMatched = matched.length;
+    const slice = matched.slice(0, safeLimit);
+    const keys: KvInspectKeyRow[] = [];
+
+    for (const key of slice) {
+      const t = await redis.type(key);
+      let ttlSeconds: number | null = null;
+      try {
+        const ttl = await redis.ttl(key);
+        ttlSeconds = ttl === undefined || ttl === null ? null : ttl;
+      } catch {
+        ttlSeconds = null;
+      }
+
+      let sample: unknown = null;
+      try {
+        if (t === 'string') {
+          sample = await redis.get(key);
+        } else if (t === 'list') {
+          sample = await redis.lrange(key, 0, 4);
+        } else if (t === 'hash') {
+          sample = await redis.hgetall(key);
+        } else if (t === 'zset') {
+          sample = await redis.zrange(key, 0, 4, { withScores: true });
+        } else {
+          sample = { note: `unsupported type: ${t}` };
+        }
+      } catch (err) {
+        sample = { error: err instanceof Error ? err.message : 'read failed' };
+      }
+
+      keys.push({ key, type: t, ttlSeconds, sample });
+    }
+
+    return { ok: true, error: null, totalMatched, keys };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'keys scan failed',
+      totalMatched: 0,
+      keys: [],
+    };
+  }
+}
+
 export async function kvHealth(): Promise<{
   available: boolean;
   configured: boolean;

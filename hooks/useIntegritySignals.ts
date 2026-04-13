@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { MobiusDataClient } from '@/lib/ingestion/MobiusDataClient';
+import { MobiusDataClient, type SseConnectionStatus, type SseStatusDetail } from '@/lib/ingestion/MobiusDataClient';
 import type { IngestedSignal } from '@/lib/ingestion/types';
 
 const MAX_SIGNAL_HISTORY = Number(process.env.NEXT_PUBLIC_MAX_SIGNAL_HISTORY ?? 1000);
@@ -24,6 +24,7 @@ export function useIntegritySignals() {
   const [signals, setSignals] = useState<IngestedSignal[]>([]);
   const [signalCounts, setSignalCounts] = useState<Record<string, number>>({});
   const [isConnected, setIsConnected] = useState(false);
+  const [sseBySource, setSseBySource] = useState<Record<string, SseConnectionStatus>>({});
 
   useEffect(() => {
     const handleSignal = (event: Event) => {
@@ -38,7 +39,15 @@ export function useIntegritySignals() {
       }));
     };
 
+    const handleSseStatus = (event: Event) => {
+      const e = event as CustomEvent<SseStatusDetail>;
+      const d = e.detail;
+      if (!d?.source) return;
+      setSseBySource((prev) => ({ ...prev, [d.source]: d.status }));
+    };
+
     client.signalBus.addEventListener('signal', handleSignal);
+    client.signalBus.addEventListener('sse:status', handleSseStatus);
 
     void client.connectAll().then(() => {
       setIsConnected(true);
@@ -46,6 +55,7 @@ export function useIntegritySignals() {
 
     return () => {
       client.signalBus.removeEventListener('signal', handleSignal);
+      client.signalBus.removeEventListener('sse:status', handleSseStatus);
       client.disconnectAll();
     };
   }, [client]);
@@ -81,10 +91,20 @@ export function useIntegritySignals() {
     };
   }, [getSignalsByType]);
 
+  const streamHealth: 'live' | 'degraded' | 'unknown' = (() => {
+    const statuses = Object.values(sseBySource);
+    if (statuses.length === 0) return 'unknown';
+    if (statuses.some((s) => s === 'circuit_open' || s === 'degraded')) return 'degraded';
+    if (statuses.every((s) => s === 'live')) return 'live';
+    return 'unknown';
+  })();
+
   return {
     signals,
     signalCounts,
     isConnected,
+    sseBySource,
+    streamHealth,
     getSignalsByType,
     getLatestSignal,
     getAggregatedGI,

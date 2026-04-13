@@ -6,12 +6,49 @@ import {
 } from '@/lib/ingestion/types';
 
 const DEFAULT_SSE_RECONNECT_MS = Number(process.env.NEXT_PUBLIC_SSE_RECONNECT_MS ?? 5000);
+const DEFAULT_SSE_MAX_BACKOFF_MS = Number(process.env.NEXT_PUBLIC_SSE_MAX_BACKOFF_MS ?? 60_000);
+const DEFAULT_SSE_CIRCUIT_THRESHOLD = Number(process.env.NEXT_PUBLIC_SSE_CIRCUIT_THRESHOLD ?? 5);
+const DEFAULT_SSE_CIRCUIT_COOLDOWN_MS = Number(process.env.NEXT_PUBLIC_SSE_CIRCUIT_COOLDOWN_MS ?? 60_000);
+const DEFAULT_SSE_JITTER_MAX_MS = Number(process.env.NEXT_PUBLIC_SSE_JITTER_MAX_MS ?? 1000);
 const DEFAULT_POLL_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_POLL_INTERVAL_MS ?? 30000);
+const SNAPSHOT_POLL_MS = Number(process.env.NEXT_PUBLIC_TERMINAL_SNAPSHOT_POLL_MS ?? 0);
+
+export type SseConnectionStatus = 'connecting' | 'live' | 'degraded' | 'circuit_open';
+
+export type SseStatusDetail = {
+  source: string;
+  status: SseConnectionStatus;
+  attempt?: number;
+  nextRetryMs?: number;
+};
+
+function resolveSseRetry(config: DataSourceConfig) {
+  const r = config.retryConfig;
+  return {
+    baseMs: Math.max(500, r.backoffMs),
+    maxMs: Math.max(r.backoffMs, r.maxBackoffMs ?? DEFAULT_SSE_MAX_BACKOFF_MS),
+    circuitThreshold: Math.max(1, r.circuitBreakerThreshold ?? DEFAULT_SSE_CIRCUIT_THRESHOLD),
+    circuitCooldownMs: Math.max(1000, r.circuitCooldownMs ?? DEFAULT_SSE_CIRCUIT_COOLDOWN_MS),
+    jitterMaxMs: Math.max(0, r.jitterMaxMs ?? DEFAULT_SSE_JITTER_MAX_MS),
+  };
+}
+
+function randomJitter(maxMs: number): number {
+  if (maxMs <= 0) return 0;
+  return Math.floor(Math.random() * (maxMs + 1));
+}
+
+type SseRuntime = {
+  consecutiveErrors: number;
+  circuitOpenUntil: number;
+  reconnectTimer: number | null;
+};
 
 export class MobiusDataClient {
   private readonly sources: Map<string, DataSourceConfig> = new Map();
   private readonly eventSources: Map<string, EventSource> = new Map();
   private readonly pollingIntervals: Map<string, ReturnType<typeof setInterval>> = new Map();
+  private readonly sseRuntime: Map<string, SseRuntime> = new Map();
 
   public readonly signalBus = new EventTarget();
 
@@ -19,12 +56,43 @@ export class MobiusDataClient {
     this.registerDefaultSources();
   }
 
+  private emitSseStatus(source: string, status: SseConnectionStatus, extra?: Partial<Omit<SseStatusDetail, 'source' | 'status'>>) {
+    const detail: SseStatusDetail = { source, status, ...extra };
+    this.signalBus.dispatchEvent(new CustomEvent<SseStatusDetail>('sse:status', { detail }));
+  }
+
+  private sseMeta(name: string): SseRuntime {
+    let row = this.sseRuntime.get(name);
+    if (!row) {
+      row = { consecutiveErrors: 0, circuitOpenUntil: 0, reconnectTimer: null };
+      this.sseRuntime.set(name, row);
+    }
+    return row;
+  }
+
+  private clearSseReconnect(name: string) {
+    const meta = this.sseRuntime.get(name);
+    if (meta?.reconnectTimer) {
+      window.clearTimeout(meta.reconnectTimer);
+      meta.reconnectTimer = null;
+    }
+  }
+
   private registerDefaultSources() {
+    const sseRetry = {
+      maxRetries: 1000,
+      backoffMs: DEFAULT_SSE_RECONNECT_MS,
+      maxBackoffMs: DEFAULT_SSE_MAX_BACKOFF_MS,
+      circuitBreakerThreshold: DEFAULT_SSE_CIRCUIT_THRESHOLD,
+      circuitCooldownMs: DEFAULT_SSE_CIRCUIT_COOLDOWN_MS,
+      jitterMaxMs: DEFAULT_SSE_JITTER_MAX_MS,
+    };
+
     this.registerSource({
       name: 'terminal-api',
       baseUrl: process.env.NEXT_PUBLIC_TERMINAL_API_BASE ?? 'http://localhost:8000/api/v1',
       type: 'sse',
-      retryConfig: { maxRetries: 5, backoffMs: DEFAULT_SSE_RECONNECT_MS },
+      retryConfig: sseRetry,
     });
 
     this.registerSource({
@@ -45,8 +113,17 @@ export class MobiusDataClient {
       name: 'thought-broker',
       baseUrl: process.env.NEXT_PUBLIC_BROKER_URL ?? 'http://localhost:4005',
       type: 'sse',
-      retryConfig: { maxRetries: 5, backoffMs: DEFAULT_SSE_RECONNECT_MS },
+      retryConfig: sseRetry,
     });
+
+    if (typeof window !== 'undefined' && Number.isFinite(SNAPSHOT_POLL_MS) && SNAPSHOT_POLL_MS > 0) {
+      this.registerSource({
+        name: 'terminal-snapshot',
+        baseUrl: window.location.origin,
+        type: 'poll',
+        retryConfig: { maxRetries: 3, backoffMs: 1000 },
+      });
+    }
   }
 
   registerSource(config: DataSourceConfig) {
@@ -68,18 +145,62 @@ export class MobiusDataClient {
         this.startPolling(name, config, 5000);
         break;
       case 'poll':
-        this.startPolling(name, config, DEFAULT_POLL_INTERVAL_MS);
+        this.startPolling(name, config, name === 'terminal-snapshot' ? SNAPSHOT_POLL_MS : DEFAULT_POLL_INTERVAL_MS);
         break;
       default:
         break;
     }
   }
 
-  private connectSSE(name: string, config: DataSourceConfig, attempts = 0) {
-    const url = this.getStreamUrl(name, config);
-    const eventSource = new EventSource(url);
+  private connectSSE(name: string, config: DataSourceConfig) {
+    if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
+      return;
+    }
 
-    eventSource.onmessage = (event) => {
+    const meta = this.sseMeta(name);
+    const retry = resolveSseRetry(config);
+    const url = this.getStreamUrl(name, config);
+
+    this.clearSseReconnect(name);
+
+    const now = Date.now();
+    if (meta.circuitOpenUntil > now) {
+      const wait = meta.circuitOpenUntil - now;
+      this.emitSseStatus(name, 'circuit_open', { nextRetryMs: wait });
+      meta.reconnectTimer = window.setTimeout(() => {
+        meta.reconnectTimer = null;
+        meta.circuitOpenUntil = 0;
+        this.connectSSE(name, config);
+      }, wait);
+      return;
+    }
+
+    const prev = this.eventSources.get(name);
+    if (prev) {
+      prev.close();
+      this.eventSources.delete(name);
+    }
+
+    this.emitSseStatus(name, 'connecting');
+
+    let es: EventSource;
+    try {
+      es = new EventSource(url);
+    } catch {
+      this.scheduleSseReconnect(name, config, 'EventSource constructor failed');
+      return;
+    }
+
+    this.eventSources.set(name, es);
+
+    es.onopen = () => {
+      meta.consecutiveErrors = 0;
+      meta.circuitOpenUntil = 0;
+      this.emitSseStatus(name, 'live');
+    };
+
+    es.onmessage = (event) => {
+      meta.consecutiveErrors = 0;
       try {
         const data = JSON.parse(event.data) as unknown;
         this.processSignal(name, data);
@@ -88,21 +209,36 @@ export class MobiusDataClient {
       }
     };
 
-    eventSource.onerror = () => {
-      eventSource.close();
+    es.onerror = () => {
+      es.close();
+      this.eventSources.delete(name);
+      meta.consecutiveErrors += 1;
+      this.emitSseStatus(name, 'degraded', { attempt: meta.consecutiveErrors });
 
-      if (attempts >= config.retryConfig.maxRetries) {
-        console.error(`[${name}] SSE retry limit reached`);
+      if (meta.consecutiveErrors >= retry.circuitThreshold) {
+        meta.circuitOpenUntil = Date.now() + retry.circuitCooldownMs;
+        meta.consecutiveErrors = 0;
+        this.emitSseStatus(name, 'circuit_open', { nextRetryMs: retry.circuitCooldownMs });
+        this.scheduleSseReconnect(name, config, undefined, retry.circuitCooldownMs);
         return;
       }
 
-      window.setTimeout(
-        () => this.connectSSE(name, config, attempts + 1),
-        config.retryConfig.backoffMs,
-      );
+      const exp = Math.min(retry.baseMs * 2 ** (meta.consecutiveErrors - 1), retry.maxMs);
+      const delay = exp + randomJitter(retry.jitterMaxMs);
+      this.scheduleSseReconnect(name, config, undefined, delay);
     };
+  }
 
-    this.eventSources.set(name, eventSource);
+  private scheduleSseReconnect(name: string, config: DataSourceConfig, _reason?: string, delayMs?: number) {
+    const meta = this.sseMeta(name);
+    this.clearSseReconnect(name);
+    const retry = resolveSseRetry(config);
+    const delay = Math.max(0, delayMs ?? retry.baseMs);
+
+    meta.reconnectTimer = window.setTimeout(() => {
+      meta.reconnectTimer = null;
+      this.connectSSE(name, config);
+    }, delay);
   }
 
   private startPolling(name: string, config: DataSourceConfig, intervalMs: number) {
@@ -128,11 +264,7 @@ export class MobiusDataClient {
     this.pollingIntervals.set(name, interval);
   }
 
-  private getStreamUrl(name: string, config: DataSourceConfig): string {
-    if (name === 'terminal-api') {
-      return `${config.baseUrl}/stream/events`;
-    }
-
+  private getStreamUrl(_name: string, config: DataSourceConfig): string {
     return `${config.baseUrl}/stream/events`;
   }
 
@@ -142,6 +274,7 @@ export class MobiusDataClient {
       'civic-ledger': ['/epicon/record', '/epicon/attestations', '/ledger/history'],
       'gi-aggregator': ['/gi/current', '/gi/factors'],
       'thought-broker': ['/sentinels/status', '/consensus/active'],
+      'terminal-snapshot': ['/api/terminal/snapshot'],
     };
 
     return endpointMap[name] ?? ['/'];
@@ -163,6 +296,7 @@ export class MobiusDataClient {
   }
 
   private classifySignal(endpoint?: string): SignalType {
+    if (endpoint?.includes('terminal/snapshot')) return 'integrity';
     if (endpoint?.includes('epicon')) return 'epicon';
     if (endpoint?.includes('agent')) return 'agent';
     if (endpoint?.includes('integrity') || endpoint?.includes('gi')) return 'integrity';
@@ -227,6 +361,7 @@ export class MobiusDataClient {
       'civic-ledger': 0.95,
       'gi-aggregator': 0.92,
       'thought-broker': 0.88,
+      'terminal-snapshot': 0.85,
       external: 0.6,
     };
 
@@ -248,6 +383,11 @@ export class MobiusDataClient {
   }
 
   disconnectAll() {
+    for (const name of this.sources.keys()) {
+      if (this.sources.get(name)?.type === 'sse') {
+        this.clearSseReconnect(name);
+      }
+    }
     this.eventSources.forEach((source) => source.close());
     this.pollingIntervals.forEach((interval) => clearInterval(interval));
     this.eventSources.clear();
