@@ -48,6 +48,7 @@ function latLngToXYZ(THREE: any, lat: number, lng: number, r = 1.015) {
   );
 }
 function severityColor(pin: GlobePin): number {
+  if (pin.palette === 'seismic') return 0xa855f7;
   if (pin.palette === 'epicon') return 0x22d3ee;
   const sev = pin.severity;
   if (sev === 'critical') return 0xef4444;
@@ -397,7 +398,11 @@ export default function GlobeView3D({
     for (const sig of pins) {
       const pos = latLngToXYZ(THREE, sig.lat, sig.lng);
       const color = severityColor(sig);
-      const stemGeo = new THREE.CylinderGeometry(0.003, 0.003, 0.06, 6);
+      const magMeta = sig.meta.magnitude ?? sig.meta.mag;
+      const mag = typeof magMeta === 'number' && Number.isFinite(magMeta) ? magMeta : null;
+      const headScale =
+        sig.palette === 'seismic' && mag !== null ? 0.85 + Math.min(0.65, Math.max(0, mag - 4.5) * 0.35) : 1;
+      const stemGeo = new THREE.CylinderGeometry(0.003, 0.003, 0.06 * headScale, 6);
       const stemMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 });
       const stem = new THREE.Mesh(stemGeo, stemMat);
       stem.position.copy(pos.clone().multiplyScalar(0.97));
@@ -405,7 +410,7 @@ export default function GlobeView3D({
       stem.rotateX(Math.PI / 2);
       st.globe.add(stem);
       st.pinMeshes.push(stem);
-      const headGeo = new THREE.SphereGeometry(0.018, 8, 8);
+      const headGeo = new THREE.SphereGeometry(0.018 * headScale, 8, 8);
       const headMat = new THREE.MeshBasicMaterial({ color });
       const head = new THREE.Mesh(headGeo, headMat);
       head.position.copy(pos.clone().multiplyScalar(1.04));

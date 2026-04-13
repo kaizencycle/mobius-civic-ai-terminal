@@ -12,7 +12,13 @@ export default function GlobePageClient() {
 
   const integrity = (snapshot?.integrity?.data ?? {}) as { cycle?: string; global_integrity?: number };
   const micro = (snapshot?.signals?.data ?? null) as MicroAgentSweepResult | null;
-  const echo = (snapshot?.epicon?.data ?? {}) as { items?: EpiconItem[] };
+  const epiconLane = (snapshot?.epicon?.data ?? {}) as { items?: EpiconItem[] };
+  const echoLane = (snapshot?.echo?.data ?? {}) as { epicon?: EpiconItem[] };
+  const byId = new Map<string, EpiconItem>();
+  for (const row of [...(echoLane.epicon ?? []), ...(epiconLane.items ?? [])]) {
+    if (row?.id) byId.set(row.id, row);
+  }
+  const echoEpicon = [...byId.values()];
   const sentiment = (snapshot?.sentiment?.data ?? {}) as {
     domains?: Array<{ key: 'civic' | 'environ' | 'financial' | 'narrative' | 'infrastructure' | 'institutional'; label: string; agent: string; score: number | null }>;
   };
@@ -29,7 +35,7 @@ export default function GlobePageClient() {
   return (
     <GlobeChamber
       micro={micro}
-      echoEpicon={echo.items ?? []}
+      echoEpicon={echoEpicon}
       domains={domains}
       cycleId={integrity.cycle ?? 'C-271'}
       clockLabel={`${new Date().toISOString().slice(11, 16)} UTC`}

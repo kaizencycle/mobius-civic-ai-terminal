@@ -119,12 +119,18 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
         {pins.map((pin) => {
           const x = ((pin.lng + 180) / 360) * MAP_WIDTH;
           const y = ((90 - pin.lat) / 180) * MAP_HEIGHT;
+          const magRaw = pin.meta.magnitude ?? pin.meta.mag;
+          const mag = typeof magRaw === 'number' && Number.isFinite(magRaw) ? magRaw : null;
+          const scale = pin.palette === 'seismic' && mag !== null ? 0.85 + Math.min(0.9, Math.max(0, mag - 4.5) * 0.4) : 1;
+          const rOuter = 7 * scale;
+          const rInner = 4 * scale;
           const tone = pinTone(`${pin.title} ${pin.severity}`);
-          const color = WORLD_STATE_THEME.signal[tone];
+          const color =
+            pin.palette === 'seismic' ? '#a855f7' : WORLD_STATE_THEME.signal[tone];
           return (
             <g key={pin.id}>
-              <circle cx={x} cy={y} r={7} fill={color} fillOpacity="0.14" />
-              <circle cx={x} cy={y} r={4} fill={color} fillOpacity="0.95" />
+              <circle cx={x} cy={y} r={rOuter} fill={color} fillOpacity="0.14" />
+              <circle cx={x} cy={y} r={rInner} fill={color} fillOpacity="0.95" />
             </g>
           );
         })}

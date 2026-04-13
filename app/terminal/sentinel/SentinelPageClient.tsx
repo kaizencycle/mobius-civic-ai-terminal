@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 type Agent = { id: string; name: string; role: string; status: string; lastAction?: string; tier?: string; mii_avg?: number };
 type JournalEntry = { id: string; observation?: string; cycle?: string };
@@ -55,7 +56,7 @@ const AGENT_COLORS: Record<string, string> = {
 export default function SentinelPageClient() {
   const { snapshot, loading } = useTerminalSnapshot();
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [journal, setJournal] = useState<JournalEntry[]>([]);
+  const [journalByAgent, setJournalByAgent] = useState<Record<string, JournalEntry[]>>({});
   const [miiData, setMiiData] = useState<Record<string, MiiEntry[]>>({});
 
   useEffect(() => {
@@ -75,6 +76,29 @@ export default function SentinelPageClient() {
   if (loading && !snapshot) return <ChamberSkeleton blocks={8} />;
 
   const agents = (snapshot?.agents?.data ?? {}) as { agents?: Agent[] };
+  const eveData = (snapshot?.eve?.data ?? {}) as Record<string, unknown>;
+  const currentCycle =
+    typeof eveData.currentCycle === 'string'
+      ? eveData.currentCycle
+      : typeof eveData.cycleId === 'string'
+        ? eveData.cycleId
+        : currentCycleId();
+
+  useEffect(() => {
+    void fetch('/api/agents/journal?limit=100', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json: { entries?: JournalEntry[] }) => {
+        const grouped: Record<string, JournalEntry[]> = {};
+        for (const e of json.entries ?? []) {
+          const a = (e as { agent?: string }).agent;
+          if (!a) continue;
+          if (!grouped[a]) grouped[a] = [];
+          grouped[a]!.push(e);
+        }
+        setJournalByAgent(grouped);
+      })
+      .catch(() => setJournalByAgent({}));
+  }, []);
 
   const handleExpand = async (name: string) => {
     if (expanded === name) {
@@ -82,17 +106,6 @@ export default function SentinelPageClient() {
       return;
     }
     setExpanded(name);
-
-    const [journalResult] = await Promise.allSettled([
-      fetch(`/api/agents/journal?agent=${encodeURIComponent(name)}&limit=5`, { cache: 'no-store' })
-        .then((r) => r.json())
-        .catch(() => ({ entries: [] })),
-    ]);
-
-    if (journalResult.status === 'fulfilled') {
-      setJournal((journalResult.value.entries ?? []) as JournalEntry[]);
-    }
-
   };
 
   const latestByAgent = useMemo(() => {
@@ -106,13 +119,26 @@ export default function SentinelPageClient() {
   return (
     <div className="h-full overflow-y-auto p-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {(agents.agents ?? []).map((agent) => (
+        {(agents.agents ?? []).map((agent) => {
+          const rows = journalByAgent[agent.name] ?? [];
+          const latestCycle = rows[0]?.cycle?.trim() || null;
+          const journalFresh = latestCycle === currentCycle;
+          return (
           <button key={agent.id} onClick={() => void handleExpand(agent.name)} className="rounded border border-slate-800 bg-slate-900/60 p-4 text-left">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold">
                 {agent.name} <span className="text-cyan-300">{(latestByAgent[agent.name] ?? 0.9).toFixed(3)}</span>
               </div>
-              <span className={`h-2 w-2 rounded-full ${agent.status === 'active' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <div className="flex items-center gap-2">
+                <span
+                  className="flex items-center gap-1 text-[10px] text-slate-500"
+                  title="Latest committed journal cycle"
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${journalFresh ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                  {journalFresh ? currentCycle : latestCycle ?? '—'}
+                </span>
+                <span className={`h-2 w-2 rounded-full ${agent.status === 'active' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              </div>
             </div>
             <div className="text-xs text-slate-400">{agent.role} · {agent.tier ?? '—'}</div>
             <div className="mt-2 text-xs text-slate-500">{agent.lastAction ?? 'No action yet.'}</div>
@@ -128,12 +154,13 @@ export default function SentinelPageClient() {
               )}
             </div>
           </button>
-        ))}
+          );
+        })}
       </div>
       {expanded ? (
         <div className="mt-4 rounded border border-slate-800 bg-slate-900/60 p-3">
           <div className="mb-2 text-xs font-mono text-slate-400">{expanded} journal entries</div>
-          {journal.map((entry) => (
+          {(journalByAgent[expanded] ?? []).slice(0, 5).map((entry) => (
             <div key={entry.id} className="mb-2 text-xs text-slate-300">[{entry.cycle ?? 'C-—'}] {entry.observation ?? '—'}</div>
           ))}
         </div>
