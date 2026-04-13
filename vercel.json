@@ -20,7 +20,7 @@
     },
     {
       "path": "/api/cron/gi-refresh",
-      "schedule": "*/30 * * * *"
+      "schedule": "45 0 * * *"
     }
   ],
   "installCommand": "pnpm install --no-frozen-lockfile"

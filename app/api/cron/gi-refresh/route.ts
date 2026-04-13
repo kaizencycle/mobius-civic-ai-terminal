@@ -1,5 +1,6 @@
 /**
- * GET /api/cron/gi-refresh — refresh GI_STATE in KV every 30m (Vercel cron).
+ * GET /api/cron/gi-refresh — refresh GI_STATE in KV (Vercel cron).
+ * Schedule: once daily on Hobby (`45 0 * * *` UTC); Pro can use a sub-daily expression if desired.
  * Runs signal engine for fresh ECHO-backed scores, then recomputes GI.
  */
 

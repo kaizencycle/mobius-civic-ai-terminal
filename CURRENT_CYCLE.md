@@ -90,7 +90,7 @@ _Use only when the operator has confirmed the state is intentional._
 - [ ] **promotion** — require `AGENT_SERVICE_TOKEN` / `RENDER_API_KEY` before commit; explicit logs (Opt 3)
 - [ ] **ATLAS / ZEUS** overnight journals — `/api/agents/atlas/observe`, `/api/agents/zeus/verify` after EVE cron (Opt 1)
 - [ ] **MII all agents** — ATLAS/ZEUS MII on sentinel routes; echo batch unchanged (Opt 4)
-- [ ] **GI freshness** — `/api/cron/gi-refresh` every 30 minutes (Opt 6)
+- [ ] **GI freshness** — `/api/cron/gi-refresh` once daily 00:45 UTC (Hobby cron limit; Opt 6)
 
 ---
 
