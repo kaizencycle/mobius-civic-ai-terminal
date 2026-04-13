@@ -79,6 +79,16 @@ export async function writeJournalToSubstrate(
       return { ok: false, error: `github_${res.status}` };
     }
 
+    try {
+      const { getJournalRedisClient } = await import('@/lib/agents/journalLane');
+      const redis = getJournalRedisClient();
+      if (redis) {
+        await redis.set(`journal:${entry.agent.toUpperCase()}:${entry.cycle}`, JSON.stringify(payload), { ex: 604800 });
+      }
+    } catch (kvError) {
+      console.error('[substrate] journal KV mirror failed:', kvError);
+    }
+
     return { ok: true, path };
   } catch (err) {
     console.error('[substrate] write error:', err);

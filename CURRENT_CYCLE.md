@@ -1,6 +1,6 @@
-# CURRENT_CYCLE.md — C-278
-> **Last verified:** 2026-04-12T01:10Z by ATLAS (kaizencycle)
-> **Snapshot commit:** `9b828b4` — fix(journal): read cycle-scoped KV keys
+# CURRENT_CYCLE.md — C-279
+> **Last verified:** 2026-04-12T23:35Z by ATLAS (kaizencycle)
+> **Snapshot commit:** `7773db68` — terminal optimization scan
 > **Production URL:** https://mobius-civic-ai-terminal.vercel.app
 > **Vercel project:** `prj_ru2eaIzY0nIamFIXEdUIuTjnefpn` · team `team_cEncfJHYpxuB6YiFQNwdOUB5`
 
@@ -27,9 +27,10 @@ If your task describes fixing something in the EXPECTED EMPTY section, **do not 
 | sentiment | healthy | 6 domains live |
 | promotion | healthy | 6 pending promotable |
 | eve | healthy | C-278 in sync |
-| integrity | stale/cached | GI 0.74, mode: yellow — cached, not degraded |
+| integrity | healthy | source `kv LIVE`, GI 0.75 |
 | epicon | empty | `kv: 0` — see EXPECTED EMPTY below |
-| runtime | stale | Last commit 01:17Z — cron hasn't fired since |
+| runtime | stale | Last commit aging; freshness remains explicit |
+| mii | healthy | `mii:feed` live (8 entries, EVE writing) |
 
 ---
 
@@ -106,14 +107,14 @@ These states look broken but are not. Creating PRs for them is wasted effort and
 
 ---
 
-## 🔧 ACTIVE WORK — C-278
+## 🔧 ACTIVE WORK — C-279
 
 Tasks currently in scope. Do not duplicate.
 
-- [ ] Trigger fresh EVE synthesis → write `journal:EVE:C-278` KV key (operator action, not code)
-- [ ] Confirm `ANTHROPIC_API_KEY` is set in Vercel env for agent synthesis routes
-- [ ] Resolve DAEDALUS self-ping 401 (low priority — do not block other work on this)
-- [ ] Wire agent synthesis cron to run on schedule (not currently firing reliably)
+- [ ] ECHO_STATE KV heartbeat write path active work (ingest-level unconditional write)
+- [ ] TRIPWIRE_STATE KV heartbeat write path active work (post-tripwire run write)
+- [ ] Snapshot root `ok:false` + `cycle:null` known issue being fixed
+- [ ] Promotion engine `eligible > 0` but `promoted_this_cycle = 0` active work
 
 ---
 

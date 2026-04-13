@@ -47,7 +47,9 @@ function latLngToXYZ(THREE: any, lat: number, lng: number, r = 1.015) {
     r * Math.sin(phi) * Math.sin(theta),
   );
 }
-function severityColor(sev: GlobePin['severity']): number {
+function severityColor(pin: GlobePin): number {
+  if (pin.palette === 'epicon') return 0x22d3ee;
+  const sev = pin.severity;
   if (sev === 'critical') return 0xef4444;
   if (sev === 'elevated') return 0xf59e0b;
   return 0x10b981;
@@ -394,7 +396,7 @@ export default function GlobeView3D({
     const THREE = st.THREE;
     for (const sig of pins) {
       const pos = latLngToXYZ(THREE, sig.lat, sig.lng);
-      const color = severityColor(sig.severity);
+      const color = severityColor(sig);
       const stemGeo = new THREE.CylinderGeometry(0.003, 0.003, 0.06, 6);
       const stemMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 });
       const stem = new THREE.Mesh(stemGeo, stemMat);
@@ -464,6 +466,9 @@ export default function GlobeView3D({
       </div>
       <div className="pointer-events-none absolute bottom-14 left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-[0.12em] text-slate-600">
         Drag to rotate · Click pins to inspect
+      </div>
+      <div className="pointer-events-none absolute bottom-9 left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-[0.12em] text-cyan-400/80">
+        EPICON · {cycleId}
       </div>
       <div className="flex border-t border-white/[0.06] bg-[#020408]/90">
         {GLOBE_DOMAIN_ORDER.map((key) => {
