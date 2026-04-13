@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { merge, mesh } from 'topojson-client';
-import type { GeometryCollection } from 'topojson-specification';
+import type { GeometryCollection, MultiPolygon, Polygon } from 'topojson-specification';
 import type { Topology } from 'topojson-specification';
 import { geoEquirectangular, geoPath } from 'd3-geo';
 import { buildGlobePinsFromMicro } from '@/lib/terminal/globePins';
@@ -42,7 +42,12 @@ function buildMapLayers(): {
     const countriesObj = topo.objects.countries;
     if (!countriesObj?.geometries?.length) return fallback;
 
-    const land = merge(topo, countriesObj);
+    // merge() expects an array of polygon geometries, not the whole GeometryCollection
+    // (passing the collection throws: objects.forEach is not a function → empty fallback).
+    const land = merge(
+      topo,
+      countriesObj.geometries as Array<Polygon | MultiPolygon>,
+    );
     const borders = mesh(topo, countriesObj, (a, b) => a !== b);
 
     const projection = geoEquirectangular().fitSize([MAP_WIDTH, MAP_HEIGHT], land);
