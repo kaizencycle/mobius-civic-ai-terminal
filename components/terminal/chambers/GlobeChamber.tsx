@@ -54,5 +54,5 @@ function useIsMobile(breakpoint = 768): boolean {
 
 export default function GlobeChamber(props: GlobeChamberProps) {
   const isMobile = useIsMobile(768);
-  return isMobile ? <WorldMapView /> : <GlobeView {...props} />;
+  return isMobile ? <WorldMapView {...props} /> : <GlobeView {...props} />;
 }
