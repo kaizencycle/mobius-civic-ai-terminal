@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-04-13T13:02:52.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-280",
+  "gi": 0.9,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    "Seismic: 46 quakes M2.5+ today, max M5.5 near Fiji region",
+    "EONET: 50 open natural events (1 storms, 42 fires)",
+    "Self-ping: HTTP 401 in 62ms"
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": true,
+    "ECHO_STATE": true,
+    "ECHO_STATE_KV": true,
+    "TRIPWIRE_STATE": false,
+    "TRIPWIRE_STATE_KV": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "seed_attempted": true,
+  "seed_result": "401"
+}
