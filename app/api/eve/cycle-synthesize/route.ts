@@ -18,13 +18,62 @@ import {
   processEveEscalationSynthesis,
 } from '@/lib/eve/governance-synthesis';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
-import { getEveSynthesisAuthError, isVercelCronInvocation } from '@/lib/security/serviceAuth';
+import {
+  getEveSynthesisAuthError,
+  isVercelCronInvocation,
+  serviceAuthorizationHeaderValue,
+} from '@/lib/security/serviceAuth';
 import { runSignalEngine } from '@/lib/signals/engine';
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { loadGIState } from '@/lib/kv/store';
 import { writeMiiState } from '@/lib/kv/mii';
 
 export const dynamic = 'force-dynamic';
+
+function extractGiFromSynthesisPayload(payload: Record<string, unknown>): number | null {
+  const trace = payload.trace;
+  if (trace && typeof trace === 'object' && typeof (trace as Record<string, unknown>).gi === 'number') {
+    const g = (trace as Record<string, unknown>).gi as number;
+    return Number.isFinite(g) ? g : null;
+  }
+  return null;
+}
+
+async function fanOutAtlasZeusAfterEve(
+  request: NextRequest,
+  cycleId: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const giFromSynth = extractGiFromSynthesisPayload(payload);
+  const giVal = giFromSynth !== null ? giFromSynth : 0.74;
+  const base = request.nextUrl.origin;
+  const authHeader = serviceAuthorizationHeaderValue();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (authHeader) headers.Authorization = authHeader;
+
+  const atlasRes = await fetch(`${base}/api/agents/atlas/observe`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ cycle: cycleId, gi: giVal, source: 'cron' }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(20_000),
+  });
+  const atlasJson = (await atlasRes.json().catch(() => null)) as { journalId?: string } | null;
+  const atlasJournalId = typeof atlasJson?.journalId === 'string' ? atlasJson.journalId : null;
+
+  await fetch(`${base}/api/agents/zeus/verify`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      cycle: cycleId,
+      gi: giVal,
+      atlasEntry: atlasJournalId,
+      source: 'cron',
+    }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(20_000),
+  });
+}
 
 type CycleBody = {
   cycleId?: unknown;
@@ -85,6 +134,9 @@ export async function GET(request: NextRequest) {
   if (isVercelCronInvocation(request)) {
     await runSignalEngine();
     const payload = await processEveCycleWindowSynthesis(cycleId, false);
+    void fanOutAtlasZeusAfterEve(request, cycleId, payload as Record<string, unknown>).catch((err) => {
+      console.error('[eve/cycle-synthesize] ATLAS/ZEUS cron follow-up failed:', err);
+    });
     return NextResponse.json(payload);
   }
 
@@ -160,6 +212,10 @@ export async function POST(request: NextRequest) {
         console.error('[eve] mii write failed:', err instanceof Error ? err.message : err);
       }
     })();
+
+    void fanOutAtlasZeusAfterEve(request, cycleId, payload as Record<string, unknown>).catch((err) => {
+      console.error('[eve/cycle-synthesize] ATLAS/ZEUS follow-up failed:', err);
+    });
 
     return NextResponse.json(payload);
   } catch (err) {

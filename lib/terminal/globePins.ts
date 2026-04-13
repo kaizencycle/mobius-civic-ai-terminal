@@ -27,7 +27,7 @@ export type GlobePin = {
   provenance: string;
   narrativeWhy: string;
   visualAsset?: GlobeVisualAsset | null;
-  palette?: 'default' | 'epicon';
+  palette?: 'default' | 'epicon' | 'seismic';
 };
 
 export type SentimentDomainKey =
@@ -334,12 +334,19 @@ export function buildGlobePinsFromMicro(
     if (!ingest) continue;
     const src = ingest.source;
     const meta = ingest.metadata ?? {};
+    const magRaw = meta.magnitude;
+    const magnitude = typeof magRaw === 'number' && Number.isFinite(magRaw) ? magRaw : null;
+    const isUsgsQuake = src === 'USGS' && magnitude !== null && magnitude >= 4.5;
     const metaLat = typeof meta.lat === 'number' ? meta.lat : null;
     const metaLng = typeof meta.lng === 'number' ? meta.lng : null;
     let lat: number;
     let lng: number;
-    let palette: 'default' | 'epicon' = 'default';
-    if (metaLat !== null && metaLng !== null) {
+    let palette: 'default' | 'epicon' | 'seismic' = 'default';
+    if (isUsgsQuake && metaLat !== null && metaLng !== null) {
+      lat = metaLat;
+      lng = metaLng;
+      palette = 'seismic';
+    } else if (metaLat !== null && metaLng !== null) {
       lat = metaLat;
       lng = metaLng;
       palette = 'epicon';
@@ -360,30 +367,49 @@ export function buildGlobePinsFromMicro(
     const id = `echo-${item.id}`;
     const echoSev = echoSeverityToGlobe(ingest.severity);
     const change = typeof meta.change24h === 'number' ? meta.change24h : 0;
-    const value = Math.max(0, Math.min(1, 1 - Math.min(1, Math.abs(change) / 12)));
+    const value =
+      isUsgsQuake && magnitude !== null
+        ? Math.max(0, Math.min(1, (magnitude - 4) / 2))
+        : Math.max(0, Math.min(1, 1 - Math.min(1, Math.abs(change) / 12)));
 
     const agent = item.ownerAgent ?? 'ECHO';
 
     const echoTs = parseEpiconTimestamp(item.timestamp);
 
+    const pinSev: GlobePinSeverity =
+      isUsgsQuake && magnitude !== null
+        ? magnitude >= 5.5
+          ? 'critical'
+          : magnitude >= 5
+            ? 'elevated'
+            : 'nominal'
+        : echoSev;
+
     pushPin(pins, seen, {
       id,
       lat,
       lng,
-      source: `${agent} · ${src}`,
-      title,
+      source: isUsgsQuake ? `SEISMIC · EPICON · ${agent}` : `${agent} · ${src}`,
+      title: isUsgsQuake && magnitude !== null ? `M${magnitude.toFixed(1)} · ${title}` : title,
       value,
-      confidence: Math.min(1, 0.4 + Math.abs(change) / 15),
-      severity: echoSev,
+      confidence: isUsgsQuake && magnitude !== null ? Math.min(1, 0.5 + magnitude / 10) : Math.min(1, 0.4 + Math.abs(change) / 15),
+      severity: pinSev,
       agent,
       domainKey: sourceDomain(src),
       palette,
       signalTimestamp: echoTs,
-      provenance: 'CoinGecko · ECHO ingest · EPICON pipeline',
-      narrativeWhy: 'Market pulse on financial lane — ECHO routes to HERMES narrative coupling.',
+      provenance: isUsgsQuake
+        ? 'USGS · ECHO EPICON ingest (seismic layer)'
+        : 'CoinGecko · ECHO ingest · EPICON pipeline',
+      narrativeWhy: isUsgsQuake
+        ? 'Seismic EPICON with coordinates — verify civic and infrastructure coupling in the Pacific Rim and adjacent corridors.'
+        : 'Market pulse on financial lane — ECHO routes to HERMES narrative coupling.',
+      clusterKey: isUsgsQuake ? 'seismic_epicon' : undefined,
+      clusterLabel: isUsgsQuake ? 'SEISMIC · EPICON' : undefined,
       meta: {
         ...flattenRaw(meta),
         epiconId: item.id,
+        layer: isUsgsQuake ? 'SEISMIC · EPICON' : 'ECHO EPICON',
         ledger: 'ECHO EPICON row (see Events chamber)',
         freshnessSec: Math.max(0, Math.floor((Date.now() - new Date(echoTs).getTime()) / 1000)),
       },

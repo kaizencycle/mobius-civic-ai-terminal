@@ -157,3 +157,39 @@ export async function getLiveIntegritySnapshot(): Promise<{ global_integrity: nu
   const p = await computeIntegrityPayload();
   return { global_integrity: p.global_integrity, mii_baseline: p.mii_baseline };
 }
+
+/**
+ * Recompute GI from in-process heartbeat + ECHO store and persist to KV (C-280 cron).
+ * Bypasses KV read cache so freshness signal updates on a schedule.
+ */
+export async function recomputeAndSaveGIState(): Promise<GIState | null> {
+  if (!isRedisAvailable()) return null;
+
+  const freshness = getStalenessStatus(getHeartbeat());
+  const tripwire = getTripwireState();
+  const signalData = resolveSignalQuality();
+
+  const effectiveFreshness =
+    signalData.source === 'mock' && freshness.status === 'fresh' ? ('degraded' as const) : freshness.status;
+
+  const computed = computeGI({
+    zeusScores: signalData.scores,
+    freshness: effectiveFreshness,
+    tripwire: normalizeTripwireLevel(tripwire.level),
+    activeAgents: resolveActiveAgentCount(),
+  });
+
+  const source: 'live' | 'mock' | 'cached' = signalData.source;
+
+  const giState: GIState = {
+    global_integrity: computed.global_integrity,
+    mode: computed.mode,
+    terminal_status: computed.terminal_status,
+    primary_driver: computed.primary_driver,
+    source,
+    signals: computed.signals,
+    timestamp: computed.timestamp,
+  };
+  await saveGIState(giState);
+  return giState;
+}

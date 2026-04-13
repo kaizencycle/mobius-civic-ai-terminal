@@ -10,7 +10,7 @@ import type { EpiconItem } from '@/lib/terminal/types';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { defaultPromotionState, getPromotionState, savePromotionState } from '@/lib/epicon/promotion';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
-import { writeToSubstrate } from '@/lib/substrate/client';
+import { getAgentBearerToken, writeToSubstrate } from '@/lib/substrate/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -302,6 +302,14 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
   let seq = 1;
   const promotedIdsThisCycle: string[] = [];
 
+  const agentToken = getAgentBearerToken();
+  const ledgerReady = agentToken.length > 0;
+  if (!ledgerReady) {
+    console.error(
+      '[promoter] AGENT_SERVICE_TOKEN (or RENDER_API_KEY) missing — skipping ledger push and substrate attest; set token in Vercel to enable commits',
+    );
+  }
+
   for (const epicon of pending) {
     const existing = state[epicon.id] ?? defaultPromotionState(nowIso);
     const assignedAgents = AGENT_ROUTING[epicon.category] ?? ['ZEUS'];
@@ -321,6 +329,9 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
 
         const commit = buildCommit(agent, epicon, cycleId, seq++);
         try {
+          if (!ledgerReady) {
+            throw new Error('AGENT_SERVICE_TOKEN not configured');
+          }
           await pushLedgerEntry(commit);
           await writeCommitJournalEntry(commit, epicon);
           void writeToSubstrate({

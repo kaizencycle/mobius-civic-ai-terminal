@@ -148,8 +148,15 @@ export const KV_KEYS = {
   GI_STATE: 'gi:latest',
   /** ECHO store state (epicon, ledger, alerts) */
   ECHO_STATE: 'echo:state',
+  /**
+   * ECHO ingest heartbeat — mirrors legacy `ECHO_STATE` string key checks in ops tooling.
+   * Written alongside `echo:state` on each ingest.
+   */
+  ECHO_STATE_KV: 'echo:kv:heartbeat',
   /** Tripwire state */
   TRIPWIRE_STATE: 'tripwire:state',
+  /** Tripwire heartbeat for KV key-exists diagnostics (mirrors legacy TRIPWIRE_STATE string key) */
+  TRIPWIRE_STATE_KV: 'tripwire:kv:heartbeat',
   /** Last heartbeat timestamp */
   HEARTBEAT: 'heartbeat:last',
   /** Last ingest timestamp */

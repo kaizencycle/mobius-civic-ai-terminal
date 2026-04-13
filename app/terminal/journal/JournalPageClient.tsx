@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import ChamberEmptyState from '@/components/terminal/ChamberEmptyState';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 const AGENTS = ['ATLAS', 'ZEUS', 'EVE', 'AUREA', 'HERMES', 'JADE', 'DAEDALUS', 'ECHO'] as const;
 
@@ -59,6 +60,7 @@ function toDerivedEntry(item: EpiconItem): JournalEntry {
 export default function JournalPageClient() {
   const [entries, setEntries] = useState<JournalEntry[] | null>(null);
   const [agent, setAgent] = useState('ALL');
+  const [cycleTab, setCycleTab] = useState<string>(() => currentCycleId());
   const [derivedMode, setDerivedMode] = useState(false);
 
   useEffect(() => {
@@ -113,10 +115,44 @@ export default function JournalPageClient() {
     () => ['ALL', ...Array.from(new Set((entries ?? []).map((e) => e.agent))).sort()],
     [entries],
   );
-  const filtered = useMemo(
-    () => (agent === 'ALL' ? entries ?? [] : (entries ?? []).filter((e) => e.agent === agent)),
-    [entries, agent],
-  );
+
+  const cycleOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of entries ?? []) {
+      const c = e.cycle?.trim();
+      if (c) set.add(c);
+    }
+    const list = Array.from(set).sort((a, b) => {
+      const na = parseInt(a.replace(/\D/g, ''), 10);
+      const nb = parseInt(b.replace(/\D/g, ''), 10);
+      if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return nb - na;
+      return b.localeCompare(a);
+    });
+    const current = currentCycleId();
+    if (!list.includes(current)) list.unshift(current);
+    return ['All', ...list];
+  }, [entries]);
+
+  const cycleCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of entries ?? []) {
+      const c = e.cycle?.trim();
+      if (!c) continue;
+      m.set(c, (m.get(c) ?? 0) + 1);
+    }
+    return m;
+  }, [entries]);
+
+  const filtered = useMemo(() => {
+    let rows = entries ?? [];
+    if (cycleTab !== 'All') {
+      rows = rows.filter((e) => (e.cycle?.trim() ?? '') === cycleTab);
+    }
+    if (agent !== 'ALL') {
+      rows = rows.filter((e) => e.agent === agent);
+    }
+    return rows;
+  }, [entries, agent, cycleTab]);
 
   if (entries === null) return <ChamberSkeleton blocks={8} />;
 
@@ -148,6 +184,26 @@ export default function JournalPageClient() {
         </div>
       ) : (
         <>
+          <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+            {cycleOptions.map((c) => {
+              const count = c === 'All' ? (entries?.length ?? 0) : (cycleCounts.get(c) ?? 0);
+              const label = c === 'All' ? `All (${count})` : `${c} (${count})`;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCycleTab(c)}
+                  className={`whitespace-nowrap rounded border px-2 py-1 text-xs ${
+                    cycleTab === c
+                      ? 'border-violet-400/60 bg-violet-500/10 text-violet-100'
+                      : 'border-slate-700 text-slate-400'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
             {agents.map((name) => (
               <button

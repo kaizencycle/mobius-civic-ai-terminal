@@ -15,6 +15,7 @@ import { NextResponse } from 'next/server';
 import { getEchoEpicon, getEchoLedger, getEchoAlerts, getEchoIntegrity, getEchoStatus, pushIngestResult } from '@/lib/echo/store';
 import { fetchAllSources } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
+import { persistEchoIngestSideEffects } from '@/lib/echo/kv-persist-ingest';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,7 @@ export async function GET() {
       if (rawEvents.length > 0) {
         const result = transformBatch(rawEvents);
         pushIngestResult(result);
+        await persistEchoIngestSideEffects(result);
       }
     } catch {
       // Proceed with whatever data we have
