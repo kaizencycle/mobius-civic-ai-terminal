@@ -76,7 +76,7 @@ export async function GET() {
 
     staleSnapshot = { cycle, timestamp };
 
-    if (heartbeat?.timestamp && isFresh(heartbeat.timestamp, 25 * 60 * 1000)) {
+    if (heartbeat?.timestamp && isFresh(heartbeat.timestamp, 90 * 60 * 1000)) {
       return NextResponse.json({
         ok: true,
         ...liveEnvelope(timestamp),

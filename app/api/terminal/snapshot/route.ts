@@ -133,14 +133,23 @@ export async function GET(request: NextRequest) {
   };
 
   const lanes: SnapshotLaneState[] = normalizeAllSnapshotLanes(leaves);
-  const laneSummary = lanes.every(
-    (lane) => lane.state === 'healthy' || lane.state === 'empty' || lane.state === 'stale',
+
+  // ok:true unless a critical lane is fully offline (degraded = live with issues = still ok)
+  const CRITICAL_LANES: SnapshotLaneKey[] = ['integrity', 'signals', 'kvHealth'];
+  const criticalOffline = lanes.some(
+    (lane) => lane.state === 'offline' && CRITICAL_LANES.includes(lane.key as SnapshotLaneKey),
   );
+  const laneSummary = !criticalOffline;
+
+  // Resolve cycle from EVE data first, fall back to query param
+  const eveData = eve.data as Record<string, unknown> | null;
+  const eveCycle = typeof eveData?.currentCycle === 'string' ? eveData.currentCycle : null;
+  const resolvedCycle = eveCycle ?? cycle ?? null;
 
   return NextResponse.json(
     {
       ok: laneSummary,
-      cycle: cycle ?? null,
+      cycle: resolvedCycle,
       include_catalog: includeCatalog === 'true',
       timestamp: new Date().toISOString(),
       deployment: {

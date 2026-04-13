@@ -27,6 +27,8 @@ export type GlobePin = {
   provenance: string;
   narrativeWhy: string;
   visualAsset?: GlobeVisualAsset | null;
+  /** Pin layer — 'epicon' renders as cyan, distinct from EONET orange/red pins */
+  layer?: 'epicon';
 };
 
 export type SentimentDomainKey =
@@ -104,6 +106,7 @@ type GlobePinInput = Pick<
   narrativeWhy?: string;
   provisional?: boolean;
   visualAsset?: GlobeVisualAsset | null;
+  layer?: 'epicon';
 };
 
 function seismicCluster(lat: number, lng: number): { key: string; label: string } | null {
@@ -160,6 +163,7 @@ function pushPin(pins: GlobePin[], seen: Set<string>, pin: GlobePinInput) {
       ?? `Elevated attention for ${pin.domainKey} lane — operators should verify against ledger and journal context.`,
   };
   if (pin.visualAsset !== undefined) out.visualAsset = pin.visualAsset;
+  if (pin.layer !== undefined) out.layer = pin.layer;
   pins.push(out);
 }
 
@@ -375,6 +379,53 @@ export function buildGlobePinsFromMicro(
         epiconId: item.id,
         ledger: 'ECHO EPICON row (see Events chamber)',
         freshnessSec: Math.max(0, Math.floor((Date.now() - new Date(echoTs).getTime()) / 1000)),
+      },
+    });
+  }
+
+  // Second pass: EPICON items that carry lat/lng in echoIngest.metadata (e.g. USGS earthquakes
+  // ingested via ECHO). These render as cyan pins — distinct from EONET orange/red layer.
+  for (const item of echoEpicon ?? []) {
+    const ingest = item.echoIngest;
+    if (!ingest) continue;
+    const src = ingest.source;
+    if (src === 'CoinGecko') continue; // already handled above
+
+    const meta = ingest.metadata ?? {};
+    const lat2 = typeof meta.lat === 'number' ? meta.lat : null;
+    const lng2 = typeof meta.lng === 'number' ? meta.lng : null;
+    if (lat2 === null || lng2 === null) continue;
+
+    const agent = item.ownerAgent ?? 'ECHO';
+    const tier = item.confidenceTier ?? 0;
+    const pinSev: GlobePinSeverity = tier >= 3 ? 'critical' : tier >= 2 ? 'elevated' : 'nominal';
+    const val = Math.min(1, 0.5 + tier * 0.1);
+    const echoTs2 = parseEpiconTimestamp(item.timestamp);
+    const magnitude = typeof meta.magnitude === 'number' ? meta.magnitude : null;
+
+    pushPin(pins, seen, {
+      id: `epicon-${item.id}`,
+      lat: lat2,
+      lng: lng2,
+      source: `${agent} · EPICON`,
+      title: item.title ?? item.summary ?? item.id,
+      value: val,
+      confidence: val,
+      severity: pinSev,
+      agent,
+      domainKey: 'environ',
+      signalTimestamp: echoTs2,
+      clusterKey: 'epicon_verified',
+      clusterLabel: `EPICON · C-279`,
+      provenance: `EPICON · ${item.id} · ECHO ingest`,
+      narrativeWhy: `EPICON-verified event in ${item.category ?? 'unknown'} domain — cross-check with ledger attestation.`,
+      layer: 'epicon',
+      meta: {
+        epiconId: item.id,
+        confidenceTier: tier,
+        mag: magnitude,
+        source: src,
+        freshnessSec: Math.max(0, Math.floor((Date.now() - new Date(echoTs2).getTime()) / 1000)),
       },
     });
   }

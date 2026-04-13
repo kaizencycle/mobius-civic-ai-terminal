@@ -18,7 +18,8 @@ import type { RawEvent } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
 import { pushIngestResult, getEchoStatus, getEchoEpicon, getEchoLedger, getEchoAlerts } from '@/lib/echo/store';
 import { writeSnapshot } from '@/lib/echo/snapshot-writer';
-import { saveEchoState, loadGIState } from '@/lib/kv/store';
+import { saveEchoState, saveTripwireState, loadGIState } from '@/lib/kv/store';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { writeMiiState, readMiiFeed } from '@/lib/kv/mii';
 import { querySonarForLane } from '@/lib/signals/perplexity-sonar';
 
@@ -170,6 +171,14 @@ export async function POST() {
       alertCount: status.counts.alerts,
       timestamp: new Date().toISOString(),
       dedupRate,
+    }).catch(() => {});
+
+    // Keep TRIPWIRE_STATE fresh on every ingest (tripwire route not in snapshot)
+    saveTripwireState({
+      cycleId: currentCycleId(),
+      tripwireCount: 0,
+      elevated: false,
+      timestamp: new Date().toISOString(),
     }).catch(() => {});
 
     const kvFeedEntries: KvEpiconEntry[] = result.epicon.map((entry) => ({

@@ -399,6 +399,11 @@ export async function POST(request: NextRequest) {
     }
     entry.id = writeResult.entry.id;
     entry.timestamp = writeResult.entry.timestamp;
+
+    // Also write to the 3-segment key schema the journal reader expects:
+    // journal:{AGENT_UPPERCASE}:{CYCLE_ID} — LOCKED key format per CURRENT_CYCLE.md
+    const kvKey = `journal:${entry.agent.toUpperCase()}:${entry.cycle}`;
+    await redis.set(kvKey, JSON.stringify(writeResult.entry), { ex: 604800 }); // 7-day TTL
   }
 
   void writeToSubstrate({

@@ -346,7 +346,8 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
       existing.promotion_state = 'promoted';
       promoted += 1;
       promotedIdsThisCycle.push(epicon.id);
-    } catch {
+    } catch (err) {
+      console.error('[promoter] failed to commit', epicon.id, err instanceof Error ? err.message : err);
       existing.promotion_state = 'failed';
       existing.failed_attempts += 1;
       failed += 1;

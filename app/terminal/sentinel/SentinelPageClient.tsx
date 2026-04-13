@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 
@@ -44,6 +44,25 @@ export default function SentinelPageClient() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [miiData, setMiiData] = useState<Record<string, number[]>>({});
+
+  // Preload MII history for all agents on mount so sparklines show immediately
+  useEffect(() => {
+    fetch('/api/mii/feed', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json: { entries?: Array<{ agent: string; mii: number }> }) => {
+        const grouped: Record<string, number[]> = {};
+        for (const e of json.entries ?? []) {
+          if (!grouped[e.agent]) grouped[e.agent] = [];
+          grouped[e.agent].push(e.mii);
+        }
+        const sliced: Record<string, number[]> = {};
+        for (const [agent, scores] of Object.entries(grouped)) {
+          sliced[agent] = scores.slice(0, 10).reverse(); // oldest → newest for left-to-right render
+        }
+        setMiiData(sliced);
+      })
+      .catch(() => {});
+  }, []);
 
   if (loading && !snapshot) return <ChamberSkeleton blocks={8} />;
 

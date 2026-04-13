@@ -233,10 +233,10 @@ export type EchoKVState = {
 };
 
 /**
- * Save ECHO store summary. TTL: 2 hours (matches /api/cron/echo-ingest cadence).
+ * Save ECHO store summary. TTL: 24 hours — ingest runs daily so 2h TTL expired before next run.
  */
 export async function saveEchoState(state: EchoKVState): Promise<void> {
-  await kvSet(KV_KEYS.ECHO_STATE, state, 7200);
+  await kvSet(KV_KEYS.ECHO_STATE, state, 86400);
 }
 
 /**
@@ -256,10 +256,10 @@ export type TripwireKVState = {
 };
 
 /**
- * Save tripwire state. TTL: 30 minutes.
+ * Save tripwire state. TTL: 24 hours — keeps the key alive between ingest cycles.
  */
 export async function saveTripwireState(state: TripwireKVState): Promise<void> {
-  await kvSet(KV_KEYS.TRIPWIRE_STATE, state, 1800);
+  await kvSet(KV_KEYS.TRIPWIRE_STATE, state, 86400);
 }
 
 /**

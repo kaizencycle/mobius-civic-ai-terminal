@@ -52,6 +52,10 @@ function severityColor(sev: GlobePin['severity']): number {
   if (sev === 'elevated') return 0xf59e0b;
   return 0x10b981;
 }
+function pinColor(pin: GlobePin): number {
+  if (pin.layer === 'epicon') return 0x22d3ee; // cyan — EPICON verified layer
+  return severityColor(pin.severity);
+}
 function giChipClass(score: number): string {
   if (score > 0.85) return 'border-emerald-500 text-emerald-400 bg-emerald-500/10';
   if (score > 0.7) return 'border-amber-500 text-amber-400 bg-amber-500/10';
@@ -394,8 +398,10 @@ export default function GlobeView3D({
     const THREE = st.THREE;
     for (const sig of pins) {
       const pos = latLngToXYZ(THREE, sig.lat, sig.lng);
-      const color = severityColor(sig.severity);
-      const stemGeo = new THREE.CylinderGeometry(0.003, 0.003, 0.06, 6);
+      const color = pinColor(sig);
+      const stemGeo = sig.layer === 'epicon'
+        ? new THREE.CylinderGeometry(0.002, 0.002, 0.04, 6)
+        : new THREE.CylinderGeometry(0.003, 0.003, 0.06, 6);
       const stemMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 });
       const stem = new THREE.Mesh(stemGeo, stemMat);
       stem.position.copy(pos.clone().multiplyScalar(0.97));
@@ -511,7 +517,12 @@ export default function GlobeView3D({
           >
             ✕
           </button>
-          <div className="mb-1 text-[9px] uppercase tracking-[0.12em] text-slate-500">{selected.source}</div>
+          <div className="mb-1 flex items-center gap-2 text-[9px] uppercase tracking-[0.12em] text-slate-500">
+            <span>{selected.source}</span>
+            {selected.layer === 'epicon' ? (
+              <span className="rounded border border-cyan-500/40 bg-cyan-500/10 px-1.5 py-0.5 text-cyan-300">EPICON</span>
+            ) : null}
+          </div>
           <div className="mb-3 text-[13px] leading-snug text-slate-200">{selected.title}</div>
           <div className="mb-2 flex items-center gap-2">
             <span
