@@ -24,12 +24,23 @@ function pinTone(label: string): WorldStateSignalTone {
 
 type CountriesObjects = { countries: GeometryCollection };
 
-export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = '—', giScore = 0 }: Partial<GlobeChamberProps> = {}) {
-  const pins = useMemo(() => buildGlobePinsFromMicro(micro, echoEpicon), [micro, echoEpicon]);
+/** Matches prior pin math if d3 fitSize fails (mobile WebKit edge cases). */
+function projectLngLatEquirectangular(lng: number, lat: number): [number, number] {
+  const x = ((lng + 180) / 360) * MAP_WIDTH;
+  const y = ((90 - lat) / 180) * MAP_HEIGHT;
+  return [x, y];
+}
 
-  const { landPath, borderPath, projection } = useMemo(() => {
+function buildMapLayers(): {
+  landPath: string;
+  borderPath: string;
+  project: (lng: number, lat: number) => [number, number];
+} {
+  const fallback = { landPath: '', borderPath: '', project: projectLngLatEquirectangular };
+  try {
     const topo = countriesTopology as unknown as Topology<CountriesObjects>;
     const countriesObj = topo.objects.countries;
+    if (!countriesObj?.geometries?.length) return fallback;
 
     const land = merge(topo, countriesObj);
     const borders = mesh(topo, countriesObj, (a, b) => a !== b);
@@ -37,12 +48,34 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
     const projection = geoEquirectangular().fitSize([MAP_WIDTH, MAP_HEIGHT], land);
     const pathGen = geoPath(projection);
 
+    const project = (lng: number, lat: number): [number, number] => {
+      const p = projection([lng, lat]);
+      if (p && Number.isFinite(p[0]) && Number.isFinite(p[1])) return [p[0], p[1]];
+      return projectLngLatEquirectangular(lng, lat);
+    };
+
     return {
       landPath: pathGen(land) ?? '',
       borderPath: pathGen(borders) ?? '',
-      projection,
+      project,
     };
-  }, []);
+  } catch (err) {
+    console.warn('[WorldMapView] Natural Earth layer build failed, using grid + pins only:', err);
+    return fallback;
+  }
+}
+
+export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = '—', giScore = 0 }: Partial<GlobeChamberProps> = {}) {
+  const pins = useMemo(() => {
+    try {
+      return buildGlobePinsFromMicro(micro, echoEpicon);
+    } catch (err) {
+      console.warn('[WorldMapView] pin build failed:', err);
+      return [];
+    }
+  }, [micro, echoEpicon]);
+
+  const { landPath, borderPath, project } = useMemo(() => buildMapLayers(), []);
 
   return (
     <div className="relative h-[min(72vh,640px)] w-full overflow-hidden border-y border-slate-800 bg-[#020408] sm:rounded-lg sm:border">
@@ -108,9 +141,8 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
         ) : null}
 
         {pins.map((pin) => {
-          const projected = projection([pin.lng, pin.lat]);
-          if (!projected) return null;
-          const [x, y] = projected;
+          const [x, y] = project(pin.lng, pin.lat);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
           const magRaw = pin.meta.magnitude ?? pin.meta.mag;
           const mag = typeof magRaw === 'number' && Number.isFinite(magRaw) ? magRaw : null;
           const scale = pin.palette === 'seismic' && mag !== null ? 0.85 + Math.min(0.9, Math.max(0, mag - 4.5) * 0.4) : 1;
