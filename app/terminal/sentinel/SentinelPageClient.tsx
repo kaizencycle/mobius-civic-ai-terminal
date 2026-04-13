@@ -1,20 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 
 type Agent = { id: string; name: string; role: string; status: string; lastAction?: string; tier?: string; mii_avg?: number };
 type JournalEntry = { id: string; observation?: string; cycle?: string };
+type MiiEntry = { agent: string; mii: number; timestamp: string };
 
 /** Inline SVG sparkline — zero bundle impact, no recharts needed */
-function MiiSparkline({ values }: { values: number[] }) {
+function MiiSparkline({ values, color, dashed = false }: { values: number[]; color: string; dashed?: boolean }) {
   if (values.length < 2) return null;
-  const W = 64;
-  const H = 16;
+  const W = 240;
+  const H = 40;
   const pad = 1;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const min = Math.min(...values, 0.6);
+  const max = Math.max(...values, 1);
   const range = max - min || 0.01;
 
   const pts = values
@@ -26,24 +27,50 @@ function MiiSparkline({ values }: { values: number[] }) {
     .join(' ');
 
   return (
-    <svg width={W} height={H} className="inline-block align-middle" aria-hidden="true">
+    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} className="inline-block align-middle" aria-hidden="true" preserveAspectRatio="none">
       <polyline
         points={pts}
         fill="none"
-        stroke="rgb(34 211 238 / 0.7)"
+        stroke={color}
         strokeWidth="1.2"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeDasharray={dashed ? '3 3' : undefined}
       />
     </svg>
   );
 }
 
+const AGENT_COLORS: Record<string, string> = {
+  ATLAS: '#38bdf8',
+  ZEUS: '#f59e0b',
+  EVE: '#f43f5e',
+  JADE: '#22c55e',
+  HERMES: '#fb7185',
+  AUREA: '#fbbf24',
+  DAEDALUS: '#b45309',
+  ECHO: '#cbd5e1',
+};
+
 export default function SentinelPageClient() {
   const { snapshot, loading } = useTerminalSnapshot();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [journal, setJournal] = useState<JournalEntry[]>([]);
-  const [miiData, setMiiData] = useState<Record<string, number[]>>({});
+  const [miiData, setMiiData] = useState<Record<string, MiiEntry[]>>({});
+
+  useEffect(() => {
+    fetch('/api/mii/feed', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json: { entries?: MiiEntry[] }) => {
+        const grouped: Record<string, MiiEntry[]> = {};
+        for (const entry of json.entries ?? []) {
+          if (!grouped[entry.agent]) grouped[entry.agent] = [];
+          grouped[entry.agent]!.push(entry);
+        }
+        setMiiData(grouped);
+      })
+      .catch(() => setMiiData({}));
+  }, []);
 
   if (loading && !snapshot) return <ChamberSkeleton blocks={8} />;
 
@@ -56,11 +83,8 @@ export default function SentinelPageClient() {
     }
     setExpanded(name);
 
-    const [journalResult, miiResult] = await Promise.allSettled([
+    const [journalResult] = await Promise.allSettled([
       fetch(`/api/agents/journal?agent=${encodeURIComponent(name)}&limit=5`, { cache: 'no-store' })
-        .then((r) => r.json())
-        .catch(() => ({ entries: [] })),
-      fetch(`/api/mii/feed?agent=${encodeURIComponent(name)}`, { cache: 'no-store' })
         .then((r) => r.json())
         .catch(() => ({ entries: [] })),
     ]);
@@ -69,18 +93,15 @@ export default function SentinelPageClient() {
       setJournal((journalResult.value.entries ?? []) as JournalEntry[]);
     }
 
-    if (miiResult.status === 'fulfilled') {
-      type MiiEntry = { mii: number; timestamp: string };
-      const entries: MiiEntry[] = miiResult.value.entries ?? [];
-      const scores = entries
-        .slice(0, 10)
-        .map((e) => e.mii)
-        .reverse(); // oldest → newest for left-to-right rendering
-      if (scores.length >= 2) {
-        setMiiData((prev) => ({ ...prev, [name]: scores }));
-      }
-    }
   };
+
+  const latestByAgent = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const [agent, entries] of Object.entries(miiData)) {
+      if (entries.length > 0) out[agent] = entries[0]!.mii;
+    }
+    return out;
+  }, [miiData]);
 
   return (
     <div className="h-full overflow-y-auto p-4">
@@ -88,16 +109,23 @@ export default function SentinelPageClient() {
         {(agents.agents ?? []).map((agent) => (
           <button key={agent.id} onClick={() => void handleExpand(agent.name)} className="rounded border border-slate-800 bg-slate-900/60 p-4 text-left">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">{agent.name}</div>
-              <span className={`h-2 w-2 rounded-full ${agent.status === 'alive' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <div className="text-sm font-semibold">
+                {agent.name} <span className="text-cyan-300">{(latestByAgent[agent.name] ?? 0.9).toFixed(3)}</span>
+              </div>
+              <span className={`h-2 w-2 rounded-full ${agent.status === 'active' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
             </div>
             <div className="text-xs text-slate-400">{agent.role} · {agent.tier ?? '—'}</div>
             <div className="mt-2 text-xs text-slate-500">{agent.lastAction ?? 'No action yet.'}</div>
-            <div className="mt-1 flex items-center gap-2 text-xs text-cyan-200">
-              <span>MII avg {agent.mii_avg ?? '—'}</span>
-              {miiData[agent.name] && miiData[agent.name]!.length >= 2 ? (
-                <MiiSparkline values={miiData[agent.name]!} />
-              ) : null}
+            <div className="mt-2 text-xs text-cyan-200">MII trend</div>
+            <div className="mt-1">
+              {miiData[agent.name]?.length ? (
+                <MiiSparkline
+                  values={miiData[agent.name]!.slice(0, 10).map((e) => e.mii).reverse()}
+                  color={AGENT_COLORS[agent.name] ?? '#22d3ee'}
+                />
+              ) : (
+                <MiiSparkline values={Array.from({ length: 10 }, () => 0.9)} color="#64748b" dashed />
+              )}
             </div>
           </button>
         ))}

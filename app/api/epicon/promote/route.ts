@@ -298,6 +298,7 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
   let promoted = 0;
   let committed = 0;
   let failed = 0;
+  let failedCommits = 0;
   let seq = 1;
   const promotedIdsThisCycle: string[] = [];
 
@@ -319,30 +320,34 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
         if (alreadyCommitted) continue;
 
         const commit = buildCommit(agent, epicon, cycleId, seq++);
-        await pushLedgerEntry(commit);
-        await writeCommitJournalEntry(commit, epicon);
-        void writeToSubstrate({
-          id: commit.id,
-          timestamp: commit.timestamp,
-          agent,
-          agentOrigin: agent,
-          cycle: cycleId,
-          title: commit.title,
-          summary: commit.body ?? commit.title,
-          category: 'observation',
-          severity: commit.severity === 'high' ? 'critical' : commit.severity === 'medium' ? 'elevated' : 'nominal',
-          source: 'epicon-promotion',
-          confidence: Math.max(0.5, Math.min(0.98, 0.55 + epicon.confidenceTier * 0.1)),
-          derivedFrom: [epicon.id],
-          tags: ['agent-commit', epicon.category, epicon.id],
-          verified: true,
-        }).catch((error) => {
-          console.error('[ledger] promotion attest error', { commitId: commit.id, error });
-        });
-        existing.committed_entries.push(commit.id);
-        committed += 1;
+        try {
+          await pushLedgerEntry(commit);
+          await writeCommitJournalEntry(commit, epicon);
+          void writeToSubstrate({
+            id: commit.id,
+            timestamp: commit.timestamp,
+            agent,
+            agentOrigin: agent,
+            cycle: cycleId,
+            title: commit.title,
+            summary: commit.body ?? commit.title,
+            category: 'observation',
+            severity: commit.severity === 'high' ? 'critical' : commit.severity === 'medium' ? 'elevated' : 'nominal',
+            source: 'epicon-promotion',
+            confidence: Math.max(0.5, Math.min(0.98, 0.55 + epicon.confidenceTier * 0.1)),
+            derivedFrom: [epicon.id],
+            tags: ['agent-commit', epicon.category, epicon.id],
+            verified: true,
+          }).catch((error) => {
+            console.error('[ledger] promotion attest error', { commitId: commit.id, error });
+          });
+          existing.committed_entries.push(commit.id);
+          committed += 1;
+        } catch (err) {
+          console.error('[promoter] failed to commit', epicon.id, err);
+          failedCommits += 1;
+        }
       }
-
       existing.promotion_state = 'promoted';
       promoted += 1;
       promotedIdsThisCycle.push(epicon.id);
@@ -357,7 +362,7 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
 
   await savePromotionState(state);
   const postRun = await getPromotablePending(state, nowIso, promotedIdsThisCycle);
-  return { pending, promoted, committed, failed, trace: postRun.trace };
+  return { pending, promoted, committed, failed, failedCommits, trace: postRun.trace };
 }
 
 export async function GET() {
@@ -425,6 +430,10 @@ export async function POST(request: NextRequest) {
   const cycleId = currentCycleId();
   const state = await getPromotionState();
   const run = await runPromotionCycle(maxItems, nowIso, cycleId, state);
+  const tokenPresent = Boolean(process.env.AGENT_SERVICE_TOKEN?.trim() || process.env.RENDER_API_KEY?.trim());
+  if (!tokenPresent) {
+    console.error('[promoter] AGENT_SERVICE_TOKEN missing; substrate promotion attest may fail');
+  }
 
   return NextResponse.json({
     ok: true,
@@ -433,6 +442,8 @@ export async function POST(request: NextRequest) {
     promoted: run.promoted,
     committed: run.committed,
     failed: run.failed,
+    failedCommits: run.failedCommits,
+    tokenPresent,
     diagnostics: run.trace,
     maxItems,
     timestamp: nowIso,

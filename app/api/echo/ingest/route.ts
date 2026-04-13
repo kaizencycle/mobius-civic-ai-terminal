@@ -19,8 +19,9 @@ import { transformBatch } from '@/lib/echo/transform';
 import { pushIngestResult, getEchoStatus, getEchoEpicon, getEchoLedger, getEchoAlerts } from '@/lib/echo/store';
 import { writeSnapshot } from '@/lib/echo/snapshot-writer';
 import { saveEchoState, loadGIState } from '@/lib/kv/store';
-import { writeMiiState, readMiiFeed } from '@/lib/kv/mii';
+import { readMiiFeed, type MiiEntry } from '@/lib/kv/mii';
 import { querySonarForLane } from '@/lib/signals/perplexity-sonar';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,6 +72,40 @@ async function flushEpiconFeed(entries: KvEpiconEntry[]): Promise<void> {
     await redis.ltrim('epicon:feed', 0, 99);
   } catch (error) {
     console.error('[echo] epicon feed flush failed:', error);
+  }
+}
+
+async function writeEchoKvHeartbeat(status: ReturnType<typeof getEchoStatus>): Promise<void> {
+  const redis = getRedisClient();
+  if (!redis) return;
+  const now = new Date().toISOString();
+  try {
+    await redis.set(
+      'ECHO_STATE',
+      JSON.stringify({
+        cycleId: currentCycleId(),
+        lastIngest: now,
+        totalIngested: status.totalIngested,
+        duplicateSuppressed: status.duplicateSuppressedCount,
+        healthy: true,
+        timestamp: now,
+      }),
+    );
+  } catch (error) {
+    console.error('[echo] ECHO_STATE write failed:', error);
+  }
+}
+
+async function writeMiiFeedBatch(entries: MiiEntry[]): Promise<void> {
+  const redis = getRedisClient();
+  if (!redis || entries.length === 0) return;
+  try {
+    const packed = entries.map((entry) => JSON.stringify(entry));
+    await Promise.all(entries.map((entry) => redis.set(`mii:${entry.agent.toUpperCase()}:${entry.cycle}`, JSON.stringify(entry))));
+    await redis.lpush('mii:feed', ...packed);
+    await redis.ltrim('mii:feed', 0, 199);
+  } catch (error) {
+    console.error('[echo] mii batch write failed:', error);
   }
 }
 
@@ -158,6 +193,7 @@ export async function POST() {
     // 3. Push to store
     pushIngestResult(result);
     const status = getEchoStatus();
+    await writeEchoKvHeartbeat(status);
     const dedupDenominator = Math.max(1, status.totalIngested + status.duplicateSuppressedCount);
     const dedupRate = Number((status.duplicateSuppressedCount / dedupDenominator).toFixed(3));
     await saveEchoState({
@@ -193,47 +229,22 @@ export async function POST() {
         const miiTimestamp = new Date().toISOString();
         const agentAverages = result.integrity.agentAverages;
         const agents = ['ATLAS', 'ZEUS', 'JADE', 'EVE'] as const;
-
-        const ratedAgents = agents.filter((agent) => typeof agentAverages[agent] === 'number');
-        await Promise.all(
-          ratedAgents.map((agent) =>
-            writeMiiState({
-              agent,
-              mii: Number(agentAverages[agent].toFixed(4)),
-              gi: currentGi,
-              cycle: result.cycleId,
-              timestamp: miiTimestamp,
-              source: 'live',
-            }),
-          ),
-        );
-
-        // Heartbeat: when all EPICONs are duplicates, agentAverages is empty and the
-        // write above skips every agent. Fall back to the last known score from the
-        // feed (or a 0.90 baseline) so mii:feed always has entries after the first
-        // real rating cycle, and the time series stays alive on duplicate-only cycles.
-        const unratedAgents = agents.filter((agent) => typeof agentAverages[agent] !== 'number');
-        if (unratedAgents.length > 0) {
-          const recentFeed = await readMiiFeed();
-          const lastKnown: Record<string, number> = {};
-          for (const entry of recentFeed) {
-            if (!(entry.agent in lastKnown)) {
-              lastKnown[entry.agent] = entry.mii;
-            }
+        const recentFeed = await readMiiFeed();
+        const lastKnown: Record<string, number> = {};
+        for (const entry of recentFeed) {
+          if (!(entry.agent in lastKnown)) {
+            lastKnown[entry.agent] = entry.mii;
           }
-          await Promise.all(
-            unratedAgents.map((agent) =>
-              writeMiiState({
-                agent,
-                mii: Number((lastKnown[agent] ?? 0.90).toFixed(4)),
-                gi: currentGi,
-                cycle: result.cycleId,
-                timestamp: miiTimestamp,
-                source: 'live',
-              }),
-            ),
-          );
         }
+        const batch: MiiEntry[] = agents.map((agent) => ({
+          agent,
+          mii: Number((typeof agentAverages[agent] === 'number' ? agentAverages[agent] : (lastKnown[agent] ?? 0.90)).toFixed(4)),
+          gi: currentGi,
+          cycle: result.cycleId,
+          timestamp: miiTimestamp,
+          source: 'live',
+        }));
+        await writeMiiFeedBatch(batch);
       } catch (err) {
         console.error('[echo] mii write failed:', err instanceof Error ? err.message : err);
       }

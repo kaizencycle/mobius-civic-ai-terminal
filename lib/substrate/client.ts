@@ -242,10 +242,12 @@ async function writeJournalToKV(entry: SubstrateEntry): Promise<void> {
   if (!redis) return;
 
   const now = new Date().toISOString();
+  const cycle = entry.cycle;
+  const agentUpper = entry.agentOrigin.toUpperCase();
   const record = {
     id: `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`,
     agent: entry.agent,
-    cycle: entry.cycle,
+    cycle,
     timestamp: now,
     scope: entry.category,
     observation: entry.summary,
@@ -261,10 +263,7 @@ async function writeJournalToKV(entry: SubstrateEntry): Promise<void> {
     tags: entry.tags ?? [],
   };
 
-  await redis.lpush(`journal:${entry.agentOrigin.toLowerCase()}`, JSON.stringify(record));
-  await redis.ltrim(`journal:${entry.agentOrigin.toLowerCase()}`, 0, 199);
-  await redis.lpush('journal:all', JSON.stringify(record));
-  await redis.ltrim('journal:all', 0, 499);
+  await redis.set(`journal:${agentUpper}:${cycle}`, JSON.stringify(record), { ex: 604800 });
 }
 
 export async function writeToSubstrate(

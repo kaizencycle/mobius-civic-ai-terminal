@@ -133,14 +133,29 @@ export async function GET(request: NextRequest) {
   };
 
   const lanes: SnapshotLaneState[] = normalizeAllSnapshotLanes(leaves);
-  const laneSummary = lanes.every(
-    (lane) => lane.state === 'healthy' || lane.state === 'empty' || lane.state === 'stale',
-  );
+  const laneByKey = new Map(lanes.map((lane) => [lane.key, lane]));
+  const criticalLaneKeys: SnapshotLaneKey[] = ['integrity', 'signals', 'kvHealth'];
+  const criticalLaneStatesOk = criticalLaneKeys.every((key) => {
+    const state = laneByKey.get(key)?.state;
+    return state === 'healthy' || state === 'degraded';
+  });
+  const criticalLeafFailure = criticalLaneKeys.some((key) => {
+    const leaf = leaves[key];
+    return !leaf.ok && (leaf.status >= 500 || leaf.status === 0);
+  });
+  const laneSummary = criticalLaneStatesOk && !criticalLeafFailure;
+  const eveData = (eve.data ?? {}) as Record<string, unknown>;
+  const eveCycle =
+    typeof eveData.currentCycle === 'string'
+      ? eveData.currentCycle
+      : typeof eveData.cycleId === 'string'
+        ? eveData.cycleId
+        : null;
 
   return NextResponse.json(
     {
       ok: laneSummary,
-      cycle: cycle ?? null,
+      cycle: eveCycle ?? cycle ?? null,
       include_catalog: includeCatalog === 'true',
       timestamp: new Date().toISOString(),
       deployment: {

@@ -27,6 +27,7 @@ export type GlobePin = {
   provenance: string;
   narrativeWhy: string;
   visualAsset?: GlobeVisualAsset | null;
+  palette?: 'default' | 'epicon';
 };
 
 export type SentimentDomainKey =
@@ -93,7 +94,7 @@ type MicroSweepLike = {
 
 type GlobePinInput = Pick<
   GlobePin,
-  'id' | 'lat' | 'lng' | 'source' | 'title' | 'value' | 'severity' | 'agent' | 'meta' | 'domainKey'
+  'id' | 'lat' | 'lng' | 'source' | 'title' | 'value' | 'severity' | 'agent' | 'meta' | 'domainKey' | 'palette'
 > & {
   pulse?: boolean;
   confidence?: number;
@@ -160,6 +161,7 @@ function pushPin(pins: GlobePin[], seen: Set<string>, pin: GlobePinInput) {
       ?? `Elevated attention for ${pin.domainKey} lane — operators should verify against ledger and journal context.`,
   };
   if (pin.visualAsset !== undefined) out.visualAsset = pin.visualAsset;
+  if (pin.palette !== undefined) out.palette = pin.palette;
   pins.push(out);
 }
 
@@ -331,19 +333,27 @@ export function buildGlobePinsFromMicro(
     const ingest = item.echoIngest;
     if (!ingest) continue;
     const src = ingest.source;
-    // USGS quakes already come from micro with coordinates; CoinGecko only exists on ECHO ingest.
-    if (src !== 'CoinGecko') continue;
-
     const meta = ingest.metadata ?? {};
-    const coin = typeof meta.coin === 'string' ? meta.coin.toLowerCase() : '';
+    const metaLat = typeof meta.lat === 'number' ? meta.lat : null;
+    const metaLng = typeof meta.lng === 'number' ? meta.lng : null;
     let lat: number;
     let lng: number;
-    if (coin === 'ethereum') {
-      [lat, lng] = LONDON;
-    } else if (coin === 'solana') {
-      [lat, lng] = SF;
+    let palette: 'default' | 'epicon' = 'default';
+    if (metaLat !== null && metaLng !== null) {
+      lat = metaLat;
+      lng = metaLng;
+      palette = 'epicon';
     } else {
-      [lat, lng] = NYC;
+      // USGS quakes already come from micro with coordinates; CoinGecko only exists on ECHO ingest.
+      if (src !== 'CoinGecko') continue;
+      const coin = typeof meta.coin === 'string' ? meta.coin.toLowerCase() : '';
+      if (coin === 'ethereum') {
+        [lat, lng] = LONDON;
+      } else if (coin === 'solana') {
+        [lat, lng] = SF;
+      } else {
+        [lat, lng] = NYC;
+      }
     }
 
     const title = item.title ?? item.summary ?? src;
@@ -367,6 +377,7 @@ export function buildGlobePinsFromMicro(
       severity: echoSev,
       agent,
       domainKey: sourceDomain(src),
+      palette,
       signalTimestamp: echoTs,
       provenance: 'CoinGecko · ECHO ingest · EPICON pipeline',
       narrativeWhy: 'Market pulse on financial lane — ECHO routes to HERMES narrative coupling.',

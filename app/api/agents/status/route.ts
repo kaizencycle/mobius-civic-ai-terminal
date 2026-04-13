@@ -35,6 +35,7 @@ const AGENT_BASE = [
 ] as const;
 
 let staleSnapshot: { cycle: string; timestamp: string } | null = null;
+const HEARTBEAT_STALE_MS = 90 * 60 * 1000;
 
 function toAgentStatus(status: 'active' | 'unknown') {
   return AGENT_BASE.map((agent) => ({
@@ -76,7 +77,7 @@ export async function GET() {
 
     staleSnapshot = { cycle, timestamp };
 
-    if (heartbeat?.timestamp && isFresh(heartbeat.timestamp, 25 * 60 * 1000)) {
+    if (heartbeat?.timestamp && isFresh(heartbeat.timestamp, HEARTBEAT_STALE_MS)) {
       return NextResponse.json({
         ok: true,
         ...liveEnvelope(timestamp),
