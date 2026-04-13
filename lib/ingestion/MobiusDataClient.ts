@@ -370,12 +370,25 @@ export class MobiusDataClient {
 
   private hashRawData(raw: unknown): string {
     const serialized = JSON.stringify(raw);
-
-    if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
-      return window.btoa(serialized).slice(0, 16);
+    try {
+      const bytes = new TextEncoder().encode(serialized);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+      if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
+        return window.btoa(binary).slice(0, 16);
+      }
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.from(bytes).toString('base64').slice(0, 16);
+      }
+      let h = 2166136261;
+      for (let i = 0; i < serialized.length; i++) {
+        h ^= serialized.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return `fnv${(h >>> 0).toString(16)}`.slice(0, 16);
+    } catch {
+      return 'hash-failed';
     }
-
-    return Buffer.from(serialized).toString('base64').slice(0, 16);
   }
 
   private numberOrDefault(value: unknown, fallback: number): number {
