@@ -136,7 +136,7 @@ export async function appendStewardCronJournals(input: {
   gi: number;
   source: CronSentinelSource;
   zeusJournalId?: string | null;
-}): Promise<void> {
+}): Promise<AgentJournalEntry[]> {
   const gi = clampGi(input.gi);
   const { count, labels } = await summarizeMicroAnomalies();
   const labelShort = labels.slice(0, 5).join('; ') || 'No elevated micro-agent lines in snapshot.';
@@ -144,10 +144,13 @@ export async function appendStewardCronJournals(input: {
   const echo = await loadEchoState().catch(() => null);
   const zeusRef = input.zeusJournalId?.trim() || 'pending';
 
+  const written: AgentJournalEntry[] = [];
+
   const appendOne = async (fn: () => Promise<AgentJournalEntry>, agent: string) => {
     try {
       const entry = await fn();
       await writeMiiForEntry(entry, gi);
+      written.push(entry);
     } catch (err) {
       console.error(`[steward-journal] ${agent} append failed:`, err instanceof Error ? err.message : err);
     }
@@ -251,4 +254,6 @@ export async function appendStewardCronJournals(input: {
       }),
     'ECHO',
   );
+
+  return written;
 }
