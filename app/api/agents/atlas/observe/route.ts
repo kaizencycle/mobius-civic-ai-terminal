@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       agent: 'ATLAS',
       journalId: entry.id,
+      journal: entry,
       cycle: parsed.cycle,
       gi,
       source: parsed.source,

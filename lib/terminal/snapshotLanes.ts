@@ -15,7 +15,8 @@ export type SnapshotLaneKey =
   | 'runtime'
   | 'promotion'
   | 'eve'
-  | 'mii';
+  | 'mii'
+  | 'vault';
 
 export type SnapshotLaneSemanticState = 'healthy' | 'degraded' | 'offline' | 'stale' | 'empty';
 
@@ -55,6 +56,7 @@ export const SNAPSHOT_LANE_KEYS: readonly SnapshotLaneKey[] = [
   'promotion',
   'eve',
   'mii',
+  'vault',
 ] as const;
 
 function asRecord(data: unknown): Record<string, unknown> | null {
@@ -137,6 +139,8 @@ export function extractLaneLastUpdated(key: SnapshotLaneKey, data: unknown): str
       return pick('timestamp');
     case 'mii':
       return pick('timestamp');
+    case 'vault':
+      return pick('timestamp', 'last_deposit');
     default:
       return null;
   }
@@ -667,6 +671,40 @@ function normalizeEveLane(leaf: SnapshotLeaf): SnapshotLaneState {
   };
 }
 
+function normalizeVaultLane(leaf: SnapshotLeaf): SnapshotLaneState {
+  const lastUpdated = extractLaneLastUpdated('vault', leaf.data);
+  if (!leaf.ok) {
+    const { state, message } = classifyHttpFailure(leaf.status, leaf.error);
+    return { key: 'vault', ok: false, state, statusCode: leaf.status, message, lastUpdated, fallbackMode: 'offline' };
+  }
+  const row = asRecord(leaf.data);
+  if (row?.ok !== true) {
+    return {
+      key: 'vault',
+      ok: false,
+      state: 'degraded',
+      statusCode: leaf.status,
+      message: 'Vault status not ok',
+      lastUpdated,
+      fallbackMode: 'offline',
+    };
+  }
+  const balance = typeof row.balance_reserve === 'number' ? row.balance_reserve : 0;
+  const status = typeof row.status === 'string' ? row.status : 'sealed';
+  const preview = row.preview_active === true;
+  const b = balance.toFixed(2);
+  const message = `Vault · ${b} reserve units · ${status}${preview ? ' · preview' : ''}`;
+  return {
+    key: 'vault',
+    ok: true,
+    state: 'healthy',
+    statusCode: leaf.status,
+    message,
+    lastUpdated,
+    fallbackMode: 'live',
+  };
+}
+
 function normalizeMiiLane(leaf: SnapshotLeaf): SnapshotLaneState {
   const lastUpdated = extractLaneLastUpdated('mii', leaf.data);
   if (!leaf.ok) {
@@ -724,6 +762,8 @@ export function normalizeSnapshotLane(key: SnapshotLaneKey, leaf: SnapshotLeaf):
       return normalizeEveLane(leaf);
     case 'mii':
       return normalizeMiiLane(leaf);
+    case 'vault':
+      return normalizeVaultLane(leaf);
     default:
       return {
         key,

@@ -28,6 +28,8 @@ import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { appendStewardCronJournals } from '@/lib/agents/sentinel-cycle-journals';
 import { loadGIState } from '@/lib/kv/store';
 import { writeMiiState } from '@/lib/kv/mii';
+import { recordVaultDepositsForCouncil } from '@/lib/vault/vault';
+import type { AgentJournalEntry } from '@/lib/terminal/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,8 +61,9 @@ async function fanOutSentinelCouncilAfterEve(
     cache: 'no-store',
     signal: AbortSignal.timeout(20_000),
   });
-  const atlasJson = (await atlasRes.json().catch(() => null)) as { journalId?: string } | null;
+  const atlasJson = (await atlasRes.json().catch(() => null)) as { journalId?: string; journal?: AgentJournalEntry } | null;
   const atlasJournalId = typeof atlasJson?.journalId === 'string' ? atlasJson.journalId : null;
+  const atlasEntry = atlasJson?.journal && typeof atlasJson.journal === 'object' ? atlasJson.journal : null;
 
   const zeusRes = await fetch(`${base}/api/agents/zeus/verify`, {
     method: 'POST',
@@ -74,8 +77,9 @@ async function fanOutSentinelCouncilAfterEve(
     cache: 'no-store',
     signal: AbortSignal.timeout(20_000),
   });
-  const zeusJson = (await zeusRes.json().catch(() => null)) as { journalId?: string } | null;
+  const zeusJson = (await zeusRes.json().catch(() => null)) as { journalId?: string; journal?: AgentJournalEntry } | null;
   const zeusJournalId = typeof zeusJson?.journalId === 'string' ? zeusJson.journalId : null;
+  const zeusEntry = zeusJson?.journal && typeof zeusJson.journal === 'object' ? zeusJson.journal : null;
 
   let giForSteward = giVal;
   try {
@@ -87,12 +91,23 @@ async function fanOutSentinelCouncilAfterEve(
     // keep giVal
   }
 
-  await appendStewardCronJournals({
+  const stewardEntries = await appendStewardCronJournals({
     cycle: cycleId,
     gi: giForSteward,
     source: 'cron',
     zeusJournalId,
   });
+
+  const councilEntries: AgentJournalEntry[] = [];
+  if (atlasEntry) councilEntries.push(atlasEntry);
+  if (zeusEntry) councilEntries.push(zeusEntry);
+  councilEntries.push(...stewardEntries);
+
+  if (councilEntries.length > 0) {
+    void recordVaultDepositsForCouncil(councilEntries, giForSteward).then((r) => {
+      console.info('[vault] council deposits', { ...r, gi: giForSteward });
+    });
+  }
 }
 
 type CycleBody = {
@@ -154,9 +169,11 @@ export async function GET(request: NextRequest) {
   if (isVercelCronInvocation(request)) {
     await runSignalEngine();
     const payload = await processEveCycleWindowSynthesis(cycleId, false);
-    void fanOutSentinelCouncilAfterEve(request, cycleId, payload as Record<string, unknown>).catch((err) => {
+    try {
+      await fanOutSentinelCouncilAfterEve(request, cycleId, payload as Record<string, unknown>);
+    } catch (err) {
       console.error('[eve/cycle-synthesize] sentinel council cron follow-up failed:', err);
-    });
+    }
     return NextResponse.json(payload);
   }
 
@@ -197,25 +214,30 @@ export async function POST(request: NextRequest) {
 
     const eveMii = inferEveConfidence(payload);
 
-    void appendAgentJournalEntry({
-      agent: 'EVE',
-      cycle: cycleId,
-      observation: `EVE ${mode} synthesis executed${reason ? ` for reason ${reason}` : ''}.`,
-      inference:
-        mode === 'escalation'
-          ? 'Civic risk required escalation-class synthesis output.'
-          : 'Cycle-window synthesis completed and published to the live EPICON ledger.',
-      recommendation:
-        mode === 'escalation'
-          ? 'Prioritize ZEUS verification and ATLAS oversight checks.'
-          : 'Continue normal verification cadence across ZEUS and ATLAS.',
-      confidence: eveMii,
-      derivedFrom: ['signal-engine:run', `eve-synthesis:${cycleId}`],
-      relatedAgents: ['ZEUS', 'ATLAS'],
-      status: 'committed',
-      category: mode === 'escalation' ? 'alert' : 'inference',
-      severity: inferEveSeverity(payload),
-    }).catch(() => {});
+    let eveJournal: AgentJournalEntry | null = null;
+    try {
+      eveJournal = await appendAgentJournalEntry({
+        agent: 'EVE',
+        cycle: cycleId,
+        observation: `EVE ${mode} synthesis executed${reason ? ` for reason ${reason}` : ''}.`,
+        inference:
+          mode === 'escalation'
+            ? 'Civic risk required escalation-class synthesis output.'
+            : 'Cycle-window synthesis completed and published to the live EPICON ledger.',
+        recommendation:
+          mode === 'escalation'
+            ? 'Prioritize ZEUS verification and ATLAS oversight checks.'
+            : 'Continue normal verification cadence across ZEUS and ATLAS.',
+        confidence: eveMii,
+        derivedFrom: ['signal-engine:run', `eve-synthesis:${cycleId}`],
+        relatedAgents: ['ZEUS', 'ATLAS'],
+        status: 'committed',
+        category: mode === 'escalation' ? 'alert' : 'inference',
+        severity: inferEveSeverity(payload),
+      });
+    } catch (err) {
+      console.error('[eve] journal append failed:', err instanceof Error ? err.message : err);
+    }
 
     void (async () => {
       try {
@@ -233,9 +255,23 @@ export async function POST(request: NextRequest) {
       }
     })();
 
-    void fanOutSentinelCouncilAfterEve(request, cycleId, payload as Record<string, unknown>).catch((err) => {
+    if (eveJournal) {
+      try {
+        const giState = await loadGIState();
+        const giVault = Number((giState?.global_integrity ?? 0.74).toFixed(4));
+        void recordVaultDepositsForCouncil([eveJournal], giVault).then((r) => {
+          console.info('[vault] EVE synthesis deposit', { ...r, gi: giVault });
+        });
+      } catch (err) {
+        console.error('[eve] vault deposit schedule failed:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    try {
+      await fanOutSentinelCouncilAfterEve(request, cycleId, payload as Record<string, unknown>);
+    } catch (err) {
       console.error('[eve/cycle-synthesize] sentinel council follow-up failed:', err);
-    });
+    }
 
     return NextResponse.json(payload);
   } catch (err) {

@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       agent: 'ZEUS',
       journalId: entry.id,
+      journal: entry,
       cycle: parsed.cycle,
       gi,
       atlasEntry: parsed.atlasEntry ?? null,

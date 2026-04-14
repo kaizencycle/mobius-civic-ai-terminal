@@ -11,6 +11,7 @@ import { GET as getRuntime } from '@/app/api/runtime/status/route';
 import { GET as getPromotion } from '@/app/api/epicon/promotion-status/route';
 import { GET as getEve } from '@/app/api/eve/cycle-advance/route';
 import { GET as getMii } from '@/app/api/mii/feed/route';
+import { GET as getVault } from '@/app/api/vault/status/route';
 import {
   normalizeAllSnapshotLanes,
   type SnapshotLaneKey,
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
   const journalPath = cycle ? `/api/agents/journal?cycle=${encodeURIComponent(cycle)}` : '/api/agents/journal';
   const epiconPath = includeCatalog === 'true' ? '/api/epicon/feed?include_catalog=true' : '/api/epicon/feed';
 
-  const [integrity, signals, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve, mii] = await Promise.all([
+  const [integrity, signals, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve, mii, vault] = await Promise.all([
     callHandler(makeRequest(baseUrl, '/api/integrity-status'), getIntegrity),
     callHandler(makeRequest(baseUrl, '/api/signals/micro'), getSignals),
     callHandler(makeRequest(baseUrl, '/api/kv/health'), getKvHealth),
@@ -68,6 +69,7 @@ export async function GET(request: NextRequest) {
     callHandler(makeRequest(baseUrl, '/api/epicon/promotion-status'), getPromotion),
     callHandler(makeRequest(baseUrl, '/api/eve/cycle-advance'), getEve),
     callHandler(makeRequest(baseUrl, '/api/mii/feed'), getMii),
+    callHandler(makeRequest(baseUrl, '/api/vault/status'), getVault),
   ]);
 
   type SubstrateAgentRow = {
@@ -130,6 +132,7 @@ export async function GET(request: NextRequest) {
     promotion,
     eve,
     mii,
+    vault,
   };
 
   const lanes: SnapshotLaneState[] = normalizeAllSnapshotLanes(leaves);
@@ -175,6 +178,7 @@ export async function GET(request: NextRequest) {
       promotion,
       eve,
       mii,
+      vault,
       substrate,
     },
     {
