@@ -22,6 +22,8 @@ export type EpiconLedgerFeedEntry = {
   /** Structured provenance (EPICON IDs, civic:alertId, etc.) when the row supports it. */
   derivedFromIds?: string[];
   status?: 'committed' | 'pending' | 'failed';
+  /** EPICON lane status when row is an EPICON feed item (distinct from ledger commit status). */
+  epiconStatus?: 'verified' | 'pending' | 'contradicted';
   agentOrigin?: string;
   zeusVerdict?: string;
   patternType?: string;

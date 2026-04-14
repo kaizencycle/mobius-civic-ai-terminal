@@ -5,6 +5,7 @@
 
 import { Redis } from '@upstash/redis';
 import type { IngestResult } from '@/lib/echo/transform';
+import type { IntegrityRating } from '@/lib/echo/integrity-engine';
 import { getEchoStatus } from '@/lib/echo/store';
 import { saveEchoState, loadGIState, kvSet, KV_KEYS } from '@/lib/kv/store';
 import { readMiiFeed, type MiiEntry } from '@/lib/kv/mii';
@@ -20,6 +21,12 @@ type KvEpiconEntry = {
   source: 'kv-ledger';
   tags: string[];
   verified: boolean;
+  category: string;
+  confidenceTier: number;
+  /** Mirrors EPICON lane status so cold-start ledger parse can promote verified T2. */
+  epiconStatus: 'verified' | 'pending' | 'contradicted';
+  /** ECHO integrity-engine attestation for this EPICON (ratings + verdict). */
+  integrityAttestation?: IntegrityRating;
 };
 
 function getRedisClient(): Redis | null {
@@ -87,7 +94,7 @@ async function writeMiiFeedBatch(entries: MiiEntry[]): Promise<void> {
     const packed = entries.map((entry) => JSON.stringify(entry));
     await Promise.all(entries.map((entry) => redis.set(`mii:${entry.agent.toUpperCase()}:${entry.cycle}`, JSON.stringify(entry))));
     await redis.lpush('mii:feed', ...packed);
-    await redis.ltrim('mii:feed', 0, 199);
+    await redis.ltrim('mii:feed', 0, 499);
   } catch (error) {
     console.error('[echo] mii batch write failed:', error);
   }
@@ -113,7 +120,7 @@ export async function persistEchoIngestSideEffects(result: IngestResult): Promis
     dedupRate,
   }).catch(() => {});
 
-  const kvFeedEntries: KvEpiconEntry[] = result.epicon.map((entry) => ({
+  const kvFeedEntries: KvEpiconEntry[] = result.epicon.map((entry, i) => ({
     id: entry.id,
     timestamp: toFeedTimestamp(entry.timestamp),
     author: entry.ownerAgent,
@@ -123,6 +130,10 @@ export async function persistEchoIngestSideEffects(result: IngestResult): Promis
     source: 'kv-ledger',
     tags: entry.sources,
     verified: entry.status === 'verified',
+    category: entry.category,
+    confidenceTier: entry.confidenceTier,
+    epiconStatus: entry.status,
+    integrityAttestation: result.integrity.ratings[i],
   }));
   await flushEpiconFeedToKv(kvFeedEntries);
 
@@ -132,7 +143,7 @@ export async function persistEchoIngestSideEffects(result: IngestResult): Promis
     const miiTimestamp = new Date().toISOString();
     const agentAverages = result.integrity.agentAverages;
     const agents = ['ATLAS', 'ZEUS', 'JADE', 'EVE'] as const;
-    const recentFeed = await readMiiFeed();
+    const recentFeed = await readMiiFeed(null, 500);
     const lastKnown: Record<string, number> = {};
     for (const entry of recentFeed) {
       if (!(entry.agent in lastKnown)) {
