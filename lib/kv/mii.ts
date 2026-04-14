@@ -7,10 +7,10 @@
  *
  * Schema:
  *   Key:   mii:{AGENT_UPPERCASE}:{CYCLE_ID}  → latest score for agent in cycle
- *   Feed:  mii:feed                          → LPUSH rolling list (max 200)
+ *   Feed:  mii:feed                          → LPUSH rolling list (max 500)
  *
  * Reads:
- *   GET /api/mii/feed  → last 100 entries, optional ?agent= filter
+ *   GET /api/mii/feed  → last 200 entries by default, optional ?agent= & ?limit=
  */
 
 import { Redis } from '@upstash/redis';
@@ -25,7 +25,7 @@ export type MiiEntry = {
 };
 
 const FEED_KEY = 'mii:feed';
-const FEED_MAX = 200;
+const FEED_MAX = 500;
 
 function getMiiRedisClient(): Redis | null {
   const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
@@ -72,18 +72,22 @@ export async function writeMiiState(entry: MiiEntry): Promise<void> {
   }
 }
 
+const DEFAULT_READ_LIMIT = 200;
+const MAX_READ_LIMIT = 500;
+
 /**
- * Read the rolling mii:feed. Returns up to 100 entries.
+ * Read the rolling mii:feed. Returns up to `limit` entries (default 200, max 500).
  * Optionally filtered by agent name (case-insensitive).
  */
-export async function readMiiFeed(agentFilter?: string | null): Promise<MiiEntry[]> {
+export async function readMiiFeed(agentFilter?: string | null, limit = DEFAULT_READ_LIMIT): Promise<MiiEntry[]> {
   const redis = getMiiRedisClient();
   if (!redis) return [];
 
   const normalizedFilter = agentFilter ? agentFilter.trim().toUpperCase() : null;
+  const cap = Number.isFinite(limit) ? Math.min(Math.max(1, Math.floor(limit)), MAX_READ_LIMIT) : DEFAULT_READ_LIMIT;
 
   try {
-    const raw = await redis.lrange<string>(FEED_KEY, 0, 99);
+    const raw = await redis.lrange<string>(FEED_KEY, 0, cap - 1);
     const entries: MiiEntry[] = [];
 
     for (const item of raw) {

@@ -1,11 +1,12 @@
 /**
  * MII Feed — GET /api/mii/feed
  *
- * Returns the last 100 MII state entries from the rolling mii:feed KV list.
+ * Returns the last N MII state entries from the rolling mii:feed KV list (default 200, max 500).
  * Each entry is one agent's integrity score at a point in time.
  *
  * Query params:
  *   ?agent=ZEUS  — filter to a single agent (case-insensitive)
+ *   ?limit=200   — max entries to return (default 200, cap 500)
  *
  * Response: { ok, count, entries, agents, timestamp }
  *
@@ -21,8 +22,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const agentFilter = request.nextUrl.searchParams.get('agent');
+  const limitRaw = request.nextUrl.searchParams.get('limit');
+  const limitParsed = limitRaw ? Number.parseInt(limitRaw, 10) : NaN;
+  const limit = Number.isFinite(limitParsed) ? limitParsed : undefined;
 
-  const entries = await readMiiFeed(agentFilter);
+  const entries = await readMiiFeed(agentFilter, limit);
   const agents = Array.from(new Set(entries.map((e) => e.agent)));
 
   return NextResponse.json(

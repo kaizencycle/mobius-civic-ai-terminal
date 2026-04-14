@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
-import { getEchoEpicon, getEchoStatus, pushIngestResult } from '@/lib/echo/store';
+import { getEchoEpicon, getEchoIntegrity, getEchoStatus, pushIngestResult } from '@/lib/echo/store';
 import { fetchAllSources } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
@@ -18,7 +18,7 @@ type Agent = 'ZEUS' | 'JADE' | 'HERMES' | 'AUREA' | 'ATLAS';
 type PromotionState = Awaited<ReturnType<typeof getPromotionState>>;
 type PromotableCategory = EpiconItem['category'];
 type ExclusionReason =
-  | 'status_not_pending'
+  | 'status_not_promotable'
   | 'confidence_tier_below_1'
   | 'category_not_promotable'
   | 'already_promoted';
@@ -84,6 +84,13 @@ function buildCommit(agent: Agent, epicon: EpiconItem, cycleId: string, seq: num
   const stamp = Date.now();
   const derivedFromToken = toIdToken(epicon.id);
   const id = `LE-${cycleId}-${agent}-${derivedFromToken}-${stamp}-${String(seq).padStart(3, '0')}`;
+  const attestation = epicon.echoIngest?.metadata?.integrityAttestation as
+    | { verdict?: string; mii?: number; ratings?: unknown[] }
+    | undefined;
+  const derivedFromIds = [
+    epicon.id,
+    ...(attestation ? [`echo-integrity:${epicon.id}`] : []),
+  ];
   return {
     id,
     timestamp: new Date().toISOString(),
@@ -100,6 +107,7 @@ function buildCommit(agent: Agent, epicon: EpiconItem, cycleId: string, seq: num
     category: epicon.category,
     confidenceTier: epicon.confidenceTier,
     derivedFrom: epicon.id,
+    derivedFromIds,
     status: 'committed',
     agentOrigin: agent,
   };
@@ -141,26 +149,47 @@ function parsePendingLedgerEntry(row: EpiconLedgerFeedEntry): EpiconItem | null 
   const category = row.category;
   if (!category || !PROMOTABLE_CATEGORIES.has(category as PromotableCategory)) return null;
 
-  const status = row.status ?? (row.verified ? 'committed' : 'pending');
-  if (status !== 'pending') return null;
+  if (row.source === 'agent_commit') return null;
+
+  let epiconLane: EpiconItem['status'] =
+    row.epiconStatus ??
+    (row.source === 'kv-ledger' ? (row.verified ? 'verified' : 'pending') : 'pending');
+
+  if (epiconLane === 'contradicted') return null;
+
+  const ledgerRowStatus = row.status;
+  if (ledgerRowStatus === 'committed') return null;
+
+  if (epiconLane !== 'verified' && epiconLane !== 'pending') return null;
 
   const confidenceTier =
     typeof row.confidenceTier === 'number' && Number.isInteger(row.confidenceTier) && row.confidenceTier >= 0 && row.confidenceTier <= 4
       ? (row.confidenceTier as EpiconItem['confidenceTier'])
       : 1;
 
+  const id = row.derivedFrom ?? row.id;
+  const attestation = (row as EpiconLedgerFeedEntry & { integrityAttestation?: unknown }).integrityAttestation;
+
   return {
-    id: row.derivedFrom ?? row.id,
+    id,
     title: row.title,
     category: category as PromotableCategory,
-    status: 'pending',
+    status: epiconLane,
     confidenceTier,
     ownerAgent: row.author || 'ECHO',
-    sources: [],
+    sources: Array.isArray(row.tags) ? row.tags : [],
     timestamp: row.timestamp,
     summary: row.body ?? row.title,
     trace: [],
     feedSource: row.source,
+    echoIngest:
+      attestation && typeof attestation === 'object'
+        ? {
+            source: 'ECHO',
+            severity: 'low',
+            metadata: { integrityAttestation: attestation },
+          }
+        : undefined,
   };
 }
 
@@ -236,16 +265,34 @@ async function getPromotablePending(
   promotedIdsThisCycle: string[] = [],
 ): Promise<{ pending: EpiconItem[]; trace: PromotionTrace }> {
   await ensureEchoIngested();
-  const fromEcho = getEchoEpicon();
   const fromLedger = await getLedgerPendingEpicon();
   const pendingById = new Map<string, EpiconItem>();
   const excluded: Record<ExclusionReason, number> = {
-    status_not_pending: 0,
+    status_not_promotable: 0,
     confidence_tier_below_1: 0,
     category_not_promotable: 0,
     already_promoted: 0,
   };
-  const allCandidates = [...fromEcho, ...fromLedger];
+  const integrity = getEchoIntegrity();
+  const fromEcho = getEchoEpicon().map((item) => {
+    const rating = integrity?.ratings.find((r) => r.eventId === item.id);
+    if (!rating) return item;
+    return {
+      ...item,
+      echoIngest: {
+        ...item.echoIngest,
+        source: item.echoIngest?.source ?? 'ECHO',
+        severity: item.echoIngest?.severity ?? 'low',
+        metadata: {
+          ...item.echoIngest?.metadata,
+          integrityAttestation: rating,
+        },
+      },
+    };
+  });
+
+  // Ledger first, then echo — same id keeps in-memory echo row (has integrity attestation).
+  const allCandidates = [...fromLedger, ...fromEcho];
 
   console.info('[epicon/promote] promoter_input_candidates', {
     count: allCandidates.length,
@@ -253,8 +300,8 @@ async function getPromotablePending(
   });
 
   for (const item of allCandidates) {
-    if (item.status !== 'pending') {
-      excluded.status_not_pending += 1;
+    if (item.status !== 'pending' && item.status !== 'verified') {
+      excluded.status_not_promotable += 1;
       continue;
     }
     if (item.confidenceTier < 1) {
