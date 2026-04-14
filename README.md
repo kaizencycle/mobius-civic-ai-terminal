@@ -1,6 +1,6 @@
 # Mobius Civic AI Terminal
 
-**A civic Bloomberg-style command terminal for the Mobius Substrate.**
+**A civic AI command terminal for the Mobius Substrate.**
 
 The Mobius Civic AI Terminal provides a real-time operational interface for monitoring AI agents, verifying information flows, and tracking integrity signals across a civic AI network.
 
