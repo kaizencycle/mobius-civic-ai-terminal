@@ -322,6 +322,8 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
     existing.assigned_agents = assignedAgents;
     existing.last_attempt_at = nowIso;
 
+    let anyCommitSucceeded = false;
+
     try {
       for (const agent of assignedAgents) {
         const alreadyCommitted = existing.committed_entries.some((entryId) => entryId.includes(`-${agent}-`));
@@ -329,6 +331,7 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
 
         const commit = buildCommit(agent, epicon, cycleId, seq++);
         try {
+          console.info('[promoter] attempting commit for', epicon.id, 'agent', agent);
           if (!ledgerReady) {
             throw new Error('AGENT_SERVICE_TOKEN not configured');
           }
@@ -354,14 +357,25 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
           });
           existing.committed_entries.push(commit.id);
           committed += 1;
+          anyCommitSucceeded = true;
         } catch (err) {
           console.error('[promoter] failed to commit', epicon.id, err);
           failedCommits += 1;
         }
       }
-      existing.promotion_state = 'promoted';
-      promoted += 1;
-      promotedIdsThisCycle.push(epicon.id);
+      const allAgentsSatisfied = assignedAgents.every((agent) =>
+        existing.committed_entries.some((entryId) => entryId.includes(`-${agent}-`)),
+      );
+
+      if (anyCommitSucceeded || allAgentsSatisfied) {
+        existing.promotion_state = 'promoted';
+        promoted += 1;
+        promotedIdsThisCycle.push(epicon.id);
+      } else {
+        existing.promotion_state = ledgerReady ? 'failed' : 'pending';
+        existing.failed_attempts += 1;
+        failed += 1;
+      }
     } catch {
       existing.promotion_state = 'failed';
       existing.failed_attempts += 1;
