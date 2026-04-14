@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-04-14T00:00:59.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-280",
+  "gi": 0.83,
+  "mode": "green",
+  "source": "mock",
+  "anomalies": [
+    "Seismic: 48 quakes M2.5+ today, max M5.5 near 231 km WSW of Pistol River, Oregon",
+    "Self-ping: HTTP 401 in 87ms"
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": false,
+    "GI_STATE": false,
+    "ECHO_STATE": true,
+    "ECHO_STATE_KV": true,
+    "TRIPWIRE_STATE": false,
+    "TRIPWIRE_STATE_KV": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "seed_attempted": true,
+  "seed_result": "401"
+}
