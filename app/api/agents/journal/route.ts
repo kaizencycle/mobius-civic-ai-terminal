@@ -48,6 +48,9 @@ type AgentJournalCreateInput = Omit<AgentJournalEntry, 'id' | 'timestamp' | 'sta
 };
 
 const MAX_READ = 100;
+/** When merging all agents from KV, cap per agent so one noisy writer cannot evict others from the global list. */
+const KV_JOURNAL_PER_AGENT_CAP = 50;
+const KV_JOURNAL_FAIR_MERGE_MAX = 600;
 const GENESIS_AGENTS = ['ATLAS', 'ZEUS', 'EVE', 'HERMES', 'AUREA', 'JADE', 'DAEDALUS', 'ECHO'] as const;
 
 function randomToken(length: number): string {
@@ -220,6 +223,35 @@ function buildEntry(input: AgentJournalCreateInput): AgentJournalEntry | null {
  * - Unprefixed: `journal:ZEUS:C-280` (legacy / journal-lane raw client)
  * - Mobius-prefixed: `mobius:journal:ZEUS:C-280` (appendAgentJournalEntry via kvSet)
  */
+/**
+ * All-agents journal GET used to take only the newest MAX_READ rows globally; frequent EVE (or ZEUS)
+ * runs could fill that window and hide ATLAS entirely. Take newest N per agent, then merge.
+ */
+function mergeKvJournalFair(entries: AgentJournalEntry[], perAgent: number, maxTotal: number): AgentJournalEntry[] {
+  const byAgent = new Map<string, AgentJournalEntry[]>();
+  for (const e of entries) {
+    const k = e.agentOrigin.toUpperCase();
+    if (!byAgent.has(k)) byAgent.set(k, []);
+    byAgent.get(k)!.push(e);
+  }
+  for (const arr of byAgent.values()) {
+    arr.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+  const genesisUpper = GENESIS_AGENTS as unknown as readonly string[];
+  const extra = [...byAgent.keys()]
+    .filter((a) => !genesisUpper.includes(a))
+    .sort((x, y) => x.localeCompare(y));
+  const orderedAgents = [...GENESIS_AGENTS.map((a) => a as string), ...extra];
+  const merged: AgentJournalEntry[] = [];
+  for (const agent of orderedAgents) {
+    const arr = byAgent.get(agent);
+    if (arr) merged.push(...arr.slice(0, perAgent));
+  }
+  return merged
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, maxTotal);
+}
+
 function parseJournalStorageKey(key: string): { agent: string; cycle: string } | null {
   if (key.startsWith('mobius:')) {
     const rest = key.slice('mobius:'.length);
@@ -286,9 +318,7 @@ async function loadEntries(
       }
     }
 
-    return out
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, MAX_READ);
+    return out.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   } catch {
     return [];
   }
@@ -311,7 +341,10 @@ export async function GET(request: NextRequest) {
   const limitRaw = Number(searchParams.get('limit') ?? '20');
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 100) : 20;
 
-  const kvEntries = await loadEntries(redis, agentFilters);
+  let kvEntries = await loadEntries(redis, agentFilters);
+  if (agentFilters.length === 0) {
+    kvEntries = mergeKvJournalFair(kvEntries, KV_JOURNAL_PER_AGENT_CAP, KV_JOURNAL_FAIR_MERGE_MAX);
+  }
 
   let substrateError: string | null = null;
   let substrateEntries: AgentJournalEntry[] = [];
