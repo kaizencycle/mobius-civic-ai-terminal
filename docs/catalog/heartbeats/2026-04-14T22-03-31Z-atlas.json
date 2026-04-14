@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-04-14T22:03:31.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-281",
+  "gi": 0.83,
+  "mode": "green",
+  "source": "live",
+  "anomalies": [
+    "Seismic: 83 quakes M2.5+ today, max M5.7 near 19 km SE of Tawang, India",
+    "EONET: 50 open natural events (1 storms, 42 fires)"
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": true,
+    "ECHO_STATE": false,
+    "ECHO_STATE_KV": false,
+    "TRIPWIRE_STATE": false,
+    "TRIPWIRE_STATE_KV": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "seed_attempted": true,
+  "seed_result": "401"
+}
