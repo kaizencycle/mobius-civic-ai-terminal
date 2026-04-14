@@ -25,6 +25,7 @@ import {
 } from '@/lib/security/serviceAuth';
 import { runSignalEngine } from '@/lib/signals/engine';
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
+import { appendStewardCronJournals } from '@/lib/agents/sentinel-cycle-journals';
 import { loadGIState } from '@/lib/kv/store';
 import { writeMiiState } from '@/lib/kv/mii';
 
@@ -39,7 +40,7 @@ function extractGiFromSynthesisPayload(payload: Record<string, unknown>): number
   return null;
 }
 
-async function fanOutAtlasZeusAfterEve(
+async function fanOutSentinelCouncilAfterEve(
   request: NextRequest,
   cycleId: string,
   payload: Record<string, unknown>,
@@ -61,7 +62,7 @@ async function fanOutAtlasZeusAfterEve(
   const atlasJson = (await atlasRes.json().catch(() => null)) as { journalId?: string } | null;
   const atlasJournalId = typeof atlasJson?.journalId === 'string' ? atlasJson.journalId : null;
 
-  await fetch(`${base}/api/agents/zeus/verify`, {
+  const zeusRes = await fetch(`${base}/api/agents/zeus/verify`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -72,6 +73,25 @@ async function fanOutAtlasZeusAfterEve(
     }),
     cache: 'no-store',
     signal: AbortSignal.timeout(20_000),
+  });
+  const zeusJson = (await zeusRes.json().catch(() => null)) as { journalId?: string } | null;
+  const zeusJournalId = typeof zeusJson?.journalId === 'string' ? zeusJson.journalId : null;
+
+  let giForSteward = giVal;
+  try {
+    const st = await loadGIState();
+    if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
+      giForSteward = Math.max(0, Math.min(1, st.global_integrity));
+    }
+  } catch {
+    // keep giVal
+  }
+
+  await appendStewardCronJournals({
+    cycle: cycleId,
+    gi: giForSteward,
+    source: 'cron',
+    zeusJournalId,
   });
 }
 
@@ -134,8 +154,8 @@ export async function GET(request: NextRequest) {
   if (isVercelCronInvocation(request)) {
     await runSignalEngine();
     const payload = await processEveCycleWindowSynthesis(cycleId, false);
-    void fanOutAtlasZeusAfterEve(request, cycleId, payload as Record<string, unknown>).catch((err) => {
-      console.error('[eve/cycle-synthesize] ATLAS/ZEUS cron follow-up failed:', err);
+    void fanOutSentinelCouncilAfterEve(request, cycleId, payload as Record<string, unknown>).catch((err) => {
+      console.error('[eve/cycle-synthesize] sentinel council cron follow-up failed:', err);
     });
     return NextResponse.json(payload);
   }
@@ -213,8 +233,8 @@ export async function POST(request: NextRequest) {
       }
     })();
 
-    void fanOutAtlasZeusAfterEve(request, cycleId, payload as Record<string, unknown>).catch((err) => {
-      console.error('[eve/cycle-synthesize] ATLAS/ZEUS follow-up failed:', err);
+    void fanOutSentinelCouncilAfterEve(request, cycleId, payload as Record<string, unknown>).catch((err) => {
+      console.error('[eve/cycle-synthesize] sentinel council follow-up failed:', err);
     });
 
     return NextResponse.json(payload);
