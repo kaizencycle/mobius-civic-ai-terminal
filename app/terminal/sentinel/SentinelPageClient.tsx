@@ -116,8 +116,32 @@ export default function SentinelPageClient() {
     return out;
   }, [miiData]);
 
+  const heartbeatLive = (agents.agents ?? []).every((a) => a.status === 'active');
+  const anyJournalLags = (agents.agents ?? []).some((agent) => {
+    const rows = journalByAgent[agent.name] ?? [];
+    const latestCycle = rows[0]?.cycle?.trim() || null;
+    return Boolean(latestCycle && latestCycle !== currentCycle);
+  });
+
   return (
     <div className="h-full overflow-y-auto p-4">
+      <div className="mb-3 rounded border border-slate-800/80 bg-slate-950/50 px-3 py-2 text-[10px] font-mono leading-relaxed text-slate-400">
+        <span className="text-slate-500">Cycle {currentCycle}</span>
+        {' · '}
+        <span className={heartbeatLive ? 'text-emerald-400/90' : 'text-amber-400/90'}>
+          Runtime heartbeat {heartbeatLive ? 'live (all agents)' : 'degraded / unknown'}
+        </span>
+        {' · '}
+        <span>
+          Journal badge = last <span className="text-slate-300">KV journal</span> cycle (not heartbeat). ATLAS/ZEUS update after{' '}
+          <code className="text-slate-500">/api/eve/cycle-synthesize</code> cron or manual POST.
+        </span>
+        {anyJournalLags ? (
+          <span className="mt-1 block text-amber-200/80">
+            Some agents show an older journal cycle — they are still &quot;live&quot; if the right dot is green; run overnight synthesis or trigger observe/verify routes for {currentCycle}.
+          </span>
+        ) : null}
+      </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {(agents.agents ?? []).map((agent) => {
           const rows = journalByAgent[agent.name] ?? [];
@@ -129,15 +153,21 @@ export default function SentinelPageClient() {
               <div className="text-sm font-semibold">
                 {agent.name} <span className="text-cyan-300">{(latestByAgent[agent.name] ?? 0.9).toFixed(3)}</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col items-end gap-0.5 text-[9px] font-mono text-slate-500">
                 <span
-                  className="flex items-center gap-1 text-[10px] text-slate-500"
-                  title="Latest committed journal cycle"
+                  className="flex items-center gap-1"
+                  title="Latest committed journal entry cycle (KV / substrate merge)"
                 >
-                  <span className={`h-1.5 w-1.5 rounded-full ${journalFresh ? 'bg-emerald-400' : 'bg-slate-500'}`} />
-                  {journalFresh ? currentCycle : latestCycle ?? '—'}
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${journalFresh ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                  Jrnl {journalFresh ? currentCycle : latestCycle ?? '—'}
                 </span>
-                <span className={`h-2 w-2 rounded-full ${agent.status === 'active' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                <span
+                  className="flex items-center gap-1"
+                  title="From /api/agents/status — KV runtime heartbeat for the fleet"
+                >
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${agent.status === 'active' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  HB {agent.status === 'active' ? 'live' : 'stale'}
+                </span>
               </div>
             </div>
             <div className="text-xs text-slate-400">{agent.role} · {agent.tier ?? '—'}</div>
