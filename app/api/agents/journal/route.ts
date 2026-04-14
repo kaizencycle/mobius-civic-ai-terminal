@@ -215,6 +215,29 @@ function buildEntry(input: AgentJournalCreateInput): AgentJournalEntry | null {
   return entry;
 }
 
+/**
+ * Resolve logical agent + cycle from Redis key.
+ * - Unprefixed: `journal:ZEUS:C-280` (legacy / journal-lane raw client)
+ * - Mobius-prefixed: `mobius:journal:ZEUS:C-280` (appendAgentJournalEntry via kvSet)
+ */
+function parseJournalStorageKey(key: string): { agent: string; cycle: string } | null {
+  if (key.startsWith('mobius:')) {
+    const rest = key.slice('mobius:'.length);
+    const segments = rest.split(':');
+    if (segments.length !== 3 || segments[0] !== 'journal') return null;
+    const keyAgent = asString(segments[1]).toUpperCase();
+    const keyCycle = asString(segments[2]);
+    if (!keyAgent || !keyCycle) return null;
+    return { agent: keyAgent, cycle: keyCycle };
+  }
+  const segments = key.split(':');
+  if (segments.length !== 3 || segments[0] !== 'journal') return null;
+  const keyAgent = asString(segments[1]).toUpperCase();
+  const keyCycle = asString(segments[2]);
+  if (!keyAgent || !keyCycle) return null;
+  return { agent: keyAgent, cycle: keyCycle };
+}
+
 async function loadEntries(
   redis: ReturnType<typeof getJournalRedisClient>,
   agentFilters?: string[],
@@ -223,17 +246,18 @@ async function loadEntries(
 
   try {
     const normalized = new Set((agentFilters ?? []).map((agent) => agent.trim().toUpperCase()).filter(Boolean));
-    const keys = await redis.keys('journal:*');
+    const [keysUnprefixed, keysPrefixed] = await Promise.all([
+      redis.keys('journal:*'),
+      redis.keys('mobius:journal:*'),
+    ]);
+    const keys = [...new Set([...keysUnprefixed, ...keysPrefixed])];
     const seen = new Set<string>();
     const out: AgentJournalEntry[] = [];
 
     for (const key of keys) {
-      const segments = key.split(':');
-      if (segments.length !== 3) continue;
-      if (segments[0] !== 'journal') continue;
-      const keyAgent = asString(segments[1]).toUpperCase();
-      const keyCycle = asString(segments[2]);
-      if (!keyAgent || !keyCycle) continue;
+      const parsedKey = parseJournalStorageKey(key);
+      if (!parsedKey) continue;
+      const { agent: keyAgent, cycle: keyCycle } = parsedKey;
       if (normalized.size > 0 && !normalized.has(keyAgent)) continue;
 
       const raw = await redis.get<unknown>(key);
