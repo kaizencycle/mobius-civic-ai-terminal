@@ -1,6 +1,7 @@
 import { kvGet, kvSet } from '@/lib/kv/store';
 import { AGENT_MANIFESTS, AGENT_ORDER, type AgentName } from '@/lib/agents/manifests';
 import type { AgentJournalCategory, AgentJournalEntry, AgentJournalSeverity, AgentJournalStatus } from '@/lib/terminal/types';
+import { scheduleVaultDepositForJournal } from '@/lib/vault/vault';
 
 const INDEX_KEY = 'journal:index';
 const MAX_ENTRIES_PER_AGENT = 100;
@@ -169,6 +170,9 @@ export async function appendAgentJournalEntry(input: NewJournalEntryInput): Prom
   const next = [...existing, entry].slice(-MAX_ENTRIES_PER_AGENT);
   await kvSet(key, next);
   await upsertIndex(agent, entry.cycle);
+  if (entry.status === 'committed') {
+    scheduleVaultDepositForJournal(entry);
+  }
   return entry;
 }
 

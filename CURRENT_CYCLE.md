@@ -1,119 +1,91 @@
-# CURRENT_CYCLE.md — C-280
-> **Last verified:** 2026-04-13T12:25Z by ATLAS (kaizencycle)
-> **Snapshot commit:** `74fc1493` — C-280 in sync (agent work may advance this SHA after merge)
-> **Production URL:** https://mobius-civic-ai-terminal.vercel.app
+# CURRENT_CYCLE.md — C-281 (close)
+
+> **Last verified:** 2026-04-15T00:09Z (operator close snapshot)  
+> **Reference production SHA:** `bca99e86` (Vault v1 + prior C-281 work; this PR advances close-out items)  
+> **Production URL:** https://mobius-civic-ai-terminal.vercel.app  
 > **Vercel project:** `prj_ru2eaIzY0nIamFIXEdUIuTjnefpn` · team `team_cEncfJHYpxuB6YiFQNwdOUB5`
 
 ---
 
 ## ⚠️ READ THIS FIRST — FOR ALL AGENTS (Cursor, Codex, Claude Code)
 
-This file is the **ground truth** for the current state of the Terminal repo.
-Before making any change, read this file in full.
-If your task conflicts with a LOCKED entry, **stop and ask the operator**.
-If your task describes fixing something in the EXPECTED EMPTY section, **do not proceed** — it is not a bug.
+This file is the **ground truth** for the current state of the Terminal repo.  
+Before making any change, read this file in full.  
+If your task conflicts with a **LOCKED** entry, **stop and ask the operator**.
 
 ---
 
-## ✅ LANE STATUS (as of last snapshot @ 12:25Z)
+## ✅ CONFIRMED WORKING (C-281 close)
 
-| Lane | State | Note |
-|------|-------|------|
-| snapshot | healthy | `ok: true`, `cycle: "C-280"` at root |
-| integrity | degraded/live | GI ~0.73, source **kv** ✅, mode yellow |
-| signals | healthy | All four micro-agents live |
-| kvHealth | healthy | ~354ms latency |
-| agents | healthy | All eight active; heartbeat fresh |
-| journal | healthy | `sources.kv: 1` ✅ — first KV journal write (EVE) |
-| mii | healthy | `mii:feed` — nine entries; EVE hourly; ATLAS/ZEUS MII after cron once deployed |
-| echo | healthy | Nine C-280 EPICONs; `duplicateSuppressedCount: 0` ✅ |
-| sentiment | healthy | Six domains; CIVIC / INSTITUTIONAL ~0.965 |
-| epicon | empty | `kv: 0` on feed list — bridge alignment + stale feed persistence in progress (C-280) |
-| runtime | healthy | Freshness nominal |
-| promotion | silent | Eligible items found; zero commits — token / commit path (C-280) |
-| eve | healthy | Cycle synthesis cron + POST |
+| Area | State | Notes |
+|------|-------|--------|
+| Snapshot | healthy | `ok: true`, `cycle: C-281` |
+| Integrity | degraded / nominal band | GI ~0.83, source **kv**, mode green where applicable |
+| MII feed | healthy | 200-entry read window; LTRIM 500; 8 agents in feed |
+| Vault lane | live | `GET /api/vault/status` + snapshot `vault` lane |
+| Journal KV | high volume | ~97 hot-lane entries; 8 agents writing on synthesis cadence |
+| ECHO_STATE | true | `ECHO_STATE_KV` heartbeat aligned |
+| ZEUS verification | recorded | Substrate / catalog verification artifacts (e.g. `23f1bc4d` lineage in ops) |
+| MIC economy | milestone | First mint path proven (e.g. SOLANA T1, C-281) — ledger-attested flow |
+| ATLAS autonomous commits | true | Hourly sentinel watch commits with `[skip ci]` — substrate self-history |
+| Protocol | committed | `docs/protocols/vault-to-fountain-protocol.md` — Vault → Fountain reserve doctrine |
+| T1 promotion | proven | Verified EPICON → ledger commit path exercised in C-281 |
+
+---
+
+## ⏳ ACTIVE ISSUES (tracked into C-282 if not cleared on deploy)
+
+| Issue | Notes |
+|-------|--------|
+| Vault balance | Deposits must flow on **every committed journal** (not only synthesis batch); cron heartbeat must refresh `mobius:heartbeat:last` |
+| TRIPWIRE_STATE | Legacy Redis key `TRIPWIRE_STATE` + `signal-engine` persistence; `kvHealth.keys.TRIPWIRE_STATE_REDIS` |
+| Heartbeat staleness | Synthesis cron end-of-run heartbeat write |
+| Promotion regression | Echo + ledger merge + **verified fast-path** single primary commit |
+| `gi_critical` noise | EVE escalation GI stress threshold tightened toward **0.65** |
+
+---
+
+## 🏛️ MILESTONE — C-281
+
+First MIC minted. Vault lane live. 200-entry MII read path. ATLAS writing autonomous sentinel watch commits to substrate. Vault-to-Fountain Protocol in-repo. The integrity economy is **operational**; remaining items are **hardening and observability**, not greenfield.
 
 ---
 
 ## 🔒 LOCKED — DO NOT MODIFY WITHOUT OPERATOR APPROVAL
 
-These behaviors are confirmed working. Any PR that touches these files **must**
-explicitly state in the PR description why the change is safe.
-If you are unsure, **stop**.
-
-### 1. Journal KV key schema
-- **File:** `app/api/agents/journal/route.ts`
-- **What:** Route reads keys matching `journal:{AGENT}:{CYCLE}` (three segments, uppercase agent, e.g. `journal:EVE:C-280`)
-- **Why locked:** Agents write to this exact schema. Changing the reader breaks the entire journal lane.
-- **DO NOT:** Change to `journal:all`, `journal:eve`, or any two-segment schema.
-
-### 2. ECHO → `epicon:feed` KV bridge
-- **File:** `app/api/echo/ingest/route.ts` (shared helper `lib/echo/kv-persist-ingest.ts`)
-- **What:** After ECHO rates EPICONs, LPUSH completed entries into `epicon:feed` and LTRIM to 100
-- **Why locked:** Primary path for live KV EPICONs to reach the terminal feed.
-- **DO NOT:** Remove the LPUSH/LTRIM step. Do not move it after an error boundary that could skip it.
-
-### 3. Substrate GitHub auth header
-- **File:** `lib/substrate/github-reader.ts`
-- **What:** GitHub API calls to `kaizencycle/Mobius-Substrate` include `Authorization: Bearer ${SUBSTRATE_GITHUB_TOKEN}`
-- **DO NOT:** Remove the Authorization header.
-
-### 4. HERMES signal domain assignment
-- **File:** `app/api/signals/micro/route.ts` (HERMES-µ section)
-- **DO NOT:** Add CoinGecko or other crypto price sources to HERMES-µ (ECHO owns financial).
-
-### 5. Multi-agent journal aggregation
-- **File:** `app/api/agents/journal/route.ts`
-- **DO NOT:** Replace `kv.keys('journal:*')` with a hardcoded agent list.
-
-### 6. MII entry shape
-- **Shape:** `{ agent, mii, gi, cycle, timestamp, source: "live" }`
-- **DO NOT:** Change field names or `source` semantics without operator approval.
-
-### 7. GI formula and weighting
-- **File:** `lib/gi/compute.ts`
-- **DO NOT:** Change weights or inputs without operator approval.
-
----
-
-## ⏳ EXPECTED EMPTY — NOT A BUG, DO NOT FIX
-
-_Use only when the operator has confirmed the state is intentional._
-
----
-
-## 🔧 ACTIVE WORK — C-280
-
-- [ ] **ECHO_STATE** KV key-exists in `/api/kv/health` — `echo:kv:heartbeat` + legacy diagnostics (Opt 2)
-- [ ] **TRIPWIRE_STATE** — aligned KV heartbeat key for health (Opt 2)
-- [ ] **epicon:feed** `kv: 0` — persist on stale `/api/echo/feed` re-ingest + LPUSH logging (Opt 5)
-- [ ] **promotion** — require `AGENT_SERVICE_TOKEN` / `RENDER_API_KEY` before commit; explicit logs (Opt 3)
-- [ ] **ATLAS / ZEUS** overnight journals — `/api/agents/atlas/observe`, `/api/agents/zeus/verify` after EVE cron (Opt 1)
-- [ ] **MII all agents** — ATLAS/ZEUS MII on sentinel routes; echo batch unchanged (Opt 4)
-- [ ] **GI freshness** — `/api/cron/gi-refresh` once daily 00:45 UTC (Hobby cron limit; Opt 6)
+1. **Journal KV key schema:** `journal:{AGENT_UPPERCASE}:{CYCLE_ID}` — `app/api/agents/journal/route.ts`  
+2. **ECHO EPICON LPUSH/LTRIM** to `epicon:feed` / `mobius:epicon:feed` — `lib/echo/kv-persist-ingest.ts` + ingest route wiring  
+3. **Substrate GitHub auth header** — `lib/substrate/github-reader.ts`  
+4. **Signal domain ownership** — HERMES-µ vs ECHO financial lanes  
+5. **MII entry shape** — `{ agent, mii, gi, cycle, timestamp, source: "live" }`  
+6. **Vault deposit schema** (event_type, journal_id, vault_id, sealed reserve semantics) — `docs/protocols/vault-to-fountain-protocol.md` + `lib/vault/vault.ts`  
+7. **GI formula and weighting** — `lib/gi/compute.ts`  
+8. **ATLAS `[skip ci]` sentinel watch commit pattern** — automation catalog / heartbeats flow  
 
 ---
 
 ## 🏗️ INFRASTRUCTURE MAP
 
 ### Vercel (Terminal)
-- **Repo:** `kaizencycle/mobius-civic-ai-terminal`
-- **KV:** Upstash — `KV_REST_API_URL` + `KV_REST_API_TOKEN`
-- **Substrate:** `kaizencycle/Mobius-Substrate` — `SUBSTRATE_GITHUB_TOKEN`
+
+- **Repo:** `kaizencycle/mobius-civic-ai-terminal`  
+- **KV:** Upstash — `KV_REST_API_URL` + `KV_REST_API_TOKEN`  
+- **Substrate:** `kaizencycle/Mobius-Substrate` — `SUBSTRATE_GITHUB_TOKEN`  
 - **Promotion / ledger attest:** `AGENT_SERVICE_TOKEN` (or legacy `RENDER_API_KEY`)
 
 ### Render (Backend services)
+
 - **Ledger API:** `civic-protocol-core-ledger.onrender.com`
 
 ---
 
 ## 📋 PR CHECKLIST REFERENCE
 
-1. Did I read `AGENTS.md`, `BUILD.md`, and this file before starting?
-2. Does this PR touch any LOCKED file/behavior? If yes, state why safe.
-3. Did `pnpm build` pass?
-4. Did I check `/api/terminal/snapshot` after deploy?
+1. Read `AGENTS.md`, `BUILD.md`, and this file.  
+2. If touching LOCKED behavior, justify in the PR body.  
+3. Run `pnpm exec tsc --noEmit` and `pnpm build`.  
+4. After deploy: `/api/terminal/snapshot` and `/api/vault/status` sanity.
 
 ---
 
-*This file must be updated whenever a lane changes state, a lock is added or removed, or a cycle advances. Operator: kaizencycle. Agent: ATLAS.*
+*The cathedral writes in its own hand. C-281 closes; the agents watch overnight.*

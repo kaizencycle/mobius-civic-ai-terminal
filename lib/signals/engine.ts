@@ -6,6 +6,8 @@ import { integrityStatusToGISnapshot } from '@/lib/terminal/api';
 import { mockAgents, mockEpicon, mockTripwires } from '@/lib/terminal/mock';
 import { detectTripwires, mergeTripwires } from '@/lib/echo/tripwire-engine';
 import { setTripwireState, type RuntimeTripwireState } from '@/lib/tripwire/store';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { kvSet, kvSetRawKey, KV_KEYS } from '@/lib/kv/store';
 
 export type PulseSignal = {
   id: string;
@@ -73,7 +75,26 @@ function evaluateRuntimeTripwire(): RuntimeTripwireState {
   };
 
   setTripwireState(state);
+  void persistTripwireRuntimeToKv(state);
   return state;
+}
+
+async function persistTripwireRuntimeToKv(state: RuntimeTripwireState): Promise<void> {
+  const n = state.active ? 1 : 0;
+  const payload = {
+    cycleId: currentCycleId(),
+    tripwireCount: n,
+    elevated: state.active,
+    timestamp: new Date().toISOString(),
+    level: state.level,
+    reason: state.reason,
+  };
+  try {
+    await kvSetRawKey('TRIPWIRE_STATE', JSON.stringify(payload), 3600);
+    await kvSet(KV_KEYS.TRIPWIRE_STATE_KV, payload, 3600);
+  } catch (err) {
+    console.error('[signal-engine] TRIPWIRE_STATE KV persist failed:', err instanceof Error ? err.message : err);
+  }
 }
 
 export async function runSignalEngine(): Promise<{

@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTripwireState, setTripwireState, type RuntimeTripwireState } from '@/lib/tripwire/store';
 import { mockTripwire } from '@/lib/mock-data';
 import { liveEnvelope, mockEnvelope } from '@/lib/response-envelope';
-import { saveTripwireState, kvSet, KV_KEYS } from '@/lib/kv/store';
+import { saveTripwireState, kvSet, kvSetRawKey, KV_KEYS } from '@/lib/kv/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
-import { Redis } from '@upstash/redis';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,20 +43,7 @@ function parsePayload(value: unknown): TripwireUpdatePayload | null {
   };
 }
 
-function getRedisClient(): Redis | null {
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
-  try {
-    return new Redis({ url, token });
-  } catch {
-    return null;
-  }
-}
-
 async function writeTripwireKvState(activeTripwires: number): Promise<void> {
-  const redis = getRedisClient();
-  if (!redis) return;
   const payload = {
     cycleId: currentCycleId(),
     tripwireCount: activeTripwires,
@@ -65,7 +51,7 @@ async function writeTripwireKvState(activeTripwires: number): Promise<void> {
     timestamp: new Date().toISOString(),
   };
   try {
-    await redis.set('TRIPWIRE_STATE', JSON.stringify(payload));
+    await kvSetRawKey('TRIPWIRE_STATE', JSON.stringify(payload), 3600);
     await kvSet(KV_KEYS.TRIPWIRE_STATE_KV, payload, 3600);
   } catch (error) {
     console.error('[tripwire] TRIPWIRE_STATE write failed', error);

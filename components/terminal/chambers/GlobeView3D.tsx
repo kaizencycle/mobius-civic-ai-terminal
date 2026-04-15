@@ -48,6 +48,7 @@ function latLngToXYZ(THREE: any, lat: number, lng: number, r = 1.015) {
   );
 }
 function severityColor(pin: GlobePin): number {
+  if (pin.meta?.globeSeismicViolet === true) return 0x7c3aed;
   if (pin.palette === 'seismic') return 0xa855f7;
   if (pin.palette === 'epicon') return 0x22d3ee;
   const sev = pin.severity;
@@ -243,10 +244,14 @@ export default function GlobeView3D({
         const hits = state.raycaster.intersectObjects(heads);
         if (hits.length > 0) {
           const sig = hits[0].object.userData.pin as GlobePin;
+          const tip =
+            sig.palette === 'seismic' && typeof sig.title === 'string' && sig.title.length > 0
+              ? sig.title
+              : `${sig.source} · ${(sig.value * 100).toFixed(0)}%`;
           setTooltip({
             x: e.clientX + 14,
             y: e.clientY - 10,
-            text: `${sig.source} · ${(sig.value * 100).toFixed(0)}%`,
+            text: tip,
           });
           renderer.domElement.style.cursor = 'pointer';
         } else {
@@ -401,7 +406,13 @@ export default function GlobeView3D({
       const magMeta = sig.meta.magnitude ?? sig.meta.mag;
       const mag = typeof magMeta === 'number' && Number.isFinite(magMeta) ? magMeta : null;
       const headScale =
-        sig.palette === 'seismic' && mag !== null ? 0.85 + Math.min(0.65, Math.max(0, mag - 4.5) * 0.35) : 1;
+        sig.palette === 'seismic' && mag !== null
+          ? (() => {
+              if (mag < 4) return 0.55 + (mag - 3) * 0.15;
+              if (mag < 4.5) return 0.62 + (mag - 4) * 0.2;
+              return 0.85 + Math.min(0.65, Math.max(0, mag - 4.5) * 0.35);
+            })()
+          : 1;
       const stemGeo = new THREE.CylinderGeometry(0.003, 0.003, 0.06 * headScale, 6);
       const stemMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 });
       const stem = new THREE.Mesh(stemGeo, stemMat);
@@ -472,8 +483,9 @@ export default function GlobeView3D({
       <div className="pointer-events-none absolute bottom-14 left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-[0.12em] text-slate-600">
         Drag to rotate · Click pins to inspect
       </div>
-      <div className="pointer-events-none absolute bottom-9 left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-[0.12em] text-cyan-400/80">
-        EPICON · {cycleId}
+      <div className="pointer-events-none absolute bottom-9 left-1/2 flex -translate-x-1/2 flex-col items-center gap-0.5 text-[9px] uppercase tracking-[0.12em] text-cyan-400/80">
+        <span>EPICON · {cycleId}</span>
+        <span className="normal-case tracking-normal text-violet-400/90">SEISMIC · EPICON — violet pins (M3+ USGS)</span>
       </div>
       <div className="flex border-t border-white/[0.06] bg-[#020408]/90">
         {GLOBE_DOMAIN_ORDER.map((key) => {

@@ -84,6 +84,18 @@ export async function kvGet<T>(key: string): Promise<T | null> {
   }
 }
 
+/** Read Redis key exactly as given (no `mobius:` prefix). */
+export async function kvGetRaw<T>(rawKey: string): Promise<T | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  try {
+    return await redis.get<T>(rawKey);
+  } catch (err) {
+    console.warn(`[mobius-kv] GET raw ${rawKey} failed:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 /**
  * Set a value in Redis.
  * @param ttlSeconds — optional TTL in seconds (default: no expiry)
@@ -101,6 +113,25 @@ export async function kvSet<T>(key: string, value: T, ttlSeconds?: number): Prom
     return true;
   } catch (err) {
     console.warn(`[mobius-kv] SET ${key} failed:`, err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
+/**
+ * Set a value at the exact Redis key (no `mobius:` prefix). For legacy keys like `TRIPWIRE_STATE`.
+ */
+export async function kvSetRawKey<T>(rawKey: string, value: T, ttlSeconds?: number): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return false;
+  try {
+    if (ttlSeconds) {
+      await redis.set(rawKey, value, { ex: ttlSeconds });
+    } else {
+      await redis.set(rawKey, value);
+    }
+    return true;
+  } catch (err) {
+    console.warn(`[mobius-kv] SET raw ${rawKey} failed:`, err instanceof Error ? err.message : err);
     return false;
   }
 }

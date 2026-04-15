@@ -8,7 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { kvHealth, isRedisAvailable, KV_KEYS, kvGet } from '@/lib/kv/store';
+import { kvHealth, isRedisAvailable, KV_KEYS, kvGet, kvGetRaw } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +22,8 @@ export async function GET() {
       const val = await kvGet(key);
       keys[name] = val !== null;
     }
+    const legacyTripwire = await kvGetRaw<string>('TRIPWIRE_STATE');
+    keys.TRIPWIRE_STATE_REDIS = legacyTripwire !== null && legacyTripwire !== undefined;
   }
 
   return NextResponse.json({

@@ -28,8 +28,8 @@ import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { appendStewardCronJournals } from '@/lib/agents/sentinel-cycle-journals';
 import { loadGIState } from '@/lib/kv/store';
 import { writeMiiState } from '@/lib/kv/mii';
-import { recordVaultDepositsForCouncil } from '@/lib/vault/vault';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
+import { writeSynthesisCronHeartbeatKv } from '@/lib/runtime/synthesis-cron-side-effects';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,16 +98,6 @@ async function fanOutSentinelCouncilAfterEve(
     zeusJournalId,
   });
 
-  const councilEntries: AgentJournalEntry[] = [];
-  if (atlasEntry) councilEntries.push(atlasEntry);
-  if (zeusEntry) councilEntries.push(zeusEntry);
-  councilEntries.push(...stewardEntries);
-
-  if (councilEntries.length > 0) {
-    void recordVaultDepositsForCouncil(councilEntries, giForSteward).then((r) => {
-      console.info('[vault] council deposits', { ...r, gi: giForSteward });
-    });
-  }
 }
 
 type CycleBody = {
@@ -174,6 +164,9 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       console.error('[eve/cycle-synthesize] sentinel council cron follow-up failed:', err);
     }
+    const giCron = extractGiFromSynthesisPayload(payload as Record<string, unknown>);
+    const giHb = giCron !== null ? giCron : 0.74;
+    void writeSynthesisCronHeartbeatKv(giHb, cycleId);
     return NextResponse.json(payload);
   }
 
@@ -255,23 +248,22 @@ export async function POST(request: NextRequest) {
       }
     })();
 
-    if (eveJournal) {
-      try {
-        const giState = await loadGIState();
-        const giVault = Number((giState?.global_integrity ?? 0.74).toFixed(4));
-        void recordVaultDepositsForCouncil([eveJournal], giVault).then((r) => {
-          console.info('[vault] EVE synthesis deposit', { ...r, gi: giVault });
-        });
-      } catch (err) {
-        console.error('[eve] vault deposit schedule failed:', err instanceof Error ? err.message : err);
-      }
-    }
-
     try {
       await fanOutSentinelCouncilAfterEve(request, cycleId, payload as Record<string, unknown>);
     } catch (err) {
       console.error('[eve/cycle-synthesize] sentinel council follow-up failed:', err);
     }
+
+    let giHb = extractGiFromSynthesisPayload(payload as Record<string, unknown>);
+    try {
+      const st = await loadGIState();
+      if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
+        giHb = Math.max(0, Math.min(1, st.global_integrity));
+      }
+    } catch {
+      // keep giHb from synthesis payload
+    }
+    void writeSynthesisCronHeartbeatKv(giHb ?? 0.74, cycleId);
 
     return NextResponse.json(payload);
   } catch (err) {
