@@ -1,6 +1,6 @@
 // ============================================================================
 // GET /api/signals/micro
-// Runs all four micro sub-agents and returns aggregated signal data.
+// Runs all micro-instruments (sensor federation sweep) and returns aggregated signal data.
 // C-261 · KV persistence for cold-start recovery
 // CC0 Public Domain
 // ============================================================================
