@@ -161,11 +161,16 @@ function rateJADE(raw: RawEvent, _epicon: EpiconItem): AgentRating {
   let score: number;
   let rationale: string;
 
-  // JADE analyzes sentiment and pattern coherence
   const hasNegativeSignal = /conflict|crisis|crash|earthquake|tsunami|collapse|war|attack/i.test(raw.title + ' ' + raw.summary);
   const hasPositiveSignal = /recovery|growth|cooperation|peace|innovation|gain|surge/i.test(raw.title + ' ' + raw.summary);
 
-  if (hasNegativeSignal && raw.severity === 'high') {
+  const mag = typeof raw.metadata?.magnitude === 'number' ? raw.metadata.magnitude : 0;
+  const isRoutineSeismic = hasNegativeSignal && raw.category === 'infrastructure' && mag > 0 && mag < 4.0 && raw.severity === 'low';
+
+  if (isRoutineSeismic) {
+    score = 0.90;
+    rationale = `Routine low-magnitude seismic activity (M${mag.toFixed(1)}). Background noise — no civic morale impact.`;
+  } else if (hasNegativeSignal && raw.severity === 'high') {
     score = 0.65;
     rationale = `Negative pattern amplification detected. Morale impact assessment: significant. Annotation flagged for reflection input.`;
   } else if (hasNegativeSignal) {

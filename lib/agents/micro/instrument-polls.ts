@@ -22,6 +22,15 @@ function wrap(agentName: string, signal: MicroSignal | null, err?: string): Agen
   };
 }
 
+function stalenessPenalty(dataYear: string | number | undefined): number {
+  if (!dataYear) return 0;
+  const year = typeof dataYear === 'number' ? dataYear : Number.parseInt(String(dataYear), 10);
+  if (!Number.isFinite(year)) return 0;
+  const age = new Date().getFullYear() - year;
+  if (age <= 1) return 0;
+  return Math.min(0.3, age * 0.1);
+}
+
 // ── ATLAS (strategic / planetary) ───────────────────────────────────────────
 
 export async function pollAtlasU1(): Promise<AgentPollResult> {
@@ -35,15 +44,19 @@ export async function pollAtlasU1(): Promise<AgentPollResult> {
     .filter((n) => Number.isFinite(n));
   if (vals.length === 0) return wrap('ATLAS-µ1', null);
   const latest = vals[0]!;
-  const value = Number(normalizeDirect(Math.max(-5, Math.min(10, latest)), -3, 8).toFixed(3));
+  const dataYear = rows[0]?.date;
+  const penalty = stalenessPenalty(dataYear);
+  const raw = Number(normalizeDirect(Math.max(-5, Math.min(10, latest)), -3, 8).toFixed(3));
+  const value = Number(Math.max(0, raw - penalty).toFixed(3));
+  const staleNote = penalty > 0 ? ` [stale: ${dataYear}, -${penalty.toFixed(1)}]` : '';
   return wrap('ATLAS-µ1', {
     agentName: 'ATLAS-µ1',
     source: 'World Bank · WLD real GDP growth',
     timestamp: new Date().toISOString(),
     value,
-    label: `WB WLD GDP growth latest: ${latest.toFixed(2)}% (y/y)`,
+    label: `WB WLD GDP growth latest: ${latest.toFixed(2)}% (y/y)${staleNote}`,
     severity: classifySeverity(value, { watch: 0.45, elevated: 0.28, critical: 0.12 }),
-    raw: { samples: rows.slice(0, 3) },
+    raw: { samples: rows.slice(0, 3), dataYear, stalenessPenalty: penalty },
   });
 }
 
@@ -269,44 +282,51 @@ export async function pollHermesU2(): Promise<AgentPollResult> {
 }
 
 export async function pollHermesU3(): Promise<AgentPollResult> {
-  const url =
-    'https://api.gdeltproject.org/api/v2/doc/doc?query=governance&mode=artlist&maxrecords=8&format=json&timespan=1d';
-  const data = await safeFetch<{ articles?: unknown[] }>(url, 12000);
-  const n = data?.articles?.length ?? 0;
-  const value = Number(normalizeDirect(n, 0, 10).toFixed(3));
-  // GDELT is frequently rate-limited or returns empty on sparse windows — 0 articles
-  // is not a civic emergency; treat it as a watch (data gap) not critical.
+  const queries = ['governance OR democracy OR civic', 'transparency OR regulation OR policy'];
+  let n = 0;
+  for (const q of queries) {
+    const url =
+      `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=artlist&maxrecords=8&format=json&timespan=1d`;
+    const data = await safeFetch<{ articles?: unknown[] }>(url, 12000);
+    n += data?.articles?.length ?? 0;
+    if (n > 0) break;
+  }
+  const value = Number(normalizeDirect(Math.min(n, 16), 0, 16).toFixed(3));
   const severity = n === 0 ? 'watch' : classifySeverity(value, { watch: 0.45, elevated: 0.3, critical: 0.15 });
   return wrap('HERMES-µ3', {
     agentName: 'HERMES-µ3',
     source: 'GDELT · governance artlist',
     timestamp: new Date().toISOString(),
     value,
-    label: `GDELT: ${n} articles (24h governance)`,
+    label: `GDELT: ${n} articles (24h governance+civic)`,
     severity,
     raw: { count: n },
   });
 }
 
 export async function pollHermesU4(): Promise<AgentPollResult> {
-  const url = 'https://www.reddit.com/r/worldnews/hot.json?limit=8';
-  const data = await safeFetch<{ data?: { children?: Array<{ data?: { score?: number; title?: string } }> } }>(
-    url,
-    12000,
-    { headers: { ...UA_HEADERS, Accept: 'application/json' } },
-  );
-  const kids = data?.data?.children ?? [];
+  const subs = ['worldnews', 'technology', 'civictech'];
+  let kids: Array<{ data?: { score?: number; title?: string } }> = [];
+  for (const sub of subs) {
+    const url = `https://www.reddit.com/r/${sub}/hot.json?limit=8`;
+    const data = await safeFetch<{ data?: { children?: Array<{ data?: { score?: number; title?: string } }> } }>(
+      url,
+      12000,
+      { headers: { ...UA_HEADERS, Accept: 'application/json' } },
+    );
+    kids = data?.data?.children ?? [];
+    if (kids.length > 0) break;
+  }
   const scores = kids.map((c) => c.data?.score ?? 0);
   const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
   const value = Number(normalizeDirect(avg, 0, 2000).toFixed(3));
-  // 0 posts means Reddit's API was unavailable or rate-limited — not a civic signal.
   const severity = kids.length === 0 ? 'watch' : classifySeverity(value, { watch: 0.4, elevated: 0.22, critical: 0.08 });
   return wrap('HERMES-µ4', {
     agentName: 'HERMES-µ4',
-    source: 'Reddit · r/worldnews hot',
+    source: 'Reddit · narrative feed',
     timestamp: new Date().toISOString(),
     value,
-    label: `Reddit worldnews: avg score ${Math.round(avg)} on ${kids.length} posts`,
+    label: `Reddit narrative: avg score ${Math.round(avg)} on ${kids.length} posts`,
     severity,
     raw: { count: kids.length },
   });
@@ -582,7 +602,8 @@ export async function pollDaedalusU5(): Promise<AgentPollResult> {
       severity: 'watch',
     });
   }
-  const url = `https://${baseUrl.replace(/^https?:\/\//, '')}/api/integrity-status`;
+  const host = baseUrl.replace(/^https?:\/\//, '');
+  const url = `https://${host}/api/health`;
   const start = Date.now();
   try {
     const res = await fetch(url, { cache: 'no-store' });
@@ -590,7 +611,7 @@ export async function pollDaedalusU5(): Promise<AgentPollResult> {
     const value = Number(normalizeInverse(ms, 0, 3000).toFixed(3));
     return wrap('DAEDALUS-µ5', {
       agentName: 'DAEDALUS-µ5',
-      source: 'Self-ping · integrity-status',
+      source: 'Self-ping · health',
       timestamp: new Date().toISOString(),
       value,
       label: `Self-ping: ${res.status} in ${ms}ms`,
@@ -600,7 +621,7 @@ export async function pollDaedalusU5(): Promise<AgentPollResult> {
   } catch {
     return wrap('DAEDALUS-µ5', {
       agentName: 'DAEDALUS-µ5',
-      source: 'Self-ping · integrity-status',
+      source: 'Self-ping · health',
       timestamp: new Date().toISOString(),
       value: 0,
       label: 'Self-ping: unreachable',

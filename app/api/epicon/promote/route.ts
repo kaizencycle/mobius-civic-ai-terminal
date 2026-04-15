@@ -385,6 +385,15 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
       continue;
     }
 
+    const attestation = epicon.echoIngest?.metadata?.integrityAttestation as
+      | { mii?: number; verdict?: string }
+      | undefined;
+    const eventMii = attestation?.mii ?? 0;
+    const autoVerify = epicon.confidenceTier >= 1 && eventMii >= 0.90;
+    if (autoVerify && epicon.status === 'pending') {
+      epicon.status = 'verified';
+    }
+
     existing.promotion_state = 'selected';
     existing.assigned_agents = assignedAgents;
     existing.last_attempt_at = nowIso;

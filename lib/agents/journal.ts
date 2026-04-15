@@ -4,6 +4,7 @@ import type { AgentJournalCategory, AgentJournalEntry, AgentJournalSeverity, Age
 import { scheduleVaultDepositForJournal } from '@/lib/vault/vault';
 import { writeToSubstrate } from '@/lib/substrate/client';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
+import { setJournalHeartbeat } from '@/lib/runtime/heartbeat';
 
 const INDEX_KEY = 'journal:index';
 const MAX_ENTRIES_PER_AGENT = 100;
@@ -165,6 +166,7 @@ async function upsertIndex(agent: AgentName, cycle: string): Promise<void> {
 }
 
 export async function appendAgentJournalEntry(input: NewJournalEntryInput): Promise<AgentJournalEntry> {
+  setJournalHeartbeat();
   const entry = buildAgentJournalEntry(input);
   const agent = entry.agent as AgentName;
   const key = keyFor(agent, entry.cycle);

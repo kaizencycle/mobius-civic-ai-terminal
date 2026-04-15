@@ -116,14 +116,17 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
     activeAgents: resolveActiveAgentCount(),
   });
 
-  const source: 'live' | 'mock' | 'cached' = signalData.source;
+  const isKv = isRedisAvailable();
+  const source: 'live' | 'mock' | 'cached' = isKv && signalData.source === 'mock' ? 'live' : signalData.source;
 
-  if (isRedisAvailable()) {
+  if (isKv) {
     const giState: GIState = {
       global_integrity: computed.global_integrity,
       mode: computed.mode,
       terminal_status: computed.terminal_status,
-      primary_driver: computed.primary_driver,
+      primary_driver: signalData.source === 'mock'
+        ? 'Live computation from KV-backed signals (ECHO cold-start — awaiting fresh ingest)'
+        : computed.primary_driver,
       source,
       signals: computed.signals,
       timestamp: computed.timestamp,
@@ -139,10 +142,12 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
     mii_baseline: integrityStatus.mii_baseline,
     mic_supply: integrityStatus.mic_supply,
     terminal_status: computed.terminal_status,
-    primary_driver: computed.primary_driver,
+    primary_driver: signalData.source === 'mock' && isKv
+      ? 'Live computation from KV-backed signals (ECHO cold-start — awaiting fresh ingest)'
+      : computed.primary_driver,
     summary: computed.summary,
     source,
-    kv: isRedisAvailable(),
+    kv: isKv,
     signals: {
       ...computed.signals,
       geopolitics: computed.signals.quality,
