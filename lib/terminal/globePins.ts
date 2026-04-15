@@ -63,6 +63,8 @@ function echoSeverityToGlobe(s: string): GlobePinSeverity {
 function agentLabel(agentName: string): string {
   if (agentName === 'HERMES-µ') return 'HERMES';
   if (agentName === 'DAEDALUS-µ') return 'DAEDALUS';
+  const m = /^([A-Z]+)-µ\d+$/.exec(agentName);
+  if (m) return m[1]!;
   return agentName;
 }
 

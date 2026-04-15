@@ -70,15 +70,37 @@ export function normalizeDirect(value: number, min: number, max: number): number
   return (clamped - min) / (max - min);
 }
 
-/** Safe JSON fetch with timeout */
-export async function safeFetch<T>(url: string, timeoutMs = 8000): Promise<T | null> {
+/** Safe JSON fetch with timeout. `signal` on `init` is ignored in favor of the internal timeout controller. */
+export async function safeFetch<T>(url: string, timeoutMs = 8000, init?: RequestInit): Promise<T | null> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+    const res = await fetch(url, {
+      ...(init ?? {}),
+      signal: controller.signal,
+      cache: init?.cache ?? 'no-store',
+    });
     clearTimeout(timer);
     if (!res.ok) return null;
-    return await res.json();
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** Safe text fetch with timeout (RSS, XML, plain). */
+export async function safeFetchText(url: string, timeoutMs = 8000, init?: RequestInit): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url, {
+      ...(init ?? {}),
+      signal: controller.signal,
+      cache: init?.cache ?? 'no-store',
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    return await res.text();
   } catch {
     return null;
   }
