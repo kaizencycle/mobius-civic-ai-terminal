@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         'Content-Type': 'application/json',
         ...(authHeader ? { Authorization: authHeader } : {}),
       },
-      body: JSON.stringify({ maxItems: 5 }),
+      body: JSON.stringify({ maxItems: 35 }),
       cache: 'no-store',
       signal: AbortSignal.timeout(25_000),
     });
