@@ -4,6 +4,7 @@ import { mockTripwire } from '@/lib/mock-data';
 import { liveEnvelope, mockEnvelope } from '@/lib/response-envelope';
 import { saveTripwireState, kvSet, kvSetRawKey, KV_KEYS } from '@/lib/kv/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,6 +68,21 @@ export async function GET() {
       tripwireCount: tripwire.active ? 1 : 0,
       elevated: tripwire.active,
       timestamp: new Date().toISOString(),
+    }).catch(() => {});
+
+    void pushLedgerEntry({
+      id: `tripwire-${currentCycleId()}-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      author: 'ATLAS',
+      title: `Tripwire: ${tripwire.active ? 'ACTIVE' : 'clear'} — ${tripwire.reason}`,
+      type: 'epicon',
+      severity: tripwire.active ? 'elevated' : 'nominal',
+      source: 'kv-ledger',
+      tags: ['tripwire', 'sentinel', currentCycleId()],
+      verified: false,
+      category: 'heartbeat',
+      status: 'committed',
+      agentOrigin: 'ATLAS',
     }).catch(() => {});
 
     return NextResponse.json({

@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import { pollAllMicroAgents } from '@/lib/agents/micro';
 import { saveSignalSnapshot, loadSignalSnapshot, isRedisAvailable, kvSet, KV_KEYS } from '@/lib/kv/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,8 +54,6 @@ export async function GET() {
         healthy: result.healthy,
       }).catch(() => {});
 
-      // Write a fresh HEARTBEAT on every real sweep so the agents lane stays current
-      // even between synthesis cron runs.
       kvSet(KV_KEYS.HEARTBEAT, JSON.stringify({
         ok: true,
         gi: result.composite,
@@ -65,6 +64,21 @@ export async function GET() {
         timestamp: result.timestamp,
         source: 'micro-sweep',
       })).catch(() => {});
+
+      pushLedgerEntry({
+        id: `micro-sweep-${currentCycleId()}-${Date.now()}`,
+        timestamp: result.timestamp,
+        author: 'DAEDALUS',
+        title: `Sensor sweep: ${result.instrumentCount ?? 40} instruments, composite ${result.composite.toFixed(3)}, ${result.anomalies?.length ?? 0} anomalies`,
+        type: 'epicon',
+        severity: (result.anomalies?.length ?? 0) > 5 ? 'elevated' : 'nominal',
+        source: 'kv-ledger',
+        tags: ['micro-sweep', 'heartbeat', currentCycleId()],
+        verified: false,
+        category: 'heartbeat',
+        status: 'committed',
+        agentOrigin: 'DAEDALUS',
+      }).catch(() => {});
     }
 
     return NextResponse.json({

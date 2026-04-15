@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError, serviceAuthorizationHeaderValue } from '@/lib/security/serviceAuth';
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 
 /**
  * C-274: Runtime maintenance is currently once-daily (Vercel cron). If heartbeat,
@@ -109,6 +110,22 @@ export async function GET(request: NextRequest) {
   console.info('[watchdog] daily run', logResult);
 
   const failed = actions.filter((action) => action.includes('fail')).length;
+
+  void pushLedgerEntry({
+    id: `watchdog-${currentCycleId()}-${Date.now()}`,
+    timestamp,
+    author: 'ATLAS',
+    title: `Watchdog: ${actions.length} checks, ${failed} failed`,
+    type: 'epicon',
+    severity: failed === 0 ? 'nominal' : 'elevated',
+    source: 'kv-ledger',
+    tags: ['watchdog', 'cron', currentCycleId()],
+    verified: false,
+    category: 'heartbeat',
+    status: 'committed',
+    agentOrigin: 'ATLAS',
+  }).catch(() => {});
+
   void appendAgentJournalEntry({
     agent: 'ATLAS',
     cycle: currentCycleId(),

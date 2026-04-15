@@ -9,6 +9,8 @@ import { NextResponse } from 'next/server';
 import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
 import { runSignalEngine } from '@/lib/signals/engine';
 import { recomputeAndSaveGIState } from '@/lib/integrity/buildStatus';
+import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +21,24 @@ export async function GET(request: NextRequest) {
   try {
     await runSignalEngine();
     const giState = await recomputeAndSaveGIState();
+
+    if (giState) {
+      void pushLedgerEntry({
+        id: `gi-refresh-${currentCycleId()}-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        author: 'ATLAS',
+        title: `GI refresh: ${giState.global_integrity.toFixed(4)} — mode ${giState.mode}`,
+        type: 'epicon',
+        severity: giState.global_integrity < 0.7 ? 'elevated' : 'nominal',
+        source: 'kv-ledger',
+        tags: ['gi-refresh', 'integrity', currentCycleId()],
+        verified: false,
+        category: 'heartbeat',
+        status: 'committed',
+        agentOrigin: 'ATLAS',
+      }).catch(() => {});
+    }
+
     return NextResponse.json({
       ok: true,
       refreshed: giState !== null,
