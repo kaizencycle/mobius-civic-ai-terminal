@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { mockRuntimeStatus } from '@/lib/mock-data';
 import { mockEnvelope } from '@/lib/response-envelope';
+import { kvGet, KV_KEYS } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,15 @@ type GitHubCommit = {
       date?: string;
     };
   };
+};
+
+type SystemPulse = {
+  ok?: boolean;
+  composite?: number;
+  cycle?: string;
+  instruments?: number;
+  anomalies?: number;
+  timestamp?: string;
 };
 
 function computeFreshness(seconds: number) {
@@ -26,7 +36,18 @@ function extractCycleId(message: string | undefined): string | null {
   return match?.[1] ?? null;
 }
 
-export async function GET() {
+function ageSeconds(timestamp: string | null | undefined): number | null {
+  if (!timestamp) return null;
+  const ms = new Date(timestamp).getTime();
+  if (!Number.isFinite(ms)) return null;
+  return Math.max(0, Math.floor((Date.now() - ms) / 1000));
+}
+
+async function fetchLatestCommit(): Promise<{
+  lastRun: string | null;
+  cycleId: string | null;
+  error: string | null;
+}> {
   try {
     const headers: HeadersInit = { Accept: 'application/vnd.github+json' };
     const token = process.env.GITHUB_TOKEN;
@@ -39,45 +60,46 @@ export async function GET() {
         cache: 'no-store',
       }
     );
-    if (!res.ok) throw new Error(`GitHub commits fetch failed (${res.status})`);
+
+    if (!res.ok) {
+      return {
+        lastRun: null,
+        cycleId: null,
+        error: `GitHub commits fetch failed (${res.status})`,
+      };
+    }
 
     const commits = (await res.json()) as GitHubCommit[];
     const latest = commits[0];
-    const lastRun = latest?.commit?.author?.date ?? null;
-    if (!lastRun) throw new Error('Latest commit missing author date');
-
-    const seconds = Math.max(
-      0,
-      Math.floor((Date.now() - new Date(lastRun).getTime()) / 1000)
-    );
-
-    return NextResponse.json(
-      {
-        ok: true,
-        source: 'github-commit',
-        freshAt: lastRun,
-        staleAt: null,
-        degraded: false,
-        last_run: lastRun,
-        cycle_id: extractCycleId(latest?.commit?.message),
-        freshness: {
-          status: computeFreshness(seconds),
-          seconds,
-        },
-      },
-      {
-        headers: {
-          'Cache-Control': 'public, max-age=60',
-        },
-      }
-    );
+    return {
+      lastRun: latest?.commit?.author?.date ?? null,
+      cycleId: extractCycleId(latest?.commit?.message),
+      error: null,
+    };
   } catch (error) {
-    console.error('runtime/status github fetch failed', error);
+    return {
+      lastRun: null,
+      cycleId: null,
+      error: error instanceof Error ? error.message : 'GitHub commit lookup failed',
+    };
+  }
+}
+
+export async function GET() {
+  const [pulse, git] = await Promise.all([
+    kvGet<SystemPulse>(KV_KEYS.SYSTEM_PULSE),
+    fetchLatestCommit(),
+  ]);
+
+  const runtimeSource = pulse?.timestamp ? 'system-pulse' : 'github-commit';
+  const runtimeTimestamp = pulse?.timestamp ?? git.lastRun;
+
+  if (!runtimeTimestamp) {
     return NextResponse.json(
       {
         ok: true,
         ...mockRuntimeStatus(),
-        ...mockEnvelope('GitHub heartbeat unavailable'),
+        ...mockEnvelope('Runtime heartbeat unavailable'),
       },
       {
         headers: {
@@ -86,4 +108,55 @@ export async function GET() {
       }
     );
   }
+
+  const seconds = ageSeconds(runtimeTimestamp) ?? 0;
+  const freshnessStatus = computeFreshness(seconds);
+  const deploySeconds = ageSeconds(git.lastRun);
+
+  return NextResponse.json(
+    {
+      ok: true,
+      source: runtimeSource,
+      freshAt: runtimeTimestamp,
+      staleAt: null,
+      degraded: runtimeSource !== 'system-pulse' || freshnessStatus === 'degraded' || freshnessStatus === 'stale',
+      last_run: runtimeTimestamp,
+      cycle_id: pulse?.cycle ?? git.cycleId,
+      freshness: {
+        status: freshnessStatus,
+        seconds,
+      },
+      authority: {
+        runtime_source: runtimeSource,
+        pulse_available: Boolean(pulse?.timestamp),
+        deploy_available: Boolean(git.lastRun),
+        github_error: git.error,
+      },
+      pulse: pulse?.timestamp
+        ? {
+            timestamp: pulse.timestamp,
+            cycle: pulse.cycle ?? null,
+            composite: pulse.composite ?? null,
+            instruments: pulse.instruments ?? null,
+            anomalies: pulse.anomalies ?? null,
+            age_seconds: ageSeconds(pulse.timestamp),
+          }
+        : null,
+      deploy: git.lastRun
+        ? {
+            source: 'github-commit',
+            freshAt: git.lastRun,
+            freshness: {
+              status: computeFreshness(deploySeconds ?? 0),
+              seconds: deploySeconds ?? 0,
+            },
+          }
+        : null,
+    },
+    {
+      headers: {
+        'Cache-Control': 'public, max-age=60',
+      },
+    }
+  );
 }
