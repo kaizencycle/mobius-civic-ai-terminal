@@ -90,8 +90,13 @@ async function persistTripwireRuntimeToKv(state: RuntimeTripwireState): Promise<
     reason: state.reason,
   };
   try {
-    await kvSetRawKey('TRIPWIRE_STATE', JSON.stringify(payload), 3600);
-    await kvSet(KV_KEYS.TRIPWIRE_STATE_KV, payload, 3600);
+    // Write all three key paths so kvHealth sees TRIPWIRE_STATE = true.
+    // No TTL — state is valid until next write, not subject to 1h expiry.
+    await Promise.all([
+      kvSetRawKey('TRIPWIRE_STATE', JSON.stringify(payload)),
+      kvSet(KV_KEYS.TRIPWIRE_STATE, payload),
+      kvSet(KV_KEYS.TRIPWIRE_STATE_KV, payload),
+    ]);
   } catch (err) {
     console.error('[signal-engine] TRIPWIRE_STATE KV persist failed:', err instanceof Error ? err.message : err);
   }

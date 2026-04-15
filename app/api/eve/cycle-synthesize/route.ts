@@ -98,6 +98,17 @@ async function fanOutSentinelCouncilAfterEve(
     zeusJournalId,
   });
 
+  // Fire-and-forget promotion sweep — runs after every synthesis so eligible
+  // EPICONs commit in the same cycle rather than waiting for the nightly cron.
+  void fetch(new URL('/api/epicon/promote', base), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ maxItems: 5 }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(20_000),
+  }).catch((err) => {
+    console.error('[eve/cycle-synthesize] promotion fan-out failed:', err instanceof Error ? err.message : err);
+  });
 }
 
 type CycleBody = {
@@ -166,7 +177,7 @@ export async function GET(request: NextRequest) {
     }
     const giCron = extractGiFromSynthesisPayload(payload as Record<string, unknown>);
     const giHb = giCron !== null ? giCron : 0.74;
-    void writeSynthesisCronHeartbeatKv(giHb, cycleId);
+    await writeSynthesisCronHeartbeatKv(giHb, cycleId);
     return NextResponse.json(payload);
   }
 
@@ -263,7 +274,7 @@ export async function POST(request: NextRequest) {
     } catch {
       // keep giHb from synthesis payload
     }
-    void writeSynthesisCronHeartbeatKv(giHb ?? 0.74, cycleId);
+    await writeSynthesisCronHeartbeatKv(giHb ?? 0.74, cycleId);
 
     return NextResponse.json(payload);
   } catch (err) {

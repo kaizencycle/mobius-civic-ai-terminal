@@ -7,13 +7,20 @@ import { kvSet, KV_KEYS, loadSignalSnapshot } from '@/lib/kv/store';
 
 export async function writeSynthesisCronHeartbeatKv(gi: number, cycle: string): Promise<void> {
   const snap = await loadSignalSnapshot().catch(() => null);
-  const anomalies = typeof snap?.anomalies === 'number' ? snap.anomalies : snap?.allSignals?.length ?? 0;
+  const anomalies =
+    typeof snap?.anomalies === 'number'
+      ? snap.anomalies
+      : Array.isArray((snap as unknown as { allSignals?: unknown[] })?.allSignals)
+        ? (snap as unknown as { allSignals: unknown[] }).allSignals.length
+        : 0;
   const timestamp = new Date().toISOString();
   const payload = JSON.stringify({
     ok: true,
     gi: Number(gi.toFixed(4)),
     cycle,
     anomalies,
+    familyCount: 8,
+    instrumentCount: 40,
     timestamp,
     source: 'synthesis-cron',
   });

@@ -184,20 +184,24 @@ export async function pollZeusU3(): Promise<AgentPollResult> {
 }
 
 export async function pollZeusU4(): Promise<AgentPollResult> {
-  const url = 'https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY';
+  // EUR and GBP only — JPY has ~100× different magnitude and would dominate the spread
+  // incorrectly, making the value always 0 (critical) even in normal market conditions.
+  const url = 'https://api.frankfurter.app/latest?from=USD&to=EUR,GBP';
   const data = await safeFetch<{ rates?: Record<string, number> }>(url);
   const rates = data?.rates;
   if (!rates) return wrap('ZEUS-µ4', null);
-  const spread =
-    Math.max(...Object.values(rates)) - Math.min(...Object.values(rates));
-  const value = Number(normalizeInverse(spread, 0, 2).toFixed(3));
+  const vals = Object.values(rates).filter((r) => Number.isFinite(r));
+  if (vals.length < 2) return wrap('ZEUS-µ4', null);
+  const spread = Math.max(...vals) - Math.min(...vals);
+  // Typical EUR/GBP spread is ~0.05–0.25; anything above 0.5 is elevated FX divergence.
+  const value = Number(normalizeInverse(spread, 0, 0.5).toFixed(3));
   return wrap('ZEUS-µ4', {
     agentName: 'ZEUS-µ4',
-    source: 'Frankfurter · FX cross-check',
+    source: 'Frankfurter · FX cross-check EUR/GBP',
     timestamp: new Date().toISOString(),
     value,
-    label: `FX: USD vs basket spread ≈ ${spread.toFixed(4)}`,
-    severity: classifySeverity(value),
+    label: `FX: USD→EUR ${rates.EUR?.toFixed(4) ?? '?'} / GBP ${rates.GBP?.toFixed(4) ?? '?'} spread ${spread.toFixed(4)}`,
+    severity: classifySeverity(value, { watch: 0.45, elevated: 0.28, critical: 0.12 }),
     raw: rates,
   });
 }
@@ -227,14 +231,16 @@ export async function pollHermesU1(): Promise<AgentPollResult> {
   const id = top[0]!;
   const item = await safeFetch<{ score?: number; title?: string }>(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
   const score = item?.score ?? 0;
-  const value = Number(normalizeDirect(score, 20, 600).toFixed(3));
+  // Normalize across full observed range (0–600). A low score on the current #1 post
+  // just means the story is fresh — it is not a civic signal of systemic failure.
+  const value = Number(normalizeDirect(score, 0, 600).toFixed(3));
   return wrap('HERMES-µ1', {
     agentName: 'HERMES-µ1',
     source: 'Hacker News · top story',
     timestamp: new Date().toISOString(),
     value,
     label: `HN #1 score ${score}: ${(item?.title ?? '').slice(0, 80)}`,
-    severity: classifySeverity(value, { watch: 0.4, elevated: 0.2, critical: 0.05 }),
+    severity: score === 0 ? 'watch' : classifySeverity(value, { watch: 0.15, elevated: 0.05, critical: 0.01 }),
     raw: { id, score },
   });
 }
@@ -268,13 +274,16 @@ export async function pollHermesU3(): Promise<AgentPollResult> {
   const data = await safeFetch<{ articles?: unknown[] }>(url, 12000);
   const n = data?.articles?.length ?? 0;
   const value = Number(normalizeDirect(n, 0, 10).toFixed(3));
+  // GDELT is frequently rate-limited or returns empty on sparse windows — 0 articles
+  // is not a civic emergency; treat it as a watch (data gap) not critical.
+  const severity = n === 0 ? 'watch' : classifySeverity(value, { watch: 0.45, elevated: 0.3, critical: 0.15 });
   return wrap('HERMES-µ3', {
     agentName: 'HERMES-µ3',
     source: 'GDELT · governance artlist',
     timestamp: new Date().toISOString(),
     value,
     label: `GDELT: ${n} articles (24h governance)`,
-    severity: classifySeverity(value, { watch: 0.45, elevated: 0.3, critical: 0.15 }),
+    severity,
     raw: { count: n },
   });
 }
@@ -290,13 +299,15 @@ export async function pollHermesU4(): Promise<AgentPollResult> {
   const scores = kids.map((c) => c.data?.score ?? 0);
   const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
   const value = Number(normalizeDirect(avg, 0, 2000).toFixed(3));
+  // 0 posts means Reddit's API was unavailable or rate-limited — not a civic signal.
+  const severity = kids.length === 0 ? 'watch' : classifySeverity(value, { watch: 0.4, elevated: 0.22, critical: 0.08 });
   return wrap('HERMES-µ4', {
     agentName: 'HERMES-µ4',
     source: 'Reddit · r/worldnews hot',
     timestamp: new Date().toISOString(),
     value,
     label: `Reddit worldnews: avg score ${Math.round(avg)} on ${kids.length} posts`,
-    severity: classifySeverity(value, { watch: 0.4, elevated: 0.22, critical: 0.08 }),
+    severity,
     raw: { count: kids.length },
   });
 }
