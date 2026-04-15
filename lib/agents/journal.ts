@@ -2,6 +2,8 @@ import { kvGet, kvSet } from '@/lib/kv/store';
 import { AGENT_MANIFESTS, AGENT_ORDER, type AgentName } from '@/lib/agents/manifests';
 import type { AgentJournalCategory, AgentJournalEntry, AgentJournalSeverity, AgentJournalStatus } from '@/lib/terminal/types';
 import { scheduleVaultDepositForJournal } from '@/lib/vault/vault';
+import { writeToSubstrate } from '@/lib/substrate/client';
+import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 
 const INDEX_KEY = 'journal:index';
 const MAX_ENTRIES_PER_AGENT = 100;
@@ -172,8 +174,47 @@ export async function appendAgentJournalEntry(input: NewJournalEntryInput): Prom
   await upsertIndex(agent, entry.cycle);
   if (entry.status === 'committed') {
     scheduleVaultDepositForJournal(entry);
+
+    void writeToSubstrate({
+      agent: entry.agent,
+      agentOrigin: entry.agentOrigin,
+      cycle: entry.cycle,
+      title: entry.inference,
+      summary: entry.observation,
+      category: mapCategoryToSubstrate(entry.category),
+      severity: entry.severity,
+      source: 'agent-journal',
+      confidence: entry.confidence,
+      derivedFrom: entry.derivedFrom,
+      tags: [],
+    }).catch((err) => {
+      console.error(`[journal] ledger attest failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
+    });
+
+    void pushLedgerEntry({
+      id: entry.id,
+      timestamp: entry.timestamp,
+      author: entry.agentOrigin,
+      title: entry.inference,
+      type: 'epicon',
+      severity: entry.severity === 'critical' ? 'critical' : entry.severity === 'elevated' ? 'elevated' : 'nominal',
+      source: 'agent-journal',
+      tags: [entry.agent, entry.category, entry.cycle],
+      verified: false,
+      category: entry.category,
+      status: 'committed',
+      agentOrigin: entry.agentOrigin,
+    }).catch((err) => {
+      console.error(`[journal] pulse ledger push failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
+    });
   }
   return entry;
+}
+
+function mapCategoryToSubstrate(
+  cat: AgentJournalCategory,
+): 'observation' | 'inference' | 'alert' | 'recommendation' | 'close' | 'heartbeat' | 'verification' | 'ingest' | 'governance' | 'narrative' | 'market' | 'geopolitical' | 'infrastructure' | 'ethics' | 'civic-risk' {
+  return cat;
 }
 
 export async function getAgentJournalEntries(filters?: {
