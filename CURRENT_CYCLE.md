@@ -51,6 +51,18 @@ First MIC minted. Vault lane live. 200-entry MII read path. ATLAS writing autono
 
 ---
 
+## 🔭 C-282 BRIDGE — SENSOR FEDERATION (SPEC ONLY)
+
+Architecture for **8 parent families × up to 5 microagents** (40 instruments **ceiling**) is documented; **no runtime behavior change** is implied until instruments are implemented incrementally.
+
+| Artifact | Purpose |
+|----------|---------|
+| [`docs/protocols/microagent-family-spec-v1.md`](docs/protocols/microagent-family-spec-v1.md) | Doctrine, flow, correlation tiers, cadence, first-10 build order |
+| [`docs/protocols/microagent-output-schema-v1.json`](docs/protocols/microagent-output-schema-v1.json) | JSON Schema for mandatory microagent evidence fields |
+| [`docs/architecture/mobius-sensor-federation.md`](docs/architecture/mobius-sensor-federation.md) | Short architecture note + pointer to build order |
+
+---
+
 ## 🔒 LOCKED — DO NOT MODIFY WITHOUT OPERATOR APPROVAL
 
 1. **Journal KV key schema:** `journal:{AGENT_UPPERCASE}:{CYCLE_ID}` — `app/api/agents/journal/route.ts`  
