@@ -1,13 +1,17 @@
 export const WORLD_STATE_THEME = {
   background: {
-    nearBlack: '#020408',
-    deepNavy: '#03101a',
+    nearBlack: '#020810',
+    deepNavy: '#041220',
     darkBlueBlack: '#020617',
   },
+  ocean: {
+    deep: '#061428',
+    mid: '#081830',
+  },
   land: {
-    fill: '#0b2416',
-    grid: '#123222',
-    highlight: '#1b4d31',
+    fill: '#0a2a14',
+    grid: '#0e3520',
+    highlight: '#1a4d30',
   },
   chrome: {
     border: '#285245',

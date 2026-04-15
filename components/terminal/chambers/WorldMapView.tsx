@@ -241,8 +241,8 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
   const metaEpicon = selectedPin?.meta?.epiconId;
 
   return (
-    <div className="relative h-[min(72vh,640px)] w-full overflow-hidden border-y border-slate-800 bg-[#020408] touch-none sm:rounded-lg sm:border">
-      <div className="pointer-events-none absolute left-3 top-10 z-20 max-w-[min(92%,280px)] rounded border border-white/[0.08] bg-[#020408]/92 px-2 py-1.5 text-[9px] font-mono text-slate-300 shadow-lg backdrop-blur-sm">
+    <div className="relative h-[min(72vh,640px)] w-full overflow-hidden border-y border-slate-800 bg-[#020810] touch-none sm:rounded-lg sm:border">
+      <div className="pointer-events-none absolute left-3 top-10 z-20 max-w-[min(92%,280px)] rounded border border-white/[0.08] bg-[#020810]/92 px-2 py-1.5 text-[9px] font-mono text-slate-300 shadow-lg backdrop-blur-sm">
         <div className="mb-1 text-[8px] uppercase tracking-[0.14em] text-slate-500">Legend</div>
         <ul className="space-y-1">
           <li className="flex items-center gap-2">
@@ -303,7 +303,7 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
         </button>
       </div>
 
-      <div className="absolute left-3 top-3 z-10 rounded border border-white/[0.06] bg-[#020408]/85 px-2 py-1.5 text-[9px] font-mono uppercase tracking-[0.14em] text-emerald-300">
+      <div className="absolute left-3 top-3 z-10 rounded border border-white/[0.06] bg-[#020810]/85 px-2 py-1.5 text-[9px] font-mono uppercase tracking-[0.14em] text-emerald-300">
         Mobile World Map · {cycleId} · GI {giScore.toFixed(2)}
         <span className="ml-2 text-slate-500 normal-case">· wheel / pinch zoom · drag pan</span>
       </div>
@@ -357,8 +357,8 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
       >
         <defs>
           <linearGradient id="wm-bg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor={WORLD_STATE_THEME.background.deepNavy} />
-            <stop offset="100%" stopColor={WORLD_STATE_THEME.background.nearBlack} />
+            <stop offset="0%" stopColor={WORLD_STATE_THEME.ocean.deep} />
+            <stop offset="100%" stopColor={WORLD_STATE_THEME.ocean.mid} />
           </linearGradient>
         </defs>
 

@@ -145,40 +145,40 @@ export default function GlobeView3D({
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setSize(width, height);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setClearColor(0x020408, 1);
+      renderer.setClearColor(0x020810, 1);
       el.appendChild(renderer.domElement);
       const globeGeo = new THREE.SphereGeometry(1, 64, 64);
       const globeMat = new THREE.MeshPhongMaterial({
-        color: 0x0a1628,
-        emissive: 0x040d1a,
-        specular: 0x1e3a5f,
-        shininess: 8,
+        color: 0x061428,
+        emissive: 0x030a18,
+        specular: 0x0c2040,
+        shininess: 12,
         transparent: true,
-        opacity: 0.95,
+        opacity: 0.97,
       });
       const globe = new THREE.Mesh(globeGeo, globeMat);
       scene.add(globe);
       const wireGeo = new THREE.SphereGeometry(1.001, 24, 24);
       const wireMat = new THREE.MeshBasicMaterial({
-        color: 0x0f2744,
+        color: 0x0a1e3a,
         wireframe: true,
         transparent: true,
-        opacity: 0.15,
+        opacity: 0.1,
       });
       scene.add(new THREE.Mesh(wireGeo, wireMat));
       const atmGeo = new THREE.SphereGeometry(1.08, 64, 64);
       const atmMat = new THREE.MeshPhongMaterial({
-        color: 0x0a3060,
+        color: 0x082040,
         transparent: true,
-        opacity: 0.08,
+        opacity: 0.06,
         side: THREE.BackSide,
       });
       scene.add(new THREE.Mesh(atmGeo, atmMat));
-      scene.add(new THREE.AmbientLight(0x112244, 0.6));
-      const sun = new THREE.DirectionalLight(0x4488cc, 0.8);
+      scene.add(new THREE.AmbientLight(0x102030, 0.7));
+      const sun = new THREE.DirectionalLight(0x3388aa, 0.9);
       sun.position.set(5, 3, 5);
       scene.add(sun);
-      const rim = new THREE.DirectionalLight(0x001133, 0.4);
+      const rim = new THREE.DirectionalLight(0x001828, 0.3);
       rim.position.set(-5, -3, -5);
       scene.add(rim);
       const raycaster = new THREE.Raycaster();
@@ -324,7 +324,8 @@ export default function GlobeView3D({
           if (disposed) return;
 
           const tf = topo.transform as { scale: [number, number]; translate: [number, number] } | undefined;
-          const borderMat = new THREE.LineBasicMaterial({ color: 0x1e4a7a, transparent: true, opacity: 0.5 });
+          const borderMat = new THREE.LineBasicMaterial({ color: 0x1a4d30, transparent: true, opacity: 0.6 });
+          const landMat = new THREE.MeshBasicMaterial({ color: 0x0a2a14, transparent: true, opacity: 0.85, side: THREE.FrontSide });
 
           const arcCoords = (idx: number): [number, number][] => {
             const raw: [number, number][] = topo.arcs[idx < 0 ? ~idx : idx];
@@ -338,20 +339,34 @@ export default function GlobeView3D({
             return idx < 0 ? pts.reverse() : pts;
           };
 
-          const R = 1.002; // just above the sphere surface to avoid z-fighting
+          const R = 1.002;
+          const FILL_R = 1.001;
           for (const geo of topo.objects.countries.geometries as any[]) {
             const rings: number[][] =
               geo.type === 'Polygon' ? (geo.arcs as number[][]) :
               geo.type === 'MultiPolygon' ? (geo.arcs as number[][][]).flat() : [];
             for (const ring of rings) {
               const pts3d: any[] = [];
+              const fillPts: any[] = [];
               for (const arcIdx of ring) {
                 for (const [lng, lat] of arcCoords(arcIdx)) {
                   pts3d.push(latLngToXYZ(THREE, lat, lng, R));
+                  fillPts.push(latLngToXYZ(THREE, lat, lng, FILL_R));
                 }
               }
-              if (pts3d.length < 2) continue;
+              if (pts3d.length < 3) continue;
               globe.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts3d), borderMat));
+
+              try {
+                const shape = new THREE.ShapeGeometry(new THREE.Shape(
+                  fillPts.map((p: { x: number; y: number }) => new THREE.Vector2(p.x, p.y))
+                ));
+                const fill = new THREE.Mesh(shape, landMat);
+                fill.lookAt(fillPts[0]);
+                globe.add(fill);
+              } catch {
+                // complex polygons may fail triangulation — border lines are sufficient
+              }
             }
           }
         } catch {
@@ -459,7 +474,7 @@ export default function GlobeView3D({
     [pins],
   );
   return (
-    <div className="relative overflow-hidden rounded-lg border border-slate-800 bg-[#020408] font-mono text-slate-200">
+    <div className="relative overflow-hidden rounded-lg border border-slate-800 bg-[#020810] font-mono text-slate-200">
       <style
         dangerouslySetInnerHTML={{
           __html: `@keyframes globeInsp { from { opacity: 0; transform: translateY(-50%) translateX(8px); } to { opacity: 1; transform: translateY(-50%) translateX(0); } }`,
