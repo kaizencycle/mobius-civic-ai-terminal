@@ -336,7 +336,7 @@ export function buildGlobePinsFromMicro(
     const meta = ingest.metadata ?? {};
     const magRaw = meta.magnitude;
     const magnitude = typeof magRaw === 'number' && Number.isFinite(magRaw) ? magRaw : null;
-    const isUsgsQuake = src === 'USGS' && magnitude !== null && magnitude >= 4.5;
+    const isUsgsQuake = src === 'USGS' && magnitude !== null && magnitude >= 3;
     const metaLat = typeof meta.lat === 'number' ? meta.lat : null;
     const metaLng = typeof meta.lng === 'number' ? meta.lng : null;
     let lat: number;
@@ -364,12 +364,16 @@ export function buildGlobePinsFromMicro(
     }
 
     const title = item.title ?? item.summary ?? src;
+    const placeFromTitle =
+      isUsgsQuake && magnitude !== null
+        ? title.replace(new RegExp(`^M${magnitude.toFixed(1)}\\s*[·\\-]\\s*`, 'i'), '').trim() || title
+        : title;
     const id = `echo-${item.id}`;
     const echoSev = echoSeverityToGlobe(ingest.severity);
     const change = typeof meta.change24h === 'number' ? meta.change24h : 0;
     const value =
       isUsgsQuake && magnitude !== null
-        ? Math.max(0, Math.min(1, (magnitude - 4) / 2))
+        ? Math.max(0, Math.min(1, (magnitude - 2.5) / 4))
         : Math.max(0, Math.min(1, 1 - Math.min(1, Math.abs(change) / 12)));
 
     const agent = item.ownerAgent ?? 'ECHO';
@@ -385,12 +389,17 @@ export function buildGlobePinsFromMicro(
             : 'nominal'
         : echoSev;
 
+    const displayTitle =
+      isUsgsQuake && magnitude !== null
+        ? `M${magnitude.toFixed(2)} · ${placeFromTitle} · ${item.id}`
+        : title;
+
     pushPin(pins, seen, {
       id,
       lat,
       lng,
       source: isUsgsQuake ? `SEISMIC · EPICON · ${agent}` : `${agent} · ${src}`,
-      title: isUsgsQuake && magnitude !== null ? `M${magnitude.toFixed(1)} · ${title}` : title,
+      title: displayTitle,
       value,
       confidence: isUsgsQuake && magnitude !== null ? Math.min(1, 0.5 + magnitude / 10) : Math.min(1, 0.4 + Math.abs(change) / 15),
       severity: pinSev,
@@ -412,6 +421,7 @@ export function buildGlobePinsFromMicro(
         layer: isUsgsQuake ? 'SEISMIC · EPICON' : 'ECHO EPICON',
         ledger: 'ECHO EPICON row (see Events chamber)',
         freshnessSec: Math.max(0, Math.floor((Date.now() - new Date(echoTs).getTime()) / 1000)),
+        ...(isUsgsQuake ? { globeSeismicViolet: true as const } : {}),
       },
     });
   }

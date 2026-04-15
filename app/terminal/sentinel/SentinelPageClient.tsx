@@ -11,17 +11,18 @@ type MiiEntry = { agent: string; mii: number; timestamp: string };
 
 /** Inline SVG sparkline — zero bundle impact, no recharts needed */
 function MiiSparkline({ values, color, dashed = false }: { values: number[]; color: string; dashed?: boolean }) {
-  if (values.length < 2) return null;
+  const ptsSource = values.length >= 2 ? values : Array.from({ length: 10 }, () => 0.9);
+  if (ptsSource.length < 2) return null;
   const W = 240;
   const H = 40;
   const pad = 1;
-  const min = Math.min(...values, 0.6);
-  const max = Math.max(...values, 1);
+  const min = Math.min(...ptsSource, 0.6);
+  const max = Math.max(...ptsSource, 1);
   const range = max - min || 0.01;
 
-  const pts = values
+  const pts = ptsSource
     .map((v, i) => {
-      const x = pad + (i / (values.length - 1)) * (W - 2 * pad);
+      const x = pad + (i / (ptsSource.length - 1)) * (W - 2 * pad);
       const y = pad + (1 - (v - min) / range) * (H - 2 * pad);
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
@@ -36,21 +37,22 @@ function MiiSparkline({ values, color, dashed = false }: { values: number[]; col
         strokeWidth="1.2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeDasharray={dashed ? '3 3' : undefined}
+        strokeDasharray={dashed || values.length < 2 ? '3 3' : undefined}
       />
     </svg>
   );
 }
 
+/** Canonical operator colors (C-281 journal / MII alignment) */
 const AGENT_COLORS: Record<string, string> = {
-  ATLAS: '#38bdf8',
-  ZEUS: '#f59e0b',
+  ATLAS: '#0891b2',
   EVE: '#f43f5e',
-  JADE: '#22c55e',
-  HERMES: '#fb7185',
-  AUREA: '#fbbf24',
-  DAEDALUS: '#b45309',
-  ECHO: '#cbd5e1',
+  ZEUS: '#d97706',
+  JADE: '#059669',
+  HERMES: '#ea580c',
+  AUREA: '#f59e0b',
+  DAEDALUS: '#92400e',
+  ECHO: '#94a3b8',
 };
 
 export default function SentinelPageClient() {
@@ -58,9 +60,19 @@ export default function SentinelPageClient() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [journalByAgent, setJournalByAgent] = useState<Record<string, JournalEntry[]>>({});
   const [miiData, setMiiData] = useState<Record<string, MiiEntry[]>>({});
+  const [vaultCard, setVaultCard] = useState<{
+    balance_reserve: number;
+    activation_threshold: number;
+    gi_threshold: number;
+    sustain_cycles_required: number;
+    status: string;
+    preview_active: boolean;
+    source_entries: number;
+    gi_current: number | null;
+  } | null>(null);
 
   useEffect(() => {
-    fetch('/api/mii/feed', { cache: 'no-store' })
+    fetch('/api/mii/feed?limit=200', { cache: 'no-store' })
       .then((r) => r.json())
       .then((json: { entries?: MiiEntry[] }) => {
         const grouped: Record<string, MiiEntry[]> = {};
@@ -73,16 +85,25 @@ export default function SentinelPageClient() {
       .catch(() => setMiiData({}));
   }, []);
 
-  if (loading && !snapshot) return <ChamberSkeleton blocks={8} />;
-
-  const agents = (snapshot?.agents?.data ?? {}) as { agents?: Agent[] };
-  const eveData = (snapshot?.eve?.data ?? {}) as Record<string, unknown>;
-  const currentCycle =
-    typeof eveData.currentCycle === 'string'
-      ? eveData.currentCycle
-      : typeof eveData.cycleId === 'string'
-        ? eveData.cycleId
-        : currentCycleId();
+  useEffect(() => {
+    void fetch('/api/vault/status', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j: Record<string, unknown>) => {
+        if (j && j.ok === true) {
+          setVaultCard({
+            balance_reserve: typeof j.balance_reserve === 'number' ? j.balance_reserve : 0,
+            activation_threshold: typeof j.activation_threshold === 'number' ? j.activation_threshold : 50,
+            gi_threshold: typeof j.gi_threshold === 'number' ? j.gi_threshold : 0.95,
+            sustain_cycles_required: typeof j.sustain_cycles_required === 'number' ? j.sustain_cycles_required : 5,
+            status: typeof j.status === 'string' ? j.status : 'sealed',
+            preview_active: j.preview_active === true,
+            source_entries: typeof j.source_entries === 'number' ? j.source_entries : 0,
+            gi_current: typeof j.gi_current === 'number' ? j.gi_current : null,
+          });
+        }
+      })
+      .catch(() => setVaultCard(null));
+  }, []);
 
   useEffect(() => {
     void fetch('/api/agents/journal?limit=100', { cache: 'no-store' })
@@ -99,6 +120,17 @@ export default function SentinelPageClient() {
       })
       .catch(() => setJournalByAgent({}));
   }, []);
+
+  if (loading && !snapshot) return <ChamberSkeleton blocks={8} />;
+
+  const agents = (snapshot?.agents?.data ?? {}) as { agents?: Agent[] };
+  const eveData = (snapshot?.eve?.data ?? {}) as Record<string, unknown>;
+  const currentCycle =
+    typeof eveData.currentCycle === 'string'
+      ? eveData.currentCycle
+      : typeof eveData.cycleId === 'string'
+        ? eveData.cycleId
+        : currentCycleId();
 
   const handleExpand = async (name: string) => {
     if (expanded === name) {
@@ -142,6 +174,21 @@ export default function SentinelPageClient() {
           </span>
         ) : null}
       </div>
+      {vaultCard ? (
+        <div className="mb-4 rounded border border-violet-500/35 bg-slate-950/70 px-3 py-2 font-mono text-[10px] text-slate-300">
+          <div className="flex items-center justify-between text-[9px] uppercase tracking-[0.14em] text-violet-200/90">
+            <span>VAULT · {vaultCard.status.toUpperCase()}</span>
+            <a href="/terminal/vault" className="text-cyan-400/80 hover:text-cyan-300">
+              Open
+            </a>
+          </div>
+          <div className="mt-1 text-slate-400">
+            {(vaultCard.balance_reserve ?? 0).toFixed(2)} / {vaultCard.activation_threshold.toFixed(2)} reserve · GI gate{' '}
+            {vaultCard.gi_threshold.toFixed(2)} (now {vaultCard.gi_current != null ? vaultCard.gi_current.toFixed(2) : '—'}) · sustain{' '}
+            {vaultCard.sustain_cycles_required} · preview {vaultCard.preview_active ? 'on' : 'off'} · deposits {vaultCard.source_entries}
+          </div>
+        </div>
+      ) : null}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {(agents.agents ?? []).map((agent) => {
           const rows = journalByAgent[agent.name] ?? [];
@@ -176,11 +223,11 @@ export default function SentinelPageClient() {
             <div className="mt-1">
               {miiData[agent.name]?.length ? (
                 <MiiSparkline
-                  values={miiData[agent.name]!.slice(0, 10).map((e) => e.mii).reverse()}
+                  values={miiData[agent.name]!.slice(0, 24).map((e) => e.mii).reverse()}
                   color={AGENT_COLORS[agent.name] ?? '#22d3ee'}
                 />
               ) : (
-                <MiiSparkline values={Array.from({ length: 10 }, () => 0.9)} color="#64748b" dashed />
+                <MiiSparkline values={Array.from({ length: 10 }, () => 0.9)} color={AGENT_COLORS[agent.name] ?? '#94a3b8'} dashed />
               )}
             </div>
           </button>

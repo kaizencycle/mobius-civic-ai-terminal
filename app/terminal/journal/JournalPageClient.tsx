@@ -7,6 +7,20 @@ import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 const AGENTS = ['ATLAS', 'ZEUS', 'EVE', 'AUREA', 'HERMES', 'JADE', 'DAEDALUS', 'ECHO'] as const;
 
+const AGENT_FILTER_ORDER = ['ALL', 'EVE', 'ATLAS', 'ZEUS', 'HERMES', 'JADE', 'AUREA', 'DAEDALUS', 'ECHO'] as const;
+
+const AGENT_PILL_STYLE: Record<string, { border: string; activeBg: string; text: string }> = {
+  ALL: { border: 'border-slate-600', activeBg: 'bg-slate-700/40', text: 'text-slate-100' },
+  ATLAS: { border: 'border-cyan-600/50', activeBg: 'bg-cyan-500/15', text: 'text-cyan-100' },
+  EVE: { border: 'border-rose-500/50', activeBg: 'bg-rose-500/15', text: 'text-rose-100' },
+  ZEUS: { border: 'border-amber-600/50', activeBg: 'bg-amber-600/15', text: 'text-amber-100' },
+  JADE: { border: 'border-emerald-600/50', activeBg: 'bg-emerald-600/15', text: 'text-emerald-100' },
+  HERMES: { border: 'border-orange-600/50', activeBg: 'bg-orange-600/15', text: 'text-orange-100' },
+  AUREA: { border: 'border-amber-500/50', activeBg: 'bg-amber-500/15', text: 'text-amber-50' },
+  DAEDALUS: { border: 'border-amber-900/60', activeBg: 'bg-amber-950/40', text: 'text-amber-200' },
+  ECHO: { border: 'border-slate-500/50', activeBg: 'bg-slate-600/20', text: 'text-slate-100' },
+};
+
 type JournalEntry = {
   id: string;
   agent: string;
@@ -111,10 +125,21 @@ export default function JournalPageClient() {
     };
   }, []);
 
-  const agents = useMemo(
-    () => ['ALL', ...Array.from(new Set((entries ?? []).map((e) => e.agent))).sort()],
-    [entries],
-  );
+  const agentCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of entries ?? []) {
+      const a = (e.agent ?? '').trim() || 'UNKNOWN';
+      m.set(a, (m.get(a) ?? 0) + 1);
+    }
+    return m;
+  }, [entries]);
+
+  const agentPills = useMemo(() => {
+    return AGENT_FILTER_ORDER.map((name) => ({
+      name,
+      count: name === 'ALL' ? (entries?.length ?? 0) : agentCounts.get(name) ?? 0,
+    }));
+  }, [entries, agentCounts]);
 
   const cycleOptions = useMemo(() => {
     const set = new Set<string>();
@@ -205,19 +230,22 @@ export default function JournalPageClient() {
             })}
           </div>
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-            {agents.map((name) => (
-              <button
-                key={name}
-                onClick={() => setAgent(name)}
-                className={`rounded border px-2 py-1 text-xs ${
-                  agent === name
-                    ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-100'
-                    : 'border-slate-700 text-slate-400'
-                }`}
-              >
-                {name}
-              </button>
-            ))}
+            {agentPills.map(({ name, count }) => {
+              const st = AGENT_PILL_STYLE[name] ?? AGENT_PILL_STYLE.ALL;
+              const active = agent === name;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setAgent(name)}
+                  className={`whitespace-nowrap rounded border px-2 py-1 text-xs transition ${
+                    active ? `${st.border} ${st.activeBg} ${st.text}` : 'border-slate-700 text-slate-500'
+                  }`}
+                >
+                  {name} ({count})
+                </button>
+              );
+            })}
           </div>
           <div className="space-y-2">
             {filtered.map((entry) => (

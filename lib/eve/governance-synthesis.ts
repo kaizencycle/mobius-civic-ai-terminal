@@ -27,7 +27,8 @@ export const EVE_SYNTHESIS_SOURCE = EVE_LEDGER_SYNTHESIS_SOURCE;
 
 /** Align with EVE automation cadence (every 4h). */
 const CYCLE_WINDOW_MS = 4 * 60 * 60 * 1000;
-const GI_STRESS_THRESHOLD = 0.72;
+/** Below this GI, automatic escalation synthesis is warranted (C-281: reduce false alerts from routine variance). */
+const GI_STRESS_THRESHOLD = 0.65;
 const NARRATIVE_CLUSTER_THRESHOLD = 6;
 
 export type EveSynthesizeMode = 'cycle' | 'escalation';

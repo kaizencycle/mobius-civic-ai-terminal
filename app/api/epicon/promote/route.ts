@@ -291,8 +291,28 @@ async function getPromotablePending(
     };
   });
 
-  // Ledger first, then echo — same id keeps in-memory echo row (has integrity attestation).
-  const allCandidates = [...fromLedger, ...fromEcho];
+  // Merge by id: ledger rows (often stale shape) + echo in-memory (verified, category, attestation).
+  const mergedById = new Map<string, EpiconItem>();
+  for (const item of fromLedger) mergedById.set(item.id, item);
+  for (const item of fromEcho) {
+    const cur = mergedById.get(item.id);
+    if (!cur) {
+      mergedById.set(item.id, item);
+      continue;
+    }
+    mergedById.set(item.id, {
+      ...cur,
+      ...item,
+      echoIngest: item.echoIngest ?? cur.echoIngest,
+      status: cur.status === 'verified' || item.status === 'verified' ? 'verified' : item.status,
+      confidenceTier:
+        typeof item.confidenceTier === 'number' && item.confidenceTier >= 0 ? item.confidenceTier : cur.confidenceTier,
+      category: item.category ?? cur.category,
+      summary: item.summary?.trim() ? item.summary : cur.summary,
+      title: item.title?.trim() ? item.title : cur.title,
+    });
+  }
+  const allCandidates = [...mergedById.values()];
 
   console.info('[epicon/promote] promoter_input_candidates', {
     count: allCandidates.length,
@@ -372,6 +392,39 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
     let anyCommitSucceeded = false;
 
     try {
+      if (epicon.status === 'verified' && ledgerReady) {
+        const primary: Agent = (AGENT_ROUTING[epicon.category] ?? ['ZEUS'])[0] ?? 'ZEUS';
+        try {
+          const commit = buildCommit(primary, epicon, cycleId, seq++);
+          console.info('[promoter] verified fast-path commit for', epicon.id, 'agent', primary);
+          await pushLedgerEntry(commit);
+          await writeCommitJournalEntry(commit, epicon);
+          void writeToSubstrate({
+            id: commit.id,
+            timestamp: commit.timestamp,
+            agent: primary,
+            agentOrigin: primary,
+            cycle: cycleId,
+            title: commit.title,
+            summary: commit.body ?? commit.title,
+            category: 'observation',
+            severity: commit.severity === 'high' ? 'critical' : commit.severity === 'medium' ? 'elevated' : 'nominal',
+            source: 'epicon-promotion',
+            confidence: Math.max(0.5, Math.min(0.98, 0.55 + epicon.confidenceTier * 0.1)),
+            derivedFrom: [epicon.id],
+            tags: ['agent-commit', epicon.category, epicon.id, 'verified-fast-path'],
+            verified: true,
+          }).catch((error) => {
+            console.error('[ledger] promotion attest error', { commitId: commit.id, error });
+          });
+          existing.committed_entries.push(commit.id);
+          committed += 1;
+          anyCommitSucceeded = true;
+        } catch (err) {
+          console.error('[promoter] verified fast-path failed', epicon.id, err);
+          failedCommits += 1;
+        }
+      } else {
       for (const agent of assignedAgents) {
         const alreadyCommitted = existing.committed_entries.some((entryId) => entryId.includes(`-${agent}-`));
         if (alreadyCommitted) continue;
@@ -409,6 +462,7 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
           console.error('[promoter] failed to commit', epicon.id, err);
           failedCommits += 1;
         }
+      }
       }
       const allAgentsSatisfied = assignedAgents.every((agent) =>
         existing.committed_entries.some((entryId) => entryId.includes(`-${agent}-`)),

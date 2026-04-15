@@ -5,7 +5,7 @@
 
 import { Redis } from '@upstash/redis';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
-import { kvGet, kvSet } from '@/lib/kv/store';
+import { kvGet, kvSet, loadGIState } from '@/lib/kv/store';
 
 const BALANCE_KEY = 'vault:global:balance';
 const META_KEY = 'vault:global:meta';
@@ -235,4 +235,29 @@ export async function recordVaultDepositsForCouncil(
   }
 
   return { attempted, errors, deposited };
+}
+
+/**
+ * Fire-and-forget vault accrual after any committed journal append (cron, manual, council).
+ */
+export function scheduleVaultDepositForJournal(entry: AgentJournalEntry): void {
+  void (async () => {
+    try {
+      let gi = 0.74;
+      try {
+        const st = await loadGIState();
+        if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
+          gi = Math.max(0, Math.min(1, st.global_integrity));
+        }
+      } catch {
+        // default gi
+      }
+      const r = await recordVaultDepositsForCouncil([entry], gi);
+      if (r.deposited > 0) {
+        console.info('[vault] journal deposit', { journal_id: entry.id, agent: entry.agent, ...r, gi });
+      }
+    } catch (err) {
+      console.error('[vault] scheduleVaultDepositForJournal failed:', err instanceof Error ? err.message : err);
+    }
+  })();
 }
