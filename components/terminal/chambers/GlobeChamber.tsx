@@ -24,19 +24,17 @@ export type GlobeChamberProps = {
   miiScore: number | null;
 };
 
-// 3D Three.js globe — desktop only, never ships to mobile
 const GlobeView = dynamic(() => import('./GlobeView3D'), {
   ssr: false,
   loading: () => (
-    <div className="h-[min(72vh,640px)] w-full animate-pulse bg-[#020408] rounded-lg border border-slate-800" />
+    <div className="h-[min(72vh,640px)] w-full animate-pulse bg-[#020810] rounded-lg border border-slate-800" />
   ),
 });
 
-// Flat SVG map — mobile only
 const WorldMapView = dynamic(() => import('./WorldMapView'), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full animate-pulse bg-[#020408]" />
+    <div className="h-full w-full animate-pulse bg-[#020810]" />
   ),
 });
 
@@ -55,5 +53,37 @@ function useIsDesktop(breakpoint = 768): boolean {
 
 export default function GlobeChamber(props: GlobeChamberProps) {
   const isDesktop = useIsDesktop(768);
-  return isDesktop ? <GlobeView {...props} /> : <WorldMapView {...props} />;
+  const [prefer2D, setPrefer2D] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('mobius-globe-prefer2d');
+      if (saved === 'true') setPrefer2D(true);
+    } catch { /* no-op */ }
+  }, []);
+
+  const toggle = () => {
+    setPrefer2D((v) => {
+      const next = !v;
+      try { window.localStorage.setItem('mobius-globe-prefer2d', String(next)); } catch { /* no-op */ }
+      return next;
+    });
+  };
+
+  const show3D = isDesktop && !prefer2D;
+
+  return (
+    <div className="relative">
+      {isDesktop ? (
+        <button
+          type="button"
+          onClick={toggle}
+          className="absolute right-3 top-3 z-30 rounded border border-slate-600 bg-slate-900/90 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide text-slate-300 backdrop-blur-sm transition hover:border-cyan-500/50 hover:text-cyan-200"
+        >
+          {show3D ? '2D Map' : '3D Globe'}
+        </button>
+      ) : null}
+      {show3D ? <GlobeView {...props} /> : <WorldMapView {...props} />}
+    </div>
+  );
 }
