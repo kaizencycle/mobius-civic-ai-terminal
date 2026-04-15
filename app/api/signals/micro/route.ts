@@ -7,7 +7,8 @@
 
 import { NextResponse } from 'next/server';
 import { pollAllMicroAgents } from '@/lib/agents/micro';
-import { saveSignalSnapshot, loadSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
+import { saveSignalSnapshot, loadSignalSnapshot, isRedisAvailable, kvSet, KV_KEYS } from '@/lib/kv/store';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +52,19 @@ export async function GET() {
         timestamp: result.timestamp,
         healthy: result.healthy,
       }).catch(() => {});
+
+      // Write a fresh HEARTBEAT on every real sweep so the agents lane stays current
+      // even between synthesis cron runs.
+      kvSet(KV_KEYS.HEARTBEAT, JSON.stringify({
+        ok: true,
+        gi: result.composite,
+        cycle: currentCycleId(),
+        anomalies: result.anomalies?.length ?? 0,
+        familyCount: 8,
+        instrumentCount: result.instrumentCount ?? 40,
+        timestamp: result.timestamp,
+        source: 'micro-sweep',
+      })).catch(() => {});
     }
 
     return NextResponse.json({
