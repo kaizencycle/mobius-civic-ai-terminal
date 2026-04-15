@@ -559,7 +559,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as { maxItems?: number };
-  const maxItems = typeof body.maxItems === 'number' ? Math.min(Math.max(body.maxItems, 1), 10) : 5;
+  const maxItems = typeof body.maxItems === 'number' ? Math.min(Math.max(body.maxItems, 1), 50) : 25;
   const nowIso = new Date().toISOString();
   const cycleId = currentCycleId();
   const state = await getPromotionState();

@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
   const promoteResult = await fetchWithTimeout(request, '/api/epicon/promote', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ maxItems: 5 }),
+    body: JSON.stringify({ maxItems: 35 }),
   });
   actions.push(`promote:${promoteResult.ok ? 'ok' : `fail:${promoteResult.status}`}`);
 
