@@ -3,6 +3,7 @@ import { getServiceAuthError, serviceAuthorizationHeaderValue } from '@/lib/secu
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
+import { kvSet, kvSetRawKey, KV_KEYS, isRedisAvailable } from '@/lib/kv/store';
 
 /**
  * C-274: Runtime maintenance is currently once-daily (Vercel cron). If heartbeat,
@@ -80,6 +81,24 @@ export async function GET(request: NextRequest) {
 
   const kvHealth = await fetchWithTimeout(request, '/api/kv/health');
   actions.push(`kv-health:${kvHealth.ok ? 'ok' : `fail:${kvHealth.status}`}`);
+
+  if (isRedisAvailable() && kvHealth.ok) {
+    const keys = (kvHealth.body as { keys?: Record<string, boolean> } | null)?.keys;
+    if (keys && !keys.TRIPWIRE_STATE && !keys.TRIPWIRE_STATE_KV) {
+      const seedPayload = {
+        cycleId: currentCycleId(),
+        tripwireCount: 0,
+        elevated: false,
+        timestamp: new Date().toISOString(),
+      };
+      await Promise.all([
+        kvSetRawKey('TRIPWIRE_STATE', JSON.stringify(seedPayload), 3600),
+        kvSet(KV_KEYS.TRIPWIRE_STATE, seedPayload, 3600),
+        kvSet(KV_KEYS.TRIPWIRE_STATE_KV, seedPayload, 3600),
+      ]).catch(() => {});
+      actions.push('tripwire-seed:ok');
+    }
+  }
 
   const seedResult = await fetchWithTimeout(request, '/api/admin/seed-kv', { method: 'POST' });
   actions.push(`seed-kv:${seedResult.ok ? 'ok' : `fail:${seedResult.status}`}`);

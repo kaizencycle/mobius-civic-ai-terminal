@@ -65,6 +65,15 @@ export async function GET() {
         source: 'micro-sweep',
       })).catch(() => {});
 
+      kvSet(KV_KEYS.SYSTEM_PULSE, {
+        ok: true,
+        composite: result.composite,
+        cycle: currentCycleId(),
+        instruments: result.instrumentCount ?? 40,
+        anomalies: result.anomalies?.length ?? 0,
+        timestamp: result.timestamp,
+      }, 300).catch(() => {});
+
       pushLedgerEntry({
         id: `micro-sweep-${currentCycleId()}-${Date.now()}`,
         timestamp: result.timestamp,

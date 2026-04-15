@@ -192,6 +192,8 @@ export const KV_KEYS = {
   HEARTBEAT: 'heartbeat:last',
   /** Last ingest timestamp */
   LAST_INGEST: 'ingest:last',
+  /** High-frequency system pulse — updated on every micro sweep and journal write */
+  SYSTEM_PULSE: 'system:pulse',
 } as const;
 
 // ── Signal snapshot persistence ──────────────────────────────
