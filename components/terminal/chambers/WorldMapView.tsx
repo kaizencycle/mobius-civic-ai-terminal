@@ -8,6 +8,9 @@ import { geoEquirectangular, geoPath } from 'd3-geo';
 import { buildGlobePinsFromMicro } from '@/lib/terminal/globePins';
 import type { GlobePin } from '@/lib/terminal/globePins';
 import { WORLD_STATE_THEME, type WorldStateSignalTone } from '@/lib/terminal/worldStateTheme';
+import { buildInstrumentPins, pinRadiusForSeverity, shouldPulse, FAMILY_COLORS } from '@/lib/terminal/instrumentCoords';
+import type { InstrumentPin } from '@/lib/terminal/instrumentCoords';
+import type { MicroSignal } from '@/lib/agents/micro/core';
 import type { GlobeChamberProps } from './types';
 
 import countriesTopology from 'world-atlas/countries-110m.json';
@@ -90,6 +93,7 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
   const [selectedPin, setSelectedPin] = useState<GlobePin | null>(null);
+  const [selectedInstrument, setSelectedInstrument] = useState<InstrumentPin | null>(null);
   const dragRef = useRef<{ active: boolean; lastX: number; lastY: number } | null>(null);
   const pinchRef = useRef<{ dist: number; cx: number; cy: number } | null>(null);
   const scaleRef = useRef(1);
@@ -106,6 +110,12 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
       return [];
     }
   }, [micro, echoEpicon]);
+
+  const instrumentPins = useMemo(() => {
+    const allSignals = (micro as { allSignals?: MicroSignal[] } | null)?.allSignals;
+    if (!allSignals?.length) return [];
+    return buildInstrumentPins(allSignals);
+  }, [micro]);
 
   const { landPath, borderPath, project } = useMemo(() => buildMapLayers(), []);
 
@@ -201,6 +211,7 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     dragRef.current = { active: true, lastX: e.clientX, lastY: e.clientY };
     setSelectedPin(null);
+    setSelectedInstrument(null);
   }, []);
 
   const onPointerMoveMap = useCallback((e: React.PointerEvent) => {
@@ -253,6 +264,14 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
           <li className="flex items-center gap-2">
             <span className="h-2 w-2 shrink-0 rounded-full bg-violet-500" />
             <span>Seismic · EPICON</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="flex shrink-0 gap-0.5">
+              <span className="h-1.5 w-1.5 rotate-45 rounded-[1px]" style={{ background: FAMILY_COLORS.ATLAS }} />
+              <span className="h-1.5 w-1.5 rotate-45 rounded-[1px]" style={{ background: FAMILY_COLORS.HERMES }} />
+              <span className="h-1.5 w-1.5 rotate-45 rounded-[1px]" style={{ background: FAMILY_COLORS.ECHO }} />
+            </span>
+            <span>Micro-instruments ({instrumentPins.length})</span>
           </li>
         </ul>
       </div>
@@ -440,8 +459,93 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
               </g>
             );
           })}
+
+          {instrumentPins.map((iPin) => {
+            const [x, y] = project(iPin.lng, iPin.lat);
+            if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+            const r = pinRadiusForSeverity(iPin.severity);
+            const pulse = shouldPulse(iPin.severity);
+            const isSel = selectedInstrument?.agentName === iPin.agentName;
+
+            return (
+              <g key={`inst-${iPin.agentName}`} style={{ cursor: 'pointer' }}>
+                <circle
+                  cx={x}
+                  cy={y}
+                  r={Math.max(14, r + 6)}
+                  fill="transparent"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedInstrument(iPin);
+                    setSelectedPin(null);
+                  }}
+                />
+                {pulse ? (
+                  <circle cx={x} cy={y} r={r + 3} fill={iPin.color} fillOpacity="0.12" pointerEvents="none">
+                    <animate attributeName="r" values={`${r + 1};${r + 5};${r + 1}`} dur="2s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0.18;0.04;0.18" dur="2s" repeatCount="indefinite" />
+                  </circle>
+                ) : null}
+                <circle cx={x} cy={y} r={r} fill={iPin.color} fillOpacity="0.16" pointerEvents="none" />
+                <rect
+                  x={x - r * 0.55}
+                  y={y - r * 0.55}
+                  width={r * 1.1}
+                  height={r * 1.1}
+                  rx={1}
+                  fill={iPin.color}
+                  fillOpacity="0.92"
+                  stroke={isSel ? '#f0f9ff' : 'none'}
+                  strokeWidth={isSel ? 1.5 : 0}
+                  pointerEvents="none"
+                  transform={`rotate(45,${x},${y})`}
+                />
+              </g>
+            );
+          })}
         </g>
       </svg>
+
+      {selectedInstrument ? (
+        <div className="absolute bottom-14 left-2 right-2 z-30 max-h-[42%] overflow-y-auto rounded border border-cyan-500/30 bg-[#020617]/95 p-3 text-left shadow-xl backdrop-blur-sm sm:left-auto sm:right-2 sm:max-w-sm">
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <div className="font-mono text-[10px] uppercase tracking-wide text-cyan-400">Instrument</div>
+            <button
+              type="button"
+              onClick={() => setSelectedInstrument(null)}
+              className="shrink-0 rounded border border-slate-600 px-2 py-0.5 font-mono text-[10px] text-slate-400"
+            >
+              Close
+            </button>
+          </div>
+          <div className="font-mono text-xs text-slate-100">{selectedInstrument.agentName}</div>
+          <div className="mt-1 space-y-1 font-mono text-[10px] text-slate-400">
+            <div>
+              <span className="text-slate-500">Source</span> · {selectedInstrument.source}
+            </div>
+            <div>
+              <span className="text-slate-500">Label</span> · {selectedInstrument.label}
+            </div>
+            <div>
+              <span className="text-slate-500">Value</span> ·{' '}
+              <span className={selectedInstrument.value >= 0.7 ? 'text-emerald-400' : selectedInstrument.value >= 0.4 ? 'text-amber-400' : 'text-rose-400'}>
+                {(selectedInstrument.value * 100).toFixed(1)}%
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-500">Severity</span> · {selectedInstrument.severity}
+            </div>
+            <div>
+              <span className="text-slate-500">Family</span> ·{' '}
+              <span style={{ color: selectedInstrument.color }}>{selectedInstrument.family}</span>
+            </div>
+            <div>
+              <span className="text-slate-500">Lat/Lng</span> · {selectedInstrument.lat.toFixed(2)}, {selectedInstrument.lng.toFixed(2)}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
