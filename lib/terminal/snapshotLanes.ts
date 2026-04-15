@@ -18,7 +18,7 @@ export type SnapshotLaneKey =
   | 'mii'
   | 'vault';
 
-export type SnapshotLaneSemanticState = 'healthy' | 'degraded' | 'offline' | 'stale' | 'empty';
+export type SnapshotLaneSemanticState = 'healthy' | 'degraded' | 'offline' | 'stale' | 'empty' | 'promotable';
 
 export type FallbackMode = 'live' | 'cached' | 'empty' | 'offline';
 
@@ -194,12 +194,14 @@ function normalizeEpiconLane(leaf: SnapshotLeaf): SnapshotLaneState {
     };
   }
   if (committed === 0) {
+    // Candidates exist in the pipeline but none have been promoted yet — this
+    // is not "empty"; it is an active promotable queue awaiting commit.
     return {
       key: 'epicon',
       ok: true,
-      state: 'empty',
+      state: 'promotable',
       statusCode: leaf.status,
-      message: 'No committed EPICON rows in current feed',
+      message: `${count} EPICON candidate${count === 1 ? '' : 's'} active · awaiting promotion commit`,
       lastUpdated,
       fallbackMode: 'empty',
     };
