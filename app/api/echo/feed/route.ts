@@ -16,6 +16,9 @@ import { getEchoEpicon, getEchoLedger, getEchoAlerts, getEchoIntegrity, getEchoS
 import { fetchAllSources } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
 import { persistEchoIngestSideEffects } from '@/lib/echo/kv-persist-ingest';
+import { isRedisAvailable } from '@/lib/kv/store';
+import { Redis } from '@upstash/redis';
+import type { LedgerEntry } from '@/lib/terminal/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,9 +45,62 @@ export async function GET() {
     }
   }
 
+  const echoLedger = getEchoLedger();
+  let kvLedgerEntries: LedgerEntry[] = [];
+
+  if (isRedisAvailable()) {
+    try {
+      const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+      const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+      if (url && token) {
+        const redis = new Redis({ url, token });
+        const raw = await redis.lrange<string>('mobius:epicon:feed', 0, 99);
+        for (const item of raw) {
+          try {
+            const parsed: Record<string, unknown> = typeof item === 'string' ? JSON.parse(item) : (item as Record<string, unknown>);
+            if (!parsed.id || !parsed.timestamp) continue;
+            kvLedgerEntries.push({
+              id: String(parsed.id),
+              cycleId: String(parsed.cycle ?? parsed.category ?? ''),
+              type: 'attestation',
+              agentOrigin: String(parsed.author ?? parsed.agentOrigin ?? 'SYSTEM'),
+              timestamp: String(parsed.timestamp),
+              title: String(parsed.title ?? ''),
+              summary: String(parsed.title ?? parsed.body ?? ''),
+              integrityDelta: 0,
+              status: (parsed.status === 'committed' || parsed.status === 'pending' || parsed.status === 'reverted')
+                ? parsed.status as 'committed' | 'pending' | 'reverted'
+                : 'committed',
+              category: typeof parsed.category === 'string' && ['geopolitical', 'market', 'governance', 'infrastructure', 'narrative', 'ethics', 'civic-risk'].includes(parsed.category)
+                ? parsed.category as LedgerEntry['category']
+                : undefined,
+              confidenceTier: typeof parsed.confidenceTier === 'number' ? parsed.confidenceTier : undefined,
+              tags: Array.isArray(parsed.tags) ? parsed.tags.filter((t): t is string => typeof t === 'string') : undefined,
+              source: 'agent_commit',
+            });
+          } catch {
+            // skip malformed entries
+          }
+        }
+      }
+    } catch {
+      // KV read failure — continue with echo-only data
+    }
+  }
+
+  const seenIds = new Set<string>();
+  const merged: LedgerEntry[] = [];
+  for (const row of [...echoLedger, ...kvLedgerEntries]) {
+    if (seenIds.has(row.id)) continue;
+    seenIds.add(row.id);
+    merged.push(row);
+  }
+  merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const capped = merged.slice(0, 100);
+
   return NextResponse.json({
     epicon: getEchoEpicon(),
-    ledger: getEchoLedger(),
+    ledger: capped,
     alerts: getEchoAlerts(),
     integrity: getEchoIntegrity(),
     status: getEchoStatus(),
