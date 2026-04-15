@@ -13,9 +13,10 @@ import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 
 export const dynamic = 'force-dynamic';
 
-// Simple in-memory cache to avoid hammering public APIs
 let cached: { data: Awaited<ReturnType<typeof pollAllMicroAgents>>; timestamp: number } | null = null;
-const CACHE_TTL_MS = 60_000; // 1 minute
+const CACHE_TTL_MS = 60_000;
+let lastLedgerPushMs = 0;
+const LEDGER_PUSH_INTERVAL_MS = 10 * 60 * 1000;
 
 export async function GET() {
   const now = Date.now();
@@ -74,20 +75,23 @@ export async function GET() {
         timestamp: result.timestamp,
       }, 300).catch(() => {});
 
-      pushLedgerEntry({
-        id: `micro-sweep-${currentCycleId()}-${Date.now()}`,
-        timestamp: result.timestamp,
-        author: 'DAEDALUS',
-        title: `Sensor sweep: ${result.instrumentCount ?? 40} instruments, composite ${result.composite.toFixed(3)}, ${result.anomalies?.length ?? 0} anomalies`,
-        type: 'epicon',
-        severity: (result.anomalies?.length ?? 0) > 5 ? 'elevated' : 'nominal',
-        source: 'kv-ledger',
-        tags: ['micro-sweep', 'heartbeat', currentCycleId()],
-        verified: false,
-        category: 'heartbeat',
-        status: 'committed',
-        agentOrigin: 'DAEDALUS',
-      }).catch(() => {});
+      if (now - lastLedgerPushMs > LEDGER_PUSH_INTERVAL_MS) {
+        lastLedgerPushMs = now;
+        pushLedgerEntry({
+          id: `micro-sweep-${currentCycleId()}-${Date.now()}`,
+          timestamp: result.timestamp,
+          author: 'DAEDALUS',
+          title: `Sensor sweep: ${result.instrumentCount ?? 40} instruments, composite ${result.composite.toFixed(3)}, ${result.anomalies?.length ?? 0} anomalies`,
+          type: 'epicon',
+          severity: (result.anomalies?.length ?? 0) > 5 ? 'elevated' : 'nominal',
+          source: 'kv-ledger',
+          tags: ['micro-sweep', 'heartbeat', currentCycleId()],
+          verified: false,
+          category: 'heartbeat',
+          status: 'committed',
+          agentOrigin: 'DAEDALUS',
+        }).catch(() => {});
+      }
     }
 
     return NextResponse.json({
