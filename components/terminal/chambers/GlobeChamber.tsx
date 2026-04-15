@@ -40,19 +40,20 @@ const WorldMapView = dynamic(() => import('./WorldMapView'), {
   ),
 });
 
-function useIsMobile(breakpoint = 768): boolean {
-  const [isMobile, setIsMobile] = useState(false);
+function useIsDesktop(breakpoint = 768): boolean {
+  const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
-    setIsMobile(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    const check = () => setIsDesktop(window.innerWidth >= breakpoint);
+    check();
+    const mq = window.matchMedia(`(min-width: ${breakpoint}px)`);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
   }, [breakpoint]);
-  return isMobile;
+  return isDesktop;
 }
 
 export default function GlobeChamber(props: GlobeChamberProps) {
-  const isMobile = useIsMobile(768);
-  return isMobile ? <WorldMapView {...props} /> : <GlobeView {...props} />;
+  const isDesktop = useIsDesktop(768);
+  return isDesktop ? <GlobeView {...props} /> : <WorldMapView {...props} />;
 }

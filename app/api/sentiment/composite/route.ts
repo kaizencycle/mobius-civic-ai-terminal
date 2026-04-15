@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
 import { pollAllMicroAgents } from '@/lib/agents/micro';
+import type { MicroSignal } from '@/lib/agents/micro/core';
 import { isRedisAvailable, kvGet, kvSet } from '@/lib/kv/store';
 
 type DomainKey = 'civic' | 'environ' | 'financial' | 'narrative' | 'infrastructure' | 'institutional';
@@ -25,103 +26,78 @@ export const dynamic = 'force-dynamic';
 
 const CACHE_KEY = 'SENTIMENT_SNAPSHOT';
 
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
-
 function mean(values: Array<number | null>): number | null {
   const valid = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
   if (valid.length === 0) return null;
   return Number((valid.reduce((sum, value) => sum + value, 0) / valid.length).toFixed(3));
 }
 
-async function fetchCryptoComposite(): Promise<{ value: number | null; sourceLabel: string }> {
-  try {
-    const response = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true',
-      { cache: 'no-store' },
-    );
-    if (!response.ok) return { value: null, sourceLabel: 'CoinGecko unavailable' };
+const DOMAIN_INSTRUMENTS: Record<DomainKey, string[]> = {
+  environ: ['ATLAS-µ2', 'ATLAS-µ4', 'ATLAS-µ5', 'ECHO-µ2', 'ECHO-µ3'],
+  civic: ['AUREA-µ1', 'AUREA-µ2', 'AUREA-µ3', 'EVE-µ2', 'EVE-µ3', 'EVE-µ4', 'EVE-µ5'],
+  financial: ['ECHO-µ1', 'ZEUS-µ4', 'ATLAS-µ1'],
+  narrative: ['HERMES-µ1', 'HERMES-µ3', 'HERMES-µ4', 'HERMES-µ5'],
+  infrastructure: ['DAEDALUS-µ1', 'DAEDALUS-µ4', 'DAEDALUS-µ5'],
+  institutional: ['ZEUS-µ1', 'ZEUS-µ2', 'ZEUS-µ5', 'JADE-µ3', 'JADE-µ5'],
+};
 
-    const data = (await response.json()) as Record<string, { usd_24h_change?: number }>;
-    const changes = ['bitcoin', 'ethereum', 'solana']
-      .map((asset) => data[asset]?.usd_24h_change)
-      .filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
+const DOMAIN_META: Record<DomainKey, { label: string; agent: string }> = {
+  civic: { label: 'CIVIC', agent: 'AUREA + EVE' },
+  environ: { label: 'ENVIRON', agent: 'ATLAS + ECHO' },
+  financial: { label: 'FINANCIAL', agent: 'ECHO + ZEUS + ATLAS' },
+  narrative: { label: 'NARRATIVE', agent: 'HERMES' },
+  infrastructure: { label: 'INFRASTR', agent: 'DAEDALUS' },
+  institutional: { label: 'INSTITUTIONAL', agent: 'ZEUS + JADE' },
+};
 
-    if (changes.length === 0) return { value: null, sourceLabel: 'CoinGecko no change data' };
+function scoreDomain(
+  domainKey: DomainKey,
+  signalsByAgent: Map<string, MicroSignal[]>,
+): { score: number | null; sourceLabel: string } {
+  const instrumentNames = DOMAIN_INSTRUMENTS[domainKey];
+  const values: number[] = [];
+  const sources: string[] = [];
 
-    const avgChange = changes.reduce((sum, change) => sum + change, 0) / changes.length;
-    const value = clamp01((avgChange + 10) / 20);
-    return {
-      value: Number(value.toFixed(3)),
-      sourceLabel: `Crypto 24h avg ${avgChange >= 0 ? '+' : ''}${avgChange.toFixed(2)}%`,
-    };
-  } catch {
-    // On failure, try reading the last known financial score from the KV snapshot
-    // so the domain shows cached data rather than a null gap.
-    if (isRedisAvailable()) {
-      try {
-        const cached = await kvGet<SentimentSnapshot>(CACHE_KEY);
-        const financialDomain = cached?.domains?.find((d) => d.key === 'financial');
-        if (typeof financialDomain?.score === 'number') {
-          return { value: financialDomain.score, sourceLabel: 'Crypto (cached fallback)' };
-        }
-      } catch {
-        // ignore — return null below
+  for (const name of instrumentNames) {
+    const signals = signalsByAgent.get(name);
+    if (!signals?.length) continue;
+    for (const sig of signals) {
+      if (typeof sig.value === 'number' && Number.isFinite(sig.value)) {
+        values.push(sig.value);
+        if (!sources.includes(sig.source)) sources.push(sig.source);
       }
     }
-    return { value: null, sourceLabel: 'CoinGecko fetch failed' };
   }
+
+  if (values.length === 0) {
+    return { score: null, sourceLabel: `No live signals from ${instrumentNames.join(', ')}` };
+  }
+
+  const score = Number((values.reduce((a, b) => a + b, 0) / values.length).toFixed(3));
+  return { score, sourceLabel: sources.join(' + ') };
 }
 
 export async function GET() {
   try {
-    const [integrity, micro, financial] = await Promise.all([
+    const [integrity, micro] = await Promise.all([
       computeIntegrityPayload(),
       pollAllMicroAgents(),
-      fetchCryptoComposite(),
     ]);
 
-    const microByAgent = new Map(micro.agents.map((agent) => [agent.agentName, agent]));
+    const signalsByAgent = new Map<string, MicroSignal[]>();
+    for (const agent of micro.agents) {
+      signalsByAgent.set(agent.agentName, agent.signals);
+    }
 
-    const gaiaScore = mean((microByAgent.get('GAIA')?.signals ?? []).map((signal) => signal.value));
-    const hermesSignals = microByAgent.get('HERMES-µ')?.signals ?? [];
-    const narrativeScore = mean(hermesSignals.map((signal) => signal.value));
-    const hermesSources = hermesSignals.map((signal) => signal.source);
-    const sonarEnabled = Boolean(process.env.PERPLEXITY_API_KEY);
-    const daedalusScore = mean((microByAgent.get('DAEDALUS-µ')?.signals ?? []).map((signal) => signal.value));
-    const themisSignals = microByAgent.get('THEMIS')?.signals ?? [];
-    const civicScore = mean(themisSignals.map((signal) => signal.value));
-
-    const domains: DomainPayload[] = [
-      { key: 'civic', label: 'CIVIC', agent: 'EVE', score: civicScore, sourceLabel: 'Federal Register + Sonar civic' },
-      { key: 'environ', label: 'ENVIRON', agent: 'GAIA', score: gaiaScore, sourceLabel: 'USGS + Open-Meteo + EONET' },
-      { key: 'financial', label: 'FINANCIAL', agent: 'ECHO', score: financial.value, sourceLabel: financial.sourceLabel },
-      {
-        key: 'narrative',
-        label: 'NARRATIVE',
-        agent: 'HERMES',
-        score: narrativeScore,
-        sourceLabel: sonarEnabled
-          ? hermesSources.includes('GDELT')
-            ? 'HN + Wikipedia + Sonar + GDELT'
-            : 'HN + Wikipedia + Sonar'
-          : hermesSources.includes('GDELT')
-            ? 'HN + Wikipedia + GDELT (Sonar unavailable)'
-            : 'HN + Wikipedia (Sonar unavailable)',
+    const domains: DomainPayload[] = (['civic', 'environ', 'financial', 'narrative', 'infrastructure', 'institutional'] as DomainKey[]).map(
+      (key) => {
+        const { score, sourceLabel } = scoreDomain(key, signalsByAgent);
+        const meta = DOMAIN_META[key];
+        return { key, label: meta.label, agent: meta.agent, score, sourceLabel };
       },
-      { key: 'infrastructure', label: 'INFRASTR', agent: 'DAEDALUS', score: daedalusScore, sourceLabel: 'GitHub + npm + self-ping' },
-      { key: 'institutional', label: 'INSTITUTIONAL', agent: 'JADE', score: civicScore, sourceLabel: 'data.gov + FRED (future)' },
-    ];
+    );
 
-    const weightedOverall = mean([
-      domains.find((d) => d.key === 'civic')?.score ?? null,
-      domains.find((d) => d.key === 'environ')?.score ?? null,
-      domains.find((d) => d.key === 'financial')?.score ?? null,
-      domains.find((d) => d.key === 'narrative')?.score ?? null,
-      domains.find((d) => d.key === 'infrastructure')?.score ?? null,
-      domains.find((d) => d.key === 'institutional')?.score ?? null,
-    ]);
+    const weightedOverall = mean(domains.map((d) => d.score));
 
     const payload: SentimentSnapshot = {
       cycle: integrity.cycle,

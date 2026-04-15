@@ -86,6 +86,9 @@ export async function GET(request: NextRequest) {
   const giResult = await fetchWithTimeout(request, '/api/integrity-status');
   actions.push(`integrity-status:${giResult.ok ? 'ok' : `fail:${giResult.status}`}`);
 
+  const tripwireResult = await fetchWithTimeout(request, '/api/tripwire/status');
+  actions.push(`tripwire-state:${tripwireResult.ok ? 'ok' : `fail:${tripwireResult.status}`}`);
+
   const echoResult = await fetchWithTimeout(request, '/api/echo/ingest', { method: 'POST' });
   actions.push(`echo-ingest:${echoResult.ok ? 'ok' : `fail:${echoResult.status}`}`);
 
