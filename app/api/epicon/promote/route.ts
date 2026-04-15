@@ -392,7 +392,8 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
     let anyCommitSucceeded = false;
 
     try {
-      if (epicon.status === 'verified' && ledgerReady) {
+      // fast-path: verified items always commit (pushLedgerEntry uses KV, not external token)
+      if (epicon.status === 'verified') {
         const primary: Agent = (AGENT_ROUTING[epicon.category] ?? ['ZEUS'])[0] ?? 'ZEUS';
         try {
           const commit = buildCommit(primary, epicon, cycleId, seq++);
@@ -432,9 +433,7 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
         const commit = buildCommit(agent, epicon, cycleId, seq++);
         try {
           console.info('[promoter] attempting commit for', epicon.id, 'agent', agent);
-          if (!ledgerReady) {
-            throw new Error('AGENT_SERVICE_TOKEN not configured');
-          }
+          // pushLedgerEntry writes to KV/Redis directly — no external token required
           await pushLedgerEntry(commit);
           await writeCommitJournalEntry(commit, epicon);
           void writeToSubstrate({
