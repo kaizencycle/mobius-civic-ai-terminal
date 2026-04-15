@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mobius.local/schemas/microagent-output-v1.json",
+  "title": "Mobius Microagent Evidence Object v1",
+  "description": "Minimum structured output every microagent must emit. Parents synthesize; microagents sense.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "family",
+    "microagent",
+    "domain",
+    "source",
+    "title",
+    "summary",
+    "severity",
+    "confidence",
+    "timestamp",
+    "provenance",
+    "contradiction_flag",
+    "parent_agent",
+    "cycle"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable unique id, e.g. ZEUS-µ4-2026-04-14T10:30:00Z-001"
+    },
+    "family": {
+      "type": "string",
+      "enum": ["ATLAS", "ZEUS", "HERMES", "AUREA", "JADE", "DAEDALUS", "ECHO", "EVE"]
+    },
+    "microagent": {
+      "type": "string",
+      "pattern": "^[A-Z]+-µ[0-9]+$",
+      "description": "Instrument id within family, e.g. ZEUS-µ4"
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Narrow scope key, e.g. source_corroboration, labor_market"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable source label (API name, feed, repo)"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["nominal", "watch", "elevated", "critical", "degraded", "info", "low", "medium", "high"]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_type", "retrieved_at"],
+      "properties": {
+        "url": { "type": "string", "format": "uri" },
+        "source_type": {
+          "type": "string",
+          "enum": ["news_api", "http", "rss", "github", "government_feed", "market_api", "seismic_api", "internal", "other"]
+        },
+        "retrieved_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "contradiction_flag": { "type": "boolean" },
+    "related_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "EPICON ids, civic alert ids, etc."
+    },
+    "parent_agent": {
+      "type": "string",
+      "enum": ["ATLAS", "ZEUS", "HERMES", "AUREA", "JADE", "DAEDALUS", "ECHO", "EVE"]
+    },
+    "cycle": {
+      "type": "string",
+      "pattern": "^C-[0-9]+$",
+      "description": "Mobius cycle id, e.g. C-282"
+    },
+    "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+    "lng": { "type": "number", "minimum": -180, "maximum": 180 },
+    "magnitude": { "type": "number" },
+    "symbol": { "type": "string" },
+    "policy_id": { "type": "string" },
+    "jurisdiction": { "type": "string" },
+    "impact_hint": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "unknown"]
+    }
+  }
+}
