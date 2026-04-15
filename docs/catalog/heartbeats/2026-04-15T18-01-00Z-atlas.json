@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-04-15T18:01:00.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-282",
+  "gi": 0.73,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": ["Self-ping: 401 in 61ms"],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": true,
+    "ECHO_STATE": true,
+    "ECHO_STATE_KV": true,
+    "TRIPWIRE_STATE": false,
+    "TRIPWIRE_STATE_KV": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true,
+    "SYSTEM_PULSE": true,
+    "TRIPWIRE_STATE_REDIS": false
+  },
+  "seed_attempted": true,
+  "seed_result": "401"
+}
