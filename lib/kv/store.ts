@@ -214,10 +214,11 @@ export type SignalSnapshot = {
 
 /**
  * Save the latest signal snapshot to Redis.
- * TTL: 10 minutes (signals older than this are stale).
+ * TTL: 2 hours — survives between visitor-triggered sweeps during low traffic.
+ * Freshness is tracked via the embedded timestamp, not TTL expiry.
  */
 export async function saveSignalSnapshot(snapshot: SignalSnapshot): Promise<void> {
-  await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, snapshot, 600);
+  await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, snapshot, 7200);
 }
 
 /**
