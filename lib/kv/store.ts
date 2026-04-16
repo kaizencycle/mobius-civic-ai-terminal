@@ -207,6 +207,7 @@ export type SignalSnapshot = {
     value: number;
     label: string;
     severity: string;
+    timestamp?: string;
   }>;
   timestamp: string;
   healthy: boolean;
