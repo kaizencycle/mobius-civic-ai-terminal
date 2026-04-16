@@ -487,14 +487,14 @@ export default function GlobeView3D({
         <span>EPICON · {cycleId}</span>
         <span className="normal-case tracking-normal text-violet-400/90">SEISMIC · EPICON — violet pins (M3+ USGS)</span>
       </div>
-      <div className="flex border-t border-white/[0.06] bg-[#020408]/90">
+      <div className="flex border-t border-white/[0.08] bg-[#020408]/95">
         {GLOBE_DOMAIN_ORDER.map((key) => {
           const d = domainByKey[key];
           const score = d?.score;
           const label = d?.label ?? key.toUpperCase();
           const agent = d?.agent ?? '—';
           const scoreClass =
-            score == null ? 'text-slate-500'
+            score == null ? 'text-slate-400'
             : score >= 0.8 ? 'text-emerald-400'
             : score >= 0.6 ? 'text-amber-400'
             : 'text-rose-400';
@@ -503,11 +503,11 @@ export default function GlobeView3D({
               key={key}
               type="button"
               onClick={() => focusDomain(key)}
-              className="flex flex-1 flex-col items-center border-r border-white/[0.04] px-1 py-2 transition hover:bg-white/[0.04] sm:px-2"
+              className="flex flex-1 flex-col items-center border-r border-white/[0.06] px-1 py-2.5 transition hover:bg-white/[0.06] sm:px-2"
             >
-              <div className="text-[9px] uppercase tracking-[0.1em] text-slate-600">{label}</div>
-              <div className={cn('text-[13px] font-bold', scoreClass)}>{score != null ? score.toFixed(2) : '—'}</div>
-              <div className="text-[8px] text-slate-700">{agent}</div>
+              <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400">{label}</div>
+              <div className={cn('text-[14px] font-bold', scoreClass)}>{score != null ? score.toFixed(2) : '—'}</div>
+              <div className="text-[8px] text-slate-500">{agent}</div>
             </button>
           );
         })}
