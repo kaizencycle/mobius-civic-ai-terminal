@@ -34,7 +34,12 @@ export default function CommandSurface() {
   useEffect(() => {
     let active = true;
     async function boot() {
-      const integrity = await fetch('/api/integrity-status', { cache: 'no-store' }).then((r) => r.json()).catch(() => null);
+      const integrity = await fetch('/api/integrity-status', {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      })
+        .then((r) => r.json())
+        .catch(() => null);
       if (!active || !integrity) return;
       const greeting = session?.user?.githubUsername
         ? `Welcome back, ${session.user.githubUsername}.`

@@ -451,8 +451,10 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
           fetch('/api/signals/micro', { cache: 'no-store' }),
           fetch('/api/echo/feed', { cache: 'no-store' }),
         ]);
-        const microJson = (await microRes.json()) as MicroSweepResponse;
-        const echoJson = (await echoRes.json()) as { epicon?: EpiconItem[] };
+        const [microJson, echoJson] = (await Promise.all([
+          microRes.json(),
+          echoRes.json(),
+        ])) as [MicroSweepResponse, { epicon?: EpiconItem[] }];
         if (!mounted) return;
         if (microJson?.ok) {
           microRef.current = microJson;

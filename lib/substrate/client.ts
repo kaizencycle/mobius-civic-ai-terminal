@@ -45,7 +45,10 @@ export async function probeSubstrateService(
   const healthPath = healthPathFor(service);
 
   try {
-    const response = await fetch(`${baseUrl}${healthPath}`, { cache: 'no-store' });
+    const response = await fetch(`${baseUrl}${healthPath}`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
     return {
       service,
       url: `${baseUrl}${healthPath}`,

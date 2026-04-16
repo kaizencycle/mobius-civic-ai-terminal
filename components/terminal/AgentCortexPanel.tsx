@@ -64,8 +64,10 @@ export default function AgentCortexPanel({
           fetch('/api/signals/micro', { cache: 'no-store' }),
           fetch('/api/agents/status', { cache: 'no-store' }),
         ]);
-        const json: MicroSweepResponse = await microRes.json();
-        const agentsJson: AgentStatusEnvelope = await agentsRes.json();
+        const [json, agentsJson] = (await Promise.all([
+          microRes.json(),
+          agentsRes.json(),
+        ])) as [MicroSweepResponse, AgentStatusEnvelope];
         if (!alive || !json.ok) return;
 
         const nextThemis = json.agents.find((agent) => agent.agentName === 'THEMIS') ?? null;

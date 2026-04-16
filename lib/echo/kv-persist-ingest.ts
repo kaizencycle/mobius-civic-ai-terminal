@@ -29,13 +29,23 @@ type KvEpiconEntry = {
   integrityAttestation?: IntegrityRating;
 };
 
+let _echoRedis: Redis | null | undefined;
+
 function getRedisClient(): Redis | null {
+  if (_echoRedis === null) return null;
+  if (_echoRedis) return _echoRedis;
+
   const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
+  if (!url || !token) {
+    _echoRedis = null;
+    return null;
+  }
   try {
-    return new Redis({ url, token });
+    _echoRedis = new Redis({ url, token });
+    return _echoRedis;
   } catch {
+    _echoRedis = null;
     return null;
   }
 }
@@ -58,8 +68,10 @@ export async function flushEpiconFeedToKv(entries: KvEpiconEntry[]): Promise<voi
   if (!redis || entries.length === 0) return;
   try {
     const payload = entries.map((entry) => JSON.stringify(entry));
-    await redis.lpush('epicon:feed', ...payload);
-    await redis.ltrim('epicon:feed', 0, 99);
+    const pipe = redis.pipeline();
+    pipe.lpush('epicon:feed', ...payload);
+    pipe.ltrim('epicon:feed', 0, 99);
+    await pipe.exec();
     // epicon:feed LPUSH count: entries.length
   } catch (error) {
     console.error('[echo] epicon feed flush failed:', error);
@@ -92,9 +104,13 @@ async function writeMiiFeedBatch(entries: MiiEntry[]): Promise<void> {
   if (!redis || entries.length === 0) return;
   try {
     const packed = entries.map((entry) => JSON.stringify(entry));
-    await Promise.all(entries.map((entry) => redis.set(`mii:${entry.agent.toUpperCase()}:${entry.cycle}`, JSON.stringify(entry))));
-    await redis.lpush('mii:feed', ...packed);
-    await redis.ltrim('mii:feed', 0, 499);
+    const pipe = redis.pipeline();
+    for (const entry of entries) {
+      pipe.set(`mii:${entry.agent.toUpperCase()}:${entry.cycle}`, JSON.stringify(entry));
+    }
+    pipe.lpush('mii:feed', ...packed);
+    pipe.ltrim('mii:feed', 0, 499);
+    await pipe.exec();
   } catch (error) {
     console.error('[echo] mii batch write failed:', error);
   }
@@ -105,20 +121,22 @@ async function writeMiiFeedBatch(entries: MiiEntry[]): Promise<void> {
  */
 export async function persistEchoIngestSideEffects(result: IngestResult): Promise<void> {
   const status = getEchoStatus();
-  await writeEchoKvHeartbeatToMobius(status);
   const dedupDenominator = Math.max(1, status.totalIngested + status.duplicateSuppressedCount);
   const dedupRate = Number((status.duplicateSuppressedCount / dedupDenominator).toFixed(3));
-  await saveEchoState({
-    lastIngest: status.lastIngest,
-    cycleId: status.cycleId,
-    totalIngested: status.totalIngested,
-    healthy: true,
-    epiconCount: status.counts.epicon,
-    ledgerCount: status.counts.ledger,
-    alertCount: status.counts.alerts,
-    timestamp: new Date().toISOString(),
-    dedupRate,
-  }).catch(() => {});
+  await Promise.all([
+    writeEchoKvHeartbeatToMobius(status),
+    saveEchoState({
+      lastIngest: status.lastIngest,
+      cycleId: status.cycleId,
+      totalIngested: status.totalIngested,
+      healthy: true,
+      epiconCount: status.counts.epicon,
+      ledgerCount: status.counts.ledger,
+      alertCount: status.counts.alerts,
+      timestamp: new Date().toISOString(),
+      dedupRate,
+    }).catch(() => {}),
+  ]);
 
   const kvFeedEntries: KvEpiconEntry[] = result.epicon.map((entry, i) => ({
     id: entry.id,
@@ -138,12 +156,11 @@ export async function persistEchoIngestSideEffects(result: IngestResult): Promis
   await flushEpiconFeedToKv(kvFeedEntries);
 
   try {
-    const giState = await loadGIState();
+    const [giState, recentFeed] = await Promise.all([loadGIState(), readMiiFeed(null, 500)]);
     const currentGi = Number((giState?.global_integrity ?? 0.74).toFixed(4));
     const miiTimestamp = new Date().toISOString();
     const agentAverages = result.integrity.agentAverages;
     const agents = ['ATLAS', 'ZEUS', 'JADE', 'EVE'] as const;
-    const recentFeed = await readMiiFeed(null, 500);
     const lastKnown: Record<string, number> = {};
     for (const entry of recentFeed) {
       if (!(entry.agent in lastKnown)) {
