@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-04-16T12:04:35.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-283",
+  "gi": 0.83,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": ["WB WLD GDP growth stale (2024)", "GDELT 0 articles (24h)", "Reddit 0 posts", "ECHO_STATE false", "ECHO_STATE_KV false"],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": true,
+    "ECHO_STATE": false,
+    "ECHO_STATE_KV": false,
+    "TRIPWIRE_STATE": true,
+    "TRIPWIRE_STATE_KV": true,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true,
+    "SYSTEM_PULSE": true,
+    "TRIPWIRE_STATE_REDIS": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT"
+}
