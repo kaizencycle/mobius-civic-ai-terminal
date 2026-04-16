@@ -129,6 +129,16 @@ function worstSeverity(signals: SignalEntry[]): string {
   return order[worst] ?? 'nominal';
 }
 
+function severityDot(severity: string): string {
+  const s = severity.toLowerCase();
+  if (s === 'critical') return 'bg-rose-400';
+  if (s === 'elevated') return 'bg-amber-400';
+  if (s === 'watch') return 'bg-yellow-400';
+  return 'bg-emerald-400';
+}
+
+type FamilyComposite = { healthy: number; total: number; avg: number };
+
 function agentPosture(agent: AgentResult, signalsLane: SnapshotLaneState | undefined): AgentPosture {
   if (!signalsLane?.ok || signalsLane.state === 'offline') return 'standby';
   if (signalsLane.state === 'degraded' || signalsLane.state === 'stale') {
@@ -192,14 +202,25 @@ export default function SignalsPageClient() {
     return map;
   }, [agents]);
 
-  const displayFamilyIds = useMemo(() => {
-    const preferred = FAMILIES.map((f) => f.id);
-    const keysWithMembers = [...grouped.entries()].filter(([, m]) => m.length > 0).map(([k]) => k);
-    const ordered = [
-      ...preferred.filter((k) => keysWithMembers.includes(k)),
-      ...keysWithMembers.filter((k) => !preferred.includes(k)).sort(),
-    ];
-    return ordered;
+  const familyComposites = useMemo(() => {
+    const out: Record<string, FamilyComposite> = {};
+    for (const [familyId, members] of grouped) {
+      if (members.length === 0) continue;
+      let sum = 0;
+      let healthy = 0;
+      for (const agent of members) {
+        if (agent.healthy) healthy += 1;
+        const sig = agent.signals[0];
+        const score = sig?.value ?? (agent.healthy ? 0.85 : 0);
+        sum += score;
+      }
+      out[familyId] = {
+        healthy,
+        total: members.length,
+        avg: sum / members.length,
+      };
+    }
+    return out;
   }, [grouped]);
 
   const expected = payload.instrumentCount ?? agents.length;
