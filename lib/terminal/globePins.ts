@@ -298,7 +298,8 @@ export function buildGlobePinsFromMicro(
       [lat, lng] = [15, 0];
     }
 
-    const id = `micro-${sig.source.replace(/\s+/g, '-').toLowerCase()}-${sig.timestamp.slice(0, 13)}`;
+    const ts = sig.timestamp ?? new Date().toISOString();
+    const id = `micro-${sig.source.replace(/\s+/g, '-').toLowerCase()}-${ts.slice(0, 13)}`;
     const prov =
       sig.source === 'Federal Register' || sig.source.startsWith('data.gov')
         ? 'Federal Register / data.gov · THEMIS sweep'
@@ -326,7 +327,7 @@ export function buildGlobePinsFromMicro(
             : `Information or systems signal for ${domainKey} — HERMES / DAEDALUS verification lanes.`,
       meta: {
         ...flattenRaw(sig.raw),
-        freshnessSec: Math.max(0, Math.floor((Date.now() - new Date(sig.timestamp).getTime()) / 1000)),
+        freshnessSec: Math.max(0, Math.floor((Date.now() - new Date(ts).getTime()) / 1000)),
       },
     });
   }

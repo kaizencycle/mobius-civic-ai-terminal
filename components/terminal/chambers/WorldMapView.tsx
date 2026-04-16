@@ -304,8 +304,12 @@ export default function WorldMapView({ micro = null, echoEpicon = [], cycleId = 
       </div>
 
       <div className="absolute left-3 top-3 z-10 rounded border border-white/[0.06] bg-[#020810]/85 px-2 py-1.5 text-[9px] font-mono uppercase tracking-[0.14em] text-emerald-300">
-        Mobile World Map · {cycleId} · GI {giScore.toFixed(2)}
-        <span className="ml-2 text-slate-500 normal-case">· wheel / pinch zoom · drag pan</span>
+        World Map · {cycleId} · GI {giScore.toFixed(2)}
+        {pins.length === 0 && instrumentPins.length === 0 ? (
+          <span className="ml-2 animate-pulse text-slate-500 normal-case">· loading signals…</span>
+        ) : (
+          <span className="ml-2 text-slate-500 normal-case">· {pins.length + instrumentPins.length} pins · zoom · pan</span>
+        )}
       </div>
 
       {selectedPin ? (

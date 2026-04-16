@@ -44,12 +44,13 @@ export async function GET() {
       saveSignalSnapshot({
         composite: result.composite,
         anomalies: result.anomalies?.length ?? 0,
-        allSignals: (result.allSignals ?? []).map((s: { agentName: string; source: string; value: number; label: string; severity: string }) => ({
+        allSignals: (result.allSignals ?? []).map((s: { agentName: string; source: string; value: number; label: string; severity: string; timestamp?: string }) => ({
           agentName: s.agentName,
           source: s.source,
           value: s.value,
           label: s.label,
           severity: s.severity,
+          timestamp: s.timestamp,
         })),
         timestamp: result.timestamp,
         healthy: result.healthy,
