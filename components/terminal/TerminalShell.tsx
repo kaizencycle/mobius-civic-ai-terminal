@@ -1,12 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import ChamberSwitcher from '@/components/terminal/ChamberSwitcher';
+import OnboardingOverlay from '@/components/terminal/OnboardingOverlay';
+import ShellBridgeBanner from '@/components/terminal/ShellBridgeBanner';
 import SnapshotDiagnostics from '@/components/terminal/SnapshotDiagnostics';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 import type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
 import { normalizeSnapshotLane, SNAPSHOT_LANE_KEYS } from '@/lib/terminal/snapshotLanes';
 import { cn } from '@/lib/utils';
+
+const SHELL_URL = 'https://mobius-browser-shell.vercel.app';
 
 function runtimeBadgeClass(runtime: 'online' | 'degraded' | 'offline') {
   if (runtime === 'online') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
@@ -120,6 +124,15 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-2 md:gap-3">
             <div className="rounded border border-cyan-400/60 bg-cyan-400/10 px-1.5 py-0.5 font-mono text-[10px] md:px-2 md:text-xs">⌘</div>
             <div className="text-[13px] font-semibold tracking-[0.04em] md:text-sm md:tracking-wide">MOBIUS CIVIC TERMINAL</div>
+            <a
+              href={SHELL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-violet-300 transition-colors hover:bg-violet-500/20 hover:text-violet-100 md:inline-block"
+              title="Open Mobius Browser Shell (citizen entry)"
+            >
+              Shell
+            </a>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] font-mono md:gap-2 md:text-[11px]">
             <span className={cn('rounded border px-1.5 py-0.5 md:px-2 md:py-1', loading ? 'border-slate-700 text-slate-500' : giTone)}>
@@ -159,7 +172,13 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
         </div>
       ) : null}
 
+      <Suspense fallback={null}>
+        <ShellBridgeBanner />
+      </Suspense>
+
       <main className={cn('min-h-0 flex-1 overflow-hidden', consoleCollapsed ? 'pb-7' : 'pb-16 md:pb-28')}>{children}</main>
+
+      <OnboardingOverlay />
     </div>
   );
 }
