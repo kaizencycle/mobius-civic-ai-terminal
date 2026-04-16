@@ -9,7 +9,6 @@
 This bundle applies five operator-facing optimizations after scanning the live terminal, the public APIs, and the current main-branch repo state.
 
 ### Live findings
-
 - The public terminal still bootstraps through a guarded shell before richer operator state becomes visible.
 - `/api/health` and `/api/integrity-status` expose more truthful state than the current footer and some shell text surfaces show.
 - Journal traffic has increased materially in C-283 and now needs operator-first sorting rather than simple recency.
@@ -17,26 +16,31 @@ This bundle applies five operator-facing optimizations after scanning the live t
 
 ## The 5 optimizations
 
-1. **Terminal shell now boots from terminal snapshot state** (`components/terminal/TerminalShell.tsx`)
+1. **Terminal shell now boots from terminal snapshot state**
+   - `components/terminal/TerminalShell.tsx`
    - Uses `useTerminalSnapshot()` instead of separate integrity/runtime fetches.
    - Reduces blank shell time and keeps header cycle/GI aligned with snapshot-lite/full behavior.
 
-2. **Footer status bar now shows real health truth** (`components/terminal/FooterStatusBar.tsx`)
+2. **Footer status bar now shows real health truth**
+   - `components/terminal/FooterStatusBar.tsx`
    - Reads `/api/health` instead of `/api/kv/health`.
-   - Shows pulse/runtime/journal heartbeat ages and tripwire posture from the health payload.
+   - Shows real pulse/runtime/journal heartbeat ages and tripwire posture instead of using local fetch time as “last heartbeat”.
 
-3. **Journal chamber becomes operator-first** (`app/terminal/journal/JournalPageClient.tsx`)
-   - Sorts by cycle (current first), status, severity, confidence, then timestamp.
+3. **Journal chamber becomes operator-first**
+   - `app/terminal/journal/JournalPageClient.tsx`
+   - Sorts by cycle, status, severity, confidence, then timestamp.
    - Removes stale `C-274` fallback language.
    - Hides duplicated recommendation text when it matches inference.
-   - Status and severity badges in the card header.
+   - Keeps current-cycle focus even when agent volume rises.
 
-4. **Ledger feed gets weighted retention** (`app/api/echo/feed/route.ts`)
-   - Default ledger sort is operator-first (cycle, committed status, confidence tier, civic/governance/infrastructure category weight, then timestamp).
-   - `?sort=time` restores pure recency order.
-   - Response includes `meta.ledger_sort`.
+4. **Ledger feed gets weighted retention**
+   - `app/api/echo/feed/route.ts`
+   - Default ledger sort becomes operator-first instead of pure recency.
+   - Prioritizes newer cycles, committed rows, higher-confidence rows, civic/governance/infrastructure material, then timestamp.
+   - Still allows `?sort=time` when raw recency is needed.
 
-5. **PR bundle captured in-repo** (this directory)
+5. **PR bundle captured in-repo**
+   - `docs/pr-bundles/C-283-terminal-operator-pass-bundle.md`
    - Records intent, scope, risks, and rollback guidance for audit continuity.
 
 ## Risk tier
@@ -59,7 +63,6 @@ This bundle applies five operator-facing optimizations after scanning the live t
 ## Rollback
 
 Revert the PR branch or restore the previous versions of:
-
 - `components/terminal/TerminalShell.tsx`
 - `components/terminal/FooterStatusBar.tsx`
 - `app/terminal/journal/JournalPageClient.tsx`
