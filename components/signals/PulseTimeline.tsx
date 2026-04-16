@@ -133,12 +133,14 @@ export default function PulseTimeline() {
         fetch('/api/epicon/feed?limit=24&type=epicon', { cache: 'no-store' }),
       ]);
 
-      const pulseJson = await pulseRes.json();
-      const runtimeJson: RuntimeStatus = await runtimeRes.json();
-      const microJson: MicroSweepResponse = await microRes.json();
-      const feedJson: unknown = await feedRes.json();
+      const [pulseEnvelope, runtimeJson, microJson, feedJson] = (await Promise.all([
+        pulseRes.json(),
+        runtimeRes.json(),
+        microRes.json(),
+        feedRes.json(),
+      ])) as [{ signals?: Signal[] }, RuntimeStatus, MicroSweepResponse, unknown];
 
-      setSignals(pulseJson.signals || []);
+      setSignals(pulseEnvelope.signals ?? []);
       setRuntime(runtimeJson);
       setMicro(microJson.ok ? microJson : null);
 

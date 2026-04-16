@@ -12,7 +12,10 @@ export default function FooterStatusBar() {
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const kvHealth = await fetch('/api/kv/health', { cache: 'no-store' })
+      const kvHealth = await fetch('/api/kv/health', {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      })
         .then((r) => r.json() as Promise<KvHealth>)
         .catch(() => ({ ok: false }));
       if (!mounted) return;

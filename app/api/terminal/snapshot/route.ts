@@ -70,20 +70,8 @@ export async function GET(request: NextRequest) {
   const epiconPath = includeCatalog === 'true' ? '/api/epicon/feed?include_catalog=true' : '/api/epicon/feed';
 
   const signalsStart = Date.now();
-  let signals: SnapshotLeaf;
-  let signalsDuration: number;
-  const cached = await loadSignalSnapshot();
-  if (cached) {
-    signals = { ok: true, status: 200, data: { ok: true, cached: true, kv: isRedisAvailable(), ...cached }, error: null };
-    signalsDuration = Date.now() - signalsStart;
-  } else {
-    const { GET: getSignals } = await import('@/app/api/signals/micro/route');
-    const result = await timedHandler(makeRequest(baseUrl, '/api/signals/micro'), getSignals);
-    signals = result.leaf;
-    signalsDuration = result.duration_ms;
-  }
-
-  const results = await Promise.all([
+  const cachedPromise = loadSignalSnapshot();
+  const lanesPromise = Promise.all([
     timedHandler(makeRequest(baseUrl, '/api/integrity-status'), getIntegrity),
     timedHandler(makeRequest(baseUrl, '/api/kv/health'), getKvHealth),
     timedHandler(makeRequest(baseUrl, '/api/agents/status'), getAgents),
@@ -97,6 +85,20 @@ export async function GET(request: NextRequest) {
     timedHandler(makeRequest(baseUrl, '/api/mii/feed'), getMii),
     timedHandler(makeRequest(baseUrl, '/api/vault/status'), getVault),
   ]);
+
+  const [cached, results] = await Promise.all([cachedPromise, lanesPromise]);
+
+  let signals: SnapshotLeaf;
+  let signalsDuration: number;
+  if (cached) {
+    signals = { ok: true, status: 200, data: { ok: true, cached: true, kv: isRedisAvailable(), ...cached }, error: null };
+    signalsDuration = Date.now() - signalsStart;
+  } else {
+    const { GET: getSignals } = await import('@/app/api/signals/micro/route');
+    const result = await timedHandler(makeRequest(baseUrl, '/api/signals/micro'), getSignals);
+    signals = result.leaf;
+    signalsDuration = Date.now() - signalsStart;
+  }
 
   const [integrity, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve, mii, vault] = results;
 

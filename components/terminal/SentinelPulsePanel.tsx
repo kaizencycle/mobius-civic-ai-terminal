@@ -97,11 +97,11 @@ export default function SentinelPulsePanel() {
         if (!zeusRes.ok) throw new Error(`ZEUS report fetch failed (${zeusRes.status})`);
         if (!aureaRes.ok) throw new Error(`AUREA report fetch failed (${aureaRes.status})`);
 
-        const [atlas, zeus, aurea] = (await Promise.all([
-          atlasRes.json(),
-          zeusRes.json(),
-          aureaRes.json(),
-        ])) as [AtlasHeartbeat, ZeusVerification, AureaReportResponse];
+        const [atlas, zeus, aurea] = await Promise.all([
+          atlasRes.json() as Promise<AtlasHeartbeat>,
+          zeusRes.json() as Promise<ZeusVerification>,
+          aureaRes.json() as Promise<AureaReportResponse>,
+        ]);
 
         const nextEvents: PulseEvent[] = [
           {
