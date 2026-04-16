@@ -178,7 +178,6 @@ function PostureBadge({ posture, laneStale }: { posture: AgentPosture; laneStale
 
 export default function SignalsPageClient() {
   const { snapshot, loading, error } = useTerminalSnapshot();
-  if (loading && !snapshot) return <ChamberSkeleton blocks={4} />;
 
   const signalsLeaf = snapshot?.signals;
   const signalsData = signalsLeaf?.data;
@@ -222,6 +221,8 @@ export default function SignalsPageClient() {
     }
     return out;
   }, [grouped]);
+
+  if (loading && !snapshot) return <ChamberSkeleton blocks={4} />;
 
   const expected = payload.instrumentCount ?? agents.length;
   const sweepOk = payload.ok !== false && signalsLeaf?.ok !== false;

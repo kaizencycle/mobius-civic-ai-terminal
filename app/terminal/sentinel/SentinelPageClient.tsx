@@ -121,6 +121,14 @@ export default function SentinelPageClient() {
       .catch(() => setJournalByAgent({}));
   }, []);
 
+  const latestByAgent = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const [agent, entries] of Object.entries(miiData)) {
+      if (entries.length > 0) out[agent] = entries[0]!.mii;
+    }
+    return out;
+  }, [miiData]);
+
   if (loading && !snapshot) return <ChamberSkeleton blocks={8} />;
 
   const agents = (snapshot?.agents?.data ?? {}) as { agents?: Agent[] };
@@ -139,14 +147,6 @@ export default function SentinelPageClient() {
     }
     setExpanded(name);
   };
-
-  const latestByAgent = useMemo(() => {
-    const out: Record<string, number> = {};
-    for (const [agent, entries] of Object.entries(miiData)) {
-      if (entries.length > 0) out[agent] = entries[0]!.mii;
-    }
-    return out;
-  }, [miiData]);
 
   const heartbeatLive = (agents.agents ?? []).every((a) => a.status === 'active');
   const anyJournalLags = (agents.agents ?? []).some((agent) => {

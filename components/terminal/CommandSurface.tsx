@@ -109,7 +109,7 @@ ${greeting}`,
       return;
     }
     if (base === '/globe') {
-      router.push('/terminal');
+      router.push('/terminal/globe');
       push(trimmed, '→ World State chamber', 'success');
       return;
     }
