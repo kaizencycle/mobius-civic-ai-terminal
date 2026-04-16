@@ -100,63 +100,123 @@ async function pollNpm(): Promise<MicroSignal | null> {
 }
 
 // ── Self-ping: check if the terminal itself is responding ─────────────────
+//
+// C-283 (ATLAS audit): the previous implementation unconditionally called the
+// `VERCEL_URL` deployment URL, which is protected by Vercel Deployment
+// Protection on preview/branch deployments and returns 401 to anonymous
+// callers. That produced a persistent 401 signal ("Self-ping: 401 in 23ms
+// (deploy auth)") visible on the Globe.
+//
+// Fix strategy, in order of preference:
+//   1. `NEXT_PUBLIC_SITE_URL` — the canonical public alias (e.g. mobius.civic).
+//      Production traffic hits this URL and is never auth-gated.
+//   2. `VERCEL_PROJECT_PRODUCTION_URL` — Vercel's alias for the production
+//      deployment (no deployment protection when "Protect Production" is off).
+//   3. `VERCEL_URL` + `VERCEL_AUTOMATION_BYPASS_SECRET` header — Vercel's
+//      official way to bypass deployment protection for automation.
+//   4. `VERCEL_URL` — last resort; if protection is enabled this will 401
+//      and we degrade gracefully instead of reporting a false-positive.
 async function pollSelfPing(): Promise<MicroSignal | null> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL;
-  if (!baseUrl) {
+  const candidates: Array<{ url: string; headers?: Record<string, string>; label: string }> = [];
+
+  const publicSite = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (publicSite) {
+    candidates.push({ url: `${publicSite.replace(/\/$/, '')}/api/health`, label: 'public-site' });
+  }
+
+  const prodUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (prodUrl) {
+    candidates.push({
+      url: `https://${prodUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')}/api/health`,
+      label: 'vercel-prod-alias',
+    });
+  }
+
+  const vercelUrl = process.env.VERCEL_URL?.trim();
+  const bypass =
+    process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim() ||
+    process.env.VERCEL_PROTECTION_BYPASS?.trim();
+  if (vercelUrl && bypass) {
+    candidates.push({
+      url: `https://${vercelUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')}/api/health`,
+      headers: { 'x-vercel-protection-bypass': bypass, 'x-vercel-set-bypass-cookie': 'false' },
+      label: 'vercel-url-bypass',
+    });
+  }
+  if (vercelUrl) {
+    candidates.push({
+      url: `https://${vercelUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')}/api/health`,
+      label: 'vercel-url',
+    });
+  }
+
+  if (candidates.length === 0) {
     return {
       agentName: 'DAEDALUS-µ',
       source: 'Self-ping',
       timestamp: new Date().toISOString(),
       value: 0.5,
-      label: 'Self-ping: no VERCEL_URL configured, defaulting to 0.5',
+      label: 'Self-ping: no public URL configured, defaulting to 0.5',
       severity: 'watch',
     };
   }
 
-  // Public integrity endpoint — avoids coupling self-ping to service secrets (heartbeat is auth-gated).
-  const url = `https://${baseUrl.replace(/^https?:\/\//, '')}/api/integrity-status`;
-  const start = Date.now();
+  let lastStatus: number | null = null;
+  let lastLabel: string | null = null;
 
-  try {
-    const res = await fetch(url, {
-      cache: 'no-store',
-    });
-    const latencyMs = Date.now() - start;
+  for (const { url, headers, label } of candidates) {
+    const start = Date.now();
+    try {
+      const res = await fetch(url, { cache: 'no-store', headers });
+      const latencyMs = Date.now() - start;
 
-    if (!res.ok) {
-      return {
-        agentName: 'DAEDALUS-µ',
-        source: 'Self-ping',
-        timestamp: new Date().toISOString(),
-        value: 0.2,
-        label: `Self-ping: HTTP ${res.status} in ${latencyMs}ms`,
-        severity: 'elevated',
-        raw: { status: res.status, latencyMs },
-      };
+      if (res.ok) {
+        const value = Number(normalizeInverse(latencyMs, 0, 3000).toFixed(3));
+        return {
+          agentName: 'DAEDALUS-µ',
+          source: 'Self-ping',
+          timestamp: new Date().toISOString(),
+          value,
+          label: `Self-ping: OK in ${latencyMs}ms (${label})`,
+          severity: classifySeverity(value),
+          raw: { status: 200, latencyMs, via: label },
+        };
+      }
+
+      lastStatus = res.status;
+      lastLabel = label;
+      // Keep trying other candidates — 401 from a protected URL shouldn't
+      // flag infra as broken if the public URL is still reachable.
+    } catch {
+      lastStatus = 0;
+      lastLabel = label;
     }
+  }
 
-    // Under 500ms = excellent, over 3000ms = concerning
-    const value = Number(normalizeInverse(latencyMs, 0, 3000).toFixed(3));
-
+  // All candidates failed. If the only failures were auth-related, mark as
+  // degraded rather than critical — infra is fine, it's just that the bypass
+  // isn't configured.
+  if (lastStatus === 401 || lastStatus === 403) {
     return {
       agentName: 'DAEDALUS-µ',
       source: 'Self-ping',
       timestamp: new Date().toISOString(),
-      value,
-      label: `Self-ping: OK in ${latencyMs}ms`,
-      severity: classifySeverity(value),
-      raw: { status: 200, latencyMs },
-    };
-  } catch {
-    return {
-      agentName: 'DAEDALUS-µ',
-      source: 'Self-ping',
-      timestamp: new Date().toISOString(),
-      value: 0.0,
-      label: 'Self-ping: unreachable',
-      severity: 'critical',
+      value: 0.5,
+      label: `Self-ping: ${lastStatus} (deploy protection; set VERCEL_AUTOMATION_BYPASS_SECRET or NEXT_PUBLIC_SITE_URL)`,
+      severity: 'watch',
+      raw: { status: lastStatus, via: lastLabel },
     };
   }
+
+  return {
+    agentName: 'DAEDALUS-µ',
+    source: 'Self-ping',
+    timestamp: new Date().toISOString(),
+    value: lastStatus === null ? 0.0 : 0.2,
+    label: lastStatus === null ? 'Self-ping: unreachable' : `Self-ping: HTTP ${lastStatus} (${lastLabel})`,
+    severity: lastStatus === null ? 'critical' : 'elevated',
+    raw: { status: lastStatus ?? 0, via: lastLabel },
+  };
 }
 
 // ── Poll all DAEDALUS-µ sources ───────────────────────────────────────────

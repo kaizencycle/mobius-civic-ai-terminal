@@ -156,9 +156,16 @@ export async function GET(request: NextRequest) {
   const lanes: SnapshotLaneState[] = normalizeAllSnapshotLanes(leaves);
   const laneByKey = new Map(lanes.map((lane) => [lane.key, lane]));
   const criticalLaneKeys: SnapshotLaneKey[] = ['integrity', 'signals', 'kvHealth'];
+  // C-283 (ATLAS audit): `stale` and `promotable` are legitimate operational
+  // states — cached KV data inside the documented TTL window, or an active
+  // promotion queue awaiting commit. Treating them as "not ok" flipped the
+  // top-level `ok` to false whenever signals aged past 5 min between cron
+  // runs, which is most of the time. Preserve these as OK for criticalOk;
+  // `degraded` is also allowed (explicitly degraded but still serving truth).
+  const CRITICAL_OK_STATES = new Set(['healthy', 'degraded', 'stale', 'promotable']);
   const criticalOk = criticalLaneKeys.every((key) => {
     const state = laneByKey.get(key)?.state;
-    return state === 'healthy' || state === 'degraded';
+    return state !== undefined && CRITICAL_OK_STATES.has(state);
   });
   const criticalFail = criticalLaneKeys.some((key) => {
     const leaf = leaves[key];
