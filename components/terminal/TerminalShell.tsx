@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import ChamberSwitcher from '@/components/terminal/ChamberSwitcher';
+import SnapshotDiagnostics from '@/components/terminal/SnapshotDiagnostics';
+import { normalizeSnapshotLane, SNAPSHOT_LANE_KEYS, type SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
 import { cn } from '@/lib/utils';
 
 type IntegrityStatus = {
@@ -27,13 +29,17 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
+  const [lanes, setLanes] = useState<SnapshotLaneState[]>([]);
+  const [snapshotAt, setSnapshotAt] = useState<string | null>(null);
+  const [deployment, setDeployment] = useState<{ commit_sha: string | null; environment: string | null } | null>(null);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const [integrityRes, runtimeRes] = await Promise.allSettled([
+      const [integrityRes, runtimeRes, snapshotRes] = await Promise.allSettled([
         fetch('/api/integrity-status', { cache: 'no-store' }).then((r) => r.json() as Promise<IntegrityStatus>),
         fetch('/api/runtime/status', { cache: 'no-store' }).then((r) => r.json() as Promise<RuntimeStatus>),
+        fetch('/api/terminal/snapshot-lite', { cache: 'no-store' }).then((r) => r.json() as Promise<Record<string, unknown>>),
       ]);
 
       if (!mounted) return;
@@ -51,6 +57,30 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
         }
       } else {
         setRuntime('offline');
+      }
+
+      if (snapshotRes.status === 'fulfilled') {
+        const snap = snapshotRes.value;
+        setSnapshotAt(typeof snap.timestamp === 'string' ? snap.timestamp : null);
+        const dep = snap.deployment as { commit_sha: string | null; environment: string | null } | undefined;
+        setDeployment(dep ?? null);
+        const laneStates: SnapshotLaneState[] = [];
+        const lanesObj = (snap.lanes ?? {}) as Record<string, unknown>;
+        for (const key of SNAPSHOT_LANE_KEYS) {
+          const leaf = lanesObj[key];
+          if (leaf && typeof leaf === 'object') {
+            const l = leaf as { ok?: boolean; status?: number; data?: unknown; error?: string | null };
+            laneStates.push(
+              normalizeSnapshotLane(key, {
+                ok: l.ok !== false,
+                status: typeof l.status === 'number' ? l.status : (l.ok !== false ? 200 : 500),
+                data: l,
+                error: typeof l.error === 'string' ? l.error : null,
+              }),
+            );
+          }
+        }
+        setLanes(laneStates);
       }
 
       setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
@@ -120,6 +150,12 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </header>
+
+      {showLaneDiagnostics && lanes.length > 0 ? (
+        <div className="border-b border-slate-800 bg-slate-950/80 px-3 py-2 md:px-4">
+          <SnapshotDiagnostics lanes={lanes} snapshotAt={snapshotAt} deployment={deployment} />
+        </div>
+      ) : null}
 
       <main className={cn('min-h-0 flex-1 overflow-hidden', consoleCollapsed ? 'pb-7' : 'pb-16 md:pb-28')}>{children}</main>
     </div>
