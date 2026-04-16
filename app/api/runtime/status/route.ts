@@ -86,10 +86,16 @@ async function fetchLatestCommit(): Promise<{
 }
 
 export async function GET() {
-  const [pulse, git] = await Promise.all([
-    kvGet<SystemPulse>(KV_KEYS.SYSTEM_PULSE),
-    fetchLatestCommit(),
-  ]);
+  const pulse = await kvGet<SystemPulse>(KV_KEYS.SYSTEM_PULSE);
+
+  const git = pulse?.timestamp
+    ? { lastRun: null, cycleId: null, error: null }
+    : await Promise.race([
+        fetchLatestCommit(),
+        new Promise<{ lastRun: null; cycleId: null; error: string }>((resolve) =>
+          setTimeout(() => resolve({ lastRun: null, cycleId: null, error: 'github_timeout' }), 3000),
+        ),
+      ]);
 
   const runtimeSource = pulse?.timestamp ? 'system-pulse' : 'github-commit';
   const runtimeTimestamp = pulse?.timestamp ?? git.lastRun;
