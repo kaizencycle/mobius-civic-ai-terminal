@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import ChamberSwitcher from '@/components/terminal/ChamberSwitcher';
+import SnapshotDiagnostics from '@/components/terminal/SnapshotDiagnostics';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
+import type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
+import { normalizeSnapshotLane, SNAPSHOT_LANE_KEYS } from '@/lib/terminal/snapshotLanes';
 import { cn } from '@/lib/utils';
 
 function runtimeBadgeClass(runtime: 'online' | 'degraded' | 'offline') {
@@ -28,9 +31,6 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   const [clock, setClock] = useState('—');
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
-  const [lanes, setLanes] = useState<SnapshotLaneState[]>([]);
-  const [snapshotAt, setSnapshotAt] = useState<string | null>(null);
-  const [deployment, setDeployment] = useState<{ commit_sha: string | null; environment: string | null } | null>(null);
 
   useEffect(() => {
     const tick = () => setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
@@ -82,6 +82,36 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
           : 'text-rose-300 border-rose-500/40',
     [gi],
   );
+
+  const snapshotAt = snapshot?.timestamp ?? null;
+  const deployment = useMemo(() => {
+    const raw = (snapshot as Record<string, unknown> | null)?.deployment;
+    if (raw && typeof raw === 'object') {
+      const d = raw as { commit_sha?: string | null; environment?: string | null };
+      return { commit_sha: d.commit_sha ?? null, environment: d.environment ?? null };
+    }
+    return null;
+  }, [snapshot]);
+
+  const lanes = useMemo<SnapshotLaneState[]>(() => {
+    if (!snapshot) return [];
+    const out: SnapshotLaneState[] = [];
+    for (const key of SNAPSHOT_LANE_KEYS) {
+      const leaf = (snapshot as Record<string, unknown>)[key];
+      if (leaf && typeof leaf === 'object') {
+        const l = leaf as { ok?: boolean; status?: number; data?: unknown; error?: string | null };
+        out.push(
+          normalizeSnapshotLane(key, {
+            ok: l.ok !== false,
+            status: typeof l.status === 'number' ? l.status : (l.ok !== false ? 200 : 500),
+            data: l.data ?? l,
+            error: typeof l.error === 'string' ? l.error : null,
+          }),
+        );
+      }
+    }
+    return out;
+  }, [snapshot]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#020617] text-slate-100">
