@@ -60,7 +60,7 @@ export async function flushEpiconFeedToKv(entries: KvEpiconEntry[]): Promise<voi
     const payload = entries.map((entry) => JSON.stringify(entry));
     await redis.lpush('epicon:feed', ...payload);
     await redis.ltrim('epicon:feed', 0, 99);
-    console.log('[echo] epicon:feed LPUSH', { count: entries.length });
+    // epicon:feed LPUSH count: entries.length
   } catch (error) {
     console.error('[echo] epicon feed flush failed:', error);
   }
@@ -80,7 +80,7 @@ export async function writeEchoKvHeartbeatToMobius(
     timestamp: now,
   };
   try {
-    console.log('[ECHO] writing ECHO_STATE...');
+    // ECHO_STATE write
     await kvSet(KV_KEYS.ECHO_STATE_KV, payload, 7200);
   } catch (error) {
     console.error('[echo] ECHO_STATE KV heartbeat failed:', error);

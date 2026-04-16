@@ -50,7 +50,7 @@ export async function GET() {
     system_pulse: Boolean(pulse?.timestamp),
   };
 
-  const degraded = !checks.kv || !checks.gi_state || !checks.system_pulse;
+  const degraded = !checks.kv || !checks.gi_state || !checks.system_pulse || !checks.echo_state || !checks.signal_snapshot;
 
   return NextResponse.json({
     ok: true,

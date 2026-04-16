@@ -56,6 +56,13 @@ type VaultData = {
 };
 
 function mapEventType(item: PulseItem): (typeof EVENT_TYPES)[number] | 'OTHER' {
+  const cat = (item.category ?? '').toLowerCase();
+  if (cat === 'market') return 'SIGNAL';
+  if (cat === 'infrastructure') return 'SIGNAL';
+  if (cat === 'governance' || cat === 'civic-risk') return 'WATCH';
+  if (cat === 'geopolitical') return 'WATCH';
+  if (cat === 'narrative') return 'ROUTING';
+
   const raw = [item.type, item.category, item.title, ...(item.tags ?? [])]
     .filter((v): v is string => Boolean(v))
     .join(' ')

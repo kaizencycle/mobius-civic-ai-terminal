@@ -117,16 +117,19 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
   });
 
   const isKv = isRedisAvailable();
-  const source: 'live' | 'mock' | 'cached' = isKv && signalData.source === 'mock' ? 'live' : signalData.source;
+  const source: 'live' | 'mock' | 'cached' = signalData.source;
+
+  const coldStart = signalData.source === 'mock' && isKv;
+  const driver = coldStart
+    ? 'GI computed from baseline signals (ECHO cold-start — awaiting fresh ingest)'
+    : computed.primary_driver;
 
   if (isKv) {
     const giState: GIState = {
       global_integrity: computed.global_integrity,
       mode: computed.mode,
       terminal_status: computed.terminal_status,
-      primary_driver: signalData.source === 'mock'
-        ? 'Live computation from KV-backed signals (ECHO cold-start — awaiting fresh ingest)'
-        : computed.primary_driver,
+      primary_driver: driver,
       source,
       signals: computed.signals,
       timestamp: computed.timestamp,
@@ -142,9 +145,7 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
     mii_baseline: integrityStatus.mii_baseline,
     mic_supply: integrityStatus.mic_supply,
     terminal_status: computed.terminal_status,
-    primary_driver: signalData.source === 'mock' && isKv
-      ? 'Live computation from KV-backed signals (ECHO cold-start — awaiting fresh ingest)'
-      : computed.primary_driver,
+    primary_driver: driver,
     summary: computed.summary,
     source,
     kv: isKv,
@@ -185,12 +186,16 @@ export async function recomputeAndSaveGIState(): Promise<GIState | null> {
   });
 
   const source: 'live' | 'mock' | 'cached' = signalData.source;
+  const coldStartCron = signalData.source === 'mock';
+  const driver = coldStartCron
+    ? 'GI computed from baseline signals (ECHO cold-start — awaiting fresh ingest)'
+    : computed.primary_driver;
 
   const giState: GIState = {
     global_integrity: computed.global_integrity,
     mode: computed.mode,
     terminal_status: computed.terminal_status,
-    primary_driver: computed.primary_driver,
+    primary_driver: driver,
     source,
     signals: computed.signals,
     timestamp: computed.timestamp,

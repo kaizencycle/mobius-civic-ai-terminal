@@ -102,9 +102,7 @@ export function useTerminalCommands({
               const accuracy = profile.verificationHits + profile.verificationMisses > 0
                 ? `${profile.verificationHits}/${profile.verificationHits + profile.verificationMisses}`
                 : 'n/a';
-              console.log(
-                `[PROFILE] ${profile.login} | MII: ${profile.miiScore} | Tier: ${profile.nodeTier} | EPICONs: ${profile.epiconCount} | Accuracy: ${accuracy}`,
-              );
+              void accuracy;
             }
           })
           .catch(() => undefined);
