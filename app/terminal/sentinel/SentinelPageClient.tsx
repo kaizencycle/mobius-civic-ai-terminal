@@ -195,10 +195,14 @@ export default function SentinelPageClient() {
           const latestCycle = rows[0]?.cycle?.trim() || null;
           const journalFresh = latestCycle === currentCycle;
           return (
-          <button key={agent.id} onClick={() => void handleExpand(agent.name)} className="rounded border border-slate-800 bg-slate-900/60 p-4 text-left">
+          <button key={agent.id} onClick={() => void handleExpand(agent.name)} className="group rounded border border-slate-800 bg-slate-900/60 p-4 text-left transition-colors hover:border-slate-700 hover:bg-slate-900/80">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">
-                {agent.name} <span className="text-cyan-300">{(latestByAgent[agent.name] ?? 0.9).toFixed(3)}</span>
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <span style={{ color: AGENT_COLORS[agent.name] ?? '#22d3ee' }}>{agent.name}</span>
+                <span className={`font-mono text-xs ${(latestByAgent[agent.name] ?? 0.9) >= 0.85 ? 'text-emerald-300' : (latestByAgent[agent.name] ?? 0.9) >= 0.7 ? 'text-amber-300' : 'text-rose-300'}`}>
+                  {(latestByAgent[agent.name] ?? 0.9).toFixed(3)}
+                </span>
+                <span className="text-[8px] text-slate-600" title="Mobius Integrity Index (0–1 scale)">/1.0</span>
               </div>
               <div className="flex flex-col items-end gap-0.5 text-[9px] font-mono text-slate-500">
                 <span
@@ -217,9 +221,16 @@ export default function SentinelPageClient() {
                 </span>
               </div>
             </div>
-            <div className="text-xs text-slate-400">{agent.role} · {agent.tier ?? '—'}</div>
-            <div className="mt-2 text-xs text-slate-500">{agent.lastAction ?? 'No action yet.'}</div>
-            <div className="mt-2 text-xs text-cyan-200">MII trend</div>
+            <div className="mt-1 text-xs text-slate-400">{agent.role} · {agent.tier ?? '—'}</div>
+            <div className="mt-2 text-xs text-slate-500">{agent.lastAction ?? 'Awaiting first action this cycle.'}</div>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-slate-500">MII trend</span>
+              {miiData[agent.name]?.length ? (
+                <span className="text-[9px] text-emerald-400/70">{miiData[agent.name]!.length} data points</span>
+              ) : (
+                <span className="text-[9px] text-slate-600">no live data (placeholder)</span>
+              )}
+            </div>
             <div className="mt-1">
               {miiData[agent.name]?.length ? (
                 <MiiSparkline

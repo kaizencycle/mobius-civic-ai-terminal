@@ -28,6 +28,9 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   const [clock, setClock] = useState('—');
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
+  const [lanes, setLanes] = useState<SnapshotLaneState[]>([]);
+  const [snapshotAt, setSnapshotAt] = useState<string | null>(null);
+  const [deployment, setDeployment] = useState<{ commit_sha: string | null; environment: string | null } | null>(null);
 
   useEffect(() => {
     const tick = () => setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
@@ -119,6 +122,12 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </header>
+
+      {showLaneDiagnostics && lanes.length > 0 ? (
+        <div className="border-b border-slate-800 bg-slate-950/80 px-3 py-2 md:px-4">
+          <SnapshotDiagnostics lanes={lanes} snapshotAt={snapshotAt} deployment={deployment} />
+        </div>
+      ) : null}
 
       <main className={cn('min-h-0 flex-1 overflow-hidden', consoleCollapsed ? 'pb-7' : 'pb-16 md:pb-28')}>{children}</main>
     </div>
