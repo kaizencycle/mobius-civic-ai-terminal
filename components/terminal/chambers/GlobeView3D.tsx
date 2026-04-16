@@ -324,8 +324,7 @@ export default function GlobeView3D({
           if (disposed) return;
 
           const tf = topo.transform as { scale: [number, number]; translate: [number, number] } | undefined;
-          const borderMat = new THREE.LineBasicMaterial({ color: 0x1a4d30, transparent: true, opacity: 0.6 });
-          const landMat = new THREE.MeshBasicMaterial({ color: 0x0a2a14, transparent: true, opacity: 0.85, side: THREE.FrontSide });
+          const borderMat = new THREE.LineBasicMaterial({ color: 0x1a4d30, transparent: true, opacity: 0.7 });
 
           const arcCoords = (idx: number): [number, number][] => {
             const raw: [number, number][] = topo.arcs[idx < 0 ? ~idx : idx];
@@ -340,33 +339,19 @@ export default function GlobeView3D({
           };
 
           const R = 1.002;
-          const FILL_R = 1.001;
           for (const geo of topo.objects.countries.geometries as any[]) {
             const rings: number[][] =
               geo.type === 'Polygon' ? (geo.arcs as number[][]) :
               geo.type === 'MultiPolygon' ? (geo.arcs as number[][][]).flat() : [];
             for (const ring of rings) {
               const pts3d: any[] = [];
-              const fillPts: any[] = [];
               for (const arcIdx of ring) {
                 for (const [lng, lat] of arcCoords(arcIdx)) {
                   pts3d.push(latLngToXYZ(THREE, lat, lng, R));
-                  fillPts.push(latLngToXYZ(THREE, lat, lng, FILL_R));
                 }
               }
-              if (pts3d.length < 3) continue;
+              if (pts3d.length < 2) continue;
               globe.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts3d), borderMat));
-
-              try {
-                const shape = new THREE.ShapeGeometry(new THREE.Shape(
-                  fillPts.map((p: { x: number; y: number }) => new THREE.Vector2(p.x, p.y))
-                ));
-                const fill = new THREE.Mesh(shape, landMat);
-                fill.lookAt(fillPts[0]);
-                globe.add(fill);
-              } catch {
-                // complex polygons may fail triangulation — border lines are sufficient
-              }
             }
           }
         } catch {

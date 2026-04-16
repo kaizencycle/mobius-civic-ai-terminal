@@ -603,19 +603,21 @@ export async function pollDaedalusU5(): Promise<AgentPollResult> {
     });
   }
   const host = baseUrl.replace(/^https?:\/\//, '');
-  const url = `https://${host}/api/health`;
+  const url = `https://${host}/api/health/ping`;
   const start = Date.now();
   try {
     const res = await fetch(url, { cache: 'no-store' });
     const ms = Date.now() - start;
     const value = Number(normalizeInverse(ms, 0, 3000).toFixed(3));
+    const isDeploymentAuth = res.status === 401 || res.status === 403;
+    const reachable = res.ok || isDeploymentAuth;
     return wrap('DAEDALUS-µ5', {
       agentName: 'DAEDALUS-µ5',
       source: 'Self-ping · health',
       timestamp: new Date().toISOString(),
       value,
-      label: `Self-ping: ${res.status} in ${ms}ms`,
-      severity: res.ok ? classifySeverity(value) : 'elevated',
+      label: `Self-ping: ${res.status} in ${ms}ms${isDeploymentAuth ? ' (deploy auth)' : ''}`,
+      severity: reachable ? classifySeverity(value) : 'elevated',
       raw: { status: res.status, ms },
     });
   } catch {

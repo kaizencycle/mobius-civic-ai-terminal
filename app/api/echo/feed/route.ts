@@ -90,7 +90,7 @@ export async function GET() {
 
   const seenIds = new Set<string>();
   const merged: LedgerEntry[] = [];
-  for (const row of [...echoLedger, ...kvLedgerEntries]) {
+  for (const row of [...kvLedgerEntries, ...echoLedger]) {
     if (seenIds.has(row.id)) continue;
     seenIds.add(row.id);
     merged.push(row);

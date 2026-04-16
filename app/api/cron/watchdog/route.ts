@@ -92,9 +92,9 @@ export async function GET(request: NextRequest) {
         timestamp: new Date().toISOString(),
       };
       await Promise.all([
-        kvSetRawKey('TRIPWIRE_STATE', JSON.stringify(seedPayload), 3600),
-        kvSet(KV_KEYS.TRIPWIRE_STATE, seedPayload, 3600),
-        kvSet(KV_KEYS.TRIPWIRE_STATE_KV, seedPayload, 3600),
+        kvSetRawKey('TRIPWIRE_STATE', JSON.stringify(seedPayload), 1800),
+        kvSet(KV_KEYS.TRIPWIRE_STATE, seedPayload, 1800),
+        kvSet(KV_KEYS.TRIPWIRE_STATE_KV, seedPayload, 1800),
       ]).catch(() => {});
       actions.push('tripwire-seed:ok');
     }
