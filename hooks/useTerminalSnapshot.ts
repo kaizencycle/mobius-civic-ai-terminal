@@ -9,6 +9,16 @@ type SnapshotLeaf = {
   error: string | null;
 };
 
+export type SnapshotLaneState = {
+  key: string;
+  ok: boolean;
+  state: string;
+  statusCode?: number;
+  message?: string;
+  lastUpdated?: string | null;
+  fallbackMode?: string | null;
+};
+
 export type TerminalSnapshot = {
   ok: boolean;
   timestamp?: string;
@@ -17,6 +27,7 @@ export type TerminalSnapshot = {
   mode?: string | null;
   degraded?: boolean;
   meta?: { total_ms?: number };
+  lanes?: SnapshotLaneState[];
   integrity?: SnapshotLeaf;
   signals?: SnapshotLeaf;
   kvHealth?: SnapshotLeaf;
