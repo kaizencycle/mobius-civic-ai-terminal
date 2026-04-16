@@ -17,5 +17,18 @@ if [[ "$author_name" == "mobius-bot" ]] \
   exit 0
 fi
 
+# Skip ATLAS/ZEUS watch/heartbeat/catalog commits that only touch docs/catalog/
+if [[ "$subject" =~ ^(heartbeat:|chore\(catalog\)|zeus:.*verification|ATLAS.*watch) ]]; then
+  echo "Skipping: agent watch commit — $subject"
+  exit 0
+fi
+
+# Skip commits that only modify docs/catalog/ (no app code changes)
+changed_outside_docs="$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -v '^docs/' | head -1 || true)"
+if [[ -z "$changed_outside_docs" ]]; then
+  echo "Skipping: docs-only change — $subject"
+  exit 0
+fi
+
 echo "Building: $subject"
 exit 1

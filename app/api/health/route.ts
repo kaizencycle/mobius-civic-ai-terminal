@@ -50,7 +50,15 @@ export async function GET() {
     system_pulse: Boolean(pulse?.timestamp),
   };
 
-  const degraded = !checks.kv || !checks.gi_state || !checks.system_pulse || !checks.echo_state || !checks.signal_snapshot;
+  const giYellowOrRed = gi?.mode === 'yellow' || gi?.mode === 'red';
+  const tripwireElevated = tripwire?.elevated === true;
+  const pulseSec = pulse?.timestamp ? Math.max(0, Math.floor((Date.now() - new Date(pulse.timestamp).getTime()) / 1000)) : null;
+  const freshnessBreach = pulseSec != null && pulseSec > 1800;
+
+  const degraded =
+    !checks.kv || !checks.gi_state || !checks.system_pulse ||
+    !checks.echo_state || !checks.signal_snapshot ||
+    giYellowOrRed || tripwireElevated || freshnessBreach;
 
   return NextResponse.json({
     ok: true,
