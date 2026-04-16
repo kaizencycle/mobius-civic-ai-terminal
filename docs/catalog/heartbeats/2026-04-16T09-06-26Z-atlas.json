@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-04-16T09:06:26.056Z",
+  "agent": "ATLAS",
+  "cycle": "C-283",
+  "gi": 0.83,
+  "mode": "yellow",
+  "source": "mock",
+  "anomalies": [
+    "ATLAS-µ1: WB WLD GDP growth stale (2024 data, -0.2 penalty)",
+    "HERMES-µ3: GDELT 0 articles (24h governance+civic)",
+    "HERMES-µ4: Reddit narrative 0 posts",
+    "ZEUS-µ3: no signal",
+    "AUREA-µ2: no signal",
+    "JADE-µ2: no signal",
+    "DAEDALUS-µ2: no signal",
+    "DAEDALUS-µ3: no signal",
+    "ECHO-µ5: no signal",
+    "EVE-µ1: no signal"
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": false,
+    "ECHO_STATE": true,
+    "ECHO_STATE_KV": true,
+    "TRIPWIRE_STATE": true,
+    "TRIPWIRE_STATE_KV": true,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true,
+    "SYSTEM_PULSE": true,
+    "TRIPWIRE_STATE_REDIS": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT"
+}
