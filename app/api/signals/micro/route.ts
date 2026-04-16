@@ -73,7 +73,7 @@ export async function GET() {
         instruments: result.instrumentCount ?? 40,
         anomalies: result.anomalies?.length ?? 0,
         timestamp: result.timestamp,
-      }, 300).catch(() => {});
+      }, 7200).catch(() => {});
 
       if (now - lastLedgerPushMs > LEDGER_PUSH_INTERVAL_MS) {
         lastLedgerPushMs = now;
