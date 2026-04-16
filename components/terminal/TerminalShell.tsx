@@ -2,17 +2,8 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import ChamberSwitcher from '@/components/terminal/ChamberSwitcher';
+import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 import { cn } from '@/lib/utils';
-
-type IntegrityStatus = {
-  cycle?: string;
-  global_integrity?: number;
-};
-
-type RuntimeStatus = {
-  degraded?: boolean;
-  freshness?: { status?: string };
-};
 
 function runtimeBadgeClass(runtime: 'online' | 'degraded' | 'offline') {
   if (runtime === 'online') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
@@ -20,58 +11,36 @@ function runtimeBadgeClass(runtime: 'online' | 'degraded' | 'offline') {
   return 'border-rose-500/40 bg-rose-500/10 text-rose-200';
 }
 
+type SnapshotIntegrityData = {
+  cycle?: string;
+  global_integrity?: number;
+  mode?: string;
+  terminal_status?: string;
+};
+
+function asIntegrityData(input: unknown): SnapshotIntegrityData | null {
+  if (!input || typeof input !== 'object') return null;
+  return input as SnapshotIntegrityData;
+}
+
 export default function TerminalShell({ children }: { children: ReactNode }) {
-  const [integrity, setIntegrity] = useState<IntegrityStatus | null>(null);
-  const [runtime, setRuntime] = useState<'online' | 'degraded' | 'offline'>('offline');
+  const { snapshot, loading } = useTerminalSnapshot();
   const [clock, setClock] = useState('—');
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      const [integrityRes, runtimeRes] = await Promise.allSettled([
-        fetch('/api/integrity-status', { cache: 'no-store' }).then((r) => r.json() as Promise<IntegrityStatus>),
-        fetch('/api/runtime/status', { cache: 'no-store' }).then((r) => r.json() as Promise<RuntimeStatus>),
-      ]);
-
-      if (!mounted) return;
-
-      if (integrityRes.status === 'fulfilled') {
-        setIntegrity(integrityRes.value);
-      }
-
-      if (runtimeRes.status === 'fulfilled') {
-        const freshness = runtimeRes.value.freshness?.status;
-        if (runtimeRes.value.degraded || freshness === 'stale') {
-          setRuntime('degraded');
-        } else {
-          setRuntime('online');
-        }
-      } else {
-        setRuntime('offline');
-      }
-
-      setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
-      setIsLoading(false);
-    };
-
-    void load();
-    const id = window.setInterval(load, 60_000);
-    return () => {
-      mounted = false;
-      window.clearInterval(id);
-    };
+    const tick = () => setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
   }, []);
 
-  // Read persisted console collapse state on mount
   useEffect(() => {
     const stored = localStorage.getItem('mobius_console_collapsed');
     if (stored === 'true') setConsoleCollapsed(true);
   }, []);
 
-  // Sync console collapse state when CommandSurface toggles
   useEffect(() => {
     const handler = (e: Event) => {
       setConsoleCollapsed((e as CustomEvent<{ collapsed: boolean }>).detail.collapsed);
@@ -80,9 +49,34 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('mobius:console-toggle', handler as EventListener);
   }, []);
 
-  const gi = Number(integrity?.global_integrity ?? 0);
+  const integrityData = useMemo(
+    () => asIntegrityData(snapshot?.integrity?.data) ?? null,
+    [snapshot],
+  );
+
+  const gi = useMemo(() => {
+    if (typeof snapshot?.gi === 'number') return snapshot.gi;
+    if (typeof integrityData?.global_integrity === 'number') return integrityData.global_integrity;
+    return 0;
+  }, [snapshot, integrityData]);
+
+  const cycle = snapshot?.cycle ?? integrityData?.cycle ?? 'C-—';
+  const mode = (snapshot?.mode ?? integrityData?.mode ?? null)?.toString().toLowerCase() ?? null;
+
+  const runtime = useMemo<'online' | 'degraded' | 'offline'>(() => {
+    if (!snapshot && loading) return 'offline';
+    if (!snapshot) return 'offline';
+    if (snapshot.degraded || mode === 'yellow' || mode === 'red') return 'degraded';
+    return 'online';
+  }, [snapshot, loading, mode]);
+
   const giTone = useMemo(
-    () => (gi >= 0.85 ? 'text-emerald-300 border-emerald-500/40' : gi >= 0.7 ? 'text-amber-300 border-amber-500/40' : 'text-rose-300 border-rose-500/40'),
+    () =>
+      gi >= 0.85
+        ? 'text-emerald-300 border-emerald-500/40'
+        : gi >= 0.7
+          ? 'text-amber-300 border-amber-500/40'
+          : 'text-rose-300 border-rose-500/40',
     [gi],
   );
 
@@ -95,14 +89,19 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
             <div className="text-[13px] font-semibold tracking-[0.04em] md:text-sm md:tracking-wide">MOBIUS CIVIC TERMINAL</div>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] font-mono md:gap-2 md:text-[11px]">
-            <span className={cn('rounded border px-1.5 py-0.5 md:px-2 md:py-1', isLoading ? 'border-slate-700 text-slate-500' : giTone)}>
-              GI {isLoading ? '—' : gi.toFixed(2)}
+            <span className={cn('rounded border px-1.5 py-0.5 md:px-2 md:py-1', loading ? 'border-slate-700 text-slate-500' : giTone)}>
+              GI {loading ? '—' : gi.toFixed(2)}
             </span>
-            <span className={cn('rounded border px-1.5 py-0.5 uppercase md:px-2 md:py-1', isLoading ? 'border-slate-700 bg-slate-800/40 text-slate-500' : runtimeBadgeClass(runtime))}>
-              {isLoading ? 'loading' : runtime}
+            <span
+              className={cn(
+                'rounded border px-1.5 py-0.5 uppercase md:px-2 md:py-1',
+                loading ? 'border-slate-700 bg-slate-800/40 text-slate-500' : runtimeBadgeClass(runtime),
+              )}
+            >
+              {loading ? 'boot' : runtime}
             </span>
             <span className="hidden rounded border border-slate-700 px-2 py-1 md:inline">{clock}</span>
-            <span className="rounded border border-slate-700 px-1.5 py-0.5 md:px-2 md:py-1">{integrity?.cycle ?? 'C-—'}</span>
+            <span className="rounded border border-slate-700 px-1.5 py-0.5 md:px-2 md:py-1">{cycle}</span>
           </div>
         </div>
 

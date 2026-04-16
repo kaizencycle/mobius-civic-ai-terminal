@@ -21,6 +21,9 @@ const AGENT_PILL_STYLE: Record<string, { border: string; activeBg: string; text:
   ECHO: { border: 'border-slate-500/50', activeBg: 'bg-slate-600/20', text: 'text-slate-100' },
 };
 
+type JournalStatus = 'draft' | 'committed' | 'contested' | 'verified';
+type JournalSeverity = 'nominal' | 'elevated' | 'critical';
+
 type JournalEntry = {
   id: string;
   agent: string;
@@ -33,6 +36,9 @@ type JournalEntry = {
   derivedFrom?: string[];
   source?: string;
   timestamp?: string;
+  status?: JournalStatus;
+  severity?: JournalSeverity;
+  scope?: string;
 };
 
 type JournalResponse = { count?: number; entries?: JournalEntry[] };
@@ -57,18 +63,81 @@ function deriveAgent(item: EpiconItem): string {
   return 'ATLAS';
 }
 
+function epiconSeverityToJournal(sev: string): JournalSeverity {
+  const s = sev.toLowerCase();
+  if (s === 'critical' || s === 'high') return 'critical';
+  if (s === 'elevated' || s === 'medium') return 'elevated';
+  return 'nominal';
+}
+
 function toDerivedEntry(item: EpiconItem): JournalEntry {
+  const cycle = currentCycleId();
+  const status: JournalStatus = item.type === 'zeus-verify' ? 'verified' : 'committed';
+  const severity = epiconSeverityToJournal(item.severity ?? 'nominal');
   return {
     id: `derived-${item.id}`,
     agent: deriveAgent(item),
-    cycle: 'C-274',
+    cycle,
     category: item.type,
     observation: item.title,
     inference: `${item.type} observed via EPICON ${item.source}.`,
     recommendation: 'Continue monitoring until native substrate journals are online.',
     source: 'epicon-derived',
     timestamp: item.timestamp,
+    status,
+    severity,
   };
+}
+
+function parseCycleOrdinal(cycle: string | undefined): number {
+  const c = cycle?.trim() ?? '';
+  const n = parseInt(c.replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function statusRank(s: JournalStatus | undefined): number {
+  if (s === 'verified') return 4;
+  if (s === 'committed') return 3;
+  if (s === 'contested') return 2;
+  if (s === 'draft') return 1;
+  return 2;
+}
+
+function severityRank(s: JournalSeverity | undefined): number {
+  if (s === 'critical') return 3;
+  if (s === 'elevated') return 2;
+  if (s === 'nominal') return 1;
+  return 0;
+}
+
+/** Operator-first: current cycle, status, severity, confidence, recency. */
+function sortJournalOperatorFirst(rows: JournalEntry[], focusCycleId: string): JournalEntry[] {
+  const focus = focusCycleId.trim();
+  return [...rows].sort((a, b) => {
+    const aCurrent = (a.cycle?.trim() ?? '') === focus ? 1 : 0;
+    const bCurrent = (b.cycle?.trim() ?? '') === focus ? 1 : 0;
+    if (aCurrent !== bCurrent) return bCurrent - aCurrent;
+
+    const cycA = parseCycleOrdinal(a.cycle);
+    const cycB = parseCycleOrdinal(b.cycle);
+    if (cycA !== cycB) return cycB - cycA;
+
+    const stA = statusRank(a.status);
+    const stB = statusRank(b.status);
+    if (stA !== stB) return stB - stA;
+
+    const sevA = severityRank(a.severity);
+    const sevB = severityRank(b.severity);
+    if (sevA !== sevB) return sevB - sevA;
+
+    const confA = typeof a.confidence === 'number' && Number.isFinite(a.confidence) ? a.confidence : -1;
+    const confB = typeof b.confidence === 'number' && Number.isFinite(b.confidence) ? b.confidence : -1;
+    if (confA !== confB) return confB - confA;
+
+    const tA = new Date(a.timestamp ?? 0).getTime();
+    const tB = new Date(b.timestamp ?? 0).getTime();
+    return tB - tA;
+  });
 }
 
 export default function JournalPageClient() {
@@ -80,8 +149,6 @@ export default function JournalPageClient() {
   useEffect(() => {
     let mounted = true;
     void (async () => {
-      // Fetch journal independently — passing agent=ALL treats "ALL" as a literal agent name
-      // and returns zero results. Omitting the agent param returns entries for all agents.
       let journalEntries: JournalEntry[] = [];
       try {
         const res = await fetch('/api/agents/journal?limit=100', { cache: 'no-store' });
@@ -99,8 +166,6 @@ export default function JournalPageClient() {
         return;
       }
 
-      // Only fetch epicon when journal has no entries so a slow/hung epicon endpoint
-      // cannot block the journal UI indefinitely.
       let epiconItems: EpiconItem[] = [];
       try {
         const res = await fetch('/api/epicon/feed?limit=100', { cache: 'no-store' });
@@ -176,7 +241,7 @@ export default function JournalPageClient() {
     if (agent !== 'ALL') {
       rows = rows.filter((e) => e.agent === agent);
     }
-    return rows;
+    return sortJournalOperatorFirst(rows, currentCycleId());
   }, [entries, agent, cycleTab]);
 
   if (entries === null) return <ChamberSkeleton blocks={8} />;
@@ -202,7 +267,7 @@ export default function JournalPageClient() {
             {AGENTS.map((agentName) => (
               <div key={agentName} className="flex items-center justify-between rounded border border-slate-800 px-2 py-1.5 text-xs">
                 <span className="rounded border border-slate-700 px-1.5 py-0.5 font-mono text-slate-300">{agentName}</span>
-                <span className="text-slate-600">Awaiting first entry · C-274</span>
+                <span className="text-slate-600">Awaiting first entry</span>
               </div>
             ))}
           </div>
@@ -248,17 +313,38 @@ export default function JournalPageClient() {
             })}
           </div>
           <div className="space-y-2">
-            {filtered.map((entry) => (
-              <article key={entry.id} className="rounded border border-slate-800 bg-slate-900/60 p-3 text-xs">
-                <div className="font-mono text-slate-400">
-                  {entry.agent} · {entry.cycle ?? 'C-—'} · {entry.category ?? 'journal'}
-                </div>
-                <div className="mt-1 text-slate-200">{entry.observation ?? '—'}</div>
-                <div className="mt-1 text-slate-400">Inference: {entry.inference ?? '—'}</div>
-                <div className="mt-1 text-slate-400">Recommendation: {entry.recommendation ?? '—'}</div>
-                <div className="mt-1 text-slate-500">{entry.timestamp ?? '—'} · source {entry.source ?? 'journal'}</div>
-              </article>
-            ))}
+            {filtered.map((entry) => {
+              const rec = (entry.recommendation ?? '').trim();
+              const inf = (entry.inference ?? '').trim();
+              const showRec = rec.length > 0 && rec !== inf;
+              const statusLabel = (entry.status ?? 'committed').toUpperCase();
+              const severityLabel = (entry.severity ?? 'nominal').toUpperCase();
+              return (
+                <article key={entry.id} className="rounded border border-slate-800 bg-slate-900/60 p-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-2 font-mono text-slate-400">
+                    <span>
+                      {entry.agent} · {entry.cycle ?? 'C-—'} · {entry.category ?? 'journal'}
+                    </span>
+                    <span className="rounded border border-slate-600 px-1.5 py-0.5 text-[10px] text-slate-300">{statusLabel}</span>
+                    <span
+                      className={`rounded border px-1.5 py-0.5 text-[10px] ${
+                        severityLabel === 'CRITICAL'
+                          ? 'border-rose-500/50 text-rose-200'
+                          : severityLabel === 'ELEVATED'
+                            ? 'border-amber-500/50 text-amber-200'
+                            : 'border-slate-600 text-slate-400'
+                      }`}
+                    >
+                      {severityLabel}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-slate-200">{entry.observation ?? '—'}</div>
+                  <div className="mt-1 text-slate-400">Inference: {entry.inference ?? '—'}</div>
+                  {showRec ? <div className="mt-1 text-slate-400">Recommendation: {entry.recommendation}</div> : null}
+                  <div className="mt-1 text-slate-500">{entry.timestamp ?? '—'} · source {entry.source ?? 'journal'}</div>
+                </article>
+              );
+            })}
           </div>
         </>
       )}
