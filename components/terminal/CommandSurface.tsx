@@ -12,8 +12,10 @@ type CommandOutput = {
 };
 
 const COMMANDS = [
-  '/help', '/status', '/agents', '/globe', '/pulse', '/signals', '/sentinel', '/ledger', '/tripwire', '/sentiment', '/mic', '/wallet', '/journal', '/ask', '/login', '/logout', '/whoami', '/epicon', '/gi', '/render', '/clear',
+  '/help', '/status', '/agents', '/globe', '/pulse', '/signals', '/sentinel', '/ledger', '/tripwire', '/sentiment', '/mic', '/wallet', '/journal', '/ask', '/login', '/logout', '/whoami', '/epicon', '/gi', '/render', '/shell', '/onboard', '/clear',
 ];
+
+const SHELL_URL = 'https://mobius-browser-shell.vercel.app';
 
 export default function CommandSurface() {
   const [input, setInput] = useState('');
@@ -129,6 +131,17 @@ ${greeting}`,
       return;
     }
 
+    if (base === '/shell') {
+      window.open(SHELL_URL, '_blank', 'noopener,noreferrer');
+      push(trimmed, `→ Opening Mobius Browser Shell\n${SHELL_URL}\nThe Shell is the citizen entry layer — labs, learning, and civic participation.`, 'success');
+      return;
+    }
+    if (base === '/onboard') {
+      localStorage.removeItem('mobius_onboarding_complete');
+      push(trimmed, 'Onboarding reset. Reload the page to see the tour again.', 'success');
+      window.location.reload();
+      return;
+    }
     if (base === '/tripwire') {
       router.push('/terminal/tripwire');
       push(trimmed, '→ Tripwire chamber', 'success');
