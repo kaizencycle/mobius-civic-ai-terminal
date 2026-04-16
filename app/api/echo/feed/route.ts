@@ -11,7 +11,7 @@
  * fresh throughout the day via stale-while-revalidate.
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getEchoEpicon, getEchoLedger, getEchoAlerts, getEchoIntegrity, getEchoStatus, pushIngestResult } from '@/lib/echo/store';
 import { fetchAllSources } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
@@ -30,7 +30,49 @@ function isStale(): boolean {
   return Date.now() - new Date(lastIngest).getTime() > STALE_MS;
 }
 
-export async function GET() {
+function parseCycleOrdinal(cycleId: string): number {
+  const n = parseInt(cycleId.replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function categoryOperatorWeight(category: LedgerEntry['category']): number {
+  if (category === 'governance' || category === 'infrastructure' || category === 'civic-risk') return 4;
+  if (category === 'geopolitical' || category === 'ethics') return 2;
+  if (category === 'market' || category === 'narrative') return 1;
+  return 0;
+}
+
+function ledgerStatusRank(status: LedgerEntry['status']): number {
+  if (status === 'committed') return 3;
+  if (status === 'pending') return 2;
+  if (status === 'reverted') return 1;
+  return 0;
+}
+
+/** Newer cycles, committed, higher confidence, governance/civic/infrastructure, then time. */
+function sortLedgerOperatorFirst(rows: LedgerEntry[]): LedgerEntry[] {
+  return [...rows].sort((a, b) => {
+    const cycA = parseCycleOrdinal(a.cycleId);
+    const cycB = parseCycleOrdinal(b.cycleId);
+    if (cycA !== cycB) return cycB - cycA;
+
+    const stA = ledgerStatusRank(a.status);
+    const stB = ledgerStatusRank(b.status);
+    if (stA !== stB) return stB - stA;
+
+    const confA = typeof a.confidenceTier === 'number' && Number.isFinite(a.confidenceTier) ? a.confidenceTier : -1;
+    const confB = typeof b.confidenceTier === 'number' && Number.isFinite(b.confidenceTier) ? b.confidenceTier : -1;
+    if (confA !== confB) return confB - confA;
+
+    const catA = categoryOperatorWeight(a.category);
+    const catB = categoryOperatorWeight(b.category);
+    if (catA !== catB) return catB - catA;
+
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  });
+}
+
+export async function GET(request: NextRequest) {
   // Re-ingest if store is empty or data is older than 2 hours
   if (isStale()) {
     try {
@@ -95,8 +137,13 @@ export async function GET() {
     seenIds.add(row.id);
     merged.push(row);
   }
-  merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  const capped = merged.slice(0, 100);
+  const sortParam = request.nextUrl.searchParams.get('sort')?.trim().toLowerCase() ?? '';
+  const ledgerSort = sortParam === 'time' ? 'time' : 'operator';
+  const ordered =
+    ledgerSort === 'time'
+      ? [...merged].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      : sortLedgerOperatorFirst(merged);
+  const capped = ordered.slice(0, 100);
 
   return NextResponse.json({
     epicon: getEchoEpicon(),
@@ -104,5 +151,6 @@ export async function GET() {
     alerts: getEchoAlerts(),
     integrity: getEchoIntegrity(),
     status: getEchoStatus(),
+    meta: { ledger_sort: ledgerSort },
   });
 }

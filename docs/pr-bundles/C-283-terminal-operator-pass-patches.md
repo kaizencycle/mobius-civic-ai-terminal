@@ -1,3 +1,10 @@
+# C-283 Operator Pass — Code-Ready Patch Set
+
+This file captures the code-ready replacements for the four implementation files in the operator pass bundle.
+
+## 1) `components/terminal/TerminalShell.tsx`
+
+```tsx
 'use client';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -28,9 +35,6 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   const [clock, setClock] = useState('—');
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
-  const [lanes, setLanes] = useState<SnapshotLaneState[]>([]);
-  const [snapshotAt, setSnapshotAt] = useState<string | null>(null);
-  const [deployment, setDeployment] = useState<{ commit_sha: string | null; environment: string | null } | null>(null);
 
   useEffect(() => {
     const tick = () => setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
@@ -95,12 +99,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
             <span className={cn('rounded border px-1.5 py-0.5 md:px-2 md:py-1', loading ? 'border-slate-700 text-slate-500' : giTone)}>
               GI {loading ? '—' : gi.toFixed(2)}
             </span>
-            <span
-              className={cn(
-                'rounded border px-1.5 py-0.5 uppercase md:px-2 md:py-1',
-                loading ? 'border-slate-700 bg-slate-800/40 text-slate-500' : runtimeBadgeClass(runtime),
-              )}
-            >
+            <span className={cn('rounded border px-1.5 py-0.5 uppercase md:px-2 md:py-1', loading ? 'border-slate-700 bg-slate-800/40 text-slate-500' : runtimeBadgeClass(runtime))}>
               {loading ? 'boot' : runtime}
             </span>
             <span className="hidden rounded border border-slate-700 px-2 py-1 md:inline">{clock}</span>
@@ -123,13 +122,98 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {showLaneDiagnostics && lanes.length > 0 ? (
-        <div className="border-b border-slate-800 bg-slate-950/80 px-3 py-2 md:px-4">
-          <SnapshotDiagnostics lanes={lanes} snapshotAt={snapshotAt} deployment={deployment} />
-        </div>
-      ) : null}
-
       <main className={cn('min-h-0 flex-1 overflow-hidden', consoleCollapsed ? 'pb-7' : 'pb-16 md:pb-28')}>{children}</main>
     </div>
   );
 }
+```
+
+## 2) `components/terminal/FooterStatusBar.tsx`
+
+```tsx
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+
+type HealthResponse = {
+  status?: 'operational' | 'degraded';
+  pulse?: { timestamp?: string | null; age_seconds?: number | null; cycle?: string | null };
+  heartbeat?: {
+    runtime?: string | null;
+    runtime_age_seconds?: number | null;
+    journal?: string | null;
+    journal_age_seconds?: number | null;
+  };
+  tripwire?: {
+    elevated?: boolean;
+    tripwire_count?: number;
+  } | null;
+  kv?: { available?: boolean } | null;
+};
+
+function ageLabel(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds)) return '—';
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+
+export default function FooterStatusBar() {
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      const data = await fetch('/api/health', {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5000),
+      })
+        .then((r) => r.json() as Promise<HealthResponse>)
+        .catch(() => null);
+
+      if (!mounted) return;
+      setHealth(data);
+    };
+
+    void load();
+    const id = window.setInterval(load, 30_000);
+    return () => {
+      mounted = false;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const kv = health?.kv?.available ? 'healthy' : 'degraded';
+  const runtimeLabel = useMemo(() => (health?.status === 'degraded' ? 'degraded' : 'nominal'), [health?.status]);
+  const pulseAge = ageLabel(health?.pulse?.age_seconds);
+  const runtimeAge = ageLabel(health?.heartbeat?.runtime_age_seconds);
+  const journalAge = ageLabel(health?.heartbeat?.journal_age_seconds);
+  const tripwireLabel = health?.tripwire?.elevated
+    ? `tripwire ${health.tripwire.tripwire_count ?? 0} elevated`
+    : `tripwire ${health?.tripwire?.tripwire_count ?? 0} nominal`;
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-800 bg-slate-950/95 px-4 py-1 text-[10px] font-mono uppercase tracking-wide text-slate-400">
+      Runtime {runtimeLabel} · KV {kv} · Pulse {pulseAge} · Runtime hb {runtimeAge} · Journal hb {journalAge} · {tripwireLabel}
+    </div>
+  );
+}
+```
+
+## 3) `app/terminal/journal/JournalPageClient.tsx`
+
+See bundle source patch draft used for this PR pass. Core changes:
+- operator-first sort by cycle/status/severity/confidence/time
+- remove stale `C-274` fallback strings
+- hide duplicate recommendation text
+- badge status + severity in card header
+
+## 4) `app/api/echo/feed/route.ts`
+
+Core changes:
+- add `NextRequest`
+- operator-first ledger sorting
+- allow `?sort=time` override
+- include `meta.ledger_sort`
