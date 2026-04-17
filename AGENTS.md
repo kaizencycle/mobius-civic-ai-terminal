@@ -219,3 +219,5 @@ Copy `.env.example` to `.env.local`. Default values point to hosted Render servi
 ### No Docker or external services required
 
 The entire local dev stack runs without Docker, Redis, or any external service. Upstash Redis and GitHub OAuth are optional enhancements.
+
+Optional **TCP backup Redis**: set `REDIS_URL` (e.g. `rediss://…`) for health visibility on `/api/kv/health` and optional write mirroring (`MOBIUS_KV_BACKUP_MIRROR=true` after you accept duplicate keys on that instance). Primary KV remains Upstash REST.
