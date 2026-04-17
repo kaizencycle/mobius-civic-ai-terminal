@@ -8,12 +8,20 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { handbookCorsHeaders } from '@/lib/http/handbook-cors';
 import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
 import { countAllSeals, countSeals, getCandidate, getLatestSeal, listAllSeals, listSeals } from '@/lib/vault-v2/store';
 
 export const dynamic = 'force-dynamic';
 
+export async function OPTIONS(req: NextRequest) {
+  const cors = handbookCorsHeaders(req.headers.get('origin'));
+  if (!cors) return new NextResponse(null, { status: 204 });
+  return new NextResponse(null, { status: 204, headers: cors });
+}
+
 export async function GET(req: NextRequest) {
+  const cors = handbookCorsHeaders(req.headers.get('origin'));
   const limitParam = Number(req.nextUrl.searchParams.get('limit') ?? '50');
   const limit = Number.isFinite(limitParam)
     ? Math.max(1, Math.min(200, Math.floor(limitParam)))
@@ -55,6 +63,7 @@ export async function GET(req: NextRequest) {
     },
     {
       headers: {
+        ...(cors ?? {}),
         'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
         'X-Mobius-Source': 'vault-v2-seals',
       },
