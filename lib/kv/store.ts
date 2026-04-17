@@ -16,12 +16,21 @@
  *   UPSTASH_REDIS_REST_URL   — Upstash REST endpoint (or KV_REST_API_URL from Vercel KV)
  *   UPSTASH_REDIS_REST_TOKEN — Upstash REST auth token (or KV_REST_API_TOKEN)
  *
+ * Optional secondary Redis (TCP `redis://` or `rediss://`):
+ *   REDIS_URL — classic Redis URL; health-checked via `/api/kv/health` as `backup_redis`
+ *   MOBIUS_KV_BACKUP_MIRROR=true — mirror successful `kvSet` / `kvSetRawKey` writes (off by default)
+ *
  * Free tier: 500K commands/month, more than enough for this project.
  *
  * CC0 Public Domain
  */
 
 import { Redis } from '@upstash/redis';
+import {
+  scheduleBackupMirrorPrefixedKey,
+  scheduleBackupMirrorRawKey,
+  getBackupRedisHealth,
+} from '@/lib/kv/backup-redis';
 
 // ── Redis client (lazy singleton) ────────────────────────────
 
@@ -105,11 +114,13 @@ export async function kvSet<T>(key: string, value: T, ttlSeconds?: number): Prom
   if (!redis) return false;
 
   try {
+    const fullKey = prefixKey(key);
     if (ttlSeconds) {
-      await redis.set(prefixKey(key), value, { ex: ttlSeconds });
+      await redis.set(fullKey, value, { ex: ttlSeconds });
     } else {
-      await redis.set(prefixKey(key), value);
+      await redis.set(fullKey, value);
     }
+    scheduleBackupMirrorPrefixedKey(fullKey, value, ttlSeconds);
     return true;
   } catch (err) {
     console.warn(`[mobius-kv] SET ${key} failed:`, err instanceof Error ? err.message : err);
@@ -129,6 +140,7 @@ export async function kvSetRawKey<T>(rawKey: string, value: T, ttlSeconds?: numb
     } else {
       await redis.set(rawKey, value);
     }
+    scheduleBackupMirrorRawKey(rawKey, value, ttlSeconds);
     return true;
   } catch (err) {
     console.warn(`[mobius-kv] SET raw ${rawKey} failed:`, err instanceof Error ? err.message : err);
@@ -393,32 +405,48 @@ export async function kvHealth(): Promise<{
   configured: boolean;
   latencyMs: number | null;
   error: string | null;
+  backup_redis: Awaited<ReturnType<typeof getBackupRedisHealth>>;
 }> {
   const configured = !!(
     (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
     (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
   );
 
+  const backup_redis = await getBackupRedisHealth();
+
   if (!configured) {
-    return { available: false, configured: false, latencyMs: null, error: 'Env vars not set' };
+    return {
+      available: false,
+      configured: false,
+      latencyMs: null,
+      error: 'Env vars not set',
+      backup_redis,
+    };
   }
 
   const redis = getRedis();
   if (!redis) {
-    return { available: false, configured: true, latencyMs: null, error: 'Redis client init failed' };
+    return {
+      available: false,
+      configured: true,
+      latencyMs: null,
+      error: 'Redis client init failed',
+      backup_redis,
+    };
   }
 
   try {
     const start = Date.now();
     await redis.ping();
     const latencyMs = Date.now() - start;
-    return { available: true, configured: true, latencyMs, error: null };
+    return { available: true, configured: true, latencyMs, error: null, backup_redis };
   } catch (err) {
     return {
       available: false,
       configured: true,
       latencyMs: null,
       error: err instanceof Error ? err.message : 'Unknown error',
+      backup_redis,
     };
   }
 }
