@@ -18,7 +18,8 @@
  *
  * Optional secondary Redis (TCP `redis://` or `rediss://`):
  *   REDIS_URL — classic Redis URL; health-checked via `/api/kv/health` as `backup_redis`
- *   MOBIUS_KV_BACKUP_MIRROR=true — mirror successful `kvSet` / `kvSetRawKey` writes (off by default)
+ *   MOBIUS_KV_BACKUP_MIRROR — mirror successful `kvSet` / `kvSetRawKey` / vault raw writes
+ *   MOBIUS_KV_READ_FALLBACK — read from backup when primary GET misses or errors
  *
  * Free tier: 500K commands/month, more than enough for this project.
  *
@@ -27,9 +28,12 @@
 
 import { Redis } from '@upstash/redis';
 import {
-  scheduleBackupMirrorPrefixedKey,
-  scheduleBackupMirrorRawKey,
+  backupPrefixedGet,
+  backupRawGet,
   getBackupRedisHealth,
+  scheduleBackupMirrorPrefixedKey,
+  scheduleBackupMirrorRawDel,
+  scheduleBackupMirrorRawKey,
 } from '@/lib/kv/backup-redis';
 
 // ── Redis client (lazy singleton) ────────────────────────────
