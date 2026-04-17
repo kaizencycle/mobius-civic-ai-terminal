@@ -1,16 +1,17 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { handbookCorsHeaders } from '@/lib/http/handbook-cors';
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': 'https://mobius-browser-shell.vercel.app',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-} as const;
-
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+export async function OPTIONS(req: NextRequest) {
+  const cors = handbookCorsHeaders(req.headers.get('origin'));
+  if (!cors) {
+    return new NextResponse(null, { status: 204 });
+  }
+  return new NextResponse(null, { status: 204, headers: cors });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const cors = handbookCorsHeaders(req.headers.get('origin'));
   let integrity: { cycle?: string; global_integrity?: number; mode?: string } | null = null;
   try {
     const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
@@ -44,6 +45,6 @@ export async function GET() {
       substrate: 'https://github.com/kaizencycle/Mobius-Substrate',
       timestamp: new Date().toISOString(),
     },
-    { headers: CORS_HEADERS },
+    { headers: { ...(cors ?? {}) } },
   );
 }

@@ -1,4 +1,6 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { handbookCorsHeaders } from '@/lib/http/handbook-cors';
 import {
   isRedisAvailable,
   kvGet,
@@ -13,6 +15,14 @@ import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getHeartbeat, getJournalHeartbeat } from '@/lib/runtime/heartbeat';
 
 export const dynamic = 'force-dynamic';
+
+export async function OPTIONS(req: NextRequest) {
+  const cors = handbookCorsHeaders(req.headers.get('origin'));
+  if (!cors) {
+    return new NextResponse(null, { status: 204 });
+  }
+  return new NextResponse(null, { status: 204, headers: cors });
+}
 
 type SystemPulse = {
   ok?: boolean;
@@ -37,8 +47,9 @@ function freshness(sec: number | null): 'fresh' | 'nominal' | 'stale' | 'degrade
   return 'degraded';
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const start = Date.now();
+  const cors = handbookCorsHeaders(req.headers.get('origin'));
 
   const [kv, gi, signals, echo, tripwire, pulse] = await Promise.all([
     kvHealth(),
@@ -125,6 +136,7 @@ export async function GET() {
     },
   }, {
     headers: {
+      ...(cors ?? {}),
       'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
       'X-Mobius-Source': 'terminal-snapshot-lite',
     },

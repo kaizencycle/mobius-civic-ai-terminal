@@ -11,9 +11,16 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { handbookCorsHeaders } from '@/lib/http/handbook-cors';
 import { listVaultDeposits } from '@/lib/vault/vault';
 
 export const dynamic = 'force-dynamic';
+
+export async function OPTIONS(req: NextRequest) {
+  const cors = handbookCorsHeaders(req.headers.get('origin'));
+  if (!cors) return new NextResponse(null, { status: 204 });
+  return new NextResponse(null, { status: 204, headers: cors });
+}
 
 type AgentContribution = {
   agent: string;
@@ -24,11 +31,12 @@ type AgentContribution = {
 };
 
 export async function GET(req: NextRequest) {
+  const cors = handbookCorsHeaders(req.headers.get('origin'));
   const groupBy = (req.nextUrl.searchParams.get('group_by') ?? 'agent').toLowerCase();
   if (groupBy !== 'agent') {
     return NextResponse.json(
       { error: 'Unsupported group_by; use group_by=agent' },
-      { status: 400 },
+      { status: 400, headers: { ...(cors ?? {}) } },
     );
   }
 
@@ -82,6 +90,7 @@ export async function GET(req: NextRequest) {
     },
     {
       headers: {
+        ...(cors ?? {}),
         'Cache-Control': 'no-store',
         'X-Mobius-Source': 'vault-contributions',
       },

@@ -12,7 +12,9 @@
  * `in_progress_balance` field exposes the v2 canonical accumulator.
  */
 
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { handbookCorsHeaders } from '@/lib/http/handbook-cors';
 import { loadGIState } from '@/lib/kv/store';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
 import { getVaultStatusPayload } from '@/lib/vault/vault';
@@ -27,7 +29,14 @@ import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function OPTIONS(req: NextRequest) {
+  const cors = handbookCorsHeaders(req.headers.get('origin'));
+  if (!cors) return new NextResponse(null, { status: 204 });
+  return new NextResponse(null, { status: 204, headers: cors });
+}
+
+export async function GET(req: NextRequest) {
+  const cors = handbookCorsHeaders(req.headers.get('origin'));
   let gi: number | null = null;
   try {
     const st = await loadGIState();
@@ -102,6 +111,10 @@ export async function GET() {
   };
 
   return NextResponse.json(body, {
-    headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'vault-status-v2' },
+    headers: {
+      ...(cors ?? {}),
+      'Cache-Control': 'no-store',
+      'X-Mobius-Source': 'vault-status-v2',
+    },
   });
 }
