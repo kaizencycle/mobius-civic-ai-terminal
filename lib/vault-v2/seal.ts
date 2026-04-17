@@ -9,6 +9,7 @@
 
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import {
+  appendSealToAuditChain,
   appendSealToChain,
   clearCandidate,
   getCandidate,
@@ -27,6 +28,7 @@ import type {
   Verdict,
 } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
+import { VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
 
 const ATTESTATION_TIMEOUT_MS = 5 * 60 * 1000; // 5 min per spec §6
 
@@ -39,7 +41,7 @@ type CanonicalFields = {
   sequence: number;
   cycle_at_seal: string;
   sealed_at: string;
-  reserve: 50;
+  reserve: typeof VAULT_RESERVE_PARCEL_UNITS;
   gi_at_seal: number;
   mode_at_seal: Mode;
   source_entries: number;
@@ -154,6 +156,7 @@ export async function formCandidate(args: {
   mode_at_seal: Mode;
   source_entries: number;
   deposit_hashes: string[];
+  carried_forward_deposit_hashes?: string[];
 }): Promise<SealCandidate | null> {
   const existing = await getCandidate();
   if (existing) return null;
@@ -169,7 +172,7 @@ export async function formCandidate(args: {
     sequence,
     cycle_at_seal: args.cycle,
     sealed_at,
-    reserve: 50,
+    reserve: VAULT_RESERVE_PARCEL_UNITS,
     gi_at_seal: args.gi_at_seal,
     mode_at_seal: args.mode_at_seal,
     source_entries: args.source_entries,
@@ -185,11 +188,14 @@ export async function formCandidate(args: {
     sequence,
     cycle_at_seal: args.cycle,
     sealed_at,
-    reserve: 50,
+    reserve: VAULT_RESERVE_PARCEL_UNITS,
     gi_at_seal: args.gi_at_seal,
     mode_at_seal: args.mode_at_seal,
     source_entries: args.source_entries,
     deposit_hashes: args.deposit_hashes,
+    ...(args.carried_forward_deposit_hashes?.length
+      ? { carried_forward_deposit_hashes: [...args.carried_forward_deposit_hashes] }
+      : {}),
     prev_seal_hash,
     seal_hash,
     attestations: {},
@@ -322,6 +328,9 @@ export async function finalizeSeal(decision: QuorumResult): Promise<Seal | null>
     mode_at_seal: candidate.mode_at_seal,
     source_entries: candidate.source_entries,
     deposit_hashes: candidate.deposit_hashes,
+    ...(candidate.carried_forward_deposit_hashes?.length
+      ? { carried_forward_deposit_hashes: [...candidate.carried_forward_deposit_hashes] }
+      : {}),
     prev_seal_hash: candidate.prev_seal_hash,
     seal_hash: candidate.seal_hash,
     attestations: candidate.attestations,
@@ -331,12 +340,13 @@ export async function finalizeSeal(decision: QuorumResult): Promise<Seal | null>
     posture: aurea?.posture ?? candidate.posture ?? null,
   };
 
-  // Only attested seals join the chain; quarantined/rejected seals are
-  // written but not appended to the index (they do not advance the chain).
+  // Attested seals advance the proof chain; all outcomes append to the full
+  // audit index so quarantined/rejected history remains visible.
   if (status === 'attested') {
     await appendSealToChain(seal);
   } else {
     await writeSeal(seal);
+    await appendSealToAuditChain(seal);
   }
 
   await clearCandidate();
@@ -364,8 +374,7 @@ export async function injectTimeouts(now: number = Date.now()): Promise<SealCand
         agent,
         verdict: 'flag',
         rationale: 'timeout',
-        mii_at_attestation: 0,
-        gi_at_attestation: 0,
+        gi_at_attestation: candidate.gi_at_seal,
         timestamp: new Date(now).toISOString(),
         signature: 'timeout',
       };

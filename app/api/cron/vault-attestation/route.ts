@@ -22,10 +22,11 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { getCandidate, listSeals } from '@/lib/vault-v2/store';
+import type { Seal } from '@/lib/vault-v2/types';
+import { countAllSeals, countSeals, getCandidate, listSeals } from '@/lib/vault-v2/store';
 import { evaluateQuorum, finalizeSeal, injectTimeouts } from '@/lib/vault-v2/seal';
 import { tryFormNextCandidate } from '@/lib/vault-v2/deposit';
-import { loadGIState } from '@/lib/kv/store';
+import { loadEchoState, loadTripwireState } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +47,8 @@ type Report = {
   attestations_received: number;
   next_candidate_formed: string | null;
   seals_total: number;
+  seals_attested_total: number;
+  seals_audit_total: number;
   fountain_pending_count: number;
   errors: string[];
 };
@@ -64,9 +67,11 @@ export async function GET(req: NextRequest) {
 
   let currentCycle = 'C-284';
   try {
-    const st = await loadGIState();
-    if (st && typeof (st as unknown as { cycle?: string }).cycle === 'string') {
-      currentCycle = (st as unknown as { cycle: string }).cycle;
+    const [echo, trip] = await Promise.all([loadEchoState(), loadTripwireState()]);
+    if (echo?.cycleId) {
+      currentCycle = echo.cycleId;
+    } else if (trip?.cycleId) {
+      currentCycle = trip.cycleId;
     }
   } catch (e) {
     errors.push(`cycle load failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -148,11 +153,19 @@ export async function GET(req: NextRequest) {
   // ── Step 3: fountain pending count (informational) ─────────────
   let fountain_pending_count = 0;
   let seals_total = 0;
+  let seals_attested_total = 0;
+  let seals_audit_total = 0;
   try {
-    const seals = await listSeals(200);
+    const [seals, attestedCount, auditCount] = await Promise.all([
+      listSeals(200),
+      countSeals(),
+      countAllSeals(),
+    ]);
     seals_total = seals.length;
+    seals_attested_total = attestedCount;
+    seals_audit_total = auditCount;
     fountain_pending_count = seals.filter(
-      (s) => s.status === 'attested' && s.fountain_status === 'pending',
+      (s: Seal) => s.status === 'attested' && s.fountain_status === 'pending',
     ).length;
   } catch (e) {
     errors.push(`seals list: ${e instanceof Error ? e.message : String(e)}`);
@@ -167,6 +180,8 @@ export async function GET(req: NextRequest) {
     attestations_received,
     next_candidate_formed,
     seals_total,
+    seals_attested_total,
+    seals_audit_total,
     fountain_pending_count,
     errors,
   };

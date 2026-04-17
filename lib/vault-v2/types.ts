@@ -43,7 +43,8 @@ export type SealAttestation = {
   agent: SentinelAgent;
   verdict: Verdict;
   rationale: string;
-  mii_at_attestation: number;
+  /** Present when the agent supplied MII at seal time; omitted when unknown. */
+  mii_at_attestation?: number | null;
   gi_at_attestation: number;
   timestamp: string;
   signature: string;
@@ -61,6 +62,12 @@ export type Seal = {
   mode_at_seal: Mode;
   source_entries: number;
   deposit_hashes: string[];
+  /**
+   * Deposit content hashes that contributed to the *next* forming parcel after
+   * this seal closed (numeric overflow from the crossing deposit). Preserves
+   * provenance across the 50-unit boundary.
+   */
+  carried_forward_deposit_hashes?: string[];
   prev_seal_hash: string | null;
   seal_hash: string;
   attestations: Partial<Record<SentinelAgent, SealAttestation>>;
@@ -85,6 +92,11 @@ export type SealCandidate = {
   mode_at_seal: Mode;
   source_entries: number;
   deposit_hashes: string[];
+  /**
+   * Set when this candidate is formed with overflow into the next parcel;
+   * copied onto the finalized Seal for audit.
+   */
+  carried_forward_deposit_hashes?: string[];
   prev_seal_hash: string | null;
   seal_hash: string;
   attestations: Partial<Record<SentinelAgent, SealAttestation>>;
@@ -117,6 +129,8 @@ export type AttestationSubmission = {
   verdict: Verdict;
   rationale: string;
   signature: string;
+  /** Optional; when set must be a finite number (MII snapshot at attestation). */
+  mii_at_attestation?: number;
   /** Required only from AUREA. */
   posture?: Posture;
 };

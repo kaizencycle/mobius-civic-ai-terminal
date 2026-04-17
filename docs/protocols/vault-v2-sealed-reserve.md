@@ -110,6 +110,7 @@ Seal {
   mode_at_seal: string         # "green" | "yellow" | "red"
   source_entries: number       # journal deposits this parcel drew from
   deposit_hashes: string[]     # content signatures of contributing deposits
+  carried_forward_deposit_hashes?: string[]  # optional; hashes whose value spilled into the next parcel
   prev_seal_hash: string | null  # null for seal-001
   seal_hash: string            # sha256 over the above, pre-attestation
   attestations: {
@@ -128,7 +129,7 @@ SealAttestation {
   agent: "ATLAS" | "ZEUS" | "EVE" | "JADE" | "AUREA"
   verdict: "pass" | "flag" | "reject"
   rationale: string            # agent's voice, 1-3 sentences
-  mii_at_attestation: number
+  mii_at_attestation?: number | null  # optional; omit when agent did not supply MII
   gi_at_attestation: number
   timestamp: string
   signature: string            # HMAC-SHA256(VAULT_<AGENT>_SECRET_TOKEN or legacy AGENT_SERVICE_TOKEN, seal_hash + verdict + rationale)
@@ -325,7 +326,9 @@ conditions, not the present's.
 | `mobius:vault:global:balance` | `vault:in_progress_balance` | Direct copy                          |
 | `mobius:vault:global:meta`    | `vault:meta`                | Schema extended, backward compatible |
 | `vault:deposits`              | `vault:deposits`            | Unchanged                            |
-| (new)                         | `vault:seals:index`         | Array of seal_ids in sequence        |
+| (new)                         | `vault:seals:index:attested` | Attested seal_ids only (canonical chain) |
+| (new)                         | `vault:seals:index:all`      | All finalized seal_ids (audit trail)     |
+| (legacy compat)               | `vault:seals:index`          | Mirrored to attested index for old readers |
 | (new)                         | `vault:seal:{seal_id}`      | Seal record                          |
 | (new)                         | `vault:seal:latest`         | Most recent seal_id                  |
 | (new)                         | `vault:seal:candidate`      | In-flight Seal awaiting attestation  |
@@ -335,8 +338,10 @@ conditions, not the present's.
 - `writeVaultDeposit` continues to accept deposits and accumulate to
   `in_progress_balance`. When balance crosses 50, it additionally invokes
   `attemptSealFormation()`.
-- `/api/vault/status` gains new fields: `seals_count`, `latest_seal_at`,
-  `candidate_attestation_state`.
+- `/api/vault/status` gains new fields: `seals_count`, `seals_audit_count`,
+  `latest_seal_at`, `candidate_attestation_state`.
+- `GET /api/vault/seal?scope=audit` returns the full audit list (attested +
+  quarantined + rejected); default scope remains attested-only.
 - Fountain UI surfaces become per-Seal rather than global.
 
 ### Backward compatibility window

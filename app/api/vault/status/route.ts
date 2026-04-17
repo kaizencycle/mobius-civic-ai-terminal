@@ -16,11 +16,13 @@ import { NextResponse } from 'next/server';
 import { loadGIState } from '@/lib/kv/store';
 import { getVaultStatusPayload } from '@/lib/vault/vault';
 import {
+  countAllSeals,
   countSeals,
   getCandidate,
   getInProgressBalance,
   getLatestSeal,
 } from '@/lib/vault-v2/store';
+import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,9 +39,10 @@ export async function GET() {
 
   const v1 = await getVaultStatusPayload(gi);
 
-  const [inProgressBalance, sealsCount, latestSeal, candidate] = await Promise.all([
+  const [inProgressBalance, sealsCount, sealsAuditCount, latestSeal, candidate] = await Promise.all([
     getInProgressBalance(),
     countSeals(),
+    countAllSeals(),
     getLatestSeal(),
     getCandidate(),
   ]);
@@ -48,6 +51,7 @@ export async function GET() {
     ...v1,
     in_progress_balance: inProgressBalance,
     seals_count: sealsCount,
+    seals_audit_count: sealsAuditCount,
     latest_seal_id: latestSeal?.seal_id ?? null,
     latest_seal_at: latestSeal?.sealed_at ?? null,
     latest_seal_hash: latestSeal?.seal_hash ?? null,
@@ -59,7 +63,8 @@ export async function GET() {
           requested_at: candidate.requested_at,
           timeout_at: candidate.timeout_at,
           attestations_received: Object.keys(candidate.attestations).length,
-          attestations_needed: 5 - Object.keys(candidate.attestations).length,
+          attestations_needed:
+            SENTINEL_ATTESTATION_COUNT - Object.keys(candidate.attestations).length,
         }
       : {
           in_flight: false,

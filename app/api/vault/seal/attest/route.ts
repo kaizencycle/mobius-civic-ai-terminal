@@ -36,6 +36,7 @@ import type {
   Verdict,
 } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
+import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +59,13 @@ function validate(raw: unknown): AttestationSubmission | string {
   if (typeof r.signature !== 'string' || r.signature.length === 0) {
     return 'signature required';
   }
+  let mii_at_attestation: number | undefined;
+  if (r.mii_at_attestation !== undefined) {
+    if (typeof r.mii_at_attestation !== 'number' || !Number.isFinite(r.mii_at_attestation)) {
+      return 'mii_at_attestation must be a finite number when provided';
+    }
+    mii_at_attestation = r.mii_at_attestation;
+  }
   if (r.agent === 'AUREA') {
     const posture = r.posture;
     if (
@@ -78,6 +86,7 @@ function validate(raw: unknown): AttestationSubmission | string {
     verdict: r.verdict as Verdict,
     rationale: (r.rationale as string).trim().slice(0, 2000),
     signature: r.signature as string,
+    ...(mii_at_attestation !== undefined ? { mii_at_attestation } : {}),
     posture: r.agent === 'AUREA' ? (r.posture as Posture) : undefined,
   };
 }
@@ -135,7 +144,9 @@ export async function POST(req: NextRequest) {
     agent: submission.agent,
     verdict: submission.verdict,
     rationale: submission.rationale,
-    mii_at_attestation: 0,
+    ...(submission.mii_at_attestation !== undefined
+      ? { mii_at_attestation: submission.mii_at_attestation }
+      : {}),
     gi_at_attestation: candidate.gi_at_seal,
     timestamp: new Date().toISOString(),
     signature: submission.signature,
@@ -155,6 +166,6 @@ export async function POST(req: NextRequest) {
     agent: submission.agent,
     verdict: submission.verdict,
     attestations_received: attestationsReceived,
-    attestations_needed: 5 - attestationsReceived,
+    attestations_needed: SENTINEL_ATTESTATION_COUNT - attestationsReceived,
   });
 }
