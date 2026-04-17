@@ -12,7 +12,10 @@
  *   3. If balance >= 50:
  *      a. Attempt to form a Seal candidate (may no-op if one already in flight)
  *      b. Reset in_progress_balance to overflow (balance - 50)
- *      c. Log the candidate creation
+ *      c. Preserve overflow provenance: crossing-deposit hash is recorded on the
+ *         candidate/seal as `carried_forward_deposit_hashes` and re-seeded into
+ *         `vault:in_progress_hashes` for the next parcel
+ *      d. Log the candidate creation
  *   4. If candidate formation is deferred (another in flight), the deposit
  *      amount stays in in_progress_balance; it will be included in the NEXT
  *      candidate once the current one resolves.
@@ -21,17 +24,17 @@
 import type { AgentJournalEntry } from '@/lib/terminal/types';
 import { loadGIState } from '@/lib/kv/store';
 import {
-  clearInProgressHashes,
   getCandidate,
   getInProgressBalance,
   readInProgressHashes,
   setInProgressBalance,
   writeInProgressHashes,
 } from '@/lib/vault-v2/store';
+import { VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
 import { formCandidate } from '@/lib/vault-v2/seal';
 import type { Mode, SealCandidate } from '@/lib/vault-v2/types';
 
-const THRESHOLD = 50;
+const THRESHOLD = VAULT_RESERVE_PARCEL_UNITS;
 
 export type AccrualResult = {
   balance_after: number;
@@ -106,12 +109,18 @@ export async function accrueDepositV2(args: {
     };
   }
 
+  const carried_forward =
+    overflow > 0 && hashes.includes(args.content_signature)
+      ? [args.content_signature]
+      : undefined;
+
   const candidate = await formCandidate({
     cycle: args.cycle,
     gi_at_seal: gi,
     mode_at_seal: mode,
     source_entries: hashes.length,
     deposit_hashes: hashes,
+    ...(carried_forward ? { carried_forward_deposit_hashes: carried_forward } : {}),
   });
 
   if (!candidate) {
@@ -126,7 +135,7 @@ export async function accrueDepositV2(args: {
   }
 
   await setInProgressBalance(overflow);
-  await clearInProgressHashes();
+  await writeInProgressHashes(carried_forward ?? []);
 
   console.info('[vault-v2] seal candidate formed', {
     seal_id: candidate.seal_id,
@@ -159,18 +168,23 @@ export async function tryFormNextCandidate(args: { cycle: string }): Promise<Sea
   const { gi, mode } = await readGIAndMode();
   const hashes = await readInProgressHashes();
 
+  const overflow = Number((balance - THRESHOLD).toFixed(6));
+  const lastHash = hashes.length > 0 ? hashes[hashes.length - 1] : null;
+  const carried_forward =
+    overflow > 0 && lastHash ? [lastHash] : undefined;
+
   const candidate = await formCandidate({
     cycle: args.cycle,
     gi_at_seal: gi,
     mode_at_seal: mode,
     source_entries: hashes.length,
     deposit_hashes: hashes,
+    ...(carried_forward ? { carried_forward_deposit_hashes: carried_forward } : {}),
   });
 
   if (candidate) {
-    const overflow = Number((balance - THRESHOLD).toFixed(6));
     await setInProgressBalance(overflow);
-    await clearInProgressHashes();
+    await writeInProgressHashes(carried_forward ?? []);
     console.info('[vault-v2] next candidate formed from queued reserve', {
       seal_id: candidate.seal_id,
       overflow_carried: overflow,

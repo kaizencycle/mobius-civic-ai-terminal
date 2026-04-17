@@ -4,7 +4,9 @@
  * Key layout:
  *   vault:in_progress_balance        → number, running accumulator 0..<50
  *   vault:in_progress_hashes         → content sigs accruing into next seal
- *   vault:seals:index                → ordered array of seal_ids
+ *   vault:seals:index                → legacy attested index (kept in sync with :attested)
+ *   vault:seals:index:attested       → attested seals only (canonical chain)
+ *   vault:seals:index:all            → all finalized seals (attested + quarantined + rejected)
  *   vault:seal:latest                → most recent seal_id (quick chain access)
  *   vault:seal:{seal_id}             → full Seal record
  *   vault:seal:candidate             → in-flight SealCandidate awaiting attestations
@@ -18,7 +20,12 @@ import type { Seal, SealAttestation, SealCandidate, SentinelAgent } from '@/lib/
 
 const BALANCE_KEY = 'vault:in_progress_balance';
 const IN_PROGRESS_HASHES_KEY = 'vault:in_progress_hashes';
-const SEALS_INDEX_KEY = 'vault:seals:index';
+/** Legacy key — same sequence as attested index after migration. */
+const SEALS_INDEX_LEGACY_KEY = 'vault:seals:index';
+/** Attested seals only (canonical chain head / latest). */
+const SEALS_INDEX_ATTESTED_KEY = 'vault:seals:index:attested';
+/** Every finalized seal (attested, quarantined, rejected) for full audit history. */
+const SEALS_INDEX_ALL_KEY = 'vault:seals:index:all';
 const LATEST_SEAL_KEY = 'vault:seal:latest';
 const CANDIDATE_KEY = 'vault:seal:candidate';
 
@@ -114,11 +121,9 @@ export async function clearInProgressHashes(): Promise<void> {
 // Seal index + chain access
 // ────────────────────────────────────────────────────────────────
 
-export async function listSealIds(): Promise<string[]> {
-  const redis = getRedis();
-  if (!redis) return [];
+async function readStringArrayKey(redis: Redis, key: string): Promise<string[]> {
   try {
-    const raw = await redis.get<string[] | string>(SEALS_INDEX_KEY);
+    const raw = await redis.get<string[] | string>(key);
     if (Array.isArray(raw)) return raw;
     const parsed = parseMaybeJson<string[]>(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -127,8 +132,54 @@ export async function listSealIds(): Promise<string[]> {
   }
 }
 
+/**
+ * Attested-seal index (advances the proof chain). Migrates from legacy
+ * `vault:seals:index` once if the new key is empty.
+ */
+export async function listSealIds(): Promise<string[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  try {
+    let ids = await readStringArrayKey(redis, SEALS_INDEX_ATTESTED_KEY);
+    if (ids.length === 0) {
+      const legacy = await readStringArrayKey(redis, SEALS_INDEX_LEGACY_KEY);
+      if (legacy.length > 0) {
+        ids = legacy;
+        await redis.set(SEALS_INDEX_ATTESTED_KEY, ids);
+      }
+    }
+    return ids;
+  } catch {
+    return [];
+  }
+}
+
+/** Full audit trail: every finalized seal id in order (attested + quarantined + rejected). */
+export async function listAllSealIds(): Promise<string[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  try {
+    let ids = await readStringArrayKey(redis, SEALS_INDEX_ALL_KEY);
+    if (ids.length === 0) {
+      const attested = await listSealIds();
+      if (attested.length > 0) {
+        ids = [...attested];
+        await redis.set(SEALS_INDEX_ALL_KEY, ids);
+      }
+    }
+    return ids;
+  } catch {
+    return [];
+  }
+}
+
 export async function countSeals(): Promise<number> {
   const ids = await listSealIds();
+  return ids.length;
+}
+
+export async function countAllSeals(): Promise<number> {
+  const ids = await listAllSealIds();
   return ids.length;
 }
 
@@ -164,26 +215,71 @@ export async function getSeal(seal_id: string): Promise<Seal | null> {
 
 export async function listSeals(limit = 50): Promise<Seal[]> {
   const ids = await listSealIds();
+  if (ids.length === 0) return [];
   const recent = ids.slice(-limit);
   const results = await Promise.all(recent.map((id) => getSeal(id)));
   return results.filter((s): s is Seal => s !== null).reverse();
 }
 
+/** Newest-first list from the full audit index (includes quarantined/rejected). */
+export async function listAllSeals(limit = 50): Promise<Seal[]> {
+  const ids = await listAllSealIds();
+  if (ids.length === 0) return [];
+  const recent = ids.slice(-limit);
+  const results = await Promise.all(recent.map((id) => getSeal(id)));
+  return results.filter((s): s is Seal => s !== null).reverse();
+}
+
+async function appendSealIdToIndex(redis: Redis, key: string, seal_id: string): Promise<string[]> {
+  const ids = await readStringArrayKey(redis, key);
+  if (!ids.includes(seal_id)) {
+    ids.push(seal_id);
+    await redis.set(key, ids);
+  }
+  return ids;
+}
+
 /**
- * Append a new Seal to the index and mark it latest.
- * Caller is responsible for validating hash chain integrity before calling.
+ * Append a finalized seal id to the full-history index (all outcomes).
+ * Caller must persist the seal body separately (e.g. `writeSeal`).
+ */
+export async function appendSealToAuditChain(seal: Seal): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  try {
+    await appendSealIdToIndex(redis, SEALS_INDEX_ALL_KEY, seal.seal_id);
+  } catch (err) {
+    console.warn('[vault-v2:store] appendSealToAuditChain failed:', err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ * Append a new attested Seal to the attested index and mark it latest.
+ * Also appends to the full audit index. Caller validates hash chain integrity.
  */
 export async function appendSealToChain(seal: Seal): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   try {
-    const ids = await listSealIds();
-    if (!ids.includes(seal.seal_id)) {
-      ids.push(seal.seal_id);
-      await redis.set(SEALS_INDEX_KEY, ids);
-    }
-    await redis.set(sealKey(seal.seal_id), seal);
-    await redis.set(LATEST_SEAL_KEY, seal.seal_id);
+    const [attested, legacy, all] = await Promise.all([
+      readStringArrayKey(redis, SEALS_INDEX_ATTESTED_KEY),
+      readStringArrayKey(redis, SEALS_INDEX_LEGACY_KEY),
+      readStringArrayKey(redis, SEALS_INDEX_ALL_KEY),
+    ]);
+    const pushIfMissing = (ids: string[]) => {
+      if (!ids.includes(seal.seal_id)) ids.push(seal.seal_id);
+      return ids;
+    };
+    const nextAttested = pushIfMissing([...attested]);
+    const nextLegacy = pushIfMissing([...legacy]);
+    const nextAll = pushIfMissing([...all]);
+    await Promise.all([
+      redis.set(SEALS_INDEX_ATTESTED_KEY, nextAttested),
+      redis.set(SEALS_INDEX_LEGACY_KEY, nextLegacy),
+      redis.set(SEALS_INDEX_ALL_KEY, nextAll),
+      redis.set(sealKey(seal.seal_id), seal),
+      redis.set(LATEST_SEAL_KEY, seal.seal_id),
+    ]);
   } catch (err) {
     console.warn('[vault-v2:store] appendSealToChain failed:', err instanceof Error ? err.message : err);
   }

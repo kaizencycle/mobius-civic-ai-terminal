@@ -8,7 +8,8 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { countSeals, getCandidate, getLatestSeal, listSeals } from '@/lib/vault-v2/store';
+import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
+import { countAllSeals, countSeals, getCandidate, getLatestSeal, listAllSeals, listSeals } from '@/lib/vault-v2/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,10 +18,12 @@ export async function GET(req: NextRequest) {
   const limit = Number.isFinite(limitParam)
     ? Math.max(1, Math.min(200, Math.floor(limitParam)))
     : 50;
+  const scope = req.nextUrl.searchParams.get('scope')?.toLowerCase();
+  const includeAllHistory = scope === 'all' || scope === 'audit';
 
   const [seals, total, latest, candidate] = await Promise.all([
-    listSeals(limit),
-    countSeals(),
+    includeAllHistory ? listAllSeals(limit) : listSeals(limit),
+    includeAllHistory ? countAllSeals() : countSeals(),
     getLatestSeal(),
     getCandidate(),
   ]);
@@ -28,6 +31,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     {
       ok: true,
+      scope: includeAllHistory ? 'audit' : 'attested',
       total,
       returned: seals.length,
       latest_seal_id: latest?.seal_id ?? null,
@@ -42,7 +46,8 @@ export async function GET(req: NextRequest) {
               requested_at: candidate.requested_at,
               timeout_at: candidate.timeout_at,
               attestations_received: Object.keys(candidate.attestations).length,
-              attestations_needed: 5 - Object.keys(candidate.attestations).length,
+              attestations_needed:
+                SENTINEL_ATTESTATION_COUNT - Object.keys(candidate.attestations).length,
               attesting_agents: Object.keys(candidate.attestations),
             },
       seals,
