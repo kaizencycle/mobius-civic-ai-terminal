@@ -16,6 +16,11 @@
  */
 
 import { Redis } from '@upstash/redis';
+import {
+  backupRawGet,
+  scheduleBackupMirrorRawDel,
+  scheduleBackupMirrorRawKey,
+} from '@/lib/kv/backup-redis';
 import type { Seal, SealAttestation, SealCandidate, SentinelAgent } from '@/lib/vault-v2/types';
 
 const BALANCE_KEY = 'vault:in_progress_balance';
@@ -56,15 +61,35 @@ function parseMaybeJson<T>(raw: unknown): T | null {
   return raw as T;
 }
 
+async function rawGetWithFallback<T>(key: string): Promise<unknown | null> {
+  const redis = getRedis();
+  if (!redis) {
+    return backupRawGet<T>(key);
+  }
+  try {
+    const v = await redis.get<T | string>(key);
+    if (v !== null && v !== undefined) return v;
+    return backupRawGet<T>(key);
+  } catch {
+    return backupRawGet<T>(key);
+  }
+}
+
+function mirrorRawSet(key: string, value: unknown): void {
+  scheduleBackupMirrorRawKey(key, value);
+}
+
+function mirrorRawDel(key: string): void {
+  scheduleBackupMirrorRawDel(key);
+}
+
 // ────────────────────────────────────────────────────────────────
 // Balance (in-progress accumulator)
 // ────────────────────────────────────────────────────────────────
 
 export async function getInProgressBalance(): Promise<number> {
-  const redis = getRedis();
-  if (!redis) return 0;
   try {
-    const raw = await redis.get<number | string>(BALANCE_KEY);
+    const raw = await rawGetWithFallback<number | string>(BALANCE_KEY);
     if (typeof raw === 'number') return raw;
     if (typeof raw === 'string') {
       const parsed = Number(raw);
@@ -80,7 +105,9 @@ export async function setInProgressBalance(balance: number): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   try {
-    await redis.set(BALANCE_KEY, Number(balance.toFixed(6)));
+    const v = Number(balance.toFixed(6));
+    await redis.set(BALANCE_KEY, v);
+    mirrorRawSet(BALANCE_KEY, v);
   } catch (err) {
     console.warn('[vault-v2:store] setInProgressBalance failed:', err instanceof Error ? err.message : err);
   }
@@ -91,10 +118,8 @@ export async function setInProgressBalance(balance: number): Promise<void> {
 // ────────────────────────────────────────────────────────────────
 
 export async function readInProgressHashes(): Promise<string[]> {
-  const redis = getRedis();
-  if (!redis) return [];
   try {
-    const raw = await redis.get<string[] | string>(IN_PROGRESS_HASHES_KEY);
+    const raw = await rawGetWithFallback<string[] | string>(IN_PROGRESS_HASHES_KEY);
     if (Array.isArray(raw)) return raw;
     const parsed = parseMaybeJson<string[]>(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -108,6 +133,7 @@ export async function writeInProgressHashes(hashes: string[]): Promise<void> {
   if (!redis) return;
   try {
     await redis.set(IN_PROGRESS_HASHES_KEY, hashes);
+    mirrorRawSet(IN_PROGRESS_HASHES_KEY, hashes);
   } catch (err) {
     console.warn('[vault-v2:store] writeInProgressHashes failed:', err instanceof Error ? err.message : err);
   }
@@ -121,9 +147,9 @@ export async function clearInProgressHashes(): Promise<void> {
 // Seal index + chain access
 // ────────────────────────────────────────────────────────────────
 
-async function readStringArrayKey(redis: Redis, key: string): Promise<string[]> {
+async function readStringArrayKey(key: string): Promise<string[]> {
   try {
-    const raw = await redis.get<string[] | string>(key);
+    const raw = await rawGetWithFallback<string[] | string>(key);
     if (Array.isArray(raw)) return raw;
     const parsed = parseMaybeJson<string[]>(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -138,14 +164,16 @@ async function readStringArrayKey(redis: Redis, key: string): Promise<string[]> 
  */
 export async function listSealIds(): Promise<string[]> {
   const redis = getRedis();
-  if (!redis) return [];
   try {
-    let ids = await readStringArrayKey(redis, SEALS_INDEX_ATTESTED_KEY);
+    let ids = await readStringArrayKey(SEALS_INDEX_ATTESTED_KEY);
     if (ids.length === 0) {
-      const legacy = await readStringArrayKey(redis, SEALS_INDEX_LEGACY_KEY);
+      const legacy = await readStringArrayKey(SEALS_INDEX_LEGACY_KEY);
       if (legacy.length > 0) {
         ids = legacy;
-        await redis.set(SEALS_INDEX_ATTESTED_KEY, ids);
+        if (redis) {
+          await redis.set(SEALS_INDEX_ATTESTED_KEY, ids);
+          mirrorRawSet(SEALS_INDEX_ATTESTED_KEY, ids);
+        }
       }
     }
     return ids;
@@ -157,14 +185,16 @@ export async function listSealIds(): Promise<string[]> {
 /** Full audit trail: every finalized seal id in order (attested + quarantined + rejected). */
 export async function listAllSealIds(): Promise<string[]> {
   const redis = getRedis();
-  if (!redis) return [];
   try {
-    let ids = await readStringArrayKey(redis, SEALS_INDEX_ALL_KEY);
+    let ids = await readStringArrayKey(SEALS_INDEX_ALL_KEY);
     if (ids.length === 0) {
       const attested = await listSealIds();
       if (attested.length > 0) {
         ids = [...attested];
-        await redis.set(SEALS_INDEX_ALL_KEY, ids);
+        if (redis) {
+          await redis.set(SEALS_INDEX_ALL_KEY, ids);
+          mirrorRawSet(SEALS_INDEX_ALL_KEY, ids);
+        }
       }
     }
     return ids;
@@ -184,11 +214,10 @@ export async function countAllSeals(): Promise<number> {
 }
 
 export async function getLatestSealId(): Promise<string | null> {
-  const redis = getRedis();
-  if (!redis) return null;
   try {
-    const raw = await redis.get<string>(LATEST_SEAL_KEY);
-    return typeof raw === 'string' && raw.length > 0 ? raw : null;
+    const raw = await rawGetWithFallback<string>(LATEST_SEAL_KEY);
+    if (typeof raw === 'string' && raw.length > 0) return raw;
+    return null;
   } catch {
     return null;
   }
@@ -201,10 +230,8 @@ export async function getLatestSeal(): Promise<Seal | null> {
 }
 
 export async function getSeal(seal_id: string): Promise<Seal | null> {
-  const redis = getRedis();
-  if (!redis) return null;
   try {
-    const raw = await redis.get<Seal | string>(sealKey(seal_id));
+    const raw = await rawGetWithFallback<Seal | string>(sealKey(seal_id));
     if (raw && typeof raw === 'object') return raw as Seal;
     const parsed = parseMaybeJson<Seal>(raw);
     return parsed ?? null;
@@ -231,10 +258,11 @@ export async function listAllSeals(limit = 50): Promise<Seal[]> {
 }
 
 async function appendSealIdToIndex(redis: Redis, key: string, seal_id: string): Promise<string[]> {
-  const ids = await readStringArrayKey(redis, key);
+  const ids = await readStringArrayKey(key);
   if (!ids.includes(seal_id)) {
     ids.push(seal_id);
     await redis.set(key, ids);
+    mirrorRawSet(key, ids);
   }
   return ids;
 }
@@ -262,9 +290,9 @@ export async function appendSealToChain(seal: Seal): Promise<void> {
   if (!redis) return;
   try {
     const [attested, legacy, all] = await Promise.all([
-      readStringArrayKey(redis, SEALS_INDEX_ATTESTED_KEY),
-      readStringArrayKey(redis, SEALS_INDEX_LEGACY_KEY),
-      readStringArrayKey(redis, SEALS_INDEX_ALL_KEY),
+      readStringArrayKey(SEALS_INDEX_ATTESTED_KEY),
+      readStringArrayKey(SEALS_INDEX_LEGACY_KEY),
+      readStringArrayKey(SEALS_INDEX_ALL_KEY),
     ]);
     const pushIfMissing = (ids: string[]) => {
       if (!ids.includes(seal.seal_id)) ids.push(seal.seal_id);
@@ -280,6 +308,11 @@ export async function appendSealToChain(seal: Seal): Promise<void> {
       redis.set(sealKey(seal.seal_id), seal),
       redis.set(LATEST_SEAL_KEY, seal.seal_id),
     ]);
+    mirrorRawSet(SEALS_INDEX_ATTESTED_KEY, nextAttested);
+    mirrorRawSet(SEALS_INDEX_LEGACY_KEY, nextLegacy);
+    mirrorRawSet(SEALS_INDEX_ALL_KEY, nextAll);
+    mirrorRawSet(sealKey(seal.seal_id), seal);
+    mirrorRawSet(LATEST_SEAL_KEY, seal.seal_id);
   } catch (err) {
     console.warn('[vault-v2:store] appendSealToChain failed:', err instanceof Error ? err.message : err);
   }
@@ -293,7 +326,9 @@ export async function writeSeal(seal: Seal): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   try {
-    await redis.set(sealKey(seal.seal_id), seal);
+    const k = sealKey(seal.seal_id);
+    await redis.set(k, seal);
+    mirrorRawSet(k, seal);
   } catch (err) {
     console.warn('[vault-v2:store] writeSeal failed:', err instanceof Error ? err.message : err);
   }
@@ -304,10 +339,8 @@ export async function writeSeal(seal: Seal): Promise<void> {
 // ────────────────────────────────────────────────────────────────
 
 export async function getCandidate(): Promise<SealCandidate | null> {
-  const redis = getRedis();
-  if (!redis) return null;
   try {
-    const raw = await redis.get<SealCandidate | string>(CANDIDATE_KEY);
+    const raw = await rawGetWithFallback<SealCandidate | string>(CANDIDATE_KEY);
     if (raw && typeof raw === 'object') return raw as SealCandidate;
     const parsed = parseMaybeJson<SealCandidate>(raw);
     return parsed ?? null;
@@ -321,6 +354,7 @@ export async function writeCandidate(candidate: SealCandidate): Promise<void> {
   if (!redis) return;
   try {
     await redis.set(CANDIDATE_KEY, candidate);
+    mirrorRawSet(CANDIDATE_KEY, candidate);
   } catch (err) {
     console.warn('[vault-v2:store] writeCandidate failed:', err instanceof Error ? err.message : err);
   }
@@ -348,6 +382,7 @@ export async function clearCandidate(): Promise<void> {
   if (!redis) return;
   try {
     await redis.del(CANDIDATE_KEY);
+    mirrorRawDel(CANDIDATE_KEY);
   } catch (err) {
     console.warn('[vault-v2:store] clearCandidate failed:', err instanceof Error ? err.message : err);
   }
