@@ -6,6 +6,7 @@
 import { Redis } from '@upstash/redis';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
 import { kvGet, kvSet, loadGIState } from '@/lib/kv/store';
+import { accrueDepositV2 } from '@/lib/vault-v2/deposit';
 
 const BALANCE_KEY = 'vault:global:balance';
 const META_KEY = 'vault:global:meta';
@@ -228,6 +229,23 @@ export async function recordVaultDepositsForCouncil(
         content_signature: sig,
       };
       await writeVaultDeposit(deposit);
+
+      // Vault v2 — accrue to in_progress_balance and possibly form a Seal
+      // candidate. Non-fatal: failures here must never break v1 accrual.
+      try {
+        await accrueDepositV2({
+          deposit_amount: amount,
+          content_signature: sig,
+          cycle: entry.cycle ?? 'C-?',
+          agent_entry: entry,
+        });
+      } catch (err) {
+        console.warn(
+          '[vault-v2] accrueDepositV2 failed (non-fatal):',
+          err instanceof Error ? err.message : err,
+        );
+      }
+
       deposited += 1;
     } catch {
       errors += 1;

@@ -1,0 +1,58 @@
+/**
+ * GET /api/vault/seal
+ *
+ * Public read. Returns the list of attested Seals (newest-first) plus the
+ * current candidate state. Used by the Vault chamber UI and external
+ * substrate consumers.
+ */
+
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import { countSeals, getCandidate, getLatestSeal, listSeals } from '@/lib/vault-v2/store';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: NextRequest) {
+  const limitParam = Number(req.nextUrl.searchParams.get('limit') ?? '50');
+  const limit = Number.isFinite(limitParam)
+    ? Math.max(1, Math.min(200, Math.floor(limitParam)))
+    : 50;
+
+  const [seals, total, latest, candidate] = await Promise.all([
+    listSeals(limit),
+    countSeals(),
+    getLatestSeal(),
+    getCandidate(),
+  ]);
+
+  return NextResponse.json(
+    {
+      ok: true,
+      total,
+      returned: seals.length,
+      latest_seal_id: latest?.seal_id ?? null,
+      latest_sealed_at: latest?.sealed_at ?? null,
+      candidate:
+        candidate === null
+          ? null
+          : {
+              seal_id: candidate.seal_id,
+              sequence: candidate.sequence,
+              cycle_at_seal: candidate.cycle_at_seal,
+              requested_at: candidate.requested_at,
+              timeout_at: candidate.timeout_at,
+              attestations_received: Object.keys(candidate.attestations).length,
+              attestations_needed: 5 - Object.keys(candidate.attestations).length,
+              attesting_agents: Object.keys(candidate.attestations),
+            },
+      seals,
+      timestamp: new Date().toISOString(),
+    },
+    {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+        'X-Mobius-Source': 'vault-v2-seals',
+      },
+    },
+  );
+}
