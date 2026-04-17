@@ -98,6 +98,46 @@ export function computeVaultDeposit(entry: AgentJournalEntry, gi: number, recent
   return Number(amount.toFixed(6));
 }
 
+function parseDepositRow(raw: string | unknown): VaultDeposit | null {
+  try {
+    const o = typeof raw === 'string' ? (JSON.parse(raw) as VaultDeposit) : (raw as unknown as VaultDeposit);
+    if (!o || o.event_type !== 'vault_deposit') return null;
+    if (
+      typeof o.agent !== 'string' ||
+      typeof o.journal_id !== 'string' ||
+      typeof o.timestamp !== 'string' ||
+      typeof o.deposit_amount !== 'number'
+    ) {
+      return null;
+    }
+    if (!Number.isFinite(o.deposit_amount)) return null;
+    return o;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Newest-first raw deposit rows from `vault:deposits` (same list as LPUSH in
+ * `writeVaultDeposit`, capped at DEPOSITS_MAX).
+ */
+export async function listVaultDeposits(limit = DEPOSITS_MAX): Promise<VaultDeposit[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  try {
+    const cap = Math.max(1, Math.min(DEPOSITS_MAX, Math.floor(limit)));
+    const raw = await redis.lrange<string>(DEPOSITS_LIST_KEY, 0, cap - 1);
+    const out: VaultDeposit[] = [];
+    for (const row of raw) {
+      const d = parseDepositRow(row);
+      if (d) out.push(d);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 export async function getRecentContentSignatures(limit: number): Promise<string[]> {
   const redis = getRedis();
   if (!redis) return [];
@@ -105,13 +145,9 @@ export async function getRecentContentSignatures(limit: number): Promise<string[
     const raw = await redis.lrange<string>(DEPOSITS_LIST_KEY, 0, limit - 1);
     const sigs: string[] = [];
     for (const row of raw) {
-      try {
-        const o = typeof row === 'string' ? (JSON.parse(row) as VaultDeposit) : (row as unknown as VaultDeposit);
-        if (o && typeof o.content_signature === 'string') {
-          sigs.push(o.content_signature);
-        }
-      } catch {
-        // skip
+      const o = parseDepositRow(row);
+      if (o && typeof o.content_signature === 'string') {
+        sigs.push(o.content_signature);
       }
     }
     return sigs;
