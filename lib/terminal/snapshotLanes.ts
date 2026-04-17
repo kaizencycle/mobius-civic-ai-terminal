@@ -692,10 +692,25 @@ function normalizeVaultLane(leaf: SnapshotLeaf): SnapshotLaneState {
     };
   }
   const balance = typeof row.balance_reserve === 'number' ? row.balance_reserve : 0;
+  const sealedTotal =
+    typeof (row as Record<string, unknown>).sealed_reserve_total === 'number'
+      ? ((row as Record<string, unknown>).sealed_reserve_total as number)
+      : 0;
+  const inProg =
+    typeof (row as Record<string, unknown>).in_progress_balance === 'number'
+      ? ((row as Record<string, unknown>).in_progress_balance as number)
+      : null;
   const status = typeof row.status === 'string' ? row.status : 'sealed';
   const preview = row.preview_active === true;
+  const fountain = (row as Record<string, unknown>).fountain_status;
   const b = balance.toFixed(2);
-  const message = `Vault · ${b} reserve units · ${status}${preview ? ' · preview' : ''}`;
+  const tranche =
+    inProg !== null
+      ? ` · sealed ${sealedTotal.toFixed(0)} · tranche ${inProg.toFixed(2)}/50`
+      : '';
+  const fountainBit =
+    typeof fountain === 'string' ? ` · fountain ${fountain}` : '';
+  const message = `Vault · ${b} reserve (v1)${tranche}${fountainBit} · ${status}${preview ? ' · preview' : ''}`;
   return {
     key: 'vault',
     ok: true,

@@ -14,6 +14,7 @@
 
 import { NextResponse } from 'next/server';
 import { loadGIState } from '@/lib/kv/store';
+import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
 import { getVaultStatusPayload } from '@/lib/vault/vault';
 import {
   countAllSeals,
@@ -47,9 +48,33 @@ export async function GET() {
     getCandidate(),
   ]);
 
+  const seal_lane = computeVaultSealLaneSemantics({
+    inProgressBalance: inProgressBalance,
+    sealsCountAttested: sealsCount,
+    giCurrent: gi,
+    giThreshold: v1.gi_threshold,
+    sustainCyclesRequired: v1.sustain_cycles_required,
+    v1Status: v1.status,
+    candidateInFlight: Boolean(candidate),
+  });
+
   const body = {
     ...v1,
     in_progress_balance: inProgressBalance,
+    sealed_reserve_total: seal_lane.sealed_reserve_total,
+    current_tranche_balance: seal_lane.current_tranche_balance,
+    carry_forward_in_tranche: seal_lane.carry_forward_in_tranche,
+    reserve_threshold_met: seal_lane.reserve_threshold_met,
+    gi_threshold_met: seal_lane.gi_threshold_met,
+    sustain_cycles_met: seal_lane.sustain_met,
+    fountain_status: seal_lane.fountain_lane,
+    reserve_lane: seal_lane.reserve_lane,
+    vault_headline: seal_lane.headline,
+    vault_canon: seal_lane.canon,
+    unseal_requirements_remaining: {
+      gi_sustain: !seal_lane.gi_threshold_met || !seal_lane.sustain_met,
+      fountain: seal_lane.fountain_lane !== 'active' && seal_lane.fountain_lane !== 'unsealed',
+    },
     seals_count: sealsCount,
     seals_audit_count: sealsAuditCount,
     latest_seal_id: latestSeal?.seal_id ?? null,
