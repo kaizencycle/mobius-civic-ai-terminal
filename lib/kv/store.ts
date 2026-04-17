@@ -16,9 +16,9 @@
  *   UPSTASH_REDIS_REST_URL   — Upstash REST endpoint (or KV_REST_API_URL from Vercel KV)
  *   UPSTASH_REDIS_REST_TOKEN — Upstash REST auth token (or KV_REST_API_TOKEN)
  *
- * Optional TCP Redis (`REDIS_URL`):
- *   MOBIUS_KV_BACKUP_MIRROR — duplicate successful kvSet / kvSetRawKey to backup
- *   MOBIUS_KV_READ_FALLBACK — when primary GET misses or fails, read same key from backup
+ * Optional secondary Redis (TCP `redis://` or `rediss://`):
+ *   REDIS_URL — classic Redis URL; health-checked via `/api/kv/health` as `backup_redis`
+ *   MOBIUS_KV_BACKUP_MIRROR=true — mirror successful `kvSet` / `kvSetRawKey` writes (off by default)
  *
  * Free tier: 500K commands/month, more than enough for this project.
  *
@@ -27,12 +27,9 @@
 
 import { Redis } from '@upstash/redis';
 import {
-  backupPrefixedGet,
-  backupRawGet,
-  getBackupRedisHealth,
   scheduleBackupMirrorPrefixedKey,
-  scheduleBackupMirrorRawDel,
   scheduleBackupMirrorRawKey,
+  getBackupRedisHealth,
 } from '@/lib/kv/backup-redis';
 
 // ── Redis client (lazy singleton) ────────────────────────────
