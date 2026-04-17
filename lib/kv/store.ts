@@ -82,13 +82,20 @@ function prefixKey(key: string): string {
  */
 export async function kvGet<T>(key: string): Promise<T | null> {
   const redis = getRedis();
-  if (!redis) return null;
+  const fullKey = prefixKey(key);
+
+  if (!redis) {
+    return backupPrefixedGet<T>(key);
+  }
 
   try {
-    const value = await redis.get<T>(prefixKey(key));
-    return value;
+    const value = await redis.get<T>(fullKey);
+    if (value !== null && value !== undefined) return value;
+    return backupPrefixedGet<T>(key);
   } catch (err) {
     console.warn(`[mobius-kv] GET ${key} failed:`, err instanceof Error ? err.message : err);
+    const fb = await backupPrefixedGet<T>(key);
+    if (fb !== null) return fb;
     return null;
   }
 }
@@ -96,11 +103,17 @@ export async function kvGet<T>(key: string): Promise<T | null> {
 /** Read Redis key exactly as given (no `mobius:` prefix). */
 export async function kvGetRaw<T>(rawKey: string): Promise<T | null> {
   const redis = getRedis();
-  if (!redis) return null;
+  if (!redis) {
+    return backupRawGet<T>(rawKey);
+  }
   try {
-    return await redis.get<T>(rawKey);
+    const value = await redis.get<T>(rawKey);
+    if (value !== null && value !== undefined) return value;
+    return backupRawGet<T>(rawKey);
   } catch (err) {
     console.warn(`[mobius-kv] GET raw ${rawKey} failed:`, err instanceof Error ? err.message : err);
+    const fb = await backupRawGet<T>(rawKey);
+    if (fb !== null) return fb;
     return null;
   }
 }
@@ -156,7 +169,9 @@ export async function kvDel(key: string): Promise<boolean> {
   if (!redis) return false;
 
   try {
-    await redis.del(prefixKey(key));
+    const fullKey = prefixKey(key);
+    await redis.del(fullKey);
+    scheduleBackupMirrorRawDel(fullKey);
     return true;
   } catch (err) {
     console.warn(`[mobius-kv] DEL ${key} failed:`, err instanceof Error ? err.message : err);

@@ -5,6 +5,10 @@
 
 import { Redis } from '@upstash/redis';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
+import {
+  backupRawLrange,
+  scheduleBackupMirrorVaultDepositsLpush,
+} from '@/lib/kv/backup-redis';
 import { kvGet, kvSet, loadGIState } from '@/lib/kv/store';
 import { accrueDepositV2 } from '@/lib/vault-v2/deposit';
 
@@ -122,38 +126,33 @@ function parseDepositRow(raw: string | unknown): VaultDeposit | null {
  * `writeVaultDeposit`, capped at DEPOSITS_MAX).
  */
 export async function listVaultDeposits(limit = DEPOSITS_MAX): Promise<VaultDeposit[]> {
-  const redis = getRedis();
-  if (!redis) return [];
-  try {
-    const cap = Math.max(1, Math.min(DEPOSITS_MAX, Math.floor(limit)));
-    const raw = await redis.lrange<string>(DEPOSITS_LIST_KEY, 0, cap - 1);
+  const cap = Math.max(1, Math.min(DEPOSITS_MAX, Math.floor(limit)));
+  const parseRows = (rows: unknown[]): VaultDeposit[] => {
     const out: VaultDeposit[] = [];
-    for (const row of raw) {
+    for (const row of rows) {
       const d = parseDepositRow(row);
       if (d) out.push(d);
     }
     return out;
+  };
+
+  const redis = getRedis();
+  if (!redis) {
+    return parseRows(await backupRawLrange(DEPOSITS_LIST_KEY, 0, cap - 1));
+  }
+  try {
+    const raw = await redis.lrange<string>(DEPOSITS_LIST_KEY, 0, cap - 1);
+    const fromPrimary = parseRows(raw as unknown[]);
+    if (fromPrimary.length > 0) return fromPrimary;
+    return parseRows(await backupRawLrange(DEPOSITS_LIST_KEY, 0, cap - 1));
   } catch {
-    return [];
+    return parseRows(await backupRawLrange(DEPOSITS_LIST_KEY, 0, cap - 1));
   }
 }
 
 export async function getRecentContentSignatures(limit: number): Promise<string[]> {
-  const redis = getRedis();
-  if (!redis) return [];
-  try {
-    const raw = await redis.lrange<string>(DEPOSITS_LIST_KEY, 0, limit - 1);
-    const sigs: string[] = [];
-    for (const row of raw) {
-      const o = parseDepositRow(row);
-      if (o && typeof o.content_signature === 'string') {
-        sigs.push(o.content_signature);
-      }
-    }
-    return sigs;
-  } catch {
-    return [];
-  }
+  const deposits = await listVaultDeposits(Math.max(1, Math.min(DEPOSITS_MAX, limit)));
+  return deposits.map((d) => d.content_signature);
 }
 
 export async function writeVaultDeposit(deposit: VaultDeposit): Promise<void> {
@@ -180,8 +179,10 @@ export async function writeVaultDeposit(deposit: VaultDeposit): Promise<void> {
 
   if (redis) {
     try {
-      await redis.lpush(DEPOSITS_LIST_KEY, JSON.stringify(deposit));
+      const row = JSON.stringify(deposit);
+      await redis.lpush(DEPOSITS_LIST_KEY, row);
       await redis.ltrim(DEPOSITS_LIST_KEY, 0, DEPOSITS_MAX - 1);
+      scheduleBackupMirrorVaultDepositsLpush(DEPOSITS_LIST_KEY, row, DEPOSITS_MAX);
     } catch (err) {
       console.error('[vault] deposit list write failed:', err instanceof Error ? err.message : err);
     }
