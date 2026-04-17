@@ -96,9 +96,17 @@ export function verifySealHash(seal: Seal): boolean {
 // ────────────────────────────────────────────────────────────────
 
 /**
- * HMAC-SHA256(AGENT_SERVICE_TOKEN, seal_hash :: verdict :: rationale).
- * Agents compute this with the shared service token; the server verifies
- * using the same token.
+ * HMAC-SHA256(agent-specific Vault secret, seal_hash :: verdict :: rationale).
+ *
+ * Preferred envs:
+ *   - VAULT_ATLAS_SECRET_TOKEN
+ *   - VAULT_ZEUS_SECRET_TOKEN
+ *   - VAULT_EVE_SECRET_TOKEN
+ *   - VAULT_JADE_SECRET_TOKEN
+ *   - VAULT_AUREA_SECRET_TOKEN
+ *
+ * Legacy fallback (when a per-sentinel secret is unset):
+ *   - AGENT_SERVICE_TOKEN
  */
 export function computeAttestationSignature(args: {
   token: string;

@@ -2,7 +2,8 @@
  * POST /api/vault/seal/attest
  *
  * Agent endpoint. A Sentinel submits its attestation for the current in-flight
- * Seal candidate. Authed with AGENT_SERVICE_TOKEN (bearer).
+ * Seal candidate. Bearer auth uses that sentinel's Vault secret (see
+ * `getVaultAttestationToken`), with legacy fallback to AGENT_SERVICE_TOKEN.
  *
  * Body:
  *   {
@@ -24,6 +25,7 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { bearerMatchesToken, getVaultAttestationToken } from '@/lib/vault-v2/auth';
 import { getCandidate, recordAttestation } from '@/lib/vault-v2/store';
 import { verifyAttestationSignature } from '@/lib/vault-v2/seal';
 import type {
@@ -36,20 +38,6 @@ import type {
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 
 export const dynamic = 'force-dynamic';
-
-const AGENT_TOKEN = process.env.AGENT_SERVICE_TOKEN || '';
-
-function authed(req: NextRequest): boolean {
-  if (!AGENT_TOKEN) return false;
-  const header = req.headers.get('authorization') || '';
-  const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
-  if (bearer.length !== AGENT_TOKEN.length) return false;
-  let diff = 0;
-  for (let i = 0; i < bearer.length; i++) {
-    diff |= bearer.charCodeAt(i) ^ AGENT_TOKEN.charCodeAt(i);
-  }
-  return diff === 0;
-}
 
 function validate(raw: unknown): AttestationSubmission | string {
   if (!raw || typeof raw !== 'object') return 'body must be an object';
@@ -95,10 +83,6 @@ function validate(raw: unknown): AttestationSubmission | string {
 }
 
 export async function POST(req: NextRequest) {
-  if (!authed(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   let body: unknown;
   try {
     body = await req.json();
@@ -109,6 +93,18 @@ export async function POST(req: NextRequest) {
   const submission = validate(body);
   if (typeof submission === 'string') {
     return NextResponse.json({ error: submission }, { status: 400 });
+  }
+
+  const agentToken = getVaultAttestationToken(submission.agent);
+  if (!agentToken) {
+    return NextResponse.json(
+      { error: `No Vault attestation secret configured for ${submission.agent}` },
+      { status: 503 },
+    );
+  }
+
+  if (!bearerMatchesToken(req.headers.get('authorization'), agentToken)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const candidate = await getCandidate();
@@ -131,7 +127,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!verifyAttestationSignature(AGENT_TOKEN, submission, candidate.seal_hash)) {
+  if (!verifyAttestationSignature(agentToken, submission, candidate.seal_hash)) {
     return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
   }
 

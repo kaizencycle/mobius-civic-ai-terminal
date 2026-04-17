@@ -4,7 +4,9 @@
  * These functions are imported by Sentinel agents' own cycle paths. Each
  * agent, on its regular cycle tick, checks for an in-flight Seal candidate
  * and if present, evaluates it against its own tier-specific criteria and
- * submits an attestation via POST /api/vault/seal/attest.
+ * submits an attestation via POST /api/vault/seal/attest. Pass the same
+ * sentinel-specific Vault secret for `token` as used in the request's
+ * `Authorization: Bearer` header (`getVaultAttestationToken(agent)`).
  *
  * This module has no side effects and does not run on a schedule itself.
  * The caller owns the submission step.

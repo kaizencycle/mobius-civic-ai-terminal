@@ -131,7 +131,7 @@ SealAttestation {
   mii_at_attestation: number
   gi_at_attestation: number
   timestamp: string
-  signature: string            # HMAC-SHA256(AGENT_SERVICE_TOKEN, seal_hash + verdict + rationale)
+  signature: string            # HMAC-SHA256(VAULT_<AGENT>_SECRET_TOKEN or legacy AGENT_SERVICE_TOKEN, seal_hash + verdict + rationale)
 }
 ```
 
