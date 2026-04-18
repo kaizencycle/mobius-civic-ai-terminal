@@ -64,6 +64,11 @@ export async function GET(req: NextRequest) {
     } else {
       prev.total_reserve_contributed = Number((prev.total_reserve_contributed + amt).toFixed(6));
       prev.deposit_count += 1;
+      // Deposits are newest-first; first row seen per agent is the latest deposit.
+      if (!prev.last_deposit_at || d.timestamp > prev.last_deposit_at) {
+        prev.last_deposit_at = d.timestamp;
+        prev.last_journal_id = d.journal_id;
+      }
     }
   }
 
