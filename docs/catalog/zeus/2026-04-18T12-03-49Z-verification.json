@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-04-18T12:03:49.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-285",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {},
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat latest (2026-04-18T12-02-38Z)",
+      "result": "pass",
+      "detail": "Extracted gi=0.75, mode=yellow, source=live, anomalies=[], kv_keys all true, seed_result=200 OK, seed_attempted=true."
+    },
+    {
+      "check": "/api/integrity-status independent read",
+      "result": "warn",
+      "detail": "global_integrity=0.75, mode=yellow, source=kv (not mock), degraded=true, terminal_status=stressed, primary_driver=Moderate signal degradation; freshness=0.3, information=0.3 — matches latest ATLAS gi=0.75."
+    },
+    {
+      "check": "/api/signals/micro vs ATLAS anomalies=[]",
+      "result": "pass",
+      "detail": "No named ATLAS anomalies to diff; live composite shows 7 unhealthy micro agents (no signal/errors) and 3 watch-severity signals (WB GDP stale-year context, GDELT 0 articles 24h, Reddit 0 posts)—persistent degradation pattern, not a single transient spike."
+    },
+    {
+      "check": "/api/epicon/candidates pending-verification",
+      "result": "pass",
+      "detail": "count=0; no candidates, verification skipped (no verify/publish POSTs)."
+    },
+    {
+      "check": "/api/agents/journal ZEUS entry",
+      "result": "pass",
+      "detail": "POST returned 200 with duplicate token (idempotent replay for same cycle/sources)."
+    }
+  ],
+  "recommendation": "Yellow/stressed is consistent with KV-backed GI and weak freshness/information buckets plus several dead micro lanes; operator should triage recurring no-signal micro agents and watch-tier feeds. Re-run after feed or lane fixes."
+}
