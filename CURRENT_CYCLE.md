@@ -45,6 +45,7 @@ C-285 begins in a **stressed but functioning** state. EVE has issued **critical 
 |------|-------|--------|
 | Terminal / snapshot | live | `GET /api/terminal/snapshot-lite` — cycle from pulse / ECHO / tripwire / calendar |
 | Vault v2 | live | Seal council path; `GET /api/vault/status` exposes tranche vs Fountain semantics |
+| Vault v3 (spec) | draft | North-star: [`docs/protocols/vault-v3-setup.md`](docs/protocols/vault-v3-setup.md) — sustain, events, archive; reconcile with v2 before building |
 | KV / backup | optional | `REDIS_URL` + handbook CORS for public docs |
 
 ---
