@@ -13,7 +13,7 @@
     {
       "check": "ATLAS heartbeat vs /api/integrity-status GI and mode",
       "result": "pass",
-      "detail": "Heartbeat C-285 reports gi=0.75 mode=yellow source=live; integrity-status at verification time reports global_integrity=0.75 mode=yellow source=kv (not mock)."
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-04-18T18-03-10Z-atlas.json (C-285) reports gi=0.75 mode=yellow source=live; integrity-status at verification time reports global_integrity=0.75 mode=yellow source=kv (not mock)."
     },
     {
       "check": "KV / seed health (mock seed failure flag)",
