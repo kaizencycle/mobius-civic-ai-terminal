@@ -32,6 +32,7 @@ Seal completed **50.00** reserve-unit tranches into immutable Vault v2 seal hist
 
 - Seal records and hashing: see `docs/protocols/vault-v2-sealed-reserve.md`.
 - Operator-facing lane labels: `GET /api/vault/status` exposes `vault_headline`, `fountain_status`, `reserve_lane`, `sealed_reserve_total`, etc.
+- Seal `cycle_at_seal` / vault cron: `resolveOperatorCycleId()` prefers ECHO/tripwire KV, else `currentCycleId()` (no stale hardcoded cycle).
 
 ---
 

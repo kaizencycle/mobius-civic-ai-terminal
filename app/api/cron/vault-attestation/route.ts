@@ -26,7 +26,7 @@ import type { Seal } from '@/lib/vault-v2/types';
 import { countAllSeals, countSeals, getCandidate, listSeals } from '@/lib/vault-v2/store';
 import { evaluateQuorum, finalizeSeal, injectTimeouts } from '@/lib/vault-v2/seal';
 import { tryFormNextCandidate } from '@/lib/vault-v2/deposit';
-import { loadEchoState, loadTripwireState } from '@/lib/kv/store';
+import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +42,8 @@ type Report = {
   ok: boolean;
   at: string;
   duration_ms: number;
+  /** Cycle id passed to seal candidate formation (ECHO / tripwire / engine). */
+  cycle_used: string;
   candidate_state: CandidateState;
   candidate_seal_id: string | null;
   attestations_received: number;
@@ -65,16 +67,12 @@ export async function GET(req: NextRequest) {
   const started = Date.now();
   const errors: string[] = [];
 
-  let currentCycle = 'C-284';
+  let currentCycle: string;
   try {
-    const [echo, trip] = await Promise.all([loadEchoState(), loadTripwireState()]);
-    if (echo?.cycleId) {
-      currentCycle = echo.cycleId;
-    } else if (trip?.cycleId) {
-      currentCycle = trip.cycleId;
-    }
+    currentCycle = await resolveOperatorCycleId();
   } catch (e) {
     errors.push(`cycle load failed: ${e instanceof Error ? e.message : String(e)}`);
+    currentCycle = 'C-284';
   }
 
   let candidate_state: CandidateState = 'none';
@@ -175,6 +173,7 @@ export async function GET(req: NextRequest) {
     ok: errors.length === 0,
     at: new Date().toISOString(),
     duration_ms: Date.now() - started,
+    cycle_used: currentCycle,
     candidate_state,
     candidate_seal_id,
     attestations_received,

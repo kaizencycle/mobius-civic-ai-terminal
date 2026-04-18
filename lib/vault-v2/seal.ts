@@ -28,7 +28,7 @@ import type {
   Verdict,
 } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
-import { VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
+import { VAULT_QUORUM_MIN_PASSES, VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
 
 const ATTESTATION_TIMEOUT_MS = 5 * 60 * 1000; // 5 min per spec §6
 
@@ -275,11 +275,12 @@ export function evaluateQuorum(candidate: SealCandidate): QuorumResult {
       reasons: nonZeusRejects.map((r) => `${r} rejected`),
     };
   }
-
-  if (passes < 4) {
+  if (passes < VAULT_QUORUM_MIN_PASSES) {
     return {
       decision: 'quarantined',
-      reasons: [`only ${passes}/5 passes — quorum requires 4`],
+      reasons: [
+        `only ${passes}/${SENTINEL_AGENTS.length} passes — quorum requires ${VAULT_QUORUM_MIN_PASSES}`,
+      ],
     };
   }
 

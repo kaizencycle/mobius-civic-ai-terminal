@@ -60,7 +60,11 @@ export async function GET(req: NextRequest) {
     kvGet<SystemPulse>(KV_KEYS.SYSTEM_PULSE),
   ]);
 
-  const cycle = pulse?.cycle ?? gi?.mode ? currentCycleId() : currentCycleId();
+  const cycle =
+    (typeof pulse?.cycle === 'string' && pulse.cycle.trim().length > 0 ? pulse.cycle.trim() : null) ??
+    echo?.cycleId?.trim() ??
+    tripwire?.cycleId?.trim() ??
+    currentCycleId();
   const giAge = age(gi?.timestamp);
   const signalAge = age(signals?.timestamp);
   const echoAge = age(echo?.timestamp);
@@ -133,6 +137,14 @@ export async function GET(req: NextRequest) {
     meta: {
       total_ms: Date.now() - start,
       kv_available: isRedisAvailable(),
+      cycle_source:
+        typeof pulse?.cycle === 'string' && pulse.cycle.trim().length > 0
+          ? 'pulse'
+          : echo?.cycleId?.trim()
+            ? 'echo'
+            : tripwire?.cycleId?.trim()
+              ? 'tripwire'
+              : 'calendar',
     },
   }, {
     headers: {

@@ -74,11 +74,10 @@ export async function accrueDepositV2(args: {
   cycle: string;
   agent_entry?: AgentJournalEntry;
 }): Promise<AccrualResult> {
-  const prev = await getInProgressBalance();
+  const [prev, hashes] = await Promise.all([getInProgressBalance(), readInProgressHashes()]);
   const next = Number((prev + args.deposit_amount).toFixed(6));
 
   // Track the content signature for inclusion in the Seal.
-  const hashes = await readInProgressHashes();
   if (!hashes.includes(args.content_signature)) {
     hashes.push(args.content_signature);
     await writeInProgressHashes(hashes);
