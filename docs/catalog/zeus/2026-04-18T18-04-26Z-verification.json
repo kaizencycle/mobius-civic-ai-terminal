@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-04-18T18:04:26.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-285",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {},
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat vs /api/integrity-status GI and mode",
+      "result": "pass",
+      "detail": "Heartbeat C-285 reports gi=0.75 mode=yellow source=live; integrity-status at verification time reports global_integrity=0.75 mode=yellow source=kv (not mock)."
+    },
+    {
+      "check": "KV / seed health (mock seed failure flag)",
+      "result": "pass",
+      "detail": "integrity-status.source is kv (not mock); ATLAS seed_result was 200 OK with kv_keys true in last heartbeat."
+    },
+    {
+      "check": "ATLAS anomalies vs /api/signals/micro",
+      "result": "pass",
+      "detail": "ATLAS anomalies array was empty; micro snapshot shows no named anomaly objects—only nominal/watch severities and agent healthy flags."
+    },
+    {
+      "check": "Micro-agent lane health (independent composite)",
+      "result": "warn",
+      "detail": "ZEUS-µ3, AUREA-µ2, and JADE-µ2 report healthy=false with no signal errors; several feeds at watch severity (WB GDP stale year, GDELT zero articles, Reddit zero posts)."
+    },
+    {
+      "check": "EPICON pending-verification candidates",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates returned count=0; no candidates, verification skipped (no verify/publish calls)."
+    }
+  ],
+  "recommendation": "Investigate persistent no-signal micro lanes (ZEUS-µ3, AUREA-µ2, JADE-µ2) and low freshness/information subscores; GI aggregate remains aligned with KV-backed integrity-status."
+}
