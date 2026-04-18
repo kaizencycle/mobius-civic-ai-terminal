@@ -26,6 +26,7 @@ import type { Seal } from '@/lib/vault-v2/types';
 import { countAllSeals, countSeals, getCandidate, listSeals } from '@/lib/vault-v2/store';
 import { evaluateQuorum, finalizeSeal, injectTimeouts } from '@/lib/vault-v2/seal';
 import { tryFormNextCandidate } from '@/lib/vault-v2/deposit';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 
 export const dynamic = 'force-dynamic';
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
     currentCycle = await resolveOperatorCycleId();
   } catch (e) {
     errors.push(`cycle load failed: ${e instanceof Error ? e.message : String(e)}`);
-    currentCycle = 'C-284';
+    currentCycle = currentCycleId();
   }
 
   let candidate_state: CandidateState = 'none';
