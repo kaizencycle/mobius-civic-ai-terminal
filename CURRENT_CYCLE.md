@@ -89,6 +89,12 @@ C-285 begins in a **stressed but functioning** state. EVE has issued **critical 
 
 ---
 
+## Profession lens (C-285 bundle)
+
+Multi-audience legibility matrix and phased PR bundle: [`docs/protocols/c-285-profession-lens-matrix.md`](docs/protocols/c-285-profession-lens-matrix.md). Pulse chamber implements Phase 1 slices (system story, why-this-matters, freshness language, provenance badges, VERIFY rollup).
+
+---
+
 ## PR CHECKLIST REFERENCE
 
 1. Read `AGENTS.md`, `BUILD.md`, and this file.  
