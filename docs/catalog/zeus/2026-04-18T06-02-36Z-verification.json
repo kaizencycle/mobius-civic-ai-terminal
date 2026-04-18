@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-04-18T06:02:36.868Z",
+  "agent": "ZEUS",
+  "cycle": "C-285",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {},
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat vs live integrity-status",
+      "result": "pass",
+      "detail": "Heartbeat C-285 (2026-04-18T05:03:51Z): GI 0.75, yellow, source live, anomalies []. Live /api/integrity-status: GI 0.79, yellow, degraded=true, source kv (not mock). Directionally aligned; delta consistent with time drift and composite refresh."
+    },
+    {
+      "check": "signals/micro vs ATLAS anomalies",
+      "result": "warn",
+      "detail": "ATLAS reported no anomalies; live micro shows three unhealthy agents (ZEUS-µ3, AUREA-µ2, JADE-µ2: no signal) and watch-tier signals (WB GDP staleness, GDELT 0 articles 24h, Reddit 0 posts). Treat as persistent micro-lane stress, not ATLAS-flagged items."
+    },
+    {
+      "check": "EPICON pending-verification",
+      "result": "pass",
+      "detail": "/api/epicon/candidates returned count 0; no candidates, verification skipped; no publish path invoked."
+    },
+    {
+      "check": "Agent journal write",
+      "result": "pass",
+      "detail": "POST /api/agents/journal returned 200 ok, entryId journal-ZEUS-C-285-7l4lsx."
+    }
+  ],
+  "recommendation": "Triage no-signal micro agents (ZEUS-µ3, AUREA-µ2, JADE-µ2) and watch feeds (GDELT, Reddit, WB staleness); GI remains KV-backed live state—no mock seed failure."
+}
