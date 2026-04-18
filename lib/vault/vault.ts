@@ -1,6 +1,10 @@
 /**
  * Vault v1 — reserve accrual from agent journals (no Fountain activation yet).
  * Reserve units are not spendable MIC; they accumulate until a future protocol phase.
+ *
+ * Vault v2 accrual runs from `writeVaultDeposit(..., { v2Accrual })` so any path that
+ * persists a v1 deposit also updates `vault:in_progress_balance` / seal candidates.
+ * `recordVaultDepositsForCouncil` passes `v2Accrual` automatically.
  */
 
 import { Redis } from '@upstash/redis';
@@ -22,6 +26,14 @@ const ACTIVATION_THRESHOLD = 50;
 const GI_THRESHOLD = 0.95;
 const SUSTAIN_CYCLES_REQUIRED = 5;
 const PREVIEW_GI = 0.88;
+
+/** When set, `writeVaultDeposit` runs Vault v2 `accrueDepositV2` after v1 persists (single hook for all deposit paths). */
+export type WriteVaultDepositOptions = {
+  v2Accrual?: {
+    cycle: string;
+    agent_entry?: AgentJournalEntry;
+  };
+};
 
 export type VaultDeposit = {
   event_type: 'vault_deposit';
@@ -155,7 +167,10 @@ export async function getRecentContentSignatures(limit: number): Promise<string[
   return deposits.map((d) => d.content_signature);
 }
 
-export async function writeVaultDeposit(deposit: VaultDeposit): Promise<void> {
+export async function writeVaultDeposit(
+  deposit: VaultDeposit,
+  opts?: WriteVaultDepositOptions,
+): Promise<void> {
   const redis = getRedis();
   const prevBalance = (await kvGet<number>(BALANCE_KEY)) ?? 0;
   const nextBalance = Number((prevBalance + deposit.deposit_amount).toFixed(6));
@@ -185,6 +200,32 @@ export async function writeVaultDeposit(deposit: VaultDeposit): Promise<void> {
       scheduleBackupMirrorVaultDepositsLpush(DEPOSITS_LIST_KEY, row, DEPOSITS_MAX);
     } catch (err) {
       console.error('[vault] deposit list write failed:', err instanceof Error ? err.message : err);
+    }
+  }
+
+  const v2 = opts?.v2Accrual;
+  if (v2) {
+    try {
+      const r = await accrueDepositV2({
+        deposit_amount: deposit.deposit_amount,
+        content_signature: deposit.content_signature,
+        cycle: v2.cycle,
+        agent_entry: v2.agent_entry,
+      });
+      console.info('[vault-v2] accrue after v1 write', {
+        journal_id: deposit.journal_id,
+        agent: deposit.agent,
+        deposit_amount: deposit.deposit_amount,
+        balance_after: r.balance_after,
+        candidate_formed: Boolean(r.candidate_formed),
+        candidate_deferred: r.candidate_deferred,
+        overflow: r.overflow,
+      });
+    } catch (err) {
+      console.warn(
+        '[vault-v2] accrueDepositV2 failed (non-fatal):',
+        err instanceof Error ? err.message : err,
+      );
     }
   }
 }
@@ -265,23 +306,12 @@ export async function recordVaultDepositsForCouncil(
         status: 'sealed',
         content_signature: sig,
       };
-      await writeVaultDeposit(deposit);
-
-      // Vault v2 — accrue to in_progress_balance and possibly form a Seal
-      // candidate. Non-fatal: failures here must never break v1 accrual.
-      try {
-        await accrueDepositV2({
-          deposit_amount: amount,
-          content_signature: sig,
+      await writeVaultDeposit(deposit, {
+        v2Accrual: {
           cycle: entry.cycle ?? 'C-?',
           agent_entry: entry,
-        });
-      } catch (err) {
-        console.warn(
-          '[vault-v2] accrueDepositV2 failed (non-fatal):',
-          err instanceof Error ? err.message : err,
-        );
-      }
+        },
+      });
 
       deposited += 1;
     } catch {
