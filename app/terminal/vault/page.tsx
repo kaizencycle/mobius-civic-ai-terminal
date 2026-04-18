@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 type VaultPayload = {
   ok?: boolean;
@@ -32,9 +33,36 @@ type VaultPayload = {
   timestamp?: string;
 };
 
+type ContributionAgentRow = {
+  agent: string;
+  total_reserve_contributed: number;
+  deposit_count: number;
+  avg_deposit_per_entry: number;
+};
+
+type ContributionsPayload = {
+  ok?: boolean;
+  group_by?: string;
+  cycle_filter?: string | null;
+  rows_scanned?: number;
+  total_reserve_contributed?: number;
+  agents?: ContributionAgentRow[];
+  aggregates?: {
+    avg_journal_score?: number | null;
+    avg_gi_weight_factor?: number | null;
+    avg_novelty_factor?: number | null;
+    avg_duplication_decay?: number | null;
+    deposits_after_first_signature_repeat?: number;
+    duplication_note?: string;
+  };
+};
+
 export default function VaultPage() {
   const [data, setData] = useState<VaultPayload | null>(null);
+  const [contrib, setContrib] = useState<ContributionsPayload | null>(null);
+  const [contribErr, setContribErr] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const focusCycle = currentCycleId();
 
   useEffect(() => {
     void fetch('/api/vault/status', { cache: 'no-store' })
@@ -42,6 +70,29 @@ export default function VaultPage() {
       .then((j: VaultPayload) => setData(j))
       .catch(() => setErr('Unable to load vault status'));
   }, []);
+
+  useEffect(() => {
+    const q = new URLSearchParams({
+      group_by: 'agent',
+      cycle: focusCycle,
+      limit: '200',
+    });
+    void fetch(`/api/vault/contributions?${q.toString()}`, { cache: 'no-store' })
+      .then(async (r) => {
+        const j = (await r.json()) as ContributionsPayload & { error?: string };
+        if (!r.ok) {
+          setContribErr(j.error ?? `HTTP ${r.status}`);
+          setContrib(null);
+          return;
+        }
+        setContribErr(null);
+        setContrib(j);
+      })
+      .catch(() => {
+        setContribErr('Unable to load contributions');
+        setContrib(null);
+      });
+  }, [focusCycle]);
 
   if (err) {
     return <div className="p-4 text-sm text-rose-300">{err}</div>;
@@ -184,6 +235,79 @@ export default function VaultPage() {
             </div>
           );
         })()}
+      </div>
+
+      <div className="mt-4 rounded border border-cyan-900/40 bg-slate-950/70 p-4 font-mono text-xs">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] uppercase tracking-[0.18em] text-cyan-300/85">
+          <span>Contributions · {focusCycle}</span>
+          <span className="text-[10px] font-normal normal-case tracking-normal text-slate-500">
+            GET /api/vault/contributions?group_by=agent&amp;cycle=
+            {focusCycle}
+          </span>
+        </div>
+        {contribErr ? (
+          <p className="text-[11px] text-amber-200/90">{contribErr}</p>
+        ) : !contrib?.ok ? (
+          <p className="text-slate-500">Loading contributions…</p>
+        ) : (
+          <>
+            <div className="mb-3 grid gap-2 text-[10px] text-slate-400 sm:grid-cols-2">
+              <div>
+                Reserve in window:{' '}
+                <span className="text-cyan-100">{(contrib.total_reserve_contributed ?? 0).toFixed(4)}</span> · rows{' '}
+                {contrib.rows_scanned ?? 0}
+              </div>
+              {contrib.aggregates ? (
+                <div className="space-y-0.5">
+                  <div>
+                    Avg journal_score:{' '}
+                    {contrib.aggregates.avg_journal_score != null
+                      ? contrib.aggregates.avg_journal_score.toFixed(3)
+                      : '—'}
+                    {' · '}Avg Wg (dep/J):{' '}
+                    {contrib.aggregates.avg_gi_weight_factor != null
+                      ? contrib.aggregates.avg_gi_weight_factor.toFixed(3)
+                      : '—'}
+                  </div>
+                  <div>
+                    Replay N / D:{' '}
+                    {contrib.aggregates.avg_novelty_factor != null
+                      ? contrib.aggregates.avg_novelty_factor.toFixed(3)
+                      : '—'}{' '}
+                    /{' '}
+                    {contrib.aggregates.avg_duplication_decay != null
+                      ? contrib.aggregates.avg_duplication_decay.toFixed(3)
+                      : '—'}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            {contrib.aggregates?.duplication_note ? (
+              <p className="mb-3 text-[10px] leading-relaxed text-slate-500">{contrib.aggregates.duplication_note}</p>
+            ) : null}
+            <div className="text-[10px] uppercase tracking-wide text-slate-500">Top agents (this cycle)</div>
+            <ul className="mt-1 space-y-1.5">
+              {(contrib.agents ?? []).slice(0, 8).map((a) => (
+                <li
+                  key={a.agent}
+                  className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-800/80 py-1 last:border-0"
+                >
+                  <span className="text-slate-300">{a.agent}</span>
+                  <span className="text-right text-slate-400">
+                    <span className="text-cyan-100">{a.total_reserve_contributed.toFixed(4)}</span>
+                    <span className="text-slate-600"> · </span>
+                    {a.deposit_count} dep
+                    <span className="text-slate-600"> · avg </span>
+                    {a.avg_deposit_per_entry.toFixed(4)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {(contrib.agents ?? []).length === 0 ? (
+              <p className="mt-2 text-[10px] text-slate-600">No deposits parsed for this cycle in the current window.</p>
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   );
