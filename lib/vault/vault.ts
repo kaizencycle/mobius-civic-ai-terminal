@@ -15,6 +15,7 @@ import {
 } from '@/lib/kv/backup-redis';
 import { kvGet, kvSet, loadGIState } from '@/lib/kv/store';
 import { accrueDepositV2 } from '@/lib/vault-v2/deposit';
+import { hashPayload } from '@/lib/mic/hash';
 
 const BALANCE_KEY = 'vault:global:balance';
 const META_KEY = 'vault:global:meta';
@@ -47,6 +48,10 @@ export type VaultDeposit = {
   status: 'sealed';
   /** Normalized text fingerprint for v1 duplication decay (not spendable MIC). */
   content_signature: string;
+  /** SHA-256 over canonical deposit fields (Seal chain / audit). Pre-C-285 rows omit. */
+  deposit_hash?: string;
+  /** When deposit_hash was computed. */
+  hashed_at?: string;
 };
 
 export type VaultState = {
@@ -133,6 +138,22 @@ function parseDepositRow(raw: string | unknown): VaultDeposit | null {
   }
 }
 
+/** Canonical payload for `deposit_hash` (stable key order via hashPayload). */
+export function computeVaultDepositHash(input: {
+  event_type: 'vault_deposit';
+  journal_id: string;
+  vault_id: 'vault-global';
+  agent: string;
+  deposit_amount: number;
+  journal_score: number;
+  gi_at_deposit: number;
+  timestamp: string;
+  status: 'sealed';
+  content_signature: string;
+}): string {
+  return hashPayload(input);
+}
+
 /**
  * Newest-first raw deposit rows from `vault:deposits` (same list as LPUSH in
  * `writeVaultDeposit`, capped at DEPOSITS_MAX).
@@ -167,13 +188,57 @@ export async function getRecentContentSignatures(limit: number): Promise<string[
   return deposits.map((d) => d.content_signature);
 }
 
+/** Scan newest-first deposit list for `deposit_hash` presence (C-285 proof coverage). */
+export async function getVaultDepositHashCoverage(limit = DEPOSITS_MAX): Promise<{
+  hashed_deposits_count: number;
+  legacy_deposits_count: number;
+  rows_scanned: number;
+  hash_coverage_pct: number;
+}> {
+  const deposits = await listVaultDeposits(Math.max(1, Math.min(DEPOSITS_MAX, limit)));
+  let hashed = 0;
+  let legacy = 0;
+  for (const d of deposits) {
+    if (typeof d.deposit_hash === 'string' && d.deposit_hash.length > 0) hashed += 1;
+    else legacy += 1;
+  }
+  const total = deposits.length;
+  const pct = total > 0 ? Number(((100 * hashed) / total).toFixed(2)) : 100;
+  return {
+    hashed_deposits_count: hashed,
+    legacy_deposits_count: legacy,
+    rows_scanned: total,
+    hash_coverage_pct: pct,
+  };
+}
+
 export async function writeVaultDeposit(
   deposit: VaultDeposit,
   opts?: WriteVaultDepositOptions,
 ): Promise<void> {
+  const hashedAt = new Date().toISOString();
+  const baseForHash = {
+    event_type: 'vault_deposit' as const,
+    journal_id: deposit.journal_id,
+    vault_id: deposit.vault_id,
+    agent: deposit.agent,
+    deposit_amount: deposit.deposit_amount,
+    journal_score: deposit.journal_score,
+    gi_at_deposit: deposit.gi_at_deposit,
+    timestamp: deposit.timestamp,
+    status: deposit.status,
+    content_signature: deposit.content_signature,
+  };
+  const deposit_hash = deposit.deposit_hash ?? computeVaultDepositHash(baseForHash);
+  const rowDeposit: VaultDeposit = {
+    ...deposit,
+    deposit_hash,
+    hashed_at: deposit.hashed_at ?? hashedAt,
+  };
+
   const redis = getRedis();
   const prevBalance = (await kvGet<number>(BALANCE_KEY)) ?? 0;
-  const nextBalance = Number((prevBalance + deposit.deposit_amount).toFixed(6));
+  const nextBalance = Number((prevBalance + rowDeposit.deposit_amount).toFixed(6));
 
   await kvSet(BALANCE_KEY, nextBalance);
 
@@ -187,14 +252,14 @@ export async function writeVaultDeposit(
     gi_threshold: GI_THRESHOLD,
     sustain_cycles_required: SUSTAIN_CYCLES_REQUIRED,
     source_entries: sourceEntries,
-    last_deposit: deposit.timestamp,
+    last_deposit: rowDeposit.timestamp,
     updated_at: now,
   };
   await kvSet(META_KEY, meta);
 
   if (redis) {
     try {
-      const row = JSON.stringify(deposit);
+      const row = JSON.stringify(rowDeposit);
       await redis.lpush(DEPOSITS_LIST_KEY, row);
       await redis.ltrim(DEPOSITS_LIST_KEY, 0, DEPOSITS_MAX - 1);
       scheduleBackupMirrorVaultDepositsLpush(DEPOSITS_LIST_KEY, row, DEPOSITS_MAX);
@@ -207,15 +272,15 @@ export async function writeVaultDeposit(
   if (v2) {
     try {
       const r = await accrueDepositV2({
-        deposit_amount: deposit.deposit_amount,
-        content_signature: deposit.content_signature,
+        deposit_amount: rowDeposit.deposit_amount,
+        content_signature: rowDeposit.content_signature,
         cycle: v2.cycle,
         agent_entry: v2.agent_entry,
       });
       console.info('[vault-v2] accrue after v1 write', {
-        journal_id: deposit.journal_id,
-        agent: deposit.agent,
-        deposit_amount: deposit.deposit_amount,
+        journal_id: rowDeposit.journal_id,
+        agent: rowDeposit.agent,
+        deposit_amount: rowDeposit.deposit_amount,
         balance_after: r.balance_after,
         candidate_formed: Boolean(r.candidate_formed),
         candidate_deferred: r.candidate_deferred,

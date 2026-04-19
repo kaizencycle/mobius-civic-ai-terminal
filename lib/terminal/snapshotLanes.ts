@@ -16,7 +16,8 @@ export type SnapshotLaneKey =
   | 'promotion'
   | 'eve'
   | 'mii'
-  | 'vault';
+  | 'vault'
+  | 'micReadiness';
 
 export type SnapshotLaneSemanticState = 'healthy' | 'degraded' | 'offline' | 'stale' | 'empty' | 'promotable';
 
@@ -57,6 +58,7 @@ export const SNAPSHOT_LANE_KEYS: readonly SnapshotLaneKey[] = [
   'eve',
   'mii',
   'vault',
+  'micReadiness',
 ] as const;
 
 function asRecord(data: unknown): Record<string, unknown> | null {
@@ -141,6 +143,8 @@ export function extractLaneLastUpdated(key: SnapshotLaneKey, data: unknown): str
       return pick('timestamp');
     case 'vault':
       return pick('timestamp', 'last_deposit');
+    case 'micReadiness':
+      return pick('updatedAt', 'timestamp');
     default:
       return null;
   }
@@ -673,6 +677,44 @@ function normalizeEveLane(leaf: SnapshotLeaf): SnapshotLaneState {
   };
 }
 
+function normalizeMicReadinessLane(leaf: SnapshotLeaf): SnapshotLaneState {
+  const lastUpdated = extractLaneLastUpdated('micReadiness', leaf.data);
+  if (!leaf.ok) {
+    const { state, message } = classifyHttpFailure(leaf.status, leaf.error);
+    return {
+      key: 'micReadiness',
+      ok: false,
+      state,
+      statusCode: leaf.status,
+      message,
+      lastUpdated,
+      fallbackMode: 'offline',
+    };
+  }
+  const row = asRecord(leaf.data);
+  const gi = typeof row?.gi === 'number' && Number.isFinite(row.gi) ? row.gi : null;
+  const mint = typeof row?.mintReadiness === 'string' ? row.mintReadiness : '—';
+  const reserve =
+    row?.reserve && typeof row.reserve === 'object'
+      ? (row.reserve as Record<string, unknown>).inProgressBalance
+      : null;
+  const r =
+    typeof reserve === 'number' && Number.isFinite(reserve) ? (reserve as number).toFixed(2) : '—';
+  const msg =
+    gi !== null
+      ? `MIC readiness: GI ${gi.toFixed(2)} · reserve ${r} · mint ${mint}`
+      : `MIC readiness: reserve ${r} · mint ${mint}`;
+  return {
+    key: 'micReadiness',
+    ok: true,
+    state: 'healthy',
+    statusCode: leaf.status,
+    message: msg,
+    lastUpdated,
+    fallbackMode: 'live',
+  };
+}
+
 function normalizeVaultLane(leaf: SnapshotLeaf): SnapshotLaneState {
   const lastUpdated = extractLaneLastUpdated('vault', leaf.data);
   if (!leaf.ok) {
@@ -781,6 +823,8 @@ export function normalizeSnapshotLane(key: SnapshotLaneKey, leaf: SnapshotLeaf):
       return normalizeMiiLane(leaf);
     case 'vault':
       return normalizeVaultLane(leaf);
+    case 'micReadiness':
+      return normalizeMicReadinessLane(leaf);
     default:
       return {
         key,

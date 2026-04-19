@@ -1,7 +1,19 @@
 import { NextResponse } from 'next/server';
 import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
+import { getEchoIntegrity } from '@/lib/echo/store';
 
 export const dynamic = 'force-dynamic';
+
+function echoMicProvisional(): { totalMicProvisional: number; totalMicMinted: number } {
+  const i = getEchoIntegrity();
+  const v =
+    i && typeof i.totalMicProvisional === 'number'
+      ? i.totalMicProvisional
+      : i && typeof i.totalMicMinted === 'number'
+        ? i.totalMicMinted
+        : 0;
+  return { totalMicProvisional: v, totalMicMinted: v };
+}
 
 function buildAuthority(payload: Awaited<ReturnType<typeof computeIntegrityPayload>>, renderEnabled: boolean, renderUsed: boolean) {
   const signalAuthority =
@@ -36,10 +48,12 @@ export async function GET() {
   const renderGicUrl = process.env.RENDER_GIC_URL;
 
   if (!renderGicUrl) {
+    const mic = echoMicProvisional();
     return NextResponse.json({
       ok: true as const,
       degraded: true,
       ...payload,
+      ...mic,
       authority: buildAuthority(payload, false, false),
     });
   }
@@ -61,10 +75,12 @@ export async function GET() {
 
     if (!response.ok) {
       console.error(`[render:gic] ${response.status} ${response.statusText}`);
+      const mic = echoMicProvisional();
       return NextResponse.json({
         ok: true as const,
         degraded: true,
         ...payload,
+        ...mic,
         authority: buildAuthority(payload, true, false),
       });
     }
@@ -83,9 +99,11 @@ export async function GET() {
           ? remote.gi
           : payload.global_integrity;
 
+    const mic = echoMicProvisional();
     return NextResponse.json({
       ok: true as const,
       ...payload,
+      ...mic,
       global_integrity: computedGi,
       mode: remote.mode ?? payload.mode,
       summary: remote.summary ?? payload.summary,
@@ -95,10 +113,12 @@ export async function GET() {
     });
   } catch (error) {
     console.error('[render:gic] request failed', error);
+    const mic = echoMicProvisional();
     return NextResponse.json({
       ok: true as const,
       degraded: true,
       ...payload,
+      ...mic,
       authority: buildAuthority(payload, true, false),
     });
   }

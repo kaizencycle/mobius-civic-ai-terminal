@@ -277,11 +277,12 @@ export function useTerminalData(selectedNav: NavKey, initialData?: TerminalBoots
 
   useEffect(() => {
     if (!echoIntegrity) return;
-    if (echoIntegrity.totalMicMinted <= 0) return;
+    const micProv = echoIntegrity.totalMicProvisional ?? echoIntegrity.totalMicMinted;
+    if (micProv <= 0) return;
     if (lastMintedCycleRef.current === echoIntegrity.cycleId) return;
 
     lastMintedCycleRef.current = echoIntegrity.cycleId;
-    earnMIC('echo_integrity_mint', echoIntegrity.totalMicMinted, {
+    earnMIC('echo_integrity_mint', micProv, {
       cycleId: echoIntegrity.cycleId,
       avgMii: echoIntegrity.avgMii,
       eventCount: echoIntegrity.eventCount,
