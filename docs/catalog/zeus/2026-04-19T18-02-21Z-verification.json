@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-04-19T18:02:21.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-286",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {},
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat (latest catalog file) vs live integrity-status GI",
+      "result": "warn",
+      "detail": "Heartbeat file 2026-04-19T17-02-18Z-atlas.json reports gi=0.73 mode=yellow; live /api/integrity-status at run reports global_integrity=0.9 mode=green (both source=live). Headline GI is not single-sourced across artifacts."
+    },
+    {
+      "check": "/api/signals/micro independent poll",
+      "result": "warn",
+      "detail": "KV-backed poll ok; multiple agents unhealthy (fetch failures: ZEUS-µ3 CoinCap, HERMES-µ2, AUREA-µ2 data.gov HTTP 404, JADE-µ1/µ2). Watch-severity quiet contexts on HERMES-µ3 GDELT and HERMES-µ4 Reddit (httpOk false). ATLAS heartbeat anomalies array was empty—micro lane still shows strain."
+    },
+    {
+      "check": "integrity-status source mock flag",
+      "result": "pass",
+      "detail": "source=live; KV true; not mock seed failure."
+    },
+    {
+      "check": "EPICON pending-verification candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped (count 0)."
+    },
+    {
+      "check": "ZEUS journal POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200; duplicate token acknowledged (idempotent write path)."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS heartbeat GI/mode with live integrity ribbon compute for C-286; track upstream micro fetch failures as recurring operational noise; continue monitoring KV substrate keys that remain unset in heartbeat snapshot."
+}
