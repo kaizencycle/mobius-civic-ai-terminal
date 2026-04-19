@@ -6,7 +6,7 @@
   "integrity_doctrine": "https://raw.githubusercontent.com/kaizencycle/Mobius-Substrate/main/docs/09-MESH/MNS_PROTOCOL.md",
   "servers": [
     {
-      "node_id": "mobius-civic-ai-terminal",
+      "node_id": "mobius-terminal",
       "url": "https://mobius-civic-ai-terminal.vercel.app/api/mcp",
       "transport": "streamable-http"
     }

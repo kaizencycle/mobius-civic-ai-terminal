@@ -26,6 +26,7 @@
     "tailwind-merge": "^3.3.1",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2",
+    "yaml": "2.7.0",
     "zod": "3.25.76"
   },
   "devDependencies": {

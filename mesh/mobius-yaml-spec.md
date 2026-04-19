@@ -1,88 +1,115 @@
-# `mobius.yaml` — mesh + MCP bridge (spec)
+# `mobius.yaml` v1 — pulse, ingest, and trust (Terminal canon)
 
-This document describes the **`mesh`** root object used by Mobius Neural Substrate nodes and the optional **`mcp`** bridge block (C-286).
+This document is the **declaration contract** for a Mobius node in this repository. Runtime code may **read** it; **`mobius.yaml` does not perform writes**.
 
-## Root
+## Canon
 
-All fields live under **`mesh:`** (see repository root `mobius.yaml`).
+1. **`mobius.yaml` declares** who the node is, what it emits (`pulse`), where it publishes, where **others** should send durable writes (`ingest`), which lanes it is **authoritative** for, and **policy** (canonical ledger node, hashing).
+2. **The write path stays:** KV / runtime state → writer / orchestrator → **declared ingest target** → durable ledger → optional feed mirror.
+3. **Operator nodes** (Terminal) must not declare themselves **`canonical_ledger_node`**; that belongs to the ledger tier (`civic-protocol-core`).
 
-## Core mesh fields (summary)
+## Root `version`
 
-| Path | Description |
-|------|-------------|
-| `mesh.node_id` | Stable node identifier (e.g. `mobius-civic-ai-terminal`) |
-| `mesh.node_type` | `app` \| `service` \| `library` (extensible) |
-| `mesh.substrate_ref` | GitHub `org/repo` for constitutional / doctrine source |
-| `mesh.version` | Semver string for this manifest |
-| `mesh.tier` | Participation tier (e.g. `contributor`) |
-| `mesh.covenant` | High-level covenant label (e.g. `integrity`) |
-| `mesh.agent_affinity` | Sentinel / steward agents most involved with this node |
-| `mesh.ledger` | Ledger integration (enabled, backend, `feed_url`, `push_to_substrate`) |
-| `mesh.mii` | MII tracking preferences |
-| `mesh.epicon` | EPICON policy (intent blocks, push on merge) |
-| `mesh.mic` | MIC participation flags |
+| Field | Description |
+|-------|-------------|
+| `version` | Schema string, e.g. `"1.0"` |
 
-## MCP bridge block — `mesh.mcp`
+## `mesh:` — identity and mesh participation
 
-When **`mesh.mcp.enabled`** is `true`, the node advertises a **Model Context Protocol** server so AI clients (Cursor, Claude, Codex, etc.) can invoke **declared tools** with **integrity metadata** recorded in `mobius.yaml`.
+| Field | Description |
+|-------|-------------|
+| `mesh.enabled` | Whether this manifest is active |
+| `mesh.node_id` | Stable id (e.g. `mobius-terminal`) |
+| `mesh.node_name` | Human-readable name |
+| `mesh.tier` | `sentinel` \| `operator` \| `ledger` \| `client` \| `service` |
+| `mesh.role` | `protocol_cortex` \| `operator_console` \| `ledger_node` \| … |
+| `mesh.repository` | `full_name`, `default_branch` |
+| `mesh.discovery` | `enabled`, `registry_participation` |
 
-### Example (abbreviated)
+Legacy fields (`node_type`, `substrate_ref`, `ledger`, `mii`, `epicon`, `mic`) may remain for backward compatibility until all nodes migrate.
 
-```yaml
-mesh:
-  mcp:
-    enabled: true
-    server_url: "https://mobius-civic-ai-terminal.vercel.app/api/mcp"
-    transport: "streamable-http"
-    schema_version: "MCP-2025-03-26"
-    integrity:
-      require_gi_above: 0.5
-      log_all_invocations: true
-      invocation_agent: "HERMES"
-      verification_agent: "ZEUS"
-      mic_reward_on_invocation: false
-    tools:
-      - name: "get_integrity_snapshot"
-        description: "…"
-        endpoint: "/api/terminal/snapshot-lite"
-        method: "GET"
-        auth: "none"
-        epicon_tag: "tool:integrity-read"
-```
+## `pulse:` — what the node emits and exposes
 
-### Field reference — `mcp`
+**Rule:** `pulse` describes **emissions and public surfaces**, not durable ingest.
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `mcp.enabled` | yes | If `true`, this node exposes an MCP server |
-| `mcp.server_url` | yes | HTTPS URL of the MCP HTTP endpoint |
-| `mcp.transport` | yes | `streamable-http` (default), `sse`, or `stdio` |
-| `mcp.schema_version` | no | MCP protocol / schema label (default `MCP-2025-03-26`) |
-| `mcp.integrity.require_gi_above` | no | Minimum GI for **node-level** tool gate (0 = off). Unknown GI must not block reads (Terminal implementation). |
-| `mcp.integrity.log_all_invocations` | yes | When `true`, each tool call produces an EPICON ledger row (`source: mcp-bridge`) |
-| `mcp.integrity.invocation_agent` | no | Agent name for routing / classification metadata |
-| `mcp.integrity.verification_agent` | no | Agent name for verification posture (ZEUS) |
-| `mcp.integrity.mic_reward_on_invocation` | no | Future: MIC reward on verified invocations |
+| Field | Description |
+|-------|-------------|
+| `pulse.enabled` | Pulse lane active |
+| `pulse.health_url` | Liveness URL |
+| `pulse.feed_url` | Operator-visible feed (e.g. EPICON) |
+| `pulse.snapshot_url` | Compact snapshot (e.g. snapshot-lite) |
+| `pulse.freshness_sla_seconds` | Staleness budget for pulse consumers |
+| `pulse.integrity_weight` | Weight in aggregated pulse (Substrate-side) |
+| `pulse.lanes` | Lane vocabulary (see below) |
+| `pulse.authoritative_for` | Capability keys this node owns (prevents lane confusion) |
+| `pulse.emits` | Booleans: `heartbeat`, `gi`, `mii`, `mic`, `vault`, `tripwire`, `anomalies` |
 
-### Field reference — `mcp.tools[]`
+## `ingest:` — where this node accepts or forwards durable writes
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | yes | Tool id (`snake_case`), must match server registration |
-| `description` | yes | Human + model-readable capability description |
-| `endpoint` | yes | Path on this node (relative to public origin) |
-| `method` | yes | HTTP verb the bridge uses internally |
-| `auth` | yes | `none` \| `bearer` \| `api-key` |
-| `auth_env` | if auth ≠ `none` | Env var holding secret material |
-| `epicon_tag` | yes | Tag applied on invocation log rows |
-| `requires_gi_above` | no | Per-tool GI floor (overrides node default for that tool) |
+**Rule:** `ingest` describes **targets and accepted payload types**, not execution.
 
-## Discovery
+| Field | Description |
+|-------|-------------|
+| `ingest.enabled` | Ingest client/target active |
+| `ingest.mode` | `ledger_target` \| `client_of_other_node` \| `aggregator_only` |
+| `ingest.targets[]` | For `client_of_other_node`: `node_id`, `purpose`, `write_url`, `auth`, `accepts` |
+| `ingest.write_url` | Ledger nodes may set a single URL (alternative to `targets`) |
 
-- **Per-node:** `mobius.yaml` `mesh.mcp` block.
-- **Aggregator index:** `mesh/mcp-discovery.json` (this repo carries a Terminal slice; Substrate may publish the union).
-- **HTTP discovery:** `/.well-known/mcp.json` — this Terminal serves `public/.well-known/mcp.json`.
+**Terminal resolution:** if `ingest.targets[0].write_url` is empty, the runtime uses **`MOBIUS_INGEST_WRITE_URL`**. Bearer material uses **`MOBIUS_INGEST_BEARER_TOKEN`**, then `AGENT_SERVICE_TOKEN`, then `MOBIUS_SERVICE_SECRET` (see `.env.example`).
 
-## Doctrine
+Only **`ledger_target`** nodes should be the canonical acceptor for hashed ledger payloads.
 
-See `docs/09-MESH/MNS_MCP_BRIDGE.md`.
+## `mcp:` — MCP edge (Terminal)
+
+| Field | Description |
+|-------|-------------|
+| `mcp.enabled` | Expose `/api/mcp` |
+| `mcp.server_url` | Public MCP URL |
+| `mcp.discovery_url` | `/.well-known/mcp.json` or equivalent |
+| `mcp.transport` | e.g. `streamable-http` |
+| `mcp.tools[]` | Declared tools (name, endpoint, method, auth, …) |
+
+Implementation: `app/api/mcp/route.ts`, `lib/mcp/mobius-terminal-mcp.ts`, `docs/09-MESH/MNS_MCP_BRIDGE.md`.
+
+## `policy:` — trust boundaries
+
+| Field | Description |
+|-------|-------------|
+| `policy.write_truth_locally` | If true, this node persists canonical truth locally (ledger nodes) |
+| `policy.mirror_feed_to_repo` | Optional GitHub / feed mirror |
+| `policy.canonical_ledger_node` | Node id of the durable ledger (e.g. `civic-protocol-core`) |
+| `policy.hash_algorithm` | e.g. `sha256` |
+
+## Payload vocabulary (v1)
+
+Tight list for `ingest.targets[].accepts` and cross-node contracts:
+
+- `EPICON_ENTRY_V1`
+- `MIC_READINESS_V1`
+- `MIC_SEAL_V1`
+- `MIC_RESERVE_RECONCILIATION_V1`
+- `MIC_GENESIS_BLOCK`
+- `MOBIUS_PULSE_V1` (future: `MOBIUS_PULSE_V2`)
+
+## Lane vocabulary
+
+`integrity`, `signals`, `tripwire`, `heartbeat`, `mic_readiness`, `vault`, `ledger`, `mesh`, `mcp` (extend only with mesh-wide agreement).
+
+## Rules (summary)
+
+1. **Pulse** = what the node emits.  
+2. **Ingest** = what it accepts / where others write.  
+3. **`authoritative_for`** = prevents lane confusion.  
+4. Only **ledger** nodes use `ingest.mode: ledger_target` as canonical acceptor.  
+5. **Operator** nodes forward hashed payloads to the declared target; they do not claim canonical ledger.
+
+## Runtime helpers (this repo)
+
+- `lib/mesh/loadMobiusYaml.ts` — parse `mobius.yaml`, resolve ingest URL / bearer.  
+- `lib/mesh/ingestClient.ts` — `postMobiusIngest({ type, payload })` with **hash envelope** before POST.
+
+## Related
+
+- `mobius.yaml` (repository root) — live Terminal manifest.  
+- `mesh/mcp-discovery.json` — MCP discovery slice.  
+- `docs/09-MESH/MNS_MCP_BRIDGE.md` — MCP doctrine.
