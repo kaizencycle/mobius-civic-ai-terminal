@@ -16,6 +16,8 @@
 | Vault attestation cron | `app/api/cron/vault-attestation/route.ts` |
 | MIC account (wallet proxy / degraded) | `GET /api/mic/account` — `app/api/mic/account/route.ts` |
 | MIC settle (EPICON claim) | `POST /api/mic/settle` — `app/api/mic/settle/route.ts` |
+| MIC readiness (MIC_READINESS_V1) | `GET /api/mic/readiness` — `app/api/mic/readiness/route.ts` |
+| MIC attestation summaries (deposit proxy) | `GET /api/mic/attestations` — `app/api/mic/attestations/route.ts` |
 
 ---
 
