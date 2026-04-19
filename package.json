@@ -9,12 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.26.0",
     "@upstash/redis": "^1.37.0",
     "@vercel/kv": "^1.0.0",
     "clsx": "^2.1.1",
     "d3-geo": "^3.1.1",
     "ioredis": "^5.10.1",
     "lucide-react": "^0.525.0",
+    "mcp-handler": "1.1.0",
     "motion": "^12.23.12",
     "next": "^15.1.0",
     "next-auth": "^5.0.0-beta.30",
@@ -23,7 +25,8 @@
     "recharts": "^2.15.4",
     "tailwind-merge": "^3.3.1",
     "topojson-client": "^3.1.0",
-    "world-atlas": "^2.0.2"
+    "world-atlas": "^2.0.2",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@types/d3-geo": "^3.1.0",
