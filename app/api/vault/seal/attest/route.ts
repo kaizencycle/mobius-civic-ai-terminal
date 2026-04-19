@@ -137,7 +137,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (!verifyAttestationSignature(agentToken, submission, candidate.seal_hash)) {
-    return NextResponse.json({ error: 'Signature verification failed' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Signature verification failed (wrong seal_hash or tampered body)' },
+      { status: 400 },
+    );
   }
 
   const attestation: SealAttestation = {

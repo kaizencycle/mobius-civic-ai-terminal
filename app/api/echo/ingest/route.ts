@@ -15,7 +15,14 @@ import { NextResponse } from 'next/server';
 import { fetchAllSources } from '@/lib/echo/sources';
 import type { RawEvent } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
-import { pushIngestResult, getEchoStatus, getEchoEpicon, getEchoLedger, getEchoAlerts } from '@/lib/echo/store';
+import {
+  pushIngestResult,
+  getEchoStatus,
+  getEchoEpicon,
+  getEchoLedger,
+  getEchoAlerts,
+  getEchoIntegrity,
+} from '@/lib/echo/store';
 import { writeSnapshot } from '@/lib/echo/snapshot-writer';
 import { saveEchoState } from '@/lib/kv/store';
 import { querySonarForLane } from '@/lib/signals/perplexity-sonar';
@@ -23,11 +30,23 @@ import { persistEchoIngestSideEffects, writeEchoKvHeartbeatToMobius } from '@/li
 
 export const dynamic = 'force-dynamic';
 
+function echoMicProvisionalFields(): { totalMicProvisional: number; totalMicMinted: number } {
+  const i = getEchoIntegrity();
+  const v =
+    i && typeof i.totalMicProvisional === 'number'
+      ? i.totalMicProvisional
+      : i && typeof i.totalMicMinted === 'number'
+        ? i.totalMicMinted
+        : 0;
+  return { totalMicProvisional: v, totalMicMinted: v };
+}
+
 export async function GET() {
   const status = getEchoStatus();
   return NextResponse.json({
     agent: 'ECHO',
     status: 'operational',
+    ...echoMicProvisionalFields(),
     ...status,
   });
 }
@@ -99,6 +118,7 @@ export async function POST() {
         result: 'no_data',
         message: 'All sources returned empty. Will retry next cycle.',
         duration: Date.now() - startTime,
+        ...echoMicProvisionalFields(),
       });
     }
 
@@ -136,6 +156,7 @@ export async function POST() {
       snapshot: snapshotWritten ? 'written' : 'skipped',
       duration: Date.now() - startTime,
       timestamp: result.timestamp,
+      ...echoMicProvisionalFields(),
     });
   } catch (error) {
     return NextResponse.json(
@@ -145,6 +166,7 @@ export async function POST() {
         result: 'error',
         message: error instanceof Error ? error.message : 'Unknown error',
         duration: Date.now() - startTime,
+        ...echoMicProvisionalFields(),
       },
       { status: 500 },
     );
