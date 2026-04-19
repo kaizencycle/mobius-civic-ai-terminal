@@ -21,7 +21,10 @@
  *   MOBIUS_KV_BACKUP_MIRROR — mirror successful `kvSet` / `kvSetRawKey` / vault raw writes
  *   MOBIUS_KV_READ_FALLBACK — read from backup when primary GET misses or errors
  *
- * Free tier: 500K commands/month, more than enough for this project.
+ *   OAA KV bridge (C-286) — warm tier on Render when Upstash hits monthly limits:
+ *   OAA_API_BASE_URL (or OAA_API_BASE / NEXT_PUBLIC_OAA_API_URL) + KV_BRIDGE_SECRET
+ *
+ * Free tier: 500K commands/month — bridge absorbs writes / serves reads when primary fails.
  *
  * CC0 Public Domain
  */
@@ -36,8 +39,31 @@ import {
   scheduleBackupMirrorRawKey,
 } from '@/lib/kv/backup-redis';
 import { KV_TTL_SECONDS } from '@/lib/kv/kv-ttl';
+import {
+  isKvCapacityOrTransportError,
+  kvBridgeConfigured,
+  kvBridgeReadForPrefixedKey,
+  kvBridgeReadForRawKey,
+  kvBridgeReadVaultComposite,
+  kvBridgeWrite,
+  kvBridgeWriteVaultSnapshot,
+  scheduleKvBridgeMirrorPrefixed,
+  scheduleKvBridgeMirrorRaw,
+} from '@/lib/kv/kvBridgeClient';
+import {
+  prefixedRedisKeyToBridgeSymbol,
+  rawRedisKeyToBridgeSymbol,
+  VAULT_BRIDGE_SYMBOL,
+} from '@/lib/kv/kvBridgeKeys';
 
 export { KV_TTL_SECONDS };
+
+const VAULT_BALANCE_LOGICAL = 'vault:global:balance';
+const VAULT_META_LOGICAL = 'vault:global:meta';
+
+function isVaultBalanceOrMetaKey(key: string): boolean {
+  return key === VAULT_BALANCE_LOGICAL || key === VAULT_META_LOGICAL;
+}
 
 // ── Redis client (lazy singleton) ────────────────────────────
 
@@ -92,17 +118,47 @@ export async function kvGet<T>(key: string): Promise<T | null> {
   const fullKey = prefixKey(key);
 
   if (!redis) {
-    return backupPrefixedGet<T>(key);
+    const fb = await backupPrefixedGet<T>(key);
+    if (fb !== null) return fb;
+    if (kvBridgeConfigured()) {
+      if (isVaultBalanceOrMetaKey(key)) {
+        const comp = await kvBridgeReadVaultComposite<T, unknown>();
+        if (!comp) return null;
+        return (key === VAULT_BALANCE_LOGICAL ? comp.balance : (comp.meta as T)) ?? null;
+      }
+      return kvBridgeReadForPrefixedKey<T>(fullKey);
+    }
+    return null;
   }
 
   try {
     const value = await redis.get<T>(fullKey);
     if (value !== null && value !== undefined) return value;
-    return backupPrefixedGet<T>(key);
+    const fb = await backupPrefixedGet<T>(key);
+    if (fb !== null) return fb;
+    if (kvBridgeConfigured()) {
+      if (isVaultBalanceOrMetaKey(key)) {
+        const comp = await kvBridgeReadVaultComposite<T, unknown>();
+        if (!comp) return null;
+        return (key === VAULT_BALANCE_LOGICAL ? comp.balance : (comp.meta as T)) ?? null;
+      }
+      const bridgedMiss = await kvBridgeReadForPrefixedKey<T>(fullKey);
+      if (bridgedMiss !== null) return bridgedMiss;
+    }
+    return null;
   } catch (err) {
     console.warn(`[mobius-kv] GET ${key} failed:`, err instanceof Error ? err.message : err);
     const fb = await backupPrefixedGet<T>(key);
     if (fb !== null) return fb;
+    if (kvBridgeConfigured() && isKvCapacityOrTransportError(err)) {
+      if (isVaultBalanceOrMetaKey(key)) {
+        const comp = await kvBridgeReadVaultComposite<T, unknown>();
+        if (!comp) return null;
+        return (key === VAULT_BALANCE_LOGICAL ? comp.balance : (comp.meta as T)) ?? null;
+      }
+      const bridged = await kvBridgeReadForPrefixedKey<T>(fullKey);
+      if (bridged !== null) return bridged;
+    }
     return null;
   }
 }
@@ -111,16 +167,28 @@ export async function kvGet<T>(key: string): Promise<T | null> {
 export async function kvGetRaw<T>(rawKey: string): Promise<T | null> {
   const redis = getRedis();
   if (!redis) {
-    return backupRawGet<T>(rawKey);
+    const fb = await backupRawGet<T>(rawKey);
+    if (fb !== null) return fb;
+    return kvBridgeConfigured() ? kvBridgeReadForRawKey<T>(rawKey) : null;
   }
   try {
     const value = await redis.get<T>(rawKey);
     if (value !== null && value !== undefined) return value;
-    return backupRawGet<T>(rawKey);
+    const fb = await backupRawGet<T>(rawKey);
+    if (fb !== null) return fb;
+    if (kvBridgeConfigured()) {
+      const bridged = await kvBridgeReadForRawKey<T>(rawKey);
+      if (bridged !== null) return bridged;
+    }
+    return null;
   } catch (err) {
     console.warn(`[mobius-kv] GET raw ${rawKey} failed:`, err instanceof Error ? err.message : err);
     const fb = await backupRawGet<T>(rawKey);
     if (fb !== null) return fb;
+    if (kvBridgeConfigured() && isKvCapacityOrTransportError(err)) {
+      const b = await kvBridgeReadForRawKey<T>(rawKey);
+      if (b !== null) return b;
+    }
     return null;
   }
 }
@@ -131,7 +199,15 @@ export async function kvGetRaw<T>(rawKey: string): Promise<T | null> {
  */
 export async function kvSet<T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> {
   const redis = getRedis();
-  if (!redis) return false;
+  if (!redis) {
+    if (!kvBridgeConfigured()) return false;
+    if (isVaultBalanceOrMetaKey(key)) {
+      return kvSetVaultViaBridgeOnly(key, value, ttlSeconds);
+    }
+    const symbol = prefixedRedisKeyToBridgeSymbol(prefixKey(key));
+    if (!symbol || symbol === VAULT_BRIDGE_SYMBOL) return false;
+    return kvBridgeWrite(symbol, value, ttlSeconds);
+  }
 
   try {
     const fullKey = prefixKey(key);
@@ -141,10 +217,49 @@ export async function kvSet<T>(key: string, value: T, ttlSeconds?: number): Prom
       await redis.set(fullKey, value);
     }
     scheduleBackupMirrorPrefixedKey(fullKey, value, ttlSeconds);
+    if (isVaultBalanceOrMetaKey(key)) {
+      void mirrorVaultCompositeToOaaBridge();
+    } else {
+      scheduleKvBridgeMirrorPrefixed(fullKey, value, ttlSeconds);
+    }
     return true;
   } catch (err) {
     console.warn(`[mobius-kv] SET ${key} failed:`, err instanceof Error ? err.message : err);
+    if (kvBridgeConfigured() && isKvCapacityOrTransportError(err)) {
+      if (isVaultBalanceOrMetaKey(key)) {
+        return kvSetVaultViaBridgeOnly(key, value, ttlSeconds);
+      }
+      const symbol = prefixedRedisKeyToBridgeSymbol(prefixKey(key));
+      if (!symbol || symbol === VAULT_BRIDGE_SYMBOL) return false;
+      return kvBridgeWrite(symbol, value, ttlSeconds);
+    }
     return false;
+  }
+}
+
+/** When only one vault field is written to the bridge, merge with the other field from the last composite snapshot. */
+async function kvSetVaultViaBridgeOnly(
+  key: string,
+  value: unknown,
+  ttlSeconds?: number,
+): Promise<boolean> {
+  const comp = await kvBridgeReadVaultComposite<unknown, unknown>();
+  const balance = key === VAULT_BALANCE_LOGICAL ? value : (comp?.balance ?? null);
+  const meta = key === VAULT_META_LOGICAL ? value : (comp?.meta ?? null);
+  return kvBridgeWriteVaultSnapshot(balance, meta, ttlSeconds);
+}
+
+/** After a successful primary vault row write, mirror `{ balance, meta }` to OAA (one allowlist slot). */
+async function mirrorVaultCompositeToOaaBridge(): Promise<void> {
+  if (!kvBridgeConfigured()) return;
+  const redis = getRedis();
+  if (!redis) return;
+  try {
+    const balance = await redis.get<number>(prefixKey(VAULT_BALANCE_LOGICAL));
+    const meta = await redis.get<unknown>(prefixKey(VAULT_META_LOGICAL));
+    void kvBridgeWriteVaultSnapshot(balance, meta).catch(() => {});
+  } catch {
+    /* non-fatal */
   }
 }
 
@@ -153,7 +268,12 @@ export async function kvSet<T>(key: string, value: T, ttlSeconds?: number): Prom
  */
 export async function kvSetRawKey<T>(rawKey: string, value: T, ttlSeconds?: number): Promise<boolean> {
   const redis = getRedis();
-  if (!redis) return false;
+  if (!redis) {
+    if (!kvBridgeConfigured()) return false;
+    const sym = rawRedisKeyToBridgeSymbol(rawKey);
+    if (!sym) return false;
+    return kvBridgeWrite(sym, value, ttlSeconds);
+  }
   try {
     if (ttlSeconds) {
       await redis.set(rawKey, value, { ex: ttlSeconds });
@@ -161,9 +281,15 @@ export async function kvSetRawKey<T>(rawKey: string, value: T, ttlSeconds?: numb
       await redis.set(rawKey, value);
     }
     scheduleBackupMirrorRawKey(rawKey, value, ttlSeconds);
+    scheduleKvBridgeMirrorRaw(rawKey, value, ttlSeconds);
     return true;
   } catch (err) {
     console.warn(`[mobius-kv] SET raw ${rawKey} failed:`, err instanceof Error ? err.message : err);
+    if (kvBridgeConfigured() && isKvCapacityOrTransportError(err)) {
+      const sym = rawRedisKeyToBridgeSymbol(rawKey);
+      if (!sym) return false;
+      return kvBridgeWrite(sym, value, ttlSeconds);
+    }
     return false;
   }
 }
