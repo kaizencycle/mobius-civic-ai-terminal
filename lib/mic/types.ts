@@ -1,7 +1,14 @@
 /**
- * MIC runtime surface — UI / API contract (MIC_READINESS_V1).
- * Values are assembled server-side; the Terminal displays them without policy logic.
+ * MIC runtime + proof surface — UI / API contract.
+ * Canonical hash creation for attestations / seals may also run server-side here
+ * for degraded/standalone Terminal; monorepo remains source for ledger writes.
  */
+
+export interface MicHashMeta {
+  hash?: string;
+  hash_algorithm?: 'sha256';
+  previous_hash?: string | null;
+}
 
 export type MicTrancheStatus = 'in_progress' | 'eligible_for_seal' | 'sealed';
 
@@ -39,7 +46,6 @@ export interface MicReadinessResponse {
     consecutiveEligibleCycles: number;
     requiredCycles: number;
     status: MicSustainStatus;
-    /** True when KV sustain is not wired; UI should show "not tracked" not fake numbers. */
     sustain_tracking_placeholder: boolean;
   };
 
@@ -66,13 +72,11 @@ export interface MicReadinessResponse {
     locked: boolean;
     eligible: boolean;
     unlocked: boolean;
-    /** Raw lane from vault status (locked | preview | tracking | unsealed | active). */
     lane: string;
   };
 
   mintReadiness: MicMintReadiness;
 
-  /** Echo fields from vault status for operator cross-check (not recomputed in UI). */
   vault: {
     reserve_lane: string | null;
     fountain_status: string | null;
@@ -83,13 +87,17 @@ export interface MicReadinessResponse {
   };
 
   updatedAt: string;
+
+  /** Optional: hash of readiness payload for audit (server-assembled proof). */
+  readiness_proof?: MicHashMeta;
 }
 
-export interface MicRewardAttestationSummary {
+export interface MicRewardAttestationSummary extends MicHashMeta {
+  type?: 'MIC_REWARD_V2';
   nodeId: string;
   mic: number;
   timestamp: string;
-  source: 'vault_deposit_summary' | 'ledger';
+  source?: 'vault_deposit_summary' | 'ledger';
   breakdown?: {
     integrity?: number;
     humanIntent?: number;
@@ -104,8 +112,41 @@ export interface MicRewardAttestationSummary {
   };
 }
 
-export interface MicGenesisBlockSummary {
+export interface MicSealSnapshot extends MicHashMeta {
+  type?: 'MIC_SEAL_V1';
   cycle: string;
+  gi: number;
+  timestamp: string;
+  reserve: {
+    inProgressBalance: number;
+    trancheTarget: number;
+    sealedReserveTotal: number;
+    trancheStatus: MicTrancheStatus;
+  };
+  sustain: {
+    consecutiveEligibleCycles: number;
+    requiredCycles: number;
+    status: MicSustainStatus;
+  };
+  replay: {
+    replayPressure: number;
+    status: MicReplayStatus;
+  };
+  novelty: {
+    noveltyScore: number;
+    status: MicNoveltyStatus;
+  };
+  quorum: {
+    required: string[];
+    attested: string[];
+    status: MicQuorumStatus;
+  };
+}
+
+export interface MicGenesisBlockSummary extends MicHashMeta {
+  type?: 'MIC_GENESIS_BLOCK';
+  cycle: string;
+  gi: number;
   mint: number;
   timestamp: string;
   allocation?: {
