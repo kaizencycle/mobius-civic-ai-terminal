@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-04-19T00:03:24.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-285",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {},
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat latest (2026-04-19T00:03:34Z)",
+      "result": "pass",
+      "detail": "Extracted gi=0.75, mode=yellow, source=kv, anomalies=[], kv_keys populated, seed_result=200 OK."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "source=kv (not mock); global_integrity=0.77, mode=yellow, degraded=true, terminal_status=stressed; aligns with ATLAS within drift."
+    },
+    {
+      "check": "GET /api/signals/micro vs ATLAS anomalies",
+      "result": "warn",
+      "detail": "ATLAS anomalies empty; live composite shows 7 unhealthy micro-lanes and 4 watch-tier signals (staleness/sparsity). No named ATLAS anomaly keys to diff for persistence."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "count=0; no candidates, verification skipped (no verify/publish calls)."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "200 OK (deduplicated token for this cycle/sources)."
+    }
+  ],
+  "recommendation": "KV-backed GI is trustworthy versus mock fallback. Track unhealthy micro probes and watch-tier feeds if yellow mode persists."
+}
