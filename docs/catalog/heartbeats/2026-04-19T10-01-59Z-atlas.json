@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-04-19T10:01:59.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-286",
+  "gi": 0.6,
+  "mode": "yellow",
+  "source": "live",
+  "anomalies": [],
+  "kv_keys": {
+    "MIC_READINESS_SNAPSHOT": false,
+    "MIC_READINESS_FEED": false,
+    "SIGNAL_SNAPSHOT": false,
+    "GI_STATE": true,
+    "ECHO_STATE": false,
+    "ECHO_STATE_KV": false,
+    "TRIPWIRE_STATE": false,
+    "TRIPWIRE_STATE_KV": true,
+    "HEARTBEAT": true,
+    "LAST_INGEST": false,
+    "SYSTEM_PULSE": true,
+    "TRIPWIRE_STATE_REDIS": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK"
+}
