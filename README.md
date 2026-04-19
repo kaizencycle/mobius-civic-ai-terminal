@@ -71,6 +71,13 @@ The terminal visualizes the current state of eight Mobius agents:
 
 The system tracks a **Global Integrity Score (GI)** that measures information health across source reliability, institutional trust, consensus stability, and narrative divergence. The goal is not to suppress information but to expose reliability levels transparently.
 
+### Mobius Integrity Credits (MIC)
+
+**MIC** is an integrity-linked credit: **spendable or wallet-visible MIC is not the same thing as Vault reserve units.** Journals accrue **reserve** toward sealed tranches; **Fountain** release stays **GI- and sustain-gated** (see Vault chamber and `/api/vault/status`). Broader economics or cathedral-scale tokenomics for MIC may live in **Mobius-Substrate**; the **runtime-canonical** description for this stack is:
+
+- [`docs/protocols/mic/mic_issuance_protocol.md`](docs/protocols/mic/mic_issuance_protocol.md) — issuance layers and mint vs reserve  
+- [`docs/protocols/mic/mic_runtime_reference.md`](docs/protocols/mic/mic_runtime_reference.md) — routes and libraries in **this** repo
+
 ### Ecosystem Integration
 
 **From [Mobius-Substrate](https://github.com/kaizencycle/Mobius-Substrate):**
