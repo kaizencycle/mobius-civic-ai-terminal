@@ -51,11 +51,16 @@ Legacy fields (`node_type`, `substrate_ref`, `ledger`, `mii`, `epicon`, `mic`) m
 | Field | Description |
 |-------|-------------|
 | `ingest.enabled` | Ingest client/target active |
-| `ingest.mode` | `ledger_target` \| `client_of_other_node` \| `aggregator_only` |
+| `ingest.mode` | `ledger_target` \| `client_of_other_node` \| `write_through` \| `aggregator_only` |
+| `ingest.hot_state` | e.g. `{ type: upstash_kv }` — hot operator state (Terminal) |
+| `ingest.sovereign_memory` | OAA layer: `node_id`, `write_url` (full `/api/oaa/kv` or base resolved via `OAA_API_BASE`), `auth: hmac` |
+| `ingest.durable_ledger` | Civic Core: `write_url` for `/mesh/ingest` (optional; also `ingest.targets[0]`) |
 | `ingest.targets[]` | For `client_of_other_node`: `node_id`, `purpose`, `write_url`, `auth`, `accepts` |
 | `ingest.write_url` | Ledger nodes may set a single URL (alternative to `targets`) |
 
-**Terminal resolution:** if `ingest.targets[0].write_url` is empty, the runtime uses **`MOBIUS_INGEST_WRITE_URL`**. Bearer material uses **`MOBIUS_INGEST_BEARER_TOKEN`**, then `AGENT_SERVICE_TOKEN`, then `MOBIUS_SERVICE_SECRET` (see `.env.example`).
+**`write_through` (C-286 OAA-centric):** hot KV stays authoritative for reads; Terminal **writer** appends to **OAA** (`POST /api/oaa/kv` with HMAC), then posts **`OAA_MEMORY_ENTRY_V1`** proof envelope to **Civic Core** via `postMobiusIngest` when `MOBIUS_INGEST_WRITE_URL` + bearer are set.
+
+**Terminal resolution:** durable URL: `ingest.durable_ledger.write_url` → `ingest.targets[0].write_url` → **`MOBIUS_INGEST_WRITE_URL`**. Bearer: **`MOBIUS_INGEST_BEARER_TOKEN`**, then `AGENT_SERVICE_TOKEN`, then `MOBIUS_SERVICE_SECRET` (see `.env.example`). OAA: **`OAA_API_BASE`** or `ingest.sovereign_memory.write_url` + **`OAA_HMAC_SECRET`** (or `KV_HMAC_SECRET`).
 
 Only **`ledger_target`** nodes should be the canonical acceptor for hashed ledger payloads.
 
@@ -107,6 +112,9 @@ Tight list for `ingest.targets[].accepts` and cross-node contracts:
 
 - `lib/mesh/loadMobiusYaml.ts` — parse `mobius.yaml`, resolve ingest URL / bearer.  
 - `lib/mesh/ingestClient.ts` — `postMobiusIngest({ type, payload })` with **hash envelope** before POST.
+- `lib/oaa/signWrite.ts` — HMAC over **`canonicalStringify`** of the signed fields (must match OAA-API-Library verification).
+- `lib/ingestion/OAADataClient.ts` — POST `/api/oaa/kv`.
+- `lib/oaa/publishSnapshot.ts` — dual-write publisher + `app/api/cron/publish-oaa-snapshots`.
 
 ## Related
 
