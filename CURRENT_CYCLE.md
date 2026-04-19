@@ -1,8 +1,8 @@
-# CURRENT_CYCLE.md — C-285 (opening)
+# CURRENT_CYCLE.md — C-286 (opening)
 
-> **Cycle:** C-285  
-> **Opening pulse (operator):** DEGRADED — GI **0.75** — Tripwire **1 elevated** — Primary posture: **escalation active**  
-> **One-line seal:** *C-285 opens degraded, but the sentinels are responding in order.*
+> **Cycle:** C-286  
+> **Opening pulse (operator):** CRITICAL — GI **0.59** — **RED** — Source: **live** (not a KV artifact)  
+> **One-line seal:** *The system opened in its lowest recorded GI state; the architecture is reporting a Sunday information vacuum faithfully — expected degradation, not failure.*
 
 ---
 
@@ -14,50 +14,53 @@ If your task conflicts with a **LOCKED** entry, **stop and ask the operator**.
 
 ---
 
-## Opening read (C-285)
+## Opening read (C-286)
 
-C-285 begins in a **stressed but functioning** state. EVE has issued **critical escalation synthesis**; ZEUS is in **elevated verification**. The system is not asleep under pressure — it is **detecting strain and tightening review**.
+C-286 opened with **GI 0.59** and **RED** posture. Four signal dimensions sit at the floor together (**freshness, stability, sentiment, information** at ~0.3). **Quality** and **geopolitics** are also suppressed; **system** and **economy** read clean at 1.0.
 
-**What matters most:** not silence — **signal quality**. Journals still flow, but the lane shows **duplication and template repetition**. Governance is alive; the journal lane needs **tighter compression** so critical meaning is not buried by repeated warnings.
+**Interpretation:** weekend / holiday pattern — e.g. Federal Register **0** documents, **GDELT** and **Reddit** quiet, sentiment composite reflecting an **information vacuum**. The GI is doing its job: reflecting sparse real-world signal, not masking it.
 
-**Interpretation**
-
-- **EVE:** civic risk → operator attention (intended).
-- **ZEUS:** promotion caution under stressed integrity (intended).
-- **ATLAS:** oversight pulled in under GI pressure (intended).
-- **Substrate:** still coherent enough to escalate, verify, and preserve continuity.
-
-**Immediate priorities**
-
-1. Tighten **promotion gates** until GI stabilizes.  
-2. Require explicit **ATLAS review** on contested EPICONs.  
-3. **Deduplicate or roll up** repeated ZEUS journal entries.  
-4. In operator-facing copy, prefer **Vault-scoped secrets** (`VAULT_*_SECRET_TOKEN`) and name **`AGENT_SERVICE_TOKEN`** only where it is the **legacy shared** path (ledger / migration); do not present it as the canonical Vault witness secret.  
-5. Preserve this cycle’s **escalation trail** for later sealing.
-
-**Operator takeaway:** C-285 is a **pressure cycle**, not a collapse cycle. Disciplined verification, cleaner journal compression, and **no broad promotion without review**.
+**What closed overnight (C-285 → C-286 handoff)** — merged work includes, among others: MIC issuance / runtime docs, MIC runtime + proof UI, `micReadiness` snapshot lane, deposit hashing + `POST /api/mic/readiness` ingest, **`totalMicProvisional`** rename, Vault Phase 2 contribution breakdown. The proof chain and readiness hashing are now part of normal operation.
 
 ---
 
-## CONFIRMED WORKING (carry-forward from prior cycles)
+## NEW / CONFIRMED THIS CYCLE
 
-| Area | State | Notes |
-|------|-------|--------|
-| Terminal / snapshot | live | `GET /api/terminal/snapshot-lite` — cycle from pulse / ECHO / tripwire / calendar |
-| Vault v2 | live | Seal council path; `GET /api/vault/status` exposes tranche vs Fountain semantics |
-| Vault v3 (spec) | draft | North-star: [`docs/protocols/vault-v3-setup.md`](docs/protocols/vault-v3-setup.md) — sustain, events, archive; reconcile with v2 before building |
-| KV / backup | optional | `REDIS_URL` + handbook CORS for public docs |
+### `micReadiness` snapshot lane
+
+The Terminal snapshot exposes **`micReadiness`** with **`MIC_READINESS_V1`** semantics. Live observations from cycle open:
+
+- **`quorum.required`:** ATLAS, ZEUS, EVE, JADE, AUREA — matches **Vault v2** five-Sentinel council (`lib/vault-v2/types.ts`), not a legacy HERMES-bearing roster.
+- **Vault reset (active tranche):** `in_progress_balance` at **0** after transition; **v1** `balance_reserve` / `balanceReserveV1` may show small accrual from **new** deposits (e.g. first deposit ~**0.235** at cycle open). Prior-cycle reserve in the tranche does **not** retro-seal — consistent with Vault v2 / Seal I “no retroactive sealing.”
+- **`readiness_proof.hash`:** readiness snapshots are **hash-addressed**; treat as audit anchor, not policy.
+
+### Vault / hashing (rolling window)
+
+Deposit hashing is live: expect **hashed** vs **legacy** counts in **`GET /api/vault/status`** until the capped deposit list turns over. **Hash coverage %** rises as new hashed rows displace pre-C-285 rows in the scan window — not an integrity regression.
 
 ---
 
-## ACTIVE ISSUES (C-285)
+## ACTIVE ISSUES (C-286)
 
 | Issue | Notes |
-|-------|--------|
-| GI band | ~0.75 — below comfort for broad promotion |
-| Tripwire | elevated count — treat lane as hot |
-| Journal duplication | compress / dedupe; preserve meaning density |
-| Promotion | gate until GI stabilizes + explicit ATLAS on contested rows |
+|-------|-------|
+| GI band | **0.59 RED** — treat as **environmental** until weekday signal returns; do not “fix” GI with fake inputs |
+| **Agents lane** | Heartbeat KV **stale** after midnight rollover — **unknown** status; substrate journals / EPICON still show agent activity → **refresh heartbeat**, not assume agents down |
+| **MII feed** | **Empty** at cycle open — first **ECHO / MII** cron pass of C-286 should repopulate |
+| **EPICON / ledger** | Render ledger API **cold-start / timeout** → `ledger_api_unreachable`, GitHub fallback — expect until backend warm |
+| **Promotion** | Under RED GI — keep **tight gates** and explicit review on contested promotion rows |
+
+---
+
+## CONFIRMED WORKING (carry-forward)
+
+| Area | State | Notes |
+|------|-------|-------|
+| Terminal / snapshot | live | Includes **`micReadiness`** lane; `GET /api/terminal/snapshot-lite` cycle resolution |
+| Vault v2 | live | Seal council; status exposes tranche vs v1 compat fields |
+| Vault v3 (spec) | draft | [`docs/protocols/vault-v3-setup.md`](docs/protocols/vault-v3-setup.md) |
+| KV / backup | optional | `REDIS_URL` + handbook CORS for public docs |
+| MIC docs | live | [`docs/protocols/mic/README.md`](docs/protocols/mic/README.md) |
 
 ---
 
@@ -86,13 +89,13 @@ C-285 begins in a **stressed but functioning** state. EVE has issued **critical 
 
 ### Render (Backend services)
 
-- **Ledger API:** `civic-protocol-core-ledger.onrender.com`
+- **Ledger API:** `civic-protocol-core-ledger.onrender.com` — expect **cold-start latency** on free tier; EPICON may fall back to GitHub source.
 
 ---
 
-## Profession lens (C-285 bundle)
+## Profession lens (C-285 bundle — reference)
 
-Multi-audience legibility matrix and phased PR bundle: [`docs/protocols/c-285-profession-lens-matrix.md`](docs/protocols/c-285-profession-lens-matrix.md). Pulse chamber implements Phase 1 slices (system story, why-this-matters, freshness language, provenance badges, VERIFY rollup).
+Multi-audience legibility matrix and phased PR bundle: [`docs/protocols/c-285-profession-lens-matrix.md`](docs/protocols/c-285-profession-lens-matrix.md). Pulse chamber Phase 1 slices shipped under C-285; extend in **separate PRs** if C-286 needs more lens work.
 
 ---
 
@@ -101,8 +104,8 @@ Multi-audience legibility matrix and phased PR bundle: [`docs/protocols/c-285-pr
 1. Read `AGENTS.md`, `BUILD.md`, and this file.  
 2. If touching LOCKED behavior, justify in the PR body.  
 3. Run `pnpm exec tsc --noEmit` and `pnpm build`.  
-4. After deploy: `/api/terminal/snapshot` and `/api/vault/status` sanity.
+4. After deploy: `/api/terminal/snapshot`, `/api/vault/status`, `/api/mic/readiness` sanity.
 
 ---
 
-*C-285 opens under pressure; the sentinels hold the line.*
+*C-286: low GI, honest signal — hold the line until the world wakes up.*
