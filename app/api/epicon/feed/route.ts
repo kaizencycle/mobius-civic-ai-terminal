@@ -4,7 +4,7 @@ import { isEveSynthesisLedgerSource } from '@/lib/epicon/eveLedgerSource';
 import { getPublicEpiconFeed } from '@/lib/epicon/feedStore';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
-import { loadGIState } from '@/lib/kv/store';
+import { loadGIState, kvGet, kvSet, KV_KEYS } from '@/lib/kv/store';
 import { getAgentBearerToken } from '@/lib/substrate/client';
 
 export const dynamic = 'force-dynamic';
@@ -332,6 +332,8 @@ function describeLedgerHost(url: string): string {
   }
 }
 
+const LEDGER_CIRCUIT_TTL_SEC = 300;
+
 async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult> {
   const renderLedgerUrl = normalizeLedgerBaseUrl(
     process.env.RENDER_LEDGER_URL ?? 'https://civic-protocol-core-ledger.onrender.com',
@@ -344,17 +346,28 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult>
     console.warn(`[ledger-api] RENDER_LEDGER_URL missing, using fallback host=${ledgerHost}`);
   }
 
+  const circuit = await kvGet<string>(KV_KEYS.LEDGER_CIRCUIT_OPEN);
+  if (circuit) {
+    return {
+      entries: [],
+      degraded: true,
+      error: 'ledger_circuit_open',
+      statusCode: 503,
+    };
+  }
+
   try {
     console.info(
       `[ledger-api] connecting host=${ledgerHost} limit=${limit} hasAgentToken=${agentToken.length > 0}`,
     );
     const health = await fetch(`${renderLedgerUrl}/health`, {
       method: 'GET',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(3000),
       cache: 'no-store',
     });
     if (!health.ok) {
       console.error(`[ledger-api] ledger health check failed host=${ledgerHost} status=${health.status}`);
+      await kvSet(KV_KEYS.LEDGER_CIRCUIT_OPEN, '1', LEDGER_CIRCUIT_TTL_SEC).catch(() => {});
       return { entries: [], degraded: true, error: `ledger_health_http_${health.status}`, statusCode: health.status };
     }
 
@@ -364,7 +377,7 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult>
         Accept: 'application/json',
         ...(authorization ? { Authorization: authorization } : {}),
       },
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(3000),
       cache: 'no-store',
     });
 
@@ -372,6 +385,7 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult>
       const bodyPreview = (await response.text()).slice(0, 200).replace(/\s+/g, ' ').trim();
       const error = `ledger_api_http_${response.status}`;
       console.error(`[ledger-api] ${error} host=${ledgerHost} path=/ledger/events body="${bodyPreview}"`);
+      await kvSet(KV_KEYS.LEDGER_CIRCUIT_OPEN, '1', LEDGER_CIRCUIT_TTL_SEC).catch(() => {});
       return { entries: [], degraded: true, error, statusCode: response.status };
     }
 
@@ -392,6 +406,7 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult>
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown_fetch_error';
     console.error(`[ledger-api] request_failed host=${ledgerHost} error="${message}"`);
+    await kvSet(KV_KEYS.LEDGER_CIRCUIT_OPEN, '1', LEDGER_CIRCUIT_TTL_SEC).catch(() => {});
     return { entries: [], degraded: true, error: `ledger_api_unreachable:${message}` };
   }
 }

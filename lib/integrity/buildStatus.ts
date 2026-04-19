@@ -12,7 +12,7 @@ import { getStalenessStatus } from '@/lib/runtime/staleness';
 import { scoreBatch } from '@/lib/echo/signal-engine';
 import { mockAgents, mockEpicon } from '@/lib/terminal/mock';
 import { getTripwireState } from '@/lib/tripwire/store';
-import { saveGIState, loadGIState, isRedisAvailable, type GIState } from '@/lib/kv/store';
+import { saveGIState, loadGIState, loadGIStateCarry, isRedisAvailable, type GIState } from '@/lib/kv/store';
 
 function resolveSignalQuality() {
   const epicon = getEchoEpicon();
@@ -72,32 +72,53 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
   // 1. Primary: read from KV when available
   if (isRedisAvailable()) {
     const cached = await loadGIState();
-    if (cached) {
-      const age = Date.now() - new Date(cached.timestamp).getTime();
-      const mode = parseGIMode(cached.mode);
-      const terminal_status = parseTerminalStatus(cached.terminal_status);
-      if (age < 15 * 60 * 1000 && mode && terminal_status) {
-        return {
-          cycle: currentCycleId(),
-          timestamp: cached.timestamp,
-          global_integrity: cached.global_integrity,
-          mode,
-          mii_baseline: integrityStatus.mii_baseline,
-          mic_supply: integrityStatus.mic_supply,
-          terminal_status,
-          primary_driver: cached.primary_driver,
-          summary: 'GI reflects signal quality, freshness, tripwire stability, and active system health.',
-          source: 'kv',
-          kv: true,
-          signals: {
-            ...cached.signals,
-            geopolitics: cached.signals.quality,
-            economy: cached.signals.system,
-            sentiment: cached.signals.stability,
-            information: cached.signals.freshness,
-          },
-        };
+    const carry = await loadGIStateCarry();
+    const pick = (() => {
+      if (cached) {
+        const age = Date.now() - new Date(cached.timestamp).getTime();
+        const mode = parseGIMode(cached.mode);
+        const terminal_status = parseTerminalStatus(cached.terminal_status);
+        if (age < 15 * 60 * 1000 && mode && terminal_status) return { row: cached, source: 'kv' as const };
       }
+      if (carry) {
+        const cachedStale =
+          cached &&
+          typeof cached.global_integrity === 'number' &&
+          Date.now() - new Date(cached.timestamp).getTime() >= 15 * 60 * 1000;
+        const useCarry = !cached || cachedStale;
+        if (useCarry) {
+          const mode = parseGIMode(carry.mode);
+          const terminal_status = parseTerminalStatus(carry.terminal_status);
+          if (mode && terminal_status) return { row: carry, source: 'kv_carry_forward' as const };
+        }
+      }
+      return null;
+    })();
+    if (pick) {
+      const { row, source } = pick;
+      return {
+        cycle: currentCycleId(),
+        timestamp: row.timestamp,
+        global_integrity: row.global_integrity,
+        mode: parseGIMode(row.mode)!,
+        mii_baseline: integrityStatus.mii_baseline,
+        mic_supply: integrityStatus.mic_supply,
+        terminal_status: parseTerminalStatus(row.terminal_status)!,
+        primary_driver:
+          source === 'kv_carry_forward'
+            ? `${row.primary_driver} (carried forward; primary gi:latest stale or missing)`
+            : row.primary_driver,
+        summary: 'GI reflects signal quality, freshness, tripwire stability, and active system health.',
+        source: source === 'kv_carry_forward' ? 'cached' : 'kv',
+        kv: true,
+        signals: {
+          ...row.signals,
+          geopolitics: row.signals.quality,
+          economy: row.signals.system,
+          sentiment: row.signals.stability,
+          information: row.signals.freshness,
+        },
+      };
     }
   }
 

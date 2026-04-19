@@ -3,7 +3,7 @@ import { getServiceAuthError, serviceAuthorizationHeaderValue } from '@/lib/secu
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
-import { kvSet, kvSetRawKey, KV_KEYS, isRedisAvailable } from '@/lib/kv/store';
+import { kvSet, kvSetRawKey, KV_KEYS, isRedisAvailable, KV_TTL_SECONDS } from '@/lib/kv/store';
 
 import { GET as getKvHealth } from '@/app/api/kv/health/route';
 import { POST as postSeedKv } from '@/app/api/admin/seed-kv/route';
@@ -155,9 +155,9 @@ export async function GET(request: NextRequest) {
         timestamp: new Date().toISOString(),
       };
       await Promise.all([
-        kvSetRawKey('TRIPWIRE_STATE', JSON.stringify(seedPayload), 1800),
-        kvSet(KV_KEYS.TRIPWIRE_STATE, seedPayload, 1800),
-        kvSet(KV_KEYS.TRIPWIRE_STATE_KV, seedPayload, 1800),
+        kvSetRawKey('TRIPWIRE_STATE', JSON.stringify(seedPayload), KV_TTL_SECONDS.TRIPWIRE_STATE),
+        kvSet(KV_KEYS.TRIPWIRE_STATE, seedPayload, KV_TTL_SECONDS.TRIPWIRE_STATE),
+        kvSet(KV_KEYS.TRIPWIRE_STATE_KV, seedPayload, KV_TTL_SECONDS.TRIPWIRE_STATE),
       ]).catch(() => {});
       actions.push('tripwire-seed:ok');
     }
