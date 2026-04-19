@@ -1,11 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { AttestationProofPanel } from '@/components/mic/AttestationProofPanel';
+import { GenesisBlockViewer } from '@/components/mic/GenesisBlockViewer';
 import { MicStatusCard } from '@/components/mic/MicStatusCard';
+import { SealProofPanel } from '@/components/mic/SealProofPanel';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { fetchMicAttestations } from '@/lib/mic/fetchMicAttestations';
+import { fetchMicGenesisBlock } from '@/lib/mic/fetchMicGenesisBlock';
 import { fetchMicReadiness } from '@/lib/mic/fetchMicReadiness';
-import type { MicReadinessResponse, MicRewardAttestationSummary } from '@/lib/mic/types';
+import { fetchMicSeal } from '@/lib/mic/fetchMicSeal';
+import type { MicGenesisBlockSummary, MicReadinessResponse, MicRewardAttestationSummary, MicSealSnapshot } from '@/lib/mic/types';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 
 type Identity = { user?: { username?: string; mic_balance?: number; tier?: string } };
@@ -15,6 +20,8 @@ export default function MicPageClient() {
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [readiness, setReadiness] = useState<MicReadinessResponse | null>(null);
   const [attestations, setAttestations] = useState<MicRewardAttestationSummary[]>([]);
+  const [seal, setSeal] = useState<MicSealSnapshot | null>(null);
+  const [genesis, setGenesis] = useState<MicGenesisBlockSummary | null>(null);
   const [readinessErr, setReadinessErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,7 +34,12 @@ export default function MicPageClient() {
   useEffect(() => {
     void (async () => {
       try {
-        const [r, a] = await Promise.all([fetchMicReadiness(), fetchMicAttestations()]);
+        const [r, a, s, g] = await Promise.all([
+          fetchMicReadiness(),
+          fetchMicAttestations(),
+          fetchMicSeal(),
+          fetchMicGenesisBlock(),
+        ]);
         if (!r) {
           setReadinessErr('MIC readiness unavailable');
           setReadiness(null);
@@ -36,6 +48,8 @@ export default function MicPageClient() {
           setReadiness(r);
         }
         setAttestations(a);
+        setSeal(s);
+        setGenesis(g);
       } catch {
         setReadinessErr('MIC readiness fetch failed');
         setReadiness(null);
@@ -56,8 +70,11 @@ export default function MicPageClient() {
           {readinessErr ?? 'Loading MIC readiness…'}
         </div>
       ) : (
-        <div className="mb-4">
+        <div className="mb-4 space-y-4">
           <MicStatusCard readiness={readiness} attestations={attestations} />
+          {seal ? <SealProofPanel seal={seal} /> : null}
+          {genesis ? <GenesisBlockViewer block={genesis} /> : null}
+          {attestations.length > 0 ? <AttestationProofPanel attestation={attestations[0]} /> : null}
         </div>
       )}
 

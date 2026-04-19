@@ -1,21 +1,20 @@
 /**
- * GET /api/mic/readiness
+ * GET /api/mic/seals/latest
  *
- * MIC_READINESS_V1 — assembled server-side from Vault status + deposit sample.
- * Terminal displays this payload; it does not re-derive policy.
+ * MIC_SEAL_V1 snapshot + hash (from current readiness assembly).
  */
 
-import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import { buildMicReadinessV1, type VaultStatusJson } from '@/lib/mic/runtime-readiness';
+import { buildMicSealSnapshotBody } from '@/lib/mic/proof-payloads';
+import { withHash } from '@/lib/mic/hash';
 import { loadGIState } from '@/lib/kv/store';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
 import { getVaultStatusPayload } from '@/lib/vault/vault';
 import { countSeals, getCandidate, getInProgressBalance, getLatestSeal } from '@/lib/vault-v2/store';
 import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
 import { listVaultDeposits } from '@/lib/vault/vault';
-import { withHash } from '@/lib/mic/hash';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +30,6 @@ async function getVaultStatusShape(): Promise<VaultStatusJson> {
   }
 
   const v1 = await getVaultStatusPayload(gi);
-
   const [inProgressBalance, sealsCount, latestSeal, candidate] = await Promise.all([
     getInProgressBalance(),
     countSeals(),
@@ -86,15 +84,12 @@ async function getVaultStatusShape(): Promise<VaultStatusJson> {
   };
 }
 
-export async function GET(req: NextRequest) {
-  const cycleParam = req.nextUrl.searchParams.get('cycle')?.trim();
-  let cycle = cycleParam ?? '';
-  if (!cycle) {
-    try {
-      cycle = (await resolveOperatorCycleId()) ?? '';
-    } catch {
-      cycle = '';
-    }
+export async function GET() {
+  let cycle = '';
+  try {
+    cycle = (await resolveOperatorCycleId()) ?? '';
+  } catch {
+    cycle = '';
   }
 
   const vaultStatus = await getVaultStatusShape();
@@ -105,20 +100,16 @@ export async function GET(req: NextRequest) {
     cycle: cycle || undefined,
   });
 
-  const proof = withHash(readiness);
+  const body = buildMicSealSnapshotBody(readiness);
+  const { payload, hash } = withHash(body);
 
   return NextResponse.json(
     {
-      ...readiness,
-      readiness_proof: {
-        hash: proof.hash,
-        hash_algorithm: 'sha256' as const,
-      },
+      ...payload,
+      hash,
+      hash_algorithm: 'sha256',
+      previous_hash: (vaultStatus.latest_seal_hash as string | null) ?? null,
     },
-    {
-    headers: {
-      'Cache-Control': 'no-store',
-      'X-Mobius-Source': 'mic-readiness-v1',
-    },
-  });
+    { headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'mic-seal-latest' } },
+  );
 }

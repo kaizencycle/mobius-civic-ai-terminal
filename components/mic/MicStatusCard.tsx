@@ -7,6 +7,7 @@ import { MintReadinessBadge } from '@/components/mic/MintReadinessBadge';
 import { QuorumStatusCard } from '@/components/mic/QuorumStatusCard';
 import { SealStatusCard } from '@/components/mic/SealStatusCard';
 import { VaultStatusCard } from '@/components/mic/VaultStatusCard';
+import { ChainIntegrityCard } from '@/components/mic/ChainIntegrityCard';
 
 export function MicStatusCard({
   readiness,
@@ -43,6 +44,17 @@ export function MicStatusCard({
       <div className="mt-4">
         <MicAttestationTable rows={attestations} />
       </div>
+
+      {readiness.readiness_proof?.hash ? (
+        <div className="mt-4">
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-500">Readiness snapshot hash</div>
+          <ChainIntegrityCard
+            hash={readiness.readiness_proof.hash}
+            previousHash={null}
+            algorithm={readiness.readiness_proof.hash_algorithm ?? 'sha256'}
+          />
+        </div>
+      ) : null}
 
       <p className="mt-3 text-[10px] leading-relaxed text-slate-600">
         Display-only: readiness is assembled on the server from Vault + GI + deposit sample. Policy and mint authorization
