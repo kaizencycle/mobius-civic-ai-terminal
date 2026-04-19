@@ -7,7 +7,14 @@
 
 import { NextResponse } from 'next/server';
 import { pollAllMicroAgents } from '@/lib/agents/micro';
-import { saveSignalSnapshot, loadSignalSnapshot, isRedisAvailable, kvSet, KV_KEYS } from '@/lib/kv/store';
+import {
+  saveSignalSnapshot,
+  loadSignalSnapshot,
+  isRedisAvailable,
+  kvSet,
+  KV_KEYS,
+  KV_TTL_SECONDS,
+} from '@/lib/kv/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 
@@ -56,25 +63,33 @@ export async function GET() {
         healthy: result.healthy,
       }).catch(() => {});
 
-      kvSet(KV_KEYS.HEARTBEAT, JSON.stringify({
-        ok: true,
-        gi: result.composite,
-        cycle: currentCycleId(),
-        anomalies: result.anomalies?.length ?? 0,
-        familyCount: 8,
-        instrumentCount: result.instrumentCount ?? 40,
-        timestamp: result.timestamp,
-        source: 'micro-sweep',
-      })).catch(() => {});
+      kvSet(
+        KV_KEYS.HEARTBEAT,
+        JSON.stringify({
+          ok: true,
+          gi: result.composite,
+          cycle: currentCycleId(),
+          anomalies: result.anomalies?.length ?? 0,
+          familyCount: 8,
+          instrumentCount: result.instrumentCount ?? 40,
+          timestamp: result.timestamp,
+          source: 'micro-sweep',
+        }),
+        KV_TTL_SECONDS.HEARTBEAT,
+      ).catch(() => {});
 
-      kvSet(KV_KEYS.SYSTEM_PULSE, {
-        ok: true,
-        composite: result.composite,
-        cycle: currentCycleId(),
-        instruments: result.instrumentCount ?? 40,
-        anomalies: result.anomalies?.length ?? 0,
-        timestamp: result.timestamp,
-      }, 7200).catch(() => {});
+      kvSet(
+        KV_KEYS.SYSTEM_PULSE,
+        {
+          ok: true,
+          composite: result.composite,
+          cycle: currentCycleId(),
+          instruments: result.instrumentCount ?? 40,
+          anomalies: result.anomalies?.length ?? 0,
+          timestamp: result.timestamp,
+        },
+        KV_TTL_SECONDS.SYSTEM_PULSE,
+      ).catch(() => {});
 
       if (now - lastLedgerPushMs > LEDGER_PUSH_INTERVAL_MS) {
         lastLedgerPushMs = now;
@@ -95,10 +110,15 @@ export async function GET() {
       }
     }
 
+    const degradedInstruments = result.allSignals
+      .filter((s) => s.severity === 'elevated' || s.severity === 'critical')
+      .map((s) => ({ agentName: s.agentName, source: s.source, severity: s.severity, label: s.label }));
+
     return NextResponse.json({
       ok: true,
       cached: false,
       kv: isRedisAvailable(),
+      degraded_instruments: degradedInstruments,
       ...result,
     }, {
       headers: {
@@ -111,6 +131,9 @@ export async function GET() {
     if (isRedisAvailable()) {
       const snapshot = await loadSignalSnapshot();
       if (snapshot) {
+        const degradedInstruments = snapshot.allSignals
+          .filter((s) => s.severity === 'elevated' || s.severity === 'critical')
+          .map((s) => ({ agentName: s.agentName, source: s.source, severity: s.severity, label: s.label }));
         return NextResponse.json({
           ok: true,
           cached: true,
@@ -120,6 +143,7 @@ export async function GET() {
           allSignals: snapshot.allSignals,
           timestamp: snapshot.timestamp,
           healthy: snapshot.healthy,
+          degraded_instruments: degradedInstruments,
         }, {
           headers: {
             'X-Mobius-Source': 'micro-agents-kv-fallback',

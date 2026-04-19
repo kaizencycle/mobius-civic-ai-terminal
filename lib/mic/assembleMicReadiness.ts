@@ -1,9 +1,10 @@
+import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import { buildMicReadinessV1, type VaultStatusJson } from '@/lib/mic/runtime-readiness';
 import { mergeMicReadinessFromUpstream } from '@/lib/mic/readinessMerge';
 import type { MicReadinessResponse } from '@/lib/mic/types';
 import { withHash } from '@/lib/mic/hash';
-import { loadGIState, kvGet, KV_KEYS } from '@/lib/kv/store';
+import { kvGet, KV_KEYS } from '@/lib/kv/store';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
 import { getVaultStatusPayload, listVaultDeposits } from '@/lib/vault/vault';
 import { countSeals, getCandidate, getInProgressBalance, getLatestSeal } from '@/lib/vault-v2/store';
@@ -15,16 +16,9 @@ type UpstreamSnapshot = {
   source?: string;
 };
 
-async function getVaultStatusShape(): Promise<VaultStatusJson> {
-  let gi: number | null = null;
-  try {
-    const st = await loadGIState();
-    if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
-      gi = Math.max(0, Math.min(1, st.global_integrity));
-    }
-  } catch {
-    gi = null;
-  }
+async function getVaultStatusShape(giOverride: number | null): Promise<VaultStatusJson> {
+  const gi =
+    typeof giOverride === 'number' && Number.isFinite(giOverride) ? Math.max(0, Math.min(1, giOverride)) : null;
 
   const v1 = await getVaultStatusPayload(gi);
   const [inProgressBalance, sealsCount, latestSeal, candidate] = await Promise.all([
@@ -96,13 +90,19 @@ export async function resolveReadinessCycle(cycleParam?: string | null): Promise
 /** Local MIC_READINESS_V1 from Vault + deposits (no upstream merge). */
 export async function assembleLocalMicReadiness(cycleParam?: string | null): Promise<MicReadinessResponse> {
   const cycle = await resolveReadinessCycle(cycleParam);
-  const vaultStatus = await getVaultStatusShape();
+  const micSnapRaw = await kvGet<string>(KV_KEYS.MIC_READINESS_SNAPSHOT);
+  const resolvedGi = await resolveGiForTerminal({ micReadinessSnapshotRaw: micSnapRaw });
+  const vaultStatus = await getVaultStatusShape(resolvedGi.gi);
   const deposits = await listVaultDeposits(120);
-  return buildMicReadinessV1({
+  const base = buildMicReadinessV1({
     vaultStatus,
     depositsSample: deposits,
     cycle: cycle || undefined,
   });
+  return {
+    ...base,
+    gi: resolvedGi.gi,
+  };
 }
 
 async function loadUpstreamReadiness(): Promise<Partial<MicReadinessResponse> | null> {
@@ -132,7 +132,13 @@ async function loadUpstreamReadiness(): Promise<Partial<MicReadinessResponse> | 
 export async function getMergedMicReadiness(cycleParam?: string | null): Promise<MicReadinessResponse> {
   const local = await assembleLocalMicReadiness(cycleParam);
   const upstream = await loadUpstreamReadiness();
-  const merged = mergeMicReadinessFromUpstream(local, upstream);
+  const mergedBase = mergeMicReadinessFromUpstream(local, upstream);
+  const micSnapRaw = await kvGet<string>(KV_KEYS.MIC_READINESS_SNAPSHOT);
+  const giResolved = await resolveGiForTerminal({ micReadinessSnapshotRaw: micSnapRaw });
+  const merged: MicReadinessResponse = {
+    ...mergedBase,
+    gi: giResolved.gi ?? mergedBase.gi,
+  };
   const proof = withHash(merged);
   return {
     ...merged,

@@ -23,6 +23,9 @@ export async function GET() {
     }
     const legacyTripwire = await kvGetRaw<string>('TRIPWIRE_STATE');
     keys.TRIPWIRE_STATE_REDIS = legacyTripwire !== null && legacyTripwire !== undefined;
+    const bal = await kvGet<number>(KV_KEYS.VAULT_GLOBAL_BALANCE);
+    const meta = await kvGet<unknown>(KV_KEYS.VAULT_GLOBAL_META);
+    keys.VAULT_STATE = bal !== null || meta !== null;
   }
 
   return NextResponse.json({

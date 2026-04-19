@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
-import { kvSet, KV_KEYS, saveGIState, saveSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
+import { kvSet, KV_KEYS, saveGIState, saveSignalSnapshot, isRedisAvailable, KV_TTL_SECONDS } from '@/lib/kv/store';
 import { computeGI } from '@/lib/gi/compute';
 import { getEchoEpicon } from '@/lib/echo/store';
 import { scoreBatch } from '@/lib/echo/signal-engine';
@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
       timestamp,
       source: 'manual-seed',
     }),
+    KV_TTL_SECONDS.HEARTBEAT,
   );
   seeded.push('HEARTBEAT');
 

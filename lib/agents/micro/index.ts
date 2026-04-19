@@ -31,7 +31,8 @@ export interface MicroAgentSweepResult {
   instrumentCount: number;
 }
 
-const CONCURRENCY = 8;
+/** C-286: higher fan-out so 40 instruments finish closer to slowest single poll, not sum of waves. */
+const CONCURRENCY = 20;
 
 async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);

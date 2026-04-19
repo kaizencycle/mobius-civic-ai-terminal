@@ -6,10 +6,11 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { bearerMatchesToken } from '@/lib/vault-v2/auth';
+import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
 import { assembleLocalMicReadiness, getMergedMicReadiness, resolveReadinessCycle } from '@/lib/mic/assembleMicReadiness';
 import { mergeMicReadinessFromUpstream } from '@/lib/mic/readinessMerge';
 import type { MicReadinessResponse } from '@/lib/mic/types';
-import { kvSet, kvLpushCapped, KV_KEYS } from '@/lib/kv/store';
+import { kvSet, kvLpushCapped, KV_KEYS, kvGet, KV_TTL_SECONDS } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,14 +27,26 @@ function micReadinessPostAuth(req: NextRequest): boolean {
 
 export async function GET(req: NextRequest) {
   const cycleParam = req.nextUrl.searchParams.get('cycle')?.trim();
+  const micSnapRaw = await kvGet<string>(KV_KEYS.MIC_READINESS_SNAPSHOT);
+  const giMeta = await resolveGiForTerminal({ micReadinessSnapshotRaw: micSnapRaw });
   const readiness = await getMergedMicReadiness(cycleParam);
 
-  return NextResponse.json(readiness, {
-    headers: {
-      'Cache-Control': 'no-store',
-      'X-Mobius-Source': 'mic-readiness-v1',
+  return NextResponse.json(
+    {
+      ...readiness,
+      gi: giMeta.gi ?? readiness.gi,
+      gi_resolution: {
+        source: giMeta.source,
+        timestamp: giMeta.timestamp,
+      },
     },
-  });
+    {
+      headers: {
+        'Cache-Control': 'no-store',
+        'X-Mobius-Source': 'mic-readiness-v1',
+      },
+    },
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -72,7 +85,7 @@ export async function POST(req: NextRequest) {
     source: 'tokenomics-engine',
   };
 
-  await kvSet(KV_KEYS.MIC_READINESS_SNAPSHOT, JSON.stringify(snapshot), 7200);
+  await kvSet(KV_KEYS.MIC_READINESS_SNAPSHOT, JSON.stringify(snapshot), KV_TTL_SECONDS.MIC_READINESS_SNAPSHOT);
   await kvLpushCapped(KV_KEYS.MIC_READINESS_FEED, JSON.stringify(snapshot), 100);
 
   return NextResponse.json({ ok: true, received_at: snapshot.received_at });

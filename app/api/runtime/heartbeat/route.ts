@@ -13,7 +13,7 @@ import {
   isValidCronSecretBearer,
   isVercelCronInvocation,
 } from '@/lib/security/serviceAuth';
-import { kvSet, KV_KEYS, isRedisAvailable } from '@/lib/kv/store';
+import { kvSet, KV_KEYS, isRedisAvailable, KV_TTL_SECONDS } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +27,11 @@ async function writeHeartbeatKV() {
   const timestamp = new Date().toISOString();
   const giScore = integrityStatus.global_integrity;
   await Promise.allSettled([
-    kvSet(KV_KEYS.HEARTBEAT, JSON.stringify({ ok: true, gi: giScore, timestamp, source: 'heartbeat' })),
+    kvSet(
+      KV_KEYS.HEARTBEAT,
+      JSON.stringify({ ok: true, gi: giScore, timestamp, source: 'heartbeat' }),
+      KV_TTL_SECONDS.HEARTBEAT,
+    ),
     kvSet(KV_KEYS.LAST_INGEST, timestamp),
   ]);
 }

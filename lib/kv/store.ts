@@ -35,6 +35,9 @@ import {
   scheduleBackupMirrorRawDel,
   scheduleBackupMirrorRawKey,
 } from '@/lib/kv/backup-redis';
+import { KV_TTL_SECONDS } from '@/lib/kv/kv-ttl';
+
+export { KV_TTL_SECONDS };
 
 // ── Redis client (lazy singleton) ────────────────────────────
 
@@ -228,6 +231,14 @@ export const KV_KEYS = {
   SIGNAL_SNAPSHOT: 'signals:latest',
   /** Last GI computation result */
   GI_STATE: 'gi:latest',
+  /** Last successful GI row (long TTL) — C-286 carry-forward when primary TTL expires */
+  GI_STATE_CARRY: 'gi:latest_carry',
+  /** v1 vault cumulative balance (prefixed mobius:…) */
+  VAULT_GLOBAL_BALANCE: 'vault:global:balance',
+  /** v1 vault meta row */
+  VAULT_GLOBAL_META: 'vault:global:meta',
+  /** Operator cycle hint (written by heartbeat cron) */
+  CURRENT_CYCLE: 'operator:current_cycle',
   /** ECHO store state (epicon, ledger, alerts) */
   ECHO_STATE: 'echo:state',
   /**
@@ -245,6 +256,8 @@ export const KV_KEYS = {
   LAST_INGEST: 'ingest:last',
   /** High-frequency system pulse — updated on every micro sweep and journal write */
   SYSTEM_PULSE: 'system:pulse',
+  /** Short-circuit hot ledger API after repeated timeouts (C-286) */
+  LEDGER_CIRCUIT_OPEN: 'ledger:circuit_open',
 } as const;
 
 // ── Signal snapshot persistence ──────────────────────────────
@@ -270,7 +283,7 @@ export type SignalSnapshot = {
  * Freshness is tracked via the embedded timestamp, not TTL expiry.
  */
 export async function saveSignalSnapshot(snapshot: SignalSnapshot): Promise<void> {
-  await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, snapshot, 7200);
+  await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, snapshot, KV_TTL_SECONDS.SIGNAL_SNAPSHOT);
 }
 
 /**
@@ -298,10 +311,11 @@ export type GIState = {
 };
 
 /**
- * Save the latest GI state. TTL: 15 minutes.
+ * Save the latest GI state. TTL: see `KV_TTL_SECONDS.GI_STATE` (C-286 extended for cycle-open).
  */
 export async function saveGIState(state: GIState): Promise<void> {
-  await kvSet(KV_KEYS.GI_STATE, state, 900);
+  await kvSet(KV_KEYS.GI_STATE, state, KV_TTL_SECONDS.GI_STATE);
+  await kvSet(KV_KEYS.GI_STATE_CARRY, state, 604800);
 }
 
 /**
@@ -309,6 +323,11 @@ export async function saveGIState(state: GIState): Promise<void> {
  */
 export async function loadGIState(): Promise<GIState | null> {
   return kvGet<GIState>(KV_KEYS.GI_STATE);
+}
+
+/** Long-TTL duplicate of last `saveGIState` write — for cycle-open / KV primary expiry. */
+export async function loadGIStateCarry(): Promise<GIState | null> {
+  return kvGet<GIState>(KV_KEYS.GI_STATE_CARRY);
 }
 
 // ── ECHO state persistence ───────────────────────────────────
@@ -329,7 +348,7 @@ export type EchoKVState = {
  * Save ECHO store summary. TTL: 2 hours (matches /api/cron/echo-ingest cadence).
  */
 export async function saveEchoState(state: EchoKVState): Promise<void> {
-  await kvSet(KV_KEYS.ECHO_STATE, state, 7200);
+  await kvSet(KV_KEYS.ECHO_STATE, state, KV_TTL_SECONDS.ECHO_STATE);
 }
 
 /**
@@ -352,7 +371,7 @@ export type TripwireKVState = {
  * Save tripwire state. TTL: 30 minutes.
  */
 export async function saveTripwireState(state: TripwireKVState): Promise<void> {
-  await kvSet(KV_KEYS.TRIPWIRE_STATE, state, 1800);
+  await kvSet(KV_KEYS.TRIPWIRE_STATE, state, KV_TTL_SECONDS.TRIPWIRE_STATE);
 }
 
 /**

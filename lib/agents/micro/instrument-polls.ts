@@ -5,7 +5,14 @@
  */
 
 import type { AgentPollResult, MicroSignal } from './core';
-import { classifySeverity, normalizeDirect, normalizeInverse, safeFetch, safeFetchText } from './core';
+import {
+  classifySeverity,
+  normalizeDirect,
+  normalizeInverse,
+  safeFetch,
+  safeFetchText,
+  safeFetchWithMeta,
+} from './core';
 import { fetchEonetEvents, scoreEonetEvents } from '@/lib/signals/eonet';
 
 const UA_HEADERS: HeadersInit = {
@@ -177,9 +184,22 @@ export async function pollZeusU2(): Promise<AgentPollResult> {
 
 export async function pollZeusU3(): Promise<AgentPollResult> {
   const url = 'https://api.coincap.io/v2/assets?limit=8';
-  const data = await safeFetch<{ data?: Array<{ id?: string; changePercent24Hr?: string }> }>(url);
-  const rows = data?.data ?? [];
-  if (rows.length === 0) return wrap('ZEUS-µ3', null);
+  const meta = await safeFetchWithMeta<{ data?: Array<{ id?: string; changePercent24Hr?: string }> }>(url);
+  if (!meta.ok || meta.data === null) {
+    return wrap(
+      'ZEUS-µ3',
+      null,
+      `ZEUS-µ3: no signal — source: ${url} status: ${meta.status ?? 'n/a'} reason: ${meta.error ?? 'unknown'}`,
+    );
+  }
+  const rows = meta.data.data ?? [];
+  if (rows.length === 0) {
+    return wrap(
+      'ZEUS-µ3',
+      null,
+      `ZEUS-µ3: no signal — source: ${url} status: ${meta.status ?? 200} reason: empty assets list`,
+    );
+  }
   const changes = rows
     .map((r) => Number.parseFloat(r.changePercent24Hr ?? '0'))
     .filter((n) => Number.isFinite(n));
@@ -284,51 +304,79 @@ export async function pollHermesU2(): Promise<AgentPollResult> {
 export async function pollHermesU3(): Promise<AgentPollResult> {
   const queries = ['governance OR democracy OR civic', 'transparency OR regulation OR policy'];
   let n = 0;
+  let lastMeta: Awaited<ReturnType<typeof safeFetchWithMeta<{ articles?: unknown[] }>>> | null = null;
   for (const q of queries) {
     const url =
       `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=artlist&maxrecords=8&format=json&timespan=1d`;
-    const data = await safeFetch<{ articles?: unknown[] }>(url, 12000);
-    n += data?.articles?.length ?? 0;
+    const meta = await safeFetchWithMeta<{ articles?: unknown[] }>(url, 12000);
+    lastMeta = meta;
+    if (meta.ok && meta.data) {
+      n += meta.data.articles?.length ?? 0;
+    }
     if (n > 0) break;
   }
-  const value = Number(normalizeDirect(Math.min(n, 16), 0, 16).toFixed(3));
-  const severity = n === 0 ? 'watch' : classifySeverity(value, { watch: 0.45, elevated: 0.3, critical: 0.15 });
+  const d = new Date();
+  const weekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+  const quietHour = d.getUTCHours() >= 0 && d.getUTCHours() <= 8;
+  const httpOk = Boolean(lastMeta?.ok);
+  const quietContext = httpOk && n === 0 && (weekend || quietHour);
+  const value = Number((quietContext ? 0.5 : normalizeDirect(Math.min(n, 16), 0, 16)).toFixed(3));
+  const severity = quietContext
+    ? 'nominal'
+    : n === 0
+      ? 'watch'
+      : classifySeverity(value, { watch: 0.45, elevated: 0.3, critical: 0.15 });
   return wrap('HERMES-µ3', {
     agentName: 'HERMES-µ3',
     source: 'GDELT · governance artlist',
     timestamp: new Date().toISOString(),
     value,
-    label: `GDELT: ${n} articles (24h governance+civic)`,
+    label: quietContext
+      ? `GDELT: 0 articles (quiet window — HTTP ${lastMeta?.status ?? 'ok'}, nominal)`
+      : `GDELT: ${n} articles (24h governance+civic)`,
     severity,
-    raw: { count: n },
+    raw: { count: n, httpOk, quietContext },
   });
 }
 
 export async function pollHermesU4(): Promise<AgentPollResult> {
   const subs = ['worldnews', 'technology', 'civictech'];
   let kids: Array<{ data?: { score?: number; title?: string } }> = [];
+  let lastStatus: number | null = null;
+  let lastOk = false;
   for (const sub of subs) {
     const url = `https://www.reddit.com/r/${sub}/hot.json?limit=8`;
-    const data = await safeFetch<{ data?: { children?: Array<{ data?: { score?: number; title?: string } }> } }>(
+    const meta = await safeFetchWithMeta<{ data?: { children?: Array<{ data?: { score?: number; title?: string } }> } }>(
       url,
       12000,
       { headers: { ...UA_HEADERS, Accept: 'application/json' } },
     );
-    kids = data?.data?.children ?? [];
+    lastStatus = meta.status;
+    lastOk = meta.ok;
+    if (meta.ok && meta.data) {
+      kids = meta.data.data?.children ?? [];
+    }
     if (kids.length > 0) break;
   }
   const scores = kids.map((c) => c.data?.score ?? 0);
   const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-  const value = Number(normalizeDirect(avg, 0, 2000).toFixed(3));
-  const severity = kids.length === 0 ? 'watch' : classifySeverity(value, { watch: 0.4, elevated: 0.22, critical: 0.08 });
+  const d = new Date();
+  const weekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+  const quietHour = d.getUTCHours() >= 0 && d.getUTCHours() <= 8;
+  const quietContext = lastOk && kids.length === 0 && (weekend || quietHour);
+  const value = Number((quietContext ? 0.5 : normalizeDirect(avg, 0, 2000)).toFixed(3));
+  const severity =
+    quietContext ? 'nominal' : kids.length === 0 ? 'watch' : classifySeverity(value, { watch: 0.4, elevated: 0.22, critical: 0.08 });
   return wrap('HERMES-µ4', {
     agentName: 'HERMES-µ4',
     source: 'Reddit · narrative feed',
     timestamp: new Date().toISOString(),
     value,
-    label: `Reddit narrative: avg score ${Math.round(avg)} on ${kids.length} posts`,
+    label: quietContext
+      ? `Reddit: 0 posts in sample (quiet window — HTTP ${lastStatus ?? 'ok'}, nominal)`
+      : `Reddit narrative: avg score ${Math.round(avg)} on ${kids.length} posts`,
     severity,
-    raw: { count: kids.length },
+    raw: { count: kids.length, httpOk: lastOk, quietContext },
   });
 }
 
@@ -355,25 +403,51 @@ export async function pollAureaU1(): Promise<AgentPollResult> {
   const url = `https://www.federalregister.gov/api/v1/documents.json?conditions[publication_date][is]=${today}&per_page=10&order=newest`;
   const data = await safeFetch<{ count?: number }>(url);
   const count = data?.count ?? 0;
+  const dow = new Date().getUTCDay();
+  const weekend = dow === 0 || dow === 6;
+  const nominalZero = count === 0 && weekend;
   const value = Number(
-    (count === 0 ? 0.5 : count <= 100 ? normalizeDirect(count, 0, 100) : Math.max(0.7, 1 - (count - 100) / 500)).toFixed(3),
+    (
+      nominalZero
+        ? 1
+        : count === 0
+          ? 0.5
+          : count <= 100
+            ? normalizeDirect(count, 0, 100)
+            : Math.max(0.7, 1 - (count - 100) / 500)
+    ).toFixed(3),
   );
   return wrap('AUREA-µ1', {
     agentName: 'AUREA-µ1',
     source: 'Federal Register · volume',
     timestamp: new Date().toISOString(),
     value,
-    label: `FR today: ${count} documents`,
-    severity: classifySeverity(value, { watch: 0.4, elevated: 0.2, critical: 0.05 }),
-    raw: { date: today, count },
+    label: nominalZero
+      ? `FR today: ${count} documents (weekend — nominal)`
+      : `FR today: ${count} documents`,
+    severity: nominalZero ? 'nominal' : classifySeverity(value, { watch: 0.4, elevated: 0.2, critical: 0.05 }),
+    raw: { date: today, count, weekendNominalZero: nominalZero },
   });
 }
 
 export async function pollAureaU2(): Promise<AgentPollResult> {
   const url = 'https://catalog.data.gov/api/3/action/package_search?rows=5&sort=metadata_modified+desc';
-  const data = await safeFetch<{ result?: { count?: number } }>(url);
-  const n = data?.result?.count;
-  if (typeof n !== 'number') return wrap('AUREA-µ2', null);
+  const meta = await safeFetchWithMeta<{ result?: { count?: number } }>(url);
+  if (!meta.ok || meta.data === null) {
+    return wrap(
+      'AUREA-µ2',
+      null,
+      `AUREA-µ2: no signal — source: ${url} status: ${meta.status ?? 'n/a'} reason: ${meta.error ?? 'unknown'}`,
+    );
+  }
+  const n = meta.data.result?.count;
+  if (typeof n !== 'number') {
+    return wrap(
+      'AUREA-µ2',
+      null,
+      `AUREA-µ2: no signal — source: ${url} status: ${meta.status ?? 200} reason: missing result.count`,
+    );
+  }
   const value = Number(normalizeDirect(Math.min(n, 500_000), 0, 500_000).toFixed(3));
   return wrap('AUREA-µ2', {
     agentName: 'AUREA-µ2',

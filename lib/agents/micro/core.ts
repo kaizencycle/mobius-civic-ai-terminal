@@ -105,3 +105,42 @@ export async function safeFetchText(url: string, timeoutMs = 8000, init?: Reques
     return null;
   }
 }
+
+export type SafeFetchMeta<T> = {
+  ok: boolean;
+  status: number | null;
+  data: T | null;
+  error: string | null;
+};
+
+/** Like `safeFetch` but preserves HTTP status for operator-visible error strings (C-286). */
+export async function safeFetchWithMeta<T>(url: string, timeoutMs = 8000, init?: RequestInit): Promise<SafeFetchMeta<T>> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url, {
+      ...(init ?? {}),
+      signal: controller.signal,
+      cache: init?.cache ?? 'no-store',
+    });
+    clearTimeout(timer);
+    const status = res.status;
+    if (!res.ok) {
+      return {
+        ok: false,
+        status,
+        data: null,
+        error: `HTTP ${status} ${res.statusText}`.trim(),
+      };
+    }
+    return {
+      ok: true,
+      status,
+      data: ((await res.json()) as T) ?? null,
+      error: null,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'fetch failed';
+    return { ok: false, status: null, data: null, error: msg };
+  }
+}

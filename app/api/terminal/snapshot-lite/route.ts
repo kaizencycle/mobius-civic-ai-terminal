@@ -6,13 +6,13 @@ import {
   kvGet,
   kvHealth,
   KV_KEYS,
-  loadGIState,
   loadSignalSnapshot,
   loadEchoState,
   loadTripwireState,
 } from '@/lib/kv/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getHeartbeat, getJournalHeartbeat } from '@/lib/runtime/heartbeat';
+import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,14 +51,34 @@ export async function GET(req: NextRequest) {
   const start = Date.now();
   const cors = handbookCorsHeaders(req.headers.get('origin'));
 
-  const [kv, gi, signals, echo, tripwire, pulse] = await Promise.all([
+  const [kv, micSnapRaw, signals, echo, tripwire, pulse] = await Promise.all([
     kvHealth(),
-    loadGIState(),
+    kvGet<string>(KV_KEYS.MIC_READINESS_SNAPSHOT),
     loadSignalSnapshot(),
     loadEchoState(),
     loadTripwireState(),
     kvGet<SystemPulse>(KV_KEYS.SYSTEM_PULSE),
   ]);
+  const giResolved = await resolveGiForTerminal({ micReadinessSnapshotRaw: micSnapRaw });
+  const gi =
+    giResolved.source === 'kv'
+      ? giResolved.kv
+      : giResolved.gi !== null
+        ? {
+            global_integrity: giResolved.gi,
+            mode: typeof giResolved.mode === 'string' ? giResolved.mode : 'yellow',
+            terminal_status: giResolved.terminal_status ?? 'stressed',
+            primary_driver: giResolved.primary_driver ?? '',
+            source: giResolved.source === 'live_compute' ? 'live' : 'cached',
+            signals: {
+              quality: 0.5,
+              freshness: 0.5,
+              stability: 0.5,
+              system: 0.5,
+            },
+            timestamp: giResolved.timestamp ?? new Date().toISOString(),
+          }
+        : null;
 
   const cycle =
     (typeof pulse?.cycle === 'string' && pulse.cycle.trim().length > 0 ? pulse.cycle.trim() : null) ??
@@ -72,11 +92,16 @@ export async function GET(req: NextRequest) {
   const lanes = {
     kv: { ok: kv.available, latency_ms: kv.latencyMs },
     integrity: {
-      ok: Boolean(gi),
-      gi: gi?.global_integrity ?? null,
-      mode: gi?.mode ?? null,
-      terminal_status: gi?.terminal_status ?? null,
-      source: gi?.source ?? null,
+      ok: giResolved.gi !== null,
+      gi: giResolved.gi ?? gi?.global_integrity ?? null,
+      mode: (giResolved.mode as string | null) ?? gi?.mode ?? null,
+      terminal_status: giResolved.terminal_status ?? gi?.terminal_status ?? null,
+      source:
+        giResolved.source === 'kv' || giResolved.source === 'kv_carry_forward'
+          ? 'kv'
+          : giResolved.source === 'readiness_snapshot' || giResolved.source === 'live_compute'
+            ? 'readiness_fallback'
+            : 'null',
       freshness: freshness(giAge),
       age_seconds: giAge,
     },
@@ -110,11 +135,12 @@ export async function GET(req: NextRequest) {
     },
   };
 
+  const modeStr = (giResolved.mode as string | null) ?? gi?.mode ?? null;
   const degraded =
     !lanes.kv.ok ||
     !lanes.integrity.ok ||
     lanes.integrity.freshness === 'degraded' ||
-    (gi?.mode === 'red') ||
+    modeStr === 'red' ||
     lanes.tripwire.elevated;
 
   return NextResponse.json({
@@ -126,8 +152,14 @@ export async function GET(req: NextRequest) {
       commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
       environment: process.env.VERCEL_ENV ?? null,
     },
-    gi: gi?.global_integrity ?? null,
-    mode: gi?.mode ?? null,
+    gi: giResolved.gi ?? gi?.global_integrity ?? null,
+    mode: modeStr,
+    gi_source:
+      giResolved.source === 'kv' || giResolved.source === 'kv_carry_forward'
+        ? 'kv'
+        : giResolved.source === 'readiness_snapshot' || giResolved.source === 'live_compute'
+          ? 'readiness_fallback'
+          : 'null',
     degraded,
     lanes,
     heartbeat: {

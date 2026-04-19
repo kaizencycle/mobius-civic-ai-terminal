@@ -13,9 +13,16 @@ export function mergeMicReadinessFromUpstream(
   return {
     ...local,
     ...(incoming.cycle !== undefined && incoming.cycle !== '' ? { cycle: incoming.cycle } : {}),
-    ...(incoming.gi !== undefined ? { gi: incoming.gi } : {}),
+    ...(typeof incoming.gi === 'number' && Number.isFinite(incoming.gi) ? { gi: incoming.gi } : {}),
     ...(incoming.mintThresholdGi !== undefined ? { mintThresholdGi: incoming.mintThresholdGi } : {}),
-    reserve: incoming.reserve ? { ...local.reserve, ...incoming.reserve } : local.reserve,
+    // C-286: `in_progress_balance` is canonical from this Terminal's Vault KV — never override from upstream proxy.
+    reserve: incoming.reserve
+      ? {
+          ...local.reserve,
+          ...incoming.reserve,
+          inProgressBalance: local.reserve.inProgressBalance,
+        }
+      : local.reserve,
     sustain: incoming.sustain ? { ...local.sustain, ...incoming.sustain } : local.sustain,
     replay: incoming.replay ? { ...local.replay, ...incoming.replay } : local.replay,
     novelty: incoming.novelty ? { ...local.novelty, ...incoming.novelty } : local.novelty,

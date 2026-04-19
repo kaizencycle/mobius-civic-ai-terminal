@@ -7,7 +7,7 @@ import { Redis } from '@upstash/redis';
 import type { IngestResult } from '@/lib/echo/transform';
 import type { IntegrityRating } from '@/lib/echo/integrity-engine';
 import { getEchoStatus } from '@/lib/echo/store';
-import { saveEchoState, loadGIState, kvSet, KV_KEYS } from '@/lib/kv/store';
+import { saveEchoState, loadGIState, kvSet, KV_KEYS, KV_TTL_SECONDS } from '@/lib/kv/store';
 import { readMiiFeed, type MiiEntry } from '@/lib/kv/mii';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 
@@ -93,7 +93,7 @@ export async function writeEchoKvHeartbeatToMobius(
   };
   try {
     // ECHO_STATE write
-    await kvSet(KV_KEYS.ECHO_STATE_KV, payload, 7200);
+    await kvSet(KV_KEYS.ECHO_STATE_KV, payload, KV_TTL_SECONDS.ECHO_STATE);
   } catch (error) {
     console.error('[echo] ECHO_STATE KV heartbeat failed:', error);
   }
