@@ -71,7 +71,20 @@ pulse:
 
 ingest:
   enabled: true
-  mode: "client_of_other_node"
+  # write_through: hot KV + sovereign OAA append + durable Civic Core (see mesh/mobius-yaml-spec.md)
+  mode: "write_through"
+  hot_state:
+    type: "upstash_kv"
+  sovereign_memory:
+    node_id: "oaa-api-library"
+    # Full URL to POST /api/oaa/kv — if empty, use OAA_API_BASE from env (see .env.example)
+    write_url: ""
+    auth: "hmac"
+  durable_ledger:
+    node_id: "civic-protocol-core"
+    # Same as ingest.targets[0]; bearer ingest to /mesh/ingest
+    write_url: ""
+    auth: "bearer"
   targets:
     - node_id: "civic-protocol-core"
       purpose: "durable_ledger"
@@ -85,6 +98,7 @@ ingest:
         - MIC_RESERVE_RECONCILIATION_V1
         - MIC_GENESIS_BLOCK
         - MOBIUS_PULSE_V1
+        - OAA_MEMORY_ENTRY_V1
 
 mcp:
   enabled: true
