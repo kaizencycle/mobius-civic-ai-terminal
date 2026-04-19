@@ -198,12 +198,32 @@ export async function kvExists(key: string): Promise<boolean> {
   }
 }
 
+/** LPUSH + LTRIM on a prefixed list (e.g. readiness feed). Returns false if Redis unavailable. */
+export async function kvLpushCapped(key: string, value: string, maxLen: number): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return false;
+  const cap = Math.max(1, Math.floor(maxLen));
+  try {
+    const fullKey = prefixKey(key);
+    await redis.lpush(fullKey, value);
+    await redis.ltrim(fullKey, 0, cap - 1);
+    return true;
+  } catch (err) {
+    console.warn(`[mobius-kv] LPUSH ${key} failed:`, err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
 // ── Mobius-specific compound operations ──────────────────────
 
 /**
  * Key constants for Mobius state
  */
 export const KV_KEYS = {
+  /** Substrate tokenomics-engine MIC_READINESS_V1 snapshot (canonical when present) */
+  MIC_READINESS_SNAPSHOT: 'mic:readiness:snapshot',
+  /** Rolling feed of posted readiness snapshots (newest-first, capped in writer) */
+  MIC_READINESS_FEED: 'mic:readiness:feed',
   /** Last signal snapshot from micro-agents */
   SIGNAL_SNAPSHOT: 'signals:latest',
   /** Last GI computation result */

@@ -82,6 +82,11 @@ export type CycleIntegritySummary = {
   eventCount: number;
   avgMii: number;
   totalGiDelta: number;
+  /** Sum of provisional MIC from integrity ratings (MIC_REWARD_V2 class); not circulation mint. */
+  totalMicProvisional: number;
+  /**
+   * @deprecated C-285 — use `totalMicProvisional`. Same numeric value; removed in a later cycle.
+   */
   totalMicMinted: number;
   agentAverages: Record<string, number>;
   ratings: IntegrityRating[];
@@ -326,7 +331,7 @@ export function rateBatch(
     ? ratings.reduce((sum, r) => sum + r.mii, 0) / eventCount
     : 0;
   const totalGiDelta = ratings.reduce((sum, r) => sum + r.integrityDelta, 0);
-  const totalMicMinted = ratings.reduce((sum, r) => sum + r.micMinted, 0);
+  const totalMicProvisional = ratings.reduce((sum, r) => sum + r.micMinted, 0);
 
   // Agent averages
   const agentSums: Record<string, { total: number; count: number }> = {};
@@ -348,7 +353,8 @@ export function rateBatch(
     eventCount,
     avgMii,
     totalGiDelta: Number(totalGiDelta.toFixed(4)),
-    totalMicMinted: Number(totalMicMinted.toFixed(6)),
+    totalMicProvisional: Number(totalMicProvisional.toFixed(6)),
+    totalMicMinted: Number(totalMicProvisional.toFixed(6)),
     agentAverages,
     ratings,
   };

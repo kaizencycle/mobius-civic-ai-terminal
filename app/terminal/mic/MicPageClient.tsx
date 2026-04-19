@@ -59,7 +59,11 @@ export default function MicPageClient() {
 
   if (loading && !snapshot) return <ChamberSkeleton blocks={5} />;
 
-  const integrity = (snapshot?.integrity?.data ?? {}) as { totalMicMinted?: number; mic_supply?: number };
+  const integrity = (snapshot?.integrity?.data ?? {}) as {
+    totalMicProvisional?: number;
+    totalMicMinted?: number;
+    mic_supply?: number;
+  };
 
   return (
     <div className="h-full overflow-y-auto p-4">
@@ -88,7 +92,7 @@ export default function MicPageClient() {
       )}
       <div className="grid gap-3 md:grid-cols-2">
         <div className="rounded border border-slate-800 bg-slate-900/60 p-3 text-sm">
-          totalMicMinted: {integrity.totalMicMinted ?? '—'}
+          totalMicProvisional: {integrity.totalMicProvisional ?? integrity.totalMicMinted ?? '—'}
         </div>
         <div className="rounded border border-slate-800 bg-slate-900/60 p-3 text-sm">mic_supply: {integrity.mic_supply ?? '—'}</div>
       </div>

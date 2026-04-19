@@ -16,7 +16,8 @@
 | Vault attestation cron | `app/api/cron/vault-attestation/route.ts` |
 | MIC account (wallet proxy / degraded) | `GET /api/mic/account` — `app/api/mic/account/route.ts` |
 | MIC settle (EPICON claim) | `POST /api/mic/settle` — `app/api/mic/settle/route.ts` |
-| MIC readiness (MIC_READINESS_V1) | `GET /api/mic/readiness` — `app/api/mic/readiness/route.ts` |
+| MIC readiness (MIC_READINESS_V1) | `GET /api/mic/readiness` — merged local Vault assembly + optional KV snapshot from `POST` |
+| MIC readiness ingest (Substrate / tokenomics-engine) | `POST /api/mic/readiness` — Bearer `AGENT_SERVICE_TOKEN`, `CRON_SECRET`, or `MOBIUS_SERVICE_SECRET`; writes `mobius:mic:readiness:snapshot` + feed |
 | MIC attestation summaries (deposit proxy, hashed) | `GET /api/mic/attestations` — `app/api/mic/attestations/route.ts` |
 | MIC seal snapshot (latest, hashed) | `GET /api/mic/seals/latest` — `app/api/mic/seals/latest/route.ts` |
 | MIC genesis block (stub or future ledger) | `GET /api/mic/blocks/latest` — `app/api/mic/blocks/latest/route.ts` |

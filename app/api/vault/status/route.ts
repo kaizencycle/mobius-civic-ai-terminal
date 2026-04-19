@@ -17,7 +17,7 @@ import { NextResponse } from 'next/server';
 import { handbookCorsHeaders } from '@/lib/http/handbook-cors';
 import { loadGIState } from '@/lib/kv/store';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
-import { getVaultStatusPayload } from '@/lib/vault/vault';
+import { getVaultDepositHashCoverage, getVaultStatusPayload } from '@/lib/vault/vault';
 import {
   countAllSeals,
   countSeals,
@@ -67,6 +67,8 @@ export async function GET(req: NextRequest) {
     candidateInFlight: Boolean(candidate),
   });
 
+  const hashCoverage = await getVaultDepositHashCoverage(200);
+
   const body = {
     ...v1,
     in_progress_balance: inProgressBalance,
@@ -108,6 +110,12 @@ export async function GET(req: NextRequest) {
         },
     vault_version: 2,
     canonical: 'in_progress_balance',
+    hashed_deposits_count: hashCoverage.hashed_deposits_count,
+    legacy_deposits_count: hashCoverage.legacy_deposits_count,
+    hash_coverage_pct: hashCoverage.hash_coverage_pct,
+    hash_coverage_rows_scanned: hashCoverage.rows_scanned,
+    _balance_reserve_deprecated:
+      'balance_reserve is v1 cumulative compat. Prefer in_progress_balance + sealed_reserve_total for tranche truth. Removed in a later cycle.',
   };
 
   return NextResponse.json(body, {
@@ -115,6 +123,7 @@ export async function GET(req: NextRequest) {
       ...(cors ?? {}),
       'Cache-Control': 'no-store',
       'X-Mobius-Source': 'vault-status-v2',
+      Deprecation: 'true',
     },
   });
 }

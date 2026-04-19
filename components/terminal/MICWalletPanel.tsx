@@ -136,7 +136,7 @@ export default function MICWalletPanel({
           <div className="flex items-center justify-between text-xs mb-3">
             <span className="text-slate-400">Cycle MIC</span>
             <span className="font-mono text-emerald-400">
-              +{(integrity?.totalMicMinted ?? 0).toFixed(4)}
+              +{((integrity?.totalMicProvisional ?? integrity?.totalMicMinted) ?? 0).toFixed(4)}
             </span>
           </div>
           <div className="p-2 bg-slate-800/60 rounded-lg border border-slate-700/50">

@@ -11,6 +11,7 @@ import { GET as getPromotion } from '@/app/api/epicon/promotion-status/route';
 import { GET as getEve } from '@/app/api/eve/cycle-advance/route';
 import { GET as getMii } from '@/app/api/mii/feed/route';
 import { GET as getVault } from '@/app/api/vault/status/route';
+import { GET as getMicReadiness } from '@/app/api/mic/readiness/route';
 import { loadSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
 import {
   normalizeAllSnapshotLanes,
@@ -84,6 +85,7 @@ export async function GET(request: NextRequest) {
     timedHandler(makeRequest(baseUrl, '/api/eve/cycle-advance'), getEve),
     timedHandler(makeRequest(baseUrl, '/api/mii/feed'), getMii),
     timedHandler(makeRequest(baseUrl, '/api/vault/status'), getVault),
+    timedHandler(makeRequest(baseUrl, '/api/mic/readiness'), getMicReadiness),
   ]);
 
   const [cached, results] = await Promise.all([cachedPromise, lanesPromise]);
@@ -100,7 +102,8 @@ export async function GET(request: NextRequest) {
     signalsDuration = Date.now() - signalsStart;
   }
 
-  const [integrity, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve, mii, vault] = results;
+  const [integrity, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve, mii, vault, micReadiness] =
+    results;
 
   const timings: Record<string, number> = {
     signals: signalsDuration,
@@ -116,6 +119,7 @@ export async function GET(request: NextRequest) {
     eve: eve.duration_ms,
     mii: mii.duration_ms,
     vault: vault.duration_ms,
+    micReadiness: micReadiness.duration_ms,
   };
 
   type SubstrateAgentRow = { agent: string; lastEntry: SubstrateJournalEntry | null; entryCount: number };
@@ -151,6 +155,7 @@ export async function GET(request: NextRequest) {
     integrity: integrity.leaf, signals, kvHealth: kvHealth.leaf, agents: agents.leaf,
     epicon: epicon.leaf, echo: echo.leaf, journal: journal.leaf, sentiment: sentiment.leaf,
     runtime: runtime.leaf, promotion: promotion.leaf, eve: eve.leaf, mii: mii.leaf, vault: vault.leaf,
+    micReadiness: micReadiness.leaf,
   };
 
   const lanes: SnapshotLaneState[] = normalizeAllSnapshotLanes(leaves);
@@ -192,6 +197,7 @@ export async function GET(request: NextRequest) {
     integrity: integrity.leaf, signals, kvHealth: kvHealth.leaf, agents: agents.leaf,
     epicon: epicon.leaf, echo: echo.leaf, journal: journal.leaf, sentiment: sentiment.leaf,
     runtime: runtime.leaf, promotion: promotion.leaf, eve: eve.leaf, mii: mii.leaf, vault: vault.leaf,
+    micReadiness: micReadiness.leaf,
     substrate,
   }, {
     headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'terminal-snapshot' },
