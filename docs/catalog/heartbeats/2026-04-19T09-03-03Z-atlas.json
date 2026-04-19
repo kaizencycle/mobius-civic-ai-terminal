@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-04-19T09:03:03Z",
+  "agent": "ATLAS",
+  "cycle": "C-286",
+  "gi": 0.6,
+  "mode": "yellow",
+  "source": "live",
+  "anomalies": [
+    "HN #1 score 12: SPEAKE(a)R: Turn Speakers to Microphones for Fun and Profit [pdf]"
+  ],
+  "kv_keys": {},
+  "seed_attempted": true,
+  "seed_result": "200 OK"
+}
