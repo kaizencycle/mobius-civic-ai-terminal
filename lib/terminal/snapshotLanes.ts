@@ -582,7 +582,15 @@ function normalizeEchoLane(leaf: SnapshotLeaf): SnapshotLaneState {
 
   const epicon = row.epicon;
   const n = Array.isArray(epicon) ? epicon.length : 0;
-  let message = `ECHO feed · ${n} epicon item(s)`;
+  const integrity = asRecord(row.integrity);
+  const micProv =
+    integrity && typeof integrity.totalMicProvisional === 'number'
+      ? integrity.totalMicProvisional
+      : integrity && typeof integrity.totalMicMinted === 'number'
+        ? integrity.totalMicMinted
+        : null;
+  const micNote = micProv !== null ? ` · MIC provisional ${micProv.toFixed(4)}` : '';
+  let message = `ECHO feed · ${n} epicon item(s)${micNote}`;
   if (state === 'stale') message = `Ingest stale; ${message.toLowerCase()}`;
 
   return {
