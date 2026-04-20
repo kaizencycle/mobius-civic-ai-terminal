@@ -1,10 +1,20 @@
 'use client';
 
 import type { IntegrityStatusResponse } from '@/lib/mock/integrityStatus';
+import { provenanceDescription, provenanceShortLabel } from '@/lib/terminal/memoryMode';
 
 type GIData = Pick<
   IntegrityStatusResponse,
-  'cycle' | 'global_integrity' | 'mode' | 'terminal_status' | 'primary_driver' | 'summary' | 'timestamp'
+  | 'cycle'
+  | 'global_integrity'
+  | 'mode'
+  | 'terminal_status'
+  | 'primary_driver'
+  | 'summary'
+  | 'timestamp'
+  | 'gi_provenance'
+  | 'gi_verified'
+  | 'gi_age_seconds'
 > & {
   signals: Pick<IntegrityStatusResponse['signals'], 'quality' | 'freshness' | 'stability' | 'system'>;
 };
@@ -20,6 +30,10 @@ export default function GIMonitorOverlay({
   data: GIData;
   onClose: () => void;
 }) {
+  const prov = data.gi_provenance ?? '';
+  const provLabel = provenanceShortLabel(prov);
+  const provDesc = provenanceDescription(prov);
+
   return (
     <div className="absolute right-0 top-10 z-50 w-[360px] rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-2xl">
       <div className="flex items-start justify-between gap-3">
@@ -40,6 +54,16 @@ export default function GIMonitorOverlay({
         </button>
       </div>
 
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
+        <span>
+          Source:{' '}
+          <span className="font-mono text-xs text-sky-200/90">
+            {provLabel}
+            {data.gi_verified ? ' ✓' : ''}
+          </span>
+        </span>
+        <span className="text-xs text-slate-500">{provDesc}</span>
+      </div>
       <div className="mt-2 text-sm text-slate-400">
         Mode: <span className="text-white">{data.mode}</span>
       </div>

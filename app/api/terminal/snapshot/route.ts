@@ -13,6 +13,7 @@ import { GET as getMii } from '@/app/api/mii/feed/route';
 import { GET as getVault } from '@/app/api/vault/status/route';
 import { GET as getMicReadiness } from '@/app/api/mic/readiness/route';
 import { GET as getSnapshotLite } from '@/app/api/terminal/snapshot-lite/route';
+import { memoryModeFromIntegrityPayload, memoryModeFromSnapshotLiteBody } from '@/lib/terminal/memoryMode';
 import { loadSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
 import {
   normalizeAllSnapshotLanes,
@@ -108,9 +109,6 @@ export async function GET(request: NextRequest) {
     results;
 
   const litePayload = liteResult.leaf.data as Record<string, unknown> | null;
-  const lanesLite = litePayload?.lanes as Record<string, unknown> | undefined;
-  const kvLane = lanesLite?.kv as Record<string, unknown> | undefined;
-  const backupRedisLite = lanesLite?.backup_redis as { available?: boolean } | undefined;
 
   const timings: Record<string, number> = {
     signals: signalsDuration,
@@ -192,25 +190,27 @@ export async function GET(request: NextRequest) {
   const totalMs = Date.now() - totalStart;
 
   const memoryMode =
-    litePayload && typeof litePayload === 'object'
-      ? {
-          degraded: Boolean(litePayload.degraded),
-          gi_provenance: typeof litePayload.gi_provenance === 'string' ? litePayload.gi_provenance : null,
-          gi_verified: Boolean(litePayload.gi_verified),
-          gi_source: typeof litePayload.gi_source === 'string' ? litePayload.gi_source : null,
-          gi_age_seconds:
-            typeof (litePayload.lanes as Record<string, unknown> | undefined)?.integrity === 'object'
-              ? ((litePayload.lanes as Record<string, { age_seconds?: number }>).integrity?.age_seconds ?? null)
-              : null,
-          kv_available: kvLane?.ok === true,
-          kv_latency_ms: typeof kvLane?.latency_ms === 'number' ? kvLane.latency_ms : null,
-          backup_redis_available: Boolean(backupRedisLite?.available),
-        }
-      : null;
+    liteResult.leaf.ok && litePayload && typeof litePayload === 'object'
+      ? memoryModeFromSnapshotLiteBody(litePayload)
+      : memoryModeFromIntegrityPayload(integrity.leaf.data as Record<string, unknown> | null);
+
+  const integrityData = integrity.leaf.data as Record<string, unknown> | null;
+  const topGi =
+    typeof memoryMode?.gi_value === 'number' && Number.isFinite(memoryMode.gi_value)
+      ? memoryMode.gi_value
+      : typeof integrityData?.global_integrity === 'number' && Number.isFinite(integrityData.global_integrity)
+        ? integrityData.global_integrity
+        : null;
+  const topDegraded =
+    memoryMode?.degraded === true ||
+    Boolean(integrityData?.gi_degraded ?? integrityData?.degraded) ||
+    (typeof integrityData?.mode === 'string' && (integrityData.mode === 'red' || integrityData.mode === 'yellow'));
 
   return NextResponse.json({
     ok: criticalOk && !criticalFail,
     cycle: eveCycle ?? cycle ?? null,
+    gi: topGi,
+    degraded: topDegraded,
     include_catalog: includeCatalog === 'true',
     timestamp: new Date().toISOString(),
     deployment: {

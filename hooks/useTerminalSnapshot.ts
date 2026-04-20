@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { MemoryModePayload } from '@/lib/terminal/memoryMode';
 
 type SnapshotLeaf = {
   ok: boolean;
@@ -26,16 +27,7 @@ export type TerminalSnapshot = {
   gi?: number | null;
   mode?: string | null;
   degraded?: boolean;
-  memory_mode?: {
-    degraded?: boolean;
-    gi_provenance?: string | null;
-    gi_verified?: boolean;
-    gi_source?: string | null;
-    gi_age_seconds?: number | null;
-    kv_available?: boolean;
-    kv_latency_ms?: number | null;
-    backup_redis_available?: boolean;
-  };
+  memory_mode?: MemoryModePayload;
   meta?: { total_ms?: number };
   lanes?: SnapshotLaneState[];
   integrity?: SnapshotLeaf;

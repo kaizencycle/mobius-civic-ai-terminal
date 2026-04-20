@@ -2,11 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { IntegrityStatusResponse } from '@/lib/mock/integrityStatus';
+import { provenanceDescription, provenanceShortLabel } from '@/lib/terminal/memoryMode';
 import GIMonitorOverlay from './GIMonitorOverlay';
 
 type GIData = Pick<
   IntegrityStatusResponse,
-  'cycle' | 'global_integrity' | 'mode' | 'terminal_status' | 'primary_driver' | 'summary' | 'timestamp'
+  | 'cycle'
+  | 'global_integrity'
+  | 'mode'
+  | 'terminal_status'
+  | 'primary_driver'
+  | 'summary'
+  | 'timestamp'
+  | 'gi_provenance'
+  | 'gi_verified'
+  | 'gi_age_seconds'
 > & {
   signals: Pick<IntegrityStatusResponse['signals'], 'quality' | 'freshness' | 'stability' | 'system'>;
 };
@@ -33,6 +43,9 @@ function normalizeGIData(json: IntegrityStatusResponse): GIData {
     primary_driver: json.primary_driver,
     summary: json.summary,
     timestamp: json.timestamp,
+    gi_provenance: json.gi_provenance ?? null,
+    gi_verified: Boolean(json.gi_verified),
+    gi_age_seconds: typeof json.gi_age_seconds === 'number' ? json.gi_age_seconds : null,
     signals: {
       quality: json.signals.quality,
       freshness: json.signals.freshness,
@@ -73,11 +86,19 @@ export default function GIMonitorBadge() {
 
   if (!data) {
     return (
-      <div className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-400">
-        GI loading...
+      <div
+        className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-400"
+        role="status"
+        aria-live="polite"
+      >
+        GI loading…
       </div>
     );
   }
+
+  const prov = data.gi_provenance ?? '';
+  const provLabel = provenanceShortLabel(prov);
+  const provTitle = provenanceDescription(prov);
 
   return (
     <div
@@ -91,12 +112,23 @@ export default function GIMonitorBadge() {
       }}
     >
       <button
+        type="button"
         onClick={() => setOpen((value) => !value)}
-        className={`rounded-md border px-3 py-1.5 text-xs uppercase tracking-[0.14em] ${statusTone(
+        title={provTitle}
+        aria-expanded={open}
+        className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs uppercase tracking-[0.14em] ${statusTone(
           data.terminal_status,
         )}`}
       >
-        GI {(data.global_integrity * 100).toFixed(0)}%
+        <span>GI {(data.global_integrity * 100).toFixed(0)}%</span>
+        <span className="rounded border border-white/15 px-1 font-mono text-[9px] normal-case text-slate-200/90">
+          {provLabel}
+          {data.gi_verified ? (
+            <span className="ml-0.5" title="OAA warm-tier mirror">
+              ✓
+            </span>
+          ) : null}
+        </span>
       </button>
 
       {hovered && !open ? (
@@ -109,8 +141,10 @@ export default function GIMonitorBadge() {
           </div>
           <div className="mt-2 text-sm text-slate-300">{data.primary_driver}</div>
           <div className="mt-2 text-xs text-slate-500">
-            Updated {new Date(data.timestamp).toLocaleString()}
+            {provTitle}
+            {typeof data.gi_age_seconds === 'number' ? ` · age ${Math.round(data.gi_age_seconds / 60)}m` : ''}
           </div>
+          <div className="mt-1 text-xs text-slate-500">Updated {new Date(data.timestamp).toLocaleString()}</div>
         </div>
       ) : null}
 
