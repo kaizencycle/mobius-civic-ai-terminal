@@ -14,7 +14,9 @@ import {
   kvSet,
   KV_KEYS,
   KV_TTL_SECONDS,
+  saveGiStateFromMicroSweep,
 } from '@/lib/kv/store';
+import { updateSustainTrackingFromGi } from '@/lib/mic/sustainTracker';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 
@@ -45,6 +47,13 @@ export async function GET() {
   try {
     const result = await pollAllMicroAgents();
     cached = { data: result, timestamp: now };
+
+    const signalQuality =
+      result.allSignals.length > 0
+        ? result.allSignals.reduce((s, x) => s + x.value, 0) / result.allSignals.length
+        : result.composite;
+    saveGiStateFromMicroSweep({ composite: result.composite, signalQuality }).catch(() => {});
+    updateSustainTrackingFromGi(result.composite).catch(() => {});
 
     // Persist signal snapshot to Redis for cold-start recovery
     if (isRedisAvailable()) {

@@ -23,7 +23,11 @@ export function mergeMicReadinessFromUpstream(
           inProgressBalance: local.reserve.inProgressBalance,
         }
       : local.reserve,
-    sustain: incoming.sustain ? { ...local.sustain, ...incoming.sustain } : local.sustain,
+    sustain: incoming.sustain
+      ? local.sustain.sustain_tracking_placeholder
+        ? { ...local.sustain, ...incoming.sustain }
+        : { ...incoming.sustain, ...local.sustain }
+      : local.sustain,
     replay: incoming.replay ? { ...local.replay, ...incoming.replay } : local.replay,
     novelty: incoming.novelty ? { ...local.novelty, ...incoming.novelty } : local.novelty,
     quorum: incoming.quorum ? { ...local.quorum, ...incoming.quorum } : local.quorum,

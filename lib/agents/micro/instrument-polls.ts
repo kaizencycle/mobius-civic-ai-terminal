@@ -560,19 +560,27 @@ export async function pollJadeU3(): Promise<AgentPollResult> {
 }
 
 export async function pollJadeU4(): Promise<AgentPollResult> {
-  const url = 'https://openlibrary.org/authors/OL23466A.json';
-  const data = await safeFetch<{ name?: string; work_count?: number }>(url);
-  if (!data?.name) return wrap('JADE-µ4', null);
-  const wc = data.work_count ?? 0;
-  const value = Number(normalizeDirect(Math.min(wc, 200), 0, 200).toFixed(3));
+  const url =
+    'https://openlibrary.org/search/authors.json?q=governance+civic&limit=1';
+  const meta = await safeFetchWithMeta<{ numFound?: number }>(url, 6000);
+  if (!meta.ok || meta.data == null) {
+    console.warn('[micro] JADE-µ4 OpenLibrary:', meta.error ?? 'no body');
+    return wrap('JADE-µ4', null);
+  }
+  const count =
+    typeof meta.data.numFound === 'number' && Number.isFinite(meta.data.numFound)
+      ? meta.data.numFound
+      : 0;
+  const value = count > 10 ? 0.85 : count > 0 ? 0.6 : 0.45;
+  const severity = count > 0 ? 'nominal' : 'watch';
   return wrap('JADE-µ4', {
     agentName: 'JADE-µ4',
-    source: 'Open Library · author record',
+    source: 'Open Library · governance query',
     timestamp: new Date().toISOString(),
-    value,
-    label: `OL author ${data.name}: ${wc} works`,
-    severity: 'nominal',
-    raw: { work_count: wc },
+    value: Number(value.toFixed(3)),
+    label: `OpenLibrary governance authors: ${count} results`,
+    severity,
+    raw: { numFound: count },
   });
 }
 
@@ -761,18 +769,40 @@ export async function pollEchoU3(): Promise<AgentPollResult> {
 }
 
 export async function pollEchoU4(): Promise<AgentPollResult> {
-  const url = 'https://api.open-notify.org/astros.json';
-  const data = await safeFetch<{ number?: number; people?: { name: string }[] }>(url);
-  const n = data?.number ?? 0;
-  const value = Number(normalizeDirect(n, 0, 12).toFixed(3));
+  const url = 'http://www.howmanypeopleareinspacerightnow.com/peopleinspace.json';
+  const meta = await safeFetchWithMeta<{ number?: number; people?: { name?: string }[] }>(url, 6000);
+  if (!meta.ok || meta.data == null) {
+    console.warn('[micro] ECHO-µ4 people-in-space:', meta.error ?? 'no body');
+    return wrap('ECHO-µ4', {
+      agentName: 'ECHO-µ4',
+      source: 'People In Space API · crew count',
+      timestamp: new Date().toISOString(),
+      value: 0.35,
+      label: `People in space feed unavailable (${meta.error ?? 'unknown'})`,
+      severity: 'watch',
+      raw: { http: meta.status },
+    });
+  }
+  const data = meta.data;
+  const n =
+    typeof data.number === 'number' && Number.isFinite(data.number)
+      ? Math.max(0, Math.floor(data.number))
+      : Array.isArray(data.people)
+        ? data.people.length
+        : 0;
+  const value = n > 0 ? 0.85 : 0.3;
+  const label =
+    n > 0
+      ? `People in space (live feed): ${n}`
+      : 'People in space (live feed): 0 — nominal empty window';
   return wrap('ECHO-µ4', {
     agentName: 'ECHO-µ4',
-    source: 'Open Notify · ISS crew',
+    source: 'People In Space API · crew count',
     timestamp: new Date().toISOString(),
-    value,
-    label: `People in space right now: ${n}`,
+    value: Number(value.toFixed(3)),
+    label,
     severity: 'nominal',
-    raw: { sample: data?.people?.slice(0, 3).map((p) => p.name) },
+    raw: { count: n, sample: data.people?.slice(0, 3).map((p) => p.name) },
   });
 }
 

@@ -59,7 +59,9 @@ export async function resolveGiForTerminal(opts?: {
   const st = await loadGIState();
   if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
     const age = Date.now() - new Date(st.timestamp).getTime();
-    if (age < 15 * 60 * 1000) {
+    const maxAgeMs =
+      st.gi_write_source === 'micro_sweep' ? 2 * 60 * 1000 : 15 * 60 * 1000;
+    if (age < maxAgeMs) {
       return {
         gi: Math.max(0, Math.min(1, st.global_integrity)),
         mode: st.mode ?? null,
