@@ -4,7 +4,7 @@
   "cycle": "C-287",
   "verification_status": "inconclusive",
   "gi_verified": true,
-  "gi_source": "kv",
+  "gi_source": "live",
   "anomaly_persistence": {
     "USGS M4.5+: 22 events, max M7.4": "persistent"
   },
