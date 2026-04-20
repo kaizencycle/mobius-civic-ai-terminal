@@ -5,7 +5,18 @@ import { terminalInternalOrigin } from '@/lib/oaa/internalOrigin';
 import { publishToOaaAndLedger } from '@/lib/oaa/publishSnapshot';
 import { OAADataClient } from '@/lib/ingestion/OAADataClient';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
-import { loadMobiusManifest } from '@/lib/slack-agent/loadManifest';
+import { loadDeclaredWorkflowIdsFromMobiusYaml } from '@/lib/mesh/loadMobiusYaml';
+import { provenanceShortLabel } from '@/lib/terminal/memoryMode';
+import {
+  createGithubBranchRef,
+  createGithubDraftPullRequest,
+  dispatchGithubWorkflow,
+  getDefaultBranchSha,
+  getRepoFileSha,
+  putRepoFileOnBranch,
+  resolveSlackAgentGithubRepo,
+  slackAgentWorkflowFilename,
+} from '@/lib/slack-agent/githubOps';
 import type { MobiusManifestV1, ParsedSlackCommand, SlackCommandResult } from '@/lib/slack-agent/types';
 
 async function fetchJson(path: string): Promise<unknown> {
@@ -14,6 +25,28 @@ async function fetchJson(path: string): Promise<unknown> {
   const res = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store', signal: AbortSignal.timeout(20000) });
   if (!res.ok) throw new Error(`fetch_${path}_${res.status}`);
   return res.json();
+}
+
+function fmtSourceFooterFromLite(lite: Record<string, unknown>): string {
+  const meta = lite.meta && typeof lite.meta === 'object' ? (lite.meta as Record<string, unknown>) : {};
+  const kvAvail = meta.kv_available === true;
+  const prov = typeof lite.gi_provenance === 'string' ? lite.gi_provenance : null;
+  const verified = lite.gi_verified === true;
+  const giSrc = typeof lite.gi_source === 'string' ? lite.gi_source : 'unknown';
+  const memShort = provenanceShortLabel(prov);
+  const ledgerLine =
+    verified && prov === 'oaa-verified'
+      ? 'Ledger-backed: OAA verified GI (warm mirror)'
+      : verified
+        ? 'Ledger-backed: GI marked verified (see snapshot provenance)'
+        : 'Ledger-backed: no (GI not OAA-verified in this snapshot)';
+  return [
+    '— Source mode —',
+    `KV: ${kvAvail ? 'available' : 'unavailable / degraded'}`,
+    `Verified memory: ${verified ? 'yes' : 'no'} (${memShort}${prov ? ` · ${prov}` : ''})`,
+    `GI lane: ${giSrc}`,
+    ledgerLine,
+  ].join('\n');
 }
 
 function fmtStatus(lite: Record<string, unknown>): string {
@@ -35,6 +68,8 @@ function fmtStatus(lite: Record<string, unknown>): string {
     `GI source: ${giSource} · tripwires elevated=${twElev}`,
     `heartbeat runtime: ${runtimeHb}`,
     `Source: /api/terminal/snapshot-lite`,
+    '',
+    fmtSourceFooterFromLite(lite),
   ];
   return lines.join('\n');
 }
@@ -83,7 +118,13 @@ function fmtCycle(cycleFile: Record<string, unknown>, lite: Record<string, unkno
     lines.push(`snapshot-lite cycle_source: ${String(m.cycle_source ?? '')}`);
   }
   lines.push(`Source: ledger/cycle-state.json (+ snapshot-lite when available)`);
-  return lines.join('\n');
+  let out = lines.join('\n');
+  if (lite) {
+    out += `\n\n${fmtSourceFooterFromLite(lite)}`;
+  } else {
+    out += '\n\n— Source mode —\nsnapshot-lite unavailable (KV / verified-memory footer skipped)';
+  }
+  return out;
 }
 
 function fmtPulse(lite: Record<string, unknown>): string {
@@ -95,6 +136,8 @@ function fmtPulse(lite: Record<string, unknown>): string {
     `pulse freshness=${String(pulse.freshness ?? '')} age_seconds=${String(pulse.age_seconds ?? '')}`,
     `integrity GI=${String(integ.gi ?? '')} verified=${String(integ.verified ?? '')}`,
     `Source: snapshot-lite lanes (SYSTEM_PULSE in KV)`,
+    '',
+    fmtSourceFooterFromLite(lite),
   ];
   return lines.join('\n');
 }
@@ -106,7 +149,12 @@ function fmtReadiness(mic: Record<string, unknown>): string {
 function fmtJournal(lite: Record<string, unknown>): string {
   const hb = lite.heartbeat && typeof lite.heartbeat === 'object' ? (lite.heartbeat as Record<string, unknown>) : {};
   const j = hb.journal;
-  return `Journal heartbeat: ${j != null ? JSON.stringify(j) : 'n/a'}\nFull feed: GET /api/agents/journal (service auth on host)`;
+  return [
+    `Journal heartbeat: ${j != null ? JSON.stringify(j) : 'n/a'}`,
+    `Full feed: GET /api/agents/journal (service auth on host)`,
+    '',
+    fmtSourceFooterFromLite(lite),
+  ].join('\n');
 }
 
 async function logOaaAudit(args: {
@@ -170,11 +218,15 @@ export async function executeSlackCommand(args: {
         return { text: fmtStatus(lite), oaa: audit };
       }
       case 'vault': {
-        const [vault, mic] = await Promise.all([
+        const [vault, mic, lite] = await Promise.all([
           fetchJson('/api/vault/status') as Promise<Record<string, unknown>>,
           fetchJson('/api/mic/readiness') as Promise<Record<string, unknown>>,
+          fetchJson('/api/terminal/snapshot-lite') as Promise<Record<string, unknown>>,
         ]);
-        return { text: `${pickVaultSummary(vault)}\n${fmtMicLine(mic)}`, oaa: audit };
+        return {
+          text: `${pickVaultSummary(vault)}\n${fmtMicLine(mic)}\n\n${fmtSourceFooterFromLite(lite)}`,
+          oaa: audit,
+        };
       }
       case 'cycle': {
         let cycleFile: Record<string, unknown> = {};
@@ -198,7 +250,10 @@ export async function executeSlackCommand(args: {
       }
       case 'readiness': {
         const mic = (await fetchJson('/api/mic/readiness')) as Record<string, unknown>;
-        return { text: fmtReadiness(mic), oaa: audit };
+        return {
+          text: `${fmtReadiness(mic)}\n\n— Source mode —\nMIC readiness is a dedicated API envelope (not snapshot-lite).\nUse \`@Mobius status\` for KV + verified-memory + GI lane in one view.`,
+          oaa: audit,
+        };
       }
       case 'journal': {
         const lite = (await fetchJson('/api/terminal/snapshot-lite')) as Record<string, unknown>;
@@ -261,10 +316,104 @@ export async function executeSlackCommand(args: {
         };
       }
       case 'draft-pr': {
+        if (manifest.slack_agent.write_policy.auto_merge_allowed) {
+          return { text: 'Refusing draft-pr: manifest has auto_merge_allowed (must stay false for Slack agent).', oaa: audit };
+        }
         const title = parsed.args.trim() || '(untitled)';
+        const repo =
+          manifest.slack_agent.github?.repo?.trim() ||
+          resolveSlackAgentGithubRepo();
+        if (!repo) {
+          return {
+            text: `Draft PR not configured: set \`slack_agent.github.repo\` (owner/repo) or env \`GITHUB_REPOSITORY\` / \`SLACK_AGENT_GITHUB_REPO\`, plus \`GITHUB_TOKEN\` with contents + pull_requests.\nTitle requested: ${title}`,
+            oaa: audit,
+          };
+        }
+        const baseBranch =
+          manifest.slack_agent.github?.default_branch?.trim() ||
+          process.env.SLACK_AGENT_GITHUB_BASE?.trim() ||
+          'main';
+        const relPath =
+          manifest.slack_agent.github?.draft_pr_path?.trim() ||
+          '.mobius/slack-agent/drafts/README.md';
+        const baseSha = await getDefaultBranchSha(repo);
+        if (!baseSha.ok) {
+          return { text: `Draft PR failed: ${baseSha.error}`, oaa: audit };
+        }
+        const slug = randomUUID().replace(/-/g, '').slice(0, 10);
+        const branchName = `cursor/slack-draft-${slug}`;
+        const refOk = await createGithubBranchRef({ repo, branchName, fromSha: baseSha.sha });
+        if (!refOk.ok) {
+          return { text: `Draft PR failed (branch): ${refOk.error}`, oaa: audit };
+        }
+        const existing = await getRepoFileSha({ repo, path: relPath, branch: branchName });
+        if (!existing.ok) {
+          return { text: `Draft PR failed (read path): ${existing.error}`, oaa: audit };
+        }
+        const body = [
+          `# ${title}`,
+          '',
+          `Opened from Mobius Slack Agent · cycle ${cycle} · actor ${actor}`,
+          '',
+          `Timestamp: ${new Date().toISOString()}`,
+          '',
+          '_Non-protected proposal file — not ledger truth._',
+        ].join('\n');
+        const put = await putRepoFileOnBranch({
+          repo,
+          path: relPath,
+          branch: branchName,
+          message: `chore(slack-agent): draft proposal — ${title.slice(0, 72)}`,
+          contentUtf8: body,
+          sha: existing.sha ?? undefined,
+        });
+        if (!put.ok) {
+          return { text: `Draft PR failed (commit): ${put.error}`, oaa: audit };
+        }
+        const pr = await createGithubDraftPullRequest({
+          repo,
+          title: `[slack-agent] ${title}`,
+          headBranch: branchName,
+          baseBranch,
+        });
+        if (!pr.ok) {
+          return {
+            text: `Branch ${branchName} pushed with proposal file, but draft PR failed: ${pr.error}`,
+            oaa: audit,
+          };
+        }
+        const proof = await publishToOaaAndLedger({
+          kind: 'slack_agent_command',
+          key: `slack:agent:draft-pr:${randomUUID()}`,
+          value: {
+            type: 'SLACK_AGENT_DRAFT_PR_V1',
+            source: 'slack-agent',
+            actor,
+            cycle,
+            title,
+            repo,
+            branch: branchName,
+            path: relPath,
+            pr_number: pr.number,
+            pr_url: pr.html_url,
+            timestamp: new Date().toISOString(),
+          },
+          agent: 'SLACK_AGENT',
+          intent: `slack_draft_pr:${title}`,
+        });
         return {
-          text: `Draft PR is not wired in v1 (requires GitHub app token + repo owner).\nWould open draft for: ${title}\nConfigure ops GitHub integration; manifest blocks auto-merge.`,
+          text: [
+            `Opened **draft** PR #${pr.number}: ${pr.html_url}`,
+            `Branch: \`${branchName}\` · file: \`${relPath}\``,
+            `OAA: ${proof.oaa.ok ? 'ok' : proof.oaa.error ?? 'failed'}${proof.oaa.hash ? ` · hash=${proof.oaa.hash}` : ''}`,
+            manifest.slack_agent.write_policy.ledger_logging_for_meaningful_actions
+              ? `Ledger proof: ${proof.ledger.ok ? 'ok' : proof.ledger.skipped ? `skipped (${proof.ledger.reason ?? ''})` : 'failed'}`
+              : '',
+          ]
+            .filter(Boolean)
+            .join('\n'),
           oaa: audit,
+          ledger: proof.ledger,
         };
       }
       case 'run': {
@@ -275,9 +424,57 @@ export async function executeSlackCommand(args: {
         if (!manifest.slack_agent.allowed_workflows.includes(wf)) {
           return { text: `Workflow \`${wf}\` is not in manifest allowlist.`, oaa: audit };
         }
+        const declared = loadDeclaredWorkflowIdsFromMobiusYaml();
+        if (declared.length > 0 && !declared.includes(wf)) {
+          return {
+            text: `Workflow \`${wf}\` is not declared in mobius.yaml \`jobs.workflows\`.\nDeclared ids: ${declared.join(', ') || '(none)'}\nUpdate mobius.yaml or manifest before dispatch.`,
+            oaa: audit,
+          };
+        }
+        const repo =
+          manifest.slack_agent.github?.repo?.trim() ||
+          resolveSlackAgentGithubRepo();
+        if (!repo) {
+          return {
+            text: `Cannot dispatch \`${wf}\`: set \`slack_agent.github.repo\` or \`GITHUB_REPOSITORY\` / \`SLACK_AGENT_GITHUB_REPO\`, plus \`GITHUB_TOKEN\` with workflow scope.`,
+            oaa: audit,
+          };
+        }
+        const dispatch = await dispatchGithubWorkflow({ repo, workflowId: wf });
+        if (!dispatch.ok) {
+          return {
+            text: `Dispatch failed for \`${wf}\` (${slackAgentWorkflowFilename(wf)}): ${dispatch.error}`,
+            oaa: audit,
+          };
+        }
+        const proof = await publishToOaaAndLedger({
+          kind: 'slack_agent_command',
+          key: `slack:agent:workflow:${randomUUID()}`,
+          value: {
+            type: 'SLACK_AGENT_WORKFLOW_DISPATCH_V1',
+            source: 'slack-agent',
+            actor,
+            cycle,
+            workflow_id: wf,
+            workflow_file: slackAgentWorkflowFilename(wf),
+            repo,
+            timestamp: new Date().toISOString(),
+          },
+          agent: 'SLACK_AGENT',
+          intent: `slack_workflow:${wf}`,
+        });
         return {
-          text: `Workflow \`${wf}\` is allowlisted but dispatch is not wired in this build.\nSet GITHUB_TOKEN with workflow scope and implement dispatch to .github/workflows/*.yml.`,
+          text: [
+            `Triggered \`workflow_dispatch\` for **${wf}** (\`${slackAgentWorkflowFilename(wf)}\`) on \`${repo}\`.`,
+            `OAA: ${proof.oaa.ok ? 'ok' : proof.oaa.error ?? 'failed'}${proof.oaa.hash ? ` · hash=${proof.oaa.hash}` : ''}`,
+            manifest.slack_agent.write_policy.ledger_logging_for_meaningful_actions
+              ? `Ledger proof: ${proof.ledger.ok ? 'ok' : proof.ledger.skipped ? `skipped (${proof.ledger.reason ?? ''})` : 'failed'}`
+              : '',
+          ]
+            .filter(Boolean)
+            .join('\n'),
           oaa: audit,
+          ledger: proof.ledger,
         };
       }
       default: {

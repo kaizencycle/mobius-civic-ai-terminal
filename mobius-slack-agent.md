@@ -26,8 +26,8 @@ Slack → command → Mobius agent wrapper → manifest validation
 - Read vault / MIC readiness
 - Read pulse / integrity snapshot
 - Append memory notes (OAA)
-- Open draft PRs (when GitHub wiring is configured — stub returns explicit “not configured”)
-- Trigger safe workflows (manifest allowlist — stub until `GITHUB_TOKEN` + repo owner wiring)
+- Open draft PRs (when `GITHUB_TOKEN` + repo resolution are configured — otherwise explicit operator-truth error)
+- Trigger safe workflows (`workflow_dispatch` for ids in manifest **and** declared in `mobius.yaml` `jobs.workflows`)
 - Propose HIVE world updates (logged as structured proposal to OAA)
 
 ### Not allowed in v1
@@ -63,8 +63,8 @@ Slack → command → Mobius agent wrapper → manifest validation
 | **journal** | Short journal heartbeat + pointer to full journal API | Snapshot-lite + optional `GET /api/agents/journal` when service auth is available on the bridge host |
 | **quest** | Treated as `propose` with a `[quest]` prefix for OAA |
 | **propose** | OAA memory entry + Slack plan text | OAA `/api/oaa/kv` via `OAADataClient` |
-| **draft-pr** | v1 stub: requires GitHub app token wiring (no illusion) | — |
-| **run** | v1 stub: requires `GITHUB_TOKEN` + dispatch wiring | Manifest `allowed_workflows` |
+| **draft-pr** | Creates branch + proposal markdown + **draft** PR (no auto-merge) | GitHub REST + `slack_agent.github` / env repo |
+| **run** | `POST .../actions/workflows/{file}/dispatches` for allowlisted + YAML-declared workflows | GitHub REST + `mobius-manifest.json` + `mobius.yaml` |
 
 ## Architecture
 
@@ -80,7 +80,7 @@ Slack → command → Mobius agent wrapper → manifest validation
 
 1. **Read** — `status`, `vault`, `pulse`, `cycle`, `readiness`, `journal`
 2. **Propose** — `propose`, `quest` (maps to propose)
-3. **Trigger** — `run` (allowlisted workflows only; v1 stub until wired)
+3. **Trigger** — `run` (allowlisted workflows only; must match `mobius.yaml` declarations when that section is non-empty)
 4. **Protected** — Blocked in v1: merge, manifest edit, MIC mint, ledger rewrite, destructive ops
 
 ## Slack channel map (organizational)
@@ -91,7 +91,9 @@ Slack → command → Mobius agent wrapper → manifest validation
 | `#hive-world` | quests, events, sentinel dialogue, world proposals |
 | `#mobius-build` | draft PRs, workflow runs, repo proposals |
 
-Optional enforcement: set `slack_agent.allowed_channel_ids` in `mobius-manifest.json` to non-empty to restrict which Slack channel IDs the bridge accepts.
+Optional enforcement: set `slack_agent.allowed_channel_ids` in `mobius-manifest.json` to non-empty to restrict which Slack channel IDs the bridge accepts (Slack channel IDs look like `C0123456789`).
+
+**GitHub (draft PR + workflow dispatch):** set `slack_agent.github.repo` to `owner/repo` (or `SLACK_AGENT_GITHUB_REPO` / `GITHUB_REPOSITORY` in Actions). Set `GITHUB_TOKEN` with `contents`, `pull_requests`, and `actions:write` for this repository. Event dedupe uses **KV** (`KV_REST_*` or `UPSTASH_REDIS_*`) when configured; otherwise a single-instance in-memory set (Slack retries only dedupe on that instance).
 
 ## HTTP bridge (this repo)
 

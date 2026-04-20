@@ -23,6 +23,11 @@
       "world-update"
     ],
     "allowed_channel_ids": [],
+    "github": {
+      "repo": "",
+      "default_branch": "main",
+      "draft_pr_path": ".mobius/slack-agent/drafts/README.md"
+    },
     "write_policy": {
       "oaa_logging_required": true,
       "ledger_logging_for_meaningful_actions": true,

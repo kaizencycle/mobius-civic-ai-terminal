@@ -24,6 +24,12 @@ export type MobiusManifestV1 = {
     allowed_commands: string[];
     allowed_workflows: string[];
     allowed_channel_ids?: string[];
+    /** Optional `owner/repo` for GitHub draft PR + workflow_dispatch (falls back to env). */
+    github?: {
+      repo?: string;
+      default_branch?: string;
+      draft_pr_path?: string;
+    };
     write_policy: {
       oaa_logging_required: boolean;
       ledger_logging_for_meaningful_actions: boolean;

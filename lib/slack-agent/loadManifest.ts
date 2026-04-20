@@ -26,10 +26,21 @@ function parseManifest(raw: string): MobiusManifestV1 {
   const allowed = o.allowed_commands;
   const workflows = o.allowed_workflows;
   const wp = o.write_policy;
+  const ghRaw = o.github;
   if (!isStringArray(allowed)) throw new Error('manifest_invalid_allowed_commands');
   if (!isStringArray(workflows)) throw new Error('manifest_invalid_allowed_workflows');
   if (!wp || typeof wp !== 'object') throw new Error('manifest_invalid_write_policy');
   const w = wp as Record<string, unknown>;
+
+  let github: MobiusManifestV1['slack_agent']['github'];
+  if (ghRaw && typeof ghRaw === 'object') {
+    const g = ghRaw as Record<string, unknown>;
+    github = {
+      repo: typeof g.repo === 'string' && g.repo.includes('/') ? g.repo : undefined,
+      default_branch: typeof g.default_branch === 'string' ? g.default_branch : undefined,
+      draft_pr_path: typeof g.draft_pr_path === 'string' ? g.draft_pr_path : undefined,
+    };
+  }
 
   return {
     schema: typeof j.schema === 'string' ? j.schema : undefined,
@@ -39,6 +50,7 @@ function parseManifest(raw: string): MobiusManifestV1 {
       allowed_commands: allowed,
       allowed_workflows: workflows,
       allowed_channel_ids: isStringArray(o.allowed_channel_ids) ? o.allowed_channel_ids : undefined,
+      github,
       write_policy: {
         oaa_logging_required: asBool(w.oaa_logging_required, true),
         ledger_logging_for_meaningful_actions: asBool(w.ledger_logging_for_meaningful_actions, true),

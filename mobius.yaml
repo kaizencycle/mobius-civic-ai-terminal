@@ -166,6 +166,18 @@ jobs:
       trigger: "schedule"
       cron: "*/10 * * * *"
       description: "Fetch snapshot-lite → ledger/cycle-state.json for HIVE / Substrate / browser-shell"
+    - id: "fetch-hive-world"
+      file: ".github/workflows/fetch-hive-world.yml"
+      trigger: "manual"
+      description: "Slack-agent allowlisted stub — extend for HIVE world fetch"
+    - id: "mesh-aggregate"
+      file: ".github/workflows/mesh-aggregate.yml"
+      trigger: "manual"
+      description: "Slack-agent allowlisted stub — extend for mesh aggregation"
+    - id: "world-update"
+      file: ".github/workflows/world-update.yml"
+      trigger: "manual"
+      description: "Slack-agent allowlisted stub — extend for world update pipeline"
 
 governance:
   agent_prs_allowed: true
