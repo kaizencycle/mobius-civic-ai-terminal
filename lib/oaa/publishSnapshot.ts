@@ -17,7 +17,12 @@ async function fetchJson(path: string): Promise<unknown> {
   return res.json();
 }
 
-export type PublishKind = 'mic_readiness' | 'vault_status' | 'heartbeat' | 'reconciliation';
+export type PublishKind =
+  | 'mic_readiness'
+  | 'vault_status'
+  | 'heartbeat'
+  | 'reconciliation'
+  | 'slack_agent_command';
 
 export async function publishToOaaAndLedger(args: {
   kind: PublishKind;
