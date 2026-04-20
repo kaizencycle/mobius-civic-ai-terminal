@@ -1,0 +1,15 @@
+{
+  "schema": "MOBIUS_CYCLE_STATE_V1",
+  "node_id": "mobius-terminal",
+  "source": "snapshot-lite",
+  "cycle": "placeholder",
+  "fetched_at": "1970-01-01T00:00:00.000Z",
+  "gi": null,
+  "mode": null,
+  "degraded": true,
+  "gi_provenance": null,
+  "gi_verified": false,
+  "memory_mode": null,
+  "deployment": null,
+  "snapshot_meta": null
+}
