@@ -156,3 +156,20 @@ policy:
   mirror_feed_to_repo: true
   canonical_ledger_node: "civic-protocol-core"
   hash_algorithm: "sha256"
+
+# C-288 — Mesh execution fabric (declaration only; Actions run the jobs).
+jobs:
+  enabled: true
+  workflows:
+    - id: "publish-cycle-state"
+      file: ".github/workflows/publish-cycle-state.yml"
+      trigger: "schedule"
+      cron: "*/10 * * * *"
+      description: "Fetch snapshot-lite → ledger/cycle-state.json for HIVE / Substrate / browser-shell"
+
+governance:
+  agent_prs_allowed: true
+  auto_merge_allowed: false
+  required_reviewers:
+    - "ZEUS"
+    - "ATLAS"

@@ -85,6 +85,25 @@ Implementation: `app/api/mcp/route.ts`, `lib/mcp/mobius-terminal-mcp.ts`, `docs/
 | `policy.canonical_ledger_node` | Node id of the durable ledger (e.g. `civic-protocol-core`) |
 | `policy.hash_algorithm` | e.g. `sha256` |
 
+## `jobs:` — mesh execution fabric (C-288)
+
+**Rule:** `jobs` declares **which GitHub Actions workflows** implement this node’s mesh duties. It does not execute them; CI/cron does.
+
+| Field | Description |
+|-------|-------------|
+| `jobs.enabled` | Whether this node publishes workflow-backed artifacts |
+| `jobs.workflows[]` | `id`, `file` (path under `.github/workflows/`), `trigger` (`schedule` \| `workflow_dispatch`), optional `cron`, `description` |
+
+**Terminal (this repo):** `publish-cycle-state` → fetches `pulse.snapshot_url` / `GET /api/terminal/snapshot-lite`, runs `scripts/mesh/write-cycle-state.js`, commits `ledger/cycle-state.json`.
+
+## `governance:` — agent PR safety (C-288)
+
+| Field | Description |
+|-------|-------------|
+| `governance.agent_prs_allowed` | Agents may open PRs for mesh/world updates |
+| `governance.auto_merge_allowed` | Must stay `false` for world-facing repos unless human policy changes |
+| `governance.required_reviewers` | Sentinel / human gate (e.g. `ZEUS`, `ATLAS`) |
+
 ## Payload vocabulary (v1)
 
 Tight list for `ingest.targets[].accepts` and cross-node contracts:
@@ -121,3 +140,4 @@ Tight list for `ingest.targets[].accepts` and cross-node contracts:
 - `mobius.yaml` (repository root) — live Terminal manifest.  
 - `mesh/mcp-discovery.json` — MCP discovery slice.  
 - `docs/09-MESH/MNS_MCP_BRIDGE.md` — MCP doctrine.
+- C-288 mesh workflow (cycle state artifact): `ledger/cycle-state.json`, `scripts/mesh/write-cycle-state.js`, `.github/workflows/publish-cycle-state.yml`

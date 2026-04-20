@@ -1,0 +1,50 @@
+# C-288 — Mobius Mesh Workflow v1 (Terminal)
+# Declared in mobius.yaml → jobs.workflows (id: publish-cycle-state).
+# Fetches public snapshot-lite, writes ledger/cycle-state.json for HIVE / Substrate / shell.
+
+name: Publish cycle state
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-cycle-state
+  cancel-in-progress: true
+
+env:
+  # Override via repo Actions variable TERMINAL_BASE_URL if staging; default is production Terminal.
+  TERMINAL_BASE_URL: ${{ vars.TERMINAL_BASE_URL }}
+
+jobs:
+  publish-cycle-state:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch snapshot-lite
+        run: |
+          set -euo pipefail
+          BASE="${TERMINAL_BASE_URL:-https://mobius-civic-ai-terminal.vercel.app}"
+          curl -fsSL "${BASE}/api/terminal/snapshot-lite" -o snapshot.json
+          test -s snapshot.json
+
+      - name: Write cycle state
+        run: node scripts/mesh/write-cycle-state.js snapshot.json
+
+      - name: Commit cycle state
+        run: |
+          set -euo pipefail
+          git config user.name "mobius-bot"
+          git config user.email "bot@mobius.systems"
+          git add ledger/cycle-state.json
+          if git diff --staged --quiet; then
+            echo "No changes to cycle-state.json"
+            exit 0
+          fi
+          git commit -m "chore(mesh): refresh cycle state from snapshot-lite"
+          git push
