@@ -10,6 +10,7 @@ import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 import type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
 import { normalizeSnapshotLane, SNAPSHOT_LANE_KEYS } from '@/lib/terminal/snapshotLanes';
 import { cn } from '@/lib/utils';
+import { provenanceDescription, provenanceShortLabel } from '@/lib/terminal/memoryMode';
 
 const SHELL_URL = 'https://mobius-browser-shell.vercel.app';
 
@@ -62,24 +63,30 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
     [snapshot],
   );
 
-  const gi = useMemo(() => {
-    if (typeof snapshot?.gi === 'number') return snapshot.gi;
-    if (typeof integrityData?.global_integrity === 'number') return integrityData.global_integrity;
-    return 0;
-  }, [snapshot, integrityData]);
-
   const memoryMode = snapshot?.memory_mode;
+
+  const gi = useMemo(() => {
+    if (typeof memoryMode?.gi_value === 'number' && Number.isFinite(memoryMode.gi_value)) {
+      return memoryMode.gi_value;
+    }
+    if (typeof snapshot?.gi === 'number' && Number.isFinite(snapshot.gi)) return snapshot.gi;
+    if (typeof integrityData?.global_integrity === 'number') return integrityData.global_integrity;
+    return null;
+  }, [snapshot, integrityData, memoryMode]);
+
   const giProvenance = (memoryMode?.gi_provenance ?? null) as string | null;
   const giVerified = Boolean(memoryMode?.gi_verified);
+  const provenanceLabel = provenanceShortLabel(giProvenance);
+  const provenanceTitle = provenanceDescription(giProvenance);
 
   const provenanceBadge = useMemo(() => {
     const p = giProvenance ?? '';
-    if (p === 'kv-live' || p === 'live-compute') return { label: 'LIVE', cls: 'text-emerald-300/90' };
-    if (p === 'kv-carry') return { label: 'CARRY', cls: 'text-amber-300/90' };
-    if (p === 'oaa-verified') return { label: 'MEMORY', cls: 'text-sky-300/90' };
-    if (p === 'readiness-fallback') return { label: 'CACHED', cls: 'text-orange-300/90' };
-    return { label: '—', cls: 'text-slate-500' };
-  }, [giProvenance]);
+    if (p === 'kv-live' || p === 'live-compute') return { label: provenanceLabel, cls: 'text-emerald-300/90' };
+    if (p === 'kv-carry') return { label: provenanceLabel, cls: 'text-amber-300/90' };
+    if (p === 'oaa-verified') return { label: provenanceLabel, cls: 'text-sky-300/90' };
+    if (p === 'readiness-fallback') return { label: provenanceLabel, cls: 'text-orange-300/90' };
+    return { label: provenanceLabel, cls: 'text-slate-500' };
+  }, [giProvenance, provenanceLabel]);
 
   const cycle = snapshot?.cycle ?? integrityData?.cycle ?? 'C-—';
   const mode = (snapshot?.mode ?? integrityData?.mode ?? null)?.toString().toLowerCase() ?? null;
@@ -87,19 +94,16 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   const runtime = useMemo<'online' | 'degraded' | 'offline'>(() => {
     if (!snapshot && loading) return 'offline';
     if (!snapshot) return 'offline';
-    if (snapshot.degraded || mode === 'yellow' || mode === 'red') return 'degraded';
+    if (snapshot.degraded || memoryMode?.degraded || mode === 'yellow' || mode === 'red') return 'degraded';
     return 'online';
-  }, [snapshot, loading, mode]);
+  }, [snapshot, loading, mode, memoryMode]);
 
-  const giTone = useMemo(
-    () =>
-      gi >= 0.85
-        ? 'text-emerald-300 border-emerald-500/40'
-        : gi >= 0.7
-          ? 'text-amber-300 border-amber-500/40'
-          : 'text-rose-300 border-rose-500/40',
-    [gi],
-  );
+  const giTone = useMemo(() => {
+    if (gi === null) return 'text-slate-400 border-slate-600';
+    if (gi >= 0.85) return 'text-emerald-300 border-emerald-500/40';
+    if (gi >= 0.7) return 'text-amber-300 border-amber-500/40';
+    return 'text-rose-300 border-rose-500/40';
+  }, [gi]);
 
   const snapshotAt = snapshot?.timestamp ?? null;
   const deployment = useMemo(() => {
@@ -155,11 +159,20 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
                 loading ? 'border-slate-700 text-slate-500' : giTone,
               )}
             >
-              <span>GI {loading ? '—' : gi.toFixed(2)}</span>
-              {!loading && giProvenance ? (
-                <span className={cn('rounded border border-white/10 px-1 font-mono text-[9px] uppercase', provenanceBadge.cls)}>
+              <span title={provenanceTitle}>
+                GI {loading ? '—' : gi === null ? '—' : gi.toFixed(2)}
+              </span>
+              {!loading ? (
+                <span
+                  className={cn('rounded border border-white/10 px-1 font-mono text-[9px] uppercase', provenanceBadge.cls)}
+                  title={provenanceTitle}
+                >
                   {provenanceBadge.label}
-                  {giVerified ? <span title="Warm-tier mirror (OAA)">✓</span> : null}
+                  {giVerified ? (
+                    <span className="ml-0.5" title="Read from OAA warm-tier mirror (recorded value)">
+                      ✓
+                    </span>
+                  ) : null}
                 </span>
               ) : null}
             </span>

@@ -23,6 +23,13 @@ export type IntegrityStatusResponse = {
   primary_driver: string;
   summary: string;
   signals: IntegritySignals;
+  /** C-287 — GI read provenance from `/api/integrity-status` */
+  gi_provenance?: string | null;
+  gi_verified?: boolean;
+  gi_degraded?: boolean;
+  gi_age_seconds?: number | null;
+  degraded?: boolean;
+  mic_readiness_snapshot_source?: string;
 };
 
 export const integrityStatus: IntegrityStatusResponse = {
