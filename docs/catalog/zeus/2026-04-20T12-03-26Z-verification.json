@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-04-20T12:03:26.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-287",
+  "verification_status": "inconclusive",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "USGS M4.5+ day feed (ATLAS anomaly)": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS latest heartbeat (docs/catalog/heartbeats/2026-04-20T12-03-40Z-atlas.json)",
+      "result": "pass",
+      "detail": "gi=0.74 mode=yellow source=live; anomalies=[\"USGS M4.5+: 22 events, max M7.4\"]; seed_attempted=true seed_result=200 OK; kv_keys as cataloged."
+    },
+    {
+      "check": "integrity-status source mock flag",
+      "result": "pass",
+      "detail": "Live GET source=kv (not mock); KV-backed GI; degraded=true."
+    },
+    {
+      "check": "ATLAS heartbeat GI vs live integrity-status GI",
+      "result": "warn",
+      "detail": "Heartbeat file gi=0.74 vs live global_integrity=0.664 at ~12:03Z; both yellow/kv-backed—numeric drift across snapshot timing/composite weighting."
+    },
+    {
+      "check": "signals/micro vs ATLAS anomalies",
+      "result": "pass",
+      "detail": "degraded_instruments matches ATLAS string: USGS M4.5+: 22 events, max M7.4 (elevated). Anomaly persistent, not resolved."
+    },
+    {
+      "check": "EPICON pending-verification queue",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count=0; no candidates, verification skipped; no zeus/verify or epicon/publish POSTs."
+    },
+    {
+      "check": "agent journal write",
+      "result": "pass",
+      "detail": "POST /api/agents/journal returned 200 ok=true duplicate=true (dedup token for cycle/sources)."
+    }
+  ],
+  "recommendation": "No EPICON action. USGS lane remains elevated but corroborated. If operators need single GI truth, prefer live /api/integrity-status and note heartbeat file may lead by one refresh. Triage failing micro lanes (e.g. ZEUS-µ3 fetch failed, AUREA-µ2 404, JADE-µ2 no signal) and quiet GDELT/Reddit fetches."
+}
