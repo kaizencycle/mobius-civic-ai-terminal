@@ -30,6 +30,10 @@ export type MobiusYamlV1 = {
   version?: string;
   mesh?: Record<string, unknown>;
   pulse?: Record<string, unknown>;
+  jobs?: {
+    enabled?: boolean;
+    workflows?: Array<{ id?: string; file?: string; trigger?: string; cron?: string; description?: string }>;
+  };
   ingest?: {
     enabled?: boolean;
     mode?: string;
@@ -139,4 +143,17 @@ export function isOaaPublishEnabled(): boolean {
   if (loadMobiusYaml().ingest?.enabled === false) return false;
   if (!isDualWriteMode()) return false;
   return resolveOaaKvPostUrl() !== null && resolveOaaHmacSecret() !== null;
+}
+
+/** Workflow ids declared under `jobs.workflows` in mobius.yaml (for Slack agent allowlist validation). */
+export function loadDeclaredWorkflowIdsFromMobiusYaml(doc: MobiusYamlV1 = loadMobiusYaml()): string[] {
+  const list = doc.jobs?.workflows;
+  if (!Array.isArray(list)) return [];
+  const ids: string[] = [];
+  for (const w of list) {
+    if (w && typeof w === 'object' && typeof w.id === 'string' && w.id.trim().length > 0) {
+      ids.push(w.id.trim());
+    }
+  }
+  return ids;
 }

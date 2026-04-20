@@ -5,6 +5,7 @@ import { loadMobiusManifest } from '@/lib/slack-agent/loadManifest';
 import { parseSlackCommandText } from '@/lib/slack-agent/parseCommand';
 import { postSlackChatMessage } from '@/lib/slack-agent/postSlackReply';
 import { verifySlackRequest } from '@/lib/slack-agent/verifySlackSignature';
+import { claimSlackEventId } from '@/lib/slack-agent/slackEventDedupe';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,19 +24,6 @@ type SlackEnvelope = {
   };
   team_id?: string;
 };
-
-const seenEventIds = new Set<string>();
-const SEEN_MAX = 500;
-
-function rememberEventId(id: string): boolean {
-  if (seenEventIds.has(id)) return false;
-  seenEventIds.add(id);
-  if (seenEventIds.size > SEEN_MAX) {
-    const first = seenEventIds.values().next().value as string | undefined;
-    if (first) seenEventIds.delete(first);
-  }
-  return true;
-}
 
 function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
@@ -85,8 +73,11 @@ export async function POST(req: NextRequest) {
   }
 
   const eventId = typeof body.event_id === 'string' ? body.event_id : '';
-  if (eventId && !rememberEventId(eventId)) {
-    return json({ ok: true });
+  if (eventId) {
+    const firstTime = await claimSlackEventId(eventId);
+    if (!firstTime) {
+      return json({ ok: true });
+    }
   }
 
   const text = typeof ev.text === 'string' ? ev.text : '';
