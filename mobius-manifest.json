@@ -1,0 +1,55 @@
+{
+  "$schema_comment": "Mobius policy surface — Slack agent and cross-repo touch rules (v1).",
+  "schema": "MOBIUS_MANIFEST_V1",
+  "slack_agent": {
+    "enabled": true,
+    "mode": "read_first",
+    "allowed_commands": [
+      "status",
+      "vault",
+      "cycle",
+      "pulse",
+      "readiness",
+      "journal",
+      "quest",
+      "propose",
+      "draft-pr",
+      "run"
+    ],
+    "allowed_workflows": [
+      "publish-cycle-state",
+      "fetch-hive-world",
+      "mesh-aggregate",
+      "world-update"
+    ],
+    "allowed_channel_ids": [],
+    "write_policy": {
+      "oaa_logging_required": true,
+      "ledger_logging_for_meaningful_actions": true,
+      "auto_merge_allowed": false,
+      "protected_truth_files_read_only": true
+    }
+  },
+  "repo_touch": {
+    "read": [
+      "Mobius-Substrate",
+      "mobius-civic-ai-terminal",
+      "mobius-browser-shell",
+      "mobius-hive",
+      "OAA-API-Library",
+      "Civic-Protocol-Core"
+    ],
+    "write_v1": [
+      "oaa_memory",
+      "draft_pr_branches",
+      "hive_non_protected_proposals",
+      "workflow_dispatch_requests"
+    ],
+    "write_blocked_v1": [
+      "ledger_canonical_history",
+      "mic_auth_files",
+      "manifest_without_review",
+      "main_branch_protected_files"
+    ]
+  }
+}
