@@ -17,7 +17,8 @@ export type SnapshotLaneKey =
   | 'eve'
   | 'mii'
   | 'vault'
-  | 'micReadiness';
+  | 'micReadiness'
+  | 'tripwire';
 
 export type SnapshotLaneSemanticState = 'healthy' | 'degraded' | 'offline' | 'stale' | 'empty' | 'promotable';
 
@@ -59,6 +60,7 @@ export const SNAPSHOT_LANE_KEYS: readonly SnapshotLaneKey[] = [
   'mii',
   'vault',
   'micReadiness',
+  'tripwire',
 ] as const;
 
 function asRecord(data: unknown): Record<string, unknown> | null {
@@ -145,6 +147,8 @@ export function extractLaneLastUpdated(key: SnapshotLaneKey, data: unknown): str
       return pick('timestamp', 'last_deposit');
     case 'micReadiness':
       return pick('updatedAt', 'timestamp');
+    case 'tripwire':
+      return pick('last_updated', 'timestamp');
     default:
       return null;
   }
@@ -723,6 +727,31 @@ function normalizeMicReadinessLane(leaf: SnapshotLeaf): SnapshotLaneState {
   };
 }
 
+function normalizeTripwireLane(leaf: SnapshotLeaf): SnapshotLaneState {
+  const lastUpdated = extractLaneLastUpdated('tripwire', leaf.data);
+  if (!leaf.ok) {
+    const { state, message } = classifyHttpFailure(leaf.status, leaf.error);
+    return { key: 'tripwire', ok: false, state, statusCode: leaf.status, message, lastUpdated, fallbackMode: 'offline' };
+  }
+  const row = asRecord(leaf.data);
+  const tw = row?.tripwire && typeof row.tripwire === 'object' ? (row.tripwire as Record<string, unknown>) : null;
+  const active = tw?.active === true;
+  const level = typeof tw?.level === 'string' ? tw.level : '';
+  const reason = typeof tw?.reason === 'string' ? tw.reason : '';
+  const elevated = active || level === 'elevated' || level === 'triggered' || level === 'high' || level === 'medium';
+  const state: SnapshotLaneSemanticState = elevated ? 'degraded' : 'healthy';
+  const message = elevated ? `Tripwire active (${level || 'active'})${reason ? `: ${reason}` : ''}` : 'No active tripwires';
+  return {
+    key: 'tripwire',
+    ok: true,
+    state,
+    statusCode: leaf.status,
+    message,
+    lastUpdated,
+    fallbackMode: 'live',
+  };
+}
+
 function normalizeVaultLane(leaf: SnapshotLeaf): SnapshotLaneState {
   const lastUpdated = extractLaneLastUpdated('vault', leaf.data);
   if (!leaf.ok) {
@@ -833,6 +862,8 @@ export function normalizeSnapshotLane(key: SnapshotLaneKey, leaf: SnapshotLeaf):
       return normalizeVaultLane(leaf);
     case 'micReadiness':
       return normalizeMicReadinessLane(leaf);
+    case 'tripwire':
+      return normalizeTripwireLane(leaf);
     default:
       return {
         key,

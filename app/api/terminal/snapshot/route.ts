@@ -12,6 +12,7 @@ import { GET as getEve } from '@/app/api/eve/cycle-advance/route';
 import { GET as getMii } from '@/app/api/mii/feed/route';
 import { GET as getVault } from '@/app/api/vault/status/route';
 import { GET as getMicReadiness } from '@/app/api/mic/readiness/route';
+import { GET as getTripwire } from '@/app/api/tripwire/status/route';
 import { GET as getSnapshotLite } from '@/app/api/terminal/snapshot-lite/route';
 import { memoryModeFromIntegrityPayload, memoryModeFromSnapshotLiteBody } from '@/lib/terminal/memoryMode';
 import { loadSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
@@ -88,6 +89,7 @@ export async function GET(request: NextRequest) {
     timedHandler(makeRequest(baseUrl, '/api/mii/feed'), getMii),
     timedHandler(makeRequest(baseUrl, '/api/vault/status'), getVault),
     timedHandler(makeRequest(baseUrl, '/api/mic/readiness'), getMicReadiness),
+    timedHandler(makeRequest(baseUrl, '/api/tripwire/status'), getTripwire),
   ]);
 
   const litePromise = timedHandler(makeRequest(baseUrl, '/api/terminal/snapshot-lite'), getSnapshotLite);
@@ -105,7 +107,7 @@ export async function GET(request: NextRequest) {
     signalsDuration = Date.now() - signalsStart;
   }
 
-  const [integrity, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve, mii, vault, micReadiness] =
+  const [integrity, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve, mii, vault, micReadiness, tripwire] =
     results;
 
   const litePayload = liteResult.leaf.data as Record<string, unknown> | null;
@@ -126,6 +128,7 @@ export async function GET(request: NextRequest) {
     mii: mii.duration_ms,
     vault: vault.duration_ms,
     micReadiness: micReadiness.duration_ms,
+    tripwire: tripwire.duration_ms,
   };
 
   type SubstrateAgentRow = { agent: string; lastEntry: SubstrateJournalEntry | null; entryCount: number };
@@ -161,7 +164,7 @@ export async function GET(request: NextRequest) {
     integrity: integrity.leaf, signals, kvHealth: kvHealth.leaf, agents: agents.leaf,
     epicon: epicon.leaf, echo: echo.leaf, journal: journal.leaf, sentiment: sentiment.leaf,
     runtime: runtime.leaf, promotion: promotion.leaf, eve: eve.leaf, mii: mii.leaf, vault: vault.leaf,
-    micReadiness: micReadiness.leaf,
+    micReadiness: micReadiness.leaf, tripwire: tripwire.leaf,
   };
 
   const lanes: SnapshotLaneState[] = normalizeAllSnapshotLanes(leaves);
@@ -201,8 +204,11 @@ export async function GET(request: NextRequest) {
       : typeof integrityData?.global_integrity === 'number' && Number.isFinite(integrityData.global_integrity)
         ? integrityData.global_integrity
         : null;
+  const tripwireLaneState = laneByKey.get('tripwire');
+  const tripwireElevated = tripwireLaneState?.state === 'degraded';
   const topDegraded =
     memoryMode?.degraded === true ||
+    tripwireElevated ||
     Boolean(integrityData?.gi_degraded ?? integrityData?.degraded) ||
     (typeof integrityData?.mode === 'string' && (integrityData.mode === 'red' || integrityData.mode === 'yellow'));
 
@@ -224,6 +230,7 @@ export async function GET(request: NextRequest) {
     epicon: epicon.leaf, echo: echo.leaf, journal: journal.leaf, sentiment: sentiment.leaf,
     runtime: runtime.leaf, promotion: promotion.leaf, eve: eve.leaf, mii: mii.leaf, vault: vault.leaf,
     micReadiness: micReadiness.leaf,
+    tripwire: tripwire.leaf,
     substrate,
   }, {
     headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'terminal-snapshot' },
