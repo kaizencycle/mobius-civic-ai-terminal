@@ -8,6 +8,7 @@ import type { IngestResult } from '@/lib/echo/transform';
 import type { IntegrityRating } from '@/lib/echo/integrity-engine';
 import { getEchoStatus } from '@/lib/echo/store';
 import { saveEchoState, loadGIState, kvSet, KV_KEYS, KV_TTL_SECONDS } from '@/lib/kv/store';
+import { recordReplayPressureFromIngest } from '@/lib/mic/replayPressure';
 import { readMiiFeed, type MiiEntry } from '@/lib/kv/mii';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 
@@ -121,6 +122,7 @@ async function writeMiiFeedBatch(entries: MiiEntry[]): Promise<void> {
  */
 export async function persistEchoIngestSideEffects(result: IngestResult): Promise<void> {
   const status = getEchoStatus();
+  void recordReplayPressureFromIngest(result.duplicateSuppressedCount).catch(() => {});
   const dedupDenominator = Math.max(1, status.totalIngested + status.duplicateSuppressedCount);
   const dedupRate = Number((status.duplicateSuppressedCount / dedupDenominator).toFixed(3));
   await Promise.all([

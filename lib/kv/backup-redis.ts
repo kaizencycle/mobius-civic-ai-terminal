@@ -12,13 +12,20 @@ import Redis from 'ioredis';
 let _backup: Redis | null | undefined;
 
 export function backupMirrorEnabled(): boolean {
+  if (!process.env.REDIS_URL?.trim()) return false;
   const v = process.env.MOBIUS_KV_BACKUP_MIRROR?.trim().toLowerCase();
-  return v === '1' || v === 'true' || v === 'yes';
+  if (v === '0' || v === 'false' || v === 'no') return false;
+  if (v === '1' || v === 'true' || v === 'yes') return true;
+  // C-286 close: when `REDIS_URL` is set, mirror successful writes by default (opt-out via explicit false).
+  return true;
 }
 
 export function backupReadFallbackEnabled(): boolean {
+  if (!process.env.REDIS_URL?.trim()) return false;
   const v = process.env.MOBIUS_KV_READ_FALLBACK?.trim().toLowerCase();
-  return v === '1' || v === 'true' || v === 'yes';
+  if (v === '0' || v === 'false' || v === 'no') return false;
+  if (v === '1' || v === 'true' || v === 'yes') return true;
+  return true;
 }
 
 function getBackupClient(): Redis | null {

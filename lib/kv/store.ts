@@ -18,8 +18,9 @@
  *
  * Optional secondary Redis (TCP `redis://` or `rediss://`):
  *   REDIS_URL — classic Redis URL; health-checked via `/api/kv/health` as `backup_redis`
- *   MOBIUS_KV_BACKUP_MIRROR — mirror successful `kvSet` / `kvSetRawKey` / vault raw writes
- *   MOBIUS_KV_READ_FALLBACK — read from backup when primary GET misses or errors
+ *   MOBIUS_KV_BACKUP_MIRROR — mirror successful `kvSet` / `kvSetRawKey` / vault raw writes (when `REDIS_URL` set,
+ *     defaults to enabled unless explicitly `false`)
+ *   MOBIUS_KV_READ_FALLBACK — read from backup when primary GET misses or errors (defaults on when `REDIS_URL` set)
  *
  *   OAA KV bridge (C-286) — warm tier on Render when Upstash hits monthly limits:
  *   OAA_API_BASE_URL (or OAA_API_BASE / NEXT_PUBLIC_OAA_API_URL) + KV_BRIDGE_SECRET
@@ -30,6 +31,7 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { getGiMode } from '@/lib/gi/mode';
 import {
   backupPrefixedGet,
   backupRawGet,
@@ -384,6 +386,10 @@ export const KV_KEYS = {
   SYSTEM_PULSE: 'system:pulse',
   /** Short-circuit hot ledger API after repeated timeouts (C-286) */
   LEDGER_CIRCUIT_OPEN: 'ledger:circuit_open',
+  /** MIC sustain cycle counter (C-287) */
+  MIC_SUSTAIN_STATE: 'mic:sustain:state',
+  /** MIC replay pressure envelope — ingest duplicate bumps, time-decayed (C-287) */
+  MIC_REPLAY_PRESSURE: 'mic:replay:pressure',
 } as const;
 
 // ── Signal snapshot persistence ──────────────────────────────
@@ -427,6 +433,8 @@ export type GIState = {
   terminal_status: string;
   primary_driver: string;
   source: 'live' | 'mock' | 'cached';
+  /** When set to `micro_sweep`, shorter KV freshness window applies in `resolveGiForTerminal`. */
+  gi_write_source?: 'micro_sweep' | 'integrity';
   signals: {
     quality: number;
     freshness: number;
@@ -442,6 +450,40 @@ export type GIState = {
 export async function saveGIState(state: GIState): Promise<void> {
   await kvSet(KV_KEYS.GI_STATE, state, KV_TTL_SECONDS.GI_STATE);
   await kvSet(KV_KEYS.GI_STATE_CARRY, state, 604800);
+}
+
+/**
+ * After micro-agent sweep: align `GI_STATE.global_integrity` with composite so MIC readiness
+ * and KV-backed surfaces are not 5–15 minutes behind live sweep (C-286 close).
+ * Preserves non-quality signal dimensions from the last full integrity row when present.
+ */
+export async function saveGiStateFromMicroSweep(args: {
+  composite: number;
+  signalQuality: number;
+}): Promise<void> {
+  const gi = Math.max(0, Math.min(1, args.composite));
+  const mode = getGiMode(gi);
+  const terminal_status: GIState['terminal_status'] =
+    mode === 'green' ? 'nominal' : mode === 'yellow' ? 'stressed' : 'critical';
+  const prev = await loadGIState();
+  const q = Math.max(0, Math.min(1, args.signalQuality));
+  const state: GIState = {
+    global_integrity: Number(gi.toFixed(3)),
+    mode,
+    terminal_status,
+    primary_driver:
+      'GI global_integrity aligned to micro-sensor composite after sweep (freshness/stability from last full pass)',
+    source: 'live',
+    gi_write_source: 'micro_sweep',
+    signals: {
+      quality: Number(q.toFixed(3)),
+      freshness: prev?.signals.freshness ?? 0.5,
+      stability: prev?.signals.stability ?? 0.5,
+      system: prev?.signals.system ?? 0.5,
+    },
+    timestamp: new Date().toISOString(),
+  };
+  await saveGIState(state);
 }
 
 /**

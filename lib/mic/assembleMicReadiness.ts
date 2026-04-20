@@ -5,6 +5,8 @@ import { mergeMicReadinessFromUpstream } from '@/lib/mic/readinessMerge';
 import type { MicReadinessResponse } from '@/lib/mic/types';
 import { withHash } from '@/lib/mic/hash';
 import { kvGet, KV_KEYS } from '@/lib/kv/store';
+import { loadSustainState } from '@/lib/mic/sustainTracker';
+import { resolveReplayPressureWithDecay } from '@/lib/mic/replayPressure';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
 import { getVaultStatusPayload, listVaultDeposits } from '@/lib/vault/vault';
 import { countSeals, getCandidate, getInProgressBalance, getLatestSeal } from '@/lib/vault-v2/store';
@@ -94,10 +96,27 @@ export async function assembleLocalMicReadiness(cycleParam?: string | null): Pro
   const resolvedGi = await resolveGiForTerminal({ micReadinessSnapshotRaw: micSnapRaw });
   const vaultStatus = await getVaultStatusShape(resolvedGi.gi);
   const deposits = await listVaultDeposits(120);
+  const [sustainState, replayResolved] = await Promise.all([
+    loadSustainState(),
+    (async () => {
+      const seen = new Set<string>();
+      let repeats = 0;
+      for (const d of deposits) {
+        if (seen.has(d.content_signature)) repeats += 1;
+        seen.add(d.content_signature);
+      }
+      const ratio = deposits.length > 0 ? repeats / deposits.length : 0;
+      return resolveReplayPressureWithDecay(ratio);
+    })(),
+  ]);
   const base = buildMicReadinessV1({
     vaultStatus,
     depositsSample: deposits,
     cycle: cycle || undefined,
+    sustainState,
+    replayPressure: replayResolved.replayPressure,
+    replayStatus: replayResolved.status,
+    replay_decay_half_life_hours: replayResolved.replay_decay_half_life_hours,
   });
   return {
     ...base,

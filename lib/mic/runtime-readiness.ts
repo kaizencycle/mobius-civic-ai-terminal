@@ -5,7 +5,15 @@
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
-import type { MicReadinessResponse, MicMintReadiness, MicNoveltyStatus, MicQuorumStatus, MicReplayStatus } from '@/lib/mic/types';
+import type {
+  MicReadinessResponse,
+  MicMintReadiness,
+  MicNoveltyStatus,
+  MicQuorumStatus,
+  MicReplayStatus,
+  MicSustainStatus,
+} from '@/lib/mic/types';
+import type { MicSustainStateV1 } from '@/lib/mic/sustainTracker';
 
 export type VaultStatusJson = {
   balance_reserve?: number;
@@ -129,6 +137,10 @@ export function buildMicReadinessV1(args: {
   vaultStatus: VaultStatusJson;
   depositsSample: { content_signature: string; journal_score?: number }[];
   cycle?: string;
+  sustainState?: MicSustainStateV1 | null;
+  replayPressure?: number;
+  replayStatus?: MicReplayStatus;
+  replay_decay_half_life_hours?: number;
 }): MicReadinessResponse {
   const v = args.vaultStatus;
   const cycle = args.cycle?.trim() || currentCycleId();
@@ -137,17 +149,44 @@ export function buildMicReadinessV1(args: {
   const trancheTarget = v.activation_threshold ?? VAULT_RESERVE_PARCEL_UNITS;
   const inProgress = v.in_progress_balance ?? 0;
   const sealed = v.sealed_reserve_total ?? 0;
-  const sustainPlaceholder = true;
   const sustainMet = Boolean(v.sustain_cycles_met);
   const requiredSustain = v.sustain_cycles_required ?? 5;
+  const st = args.sustainState;
+  const consecutiveFromKv =
+    st && typeof st.consecutiveEligibleCycles === 'number' && Number.isFinite(st.consecutiveEligibleCycles)
+      ? Math.max(0, Math.floor(st.consecutiveEligibleCycles))
+      : 0;
+  const sustainPlaceholder = !st;
+  let sustainStatus: MicSustainStatus = 'not_started';
+  if (sustainMet) sustainStatus = 'satisfied';
+  else if (consecutiveFromKv >= requiredSustain) sustainStatus = 'satisfied';
+  else if (consecutiveFromKv > 0) sustainStatus = 'in_progress';
+
+  const displayConsecutive = sustainMet
+    ? requiredSustain
+    : sustainPlaceholder
+      ? 0
+      : Math.min(consecutiveFromKv, requiredSustain);
+
   const sustain: MicReadinessResponse['sustain'] = {
-    consecutiveEligibleCycles: sustainPlaceholder ? 0 : sustainMet ? requiredSustain : 0,
+    consecutiveEligibleCycles: displayConsecutive,
     requiredCycles: requiredSustain,
-    status: sustainPlaceholder ? 'not_started' : sustainMet ? 'satisfied' : 'in_progress',
+    status: sustainPlaceholder ? 'not_started' : sustainStatus,
     sustain_tracking_placeholder: sustainPlaceholder,
+    lastEligibleCycle: st?.lastEligibleCycle ?? null,
+    lastCheckedCycle: st?.lastCheckedCycle ?? null,
   };
 
-  const { pressure, status: replayStatus } = replayFromDeposits(args.depositsSample);
+  const depositReplay = replayFromDeposits(args.depositsSample);
+  const pressure =
+    typeof args.replayPressure === 'number' && Number.isFinite(args.replayPressure)
+      ? args.replayPressure
+      : depositReplay.pressure;
+  const replayStatus =
+    args.replayStatus ??
+    (typeof args.replayPressure === 'number' && Number.isFinite(args.replayPressure)
+      ? (pressure >= 0.35 ? 'blocked' : pressure >= 0.15 ? 'elevated' : 'clear')
+      : depositReplay.status);
   const { score: noveltyScore, status: noveltyStatus } = noveltyFromDeposits(args.depositsSample);
   const fountainLane = v.fountain_status ?? 'locked';
   const fountain = { ...fountainTriplet(fountainLane), lane: fountainLane };
@@ -167,7 +206,13 @@ export function buildMicReadinessV1(args: {
       balanceReserveV1: v.balance_reserve ?? 0,
     },
     sustain,
-    replay: { replayPressure: pressure, status: replayStatus },
+    replay: {
+      replayPressure: pressure,
+      status: replayStatus,
+      ...(typeof args.replay_decay_half_life_hours === 'number'
+        ? { replay_decay_half_life_hours: args.replay_decay_half_life_hours }
+        : {}),
+    },
     novelty: { noveltyScore, status: noveltyStatus },
     quorum,
     fountain,

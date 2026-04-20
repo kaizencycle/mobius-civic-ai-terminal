@@ -12,6 +12,10 @@ export const KV_TTL_SECONDS = {
   GI_STATE: 14_400,
   /** MIC readiness snapshot from upstream */
   MIC_READINESS_SNAPSHOT: 14_400,
+  /** Consecutive GI ≥ threshold cycles (Fountain sustain) */
+  MIC_SUSTAIN_STATE: 604_800,
+  /** Decayed replay pressure from ECHO duplicate suppression */
+  MIC_REPLAY_PRESSURE: 1_209_600,
   /** Agent fleet heartbeat (cron every 5m; TTL 3× interval) */
   HEARTBEAT: 900,
 } as const;

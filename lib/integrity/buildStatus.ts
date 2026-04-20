@@ -152,6 +152,7 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
       terminal_status: computed.terminal_status,
       primary_driver: driver,
       source,
+      gi_write_source: 'integrity',
       signals: computed.signals,
       timestamp: computed.timestamp,
     };
@@ -218,6 +219,7 @@ export async function recomputeAndSaveGIState(): Promise<GIState | null> {
     terminal_status: computed.terminal_status,
     primary_driver: driver,
     source,
+    gi_write_source: 'integrity',
     signals: computed.signals,
     timestamp: computed.timestamp,
   };

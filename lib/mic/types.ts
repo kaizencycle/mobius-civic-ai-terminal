@@ -47,11 +47,15 @@ export interface MicReadinessResponse {
     requiredCycles: number;
     status: MicSustainStatus;
     sustain_tracking_placeholder: boolean;
+    lastEligibleCycle?: string | null;
+    lastCheckedCycle?: string | null;
   };
 
   replay: {
     replayPressure: number;
     status: MicReplayStatus;
+    /** Hours for half-life decay of ingest-side duplicate pressure (when KV-backed). */
+    replay_decay_half_life_hours?: number;
   };
 
   novelty: {
