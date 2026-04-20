@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import ChamberSwitcher from '@/components/terminal/ChamberSwitcher';
 import OnboardingOverlay from '@/components/terminal/OnboardingOverlay';
 import ShellBridgeBanner from '@/components/terminal/ShellBridgeBanner';
+import { DegradedBanner } from '@/components/terminal/DegradedBanner';
 import SnapshotDiagnostics from '@/components/terminal/SnapshotDiagnostics';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 import type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
@@ -66,6 +67,19 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
     if (typeof integrityData?.global_integrity === 'number') return integrityData.global_integrity;
     return 0;
   }, [snapshot, integrityData]);
+
+  const memoryMode = snapshot?.memory_mode;
+  const giProvenance = (memoryMode?.gi_provenance ?? null) as string | null;
+  const giVerified = Boolean(memoryMode?.gi_verified);
+
+  const provenanceBadge = useMemo(() => {
+    const p = giProvenance ?? '';
+    if (p === 'kv-live' || p === 'live-compute') return { label: 'LIVE', cls: 'text-emerald-300/90' };
+    if (p === 'kv-carry') return { label: 'CARRY', cls: 'text-amber-300/90' };
+    if (p === 'oaa-verified') return { label: 'MEMORY', cls: 'text-sky-300/90' };
+    if (p === 'readiness-fallback') return { label: 'CACHED', cls: 'text-orange-300/90' };
+    return { label: '—', cls: 'text-slate-500' };
+  }, [giProvenance]);
 
   const cycle = snapshot?.cycle ?? integrityData?.cycle ?? 'C-—';
   const mode = (snapshot?.mode ?? integrityData?.mode ?? null)?.toString().toLowerCase() ?? null;
@@ -135,8 +149,19 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
             </a>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] font-mono md:gap-2 md:text-[11px]">
-            <span className={cn('rounded border px-1.5 py-0.5 md:px-2 md:py-1', loading ? 'border-slate-700 text-slate-500' : giTone)}>
-              GI {loading ? '—' : gi.toFixed(2)}
+            <span
+              className={cn(
+                'flex items-center gap-1 rounded border px-1.5 py-0.5 md:px-2 md:py-1',
+                loading ? 'border-slate-700 text-slate-500' : giTone,
+              )}
+            >
+              <span>GI {loading ? '—' : gi.toFixed(2)}</span>
+              {!loading && giProvenance ? (
+                <span className={cn('rounded border border-white/10 px-1 font-mono text-[9px] uppercase', provenanceBadge.cls)}>
+                  {provenanceBadge.label}
+                  {giVerified ? <span title="Warm-tier mirror (OAA)">✓</span> : null}
+                </span>
+              ) : null}
             </span>
             <span
               className={cn(
@@ -165,6 +190,8 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </header>
+
+      <DegradedBanner memoryMode={memoryMode ?? null} />
 
       {showLaneDiagnostics && lanes.length > 0 ? (
         <div className="border-b border-slate-800 bg-slate-950/80 px-3 py-2 md:px-4">

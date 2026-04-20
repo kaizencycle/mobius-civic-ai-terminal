@@ -16,6 +16,8 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { handbookCorsHeaders } from '@/lib/http/handbook-cors';
 import { loadGIState } from '@/lib/kv/store';
+import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
+import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
 import { getVaultDepositHashCoverage, getVaultStatusPayload } from '@/lib/vault/vault';
 import {
@@ -38,10 +40,24 @@ export async function OPTIONS(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const cors = handbookCorsHeaders(req.headers.get('origin'));
   let gi: number | null = null;
+  let gi_provenance: string | null = null;
   try {
     const st = await loadGIState();
     if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
-      gi = Math.max(0, Math.min(1, st.global_integrity));
+      const age = Date.now() - new Date(st.timestamp).getTime();
+      const maxAgeMs = st.gi_write_source === 'micro_sweep' ? 2 * 60 * 1000 : 10 * 60 * 1000;
+      if (age < maxAgeMs) {
+        gi = Math.max(0, Math.min(1, st.global_integrity));
+        gi_provenance = 'kv-live';
+      }
+    }
+    if (gi === null) {
+      const micRaw = await loadMicReadinessSnapshotRaw();
+      const chain = await resolveGiForTerminal({ micReadinessSnapshotRaw: micRaw.raw });
+      if (typeof chain.gi === 'number' && Number.isFinite(chain.gi)) {
+        gi = chain.gi;
+        gi_provenance = chain.gi_provenance;
+      }
     }
   } catch {
     gi = null;
@@ -71,6 +87,7 @@ export async function GET(req: NextRequest) {
 
   const body = {
     ...v1,
+    gi_resolution: gi_provenance ? { provenance: gi_provenance } : undefined,
     in_progress_balance: inProgressBalance,
     sealed_reserve_total: seal_lane.sealed_reserve_total,
     current_tranche_balance: seal_lane.current_tranche_balance,

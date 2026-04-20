@@ -62,6 +62,7 @@ export async function kvBridgeWrite(
   bridgeKey: string,
   value: unknown,
   ttlSeconds?: number,
+  sourceTag?: string,
 ): Promise<boolean> {
   const base = oaaBaseUrl();
   const secret = process.env.KV_BRIDGE_SECRET?.trim();
@@ -78,7 +79,7 @@ export async function kvBridgeWrite(
         key: bridgeKey,
         value,
         ttl_seconds: ttlSeconds,
-        source: 'terminal',
+        source: sourceTag?.trim() || 'terminal',
       }),
       signal: abortMs(8000),
     });
@@ -112,6 +113,17 @@ export async function kvBridgeRead(bridgeKey: string): Promise<KvBridgeReadResul
     );
     return null;
   }
+}
+
+/** C-287 — explicit dual-write (cron / hot paths); never blocks callers. */
+export function scheduleKvBridgeDualWrite(
+  bridgeKey: string,
+  value: unknown,
+  ttlSeconds?: number,
+  sourceTag?: string,
+): void {
+  if (!kvBridgeConfigured()) return;
+  void kvBridgeWrite(bridgeKey, value, ttlSeconds, sourceTag).catch(() => {});
 }
 
 /** Fire-and-forget mirror after successful primary SET (prefixed `mobius:` key). */

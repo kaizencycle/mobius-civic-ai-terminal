@@ -12,6 +12,7 @@ import { GET as getEve } from '@/app/api/eve/cycle-advance/route';
 import { GET as getMii } from '@/app/api/mii/feed/route';
 import { GET as getVault } from '@/app/api/vault/status/route';
 import { GET as getMicReadiness } from '@/app/api/mic/readiness/route';
+import { GET as getSnapshotLite } from '@/app/api/terminal/snapshot-lite/route';
 import { loadSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
 import {
   normalizeAllSnapshotLanes,
@@ -88,7 +89,8 @@ export async function GET(request: NextRequest) {
     timedHandler(makeRequest(baseUrl, '/api/mic/readiness'), getMicReadiness),
   ]);
 
-  const [cached, results] = await Promise.all([cachedPromise, lanesPromise]);
+  const litePromise = timedHandler(makeRequest(baseUrl, '/api/terminal/snapshot-lite'), getSnapshotLite);
+  const [cached, results, liteResult] = await Promise.all([cachedPromise, lanesPromise, litePromise]);
 
   let signals: SnapshotLeaf;
   let signalsDuration: number;
@@ -105,8 +107,14 @@ export async function GET(request: NextRequest) {
   const [integrity, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve, mii, vault, micReadiness] =
     results;
 
+  const litePayload = liteResult.leaf.data as Record<string, unknown> | null;
+  const lanesLite = litePayload?.lanes as Record<string, unknown> | undefined;
+  const kvLane = lanesLite?.kv as Record<string, unknown> | undefined;
+  const backupRedisLite = lanesLite?.backup_redis as { available?: boolean } | undefined;
+
   const timings: Record<string, number> = {
     signals: signalsDuration,
+    snapshot_lite: liteResult.duration_ms,
     integrity: integrity.duration_ms,
     kvHealth: kvHealth.duration_ms,
     agents: agents.duration_ms,
@@ -183,6 +191,23 @@ export async function GET(request: NextRequest) {
 
   const totalMs = Date.now() - totalStart;
 
+  const memoryMode =
+    litePayload && typeof litePayload === 'object'
+      ? {
+          degraded: Boolean(litePayload.degraded),
+          gi_provenance: typeof litePayload.gi_provenance === 'string' ? litePayload.gi_provenance : null,
+          gi_verified: Boolean(litePayload.gi_verified),
+          gi_source: typeof litePayload.gi_source === 'string' ? litePayload.gi_source : null,
+          gi_age_seconds:
+            typeof (litePayload.lanes as Record<string, unknown> | undefined)?.integrity === 'object'
+              ? ((litePayload.lanes as Record<string, { age_seconds?: number }>).integrity?.age_seconds ?? null)
+              : null,
+          kv_available: kvLane?.ok === true,
+          kv_latency_ms: typeof kvLane?.latency_ms === 'number' ? kvLane.latency_ms : null,
+          backup_redis_available: Boolean(backupRedisLite?.available),
+        }
+      : null;
+
   return NextResponse.json({
     ok: criticalOk && !criticalFail,
     cycle: eveCycle ?? cycle ?? null,
@@ -193,6 +218,7 @@ export async function GET(request: NextRequest) {
       environment: process.env.VERCEL_ENV ?? null,
     },
     meta: { total_ms: totalMs, lane_ms: timings },
+    memory_mode: memoryMode,
     lanes,
     integrity: integrity.leaf, signals, kvHealth: kvHealth.leaf, agents: agents.leaf,
     epicon: epicon.leaf, echo: echo.leaf, journal: journal.leaf, sentiment: sentiment.leaf,

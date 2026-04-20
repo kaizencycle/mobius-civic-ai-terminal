@@ -10,7 +10,9 @@ import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
 import { assembleLocalMicReadiness, getMergedMicReadiness, resolveReadinessCycle } from '@/lib/mic/assembleMicReadiness';
 import { mergeMicReadinessFromUpstream } from '@/lib/mic/readinessMerge';
 import type { MicReadinessResponse } from '@/lib/mic/types';
+import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { kvSet, kvLpushCapped, KV_KEYS, kvGet, KV_TTL_SECONDS } from '@/lib/kv/store';
+import { scheduleKvBridgeDualWrite } from '@/lib/kv/kvBridgeClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +29,7 @@ function micReadinessPostAuth(req: NextRequest): boolean {
 
 export async function GET(req: NextRequest) {
   const cycleParam = req.nextUrl.searchParams.get('cycle')?.trim();
-  const micSnapRaw = await kvGet<string>(KV_KEYS.MIC_READINESS_SNAPSHOT);
+  const { raw: micSnapRaw, source: micSnapSource } = await loadMicReadinessSnapshotRaw();
   const giMeta = await resolveGiForTerminal({ micReadinessSnapshotRaw: micSnapRaw });
   const readiness = await getMergedMicReadiness(cycleParam);
 
@@ -37,7 +39,12 @@ export async function GET(req: NextRequest) {
       gi: giMeta.gi ?? readiness.gi,
       gi_resolution: {
         source: giMeta.source,
+        provenance: giMeta.gi_provenance,
+        verified: giMeta.verified,
+        degraded: giMeta.degraded,
+        age_seconds: giMeta.age_seconds,
         timestamp: giMeta.timestamp,
+        mic_readiness_snapshot_source: micSnapSource,
       },
     },
     {
@@ -85,8 +92,15 @@ export async function POST(req: NextRequest) {
     source: 'tokenomics-engine',
   };
 
-  await kvSet(KV_KEYS.MIC_READINESS_SNAPSHOT, JSON.stringify(snapshot), KV_TTL_SECONDS.MIC_READINESS_SNAPSHOT);
-  await kvLpushCapped(KV_KEYS.MIC_READINESS_FEED, JSON.stringify(snapshot), 100);
+  const snapStr = JSON.stringify(snapshot);
+  await kvSet(KV_KEYS.MIC_READINESS_SNAPSHOT, snapStr, KV_TTL_SECONDS.MIC_READINESS_SNAPSHOT);
+  scheduleKvBridgeDualWrite(
+    'MIC_READINESS_SNAPSHOT',
+    snapshot as unknown,
+    KV_TTL_SECONDS.MIC_READINESS_SNAPSHOT,
+    'mic-readiness-dual-write',
+  );
+  await kvLpushCapped(KV_KEYS.MIC_READINESS_FEED, snapStr, 100);
 
   return NextResponse.json({ ok: true, received_at: snapshot.received_at });
 }

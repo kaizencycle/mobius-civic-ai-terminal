@@ -1,16 +1,17 @@
 /**
- * C-286 — single GI resolution for MIC readiness, snapshot-lite, and ops surfaces.
+ * C-286 / C-287 — single GI resolution for MIC readiness, snapshot-lite, and ops surfaces.
  */
 
 import type { GIMode } from '@/lib/gi/mode';
-import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
-import { loadGIState, loadGIStateCarry, type GIState } from '@/lib/kv/store';
+import { resolveGiChain, type GISourceDisplay } from '@/lib/gi/resolveGiChain';
+import type { GIState } from '@/lib/kv/store';
 
 export type GiResolutionSource =
   | 'kv'
   | 'kv_carry_forward'
   | 'live_compute'
   | 'readiness_snapshot'
+  | 'oaa_verified'
   | 'null';
 
 export type ResolvedGi = {
@@ -20,109 +21,50 @@ export type ResolvedGi = {
   primary_driver: string | null;
   source: GiResolutionSource;
   timestamp: string | null;
+  /** C-287 operator-facing tier */
+  gi_provenance: GISourceDisplay;
+  verified: boolean;
+  degraded: boolean;
+  age_seconds: number | null;
   /** When `source === 'kv'`, the underlying row (for staleness / carry-forward flags). */
   kv?: GIState | null;
 };
 
-function modeFromGi(gi: number): GIMode {
-  if (gi >= 0.85) return 'green';
-  if (gi >= 0.7) return 'yellow';
-  return 'red';
-}
-
-function parseMicReadinessSnapshotGi(raw: unknown): number | null {
-  if (raw === null || raw === undefined) return null;
-  let o: Record<string, unknown>;
-  if (typeof raw === 'string') {
-    try {
-      o = JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
-  } else if (typeof raw === 'object') {
-    o = raw as Record<string, unknown>;
-  } else {
-    return null;
+function mapProvenanceToLegacy(p: GISourceDisplay): GiResolutionSource {
+  switch (p) {
+    case 'kv-live':
+      return 'kv';
+    case 'live-compute':
+      return 'live_compute';
+    case 'kv-carry':
+      return 'kv_carry_forward';
+    case 'oaa-verified':
+      return 'oaa_verified';
+    case 'readiness-fallback':
+      return 'readiness_snapshot';
+    default:
+      return 'null';
   }
-  const nested = o.snapshot && typeof o.snapshot === 'object' ? (o.snapshot as Record<string, unknown>) : o;
-  const g = nested.gi;
-  if (typeof g === 'number' && Number.isFinite(g)) return Math.max(0, Math.min(1, g));
-  return null;
 }
 
 /**
- * Resolve GI: prefer fresh-enough KV, else live `computeIntegrityPayload`, else MIC readiness snapshot body.
+ * Resolve GI via C-287 chain (KV → live → carry → OAA → readiness → unknown). No estimation.
  */
 export async function resolveGiForTerminal(opts?: {
   micReadinessSnapshotRaw?: string | null;
 }): Promise<ResolvedGi> {
-  const st = await loadGIState();
-  if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
-    const age = Date.now() - new Date(st.timestamp).getTime();
-    const maxAgeMs =
-      st.gi_write_source === 'micro_sweep' ? 2 * 60 * 1000 : 15 * 60 * 1000;
-    if (age < maxAgeMs) {
-      return {
-        gi: Math.max(0, Math.min(1, st.global_integrity)),
-        mode: st.mode ?? null,
-        terminal_status: st.terminal_status ?? null,
-        primary_driver: st.primary_driver ?? null,
-        source: 'kv',
-        timestamp: st.timestamp,
-        kv: st,
-      };
-    }
-  }
-
-  try {
-    const live = await computeIntegrityPayload();
-    return {
-      gi: live.global_integrity,
-      mode: live.mode,
-      terminal_status: live.terminal_status,
-      primary_driver: live.primary_driver,
-      source: 'live_compute',
-      timestamp: live.timestamp,
-      kv: st,
-    };
-  } catch {
-    // fall through
-  }
-
-  const carry = await loadGIStateCarry();
-  if (carry && typeof carry.global_integrity === 'number' && Number.isFinite(carry.global_integrity)) {
-    return {
-      gi: Math.max(0, Math.min(1, carry.global_integrity)),
-      mode: carry.mode ?? null,
-      terminal_status: carry.terminal_status ?? null,
-      primary_driver: `${carry.primary_driver ?? 'GI'} (carried forward; primary gi:latest missing or stale)`,
-      source: 'kv_carry_forward',
-      timestamp: carry.timestamp,
-      kv: st,
-    };
-  }
-
-  const snapGi =
-    opts?.micReadinessSnapshotRaw != null ? parseMicReadinessSnapshotGi(opts.micReadinessSnapshotRaw) : null;
-  if (snapGi !== null) {
-    return {
-      gi: snapGi,
-      mode: modeFromGi(snapGi),
-      terminal_status: null,
-      primary_driver: 'GI from MIC_READINESS_SNAPSHOT fallback (KV gi:latest missing/stale)',
-      source: 'readiness_snapshot',
-      timestamp: new Date().toISOString(),
-      kv: st,
-    };
-  }
-
+  const chain = await resolveGiChain({ micReadinessSnapshotRaw: opts?.micReadinessSnapshotRaw });
   return {
-    gi: null,
-    mode: null,
-    terminal_status: null,
-    primary_driver: null,
-    source: 'null',
-    timestamp: null,
-    kv: st,
+    gi: chain.gi,
+    mode: chain.mode,
+    terminal_status: chain.terminal_status,
+    primary_driver: chain.primary_driver,
+    source: mapProvenanceToLegacy(chain.source),
+    timestamp: chain.timestamp,
+    gi_provenance: chain.source,
+    verified: chain.verified,
+    degraded: chain.degraded,
+    age_seconds: chain.age_seconds,
+    kv: chain.kv,
   };
 }
