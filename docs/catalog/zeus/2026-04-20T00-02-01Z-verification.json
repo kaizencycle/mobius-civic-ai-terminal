@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-04-20T00:02:01.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-286",
+  "verification_status": "inconclusive",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {},
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat (latest *-atlas.json) vs live /api/integrity-status",
+      "result": "warn",
+      "detail": "Latest catalog heartbeat 2026-04-19T23-02-25Z-atlas.json: gi=0.67 mode=yellow source=live seed_result=200 OK; live integrity-status (C-286): global_integrity=0.74 mode=yellow source=live degraded=true. Same mode and live substrate; headline GI differs between heartbeat snapshot and current ribbon compute."
+    },
+    {
+      "check": "/api/signals/micro independent poll",
+      "result": "warn",
+      "detail": "KV-backed micro snapshot cached=true; multiple lanes unhealthy (ZEUS-µ3 fetch failed, HERMES-µ2 no signal, AUREA-µ2 data.gov HTTP 404, JADE-µ1/µ2 no signal). Watch-severity on ATLAS-µ1 WB GDP (stale 2024), HERMES-µ3 GDELT and HERMES-µ4 Reddit (httpOk false). ATLAS anomalies[] was empty—strain visible only in micro composite, not as named heartbeat anomalies."
+    },
+    {
+      "check": "integrity-status source mock flag (KV seed failure)",
+      "result": "pass",
+      "detail": "source=live (not mock); kv=true on sampled responses."
+    },
+    {
+      "check": "EPICON pending-verification candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped (count 0)."
+    },
+    {
+      "check": "GI vs signal composite cross-reference",
+      "result": "warn",
+      "detail": "integrity-status signals.quality=0.74 and signals.freshness=0.3 / information=0.3 align with yellow mode and GI≈0.74; heartbeat gi=0.67 is lower but still plausibly in-band for an earlier snapshot."
+    }
+  ],
+  "recommendation": "Treat headline GI as time-varying: reconcile ATLAS heartbeat writer with live integrity ribbon for C-286. Track recurring upstream micro fetch failures (CoinCap, data.gov catalog, JADE) and quiet-context feeds (GDELT, Reddit); no EPICON publish actions this run."
+}
