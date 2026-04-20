@@ -49,6 +49,7 @@ import {
   kvBridgeReadVaultComposite,
   kvBridgeWrite,
   kvBridgeWriteVaultSnapshot,
+  scheduleKvBridgeDualWrite,
   scheduleKvBridgeMirrorPrefixed,
   scheduleKvBridgeMirrorRaw,
 } from '@/lib/kv/kvBridgeClient';
@@ -416,6 +417,7 @@ export type SignalSnapshot = {
  */
 export async function saveSignalSnapshot(snapshot: SignalSnapshot): Promise<void> {
   await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, snapshot, KV_TTL_SECONDS.SIGNAL_SNAPSHOT);
+  scheduleKvBridgeDualWrite('SIGNAL_SNAPSHOT', snapshot, KV_TTL_SECONDS.SIGNAL_SNAPSHOT, 'c287-dual-write');
 }
 
 /**
@@ -450,6 +452,7 @@ export type GIState = {
 export async function saveGIState(state: GIState): Promise<void> {
   await kvSet(KV_KEYS.GI_STATE, state, KV_TTL_SECONDS.GI_STATE);
   await kvSet(KV_KEYS.GI_STATE_CARRY, state, 604800);
+  scheduleKvBridgeDualWrite('GI_STATE', state, KV_TTL_SECONDS.GI_STATE, 'c287-dual-write');
 }
 
 /**

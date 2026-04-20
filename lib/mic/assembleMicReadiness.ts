@@ -5,6 +5,7 @@ import { mergeMicReadinessFromUpstream } from '@/lib/mic/readinessMerge';
 import type { MicReadinessResponse } from '@/lib/mic/types';
 import { withHash } from '@/lib/mic/hash';
 import { kvGet, KV_KEYS } from '@/lib/kv/store';
+import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { loadSustainState } from '@/lib/mic/sustainTracker';
 import { resolveReplayPressureWithDecay } from '@/lib/mic/replayPressure';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
@@ -92,7 +93,7 @@ export async function resolveReadinessCycle(cycleParam?: string | null): Promise
 /** Local MIC_READINESS_V1 from Vault + deposits (no upstream merge). */
 export async function assembleLocalMicReadiness(cycleParam?: string | null): Promise<MicReadinessResponse> {
   const cycle = await resolveReadinessCycle(cycleParam);
-  const micSnapRaw = await kvGet<string>(KV_KEYS.MIC_READINESS_SNAPSHOT);
+  const { raw: micSnapRaw } = await loadMicReadinessSnapshotRaw();
   const resolvedGi = await resolveGiForTerminal({ micReadinessSnapshotRaw: micSnapRaw });
   const vaultStatus = await getVaultStatusShape(resolvedGi.gi);
   const deposits = await listVaultDeposits(120);
@@ -125,8 +126,9 @@ export async function assembleLocalMicReadiness(cycleParam?: string | null): Pro
 }
 
 async function loadUpstreamReadiness(): Promise<Partial<MicReadinessResponse> | null> {
-  const raw = await kvGet<string | UpstreamSnapshot | MicReadinessResponse>(KV_KEYS.MIC_READINESS_SNAPSHOT);
-  if (raw === null || raw === undefined) return null;
+  const { raw: rawStr } = await loadMicReadinessSnapshotRaw();
+  if (rawStr === null || rawStr === '') return null;
+  const raw = rawStr as string | UpstreamSnapshot | MicReadinessResponse;
   if (typeof raw === 'string') {
     try {
       const o = JSON.parse(raw) as UpstreamSnapshot & MicReadinessResponse;
@@ -152,7 +154,7 @@ export async function getMergedMicReadiness(cycleParam?: string | null): Promise
   const local = await assembleLocalMicReadiness(cycleParam);
   const upstream = await loadUpstreamReadiness();
   const mergedBase = mergeMicReadinessFromUpstream(local, upstream);
-  const micSnapRaw = await kvGet<string>(KV_KEYS.MIC_READINESS_SNAPSHOT);
+  const { raw: micSnapRaw } = await loadMicReadinessSnapshotRaw();
   const giResolved = await resolveGiForTerminal({ micReadinessSnapshotRaw: micSnapRaw });
   const merged: MicReadinessResponse = {
     ...mergedBase,

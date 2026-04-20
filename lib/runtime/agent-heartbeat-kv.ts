@@ -4,6 +4,7 @@
 
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import { isRedisAvailable, kvSet, KV_KEYS, KV_TTL_SECONDS } from '@/lib/kv/store';
+import { scheduleKvBridgeDualWrite } from '@/lib/kv/kvBridgeClient';
 
 /** Canonical Terminal fleet IDs (lowercase) — matches `app/api/agents/status/route.ts` roster order. */
 export const CANONICAL_AGENT_IDS = [
@@ -58,5 +59,9 @@ export async function writeFleetHeartbeatKV(source: AgentHeartbeatFleetPayload['
   const ok =
     (await kvSet(KV_KEYS.HEARTBEAT, JSON.stringify(payload), KV_TTL_SECONDS.HEARTBEAT)) &&
     (await kvSet(KV_KEYS.CURRENT_CYCLE, payload.cycle, KV_TTL_SECONDS.HEARTBEAT));
+  if (ok) {
+    scheduleKvBridgeDualWrite('HEARTBEAT', payload, KV_TTL_SECONDS.HEARTBEAT, 'heartbeat-dual-write');
+    scheduleKvBridgeDualWrite('CURRENT_CYCLE', payload.cycle, KV_TTL_SECONDS.HEARTBEAT, 'heartbeat-dual-write');
+  }
   return ok;
 }

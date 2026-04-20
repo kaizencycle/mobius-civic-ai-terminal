@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
 import { getEchoIntegrity } from '@/lib/echo/store';
+import { resolveGiChain } from '@/lib/gi/resolveGiChain';
+import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +47,24 @@ function buildAuthority(payload: Awaited<ReturnType<typeof computeIntegrityPaylo
 
 export async function GET() {
   const payload = await computeIntegrityPayload();
+  const micRaw = await loadMicReadinessSnapshotRaw();
+  const chain = await resolveGiChain({ micReadinessSnapshotRaw: micRaw.raw });
+  const mergedPayload = {
+    ...payload,
+    ...(chain.gi !== null
+      ? {
+          global_integrity: chain.gi,
+          mode: (chain.mode as typeof payload.mode) ?? payload.mode,
+          terminal_status: (chain.terminal_status as typeof payload.terminal_status) ?? payload.terminal_status,
+          timestamp: chain.timestamp ?? payload.timestamp,
+        }
+      : {}),
+    gi_provenance: chain.source,
+    gi_verified: chain.verified,
+    gi_degraded: chain.degraded,
+    gi_age_seconds: chain.age_seconds,
+    mic_readiness_snapshot_source: micRaw.source,
+  };
   const renderGicUrl = process.env.RENDER_GIC_URL;
 
   if (!renderGicUrl) {
@@ -52,7 +72,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true as const,
       degraded: true,
-      ...payload,
+      ...mergedPayload,
       ...mic,
       authority: buildAuthority(payload, false, false),
     });
@@ -66,8 +86,8 @@ export async function GET() {
         Accept: 'application/json',
       },
       body: JSON.stringify({
-        signals: payload.signals,
-        cycle: payload.cycle,
+        signals: mergedPayload.signals,
+        cycle: mergedPayload.cycle,
       }),
       signal: AbortSignal.timeout(5000),
       cache: 'no-store',
@@ -79,7 +99,7 @@ export async function GET() {
       return NextResponse.json({
         ok: true as const,
         degraded: true,
-        ...payload,
+        ...mergedPayload,
         ...mic,
         authority: buildAuthority(payload, true, false),
       });
@@ -97,16 +117,16 @@ export async function GET() {
         ? remote.global_integrity
         : typeof remote.gi === 'number'
           ? remote.gi
-          : payload.global_integrity;
+          : mergedPayload.global_integrity;
 
     const mic = echoMicProvisional();
     return NextResponse.json({
       ok: true as const,
-      ...payload,
+      ...mergedPayload,
       ...mic,
       global_integrity: computedGi,
-      mode: remote.mode ?? payload.mode,
-      summary: remote.summary ?? payload.summary,
+      mode: remote.mode ?? mergedPayload.mode,
+      summary: remote.summary ?? mergedPayload.summary,
       source: 'gic-indexer',
       degraded: false,
       authority: buildAuthority(payload, true, true),
@@ -117,7 +137,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true as const,
       degraded: true,
-      ...payload,
+      ...mergedPayload,
       ...mic,
       authority: buildAuthority(payload, true, false),
     });
