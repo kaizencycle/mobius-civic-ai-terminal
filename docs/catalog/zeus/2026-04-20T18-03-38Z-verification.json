@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-04-20T18:03:38.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-287",
+  "verification_status": "inconclusive",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "USGS M4.5+: 22 events, max M7.4": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat vs latest file (docs/catalog/heartbeats)",
+      "result": "pass",
+      "detail": "Latest heartbeat 2026-04-20T17-02-06Z-atlas.json (C-287); extracted gi=0.77, mode=yellow, source=cached, anomalies=[USGS M4.5+: 22 events, max M7.4], kv_keys per file, seed_result=200 OK."
+    },
+    {
+      "check": "/api/signals/micro — ATLAS-flagged anomaly",
+      "result": "warn",
+      "detail": "ECHO-µ2 degraded_instruments: USGS M4.5+: 21 events, max M7.4 (elevated). Same hazard class as heartbeat; count drift only (22→21)."
+    },
+    {
+      "check": "/api/integrity-status — source mock?",
+      "result": "pass",
+      "detail": "source=kv (not mock). degraded=true, global_integrity=0.676, mode=yellow, gi_provenance=kv-live."
+    },
+    {
+      "check": "GI coherence vs micro composite",
+      "result": "warn",
+      "detail": "Live GI 0.676 below cached heartbeat GI 0.77; signals freshness=0.3 and information=0.3 explain yellow. Numeric GI not identical to heartbeat — treat snapshot as stale vs KV recompute."
+    },
+    {
+      "check": "/api/epicon/candidates — pending-verification",
+      "result": "pass",
+      "detail": "count=0; no candidates, verification skipped (no zeus/verify or epicon/publish POSTs)."
+    },
+    {
+      "check": "Cron auth for journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal returned HTTP 200 (deduplicated token)."
+    }
+  ],
+  "recommendation": "No EPICON actions. Operator: track upstream fetch failures (ZEUS-µ3 CoinCap, AUREA-µ2 data.gov 404, JADE/DAEDALUS µ-series) and MIC readiness KV keys if mint policy requires them."
+}
