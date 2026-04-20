@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-04-20T00:02:20.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-286",
+  "gi": 0.74,
+  "mode": "yellow",
+  "source": "live",
+  "anomalies": [],
+  "kv_keys": {
+    "MIC_READINESS_SNAPSHOT": false,
+    "MIC_READINESS_FEED": false,
+    "SIGNAL_SNAPSHOT": false,
+    "GI_STATE": false,
+    "GI_STATE_CARRY": false,
+    "VAULT_GLOBAL_BALANCE": true,
+    "VAULT_GLOBAL_META": false,
+    "CURRENT_CYCLE": true,
+    "ECHO_STATE": false,
+    "ECHO_STATE_KV": false,
+    "TRIPWIRE_STATE": true,
+    "TRIPWIRE_STATE_KV": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": false,
+    "SYSTEM_PULSE": false,
+    "LEDGER_CIRCUIT_OPEN": true,
+    "TRIPWIRE_STATE_REDIS": false,
+    "VAULT_STATE": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK"
+}
