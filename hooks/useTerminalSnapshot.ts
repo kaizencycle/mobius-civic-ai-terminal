@@ -42,6 +42,7 @@ export type TerminalSnapshot = {
   promotion?: SnapshotLeaf;
   eve?: SnapshotLeaf;
   mii?: SnapshotLeaf;
+  tripwire?: SnapshotLeaf;
   lite?: boolean;
 };
 

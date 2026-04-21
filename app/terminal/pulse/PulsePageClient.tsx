@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
+import type { SnapshotLaneState } from '@/hooks/useTerminalSnapshot';
+import { provenanceDescription, provenanceShortLabel } from '@/lib/terminal/memoryMode';
 
 const AGENT_FILTERS = ['ALL', 'ATLAS', 'ZEUS', 'EVE', 'HERMES', 'AUREA', 'JADE', 'DAEDALUS', 'ECHO'] as const;
 
@@ -35,11 +37,7 @@ type JournalEntry = {
   cycle?: string;
 };
 
-type LaneState = {
-  key: string;
-  state: 'healthy' | 'degraded' | 'offline' | 'stale' | 'empty';
-  message?: string;
-};
+type LaneState = SnapshotLaneState;
 
 type IntegrityData = {
   global_integrity?: number;
@@ -184,11 +182,16 @@ function suggestedActions(state: ResolvedPulseState): string[] {
   return [...new Set(out)];
 }
 
-function resolvePosture(lanes: LaneState[], integrity: IntegrityData | null, latestSynthesis: JournalEntry | null): ResolvedPulseState['posture'] {
+function resolvePosture(
+  lanes: LaneState[],
+  integrity: IntegrityData | null,
+  latestSynthesis: JournalEntry | null,
+  tripwireElevated: boolean,
+): ResolvedPulseState['posture'] {
   const sevText = (latestSynthesis?.severity ?? '').toLowerCase();
   const synthTags = ((latestSynthesis as unknown as { tags?: string[] })?.tags ?? []).join(' ').toLowerCase();
 
-  if (sevText === 'critical' || synthTags.includes('tripwire')) return 'WATCH';
+  if (tripwireElevated || sevText === 'critical' || synthTags.includes('tripwire')) return 'WATCH';
   if (sevText === 'elevated' || synthTags.includes('civic-risk') || synthTags.includes('integrity-stress')) return 'WATCH';
   if (integrity?.degraded) return 'DEGRADED';
 
@@ -219,8 +222,14 @@ function sevStyle(sev: string) {
   return 'border-slate-700 text-slate-300';
 }
 
+function formatConfidence(conf: number | undefined): string | null {
+  if (conf === undefined || !Number.isFinite(conf)) return null;
+  const pct = conf > 0 && conf <= 1 ? conf * 100 : conf;
+  return `${Math.round(pct)}%`;
+}
+
 export default function PulsePageClient() {
-  const { snapshot, loading } = useTerminalSnapshot();
+  const { snapshot, loading, error } = useTerminalSnapshot();
   const [selected, setSelected] = useState<(typeof AGENT_FILTERS)[number]>('ALL');
 
   const items = useMemo(
@@ -231,10 +240,10 @@ export default function PulsePageClient() {
     () => (selected === 'ALL' ? items : items.filter((item) => (item.agent ?? '').toUpperCase() === selected)),
     [items, selected],
   );
-  const journalEntries = useMemo(
-    () => ((snapshot?.journal?.data ?? {}) as { entries?: JournalEntry[] }).entries ?? [],
-    [snapshot],
-  );
+  const journalEntries = useMemo(() => {
+    const raw = ((snapshot?.journal?.data ?? {}) as { entries?: JournalEntry[] }).entries ?? [];
+    return [...raw].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [snapshot]);
   const latestSynthesis = journalEntries[0] ?? null;
   const eveCycle = useMemo(() => {
     const eve = (snapshot?.eve?.data ?? {}) as { currentCycle?: string; cycleId?: string };
@@ -254,19 +263,32 @@ export default function PulsePageClient() {
     [items, prevCycle],
   );
   const giDelta = currentGi != null && prevGi != null ? currentGi - prevGi : null;
-  const lanes = useMemo(() => ((snapshot as { lanes?: LaneState[] } | null)?.lanes ?? []) as LaneState[], [snapshot]);
+  const lanes = useMemo(() => (snapshot?.lanes ?? []) as LaneState[], [snapshot]);
+  const journalLane = useMemo(() => lanes.find((l) => l.key === 'journal'), [lanes]);
+  const tripwireLane = useMemo(() => lanes.find((l) => l.key === 'tripwire'), [lanes]);
   const vaultData = useMemo(() => {
     const raw = ((snapshot as Record<string, unknown> | null)?.vault as { data?: VaultData } | undefined)?.data;
     return raw ?? null;
   }, [snapshot]);
 
+  const memoryMode = snapshot?.memory_mode;
+
   const resolvedState = useMemo((): ResolvedPulseState => {
-    const posture = resolvePosture(lanes, integrity, latestSynthesis);
-    const synthSev = latestSynthesis?.severity ?? 'nominal';
     const synthTags = ((latestSynthesis as unknown as { tags?: string[] })?.tags ?? []).join(' ').toLowerCase();
-    const tripwireActive = synthTags.includes('tripwire') || synthTags.includes('active-tripwire');
+    const tripwireElevated =
+      tripwireLane?.state === 'degraded' ||
+      synthTags.includes('tripwire') ||
+      synthTags.includes('active-tripwire');
+    const posture = resolvePosture(lanes, integrity, latestSynthesis, tripwireElevated);
+    const synthSev = latestSynthesis?.severity ?? 'nominal';
+    const tripwireActive = tripwireElevated;
     const treasuryLane = lanes.find((l) => l.key === 'vault' || l.key === 'treasury');
     const treasuryAvailable = !treasuryLane || treasuryLane.state === 'healthy';
+
+    const giSourceLabel =
+      typeof memoryMode?.gi_provenance === 'string'
+        ? `${provenanceShortLabel(memoryMode.gi_provenance)} (${memoryMode.gi_provenance})`
+        : integrity?.source ?? 'unknown';
 
     return {
       gi: currentGi,
@@ -278,14 +300,14 @@ export default function PulsePageClient() {
       treasuryAvailable,
       treasuryStatus: treasuryAvailable ? 'operational' : (treasuryLane?.message ?? 'unavailable'),
       vaultBalance: vaultData?.balance_reserve ?? null,
-      source: integrity?.source ?? 'unknown',
+      source: giSourceLabel,
     };
-  }, [currentGi, eveCycle, integrity, lanes, latestSynthesis, vaultData]);
+  }, [currentGi, eveCycle, integrity, lanes, latestSynthesis, memoryMode?.gi_provenance, tripwireLane?.state, vaultData]);
 
-  const newEpiconCount = useMemo(
-    () => (prevCycle ? items.filter((item) => item.cycle === eveCycle).length : items.length),
-    [items, eveCycle, prevCycle],
-  );
+  const newEpiconCount = useMemo(() => {
+    if (!eveCycle) return items.length;
+    return items.filter((item) => item.cycle === eveCycle).length;
+  }, [items, eveCycle]);
   const newJournalCount = useMemo(
     () => (prevCycle ? journalEntries.filter((entry) => entry.cycle === eveCycle).length : journalEntries.length),
     [journalEntries, eveCycle, prevCycle],
@@ -293,10 +315,10 @@ export default function PulsePageClient() {
   const degradedLaneCount = useMemo(() => {
     return lanes.filter((lane) => lane.state === 'degraded' || lane.state === 'offline').length;
   }, [lanes]);
-  const synthesisFresh = useMemo(
-    () => synthesisFreshness(latestSynthesis?.timestamp),
-    [latestSynthesis?.timestamp],
-  );
+  const synthesisFresh = useMemo(() => {
+    const asOf = journalLane?.lastUpdated ?? latestSynthesis?.timestamp;
+    return synthesisFreshness(asOf ?? undefined);
+  }, [journalLane?.lastUpdated, latestSynthesis?.timestamp]);
   const whyMatters = useMemo(
     () => whyThisMatters(resolvedState, degradedLaneCount),
     [resolvedState, degradedLaneCount],
@@ -332,8 +354,19 @@ export default function PulsePageClient() {
 
   if (loading && !snapshot) return <ChamberSkeleton blocks={8} />;
 
+  const giProvenanceTitle =
+    typeof memoryMode?.gi_provenance === 'string' ? provenanceDescription(memoryMode.gi_provenance) : undefined;
+
   return (
     <div className="h-full overflow-y-auto p-4">
+      {error && snapshot ? (
+        <div
+          className="mb-3 rounded border border-amber-600/50 bg-amber-950/30 px-3 py-2 text-[11px] text-amber-100/95"
+          role="status"
+        >
+          Snapshot refresh failed (showing last good bundle): {error}
+        </div>
+      ) : null}
       {/* Canonical header — single resolved state */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -362,6 +395,11 @@ export default function PulsePageClient() {
           )}
           <span className="text-slate-500">{resolvedState.cycle}</span>
           <span className="text-slate-400">{filtered.length} entries</span>
+          {snapshot?.timestamp ? (
+            <span className="text-slate-600" title="Terminal snapshot bundle time">
+              bundle {relTime(snapshot.timestamp)}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -452,18 +490,29 @@ export default function PulsePageClient() {
               <span className={`rounded border px-1.5 py-0.5 ${sevStyle(latestSynthesis.severity ?? 'nominal')}`}>
                 sev {latestSynthesis.severity ?? 'nominal'}
               </span>
-              {typeof latestSynthesis.confidence === 'number' && (
+              {formatConfidence(latestSynthesis.confidence) ? (
                 <span className="rounded border border-slate-700 px-1.5 py-0.5 text-slate-300">
-                  conf {(latestSynthesis.confidence * 100).toFixed(0)}%
+                  conf {formatConfidence(latestSynthesis.confidence)}
                 </span>
-              )}
+              ) : null}
               {resolvedState.gi != null ? (
-                <span className="rounded border border-slate-700 px-1.5 py-0.5 font-mono text-slate-300">
+                <span
+                  className="rounded border border-slate-700 px-1.5 py-0.5 font-mono text-slate-300"
+                  title={giProvenanceTitle}
+                >
                   GI {resolvedState.gi.toFixed(2)} · {resolvedState.source}
                 </span>
               ) : null}
             </div>
-            <p className="mb-1.5 text-[10px] text-slate-500">{synthesisFresh.line}</p>
+            <p className="mb-1.5 text-[10px] text-slate-500">
+              {synthesisFresh.line}
+              {journalLane?.lastUpdated ? (
+                <span className="block text-slate-600">
+                  Journal lane as-of: {relTime(journalLane.lastUpdated)}
+                  {journalLane.message ? ` · ${journalLane.message}` : ''}
+                </span>
+              ) : null}
+            </p>
             <div className="space-y-1.5 text-[11px] leading-snug">
               <p className="text-slate-200">
                 <span className="mr-1 rounded border border-slate-600 bg-slate-900/80 px-1 py-0.5 text-[9px] font-mono text-slate-400" title="From agent journal — not ledger-attested fact">
@@ -477,21 +526,22 @@ export default function PulsePageClient() {
                 </span>
                 {latestSynthesis.inference}
               </p>
-              {latestSynthesis.recommendation !== latestSynthesis.inference ? (
+              {latestSynthesis.recommendation.trim().length > 0 &&
+              latestSynthesis.recommendation.trim() !== latestSynthesis.inference.trim() ? (
                 <p className="text-slate-200">
                   <span className="mr-1 rounded border border-emerald-700/50 bg-emerald-950/30 px-1 py-0.5 text-[9px] font-mono text-emerald-300/90" title="Suggested operator response — not automatic execution">
                     RECOMMENDED
                   </span>
                   {latestSynthesis.recommendation}
                 </p>
-              ) : (
-                <p className="text-slate-300">
-                  <span className="mr-1 rounded border border-emerald-700/50 bg-emerald-950/30 px-1 py-0.5 text-[9px] font-mono text-emerald-300/90" title="Suggested operator response — not automatic execution">
+              ) : latestSynthesis.recommendation.trim().length === 0 ? (
+                <p className="text-slate-400">
+                  <span className="mr-1 rounded border border-slate-700 px-1 py-0.5 text-[9px] font-mono text-slate-500" title="No separate recommendation field on this entry">
                     RECOMMENDED
                   </span>
-                  Verify current posture against live signal surface; defer promotion until next synthesis confirms stability.
+                  (none — inference only for this synthesis row)
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
         ) : (
