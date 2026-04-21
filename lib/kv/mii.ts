@@ -56,6 +56,17 @@ function isMiiEntry(value: unknown): value is MiiEntry {
  * - Sets mii:{AGENT}:{CYCLE} to the entry (latest score for that agent/cycle pair)
  * - LPUSHes to mii:feed and LTRIMs to FEED_MAX
  */
+const MII_DELTA_SKIP = 0.01;
+
+/** Skip MII rows when score barely moved vs last known per agent (echo ingest batch path). */
+export function filterMiiEntriesNeedingWrite(entries: MiiEntry[], lastMiiByAgent: Record<string, number>): MiiEntry[] {
+  return entries.filter((e) => {
+    const prev = lastMiiByAgent[e.agent];
+    if (prev === undefined || !Number.isFinite(prev)) return true;
+    return Math.abs(e.mii - prev) >= MII_DELTA_SKIP;
+  });
+}
+
 export async function writeMiiState(entry: MiiEntry): Promise<void> {
   const redis = getMiiRedisClient();
   if (!redis) return;
@@ -64,6 +75,19 @@ export async function writeMiiState(entry: MiiEntry): Promise<void> {
   const packed = JSON.stringify(entry);
 
   try {
+    const prevRaw = await redis.get<string>(key);
+    if (prevRaw) {
+      try {
+        const prev = JSON.parse(prevRaw) as { mii?: number };
+        if (typeof prev.mii === 'number' && Number.isFinite(prev.mii)) {
+          if (Math.abs(prev.mii - entry.mii) < MII_DELTA_SKIP) {
+            return;
+          }
+        }
+      } catch {
+        /* fall through to write */
+      }
+    }
     await redis.set(key, packed);
     await redis.lpush(FEED_KEY, packed);
     await redis.ltrim(FEED_KEY, 0, FEED_MAX - 1);

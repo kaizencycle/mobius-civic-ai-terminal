@@ -18,8 +18,8 @@
  *
  * Optional secondary Redis (TCP `redis://` or `rediss://`):
  *   REDIS_URL — classic Redis URL; health-checked via `/api/kv/health` as `backup_redis`
- *   MOBIUS_KV_BACKUP_MIRROR — mirror successful `kvSet` / `kvSetRawKey` / vault raw writes (when `REDIS_URL` set,
- *     defaults to enabled unless explicitly `false`)
+ *   MOBIUS_KV_BACKUP_MIRROR — mirror continuity-critical keys only (see `lib/kv/backupMirrorPolicy.ts`) when `REDIS_URL` set
+ *     (defaults to enabled unless explicitly `false`)
  *   MOBIUS_KV_READ_FALLBACK — read from backup when primary GET misses or errors (defaults on when `REDIS_URL` set)
  *
  *   OAA KV bridge (C-286) — warm tier on Render when Upstash hits monthly limits:
@@ -451,7 +451,13 @@ export type GIState = {
  */
 export async function saveGIState(state: GIState): Promise<void> {
   await kvSet(KV_KEYS.GI_STATE, state, KV_TTL_SECONDS.GI_STATE);
-  await kvSet(KV_KEYS.GI_STATE_CARRY, state, 604800);
+  // Carry-forward row: long TTL DR path — hourly cadence by default to cut KV writes (override with MOBIUS_KV_GI_CARRY_ALWAYS=true).
+  const alwaysCarry = process.env.MOBIUS_KV_GI_CARRY_ALWAYS?.trim().toLowerCase() === 'true';
+  const fiveMinSlot = Math.floor(Date.now() / 300_000);
+  const hourlyCarryTick = fiveMinSlot % 12 === 0;
+  if (alwaysCarry || hourlyCarryTick) {
+    await kvSet(KV_KEYS.GI_STATE_CARRY, state, 604800);
+  }
   scheduleKvBridgeDualWrite('GI_STATE', state, KV_TTL_SECONDS.GI_STATE, 'c287-dual-write');
 }
 
@@ -541,7 +547,19 @@ export type TripwireKVState = {
 /**
  * Save tripwire state. TTL: 30 minutes.
  */
+let _lastTripwireSemanticJson: string | null = null;
+
 export async function saveTripwireState(state: TripwireKVState): Promise<void> {
+  // Dedupe on semantic fields only — callers often pass a fresh `timestamp` per poll.
+  const semantic = JSON.stringify({
+    cycleId: state.cycleId,
+    tripwireCount: state.tripwireCount,
+    elevated: state.elevated,
+  });
+  if (_lastTripwireSemanticJson === semantic) {
+    return;
+  }
+  _lastTripwireSemanticJson = semantic;
   await kvSet(KV_KEYS.TRIPWIRE_STATE, state, KV_TTL_SECONDS.TRIPWIRE_STATE);
 }
 

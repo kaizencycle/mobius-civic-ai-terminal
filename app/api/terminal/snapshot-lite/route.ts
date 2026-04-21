@@ -1,21 +1,17 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { handbookCorsHeaders } from '@/lib/http/handbook-cors';
-import {
-  isRedisAvailable,
-  kvGet,
-  kvHealth,
-  KV_KEYS,
-  loadSignalSnapshot,
-  loadEchoState,
-  loadTripwireState,
-} from '@/lib/kv/store';
+import { isRedisAvailable } from '@/lib/kv/store';
+import { loadSnapshotLiteKvBundle } from '@/lib/kv/snapshotLiteKvBundle';
+import { cachedByKey } from '@/lib/kv/snapshotLiteCache';
+import { kvBridgeConfigured, kvBridgeRead } from '@/lib/kv/kvBridgeClient';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getHeartbeat, getJournalHeartbeat } from '@/lib/runtime/heartbeat';
 import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
-import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 
 export const dynamic = 'force-dynamic';
+
+const SNAPSHOT_LITE_CACHE_KEY = 'terminal:snapshot-lite:v1';
 
 export async function OPTIONS(req: NextRequest) {
   const cors = handbookCorsHeaders(req.headers.get('origin'));
@@ -48,20 +44,46 @@ function freshness(sec: number | null): 'fresh' | 'nominal' | 'stale' | 'degrade
   return 'degraded';
 }
 
+async function resolveMicRawWithBridge(micFromMget: string | null): Promise<{ raw: string | null; source: 'kv' | 'oaa' | 'none' }> {
+  if (micFromMget !== null && micFromMget.trim() !== '') {
+    return { raw: micFromMget, source: 'kv' };
+  }
+  if (!kvBridgeConfigured()) {
+    return { raw: null, source: 'none' };
+  }
+  const row = await kvBridgeRead('MIC_READINESS_SNAPSHOT');
+  if (!row?.ok || row.value == null) {
+    return { raw: null, source: 'none' };
+  }
+  if (typeof row.value === 'string') {
+    return { raw: row.value, source: 'oaa' };
+  }
+  try {
+    return { raw: JSON.stringify(row.value), source: 'oaa' };
+  } catch {
+    return { raw: null, source: 'none' };
+  }
+}
+
 export async function GET(req: NextRequest) {
   const start = Date.now();
   const cors = handbookCorsHeaders(req.headers.get('origin'));
 
-  const [kv, micSnap, signals, echo, tripwire, pulse] = await Promise.all([
-    kvHealth(),
-    loadMicReadinessSnapshotRaw(),
-    loadSignalSnapshot(),
-    loadEchoState(),
-    loadTripwireState(),
-    kvGet<SystemPulse>(KV_KEYS.SYSTEM_PULSE),
-  ]);
-  const micSnapRaw = micSnap.raw;
-  const giResolved = await resolveGiForTerminal({ micReadinessSnapshotRaw: micSnapRaw });
+  const { value: cached, fresh: cacheFresh } = await cachedByKey(SNAPSHOT_LITE_CACHE_KEY, async () => {
+    const bundle = await loadSnapshotLiteKvBundle();
+    const mic = await resolveMicRawWithBridge(bundle.micReadinessRaw);
+    return { bundle, mic };
+  });
+
+  const { bundle, mic } = cached;
+  const micSnapRaw = mic.raw;
+  const micSnapSource = mic.source;
+
+  const giResolved = await resolveGiForTerminal({
+    micReadinessSnapshotRaw: micSnapRaw,
+    preloadedGi: { primary: bundle.giState, carry: bundle.giCarry },
+  });
+
   const gi =
     giResolved.source === 'kv'
       ? giResolved.kv
@@ -81,6 +103,12 @@ export async function GET(req: NextRequest) {
             timestamp: giResolved.timestamp ?? new Date().toISOString(),
           }
         : null;
+
+  const pulse = bundle.pulse as SystemPulse | null;
+  const signals = bundle.signals;
+  const echo = bundle.echo;
+  const tripwire = bundle.tripwire;
+  const kv = bundle.kvHealth;
 
   const cycle =
     (typeof pulse?.cycle === 'string' && pulse.cycle.trim().length > 0 ? pulse.cycle.trim() : null) ??
@@ -117,7 +145,7 @@ export async function GET(req: NextRequest) {
               : 'null',
       provenance: giResolved.gi_provenance,
       verified: giResolved.verified,
-      mic_readiness_snapshot_source: micSnap.source,
+      mic_readiness_snapshot_source: micSnapSource,
       freshness: freshness(giAge),
       age_seconds: giAge,
     },
@@ -160,52 +188,57 @@ export async function GET(req: NextRequest) {
     modeStr === 'red' ||
     lanes.tripwire.elevated;
 
-  return NextResponse.json({
-    ok: true,
-    lite: true,
-    cycle,
-    timestamp: new Date().toISOString(),
-    deployment: {
-      commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
-      environment: process.env.VERCEL_ENV ?? null,
+  return NextResponse.json(
+    {
+      ok: true,
+      lite: true,
+      cycle,
+      timestamp: new Date().toISOString(),
+      deployment: {
+        commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+        environment: process.env.VERCEL_ENV ?? null,
+      },
+      gi: giResolved.gi ?? gi?.global_integrity ?? null,
+      mode: modeStr,
+      gi_source:
+        giResolved.source === 'kv' ||
+        giResolved.source === 'kv_carry_forward' ||
+        giResolved.source === 'oaa_verified'
+          ? 'kv'
+          : giResolved.source === 'live_compute'
+            ? 'live'
+            : giResolved.source === 'readiness_snapshot'
+              ? 'readiness_fallback'
+              : 'null',
+      gi_provenance: giResolved.gi_provenance,
+      gi_verified: giResolved.verified,
+      degraded,
+      lanes,
+      heartbeat: {
+        runtime: getHeartbeat(),
+        journal: getJournalHeartbeat(),
+      },
+      meta: {
+        total_ms: Date.now() - start,
+        kv_available: isRedisAvailable(),
+        kv_bundle_mget: true,
+        kv_cache_fresh: cacheFresh,
+        cycle_source:
+          typeof pulse?.cycle === 'string' && pulse.cycle.trim().length > 0
+            ? 'pulse'
+            : echo?.cycleId?.trim()
+              ? 'echo'
+              : tripwire?.cycleId?.trim()
+                ? 'tripwire'
+                : 'calendar',
+      },
     },
-    gi: giResolved.gi ?? gi?.global_integrity ?? null,
-    mode: modeStr,
-    gi_source:
-      giResolved.source === 'kv' ||
-      giResolved.source === 'kv_carry_forward' ||
-      giResolved.source === 'oaa_verified'
-        ? 'kv'
-        : giResolved.source === 'live_compute'
-          ? 'live'
-          : giResolved.source === 'readiness_snapshot'
-            ? 'readiness_fallback'
-            : 'null',
-    gi_provenance: giResolved.gi_provenance,
-    gi_verified: giResolved.verified,
-    degraded,
-    lanes,
-    heartbeat: {
-      runtime: getHeartbeat(),
-      journal: getJournalHeartbeat(),
+    {
+      headers: {
+        ...(cors ?? {}),
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        'X-Mobius-Source': 'terminal-snapshot-lite',
+      },
     },
-    meta: {
-      total_ms: Date.now() - start,
-      kv_available: isRedisAvailable(),
-      cycle_source:
-        typeof pulse?.cycle === 'string' && pulse.cycle.trim().length > 0
-          ? 'pulse'
-          : echo?.cycleId?.trim()
-            ? 'echo'
-            : tripwire?.cycleId?.trim()
-              ? 'tripwire'
-              : 'calendar',
-    },
-  }, {
-    headers: {
-      ...(cors ?? {}),
-      'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
-      'X-Mobius-Source': 'terminal-snapshot-lite',
-    },
-  });
+  );
 }
