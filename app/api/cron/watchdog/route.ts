@@ -80,28 +80,38 @@ async function runHandler<T extends (request: NextRequest) => Promise<NextRespon
   handler: T,
   request: NextRequest,
   timeoutMs = 15_000,
+  retries = 1,
 ): Promise<WatchdogActionResult> {
-  try {
-    const response = await Promise.race<NextResponse>([
-      handler(request),
-      new Promise<NextResponse>((_, reject) =>
-        setTimeout(() => reject(new Error('handler_timeout')), timeoutMs),
-      ),
-    ]);
-    let body: unknown = null;
+  const once = async (): Promise<WatchdogActionResult> => {
     try {
-      body = await response.json();
-    } catch {
-      body = null;
+      const response = await Promise.race<NextResponse>([
+        handler(request),
+        new Promise<NextResponse>((_, reject) =>
+          setTimeout(() => reject(new Error('handler_timeout')), timeoutMs),
+        ),
+      ]);
+      let body: unknown = null;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+      return { ok: response.ok, status: response.status, body };
+    } catch (error) {
+      return {
+        ok: false,
+        status: 500,
+        body: { error: error instanceof Error ? error.message : 'Unknown handler error' },
+      };
     }
-    return { ok: response.ok, status: response.status, body };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 500,
-      body: { error: error instanceof Error ? error.message : 'Unknown handler error' },
-    };
+  };
+
+  let r = await once();
+  if (!r.ok && retries > 0) {
+    await new Promise((res) => setTimeout(res, 1000));
+    r = await once();
   }
+  return r;
 }
 
 // Some handlers declare `GET()` with no parameters (kv/health, integrity-status,
@@ -110,28 +120,38 @@ async function runHandler<T extends (request: NextRequest) => Promise<NextRespon
 async function runParameterlessHandler(
   handler: () => Promise<NextResponse>,
   timeoutMs = 15_000,
+  retries = 1,
 ): Promise<WatchdogActionResult> {
-  try {
-    const response = await Promise.race<NextResponse>([
-      handler(),
-      new Promise<NextResponse>((_, reject) =>
-        setTimeout(() => reject(new Error('handler_timeout')), timeoutMs),
-      ),
-    ]);
-    let body: unknown = null;
+  const once = async (): Promise<WatchdogActionResult> => {
     try {
-      body = await response.json();
-    } catch {
-      body = null;
+      const response = await Promise.race<NextResponse>([
+        handler(),
+        new Promise<NextResponse>((_, reject) =>
+          setTimeout(() => reject(new Error('handler_timeout')), timeoutMs),
+        ),
+      ]);
+      let body: unknown = null;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+      return { ok: response.ok, status: response.status, body };
+    } catch (error) {
+      return {
+        ok: false,
+        status: 500,
+        body: { error: error instanceof Error ? error.message : 'Unknown handler error' },
+      };
     }
-    return { ok: response.ok, status: response.status, body };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 500,
-      body: { error: error instanceof Error ? error.message : 'Unknown handler error' },
-    };
+  };
+
+  let r = await once();
+  if (!r.ok && retries > 0) {
+    await new Promise((res) => setTimeout(res, 1000));
+    r = await once();
   }
+  return r;
 }
 
 export async function GET(request: NextRequest) {

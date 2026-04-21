@@ -12,6 +12,33 @@ import { shouldMirrorPrefixedFullKey, shouldMirrorRawKey } from '@/lib/kv/backup
 
 let _backup: Redis | null | undefined;
 
+/** C-287 O10 — skip mirror writes when backup is cold/unhealthy (cached 60s). */
+let _backupPingHealthy = true;
+let _backupPingAt = 0;
+const BACKUP_HEALTH_CACHE_MS = 60_000;
+
+async function backupRedisHealthyCached(): Promise<boolean> {
+  const now = Date.now();
+  if (now - _backupPingAt < BACKUP_HEALTH_CACHE_MS) {
+    return _backupPingHealthy;
+  }
+  const client = getBackupClient();
+  if (!client) {
+    _backupPingHealthy = false;
+    _backupPingAt = now;
+    return false;
+  }
+  try {
+    await ensureConnected(client);
+    const pong = await client.ping();
+    _backupPingHealthy = pong === 'PONG';
+  } catch {
+    _backupPingHealthy = false;
+  }
+  _backupPingAt = now;
+  return _backupPingHealthy;
+}
+
 export function backupMirrorEnabled(): boolean {
   if (!process.env.REDIS_URL?.trim()) return false;
   const v = process.env.MOBIUS_KV_BACKUP_MIRROR?.trim().toLowerCase();
@@ -192,12 +219,16 @@ function scheduleMirror(
   if (!backupMirrorEnabled()) return;
 
   void (async () => {
+    const healthy = await backupRedisHealthyCached();
+    if (!healthy) return;
     const client = getBackupClient();
     if (!client) return;
     try {
       await ensureConnected(client);
       await fn(client);
     } catch (err) {
+      _backupPingHealthy = false;
+      _backupPingAt = Date.now();
       console.warn(
         `[mobius-kv:backup] mirror ${label} failed:`,
         err instanceof Error ? err.message : err,

@@ -64,16 +64,33 @@ function toFeedTimestamp(rawTimestamp: string): string {
   return ts.toISOString();
 }
 
+const EPICON_SEEN_KEY = 'epicon:seen';
+const EPICON_SEEN_TTL_SEC = 86_400;
+
 export async function flushEpiconFeedToKv(entries: KvEpiconEntry[]): Promise<void> {
   const redis = getRedisClient();
   if (!redis || entries.length === 0) return;
   try {
-    const payload = entries.map((entry) => JSON.stringify(entry));
-    const pipe = redis.pipeline();
-    pipe.lpush('epicon:feed', ...payload);
-    pipe.ltrim('epicon:feed', 0, 99);
-    await pipe.exec();
-    // epicon:feed LPUSH count: entries.length
+    const check = redis.pipeline();
+    for (const e of entries) {
+      check.sismember(EPICON_SEEN_KEY, e.id);
+    }
+    const memberResults = await check.exec();
+    const flags = Array.isArray(memberResults) ? memberResults.map((r) => r === 1) : entries.map(() => false);
+    const novel = entries.filter((_, i) => !flags[i]);
+    if (novel.length === 0) return;
+
+    const payload = novel.map((entry) => JSON.stringify(entry));
+    const write = redis.pipeline();
+    for (const p of payload) {
+      write.lpush('epicon:feed', p);
+    }
+    write.ltrim('epicon:feed', 0, 99);
+    for (const id of novel.map((e) => e.id)) {
+      write.sadd(EPICON_SEEN_KEY, id);
+    }
+    write.expire(EPICON_SEEN_KEY, EPICON_SEEN_TTL_SEC);
+    await write.exec();
   } catch (error) {
     console.error('[echo] epicon feed flush failed:', error);
   }
@@ -110,7 +127,7 @@ async function writeMiiFeedBatch(entries: MiiEntry[]): Promise<void> {
       pipe.set(`mii:${entry.agent.toUpperCase()}:${entry.cycle}`, JSON.stringify(entry));
     }
     pipe.lpush('mii:feed', ...packed);
-    pipe.ltrim('mii:feed', 0, 499);
+    pipe.ltrim('mii:feed', 0, 99);
     await pipe.exec();
   } catch (error) {
     console.error('[echo] mii batch write failed:', error);
