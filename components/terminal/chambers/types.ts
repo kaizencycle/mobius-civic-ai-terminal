@@ -1,6 +1,7 @@
 import type { MicroAgentSweepResult } from '@/lib/agents/micro';
 import type { EpiconItem } from '@/lib/terminal/types';
 import type { SentimentDomainKey } from '@/lib/terminal/globePins';
+import type { GlobeDashboardBundle } from '@/components/terminal/chambers/globeDashboardExtras';
 
 export type MicroSweepResponse = MicroAgentSweepResult & { ok?: boolean };
 
@@ -20,4 +21,6 @@ export type GlobeChamberProps = {
   clockLabel: string;
   giScore: number;
   miiScore: number | null;
+  /** Extra snapshot lanes for Globe chapter dashboards (same fetch as globe). */
+  globeDashboard?: GlobeDashboardBundle | null;
 };
