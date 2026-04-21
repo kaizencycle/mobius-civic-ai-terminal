@@ -236,7 +236,8 @@ export async function GET(req: NextRequest) {
     {
       headers: {
         ...(cors ?? {}),
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+        'X-Cache-Strategy': 'edge-15s',
         'X-Mobius-Source': 'terminal-snapshot-lite',
       },
     },

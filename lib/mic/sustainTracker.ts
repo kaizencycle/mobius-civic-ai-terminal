@@ -17,6 +17,8 @@ export interface MicSustainStateV1 {
   lastCheckedCycle: string;
   status: MicSustainStatus;
   updatedAt: string;
+  /** Set when row was created by O7 seed path */
+  seededAt?: string;
 }
 
 function defaultState(cycle: string): MicSustainStateV1 {
@@ -41,6 +43,16 @@ function deriveStatus(consecutive: number): MicSustainStatus {
  * Advance sustain counter once per operator cycle when GI is known.
  * Idempotent: same `currentCycle` returns stored state without double-counting.
  */
+/** O7 — ensure KV key exists so Fountain sustain gate can advance (idempotent). */
+export async function seedSustainStateIfMissing(cycle?: string): Promise<void> {
+  const c = (cycle ?? currentCycleId()).trim();
+  if (!c) return;
+  const existing = await kvGet<MicSustainStateV1>(KV_KEYS.MIC_SUSTAIN_STATE);
+  if (existing) return;
+  const seeded = { ...defaultState(c), seededAt: new Date().toISOString() };
+  await kvSet(KV_KEYS.MIC_SUSTAIN_STATE, seeded, KV_TTL_SECONDS.MIC_SUSTAIN_STATE);
+}
+
 export async function updateSustainTrackingFromGi(
   currentGi: number | null,
   currentCycle?: string,
@@ -53,6 +65,7 @@ export async function updateSustainTrackingFromGi(
   }
 
   const gi = Math.max(0, Math.min(1, currentGi));
+  await seedSustainStateIfMissing(cycle);
   const prev = (await kvGet<MicSustainStateV1>(KV_KEYS.MIC_SUSTAIN_STATE)) ?? defaultState(cycle);
 
   if (prev.lastCheckedCycle === cycle) {

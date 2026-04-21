@@ -25,7 +25,8 @@ export type MiiEntry = {
 };
 
 const FEED_KEY = 'mii:feed';
-const FEED_MAX = 500;
+/** C-287 O9 — cap feed list size (matches echo batch trim). */
+const FEED_MAX = 100;
 
 function getMiiRedisClient(): Redis | null {
   const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
@@ -88,9 +89,10 @@ export async function writeMiiState(entry: MiiEntry): Promise<void> {
         /* fall through to write */
       }
     }
-    await redis.set(key, packed);
+    const sevenDaysSec = 86400 * 7;
+    await redis.set(key, packed, { ex: sevenDaysSec });
     await redis.lpush(FEED_KEY, packed);
-    await redis.ltrim(FEED_KEY, 0, FEED_MAX - 1);
+    await redis.ltrim(FEED_KEY, 0, 99);
   } catch (error) {
     console.error('[mii] write failed:', error instanceof Error ? error.message : error);
   }

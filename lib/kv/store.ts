@@ -408,6 +408,11 @@ export type SignalSnapshot = {
   }>;
   timestamp: string;
   healthy: boolean;
+  /** C-287 — stable hash of instrument values for dedupe writes */
+  signal_hash?: string;
+  /** When true, composite/instruments unchanged vs prior hash; `checkedAt` may be newer than `timestamp` */
+  unchanged?: boolean;
+  checkedAt?: string;
 };
 
 /**
@@ -415,9 +420,43 @@ export type SignalSnapshot = {
  * TTL: 2 hours — survives between visitor-triggered sweeps during low traffic.
  * Freshness is tracked via the embedded timestamp, not TTL expiry.
  */
+function hashSignalValues(snapshot: SignalSnapshot): string {
+  const stable = (snapshot.allSignals ?? [])
+    .map((s) => `${s.agentName}:${Number(s.value).toFixed(3)}`)
+    .sort()
+    .join('|');
+  let h = 0;
+  for (let i = 0; i < stable.length; i += 1) {
+    h = (Math.imul(31, h) + stable.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+/**
+ * Persists signal snapshot; skips full rewrite when instrument values match prior hash (O2).
+ */
 export async function saveSignalSnapshot(snapshot: SignalSnapshot): Promise<void> {
-  await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, snapshot, KV_TTL_SECONDS.SIGNAL_SNAPSHOT);
-  scheduleKvBridgeDualWrite('SIGNAL_SNAPSHOT', snapshot, KV_TTL_SECONDS.SIGNAL_SNAPSHOT, 'c287-dual-write');
+  const signalHash = hashSignalValues(snapshot);
+  const prev = await loadSignalSnapshot();
+  if (prev?.signal_hash === signalHash && prev.signal_hash) {
+    const light: SignalSnapshot = {
+      ...prev,
+      checkedAt: new Date().toISOString(),
+      unchanged: true,
+      signal_hash: signalHash,
+    };
+    await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, light, KV_TTL_SECONDS.SIGNAL_SNAPSHOT);
+    scheduleKvBridgeDualWrite('SIGNAL_SNAPSHOT', light, KV_TTL_SECONDS.SIGNAL_SNAPSHOT, 'c287-dual-write');
+    return;
+  }
+  const full: SignalSnapshot = {
+    ...snapshot,
+    signal_hash: signalHash,
+    unchanged: false,
+    checkedAt: snapshot.timestamp,
+  };
+  await kvSet(KV_KEYS.SIGNAL_SNAPSHOT, full, KV_TTL_SECONDS.SIGNAL_SNAPSHOT);
+  scheduleKvBridgeDualWrite('SIGNAL_SNAPSHOT', full, KV_TTL_SECONDS.SIGNAL_SNAPSHOT, 'c287-dual-write');
 }
 
 /**
@@ -469,12 +508,14 @@ export async function saveGIState(state: GIState): Promise<void> {
 export async function saveGiStateFromMicroSweep(args: {
   composite: number;
   signalQuality: number;
+  /** When caller already loaded `gi:latest` (e.g. MGET bundle), avoids an extra GET. */
+  preloadedGi?: GIState | null;
 }): Promise<void> {
   const gi = Math.max(0, Math.min(1, args.composite));
   const mode = getGiMode(gi);
   const terminal_status: GIState['terminal_status'] =
     mode === 'green' ? 'nominal' : mode === 'yellow' ? 'stressed' : 'critical';
-  const prev = await loadGIState();
+  const prev = args.preloadedGi !== undefined ? args.preloadedGi : await loadGIState();
   const q = Math.max(0, Math.min(1, args.signalQuality));
   const state: GIState = {
     global_integrity: Number(gi.toFixed(3)),
@@ -566,8 +607,29 @@ export async function saveTripwireState(state: TripwireKVState): Promise<void> {
 /**
  * Load tripwire state.
  */
+function applyTripwireDecayInPlace(state: TripwireKVState): TripwireKVState {
+  if (!state.elevated) return state;
+  const ts = new Date(state.timestamp).getTime();
+  if (!Number.isFinite(ts)) return state;
+  const hours = (Date.now() - ts) / (1000 * 60 * 60);
+  if (hours <= 2) return state;
+  return {
+    ...state,
+    elevated: false,
+    tripwireCount: 0,
+    timestamp: new Date().toISOString(),
+  };
+}
+
 export async function loadTripwireState(): Promise<TripwireKVState | null> {
-  return kvGet<TripwireKVState>(KV_KEYS.TRIPWIRE_STATE);
+  const row = await kvGet<TripwireKVState>(KV_KEYS.TRIPWIRE_STATE);
+  if (!row) return null;
+  const decayed = applyTripwireDecayInPlace(row);
+  if (decayed.elevated !== row.elevated) {
+    void saveTripwireState(decayed).catch(() => {});
+    return decayed;
+  }
+  return row;
 }
 
 // ── Health check ─────────────────────────────────────────────
