@@ -2,12 +2,13 @@
  * Optional TCP Redis (`REDIS_URL`) alongside primary Upstash REST KV.
  *
  * - **Health**: `getBackupRedisHealth()` for `/api/kv/health`.
- * - **Write mirror**: `MOBIUS_KV_BACKUP_MIRROR=true` duplicates string SETs and list writes.
+ * - **Write mirror**: `MOBIUS_KV_BACKUP_MIRROR=true` mirrors continuity-critical keys only (see `backupMirrorPolicy.ts`).
  * - **Read fallback**: `MOBIUS_KV_READ_FALLBACK=true` uses `REDIS_URL` when primary GET misses
  *   or primary KV is unavailable / errors (best-effort DR read path).
  */
 
 import Redis from 'ioredis';
+import { shouldMirrorPrefixedFullKey, shouldMirrorRawKey } from '@/lib/kv/backupMirrorPolicy';
 
 let _backup: Redis | null | undefined;
 
@@ -210,6 +211,7 @@ export function scheduleBackupMirrorPrefixedKey(
   value: unknown,
   ttlSeconds?: number,
 ): void {
+  if (!shouldMirrorPrefixedFullKey(prefixedKey)) return;
   scheduleMirror(async (client) => {
     const payload = serializeValue(value);
     if (ttlSeconds && ttlSeconds > 0) {
@@ -225,6 +227,7 @@ export function scheduleBackupMirrorRawKey(
   value: unknown,
   ttlSeconds?: number,
 ): void {
+  if (!shouldMirrorRawKey(rawKey)) return;
   scheduleMirror(async (client) => {
     const payload = serializeValue(value);
     if (ttlSeconds && ttlSeconds > 0) {

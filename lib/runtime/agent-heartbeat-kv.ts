@@ -3,7 +3,7 @@
  */
 
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
-import { isRedisAvailable, kvSet, KV_KEYS, KV_TTL_SECONDS } from '@/lib/kv/store';
+import { isRedisAvailable, kvGet, kvSet, KV_KEYS, KV_TTL_SECONDS } from '@/lib/kv/store';
 import { scheduleKvBridgeDualWrite } from '@/lib/kv/kvBridgeClient';
 
 /** Canonical Terminal fleet IDs (lowercase) — matches `app/api/agents/status/route.ts` roster order. */
@@ -56,12 +56,16 @@ export async function writeFleetHeartbeatKV(source: AgentHeartbeatFleetPayload['
       heartbeat_ok: true,
     })),
   };
-  const ok =
-    (await kvSet(KV_KEYS.HEARTBEAT, JSON.stringify(payload), KV_TTL_SECONDS.HEARTBEAT)) &&
-    (await kvSet(KV_KEYS.CURRENT_CYCLE, payload.cycle, KV_TTL_SECONDS.HEARTBEAT));
+  const prevCycle = await kvGet<string>(KV_KEYS.CURRENT_CYCLE);
+  const cycleChanged = prevCycle !== payload.cycle;
+  const hbOk = await kvSet(KV_KEYS.HEARTBEAT, JSON.stringify(payload), KV_TTL_SECONDS.HEARTBEAT);
+  const cycleOk = cycleChanged ? await kvSet(KV_KEYS.CURRENT_CYCLE, payload.cycle, KV_TTL_SECONDS.HEARTBEAT) : true;
+  const ok = hbOk && cycleOk;
   if (ok) {
     scheduleKvBridgeDualWrite('HEARTBEAT', payload, KV_TTL_SECONDS.HEARTBEAT, 'heartbeat-dual-write');
-    scheduleKvBridgeDualWrite('CURRENT_CYCLE', payload.cycle, KV_TTL_SECONDS.HEARTBEAT, 'heartbeat-dual-write');
+    if (cycleChanged) {
+      scheduleKvBridgeDualWrite('CURRENT_CYCLE', payload.cycle, KV_TTL_SECONDS.HEARTBEAT, 'heartbeat-dual-write');
+    }
   }
   return ok;
 }

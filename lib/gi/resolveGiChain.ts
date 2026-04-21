@@ -86,8 +86,10 @@ function parseGiStateValue(value: unknown): GIState | null {
 
 export async function resolveGiChain(opts?: {
   micReadinessSnapshotRaw?: string | null;
+  /** When provided (e.g. snapshot-lite MGET), avoids duplicate KV GETs for GI rows. */
+  preloadedGi?: { primary: GIState | null; carry: GIState | null };
 }): Promise<GiChainResolution> {
-  const st = await loadGIState();
+  const st = opts?.preloadedGi?.primary ?? (await loadGIState());
   if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
     const ageMs = Date.now() - new Date(st.timestamp).getTime();
     const maxAgeMs =
@@ -129,7 +131,7 @@ export async function resolveGiChain(opts?: {
     // continue
   }
 
-  const carry = await loadGIStateCarry();
+  const carry = opts?.preloadedGi?.carry ?? (await loadGIStateCarry());
   if (carry && typeof carry.global_integrity === 'number' && Number.isFinite(carry.global_integrity)) {
     const gi = Math.max(0, Math.min(1, carry.global_integrity));
     return {

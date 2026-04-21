@@ -52,8 +52,12 @@ function mapProvenanceToLegacy(p: GISourceDisplay): GiResolutionSource {
  */
 export async function resolveGiForTerminal(opts?: {
   micReadinessSnapshotRaw?: string | null;
+  preloadedGi?: { primary: GIState | null; carry: GIState | null };
 }): Promise<ResolvedGi> {
-  const chain = await resolveGiChain({ micReadinessSnapshotRaw: opts?.micReadinessSnapshotRaw });
+  const chain = await resolveGiChain({
+    micReadinessSnapshotRaw: opts?.micReadinessSnapshotRaw,
+    preloadedGi: opts?.preloadedGi,
+  });
   return {
     gi: chain.gi,
     mode: chain.mode,

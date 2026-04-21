@@ -9,7 +9,7 @@ import type { IntegrityRating } from '@/lib/echo/integrity-engine';
 import { getEchoStatus } from '@/lib/echo/store';
 import { saveEchoState, loadGIState, kvSet, KV_KEYS, KV_TTL_SECONDS } from '@/lib/kv/store';
 import { recordReplayPressureFromIngest } from '@/lib/mic/replayPressure';
-import { readMiiFeed, type MiiEntry } from '@/lib/kv/mii';
+import { filterMiiEntriesNeedingWrite, readMiiFeed, type MiiEntry } from '@/lib/kv/mii';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 type KvEpiconEntry = {
@@ -177,7 +177,10 @@ export async function persistEchoIngestSideEffects(result: IngestResult): Promis
       timestamp: miiTimestamp,
       source: 'live',
     }));
-    await writeMiiFeedBatch(batch);
+    const toWrite = filterMiiEntriesNeedingWrite(batch, lastKnown);
+    if (toWrite.length > 0) {
+      await writeMiiFeedBatch(toWrite);
+    }
   } catch (err) {
     console.error('[echo] mii write failed:', err instanceof Error ? err.message : err);
   }
