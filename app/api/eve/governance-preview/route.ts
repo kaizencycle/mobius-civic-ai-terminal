@@ -27,6 +27,7 @@ export async function GET() {
       category: output.category,
       civicRiskLevel: output.civicRiskLevel,
       ethicsFlags: output.ethicsFlags,
+      ethicsReviewQueue: output.ethicsReviewQueue,
       externalDegraded: input.externalDegraded,
       derivedFromCount: output.derivedFrom.length,
       ...preview,

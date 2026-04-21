@@ -61,6 +61,8 @@ export type EveGovernanceSynthesisOutput = {
   confidenceTier: number;
   governancePosture: 'stable' | 'watch' | 'stressed' | 'critical';
   ethicsFlags: string[];
+  /** C-279 / C-288 — persistent ethics tags that need human governance review (not auto-cleared). */
+  ethicsReviewQueue: string[];
   civicRiskLevel: 'low' | 'medium' | 'high';
   derivedFrom: string[];
 };
@@ -439,6 +441,12 @@ export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisI
   if (input.narrativeClusterCount >= NARRATIVE_CLUSTER_THRESHOLD) ethicsFlags.push('narrative-cluster-spike');
   if (input.externalDegraded) ethicsFlags.push('external-feed-degraded');
 
+  const ethicsReviewQueue: string[] = [];
+  if (input.tripwire.active) ethicsReviewQueue.push('ethics:active-tripwire');
+  if (input.narrativeClusterCount >= NARRATIVE_CLUSTER_THRESHOLD) {
+    ethicsReviewQueue.push('ethics:narrative-cluster-spike');
+  }
+
   const derivedFrom: string[] = [];
   for (const row of input.committedAgentRows.slice(0, 12)) {
     if (typeof row.id === 'string' && row.id) derivedFrom.push(row.id);
@@ -482,7 +490,12 @@ export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisI
     `${governancePosture.toUpperCase()} posture · ${agentList.length} agent lane(s) · GI ${input.gi.toFixed(2)}`,
   );
 
-  const body = [governanceSummary, civicLine, ethicsLine, extLine.trim() ? extLine : null]
+  const reviewLine =
+    ethicsReviewQueue.length > 0
+      ? `Governance review queue (C-279): ${ethicsReviewQueue.join(', ')} — schedule operator acknowledgment before next cycle close; do not carry unresolved.`
+      : null;
+
+  const body = [governanceSummary, civicLine, ethicsLine, reviewLine, extLine.trim() ? extLine : null]
     .filter((p): p is string => typeof p === 'string')
     .join('\n\n');
 
@@ -500,6 +513,7 @@ export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisI
     confidenceTier,
     governancePosture,
     ethicsFlags,
+    ethicsReviewQueue,
     civicRiskLevel,
     derivedFrom,
   };
@@ -670,6 +684,7 @@ export async function processEveCycleWindowSynthesis(
     category: output.category,
     civicRiskLevel: output.civicRiskLevel,
     ethicsFlags: output.ethicsFlags,
+    ethicsReviewQueue: output.ethicsReviewQueue,
     summary: output.summary,
     externalDegraded: input.externalDegraded,
     trace: buildSynthTrace(input),
@@ -758,6 +773,7 @@ export async function processEveEscalationSynthesis(
     category: output.category,
     civicRiskLevel: output.civicRiskLevel,
     ethicsFlags: output.ethicsFlags,
+    ethicsReviewQueue: output.ethicsReviewQueue,
     summary: output.summary,
     externalDegraded: input.externalDegraded,
     trace: {
@@ -784,13 +800,18 @@ export async function publishEveGovernanceSynthesis(
   const ledgerSeverity = ledgerSeverityFromSignals(output.severity);
 
   const sonarEnriched = Boolean(input.sonarCivic?.answer.trim());
+  const ethicsTagSet = new Set<string>();
+  for (const f of output.ethicsFlags) ethicsTagSet.add(`ethics:${f}`);
+  for (const q of output.ethicsReviewQueue) {
+    ethicsTagSet.add(q.startsWith('ethics:') ? q : `ethics:${q}`);
+  }
   const tags: string[] = [
     'eve',
     EVE_GOVERNANCE_SYNTH_TAG,
     idempotencyTag,
     output.category,
     ...(input.sonarCivic && input.sonarCivic.answer.trim() ? ['eve-sonar-enriched'] : []),
-    ...output.ethicsFlags.map((f) => `ethics:${f}`),
+    ...ethicsTagSet,
   ];
   if (sonarEnriched) {
     tags.push('external-sonar-enriched', 'eve:sonar-enriched');

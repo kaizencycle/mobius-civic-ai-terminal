@@ -13,6 +13,8 @@ import type { MicReadinessResponse } from '@/lib/mic/types';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { kvSet, kvLpushCapped, KV_KEYS, kvGet, KV_TTL_SECONDS } from '@/lib/kv/store';
 import { scheduleKvBridgeDualWrite } from '@/lib/kv/kvBridgeClient';
+import { persistLocalMicReadinessSnapshot } from '@/lib/mic/persistReadinessKv';
+import { persistResolvedReplayPressureToKv } from '@/lib/mic/replayPressure';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,8 +32,22 @@ function micReadinessPostAuth(req: NextRequest): boolean {
 export async function GET(req: NextRequest) {
   const cycleParam = req.nextUrl.searchParams.get('cycle')?.trim();
   const { raw: micSnapRaw, source: micSnapSource } = await loadMicReadinessSnapshotRaw();
+  const hadUpstreamKvSnapshot = micSnapSource === 'kv';
   const giMeta = await resolveGiForTerminal({ micReadinessSnapshotRaw: micSnapRaw });
   const readiness = await getMergedMicReadiness(cycleParam);
+
+  if (!hadUpstreamKvSnapshot) {
+    try {
+      await persistLocalMicReadinessSnapshot(readiness);
+    } catch (e) {
+      console.warn('[mic-readiness] local snapshot hydrate failed:', e instanceof Error ? e.message : e);
+    }
+  }
+  try {
+    await persistResolvedReplayPressureToKv(readiness.replay.replayPressure);
+  } catch (e) {
+    console.warn('[mic-readiness] replay pressure KV persist failed:', e instanceof Error ? e.message : e);
+  }
 
   return NextResponse.json(
     {
@@ -46,6 +62,7 @@ export async function GET(req: NextRequest) {
         timestamp: giMeta.timestamp,
         mic_readiness_snapshot_source: micSnapSource,
       },
+      mic_readiness_snapshot_hydrated: !hadUpstreamKvSnapshot,
     },
     {
       headers: {

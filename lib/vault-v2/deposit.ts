@@ -33,6 +33,7 @@ import {
 import { VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
 import { formCandidate } from '@/lib/vault-v2/seal';
 import type { Mode, SealCandidate } from '@/lib/vault-v2/types';
+import { notifySentinelCouncilSealFormation } from '@/lib/vault-v2/sentinelCouncilNotify';
 
 const THRESHOLD = VAULT_RESERVE_PARCEL_UNITS;
 
@@ -144,6 +145,10 @@ export async function accrueDepositV2(args: {
     overflow_carried: overflow,
   });
 
+  void notifySentinelCouncilSealFormation(candidate).catch((err) => {
+    console.warn('[vault-v2] sentinel council notify:', err instanceof Error ? err.message : err);
+  });
+
   return {
     balance_after: overflow,
     candidate_formed: candidate,
@@ -187,6 +192,9 @@ export async function tryFormNextCandidate(args: { cycle: string }): Promise<Sea
     console.info('[vault-v2] next candidate formed from queued reserve', {
       seal_id: candidate.seal_id,
       overflow_carried: overflow,
+    });
+    void notifySentinelCouncilSealFormation(candidate).catch((err) => {
+      console.warn('[vault-v2] sentinel council notify:', err instanceof Error ? err.message : err);
     });
   }
   return candidate;

@@ -303,29 +303,33 @@ export async function pollHermesU2(): Promise<AgentPollResult> {
 
 export async function pollHermesU3(): Promise<AgentPollResult> {
   const queries = ['governance OR democracy OR civic', 'transparency OR regulation OR policy'];
+  const timespans = ['7d', '3d', '1d'];
   let n = 0;
   let lastMeta: Awaited<ReturnType<typeof safeFetchWithMeta<{ articles?: unknown[] }>>> | null = null;
-  for (const q of queries) {
-    const url =
-      `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=artlist&maxrecords=8&format=json&timespan=1d`;
-    const meta = await safeFetchWithMeta<{ articles?: unknown[] }>(url, 12000);
-    lastMeta = meta;
-    if (meta.ok && meta.data) {
-      n += meta.data.articles?.length ?? 0;
+  outer: for (const span of timespans) {
+    for (const q of queries) {
+      const url =
+        `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=artlist&maxrecords=8&format=json&timespan=${span}`;
+      const meta = await safeFetchWithMeta<{ articles?: unknown[] }>(url, 12000);
+      lastMeta = meta;
+      if (meta.ok && meta.data) {
+        n += meta.data.articles?.length ?? 0;
+      }
+      if (n > 0) break outer;
     }
-    if (n > 0) break;
   }
   const d = new Date();
   const weekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
   const quietHour = d.getUTCHours() >= 0 && d.getUTCHours() <= 8;
   const httpOk = Boolean(lastMeta?.ok);
   const quietContext = httpOk && n === 0 && (weekend || quietHour);
-  const value = Number((quietContext ? 0.5 : normalizeDirect(Math.min(n, 16), 0, 16)).toFixed(3));
-  const severity = quietContext
+  const structuralEmpty = httpOk && n === 0 && !quietContext;
+  const value = Number(
+    (quietContext || structuralEmpty ? 0.5 : normalizeDirect(Math.min(n, 16), 0, 16)).toFixed(3),
+  );
+  const severity = quietContext || structuralEmpty
     ? 'nominal'
-    : n === 0
-      ? 'watch'
-      : classifySeverity(value, { watch: 0.45, elevated: 0.3, critical: 0.15 });
+    : classifySeverity(value, { watch: 0.45, elevated: 0.3, critical: 0.15 });
   return wrap('HERMES-µ3', {
     agentName: 'HERMES-µ3',
     source: 'GDELT · governance artlist',
@@ -333,14 +337,16 @@ export async function pollHermesU3(): Promise<AgentPollResult> {
     value,
     label: quietContext
       ? `GDELT: 0 articles (quiet window — HTTP ${lastMeta?.status ?? 'ok'}, nominal)`
-      : `GDELT: ${n} articles (24h governance+civic)`,
+      : structuralEmpty
+        ? `GDELT: 0 articles across widened window — treating as dead-instrument neutral (HTTP ${lastMeta?.status ?? 'ok'})`
+        : `GDELT: ${n} articles (governance+civic sample)`,
     severity,
-    raw: { count: n, httpOk, quietContext },
+    raw: { count: n, httpOk, quietContext, structuralEmpty, timespansTried: timespans },
   });
 }
 
 export async function pollHermesU4(): Promise<AgentPollResult> {
-  const subs = ['worldnews', 'technology', 'civictech'];
+  const subs = ['worldnews', 'technology', 'civictech', 'news', 'politics'];
   let kids: Array<{ data?: { score?: number; title?: string } }> = [];
   let lastStatus: number | null = null;
   let lastOk = false;
@@ -364,9 +370,10 @@ export async function pollHermesU4(): Promise<AgentPollResult> {
   const weekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
   const quietHour = d.getUTCHours() >= 0 && d.getUTCHours() <= 8;
   const quietContext = lastOk && kids.length === 0 && (weekend || quietHour);
-  const value = Number((quietContext ? 0.5 : normalizeDirect(avg, 0, 2000)).toFixed(3));
+  const structuralEmpty = lastOk && kids.length === 0 && !quietContext;
+  const value = Number((quietContext || structuralEmpty ? 0.5 : normalizeDirect(avg, 0, 2000)).toFixed(3));
   const severity =
-    quietContext ? 'nominal' : kids.length === 0 ? 'watch' : classifySeverity(value, { watch: 0.4, elevated: 0.22, critical: 0.08 });
+    quietContext || structuralEmpty ? 'nominal' : classifySeverity(value, { watch: 0.4, elevated: 0.22, critical: 0.08 });
   return wrap('HERMES-µ4', {
     agentName: 'HERMES-µ4',
     source: 'Reddit · narrative feed',
@@ -374,9 +381,11 @@ export async function pollHermesU4(): Promise<AgentPollResult> {
     value,
     label: quietContext
       ? `Reddit: 0 posts in sample (quiet window — HTTP ${lastStatus ?? 'ok'}, nominal)`
-      : `Reddit narrative: avg score ${Math.round(avg)} on ${kids.length} posts`,
+      : structuralEmpty
+        ? `Reddit: 0 posts across expanded subs — dead-instrument neutral (HTTP ${lastStatus ?? 'ok'})`
+        : `Reddit narrative: avg score ${Math.round(avg)} on ${kids.length} posts`,
     severity,
-    raw: { count: kids.length, httpOk: lastOk, quietContext },
+    raw: { count: kids.length, httpOk: lastOk, quietContext, structuralEmpty, subsTried: subs },
   });
 }
 
