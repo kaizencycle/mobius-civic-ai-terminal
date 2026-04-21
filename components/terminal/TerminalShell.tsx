@@ -216,7 +216,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
         <ShellBridgeBanner />
       </Suspense>
 
-      <main className={cn('min-h-0 flex-1 overflow-hidden', consoleCollapsed ? 'pb-7' : 'pb-16 md:pb-28')}>{children}</main>
+      <main className={cn('min-h-0 flex-1 overflow-y-auto', consoleCollapsed ? 'pb-7' : 'pb-16 md:pb-28')}>{children}</main>
 
       <OnboardingOverlay />
     </div>
