@@ -2,27 +2,8 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import type { MicroAgentSweepResult } from '@/lib/agents/micro';
-import type { EpiconItem } from '@/lib/terminal/types';
-import type { SentimentDomainKey } from '@/lib/terminal/globePins';
-
-type SentimentDomain = {
-  key: SentimentDomainKey;
-  label: string;
-  agent: string;
-  score: number | null;
-  status: 'nominal' | 'stressed' | 'critical' | 'unknown';
-};
-
-export type GlobeChamberProps = {
-  micro: (MicroAgentSweepResult & { ok?: boolean }) | null;
-  echoEpicon: EpiconItem[];
-  domains: SentimentDomain[];
-  cycleId: string;
-  clockLabel: string;
-  giScore: number;
-  miiScore: number | null;
-};
+import GlobeChapterDashboards from '@/components/terminal/chambers/GlobeChapterDashboards';
+import type { GlobeChamberProps } from '@/components/terminal/chambers/types';
 
 const GlobeView = dynamic(() => import('./GlobeView3D'), {
   ssr: false,
@@ -73,7 +54,7 @@ export default function GlobeChamber(props: GlobeChamberProps) {
   const show3D = isDesktop && !prefer2D;
 
   return (
-    <div className="relative">
+    <div className="relative space-y-0">
       {isDesktop ? (
         <button
           type="button"
@@ -84,6 +65,7 @@ export default function GlobeChamber(props: GlobeChamberProps) {
         </button>
       ) : null}
       {show3D ? <GlobeView {...props} /> : <WorldMapView {...props} />}
+      <GlobeChapterDashboards micro={props.micro} domains={props.domains} dashboard={props.globeDashboard ?? null} />
     </div>
   );
 }

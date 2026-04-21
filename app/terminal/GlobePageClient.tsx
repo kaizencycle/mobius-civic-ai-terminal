@@ -1,7 +1,9 @@
 'use client';
 
+import { useMemo } from 'react';
 import GlobeChamber from '@/components/terminal/chambers/GlobeChamber';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
+import { buildEveEscalationStrip } from '@/components/terminal/chambers/globeDashboardExtras';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 import type { MicroAgentSweepResult } from '@/lib/agents/micro';
 import type { EpiconItem } from '@/lib/terminal/types';
@@ -45,6 +47,20 @@ export default function GlobePageClient() {
   const cycle = integrity.cycle ?? (snapshot as Record<string, unknown> | null)?.cycle as string | undefined ?? 'C-271';
   const gi = integrity.global_integrity ?? (snapshot as Record<string, unknown> | null)?.gi as number | undefined ?? 0;
 
+  const globeDashboard = useMemo(() => {
+    if (!snapshot) return null;
+    const eveStrip = buildEveEscalationStrip(echoEpicon);
+    return {
+      eveStrip,
+      kvHealth: snapshot.kvHealth?.data ?? null,
+      runtime: snapshot.runtime?.data ?? null,
+      tripwire: snapshot.tripwire?.data ?? null,
+      vault: snapshot.vault?.data ?? null,
+      micReadiness: snapshot.micReadiness?.data ?? null,
+      miiFeed: snapshot.mii?.data ?? null,
+    };
+  }, [snapshot, echoEpicon]);
+
   return (
     <GlobeChamber
       micro={micro}
@@ -54,6 +70,7 @@ export default function GlobePageClient() {
       clockLabel={`${new Date().toISOString().slice(11, 16)} UTC`}
       giScore={Number(gi)}
       miiScore={null}
+      globeDashboard={globeDashboard}
     />
   );
 }
