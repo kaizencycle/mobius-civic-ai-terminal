@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
     if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
       gi = Math.max(0, Math.min(1, st.global_integrity));
     }
-  } catch {
-    // use body gi
+  } catch (err) {
+    console.warn('[atlas/observe] KV GI load failed, using body fallback:', err instanceof Error ? err.message : err);
   }
 
   try {

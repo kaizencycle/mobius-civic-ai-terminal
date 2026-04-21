@@ -24,30 +24,30 @@ type GiStatePayload = {
 };
 
 const AGENT_BASE = [
-  { id: 'atlas', name: 'ATLAS', role: 'Strategic Reasoning', tier: 'Sentinel', color: 'cerulean' },
+  { id: 'atlas', name: 'ATLAS', role: 'System Integrity Sentinel', tier: 'Sentinel', color: 'cerulean' },
   { id: 'zeus', name: 'ZEUS', role: 'Verification Authority', tier: 'Sentinel', color: 'gold' },
-  { id: 'hermes', name: 'HERMES', role: 'Routing and Prioritization', tier: 'Steward', color: 'coral' },
-  { id: 'aurea', name: 'AUREA', role: 'Oversight and Synthesis', tier: 'Architect', color: 'amber' },
-  { id: 'jade', name: 'JADE', role: 'Annotation and Memory Framing', tier: 'Architect', color: 'jade' },
-  { id: 'daedalus', name: 'DAEDALUS', role: 'Systems Builder', tier: 'Architect', color: 'bronze' },
-  { id: 'echo', name: 'ECHO', role: 'Event Ingestion', tier: 'Steward', color: 'silver' },
-  { id: 'eve', name: 'EVE', role: 'Observer / Watchtower', tier: 'Observer', color: 'rose' },
+  { id: 'hermes', name: 'HERMES', role: 'Signal Routing & Prioritization', tier: 'Steward', color: 'coral' },
+  { id: 'aurea', name: 'AUREA', role: 'Strategic Synthesis', tier: 'Architect', color: 'amber' },
+  { id: 'jade', name: 'JADE', role: 'Constitutional Annotation', tier: 'Architect', color: 'jade' },
+  { id: 'daedalus', name: 'DAEDALUS', role: 'Infrastructure Health', tier: 'Architect', color: 'bronze' },
+  { id: 'echo', name: 'ECHO', role: 'Event Memory & Ingestion', tier: 'Steward', color: 'silver' },
+  { id: 'eve', name: 'EVE', role: 'Governance & Ethics Observer', tier: 'Observer', color: 'rose' },
 ] as const;
 
 let staleSnapshot: { cycle: string; timestamp: string } | null = null;
-const HEARTBEAT_STALE_MS = 90 * 60 * 1000;
+const HEARTBEAT_STALE_MS = 15 * 60 * 1000;
 
-function toAgentStatus(status: 'active' | 'unknown') {
+function toAgentStatus(status: 'alive' | 'idle') {
   return AGENT_BASE.map((agent) => ({
     ...agent,
     status,
     detail:
-      status === 'active'
+      status === 'alive'
         ? 'Live heartbeat observed from KV.'
         : 'Heartbeat is stale; agent state is currently unknown.',
-    heartbeat_ok: status === 'active',
+    heartbeat_ok: status === 'alive',
     last_action:
-      status === 'active'
+      status === 'alive'
         ? 'Live heartbeat received'
         : 'Awaiting fresh runtime heartbeat',
   }));
@@ -84,7 +84,7 @@ export async function GET() {
         source: 'kv-heartbeat',
         cycle,
         timestamp,
-        agents: toAgentStatus('active'),
+        agents: toAgentStatus('alive'),
       });
     }
 
@@ -94,7 +94,7 @@ export async function GET() {
       source: 'stale-cache',
       cycle,
       timestamp,
-      agents: toAgentStatus('unknown'),
+      agents: toAgentStatus('idle'),
     });
   } catch (error) {
     const mock = mockAgentStatus();
@@ -107,7 +107,7 @@ export async function GET() {
         source: 'stale-cache',
         cycle: staleSnapshot.cycle,
         timestamp: staleSnapshot.timestamp,
-        agents: toAgentStatus('unknown'),
+        agents: toAgentStatus('idle'),
       });
     }
 

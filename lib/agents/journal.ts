@@ -52,10 +52,9 @@ function asRecord(input: unknown): Record<string, unknown> | null {
 }
 
 function makeJournalId(agent: AgentName, cycle: string): string {
-  const seq = Math.floor(Math.random() * 10_000)
-    .toString()
-    .padStart(4, '0');
-  return `journal-${agent}-${cycle}-${seq}`;
+  const ts = Date.now().toString(36);
+  const rnd = Math.random().toString(36).slice(2, 6);
+  return `journal-${agent}-${cycle}-${ts}${rnd}`;
 }
 
 export function parseAgentJournalEntry(input: unknown): AgentJournalEntry | null {
@@ -158,11 +157,15 @@ export function buildAgentJournalEntry(input: NewJournalEntryInput): AgentJourna
 }
 
 async function upsertIndex(agent: AgentName, cycle: string): Promise<void> {
-  const key = keyFor(agent, cycle);
-  const rows = (await kvGet<JournalIndexRow[]>(INDEX_KEY)) ?? [];
-  const existing = rows.filter((row) => !(row.agent === agent && row.cycle === cycle));
-  existing.unshift({ agent, cycle, key, updatedAt: new Date().toISOString() });
-  await kvSet(INDEX_KEY, existing.slice(0, MAX_INDEX_ROWS));
+  try {
+    const key = keyFor(agent, cycle);
+    const rows = (await kvGet<JournalIndexRow[]>(INDEX_KEY)) ?? [];
+    const existing = rows.filter((row) => !(row.agent === agent && row.cycle === cycle));
+    existing.unshift({ agent, cycle, key, updatedAt: new Date().toISOString() });
+    await kvSet(INDEX_KEY, existing.slice(0, MAX_INDEX_ROWS));
+  } catch (err) {
+    console.error(`[journal] index upsert failed for ${agent}:${cycle}:`, err instanceof Error ? err.message : err);
+  }
 }
 
 export async function appendAgentJournalEntry(input: NewJournalEntryInput): Promise<AgentJournalEntry> {
@@ -249,10 +252,13 @@ export async function getAgentJournalEntries(filters?: {
     }
   }
 
+  const results = await Promise.all(
+    [...keys].map((key) => kvGet<AgentJournalEntry[]>(key)),
+  );
+
   const out: AgentJournalEntry[] = [];
-  for (const key of keys) {
-    const rows = (await kvGet<AgentJournalEntry[]>(key)) ?? [];
-    for (const raw of rows) {
+  for (const rows of results) {
+    for (const raw of rows ?? []) {
       const entry = parseAgentJournalEntry(raw);
       if (!entry) continue;
       if (statusFilter && entry.status !== statusFilter) continue;

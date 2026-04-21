@@ -8,7 +8,8 @@ type GIInput = {
 };
 
 function avg(values: number[]) {
-  if (!values.length) return 0.5;
+  // No zeus scores yet: use system-neutral value rather than implying half-quality
+  if (!values.length) return 0.74;
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 

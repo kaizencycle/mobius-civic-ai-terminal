@@ -61,12 +61,14 @@ export class MobiusGatewayClient {
 
   async getAgents(): Promise<Agent[]> {
     const res = await fetch(`${this.baseUrl}/agents/status`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return data.data;
   }
 
   async getAgentDetail(agentId: string): Promise<AgentDetail> {
     const res = await fetch(`${this.baseUrl}/agents/${agentId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return data.data;
   }
@@ -76,24 +78,28 @@ export class MobiusGatewayClient {
     if (agent) params.set('agent', agent);
 
     const res = await fetch(`${this.baseUrl}/epicon/feed?${params}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return data.data;
   }
 
   async getGI(): Promise<GlobalIntegrity> {
     const res = await fetch(`${this.baseUrl}/integrity/current`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return data.data;
   }
 
   async getWallet(userId: string): Promise<MICWallet> {
     const res = await fetch(`${this.baseUrl}/mic/wallet/${userId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return data.data;
   }
 
   async getLabStatus(labId: 'oaa' | 'reflections' | 'shield'): Promise<LabStatus> {
     const res = await fetch(`${this.baseUrl}/labs/${labId}/status`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
 
@@ -103,6 +109,7 @@ export class MobiusGatewayClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(intent),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
 
@@ -112,6 +119,7 @@ export class MobiusGatewayClient {
 
   async checkHealth(): Promise<HealthStatus> {
     const res = await fetch(`${this.baseUrl.replace('/api/v1', '')}/health`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }
 }

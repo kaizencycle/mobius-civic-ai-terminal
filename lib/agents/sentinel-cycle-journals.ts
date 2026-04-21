@@ -28,17 +28,22 @@ function clampGi(n: number): number {
 }
 
 export async function summarizeMicroAnomalies(): Promise<{ count: number; labels: string[] }> {
-  const snap = await loadSignalSnapshot();
-  if (!snap?.allSignals?.length) {
-    return { count: typeof snap?.anomalies === 'number' ? snap.anomalies : 0, labels: [] };
+  try {
+    const snap = await loadSignalSnapshot();
+    if (!snap?.allSignals?.length) {
+      return { count: typeof snap?.anomalies === 'number' ? snap.anomalies : 0, labels: [] };
+    }
+    const hot = snap.allSignals.filter((s) => {
+      const sev = String(s.severity).toLowerCase();
+      return sev === 'critical' || sev === 'elevated' || sev === 'watch';
+    });
+    const count = typeof snap.anomalies === 'number' ? snap.anomalies : hot.length;
+    const labels = hot.slice(0, 5).map((s) => `${s.agentName}: ${s.label}`);
+    return { count, labels };
+  } catch (err) {
+    console.warn('[sentinel-journals] summarizeMicroAnomalies: signal snapshot unavailable:', err instanceof Error ? err.message : err);
+    return { count: 0, labels: [] };
   }
-  const hot = snap.allSignals.filter((s) => {
-    const sev = String(s.severity).toLowerCase();
-    return sev === 'critical' || sev === 'elevated' || sev === 'watch';
-  });
-  const count = typeof snap.anomalies === 'number' ? snap.anomalies : hot.length;
-  const labels = hot.slice(0, 6).map((s) => `${s.agentName}: ${s.label}`);
-  return { count, labels };
 }
 
 export async function appendAtlasCronJournal(input: AtlasObserveInput): Promise<AgentJournalEntry> {
@@ -60,7 +65,7 @@ export async function appendAtlasCronJournal(input: AtlasObserveInput): Promise<
     relatedAgents: ['EVE', 'ZEUS'],
     status: 'committed',
     category: 'observation',
-    severity: count > 4 ? 'elevated' : 'nominal',
+    severity: count > 3 ? 'elevated' : 'nominal',
   });
 }
 
@@ -130,15 +135,17 @@ async function writeMiiForEntry(entry: AgentJournalEntry, gi: number): Promise<v
 
 /**
  * HERMES, AUREA, JADE, DAEDALUS, ECHO — one committed journal per cycle after ATLAS/ZEUS/EVE path runs.
+ * Accepts pre-loaded anomaly data to avoid a redundant SIGNAL_SNAPSHOT KV read.
  */
 export async function appendStewardCronJournals(input: {
   cycle: string;
   gi: number;
   source: CronSentinelSource;
   zeusJournalId?: string | null;
+  anomalies?: { count: number; labels: string[] };
 }): Promise<AgentJournalEntry[]> {
   const gi = clampGi(input.gi);
-  const { count, labels } = await summarizeMicroAnomalies();
+  const { count, labels } = input.anomalies ?? (await summarizeMicroAnomalies());
   const labelShort = labels.slice(0, 5).join('; ') || 'No elevated micro-agent lines in snapshot.';
   const has401 = labels.some((l) => /401|self-ping/i.test(l));
   const echo = await loadEchoState().catch(() => null);
@@ -225,7 +232,7 @@ export async function appendStewardCronJournals(input: {
     relatedAgents: ['HERMES', 'ECHO'],
     status: 'committed',
     category: 'observation',
-    severity: has401 ? 'elevated' : 'nominal',
+    severity: 'nominal',
       }),
     'DAEDALUS',
   );
