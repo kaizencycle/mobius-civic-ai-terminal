@@ -31,11 +31,13 @@ function colorClasses(color: string) {
   }
 }
 
-function statusClasses(status: Agent['status']) {
+function statusClasses(status: Agent['status'] | string) {
   switch (status) {
     case 'alive':
+    case 'active':
       return 'text-emerald-300 border-emerald-500/20 bg-emerald-500/10';
     case 'idle':
+    case 'unknown':
       return 'text-amber-300 border-amber-500/20 bg-amber-500/10';
     case 'offline':
       return 'text-rose-300 border-rose-500/20 bg-rose-500/10';

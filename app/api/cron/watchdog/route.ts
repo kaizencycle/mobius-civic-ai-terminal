@@ -76,56 +76,17 @@ function makeInternalRequest(
   });
 }
 
-async function runHandler<T extends (request: NextRequest) => Promise<NextResponse>>(
-  handler: T,
-  request: NextRequest,
+// Unified handler runner — accepts a zero-arg lambda so both parameterless
+// GET handlers and request-bound POST handlers can be wrapped identically.
+async function runAction(
+  fn: () => Promise<NextResponse>,
   timeoutMs = 15_000,
   retries = 1,
 ): Promise<WatchdogActionResult> {
   const once = async (): Promise<WatchdogActionResult> => {
     try {
       const response = await Promise.race<NextResponse>([
-        handler(request),
-        new Promise<NextResponse>((_, reject) =>
-          setTimeout(() => reject(new Error('handler_timeout')), timeoutMs),
-        ),
-      ]);
-      let body: unknown = null;
-      try {
-        body = await response.json();
-      } catch {
-        body = null;
-      }
-      return { ok: response.ok, status: response.status, body };
-    } catch (error) {
-      return {
-        ok: false,
-        status: 500,
-        body: { error: error instanceof Error ? error.message : 'Unknown handler error' },
-      };
-    }
-  };
-
-  let r = await once();
-  if (!r.ok && retries > 0) {
-    await new Promise((res) => setTimeout(res, 1000));
-    r = await once();
-  }
-  return r;
-}
-
-// Some handlers declare `GET()` with no parameters (kv/health, integrity-status,
-// tripwire/status, echo/ingest-GET). Adapt them to the (request) signature so
-// the dispatcher above can treat them uniformly.
-async function runParameterlessHandler(
-  handler: () => Promise<NextResponse>,
-  timeoutMs = 15_000,
-  retries = 1,
-): Promise<WatchdogActionResult> {
-  const once = async (): Promise<WatchdogActionResult> => {
-    try {
-      const response = await Promise.race<NextResponse>([
-        handler(),
+        fn(),
         new Promise<NextResponse>((_, reject) =>
           setTimeout(() => reject(new Error('handler_timeout')), timeoutMs),
         ),
@@ -162,7 +123,7 @@ export async function GET(request: NextRequest) {
   const timestamp = new Date().toISOString();
   const origin = request.nextUrl.origin;
 
-  const kvHealth = await runParameterlessHandler(getKvHealth);
+  const kvHealth = await runAction(() => getKvHealth());
   actions.push(`kv-health:${kvHealth.ok ? 'ok' : `fail:${kvHealth.status}`}`);
 
   if (isRedisAvailable() && kvHealth.ok) {
@@ -184,23 +145,23 @@ export async function GET(request: NextRequest) {
   }
 
   const seedRequest = makeInternalRequest(origin, '/api/admin/seed-kv', { method: 'POST' });
-  const seedResult = await runHandler(postSeedKv, seedRequest);
+  const seedResult = await runAction(() => postSeedKv(seedRequest));
   actions.push(`seed-kv:${seedResult.ok ? 'ok' : `fail:${seedResult.status}`}`);
 
-  const giResult = await runParameterlessHandler(getIntegrityStatus);
+  const giResult = await runAction(() => getIntegrityStatus());
   actions.push(`integrity-status:${giResult.ok ? 'ok' : `fail:${giResult.status}`}`);
 
-  const tripwireResult = await runParameterlessHandler(getTripwireStatus);
+  const tripwireResult = await runAction(() => getTripwireStatus());
   actions.push(`tripwire-state:${tripwireResult.ok ? 'ok' : `fail:${tripwireResult.status}`}`);
 
-  const echoResult = await runParameterlessHandler(postEchoIngest, 30_000);
+  const echoResult = await runAction(() => postEchoIngest(), 30_000);
   actions.push(`echo-ingest:${echoResult.ok ? 'ok' : `fail:${echoResult.status}`}`);
 
   const promoteRequest = makeInternalRequest(origin, '/api/epicon/promote', {
     method: 'POST',
     body: { maxItems: 35 },
   });
-  const promoteResult = await runHandler(postEpiconPromote, promoteRequest, 30_000);
+  const promoteResult = await runAction(() => postEpiconPromote(promoteRequest), 30_000);
   actions.push(`promote:${promoteResult.ok ? 'ok' : `fail:${promoteResult.status}`}`);
 
   const logResult = {
@@ -238,15 +199,19 @@ export async function GET(request: NextRequest) {
       ? 'Continue scheduled watch cadence.'
       : 'Inspect failed watchdog actions and confirm CRON_SECRET / KV health before next run.',
     confidence: failed === 0 ? 0.9 : 0.62,
-    derivedFrom: ['watchdog:kv-health', 'watchdog:seed-kv', 'watchdog:integrity-status'],
+    derivedFrom: ['watchdog:kv-health', 'watchdog:seed-kv', 'watchdog:integrity-status', `watchdog:run:${timestamp}`],
     relatedAgents: ['DAEDALUS', 'ZEUS'],
     status: 'committed',
     category: failed === 0 ? 'observation' : 'alert',
     severity: failed === 0 ? 'nominal' : 'elevated',
-  }).catch(() => {});
+  }).catch((err) => {
+    console.error('[watchdog] ATLAS journal append failed:', err instanceof Error ? err.message : err);
+  });
+
+  const allOk = kvHealth.ok && seedResult.ok && giResult.ok && tripwireResult.ok && echoResult.ok && promoteResult.ok;
 
   return NextResponse.json({
-    ok: kvHealth.ok && seedResult.ok && giResult.ok,
+    ok: allOk,
     actions,
     timestamp,
   });
