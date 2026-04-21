@@ -3,6 +3,10 @@ import type { EpiconItem } from '@/lib/terminal/types';
 import type { SentimentDomainKey } from '@/lib/terminal/globePins';
 import type { GlobeDashboardBundle } from '@/components/terminal/chambers/globeDashboardExtras';
 
+export type GlobeViewControls = {
+  focusDomain: (key: SentimentDomainKey) => void;
+};
+
 export type MicroSweepResponse = MicroAgentSweepResult & { ok?: boolean };
 
 export type SentimentDomain = {

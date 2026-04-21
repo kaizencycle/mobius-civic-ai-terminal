@@ -1,7 +1,9 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
 import type { MicroAgentSweepResult } from '@/lib/agents/micro';
 import type { EpiconItem } from '@/lib/terminal/types';
+import type { GlobeViewControls } from '@/components/terminal/chambers/types';
 import {
   buildGlobePinsFromMicro,
   GLOBE_DOMAIN_ORDER,
@@ -96,6 +98,7 @@ export default function GlobeView3D({
   clockLabel,
   giScore,
   miiScore,
+  globeControlsRef,
 }: {
   micro: MicroSweepResponse | null;
   echoEpicon: EpiconItem[];
@@ -104,6 +107,7 @@ export default function GlobeView3D({
   clockLabel: string;
   giScore: number;
   miiScore: number | null;
+  globeControlsRef?: MutableRefObject<GlobeViewControls | null>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<GlobePin | null>(null);
@@ -458,6 +462,16 @@ export default function GlobeView3D({
     },
     [pins],
   );
+
+  useEffect(() => {
+    const ref = globeControlsRef;
+    if (!ref) return;
+    ref.current = { focusDomain };
+    return () => {
+      ref.current = null;
+    };
+  }, [globeControlsRef, focusDomain]);
+
   return (
     <div className="relative overflow-hidden rounded-lg border border-slate-800 bg-[#020810] font-mono text-slate-200">
       <style
