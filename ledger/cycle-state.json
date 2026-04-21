@@ -2,11 +2,11 @@
   "schema": "MOBIUS_CYCLE_STATE_V1",
   "node_id": "mobius-terminal",
   "source": "snapshot-lite",
-  "cycle": "C-287",
-  "fetched_at": "2026-04-21T02:34:21.950Z",
-  "gi": 0.696,
+  "cycle": "C-288",
+  "fetched_at": "2026-04-21T05:15:12.549Z",
+  "gi": 0.651,
   "mode": "yellow",
-  "degraded": false,
+  "degraded": true,
   "gi_provenance": "live-compute",
   "gi_verified": false,
   "memory_mode": null,
@@ -15,7 +15,7 @@
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 10,
+    "total_ms": 23,
     "lane_ms": null
   }
 }
