@@ -9,6 +9,8 @@ import {
 } from '@/lib/response-envelope';
 import { readAgentJournals } from '@/lib/substrate/github-reader';
 import type { SubstrateJournalEntry } from '@/lib/substrate/github-journal';
+import type { TrustTripwireSnapshot } from '@/lib/tripwire/types';
+import { applyTrustTripwiresToAgentStatus } from '@/lib/tripwire/trustTripwires';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -115,10 +117,11 @@ async function loadLatestJournalByAgent(): Promise<Record<string, SubstrateJourn
 
 export async function GET() {
   try {
-    const [rawHeartbeat, giState, journalByAgent] = await Promise.all([
+    const [rawHeartbeat, giState, journalByAgent, trustTripwire] = await Promise.all([
       kvGet<HeartbeatPayload | string>(KV_KEYS.HEARTBEAT),
       kvGet<GiStatePayload>(KV_KEYS.GI_STATE),
       loadLatestJournalByAgent(),
+      kvGet<TrustTripwireSnapshot>(KV_KEYS.TRIPWIRE_STATE_KV),
     ]);
 
     const heartbeat = parseHeartbeat(rawHeartbeat);
@@ -137,13 +140,23 @@ export async function GET() {
       const journal = journalByAgent[agent.name] ?? null;
       const lastJournalAt = journal?.timestamp ?? null;
       const confidence = journal?.confidence ?? (isFresh(timestamp, HEARTBEAT_FRESH_MS) ? 0.75 : 0.5);
-      const liveness = deriveLiveness({
+      const baseLiveness = deriveLiveness({
         lastSeen: lastSeen ?? undefined,
         lastActionAt: lastActionAt ?? undefined,
         lastJournalAt: lastJournalAt ?? undefined,
         confidence,
       });
-      const health = liveness === 'ACTIVE' ? 'nominal' : liveness === 'OFFLINE' ? 'critical' : 'degraded';
+      const trustStatus = applyTrustTripwiresToAgentStatus(agent.name, trustTripwire);
+      const liveness: LivenessState =
+        baseLiveness === 'OFFLINE' || baseLiveness === 'BOOTING' || baseLiveness === 'DECLARED'
+          ? baseLiveness
+          : trustStatus === 'CONTESTED'
+            ? 'CONTESTED'
+            : trustStatus === 'DEGRADED' && baseLiveness === 'ACTIVE'
+              ? 'DEGRADED'
+              : baseLiveness;
+
+      const health = liveness === 'ACTIVE' ? 'nominal' : liveness === 'OFFLINE' || liveness === 'CONTESTED' ? 'critical' : 'degraded';
       const sourceBadges = [
         ...(lastSeen ? ['HB'] : []),
         ...(lastAction ? ['ACT'] : []),
