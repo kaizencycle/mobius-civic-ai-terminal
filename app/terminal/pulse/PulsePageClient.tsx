@@ -1,12 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 import type { SnapshotLaneState } from '@/hooks/useTerminalSnapshot';
 import { provenanceDescription, provenanceShortLabel } from '@/lib/terminal/memoryMode';
-
-const AGENT_FILTERS = ['ALL', 'ATLAS', 'ZEUS', 'EVE', 'HERMES', 'AUREA', 'JADE', 'DAEDALUS', 'ECHO'] as const;
 
 type PulseItem = {
   id: string;
@@ -215,31 +213,14 @@ function postureStyle(posture: ResolvedPulseState['posture']) {
   }
 }
 
-function sevStyle(sev: string) {
-  const s = sev.toLowerCase();
-  if (s === 'critical') return 'border-rose-500/40 bg-rose-500/10 text-rose-200';
-  if (s === 'elevated') return 'border-amber-500/40 bg-amber-500/10 text-amber-200';
-  return 'border-slate-700 text-slate-300';
-}
-
-function formatConfidence(conf: number | undefined): string | null {
-  if (conf === undefined || !Number.isFinite(conf)) return null;
-  const pct = conf > 0 && conf <= 1 ? conf * 100 : conf;
-  return `${Math.round(pct)}%`;
-}
-
 export default function PulsePageClient() {
   const { snapshot, loading, error } = useTerminalSnapshot();
-  const [selected, setSelected] = useState<(typeof AGENT_FILTERS)[number]>('ALL');
 
   const items = useMemo(
     () => ((snapshot?.epicon?.data ?? {}) as { items?: PulseItem[] }).items ?? [],
     [snapshot],
   );
-  const filtered = useMemo(
-    () => (selected === 'ALL' ? items : items.filter((item) => (item.agent ?? '').toUpperCase() === selected)),
-    [items, selected],
-  );
+  const filtered = items;
   const journalEntries = useMemo(() => {
     const raw = ((snapshot?.journal?.data ?? {}) as { entries?: JournalEntry[] }).entries ?? [];
     return [...raw].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -331,9 +312,6 @@ export default function PulsePageClient() {
 
   const rolledEventRows = useMemo(() => {
     type Row = { kind: 'single'; item: PulseItem } | { kind: 'verify_rollup'; items: PulseItem[] };
-    if (selected !== 'ALL') {
-      return filtered.map((item): Row => ({ kind: 'single', item }));
-    }
     const verifyItems = filtered.filter((i) => mapEventType(i) === 'VERIFY');
     const other = filtered.filter((i) => mapEventType(i) !== 'VERIFY');
     const rows: Row[] = [];
@@ -344,18 +322,56 @@ export default function PulsePageClient() {
     }
     other.forEach((item) => rows.push({ kind: 'single', item }));
     return rows;
-  }, [filtered, selected]);
-
-  const promotionCounters = ((snapshot?.promotion?.data ?? {}) as { counters?: { pending_promotable_count?: number; promoted_this_cycle_count?: number } }).counters;
-  const epiconSources = ((snapshot?.epicon?.data ?? {}) as {
-    sources?: { github?: number; kv?: number; ledgerApi?: number; memory?: number; memoryLedger?: number };
-  }).sources;
-  const journalSources = ((snapshot?.journal?.data ?? {}) as { sources?: { kv?: number; substrate?: number } }).sources;
+  }, [filtered]);
 
   if (loading && !snapshot) return <ChamberSkeleton blocks={8} />;
 
   const giProvenanceTitle =
     typeof memoryMode?.gi_provenance === 'string' ? provenanceDescription(memoryMode.gi_provenance) : undefined;
+
+  const signalCards = useMemo(() => {
+    return filtered.slice(0, 12).map((item) => {
+      const type = mapEventType(item);
+      const confidence =
+        typeof item.mii_score === 'number' && Number.isFinite(item.mii_score)
+          ? Math.max(0, Math.min(1, item.mii_score / 100))
+          : undefined;
+      const integrityWeight =
+        typeof item.gi === 'number' && currentGi != null ? Number((item.gi - currentGi).toFixed(3)) : null;
+      const summary =
+        item.title?.trim().length
+          ? `${item.title}. ${type === 'WATCH' ? 'Review for civic-risk implications.' : 'No broad systemic disruption confirmed from this event alone.'}`
+          : 'Signal captured without normalized title. Review source detail before escalation.';
+      return { item, type, confidence, integrityWeight, summary };
+    });
+  }, [filtered, currentGi]);
+
+  const agentRows = useMemo(() => {
+    const latestByAgent = new Map<string, PulseItem>();
+    for (const item of filtered) {
+      const agent = (item.agent ?? 'SYSTEM').toUpperCase();
+      if (!latestByAgent.has(agent)) latestByAgent.set(agent, item);
+    }
+    return [...latestByAgent.entries()].slice(0, 8).map(([agent, item]) => {
+      const lane = lanes.find((l) => l.key.toUpperCase() === agent.toLowerCase());
+      const degraded = lane?.state === 'degraded' || lane?.state === 'offline';
+      const contribution =
+        typeof item.gi === 'number' && currentGi != null ? Number((item.gi - currentGi).toFixed(3)) : null;
+      return {
+        agent,
+        status: degraded ? 'DEGRADED' : 'ACTIVE',
+        lastAction: item.title ?? item.type ?? item.category ?? 'No recent action detail',
+        contribution,
+        endpoint: item.source ?? lane?.message ?? 'snapshot',
+      };
+    });
+  }, [filtered, lanes, currentGi]);
+
+  const vaultStatus: 'LOCKED' | 'CHARGING' | 'READY' = useMemo(() => {
+    if (currentGi == null || currentGi < 0.95) return 'LOCKED';
+    if (newEpiconCount > 0 || newJournalCount > 0) return 'CHARGING';
+    return 'READY';
+  }, [currentGi, newEpiconCount, newJournalCount]);
 
   return (
     <div className="h-full overflow-y-auto p-4">
@@ -367,266 +383,169 @@ export default function PulsePageClient() {
           Snapshot refresh failed (showing last good bundle): {error}
         </div>
       ) : null}
-      {/* Canonical header — single resolved state */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-lg font-semibold">Pulse Ledger</h1>
-          <span className={`rounded border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wide ${postureStyle(resolvedState.posture)}`}>
-            {resolvedState.posture}
-          </span>
-          {resolvedState.tripwireActive ? (
-            <span className="rounded border border-rose-500/50 bg-rose-500/15 px-2 py-0.5 text-[10px] font-mono uppercase text-rose-200">
-              TRIPWIRE
-            </span>
-          ) : null}
-          {!resolvedState.treasuryAvailable ? (
-            <span className="rounded border border-amber-500/50 bg-amber-500/15 px-2 py-0.5 text-[10px] font-mono uppercase text-amber-200">
-              TREASURY {resolvedState.treasuryStatus}
-            </span>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2 text-[11px]">
-          {resolvedState.gi != null ? (
-            <span className={`rounded border px-2 py-0.5 font-mono ${resolvedState.gi >= 0.85 ? 'border-emerald-500/40 text-emerald-300' : resolvedState.gi >= 0.7 ? 'border-amber-500/40 text-amber-300' : 'border-rose-500/40 text-rose-300'}`}>
-              GI {resolvedState.gi.toFixed(2)}
-            </span>
-          ) : (
-            <span className="rounded border border-slate-600 px-2 py-0.5 font-mono text-slate-400">GI —</span>
-          )}
-          <span className="text-slate-500">{resolvedState.cycle}</span>
-          <span className="text-slate-400">{filtered.length} entries</span>
-          {snapshot?.timestamp ? (
-            <span className="text-slate-600" title="Terminal snapshot bundle time">
-              bundle {relTime(snapshot.timestamp)}
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      <section className="mb-3 space-y-2 rounded border border-slate-700/80 bg-slate-950/70 p-3 text-[11px] leading-relaxed text-slate-300">
-        <div>
-          <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-300/90">System story</div>
-          <p className="text-slate-200">{systemStoryLine}</p>
-        </div>
-        <p className="border-t border-slate-800 pt-2 text-slate-400">{whyMatters}</p>
-        <div className="border-t border-slate-800 pt-2">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Suggested actions</div>
-          <ul className="list-inside list-disc space-y-0.5 text-slate-400">
-            {actionItems.map((a) => (
-              <li key={a}>{a}</li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* Agent filter tabs — scrollable, never clipped */}
-      <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {AGENT_FILTERS.map((name) => (
-          <button
-            key={name}
-            onClick={() => setSelected(name)}
-            className={`shrink-0 rounded border px-2.5 py-1 text-[11px] font-mono ${selected === name ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-100' : 'border-slate-700 text-slate-400'}`}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
-
-      {/* Delta panel */}
-      <section className="mb-3 rounded border border-slate-800 bg-slate-900/60 p-2.5">
-        <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">DELTA</div>
-        <div className="flex flex-wrap gap-1.5 text-[11px]">
-          <span className="rounded border border-slate-700 px-1.5 py-0.5 text-slate-200">EPICON +{newEpiconCount}</span>
-          <span className="rounded border border-slate-700 px-1.5 py-0.5 text-slate-200">JOURNAL +{newJournalCount}</span>
-          {degradedLaneCount > 0 ? (
-            <span className="rounded border border-amber-700/70 px-1.5 py-0.5 text-amber-200">degraded {degradedLaneCount}</span>
-          ) : (
-            <span className="rounded border border-emerald-700/50 px-1.5 py-0.5 text-emerald-200">lanes nominal</span>
-          )}
-          <span className={`rounded border px-1.5 py-0.5 ${giDelta != null ? (giDelta >= 0 ? 'border-emerald-700/50 text-emerald-200' : 'border-rose-700/50 text-rose-200') : 'border-slate-700 text-slate-400'}`}>
-            {giDelta != null ? `GI Δ ${giDelta >= 0 ? '+' : ''}${giDelta.toFixed(2)}` : 'GI Δ unchanged'}
-          </span>
-          {promotionCounters && (
-            <>
-              <span className="rounded border border-sky-700/50 px-1.5 py-0.5 text-sky-200">
-                {promotionCounters.pending_promotable_count ?? 0} pending
-              </span>
-              <span className="rounded border border-emerald-700/50 px-1.5 py-0.5 text-emerald-200">
-                {promotionCounters.promoted_this_cycle_count ?? 0} promoted
-              </span>
-            </>
-          )}
-        </div>
-      </section>
-
-      {/* Latest synthesis — with resolved GI and semantic split */}
-      <section className="mb-3 rounded border border-cyan-700/40 bg-cyan-950/20 p-2.5">
-        <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-300">LATEST SYNTHESIS</div>
-        {latestSynthesis ? (
-          <div>
-            <div className="mb-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
-              <span
-                className="cursor-help rounded border border-slate-600 px-1 py-0.5 font-mono text-slate-400"
-                title="Global Integrity — composite operator signal (0–1). Not a citizen score."
-              >
-                GI?
-              </span>
-              <span
-                className={`rounded border px-1.5 py-0.5 font-mono uppercase ${
-                  synthesisFresh.tier === 'live' || synthesisFresh.tier === 'fresh'
-                    ? 'border-emerald-600/50 text-emerald-200'
-                    : synthesisFresh.tier === 'delayed'
-                      ? 'border-amber-600/50 text-amber-200'
-                      : synthesisFresh.tier === 'stale'
-                        ? 'border-rose-600/50 text-rose-200'
-                        : 'border-slate-600 text-slate-500'
-                }`}
-                title={synthesisFresh.line}
-              >
-                data: {synthesisFresh.tier}
-              </span>
-              <span className="rounded border border-cyan-600/50 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-cyan-100">{latestSynthesis.agent}</span>
-              <span className="text-slate-500">{relTime(latestSynthesis.timestamp)}</span>
-              <span className={`rounded border px-1.5 py-0.5 ${sevStyle(latestSynthesis.severity ?? 'nominal')}`}>
-                sev {latestSynthesis.severity ?? 'nominal'}
-              </span>
-              {formatConfidence(latestSynthesis.confidence) ? (
-                <span className="rounded border border-slate-700 px-1.5 py-0.5 text-slate-300">
-                  conf {formatConfidence(latestSynthesis.confidence)}
-                </span>
-              ) : null}
-              {resolvedState.gi != null ? (
-                <span
-                  className="rounded border border-slate-700 px-1.5 py-0.5 font-mono text-slate-300"
-                  title={giProvenanceTitle}
-                >
-                  GI {resolvedState.gi.toFixed(2)} · {resolvedState.source}
-                </span>
-              ) : null}
-            </div>
-            <p className="mb-1.5 text-[10px] text-slate-500">
-              {synthesisFresh.line}
-              {journalLane?.lastUpdated ? (
-                <span className="block text-slate-600">
-                  Journal lane as-of: {relTime(journalLane.lastUpdated)}
-                  {journalLane.message ? ` · ${journalLane.message}` : ''}
-                </span>
-              ) : null}
-            </p>
-            <div className="space-y-1.5 text-[11px] leading-snug">
-              <p className="text-slate-200">
-                <span className="mr-1 rounded border border-slate-600 bg-slate-900/80 px-1 py-0.5 text-[9px] font-mono text-slate-400" title="From agent journal — not ledger-attested fact">
-                  OBSERVED
-                </span>
-                {latestSynthesis.observation}
-              </p>
-              <p className="text-slate-200">
-                <span className="mr-1 rounded border border-cyan-700/50 bg-cyan-950/40 px-1 py-0.5 text-[9px] font-mono text-cyan-300/90" title="Agent reasoning — verify before treating as settled">
-                  INFERRED
-                </span>
-                {latestSynthesis.inference}
-              </p>
-              {latestSynthesis.recommendation.trim().length > 0 &&
-              latestSynthesis.recommendation.trim() !== latestSynthesis.inference.trim() ? (
-                <p className="text-slate-200">
-                  <span className="mr-1 rounded border border-emerald-700/50 bg-emerald-950/30 px-1 py-0.5 text-[9px] font-mono text-emerald-300/90" title="Suggested operator response — not automatic execution">
-                    RECOMMENDED
-                  </span>
-                  {latestSynthesis.recommendation}
-                </p>
-              ) : latestSynthesis.recommendation.trim().length === 0 ? (
-                <p className="text-slate-400">
-                  <span className="mr-1 rounded border border-slate-700 px-1 py-0.5 text-[9px] font-mono text-slate-500" title="No separate recommendation field on this entry">
-                    RECOMMENDED
-                  </span>
-                  (none — inference only for this synthesis row)
-                </p>
-              ) : null}
-            </div>
+      <div className="grid gap-4 lg:grid-cols-[200px,minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-4 lg:h-fit">
+          <div className="rounded border border-slate-800 bg-slate-950/70 p-3">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Pulse OS</div>
+            <nav className="space-y-1 text-xs">
+              {[
+                ['overview', '🧠 Overview'],
+                ['signals', '📡 Signals'],
+                ['tripwires', '⚠️ Tripwires'],
+                ['vault', '🧱 Vault'],
+                ['agents', '🤖 Agents'],
+                ['ledger', '📜 Ledger'],
+                ['settings', '⚙️ Settings'],
+              ].map(([id, label]) => (
+                <a key={id} href={`#${id}`} className="block rounded border border-slate-800 px-2 py-1 text-slate-300 hover:border-cyan-500/50">
+                  {label}
+                </a>
+              ))}
+            </nav>
           </div>
-        ) : (
-          <div className="text-xs text-slate-400">No journal synthesis available yet in this cycle.</div>
-        )}
-      </section>
+        </aside>
 
-      {/* Sources */}
-      <section className="mb-4 rounded border border-slate-800 bg-slate-900/60 p-2.5">
-        <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">SOURCES</div>
-        <div className="flex flex-wrap gap-1.5 text-[11px] text-slate-200">
-          <span className="rounded border border-slate-700 px-1.5 py-0.5">GitHub {epiconSources?.github ?? 0}</span>
-          <span className="rounded border border-slate-700 px-1.5 py-0.5">KV {epiconSources?.kv ?? 0}</span>
-          <span className="rounded border border-slate-700 px-1.5 py-0.5">Journal {journalEntries.length}</span>
-          <span className="rounded border border-slate-700 px-1.5 py-0.5">Ledger API {epiconSources?.ledgerApi ?? 0}</span>
-          <span className="rounded border border-slate-700 px-1.5 py-0.5">Memory {((epiconSources?.memory ?? 0) + (epiconSources?.memoryLedger ?? 0))}</span>
-          <span className="rounded border border-slate-700 px-1.5 py-0.5">Journal KV {journalSources?.kv ?? 0}</span>
-        </div>
-      </section>
+        <div className="space-y-4">
+          <section id="overview" className="rounded border border-slate-700/80 bg-slate-950/70 p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h1 className="text-lg font-semibold">Mobius Pulse Command Center</h1>
+              <div className="flex items-center gap-2 text-[11px]">
+                <span className={`rounded border px-2 py-0.5 font-mono uppercase tracking-wide ${postureStyle(resolvedState.posture)}`}>{resolvedState.posture}</span>
+                <span className="rounded border border-slate-700 px-2 py-0.5 font-mono text-slate-300">{resolvedState.cycle}</span>
+                <span className="rounded border border-slate-700 px-2 py-0.5 text-slate-300">{filtered.length} entries</span>
+              </div>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <article className="rounded border border-emerald-700/50 bg-emerald-950/20 p-3">
+                <div className="text-[10px] uppercase tracking-[0.15em] text-emerald-300">Integrity</div>
+                <div className="mt-1 text-3xl font-semibold text-emerald-100">{resolvedState.gi != null ? resolvedState.gi.toFixed(2) : '—'}</div>
+                <div className="mt-2 text-xs text-emerald-200">
+                  Delta {giDelta != null ? `${giDelta >= 0 ? '↑' : '↓'} ${Math.abs(giDelta).toFixed(2)}` : 'unavailable'}
+                </div>
+              </article>
+              <article className="rounded border border-cyan-700/50 bg-cyan-950/20 p-3">
+                <div className="text-[10px] uppercase tracking-[0.15em] text-cyan-300">Signals</div>
+                <div className="mt-1 text-3xl font-semibold text-cyan-100">{newEpiconCount}</div>
+                <div className="mt-2 text-xs text-cyan-200">Active feeds this cycle</div>
+              </article>
+              <article className="rounded border border-rose-700/50 bg-rose-950/20 p-3">
+                <div className="text-[10px] uppercase tracking-[0.15em] text-rose-300">Tripwires</div>
+                <div className="mt-1 text-3xl font-semibold text-rose-100">{resolvedState.tripwireActive ? 'ACTIVE' : 'CLEAR'}</div>
+                <div className="mt-2 text-xs text-rose-200">{degradedLaneCount} degraded/offline lane(s)</div>
+              </article>
+            </div>
+            <div className="mt-3 grid gap-2 rounded border border-slate-800 bg-slate-900/50 p-2.5 text-xs text-slate-300 md:grid-cols-[2fr,1fr]">
+              <p>{systemStoryLine}</p>
+              <div className="rounded border border-slate-700 p-2 text-[11px] text-slate-400">
+                <div className="font-mono text-slate-300">Cycle Clock: {resolvedState.cycle}</div>
+                <div>{snapshot?.timestamp ? `Bundle ${relTime(snapshot.timestamp)}` : 'Bundle timestamp unavailable'}</div>
+              </div>
+            </div>
+          </section>
 
-      {/* Event list */}
-      <div className="space-y-2">
-        {rolledEventRows.map((row, idx) =>
-          row.kind === 'verify_rollup' ? (
-            <details
-              key={`verify-rollup-${idx}`}
-              className="rounded border border-amber-700/40 bg-amber-950/20 p-2.5 md:p-3"
-            >
-              <summary className="cursor-pointer list-none text-[11px] text-amber-100/95">
-                <span className="rounded border border-amber-600/50 bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase">
-                  VERIFY ×{row.items.length}
-                </span>
-                <span className="ml-2 text-slate-400">Repeated verification events — expand for list</span>
-              </summary>
-              <div className="mt-2 space-y-2 border-t border-amber-900/40 pt-2">
-                {row.items.map((item) => (
-                  <article key={item.id} className="rounded border border-slate-800 bg-slate-900/60 p-2">
-                    <div className="text-xs font-medium text-slate-200">{item.title ?? item.id}</div>
-                    <div className="mt-0.5 text-[10px] text-slate-500">
-                      {item.agent ?? 'SYSTEM'} · {relTime(item.timestamp)}
+          <section id="signals" className="rounded border border-slate-800 bg-slate-900/60 p-3">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Signal intelligence layer</div>
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {signalCards.map(({ item, type, confidence, integrityWeight, summary }) => (
+                <article key={item.id} className="rounded border border-slate-800 bg-slate-950/70 p-2.5 text-xs">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="rounded border border-cyan-600/40 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] text-cyan-100">{type}</span>
+                    <span className="text-slate-500">{relTime(item.timestamp)}</span>
+                  </div>
+                  <div className="mt-1 font-semibold text-slate-100">{item.title ?? 'Untitled signal'}</div>
+                  <div className="mt-1 space-y-0.5 text-slate-400">
+                    <div>Source: {item.source ?? 'unknown'}</div>
+                    <div>Confidence: {confidence != null ? `${Math.round(confidence * 100)}%` : 'unresolved'}</div>
+                    <div>Integrity weight: {integrityWeight != null ? `${integrityWeight >= 0 ? '+' : ''}${integrityWeight}` : 'unresolved'}</div>
+                  </div>
+                  <p className="mt-2 border-t border-slate-800 pt-1.5 text-slate-300">Why it matters: {summary}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section id="tripwires" className="rounded border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-300">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Tripwire posture</div>
+            <p>{whyMatters}</p>
+            <ul className="mt-2 list-inside list-disc space-y-0.5 text-slate-400">
+              {actionItems.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+          </section>
+
+          <section id="agents" className="rounded border border-slate-800 bg-slate-900/60 p-3">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Agent layer</div>
+            <div className="grid gap-2 md:grid-cols-2">
+              {agentRows.map((agent) => (
+                <article key={agent.agent} className="rounded border border-slate-800 bg-slate-950/70 p-2.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-slate-100">{agent.agent}</div>
+                    <span className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${agent.status === 'ACTIVE' ? 'border-emerald-600/50 text-emerald-200' : 'border-amber-600/50 text-amber-200'}`}>{agent.status}</span>
+                  </div>
+                  <div className="mt-1 text-slate-400">Last: {agent.lastAction}</div>
+                  <div className="mt-1 text-slate-400">
+                    Contribution: {agent.contribution != null ? `${agent.contribution >= 0 ? '+' : ''}${agent.contribution} GI` : 'unresolved from snapshot'}
+                  </div>
+                  <div className="mt-1 text-slate-500">Endpoint: {agent.endpoint}</div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section id="vault" className="rounded border border-slate-800 bg-slate-900/60 p-3 text-xs">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Vault + MIC resource</div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded border border-slate-800 bg-slate-950/70 p-2.5 text-slate-300">
+                <div>Reserve: {resolvedState.vaultBalance != null ? resolvedState.vaultBalance.toFixed(2) : 'unknown'}</div>
+                <div className="mt-1">Unlock condition: GI ≥ 0.95</div>
+                <div className="mt-2">
+                  Status:{' '}
+                  <span className={`rounded border px-1.5 py-0.5 font-mono ${vaultStatus === 'LOCKED' ? 'border-rose-600/50 text-rose-200' : vaultStatus === 'CHARGING' ? 'border-amber-600/50 text-amber-200' : 'border-emerald-600/50 text-emerald-200'}`}>
+                    {vaultStatus}
+                  </span>
+                </div>
+              </div>
+              <div className="rounded border border-slate-800 bg-slate-950/70 p-2.5 text-slate-400">
+                Treasury lane: {resolvedState.treasuryAvailable ? 'operational' : resolvedState.treasuryStatus}
+                <div className="mt-1">GI source: {resolvedState.source}</div>
+                {giProvenanceTitle ? <div className="mt-1 text-slate-500">{giProvenanceTitle}</div> : null}
+              </div>
+            </div>
+          </section>
+
+          <section id="ledger" className="rounded border border-slate-800 bg-slate-900/60 p-3">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Ledger timeline</div>
+            <p className="mb-2 text-xs text-slate-500">
+              Entries below are event records from the snapshot stream. Journal inference remains inference until ledger attested.
+            </p>
+            <div className="space-y-2">
+              {rolledEventRows.map((row, idx) =>
+                row.kind === 'verify_rollup' ? (
+                  <details key={`verify-rollup-${idx}`} className="rounded border border-amber-700/40 bg-amber-950/20 p-2.5">
+                    <summary className="cursor-pointer list-none text-[11px] text-amber-100/95">
+                      <span className="rounded border border-amber-600/50 bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase">VERIFY ×{row.items.length}</span>
+                      <span className="ml-2 text-slate-400">Expand verification set</span>
+                    </summary>
+                  </details>
+                ) : (
+                  <article key={row.item.id} className="rounded border border-slate-800 bg-slate-950/70 p-2.5 text-xs">
+                    <div className="font-medium text-slate-100">{row.item.title ?? row.item.id}</div>
+                    <div className="mt-1 text-slate-400">
+                      {row.item.timestamp ?? '—'} · {row.item.agent ?? 'SYSTEM'} · Hash/attestation: pending in this stream
                     </div>
                   </article>
-                ))}
-              </div>
-            </details>
-          ) : (
-            <article key={row.item.id} className="rounded border border-slate-800 bg-slate-900/60 p-2.5 md:p-3">
-              <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[10px] md:text-xs">
-                <span className="rounded border border-cyan-600/40 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-cyan-100">
-                  {mapEventType(row.item)}
-                </span>
-                {mapEventType(row.item) === 'VERIFY' ? (
-                  <span
-                    className="rounded border border-sky-700/50 bg-sky-950/40 px-1 py-0.5 text-[9px] font-mono text-sky-200/90"
-                    title="Lane verification — not ledger attestation"
-                  >
-                    VERIFIED
-                  </span>
-                ) : null}
-                <span className="rounded border border-slate-700 px-1.5 py-0.5 font-mono text-slate-400">{row.item.agent ?? 'SYSTEM'}</span>
-                <span className="text-slate-500">{row.item.status ?? 'active'}</span>
-              </div>
-              <div className="text-sm font-semibold leading-snug text-slate-100">
-                {row.item.title ?? 'Untitled EPICON event'}
-              </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
-                <span>{row.item.timestamp ?? '—'}</span>
-                <span>{relTime(row.item.timestamp)}</span>
-                <span>sev {row.item.severity ?? 'unknown'}</span>
-                <span>MII {row.item.mii_score ?? '—'}</span>
-              </div>
-              <details className="mt-1.5 text-[10px] text-slate-500">
-                <summary className="cursor-pointer list-none text-slate-500 underline decoration-dotted underline-offset-2">
-                  More details
-                </summary>
-                <div className="mt-1 space-y-0.5">
-                  <div>source {row.item.source ?? '—'} · id {row.item.id}</div>
-                  {row.item.category ? <div>category {row.item.category}</div> : null}
-                  {row.item.cycle ? <div>cycle {row.item.cycle}</div> : null}
-                  {row.item.tags?.length ? <div>tags {row.item.tags.join(', ')}</div> : null}
-                </div>
-              </details>
-            </article>
-          ),
-        )}
+                ),
+              )}
+            </div>
+          </section>
+
+          <section id="settings" className="rounded border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-400">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Settings / data provenance</div>
+            <p>Synthesis freshness: {synthesisFresh.line}</p>
+            <p className="mt-1">Journal lane status: {journalLane?.state ?? 'unknown'}.</p>
+          </section>
+        </div>
       </div>
     </div>
   );
