@@ -16,6 +16,7 @@ async function loadSeed(): Promise<SnapshotLiteSeed | null> {
     const res = await fetch('/api/terminal/snapshot-lite', {
       next: { revalidate: 15 },
       cache: 'force-cache',
+      signal: AbortSignal.timeout(1500),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as SnapshotLiteSeed;
