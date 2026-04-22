@@ -68,9 +68,15 @@ export async function GET(request: NextRequest) {
   const cycle = request.nextUrl.searchParams.get('cycle')?.trim();
   const includeCatalog = request.nextUrl.searchParams.get('include_catalog')?.trim();
   const includeSubstrate = request.nextUrl.searchParams.get('include_substrate')?.trim();
+  const journalMode = (request.nextUrl.searchParams.get('journal_mode')?.trim().toLowerCase() ?? 'merged');
+  const journalLimit = request.nextUrl.searchParams.get('journal_limit')?.trim();
   const baseUrl = request.nextUrl.origin;
 
-  const journalPath = cycle ? `/api/agents/journal?cycle=${encodeURIComponent(cycle)}` : '/api/agents/journal';
+  const journalQuery = new URLSearchParams();
+  if (cycle) journalQuery.set('cycle', cycle);
+  if (journalMode === 'hot' || journalMode === 'canon' || journalMode === 'merged') journalQuery.set('mode', journalMode);
+  if (journalLimit) journalQuery.set('limit', journalLimit);
+  const journalPath = `/api/agents/journal${journalQuery.toString() ? `?${journalQuery.toString()}` : ''}`;
   const epiconPath = includeCatalog === 'true' ? '/api/epicon/feed?include_catalog=true' : '/api/epicon/feed';
 
   const signalsStart = Date.now();
@@ -204,6 +210,35 @@ export async function GET(request: NextRequest) {
       : typeof integrityData?.global_integrity === 'number' && Number.isFinite(integrityData.global_integrity)
         ? integrityData.global_integrity
         : null;
+
+  const journalData = journal.leaf.data as Record<string, unknown> | null;
+  const journalEntries = Array.isArray(journalData?.entries) ? journalData?.entries as Record<string, unknown>[] : [];
+  const journalSummary = {
+    latest_agent_entries: journalEntries.slice(0, 8).map((entry) => ({
+      agent: typeof entry.agent === 'string' ? entry.agent.toLowerCase() : 'unknown',
+      source: typeof entry.source_mode === 'string' ? entry.source_mode : 'unknown',
+      timestamp: typeof entry.timestamp === 'string' ? entry.timestamp : null,
+      severity: typeof entry.severity === 'string' ? entry.severity : 'nominal',
+      summary: typeof entry.observation === 'string' ? entry.observation : '—',
+      cycle: typeof entry.cycle === 'string' ? entry.cycle : null,
+      canonical_path: typeof entry.canonical_path === 'string' ? entry.canonical_path : null,
+    })),
+  };
+
+  const agentsData = agents.leaf.data as Record<string, unknown> | null;
+  const agentRows = Array.isArray(agentsData?.agents) ? agentsData?.agents as Record<string, unknown>[] : [];
+  const agentLiveness = agentRows.map((agent) => ({
+    agent: typeof agent.name === 'string' ? agent.name : 'UNKNOWN',
+    status: typeof agent.liveness === 'string' ? agent.liveness : typeof agent.status === 'string' ? agent.status : 'DECLARED',
+    lane: typeof agent.lane === 'string' ? agent.lane : null,
+    role: typeof agent.role === 'string' ? agent.role : null,
+    last_seen: typeof agent.last_seen === 'string' ? agent.last_seen : null,
+    last_action: typeof agent.last_action === 'string' ? agent.last_action : null,
+    last_journal_at: typeof agent.last_journal_at === 'string' ? agent.last_journal_at : null,
+    confidence: typeof agent.confidence === 'number' ? agent.confidence : null,
+    source_badges: Array.isArray(agent.source_badges) ? agent.source_badges : [],
+  }));
+
   const tripwireLaneState = laneByKey.get('tripwire');
   const tripwireElevated = tripwireLaneState?.state === 'degraded';
   const topDegraded =
@@ -218,6 +253,7 @@ export async function GET(request: NextRequest) {
     gi: topGi,
     degraded: topDegraded,
     include_catalog: includeCatalog === 'true',
+    journal_mode: journalMode === 'hot' || journalMode === 'canon' || journalMode === 'merged' ? journalMode : 'merged',
     timestamp: new Date().toISOString(),
     deployment: {
       commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
@@ -226,6 +262,8 @@ export async function GET(request: NextRequest) {
     meta: { total_ms: totalMs, lane_ms: timings },
     memory_mode: memoryMode,
     lanes,
+    journal_summary: journalSummary,
+    agent_liveness: agentLiveness,
     integrity: integrity.leaf, signals, kvHealth: kvHealth.leaf, agents: agents.leaf,
     epicon: epicon.leaf, echo: echo.leaf, journal: journal.leaf, sentiment: sentiment.leaf,
     runtime: runtime.leaf, promotion: promotion.leaf, eve: eve.leaf, mii: mii.leaf, vault: vault.leaf,
