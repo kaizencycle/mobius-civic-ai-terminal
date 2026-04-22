@@ -1,22 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-
-type HealthResponse = {
-  status?: 'operational' | 'degraded';
-  pulse?: { timestamp?: string | null; age_seconds?: number | null; cycle?: string | null };
-  heartbeat?: {
-    runtime?: string | null;
-    runtime_age_seconds?: number | null;
-    journal?: string | null;
-    journal_age_seconds?: number | null;
-  };
-  tripwire?: {
-    elevated?: boolean;
-    tripwire_count?: number;
-  } | null;
-  kv?: { available?: boolean } | null;
-};
+import { useMemo } from 'react';
+import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 
 function ageLabel(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds)) return '—';
@@ -27,36 +12,35 @@ function ageLabel(seconds: number | null | undefined): string {
 }
 
 export default function FooterStatusBar() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const { snapshot, loading } = useTerminalSnapshot();
 
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      const data = await fetch('/api/health', {
-        cache: 'no-store',
-        signal: AbortSignal.timeout(5000),
-      })
-        .then((r) => r.json() as Promise<HealthResponse>)
-        .catch(() => null);
-      if (!mounted) return;
-      setHealth(data);
-    };
-    void load();
-    const id = window.setInterval(load, 30_000);
-    return () => {
-      mounted = false;
-      window.clearInterval(id);
-    };
-  }, []);
+  const kvLane = (snapshot?.kvHealth?.data ?? null) as Record<string, unknown> | null;
+  const runtimeLane = (snapshot?.runtime?.data ?? null) as Record<string, unknown> | null;
+  const tripwireLane = (snapshot?.tripwire?.data ?? null) as Record<string, unknown> | null;
+  const pulse = runtimeLane?.pulse && typeof runtimeLane.pulse === 'object' ? (runtimeLane.pulse as Record<string, unknown>) : null;
+  const heartbeat = runtimeLane?.heartbeat && typeof runtimeLane.heartbeat === 'object' ? (runtimeLane.heartbeat as Record<string, unknown>) : null;
 
-  const kv = health?.kv?.available ? 'healthy' : 'degraded';
-  const runtimeLabel = useMemo(() => (health?.status === 'degraded' ? 'degraded' : 'nominal'), [health?.status]);
-  const pulseAge = ageLabel(health?.pulse?.age_seconds);
-  const runtimeAge = ageLabel(health?.heartbeat?.runtime_age_seconds);
-  const journalAge = ageLabel(health?.heartbeat?.journal_age_seconds);
-  const tripwireLabel = health?.tripwire?.elevated
-    ? `tripwire ${health.tripwire.tripwire_count ?? 0} elevated`
-    : `tripwire ${health?.tripwire?.tripwire_count ?? 0} nominal`;
+  const kvAvailable = kvLane?.available === true;
+  const kvLatency = typeof kvLane?.latencyMs === 'number' ? kvLane.latencyMs : null;
+  const kv = loading && !snapshot ? '—' : kvAvailable ? `ok · ${kvLatency ?? '?'}ms` : 'degraded';
+  const runtimeLabel = useMemo(() => {
+    if (loading && !snapshot) return '—';
+    if (snapshot?.degraded) return 'degraded';
+    return 'nominal';
+  }, [loading, snapshot]);
+  const pulseAge = loading && !snapshot ? '—' : ageLabel(typeof pulse?.age_seconds === 'number' ? pulse.age_seconds : null);
+  const runtimeAge = loading && !snapshot ? '—' : ageLabel(typeof heartbeat?.runtime_age_seconds === 'number' ? heartbeat.runtime_age_seconds : null);
+  const journalAge = loading && !snapshot ? '—' : ageLabel(typeof heartbeat?.journal_age_seconds === 'number' ? heartbeat.journal_age_seconds : null);
+  const tripwireCount = typeof tripwireLane?.tripwire_count === 'number'
+    ? tripwireLane.tripwire_count
+    : typeof tripwireLane?.tripwireCount === 'number'
+      ? tripwireLane.tripwireCount
+      : 0;
+  const tripwireLabel = loading && !snapshot
+    ? 'tripwire —'
+    : tripwireLane?.elevated
+      ? `tripwire ${tripwireCount} elevated`
+      : `tripwire ${tripwireCount} nominal`;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-800 bg-slate-950/95 px-4 py-1 text-[10px] font-mono uppercase tracking-wide text-slate-400">

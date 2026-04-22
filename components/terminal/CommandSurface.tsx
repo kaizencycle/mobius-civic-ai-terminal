@@ -25,7 +25,9 @@ export default function CommandSurface() {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false,
   );
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(() =>
+    typeof window !== 'undefined' ? !window.matchMedia('(max-width: 767px)').matches : true,
+  );
   const touchStartY = useRef<number | null>(null);
   const isMountedRef = useRef(false);
   const { data: session } = useSession();
@@ -68,7 +70,10 @@ ${greeting}`,
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const mql = window.matchMedia('(max-width: 767px)');
-    const sync = () => setIsMobile(mql.matches);
+    const sync = () => {
+      setIsMobile(mql.matches);
+      if (mql.matches) setExpanded(false);
+    };
     sync();
     mql.addEventListener('change', sync);
     return () => mql.removeEventListener('change', sync);
@@ -78,6 +83,7 @@ ${greeting}`,
   useEffect(() => {
     const stored = localStorage.getItem('mobius_console_collapsed');
     if (stored === 'true') setExpanded(false);
+    if (stored === null && isMobile) setExpanded(false);
   }, []);
 
   // Persist collapse state and notify layout when it changes
