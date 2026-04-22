@@ -16,6 +16,7 @@ export const revalidate = 0;
 type AgentJournalStatus = 'draft' | 'committed' | 'contested' | 'verified';
 type AgentJournalCategory = 'observation' | 'inference' | 'alert' | 'recommendation' | 'close';
 type AgentJournalSeverity = 'nominal' | 'elevated' | 'critical';
+type JournalReadMode = 'hot' | 'canon' | 'merged';
 
 interface AgentJournalEntry {
   id: string;
@@ -34,6 +35,8 @@ interface AgentJournalEntry {
   source: 'agent-journal';
   agentOrigin: string;
   tags?: string[];
+  source_mode?: 'kv' | 'substrate';
+  canonical_path?: string;
 }
 
 type AgentJournalCreateInput = Omit<AgentJournalEntry, 'id' | 'timestamp' | 'status' | 'source'> & {
@@ -48,17 +51,16 @@ type AgentJournalCreateInput = Omit<AgentJournalEntry, 'id' | 'timestamp' | 'sta
 };
 
 const MAX_READ = 100;
-/** When merging all agents from KV, cap per agent so one noisy writer cannot evict others from the global list. */
 const KV_JOURNAL_PER_AGENT_CAP = 50;
 const KV_JOURNAL_FAIR_MERGE_MAX = 600;
 const GENESIS_AGENTS = ['ATLAS', 'ZEUS', 'EVE', 'HERMES', 'AUREA', 'JADE', 'DAEDALUS', 'ECHO'] as const;
+const DEFAULT_READ_MODE = ((process.env.JOURNAL_DEFAULT_READ_MODE ?? 'merged').trim().toLowerCase() as JournalReadMode);
 
 function randomToken(length: number): string {
   const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
   const bytes = crypto.getRandomValues(new Uint8Array(length));
   return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
 }
-
 
 function asRecord(input: unknown): Record<string, unknown> | null {
   if (!input || typeof input !== 'object') return null;
@@ -77,6 +79,18 @@ function asStringArray(input: unknown): string[] {
 function asOptionalTags(input: unknown): string[] | undefined {
   const tags = asStringArray(input);
   return tags.length > 0 ? tags : undefined;
+}
+
+function normalizeMode(input: string | null): JournalReadMode {
+  const raw = asString(input).toLowerCase();
+  if (raw === 'hot' || raw === 'canon' || raw === 'merged') return raw;
+  if (DEFAULT_READ_MODE === 'hot' || DEFAULT_READ_MODE === 'canon' || DEFAULT_READ_MODE === 'merged') return DEFAULT_READ_MODE;
+  return 'merged';
+}
+
+function canonicalPathFromTimestamp(agent: string, timestamp: string): string {
+  const fileStamp = timestamp.replace(/:/g, '-').replace(/\./g, '-');
+  return `journals/${agent.toLowerCase()}/${fileStamp}-journal.json`;
 }
 
 function substrateRecordToAgentEntry(row: SubstrateJournalEntry): AgentJournalEntry | null {
@@ -121,6 +135,8 @@ function substrateRecordToAgentEntry(row: SubstrateJournalEntry): AgentJournalEn
     source: 'agent-journal',
     agentOrigin,
     tags: asOptionalTags(row.tags),
+    source_mode: 'substrate',
+    canonical_path: canonicalPathFromTimestamp(agent, timestamp),
   };
 }
 
@@ -168,6 +184,7 @@ function parseEntry(input: unknown, fallbackAgent?: string, fallbackCycle?: stri
     source: 'agent-journal',
     agentOrigin,
     tags: asOptionalTags(row.tags),
+    source_mode: 'kv',
   };
 }
 
@@ -213,20 +230,12 @@ function buildEntry(input: AgentJournalCreateInput): AgentJournalEntry | null {
     source: 'agent-journal',
     agentOrigin: asString(input.agentOrigin).toUpperCase() || agent,
     tags: asOptionalTags(input.tags),
+    source_mode: 'kv',
   };
 
   return entry;
 }
 
-/**
- * Resolve logical agent + cycle from Redis key.
- * - Unprefixed: `journal:ZEUS:C-280` (legacy / journal-lane raw client)
- * - Mobius-prefixed: `mobius:journal:ZEUS:C-280` (appendAgentJournalEntry via kvSet)
- */
-/**
- * All-agents journal GET used to take only the newest MAX_READ rows globally; frequent EVE (or ZEUS)
- * runs could fill that window and hide ATLAS entirely. Take newest N per agent, then merge.
- */
 function mergeKvJournalFair(entries: AgentJournalEntry[], perAgent: number, maxTotal: number): AgentJournalEntry[] {
   const byAgent = new Map<string, AgentJournalEntry[]>();
   for (const e of entries) {
@@ -324,32 +333,12 @@ async function loadEntries(
   }
 }
 
-export async function GET(request: NextRequest) {
-  const redis = getJournalRedisClient();
-
-  const { searchParams } = request.nextUrl;
-  const agentFilters = Array.from(
-    new Set(
-      searchParams
-        .getAll('agent')
-        .map((agent) => asString(agent).toUpperCase())
-        .filter(Boolean),
-    ),
-  );
-  const agentFilterSet = new Set(agentFilters);
-  const cycleFilter = asString(searchParams.get('cycle'));
-  const limitRaw = Number(searchParams.get('limit') ?? '20');
-  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 100) : 20;
-
-  let kvEntries = await loadEntries(redis, agentFilters);
-  if (agentFilters.length === 0) {
-    kvEntries = mergeKvJournalFair(kvEntries, KV_JOURNAL_PER_AGENT_CAP, KV_JOURNAL_FAIR_MERGE_MAX);
-  }
-
+async function loadSubstrateEntries(agentFilters: string[], limit: number): Promise<{ entries: AgentJournalEntry[]; error: string | null }> {
   let substrateError: string | null = null;
-  let substrateEntries: AgentJournalEntry[] = [];
+  const substrateEntries: AgentJournalEntry[] = [];
   const substrateAgents = agentFilters.length > 0 ? agentFilters : [...GENESIS_AGENTS];
-  const substrateLimit = agentFilters.length === 1 ? 10 : Math.max(3, Math.ceil(limit / substrateAgents.length));
+  const substrateLimit = agentFilters.length === 1 ? Math.max(3, limit) : Math.max(3, Math.ceil(limit / substrateAgents.length));
+
   for (const agent of substrateAgents) {
     try {
       const substrateRead = readAgentJournals(agent.toLowerCase(), substrateLimit);
@@ -369,13 +358,46 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  return { entries: substrateEntries, error: substrateError };
+}
+
+export async function GET(request: NextRequest) {
+  const redis = getJournalRedisClient();
+
+  const { searchParams } = request.nextUrl;
+  const mode = normalizeMode(searchParams.get('mode'));
+  const agentFilters = Array.from(
+    new Set(
+      searchParams
+        .getAll('agent')
+        .map((agent) => asString(agent).toUpperCase())
+        .filter(Boolean),
+    ),
+  );
+  const agentFilterSet = new Set(agentFilters);
+  const cycleFilter = asString(searchParams.get('cycle'));
+  const limitRaw = Number(searchParams.get('limit') ?? '20');
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), MAX_READ) : 20;
+
+  const shouldReadKv = mode === 'hot' || mode === 'merged';
+  const shouldReadSubstrate = mode === 'canon' || mode === 'merged';
+
+  let kvEntries: AgentJournalEntry[] = shouldReadKv ? await loadEntries(redis, agentFilters) : [];
+  if (shouldReadKv && agentFilters.length === 0) {
+    kvEntries = mergeKvJournalFair(kvEntries, KV_JOURNAL_PER_AGENT_CAP, KV_JOURNAL_FAIR_MERGE_MAX);
+  }
+
+  const { entries: substrateEntries, error: substrateError } = shouldReadSubstrate
+    ? await loadSubstrateEntries(agentFilters, limit)
+    : { entries: [], error: null };
+
   const kvForSources = agentFilters.length > 0
     ? kvEntries.filter((e) => agentFilterSet.has(e.agentOrigin.toUpperCase()))
     : kvEntries;
 
-  const all = [...kvEntries, ...substrateEntries];
+  const combined = mode === 'hot' ? kvEntries : mode === 'canon' ? substrateEntries : [...kvEntries, ...substrateEntries];
   const seen = new Set<string>();
-  const merged = all
+  const merged = combined
     .filter((e) => {
       if (seen.has(e.id)) return false;
       seen.add(e.id);
@@ -400,6 +422,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     {
       ok: true,
+      mode,
       count: filtered.length,
       entries: filtered,
       agents,
@@ -408,7 +431,8 @@ export async function GET(request: NextRequest) {
         kv: kvForSources.length,
         substrate: substrateEntries.length,
       },
-      merged_from_archive: substrateEntries.length > 0,
+      merged_from_archive: mode === 'merged' && substrateEntries.length > 0,
+      canonical_source: 'substrate',
       archive_error: substrateError,
       archive_fetched_count: substrateEntries.length,
       archive_stale: archiveStale,
@@ -443,37 +467,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const redis = getJournalRedisClient();
-  if (redis) {
-    const writeResult = await appendJournalLaneEntry(redis, {
-      ...entry,
-      id: entry.id,
-      timestamp: entry.timestamp,
-    });
-
-    if (!writeResult.written) {
-      return NextResponse.json({ ok: true, duplicate: true, token: writeResult.token, substrate: 'writing' });
-    }
-    entry.id = writeResult.entry.id;
-    entry.timestamp = writeResult.entry.timestamp;
-  }
-
-  void writeToSubstrate({
-    agent: entry.agent,
-    agentOrigin: entry.agentOrigin,
-    cycle: entry.cycle,
-    title: entry.inference,
-    summary: entry.observation,
-    category: entry.category,
-    severity: entry.severity,
-    source: 'agent-journal',
-    confidence: entry.confidence,
-    derivedFrom: entry.derivedFrom,
-    tags: entry.tags,
-  }).catch((error) => {
-    console.error('[ledger] journal attest error', error);
-  });
-
   const giAt =
     input && typeof input.gi_snapshot === 'number' && Number.isFinite(input.gi_snapshot)
       ? input.gi_snapshot
@@ -498,14 +491,52 @@ export async function POST(request: NextRequest) {
     status: entry.status,
   };
 
-  void writeJournalToSubstrate(substratePayload).catch((err) => {
-    console.error('[journal] substrate write failed:', err);
+  const substrateResult = await writeJournalToSubstrate(substratePayload);
+  if (!substrateResult.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        canonical: false,
+        error: substrateResult.error ?? 'substrate_write_failed',
+        mirrored_to_kv: false,
+      },
+      { status: 502 },
+    );
+  }
+
+  let mirroredToKv = false;
+  const redis = getJournalRedisClient();
+  if (redis) {
+    const writeResult = await appendJournalLaneEntry(redis, {
+      ...entry,
+      id: entry.id,
+      timestamp: entry.timestamp,
+    });
+    mirroredToKv = writeResult.written || writeResult.token === 'already_exists';
+  }
+
+  void writeToSubstrate({
+    agent: entry.agent,
+    agentOrigin: entry.agentOrigin,
+    cycle: entry.cycle,
+    title: entry.inference,
+    summary: entry.observation,
+    category: entry.category,
+    severity: entry.severity,
+    source: 'agent-journal',
+    confidence: entry.confidence,
+    derivedFrom: entry.derivedFrom,
+    tags: entry.tags,
+  }).catch((error) => {
+    console.error('[ledger] journal attest error', error);
   });
 
   return NextResponse.json({
     ok: true,
+    canonical: true,
+    path: substrateResult.path,
+    mirrored_to_kv: mirroredToKv,
     entryId: entry.id,
     timestamp: entry.timestamp,
-    substrate: 'writing',
   });
 }

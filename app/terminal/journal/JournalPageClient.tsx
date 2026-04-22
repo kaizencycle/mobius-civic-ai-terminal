@@ -23,7 +23,7 @@ const AGENT_PILL_STYLE: Record<string, { border: string; activeBg: string; text:
   ECHO: { border: 'border-slate-500/50', activeBg: 'bg-slate-600/20', text: 'text-slate-100' },
 };
 
-type JournalResponse = { count?: number; entries?: JournalDisplayEntry[] };
+type JournalResponse = { count?: number; mode?: 'hot' | 'canon' | 'merged'; entries?: JournalDisplayEntry[] };
 
 type EpiconItem = {
   id: string;
@@ -127,6 +127,7 @@ export default function JournalPageClient() {
   const [agent, setAgent] = useState('ALL');
   const [cycleTab, setCycleTab] = useState<string>(() => currentCycleId());
   const [derivedMode, setDerivedMode] = useState(false);
+  const [readMode, setReadMode] = useState<'hot' | 'canon' | 'merged'>('merged');
   const [missingRelatedId, setMissingRelatedId] = useState<string | null>(null);
   const anchorsRef = useRef<Map<string, HTMLElement>>(new Map());
 
@@ -151,7 +152,7 @@ export default function JournalPageClient() {
     void (async () => {
       let journalEntries: JournalDisplayEntry[] = [];
       try {
-        const res = await fetch('/api/agents/journal?limit=100', { cache: 'no-store' });
+        const res = await fetch(`/api/agents/journal?limit=100&mode=${readMode}`, { cache: 'no-store' });
         const data = (await res.json()) as JournalResponse;
         journalEntries = data.entries ?? [];
       } catch {
@@ -188,7 +189,7 @@ export default function JournalPageClient() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [readMode]);
 
   const agentCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -253,6 +254,19 @@ export default function JournalPageClient() {
           Derived from EPICON feed · Native journals pending SUBSTRATE_GITHUB_TOKEN
         </div>
       ) : null}
+
+      <div className="mb-3 flex items-center gap-2 text-[11px] font-mono">
+        <span className="text-slate-500">Journal mode</span>
+        {(['hot', 'canon', 'merged'] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setReadMode(mode)}
+            className={`rounded border px-2 py-1 uppercase tracking-[0.14em] ${readMode === mode ? 'border-cyan-400/60 bg-cyan-500/10 text-cyan-200' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}
+          >
+            {mode}
+          </button>
+        ))}
+      </div>
 
       {entries.length === 0 ? (
         <div className="space-y-4">

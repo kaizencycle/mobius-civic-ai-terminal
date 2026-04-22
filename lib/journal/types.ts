@@ -23,4 +23,6 @@ export type JournalDisplayEntry = {
   severity?: JournalDisplaySeverity;
   scope?: string;
   agentOrigin?: string;
+  source_mode?: 'kv' | 'substrate';
+  canonical_path?: string;
 };

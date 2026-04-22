@@ -62,6 +62,11 @@ export default function JournalEntryCard({ entry, onRelatedClick, registerAnchor
           </span>
         ) : null}
         <span className="text-[10px] text-slate-600">source {entry.source ?? 'journal'}</span>
+        {entry.source_mode ? (
+          <span className={`rounded border px-1.5 py-0.5 text-[10px] ${entry.source_mode === 'substrate' ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200' : 'border-violet-500/30 bg-violet-500/10 text-violet-200'}`}>
+            {entry.source_mode === 'substrate' ? 'SUBSTRATE' : 'KV'}
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-2 text-slate-200">
@@ -77,6 +82,11 @@ export default function JournalEntryCard({ entry, onRelatedClick, registerAnchor
           <span className="font-medium text-slate-500">Recommends: </span>
           {entry.recommendation}
         </div>
+      ) : null}
+
+
+      {entry.canonical_path ? (
+        <div className="mt-1 text-[10px] text-cyan-300/80">canon: {entry.canonical_path}</div>
       ) : null}
 
       <DerivedFromChain items={entry.derivedFrom} onJournalRefClick={onRelatedClick} />

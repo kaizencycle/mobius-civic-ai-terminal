@@ -5,7 +5,7 @@ import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 
-type Agent = { id: string; name: string; role: string; status: string; lastAction?: string; tier?: string; mii_avg?: number };
+type Agent = { id: string; name: string; role: string; status: string; liveness?: string; lastAction?: string; last_action?: string; last_seen?: string | null; last_journal_at?: string | null; confidence?: number; source_badges?: string[]; tier?: string; mii_avg?: number };
 type JournalEntry = { id: string; observation?: string; cycle?: string };
 type MiiEntry = { agent: string; mii: number; timestamp: string };
 
@@ -222,7 +222,11 @@ export default function SentinelPageClient() {
               </div>
             </div>
             <div className="mt-1 text-xs text-slate-400">{agent.role} · {agent.tier ?? '—'}</div>
-            <div className="mt-2 text-xs text-slate-500">{agent.lastAction ?? 'Awaiting first action this cycle.'}</div>
+            <div className="mt-2 text-xs text-slate-500">{agent.lastAction ?? agent.last_action ?? 'Awaiting first action this cycle.'}</div>
+            <div className="mt-1 text-[10px] text-slate-500">
+              {(agent.source_badges ?? []).map((b) => `[${b}]`).join(' ') || '[HB][ACT][JRN] pending'}
+              {agent.confidence != null ? ` · conf ${agent.confidence.toFixed(2)}` : ''}
+            </div>
             <div className="mt-2 flex items-center gap-2">
               <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-slate-500">MII trend</span>
               {miiData[agent.name]?.length ? (
