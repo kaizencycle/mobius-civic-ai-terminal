@@ -4,6 +4,9 @@ import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { kvSet, kvSetRawKey, KV_KEYS, isRedisAvailable, KV_TTL_SECONDS } from '@/lib/kv/store';
+import { readAllSubstrateJournals } from '@/lib/substrate/github-reader';
+import { evaluateTrustTripwires } from '@/lib/tripwire/trustTripwires';
+import type { TrustTripwireSnapshot } from '@/lib/tripwire/types';
 
 import { GET as getKvHealth } from '@/app/api/kv/health/route';
 import { POST as postSeedKv } from '@/app/api/admin/seed-kv/route';
@@ -39,6 +42,17 @@ import { POST as postEpiconPromote } from '@/app/api/epicon/promote/route';
  * verified by `getServiceAuthError` at the top of this handler).
  */
 export const dynamic = 'force-dynamic';
+
+function emptyTrustSnapshot(timestamp: string): TrustTripwireSnapshot {
+  return {
+    ok: true,
+    tripwireCount: 0,
+    elevated: false,
+    critical: false,
+    results: [],
+    timestamp,
+  };
+}
 
 type WatchdogActionResult = {
   ok: boolean;
@@ -164,6 +178,34 @@ export async function GET(request: NextRequest) {
   const promoteResult = await runAction(() => postEpiconPromote(promoteRequest), 30_000);
   actions.push(`promote:${promoteResult.ok ? 'ok' : `fail:${promoteResult.status}`}`);
 
+  const trustSnapshot = await (async (): Promise<TrustTripwireSnapshot> => {
+    try {
+      const substrateJournals = await Promise.race([
+        readAllSubstrateJournals(10),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('trust_journal_timeout')), 7000)),
+      ]);
+      const journals = Object.values(substrateJournals).flat();
+      const promoteBody = promoteResult.body as Record<string, unknown> | null;
+      const giBody = giResult.body as Record<string, unknown> | null;
+      const epiconRows = Array.isArray(promoteBody?.items)
+        ? (promoteBody.items as Array<Record<string, unknown>>)
+        : Array.isArray(giBody?.entries)
+          ? (giBody.entries as Array<Record<string, unknown>>)
+          : [];
+      return evaluateTrustTripwires({ journals, epiconRows });
+    } catch (error) {
+      console.error('[watchdog] trust tripwire evaluation failed:', error instanceof Error ? error.message : error);
+      return emptyTrustSnapshot(new Date().toISOString());
+    }
+  })();
+
+  await Promise.all([
+    kvSet(KV_KEYS.TRIPWIRE_STATE, trustSnapshot, KV_TTL_SECONDS.TRIPWIRE_STATE),
+    kvSet(KV_KEYS.TRIPWIRE_STATE_KV, trustSnapshot, KV_TTL_SECONDS.TRIPWIRE_STATE),
+    kvSetRawKey('TRUST_TRIPWIRE_STATE', JSON.stringify(trustSnapshot), KV_TTL_SECONDS.TRIPWIRE_STATE),
+  ]).catch(() => {});
+  actions.push(`trust-tripwire:${trustSnapshot.ok ? 'ok' : trustSnapshot.critical ? 'fail:critical' : 'fail:elevated'}`);
+
   const logResult = {
     seeded: seedResult.body,
     gi: giResult.body,
@@ -194,7 +236,9 @@ export async function GET(request: NextRequest) {
     agent: 'ATLAS',
     cycle: currentCycleId(),
     observation: `Sentinel watchdog ran checks: ${actions.join(', ')}.`,
-    inference: failed === 0 ? 'System integrity checks passed in this cycle.' : `${failed} watchdog checks failed and require operator review.`,
+    inference: failed === 0
+      ? 'System integrity checks passed in this cycle.'
+      : `${failed} watchdog checks failed and require operator review.`,
     recommendation: failed === 0
       ? 'Continue scheduled watch cadence.'
       : 'Inspect failed watchdog actions and confirm CRON_SECRET / KV health before next run.',
@@ -207,6 +251,26 @@ export async function GET(request: NextRequest) {
   }).catch((err) => {
     console.error('[watchdog] ATLAS journal append failed:', err instanceof Error ? err.message : err);
   });
+
+  if (trustSnapshot.elevated) {
+    void appendAgentJournalEntry({
+      agent: 'ATLAS',
+      cycle: currentCycleId(),
+      observation: `Trust tripwires triggered: ${trustSnapshot.results.filter((result) => result.triggered).map((result) => result.kind).join(', ')}.`,
+      inference: trustSnapshot.critical
+        ? 'Trust posture is critically degraded and requires immediate operator attention.'
+        : 'Trust posture is elevated; monitor affected agents and verification quality.',
+      recommendation: trustSnapshot.critical
+        ? 'Pause high-risk promotion decisions and inspect provenance/timeline violations before continuing.'
+        : 'Review trust tripwire panel and increase verification rigor on upcoming promotions.',
+      confidence: trustSnapshot.critical ? 0.52 : 0.68,
+      derivedFrom: ['watchdog:trust-tripwire', `watchdog:run:${timestamp}`],
+      relatedAgents: ['ZEUS', 'EVE'],
+      status: 'committed',
+      category: 'alert',
+      severity: trustSnapshot.critical ? 'critical' : 'elevated',
+    }).catch(() => {});
+  }
 
   const allOk = kvHealth.ok && seedResult.ok && giResult.ok && tripwireResult.ok && echoResult.ok && promoteResult.ok;
 

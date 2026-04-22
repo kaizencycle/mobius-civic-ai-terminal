@@ -13,6 +13,7 @@ import { GET as getMii } from '@/app/api/mii/feed/route';
 import { GET as getVault } from '@/app/api/vault/status/route';
 import { GET as getMicReadiness } from '@/app/api/mic/readiness/route';
 import { GET as getTripwire } from '@/app/api/tripwire/status/route';
+import { GET as getTrustTripwire } from '@/app/api/tripwire/trust/route';
 import { GET as getSnapshotLite } from '@/app/api/terminal/snapshot-lite/route';
 import { memoryModeFromIntegrityPayload, memoryModeFromSnapshotLiteBody } from '@/lib/terminal/memoryMode';
 import { loadSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
@@ -24,6 +25,8 @@ import {
 } from '@/lib/terminal/snapshotLanes';
 import type { SubstrateJournalEntry } from '@/lib/substrate/github-journal';
 import { readAllSubstrateJournals } from '@/lib/substrate/github-reader';
+import { trustMultiplier } from '@/lib/tripwire/trustTripwires';
+import type { TrustTripwireSnapshot } from '@/lib/tripwire/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,6 +99,7 @@ export async function GET(request: NextRequest) {
     timedHandler(makeRequest(baseUrl, '/api/vault/status'), getVault),
     timedHandler(makeRequest(baseUrl, '/api/mic/readiness'), getMicReadiness),
     timedHandler(makeRequest(baseUrl, '/api/tripwire/status'), getTripwire),
+    timedHandler(makeRequest(baseUrl, '/api/tripwire/trust'), getTrustTripwire),
   ]);
 
   const litePromise = timedHandler(makeRequest(baseUrl, '/api/terminal/snapshot-lite'), getSnapshotLite);
@@ -113,7 +117,7 @@ export async function GET(request: NextRequest) {
     signalsDuration = Date.now() - signalsStart;
   }
 
-  const [integrity, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve, mii, vault, micReadiness, tripwire] =
+  const [integrity, kvHealth, agents, epicon, echo, journal, sentiment, runtime, promotion, eve, mii, vault, micReadiness, tripwire, trustTripwire] =
     results;
 
   const litePayload = liteResult.leaf.data as Record<string, unknown> | null;
@@ -135,6 +139,7 @@ export async function GET(request: NextRequest) {
     vault: vault.duration_ms,
     micReadiness: micReadiness.duration_ms,
     tripwire: tripwire.duration_ms,
+    trustTripwire: trustTripwire.duration_ms,
   };
 
   type SubstrateAgentRow = { agent: string; lastEntry: SubstrateJournalEntry | null; entryCount: number };
@@ -210,6 +215,9 @@ export async function GET(request: NextRequest) {
       : typeof integrityData?.global_integrity === 'number' && Number.isFinite(integrityData.global_integrity)
         ? integrityData.global_integrity
         : null;
+  const trustPayload = (trustTripwire.leaf.data ?? {}) as Record<string, unknown> | null;
+  const trustSnapshot = (trustPayload?.trust_tripwire ?? null) as TrustTripwireSnapshot | null;
+  const effectiveGi = typeof topGi === 'number' ? Number((topGi * trustMultiplier(trustSnapshot)).toFixed(4)) : null;
 
   const journalData = journal.leaf.data as Record<string, unknown> | null;
   const journalEntries = Array.isArray(journalData?.entries) ? journalData?.entries as Record<string, unknown>[] : [];
@@ -244,13 +252,32 @@ export async function GET(request: NextRequest) {
   const topDegraded =
     memoryMode?.degraded === true ||
     tripwireElevated ||
+    Boolean(trustSnapshot?.elevated) ||
     Boolean(integrityData?.gi_degraded ?? integrityData?.degraded) ||
     (typeof integrityData?.mode === 'string' && (integrityData.mode === 'red' || integrityData.mode === 'yellow'));
+
+  const trustSummary = trustSnapshot
+    ? {
+        elevated: trustSnapshot.elevated,
+        critical: trustSnapshot.critical,
+        tripwireCount: trustSnapshot.tripwireCount,
+        top: trustSnapshot.results
+          .filter((result) => result.triggered)
+          .slice(0, 5)
+          .map((result) => ({
+            kind: result.kind,
+            severity: result.severity,
+            message: result.message,
+            affectedAgents: result.affectedAgents ?? [],
+          })),
+      }
+    : { elevated: false, critical: false, tripwireCount: 0, top: [] };
 
   return NextResponse.json({
     ok: criticalOk && !criticalFail,
     cycle: eveCycle ?? cycle ?? null,
     gi: topGi,
+    effective_gi: effectiveGi,
     degraded: topDegraded,
     include_catalog: includeCatalog === 'true',
     journal_mode: journalMode === 'hot' || journalMode === 'canon' || journalMode === 'merged' ? journalMode : 'merged',
@@ -261,6 +288,7 @@ export async function GET(request: NextRequest) {
     },
     meta: { total_ms: totalMs, lane_ms: timings },
     memory_mode: memoryMode,
+    trust_tripwire: trustSummary,
     lanes,
     journal_summary: journalSummary,
     agent_liveness: agentLiveness,
@@ -269,6 +297,7 @@ export async function GET(request: NextRequest) {
     runtime: runtime.leaf, promotion: promotion.leaf, eve: eve.leaf, mii: mii.leaf, vault: vault.leaf,
     micReadiness: micReadiness.leaf,
     tripwire: tripwire.leaf,
+    trustTripwire: trustTripwire.leaf,
     substrate,
   }, {
     headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'terminal-snapshot' },

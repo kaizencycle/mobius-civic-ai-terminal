@@ -9,6 +9,8 @@ import {
   type SubstrateJournalWriteInput,
 } from '@/lib/substrate/github-journal';
 import { readAgentJournals } from '@/lib/substrate/github-reader';
+import { checkProvenanceBreak, checkTemporalCoherence } from '@/lib/tripwire/archiveChecks';
+import { checkJournalQualityDrift } from '@/lib/tripwire/journalQuality';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -464,6 +466,56 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { ok: false, error: 'Required fields: agent, observation, inference, cycle' },
       { status: 400 },
+    );
+  }
+
+  const candidateEntry: SubstrateJournalEntry = {
+    ...entry,
+    tags: entry.tags ?? [],
+  };
+
+  const provenance = checkProvenanceBreak([candidateEntry]);
+  if (provenance.triggered) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'provenance_break',
+        message: 'PROVENANCE BREAK — trust chain incomplete',
+      },
+      { status: 422 },
+    );
+  }
+
+  let recentAgentEntries: SubstrateJournalEntry[] = [];
+  try {
+    recentAgentEntries = await Promise.race([
+      readAgentJournals(entry.agent.toLowerCase(), 5),
+      new Promise<SubstrateJournalEntry[]>((_, reject) => setTimeout(() => reject(new Error('journal_read_timeout')), 4000)),
+    ]);
+  } catch {
+    recentAgentEntries = [];
+  }
+  const temporal = checkTemporalCoherence([candidateEntry, ...recentAgentEntries]);
+  if (temporal.triggered) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'temporal_break',
+        message: 'TEMPORAL BREAK — replay integrity compromised',
+      },
+      { status: 422 },
+    );
+  }
+
+  const quality = checkJournalQualityDrift([candidateEntry, ...recentAgentEntries]);
+  if (quality.triggered && quality.affectedAgents.includes(entry.agent)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'journal_quality_drift',
+        message: 'JOURNAL DRIFT — agent cognition degrading',
+      },
+      { status: 422 },
     );
   }
 
