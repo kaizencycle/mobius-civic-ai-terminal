@@ -8,14 +8,15 @@ import {
   GLOBE_DOMAIN_ORDER,
   domainBarColor,
   extractUsgsSamples,
+  freshnessLabel,
   gdeltDeadLane,
   partitionMicroSignals,
   pickLatestMiiByAgent,
   type GlobeDashboardBundle,
   type MiiAgentScore,
-  type SeismicRow,
 } from '@/components/terminal/chambers/globeDashboardExtras';
 import type { GlobeViewControls } from '@/components/terminal/chambers/types';
+import { useAPODThumb } from '@/hooks/useAPODThumb';
 import { cn } from '@/lib/utils';
 
 type SentimentDomain = {
@@ -44,11 +45,13 @@ function magPillClass(m: number): string {
 
 function CollapsiblePanel(props: {
   id: string;
-    title: string;
-    subtitle: string | null;
-    defaultOpen?: boolean;
-    children: ReactNode;
-  }) {
+  title: string;
+  subtitle: string | null;
+  freshness?: number | null;
+  badge?: string | null;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
   const [open, setOpen] = useState(props.defaultOpen ?? true);
   const panelId = `${props.id}-panel`;
   return (
@@ -62,10 +65,27 @@ function CollapsiblePanel(props: {
         className="flex w-full items-start justify-between gap-2 border-b border-white/[0.06] p-3 text-left transition hover:bg-white/[0.04] active:bg-white/[0.06]"
       >
         <div className="min-w-0 flex-1">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{props.title}</h3>
-          {props.subtitle ? (
-            <p className="mt-0.5 text-[9px] leading-snug text-slate-600">{props.subtitle}</p>
-          ) : null}
+          <h3 className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+            <span>{props.title}</span>
+            {props.badge ? (
+              <span className="rounded border border-amber-500/30 px-1 py-0.5 font-mono text-[8px] uppercase tracking-wide text-amber-300/90">
+                {props.badge}
+              </span>
+            ) : null}
+          </h3>
+          {props.subtitle ? <p className="mt-0.5 text-[9px] leading-snug text-slate-600">{props.subtitle}</p> : null}
+          <p
+            className={cn(
+              'mt-0.5 text-[9px]',
+              props.freshness == null || props.freshness < 300
+                ? 'text-slate-600'
+                : props.freshness < 1800
+                  ? 'text-amber-500/80'
+                  : 'text-rose-400/80',
+            )}
+          >
+            {freshnessLabel(props.freshness ?? null)}
+          </p>
         </div>
         <span className="shrink-0 font-mono text-[10px] text-slate-500" aria-hidden>
           {open ? '−' : '+'}
@@ -98,7 +118,7 @@ export default function GlobeChapterDashboards(props: {
   const domainByKey = Object.fromEntries(domains.map((d) => [d.key, d])) as Record<string, SentimentDomain>;
 
   const eveStrip = dashboard?.eveStrip ?? null;
-  const seismic = extractUsgsSamples(micro);
+  const seismic = extractUsgsSamples(dashboard?.echoEpicon ?? []);
   const { environmental, markets, governance } = partitionMicroSignals(micro);
   const gdeltDead = gdeltDeadLane(micro);
   const miiMap = pickLatestMiiByAgent(dashboard?.miiFeed ?? null);
@@ -109,6 +129,8 @@ export default function GlobeChapterDashboards(props: {
   const tw = asRecord(twRoot?.tripwire) ?? twRoot;
   const vault = asRecord(dashboard?.vault);
   const mic = asRecord(dashboard?.micReadiness);
+  const panelAge = dashboard?.panelAgeSeconds ?? {};
+  const signalWarning = dashboard?.signalWarnings?.[0] ?? null;
 
   const inProg = typeof vault?.in_progress_balance === 'number' ? vault.in_progress_balance : null;
   const thr = typeof vault?.activation_threshold === 'number' ? vault.activation_threshold : 50;
@@ -121,6 +143,7 @@ export default function GlobeChapterDashboards(props: {
   const pulseInstr = typeof rt?.pulse === 'object' && rt.pulse !== null ? (rt.pulse as Record<string, unknown>).instruments : null;
 
   const apod = (micro?.allSignals ?? []).find((s) => s.source.toLowerCase().includes('apod'));
+  const { title: apodTitle, thumb: apodThumb } = useAPODThumb(apod?.label ?? null);
 
   const uid = useId().replace(/:/g, '');
   const onDomainTap = useCallback(
@@ -147,7 +170,7 @@ export default function GlobeChapterDashboards(props: {
           </div>
         ) : null}
 
-        <div className="grid grid-cols-1 gap-2 pb-2 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 scroll-pb-24 pb-2 md:scroll-pb-8 lg:grid-cols-2 xl:grid-cols-3">
           <CollapsiblePanel
             id={`${uid}-sent`}
             title="Sentiment domains"
@@ -156,6 +179,7 @@ export default function GlobeChapterDashboards(props: {
                 ? 'Tap a row to focus that domain on the globe'
                 : 'Switch to Globe to focus pins by domain'
             }
+            freshness={panelAge.sentiment ?? null}
             defaultOpen
           >
             <div className="space-y-2">
@@ -164,6 +188,16 @@ export default function GlobeChapterDashboards(props: {
                 const score = d?.score ?? null;
                 const w = score != null ? `${Math.round(score * 100)}%` : '0%';
                 const bg = domainBarColor(key, score);
+                const domainSignals = (micro?.allSignals ?? []).filter((s) => {
+                  const src = `${s.source} ${s.label}`.toLowerCase();
+                  if (key === 'narrative') return src.includes('gdelt') || src.includes('reddit') || src.includes('hacker');
+                  if (key === 'financial') return src.includes('coingecko') || src.includes('fx') || src.includes('bitcoin');
+                  if (key === 'environ') return src.includes('usgs') || src.includes('eonet') || src.includes('meteo') || src.includes('apod');
+                  if (key === 'civic') return src.includes('federal register');
+                  if (key === 'institutional') return src.includes('data.gov');
+                  return src.includes('github') || src.includes('npm');
+                });
+                const deadCount = domainSignals.filter((s) => s.value === 0 && (s.severity === 'critical' || s.source.toLowerCase().includes('gdelt') || s.source.toLowerCase().includes('reddit'))).length;
                 return (
                   <button
                     key={key}
@@ -182,15 +216,20 @@ export default function GlobeChapterDashboards(props: {
                     <div className="w-10 shrink-0 text-right font-mono text-[11px] text-slate-200">
                       {score != null ? score.toFixed(2) : '—'}
                     </div>
+                    {deadCount > 0 ? (
+                      <span className="rounded border border-rose-500/40 px-1 py-0.5 font-mono text-[8px] uppercase tracking-wide text-rose-300/90">
+                        dead lane
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
             </div>
           </CollapsiblePanel>
 
-          <CollapsiblePanel id={`${uid}-seq`} title="Seismic · USGS (M2.5+ day)" subtitle="GAIA micro-signal raw.samples">
+          <CollapsiblePanel id={`${uid}-seq`} title="Seismic · EPICON" subtitle="ECHO EPICON ingest with coordinates" freshness={panelAge.seismic ?? null}>
             {seismic.length === 0 ? (
-              <p className="text-[10px] text-slate-500">No USGS samples in current micro sweep.</p>
+              <p className="text-[10px] text-slate-500">No seismic EPICON events in current sweep.</p>
             ) : (
               <ul className="space-y-1 font-mono text-[10px] text-slate-300">
                 {seismic.map((r, i) => (
@@ -206,7 +245,7 @@ export default function GlobeChapterDashboards(props: {
             )}
           </CollapsiblePanel>
 
-          <CollapsiblePanel id={`${uid}-env`} title="Environmental · ECHO lane" subtitle="GAIA / ECHO micro (non-seismic)">
+          <CollapsiblePanel id={`${uid}-env`} title="Environmental · ECHO lane" subtitle="GAIA / ECHO micro (non-seismic)" freshness={panelAge.environmental ?? null}>
             {environmental.length === 0 ? (
               <p className="text-[10px] text-slate-500">No environmental instruments in sweep.</p>
             ) : (
@@ -227,9 +266,21 @@ export default function GlobeChapterDashboards(props: {
                 ))}
               </ul>
             )}
+            {apodTitle ? (
+              <div className="mt-2 flex items-center gap-2 rounded border border-slate-700/70 bg-slate-900/50 p-1.5">
+                {apodThumb ? <img src={apodThumb} alt={apodTitle} className="h-10 w-10 rounded object-cover opacity-80" /> : null}
+                <span className="min-w-0 truncate font-mono text-[10px] text-slate-300">{apodTitle}</span>
+              </div>
+            ) : null}
           </CollapsiblePanel>
 
-          <CollapsiblePanel id={`${uid}-mkt`} title="Markets · governance" subtitle="Tap a row for raw label">
+          <CollapsiblePanel
+            id={`${uid}-mkt`}
+            title="Markets · governance"
+            subtitle="Tap a row for raw label"
+            freshness={panelAge.markets ?? null}
+            badge={signalWarning ? `${signalWarning.count} absent` : null}
+          >
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div>
                 <div className="mb-1 text-[9px] uppercase tracking-wide text-slate-600">Markets</div>
@@ -277,7 +328,7 @@ export default function GlobeChapterDashboards(props: {
             </div>
           </CollapsiblePanel>
 
-          <CollapsiblePanel id={`${uid}-mii`} title="Agent MII" subtitle="Latest per agent from mii:feed">
+          <CollapsiblePanel id={`${uid}-mii`} title="Agent MII" subtitle="Latest per agent from mii:feed" freshness={panelAge.mii ?? null}>
             <div className="space-y-1.5">
               {MII_ORDER.map((agent) => {
                 const row: MiiAgentScore | undefined = miiMap[agent];
@@ -300,12 +351,17 @@ export default function GlobeChapterDashboards(props: {
             </div>
           </CollapsiblePanel>
 
-          <CollapsiblePanel id={`${uid}-vault`} title="Vault · tranche" subtitle="/api/vault/status">
+          <CollapsiblePanel id={`${uid}-vault`} title="Vault · tranche" subtitle="/api/vault/status" freshness={panelAge.vault ?? null}>
             <div className="space-y-2 text-[10px] text-slate-400">
+              {typeof vault?.seals_audit_count === 'number' && vault.seals_audit_count > 0 && (inProg ?? 999) < 5 ? (
+                <div className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-mono text-[10px] text-amber-300">
+                  ◈ Seal {vault.seals_audit_count} formed · tranche complete · reserve accumulating toward Seal {vault.seals_audit_count + 1}
+                </div>
+              ) : null}
               {inProg != null ? (
                 <>
                   <div className="flex justify-between font-mono text-slate-300">
-                    <span>In progress</span>
+                    <span>Tranche {typeof vault?.seals_audit_count === 'number' ? vault.seals_audit_count + 1 : '—'}</span>
                     <span>
                       {inProg.toFixed(2)} / {thr.toFixed(2)}
                     </span>
@@ -341,7 +397,7 @@ export default function GlobeChapterDashboards(props: {
             </div>
           </CollapsiblePanel>
 
-          <CollapsiblePanel id={`${uid}-infra`} title="Infrastructure pulse" subtitle="KV · backup Redis · pulse · tripwire">
+          <CollapsiblePanel id={`${uid}-infra`} title="Infrastructure pulse" subtitle="KV · backup Redis · pulse · tripwire" freshness={panelAge.infrastructure ?? null}>
             <ul className="space-y-1 font-mono text-[10px] text-slate-400">
               <li>
                 KV primary:{' '}

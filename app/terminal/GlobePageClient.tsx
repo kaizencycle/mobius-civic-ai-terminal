@@ -47,11 +47,41 @@ export default function GlobePageClient() {
   const cycle = integrity.cycle ?? (snapshot as Record<string, unknown> | null)?.cycle as string | undefined ?? 'C-271';
   const gi = integrity.global_integrity ?? (snapshot as Record<string, unknown> | null)?.gi as number | undefined ?? 0;
 
+  const laneAge = (leaf: unknown): number | null => {
+    if (!leaf || typeof leaf !== 'object') return null;
+    const row = leaf as Record<string, unknown>;
+    if (typeof row.age_seconds === 'number') return row.age_seconds;
+    if (typeof row.timestamp === 'string') {
+      const ms = new Date(row.timestamp).getTime();
+      if (Number.isFinite(ms)) return Math.max(0, Math.floor((Date.now() - ms) / 1000));
+    }
+    return null;
+  };
+
   const globeDashboard = useMemo(() => {
     if (!snapshot) return null;
     const eveStrip = buildEveEscalationStrip(echoEpicon);
+    const EXPECTED_SIGNAL_COUNT = 31;
+    const signalCount = Array.isArray(micro?.allSignals) ? micro.allSignals.length : 0;
+    const missing = Math.max(0, EXPECTED_SIGNAL_COUNT - signalCount);
+    const signalWarnings = missing > 0
+      ? [{ type: 'instrument_dropout' as const, count: missing, message: `${missing} instrument(s) absent from sweep` }]
+      : [];
+    const panelAgeSeconds = {
+      sentiment: laneAge(snapshot.sentiment?.data),
+      seismic: laneAge(snapshot.echo?.data),
+      environmental: laneAge(snapshot.signals?.data),
+      markets: laneAge(snapshot.signals?.data),
+      mii: laneAge(snapshot.mii?.data),
+      vault: laneAge(snapshot.vault?.data),
+      infrastructure: laneAge(snapshot.runtime?.data),
+    };
     return {
       eveStrip,
+      snapshotLoaded: !loading,
+      signalWarnings,
+      panelAgeSeconds,
+      echoEpicon,
       kvHealth: snapshot.kvHealth?.data ?? null,
       runtime: snapshot.runtime?.data ?? null,
       tripwire: snapshot.tripwire?.data ?? null,
@@ -59,7 +89,7 @@ export default function GlobePageClient() {
       micReadiness: snapshot.micReadiness?.data ?? null,
       miiFeed: snapshot.mii?.data ?? null,
     };
-  }, [snapshot, echoEpicon]);
+  }, [snapshot, echoEpicon, loading, micro]);
 
   return (
     <GlobeChamber

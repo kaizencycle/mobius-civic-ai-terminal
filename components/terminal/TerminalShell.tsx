@@ -74,6 +74,12 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
     return null;
   }, [snapshot, integrityData, memoryMode]);
 
+  const seededGi = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const seed = (window as Window & { __MOBIUS_SEED__?: { gi?: number | null } }).__MOBIUS_SEED__;
+    return typeof seed?.gi === 'number' && Number.isFinite(seed.gi) ? seed.gi : null;
+  }, []);
+
   const giProvenance = (memoryMode?.gi_provenance ?? null) as string | null;
   const giVerified = Boolean(memoryMode?.gi_verified);
   const provenanceLabel = provenanceShortLabel(giProvenance);
@@ -99,11 +105,12 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   }, [snapshot, loading, mode, memoryMode]);
 
   const giTone = useMemo(() => {
-    if (gi === null) return 'text-slate-400 border-slate-600';
-    if (gi >= 0.85) return 'text-emerald-300 border-emerald-500/40';
-    if (gi >= 0.7) return 'text-amber-300 border-amber-500/40';
+    const score = gi ?? seededGi;
+    if (score === null) return 'text-slate-400 border-slate-600';
+    if (score >= 0.85) return 'text-emerald-300 border-emerald-500/40';
+    if (score >= 0.7) return 'text-amber-300 border-amber-500/40';
     return 'text-rose-300 border-rose-500/40';
-  }, [gi]);
+  }, [gi, seededGi]);
 
   const snapshotAt = snapshot?.timestamp ?? null;
   const deployment = useMemo(() => {
@@ -160,7 +167,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
               )}
             >
               <span title={provenanceTitle}>
-                GI {loading ? '—' : gi === null ? '—' : gi.toFixed(2)}
+                GI {(gi ?? seededGi) === null ? '—' : (gi ?? seededGi)!.toFixed(2)}
               </span>
               {!loading ? (
                 <span

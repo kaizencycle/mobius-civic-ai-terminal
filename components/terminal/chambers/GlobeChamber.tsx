@@ -89,10 +89,9 @@ export default function GlobeChamber(props: GlobeChamberProps) {
           {show3D ? '2D Map' : '3D Globe'}
         </button>
       ) : (
-        <div className="sticky top-0 z-30 flex shrink-0 items-center justify-center gap-2 border-b border-white/[0.08] bg-[#020810]/95 px-2 py-2 backdrop-blur-sm">
-          <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">ATLAS</span>
+        <div className="sticky top-0 z-30 flex shrink-0 items-center justify-end gap-2 border-b border-white/[0.08] bg-[#020810]/95 px-2 py-2 backdrop-blur-sm">
           <div
-            className="inline-flex rounded-md border border-slate-600 bg-slate-900/90 p-0.5 font-mono text-[10px]"
+            className="inline-flex rounded-full border border-slate-700 bg-slate-900/90 p-0.5 font-mono text-[10px] uppercase tracking-[0.08em]"
             role="group"
             aria-label="Map or 3D globe"
           >
@@ -102,12 +101,14 @@ export default function GlobeChamber(props: GlobeChamberProps) {
                 setMobileShowGlobe(false);
                 persistMobile3d(false);
               }}
-              className={`rounded px-3 py-1.5 transition ${
-                !mobileShowGlobe ? 'bg-cyan-600/25 text-cyan-100' : 'text-slate-400 hover:text-slate-200'
+              className={`rounded-full px-3 py-1.5 transition ${
+                !mobileShowGlobe
+                  ? 'border border-cyan-500/40 bg-cyan-500/20 text-cyan-100'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
               aria-pressed={!mobileShowGlobe}
             >
-              Map
+              ▦ Map
             </button>
             <button
               type="button"
@@ -115,12 +116,14 @@ export default function GlobeChamber(props: GlobeChamberProps) {
                 setMobileShowGlobe(true);
                 persistMobile3d(true);
               }}
-              className={`rounded px-3 py-1.5 transition ${
-                mobileShowGlobe ? 'bg-violet-600/25 text-violet-100' : 'text-slate-400 hover:text-slate-200'
+              className={`rounded-full px-3 py-1.5 transition ${
+                mobileShowGlobe
+                  ? 'border border-cyan-500/40 bg-cyan-500/20 text-cyan-100'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
               aria-pressed={mobileShowGlobe}
             >
-              Globe
+              ◎ Globe
             </button>
           </div>
         </div>
