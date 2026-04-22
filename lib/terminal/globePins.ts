@@ -184,64 +184,8 @@ export function buildGlobePinsFromMicro(
     const sev = microSeverityToGlobe(sig.severity);
 
     if (sig.source === 'USGS Earthquake') {
-      const raw = sig.raw as
-        | {
-            samples?: Array<{ mag: number; place: string; lat: number | null; lng: number | null }>;
-            count?: number;
-            maxMag?: number;
-          }
-        | undefined;
-      const samples = raw?.samples?.filter((q) => q.lat != null && q.lng != null) ?? [];
-      if (samples.length > 0) {
-        for (let i = 0; i < samples.length; i++) {
-          const q = samples[i];
-          const id = `usgs-${i}-${q.lat!.toFixed(2)}-${q.lng!.toFixed(2)}`;
-          const magNorm = Math.max(0, Math.min(1, 1 - (q.mag - 2.5) / 5.5));
-          const pinSev = q.mag >= 5.5 ? 'critical' : q.mag >= 4 ? 'elevated' : sev;
-          pushPin(pins, seen, {
-            id,
-            lat: q.lat!,
-            lng: q.lng!,
-            source: `${agent} · USGS Earthquake`,
-            title: `M ${q.mag.toFixed(1)} — ${q.place}`,
-            value: magNorm,
-            confidence: Math.min(1, 0.55 + (q.mag / 8) * 0.45),
-            severity: pinSev,
-            agent,
-            domainKey,
-            signalTimestamp: sig.timestamp,
-            provenance: 'USGS public feed · GAIA micro-agent sweep',
-            narrativeWhy:
-              pinSev !== 'nominal'
-                ? 'Seismic stress on globe — verify cascading civic and infrastructure risk if activity clusters persist.'
-                : 'Background seismicity within sweep tolerance.',
-            meta: {
-              mag: q.mag,
-              place: q.place,
-              region: q.place,
-              sweepCount: raw?.count ?? samples.length,
-            },
-          });
-        }
-        continue;
-      }
-      pushPin(pins, seen, {
-        id: 'usgs-aggregate',
-        lat: 20,
-        lng: -100,
-        source: `${agent} · USGS Earthquake`,
-        title: sig.label,
-        value: sig.value,
-        confidence: sig.value,
-        severity: sev,
-        agent,
-        domainKey,
-        signalTimestamp: sig.timestamp,
-        provenance: 'USGS aggregate · GAIA sweep (no per-event coordinates)',
-        narrativeWhy: 'Aggregate seismic lane — open inspection for sweep context.',
-        provisional: true,
-        meta: { note: 'aggregate (no per-event coordinates)' },
-      });
+      // Seismic map coordinates are sourced from ECHO EPICON ingest so the globe
+      // and seismic list remain aligned to the same event set.
       continue;
     }
 

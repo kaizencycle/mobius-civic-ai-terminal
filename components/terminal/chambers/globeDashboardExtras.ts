@@ -5,6 +5,10 @@ import { GLOBE_DOMAIN_ORDER } from '@/lib/terminal/globePins';
 
 export type GlobeDashboardBundle = {
   eveStrip: string | null;
+  snapshotLoaded?: boolean;
+  signalWarnings?: Array<{ type: 'instrument_dropout'; count: number; message: string }>;
+  panelAgeSeconds?: Record<string, number | null>;
+  echoEpicon?: EpiconItem[];
   kvHealth: unknown;
   runtime: unknown;
   tripwire: unknown;
@@ -42,31 +46,28 @@ export function pickLatestMiiByAgent(miiLeafData: unknown): Record<string, MiiAg
   return out;
 }
 
-export function extractUsgsSamples(micro: { allSignals?: MicroSignal[] } | null): SeismicRow[] {
-  const all = micro?.allSignals ?? [];
-  const usgs = all.filter((s) => typeof s.source === 'string' && s.source.toLowerCase().includes('usgs'));
+export function extractUsgsSamples(echoEpicon: EpiconItem[] | null): SeismicRow[] {
   const rows: SeismicRow[] = [];
-  for (const s of usgs) {
-    const raw = s.raw && typeof s.raw === 'object' ? (s.raw as Record<string, unknown>) : null;
-    const samples = raw?.samples;
-    if (!Array.isArray(samples)) continue;
-    for (const row of samples) {
-      const o = row && typeof row === 'object' ? (row as Record<string, unknown>) : null;
-      if (!o) continue;
-      const mag = typeof o.mag === 'number' && Number.isFinite(o.mag) ? o.mag : null;
-      const place = typeof o.place === 'string' ? o.place : '';
-      const lat = typeof o.lat === 'number' ? o.lat : null;
-      const lng = typeof o.lng === 'number' ? o.lng : null;
-      if (mag === null) continue;
-      rows.push({
-        mag,
-        place: place || (lat != null && lng != null ? `${lat.toFixed(2)}, ${lng.toFixed(2)}` : 'unknown'),
-        timeMs: typeof s.timestamp === 'string' ? new Date(s.timestamp).getTime() : Date.now(),
-      });
-    }
+  for (const row of echoEpicon ?? []) {
+    const ingest = row.echoIngest;
+    if (!ingest || ingest.source !== 'USGS') continue;
+    const meta = ingest.metadata ?? {};
+    const mag = typeof meta.magnitude === 'number' && Number.isFinite(meta.magnitude) ? meta.magnitude : null;
+    if (mag === null) continue;
+    const place = row.title?.replace(/^M[\d.]+\s*[·-]\s*/i, '') ?? row.summary ?? 'unknown';
+    const timeMs = new Date(row.timestamp).getTime();
+    rows.push({ mag, place, timeMs: Number.isFinite(timeMs) ? timeMs : Date.now() });
   }
-  rows.sort((a, b) => b.mag - a.mag);
+  rows.sort((a, b) => b.timeMs - a.timeMs);
   return rows.slice(0, 16);
+}
+
+export function freshnessLabel(ageSeconds: number | null): string {
+  if (ageSeconds == null) return 'awaiting data';
+  if (ageSeconds < 60) return 'just now';
+  if (ageSeconds < 300) return `${Math.floor(ageSeconds / 60)}m ago`;
+  if (ageSeconds < 1800) return `${Math.floor(ageSeconds / 60)}m ago · stale`;
+  return `${Math.floor(ageSeconds / 3600)}h ago · very stale`;
 }
 
 function sourceLower(s: MicroSignal): string {
