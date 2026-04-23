@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
   const journalMode = (request.nextUrl.searchParams.get('journal_mode')?.trim().toLowerCase() ?? 'merged');
   const journalLimit = request.nextUrl.searchParams.get('journal_limit')?.trim();
   const baseUrl = request.nextUrl.origin;
+  try {
 
   const journalQuery = new URLSearchParams();
   if (cycle) journalQuery.set('cycle', cycle);
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
   const epiconPath = includeCatalog === 'true' ? '/api/epicon/feed?include_catalog=true' : '/api/epicon/feed';
 
   const signalsStart = Date.now();
-  const cachedPromise = loadSignalSnapshot();
+  const cachedPromise = loadSignalSnapshot().catch(() => null);
   const lanesPromise = Promise.all([
     timedHandler(makeRequest(baseUrl, '/api/integrity-status'), getIntegrity),
     timedHandler(makeRequest(baseUrl, '/api/kv/health'), getKvHealth),
@@ -178,7 +179,13 @@ export async function GET(request: NextRequest) {
     micReadiness: micReadiness.leaf, tripwire: tripwire.leaf,
   };
 
-  const lanes: SnapshotLaneState[] = normalizeAllSnapshotLanes(leaves);
+  let lanes: SnapshotLaneState[] = [];
+  try {
+    lanes = normalizeAllSnapshotLanes(leaves);
+  } catch (error) {
+    console.error('[terminal/snapshot] lane normalization failed:', error);
+    lanes = [];
+  }
   const laneByKey = new Map(lanes.map((lane) => [lane.key, lane]));
   const criticalLaneKeys: SnapshotLaneKey[] = ['integrity', 'signals', 'kvHealth'];
   // C-283 (ATLAS audit): `stale` and `promotable` are legitimate operational
@@ -273,33 +280,79 @@ export async function GET(request: NextRequest) {
       }
     : { elevated: false, critical: false, tripwireCount: 0, top: [] };
 
-  return NextResponse.json({
-    ok: criticalOk && !criticalFail,
-    cycle: eveCycle ?? cycle ?? null,
-    gi: topGi,
-    effective_gi: effectiveGi,
-    degraded: topDegraded,
-    include_catalog: includeCatalog === 'true',
-    journal_mode: journalMode === 'hot' || journalMode === 'canon' || journalMode === 'merged' ? journalMode : 'merged',
-    timestamp: new Date().toISOString(),
-    deployment: {
-      commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
-      environment: process.env.VERCEL_ENV ?? null,
-    },
-    meta: { total_ms: totalMs, lane_ms: timings },
-    memory_mode: memoryMode,
-    trust_tripwire: trustSummary,
-    lanes,
-    journal_summary: journalSummary,
-    agent_liveness: agentLiveness,
-    integrity: integrity.leaf, signals, kvHealth: kvHealth.leaf, agents: agents.leaf,
-    epicon: epicon.leaf, echo: echo.leaf, journal: journal.leaf, sentiment: sentiment.leaf,
-    runtime: runtime.leaf, promotion: promotion.leaf, eve: eve.leaf, mii: mii.leaf, vault: vault.leaf,
-    micReadiness: micReadiness.leaf,
-    tripwire: tripwire.leaf,
-    trustTripwire: trustTripwire.leaf,
-    substrate,
-  }, {
-    headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'terminal-snapshot' },
-  });
+    return NextResponse.json({
+      ok: criticalOk && !criticalFail,
+      cycle: eveCycle ?? cycle ?? null,
+      gi: topGi,
+      effective_gi: effectiveGi,
+      degraded: topDegraded,
+      include_catalog: includeCatalog === 'true',
+      journal_mode: journalMode === 'hot' || journalMode === 'canon' || journalMode === 'merged' ? journalMode : 'merged',
+      timestamp: new Date().toISOString(),
+      deployment: {
+        commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+        environment: process.env.VERCEL_ENV ?? null,
+      },
+      meta: { total_ms: totalMs, lane_ms: timings },
+      memory_mode: memoryMode,
+      trust_tripwire: trustSummary,
+      lanes,
+      journal_summary: journalSummary,
+      agent_liveness: agentLiveness,
+      integrity: integrity.leaf, signals, kvHealth: kvHealth.leaf, agents: agents.leaf,
+      epicon: epicon.leaf, echo: echo.leaf, journal: journal.leaf, sentiment: sentiment.leaf,
+      runtime: runtime.leaf, promotion: promotion.leaf, eve: eve.leaf, mii: mii.leaf, vault: vault.leaf,
+      micReadiness: micReadiness.leaf,
+      tripwire: tripwire.leaf,
+      trustTripwire: trustTripwire.leaf,
+      substrate,
+    }, {
+      headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'terminal-snapshot' },
+    });
+  } catch (error) {
+    console.error('[terminal/snapshot] fatal aggregation error:', error);
+    const msg = error instanceof Error ? error.message : 'snapshot_failed';
+    const fallbackLeaf = { ok: false, status: 500, data: null, error: msg };
+    return NextResponse.json({
+      ok: false,
+      fallback: true,
+      cycle: cycle ?? null,
+      gi: null,
+      effective_gi: null,
+      degraded: true,
+      include_catalog: includeCatalog === 'true',
+      journal_mode: journalMode === 'hot' || journalMode === 'canon' || journalMode === 'merged' ? journalMode : 'merged',
+      timestamp: new Date().toISOString(),
+      deployment: {
+        commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+        environment: process.env.VERCEL_ENV ?? null,
+      },
+      meta: { total_ms: Date.now() - totalStart, lane_ms: {} },
+      memory_mode: null,
+      trust_tripwire: { elevated: false, critical: false, tripwireCount: 0, top: [] },
+      lanes: [],
+      journal_summary: { latest_agent_entries: [] },
+      agent_liveness: [],
+      integrity: fallbackLeaf,
+      signals: fallbackLeaf,
+      kvHealth: fallbackLeaf,
+      agents: fallbackLeaf,
+      epicon: fallbackLeaf,
+      echo: fallbackLeaf,
+      journal: fallbackLeaf,
+      sentiment: fallbackLeaf,
+      runtime: fallbackLeaf,
+      promotion: fallbackLeaf,
+      eve: fallbackLeaf,
+      mii: fallbackLeaf,
+      vault: fallbackLeaf,
+      micReadiness: fallbackLeaf,
+      tripwire: fallbackLeaf,
+      trustTripwire: fallbackLeaf,
+      substrate: { ok: false, totalEntries: 0, agents: [], repoUrl: null, latest: [] },
+    }, {
+      status: 200,
+      headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'terminal-snapshot-fallback' },
+    });
+  }
 }

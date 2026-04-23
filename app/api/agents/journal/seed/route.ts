@@ -38,7 +38,7 @@ function nowIso(): string {
 }
 
 function seedEntries(cycle = 'C-272'): SeedEntry[] {
-  return [
+  const entries: SeedEntry[] = [
     {
       agent: 'ATLAS',
       cycle,
@@ -153,6 +153,25 @@ function seedEntries(cycle = 'C-272'): SeedEntry[] {
       tags: ['genesis', 'c272'],
     },
   ];
+
+  if (cycle === 'C-289') {
+    entries.push({
+      agent: 'JADE',
+      cycle,
+      scope: 'Operator truth preservation under degraded snapshot state',
+      category: 'observation',
+      severity: 'elevated',
+      observation: 'Terminal health remained live while snapshot aggregation routes hard-failed, causing stale shell drift and operator ambiguity.',
+      inference: 'The system was not fully offline; the truth surface failed because aggregation lacked fallback discipline. Hardened degraded responses preserve truthful operator posture.',
+      recommendation: 'Treat snapshot and snapshot-lite as required degraded-safe contracts. Prefer explicit fallback payloads over HTTP 500 in operator surfaces.',
+      confidence: 0.92,
+      derivedFrom: ['terminal/snapshot', 'terminal/snapshot-lite', 'health', 'C-289'],
+      agentOrigin: 'JADE',
+      tags: ['jade', 'snapshot', 'fallback', 'degraded-mode', 'C-289'],
+    });
+  }
+
+  return entries;
 }
 
 export async function POST(request: NextRequest) {

@@ -68,21 +68,74 @@ async function resolveMicRawWithBridge(micFromMget: string | null): Promise<{ ra
 export async function GET(req: NextRequest) {
   const start = Date.now();
   const cors = handbookCorsHeaders(req.headers.get('origin'));
+  try {
 
-  const { value: cached, fresh: cacheFresh } = await cachedByKey(SNAPSHOT_LITE_CACHE_KEY, async () => {
-    const bundle = await loadSnapshotLiteKvBundle();
-    const mic = await resolveMicRawWithBridge(bundle.micReadinessRaw);
-    return { bundle, mic };
-  });
+    let cached: Awaited<ReturnType<typeof cachedByKey<{ bundle: Awaited<ReturnType<typeof loadSnapshotLiteKvBundle>>; mic: { raw: string | null; source: 'kv' | 'oaa' | 'none' } }>>>['value'];
+    let cacheFresh = false;
+    try {
+      const cacheResult = await cachedByKey(SNAPSHOT_LITE_CACHE_KEY, async () => {
+        const bundle = await loadSnapshotLiteKvBundle();
+        const mic = await resolveMicRawWithBridge(bundle.micReadinessRaw);
+        return { bundle, mic };
+      });
+      cached = cacheResult.value;
+      cacheFresh = cacheResult.fresh;
+    } catch (error) {
+      console.error('[terminal/snapshot-lite] cache/bundle load failed:', error);
+      cached = {
+        bundle: {
+          giState: null,
+          giCarry: null,
+          pulse: null,
+          signals: null,
+          echo: null,
+          tripwire: null,
+          micReadinessRaw: null,
+          kvHealth: {
+            available: false,
+            configured: false,
+            latencyMs: null,
+            error: null,
+            backup_redis: {
+              configured: false,
+              available: false,
+              mirror_enabled: false,
+              read_fallback_enabled: false,
+              latency_ms: null,
+              error: null,
+            },
+          },
+        },
+        mic: { raw: null, source: 'none' },
+      };
+    }
 
-  const { bundle, mic } = cached;
-  const micSnapRaw = mic.raw;
-  const micSnapSource = mic.source;
+    const { bundle, mic } = cached;
+    const micSnapRaw = mic.raw;
+    const micSnapSource = mic.source;
 
-  const giResolved = await resolveGiForTerminal({
-    micReadinessSnapshotRaw: micSnapRaw,
-    preloadedGi: { primary: bundle.giState, carry: bundle.giCarry },
-  });
+    let giResolved: Awaited<ReturnType<typeof resolveGiForTerminal>>;
+    try {
+      giResolved = await resolveGiForTerminal({
+        micReadinessSnapshotRaw: micSnapRaw,
+        preloadedGi: { primary: bundle.giState, carry: bundle.giCarry },
+      });
+    } catch (error) {
+      console.error('[terminal/snapshot-lite] GI resolve failed:', error);
+      giResolved = {
+        gi: null,
+        mode: 'yellow',
+        source: 'null',
+        gi_provenance: 'unknown',
+        verified: false,
+        degraded: true,
+        terminal_status: 'stressed',
+        primary_driver: null,
+        timestamp: new Date().toISOString(),
+        age_seconds: null,
+        kv: null,
+      };
+    }
 
   const gi =
     giResolved.source === 'kv'
@@ -188,58 +241,151 @@ export async function GET(req: NextRequest) {
     modeStr === 'red' ||
     lanes.tripwire.elevated;
 
-  return NextResponse.json(
-    {
-      ok: true,
-      lite: true,
-      cycle,
-      timestamp: new Date().toISOString(),
-      deployment: {
-        commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
-        environment: process.env.VERCEL_ENV ?? null,
+    return NextResponse.json(
+      {
+        ok: true,
+        lite: true,
+        cycle,
+        timestamp: new Date().toISOString(),
+        deployment: {
+          commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+          environment: process.env.VERCEL_ENV ?? null,
+        },
+        gi: giResolved.gi ?? gi?.global_integrity ?? null,
+        mode: modeStr,
+        gi_source:
+          giResolved.source === 'kv' ||
+          giResolved.source === 'kv_carry_forward' ||
+          giResolved.source === 'oaa_verified'
+            ? 'kv'
+            : giResolved.source === 'live_compute'
+              ? 'live'
+              : giResolved.source === 'readiness_snapshot'
+                ? 'readiness_fallback'
+                : 'null',
+        gi_provenance: giResolved.gi_provenance,
+        gi_verified: giResolved.verified,
+        degraded,
+        lanes,
+        heartbeat: {
+          runtime: getHeartbeat(),
+          journal: getJournalHeartbeat(),
+        },
+        meta: {
+          total_ms: Date.now() - start,
+          kv_available: isRedisAvailable(),
+          kv_bundle_mget: true,
+          kv_cache_fresh: cacheFresh,
+          cycle_source:
+            typeof pulse?.cycle === 'string' && pulse.cycle.trim().length > 0
+              ? 'pulse'
+              : echo?.cycleId?.trim()
+                ? 'echo'
+                : tripwire?.cycleId?.trim()
+                  ? 'tripwire'
+                  : 'calendar',
+        },
       },
-      gi: giResolved.gi ?? gi?.global_integrity ?? null,
-      mode: modeStr,
-      gi_source:
-        giResolved.source === 'kv' ||
-        giResolved.source === 'kv_carry_forward' ||
-        giResolved.source === 'oaa_verified'
-          ? 'kv'
-          : giResolved.source === 'live_compute'
-            ? 'live'
-            : giResolved.source === 'readiness_snapshot'
-              ? 'readiness_fallback'
-              : 'null',
-      gi_provenance: giResolved.gi_provenance,
-      gi_verified: giResolved.verified,
-      degraded,
-      lanes,
-      heartbeat: {
-        runtime: getHeartbeat(),
-        journal: getJournalHeartbeat(),
+      {
+        headers: {
+          ...(cors ?? {}),
+          'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+          'X-Cache-Strategy': 'edge-15s',
+          'X-Mobius-Source': 'terminal-snapshot-lite',
+        },
       },
-      meta: {
-        total_ms: Date.now() - start,
-        kv_available: isRedisAvailable(),
-        kv_bundle_mget: true,
-        kv_cache_fresh: cacheFresh,
-        cycle_source:
-          typeof pulse?.cycle === 'string' && pulse.cycle.trim().length > 0
-            ? 'pulse'
-            : echo?.cycleId?.trim()
-              ? 'echo'
-              : tripwire?.cycleId?.trim()
-                ? 'tripwire'
-                : 'calendar',
+    );
+  } catch (error) {
+    console.error('[terminal/snapshot-lite] fatal error:', error);
+    const msg = error instanceof Error ? error.message : 'snapshot_lite_failed';
+    return NextResponse.json(
+      {
+        ok: false,
+        lite: true,
+        fallback: true,
+        error: msg,
+        cycle: currentCycleId(),
+        timestamp: new Date().toISOString(),
+        deployment: {
+          commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+          environment: process.env.VERCEL_ENV ?? null,
+        },
+        gi: null,
+        mode: 'yellow',
+        gi_source: 'null',
+        gi_provenance: null,
+        gi_verified: false,
+        degraded: true,
+        lanes: {
+          kv: { ok: false, latency_ms: null },
+          backup_redis: {
+            configured: false,
+            available: false,
+            mirror_enabled: false,
+            read_fallback_enabled: false,
+            latency_ms: null,
+          },
+          integrity: {
+            ok: false,
+            gi: null,
+            mode: null,
+            terminal_status: 'stressed',
+            source: 'null',
+            provenance: null,
+            verified: false,
+            mic_readiness_snapshot_source: 'none',
+            freshness: 'unknown',
+            age_seconds: null,
+          },
+          signals: {
+            ok: false,
+            composite: null,
+            anomalies: null,
+            healthy: null,
+            freshness: 'unknown',
+            age_seconds: null,
+          },
+          echo: {
+            ok: false,
+            cycle: null,
+            total_ingested: null,
+            healthy: null,
+            freshness: 'unknown',
+            age_seconds: null,
+          },
+          tripwire: {
+            ok: false,
+            elevated: false,
+            count: 0,
+          },
+          pulse: {
+            ok: false,
+            composite: null,
+            instruments: null,
+            anomalies: null,
+            freshness: 'unknown',
+          },
+        },
+        heartbeat: {
+          runtime: getHeartbeat(),
+          journal: getJournalHeartbeat(),
+        },
+        meta: {
+          total_ms: Date.now() - start,
+          kv_available: isRedisAvailable(),
+          kv_bundle_mget: false,
+          kv_cache_fresh: false,
+          cycle_source: 'calendar',
+        },
       },
-    },
-    {
-      headers: {
-        ...(cors ?? {}),
-        'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
-        'X-Cache-Strategy': 'edge-15s',
-        'X-Mobius-Source': 'terminal-snapshot-lite',
+      {
+        status: 200,
+        headers: {
+          ...(cors ?? {}),
+          'Cache-Control': 'no-store',
+          'X-Mobius-Source': 'terminal-snapshot-lite-fallback',
+        },
       },
-    },
-  );
+    );
+  }
 }
