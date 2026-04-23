@@ -183,7 +183,7 @@ export async function GET(request: NextRequest) {
   try {
     lanes = normalizeAllSnapshotLanes(leaves);
   } catch (error) {
-    console.error('[terminal/snapshot] lane normalization failed:', error);
+    console.error('[snapshot] lane normalize fail', error);
     lanes = [];
   }
   const laneByKey = new Map(lanes.map((lane) => [lane.key, lane]));
@@ -310,12 +310,13 @@ export async function GET(request: NextRequest) {
       headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'terminal-snapshot' },
     });
   } catch (error) {
-    console.error('[terminal/snapshot] fatal aggregation error:', error);
+    console.error('[snapshot] fatal', error);
     const msg = error instanceof Error ? error.message : 'snapshot_failed';
     const fallbackLeaf = { ok: false, status: 500, data: null, error: msg };
     return NextResponse.json({
       ok: false,
       fallback: true,
+      error: 'snapshot_failed',
       cycle: cycle ?? null,
       gi: null,
       effective_gi: null,
