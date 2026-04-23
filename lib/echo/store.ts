@@ -82,6 +82,14 @@ export function getEchoStatus(): {
   };
 }
 
+export function prependEchoEpicon(item: EpiconItem): void {
+  store.epicon = [item, ...store.epicon.filter((existing) => existing.id !== item.id)].slice(0, MAX_EPICON);
+}
+
+export function prependEchoLedger(entry: LedgerEntry): void {
+  store.ledger = [entry, ...store.ledger.filter((existing) => existing.id !== entry.id)].slice(0, MAX_LEDGER);
+}
+
 export function clearStore(): void {
   store.epicon = [];
   store.ledger = [];
