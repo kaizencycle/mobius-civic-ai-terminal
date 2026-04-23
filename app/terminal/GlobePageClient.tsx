@@ -5,20 +5,56 @@ import GlobeChamber from '@/components/terminal/chambers/GlobeChamber';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { buildEveEscalationStrip } from '@/components/terminal/chambers/globeDashboardExtras';
 import { useGlobeChamber } from '@/hooks/useGlobeChamber';
+import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 import type { MicroAgentSweepResult } from '@/lib/agents/micro';
 import type { EpiconItem } from '@/lib/terminal/types';
 
+type SentimentDomain = {
+  key: string;
+  label: string;
+  agent: string;
+  score: number | null;
+  sourceLabel: string;
+};
+
+type SentimentPayload = {
+  domains?: SentimentDomain[];
+  overall_sentiment?: number | null;
+  gi?: number;
+};
+
 export default function GlobePageClient() {
   const { data, loading, preview, full, error } = useGlobeChamber(true);
+  // C-290: the globe chamber API returns sentiment: null (it only runs the
+  // micro sweep). Pull sentiment from the snapshot so domain rings populate.
+  const { snapshot } = useTerminalSnapshot();
 
   const micro = (data?.micro && typeof data.micro === 'object' ? data.micro : null) as MicroAgentSweepResult | null;
   const echo = (data?.echo && typeof data.echo === 'object' ? data.echo : {}) as { epicon?: EpiconItem[] };
   const echoEpicon = echo.epicon ?? [];
   const cycle = data?.cycle ?? 'C-271';
-  const gi = 0;
+
+  // Prefer live sentiment from the chamber response, fall back to snapshot
+  const chamberSentiment = (data?.sentiment && typeof data.sentiment === 'object')
+    ? (data.sentiment as SentimentPayload)
+    : null;
+  const snapshotSentiment = (snapshot?.sentiment?.data && typeof snapshot.sentiment.data === 'object')
+    ? (snapshot.sentiment.data as SentimentPayload)
+    : null;
+  const sentimentSource = chamberSentiment ?? snapshotSentiment;
+  const domains: SentimentDomain[] = sentimentSource?.domains ?? [];
+
+  // GI: prefer chamber data, then snapshot
+  const gi = typeof data?.gi === 'number'
+    ? data.gi
+    : typeof snapshot?.gi === 'number'
+      ? snapshot.gi
+      : 0;
+
+  const miiScore = snapshotSentiment?.overall_sentiment ?? null;
 
   const globeDashboard = useMemo(() => {
-    if (!data) return null;
+    if (!data && !snapshot) return null;
     const eveStrip = buildEveEscalationStrip(echoEpicon);
     return {
       eveStrip,
@@ -33,9 +69,9 @@ export default function GlobePageClient() {
       micReadiness: null,
       miiFeed: null,
     };
-  }, [data, echoEpicon, loading]);
+  }, [data, snapshot, echoEpicon, loading]);
 
-  if (loading && !data) return <ChamberSkeleton blocks={4} />;
+  if (loading && !data && !snapshot) return <ChamberSkeleton blocks={4} />;
 
   return (
     <div className="h-full">
@@ -52,11 +88,11 @@ export default function GlobePageClient() {
       <GlobeChamber
         micro={micro}
         echoEpicon={echoEpicon}
-        domains={[]}
+        domains={domains}
         cycleId={cycle}
         clockLabel={`${new Date().toISOString().slice(11, 16)} UTC`}
-        giScore={Number(gi)}
-        miiScore={null}
+        giScore={gi}
+        miiScore={miiScore}
         globeDashboard={globeDashboard}
       />
     </div>

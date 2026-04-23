@@ -151,12 +151,6 @@ export async function POST(req: NextRequest) {
     promoted_ledger_entry_id: promotion?.ledgerEntry.id,
   });
 
-    return NextResponse.json(
-      { ok: false, error: message },
-      { status },
-    );
-  }
-
   return NextResponse.json({
     ok: true,
     candidate: updated,
