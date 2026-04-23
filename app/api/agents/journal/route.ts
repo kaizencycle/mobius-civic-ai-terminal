@@ -336,27 +336,39 @@ async function loadEntries(
 }
 
 async function loadSubstrateEntries(agentFilters: string[], limit: number): Promise<{ entries: AgentJournalEntry[]; error: string | null }> {
-  let substrateError: string | null = null;
-  const substrateEntries: AgentJournalEntry[] = [];
   const substrateAgents = agentFilters.length > 0 ? agentFilters : [...GENESIS_AGENTS];
-  const substrateLimit = agentFilters.length === 1 ? Math.max(3, limit) : Math.max(3, Math.ceil(limit / substrateAgents.length));
+  const substrateLimit =
+    agentFilters.length === 1
+      ? Math.max(3, limit)
+      : Math.max(3, Math.ceil(limit / substrateAgents.length));
 
-  for (const agent of substrateAgents) {
-    try {
-      const substrateRead = readAgentJournals(agent.toLowerCase(), substrateLimit);
-      const rows = await Promise.race([
-        substrateRead,
+  const settled = await Promise.allSettled(
+    substrateAgents.map((agent) =>
+      Promise.race([
+        readAgentJournals(agent.toLowerCase(), substrateLimit),
         new Promise<SubstrateJournalEntry[]>((_, reject) =>
           setTimeout(() => reject(new Error('substrate_timeout')), 5000),
         ),
-      ]);
-      for (const row of rows) {
+      ]),
+    ),
+  );
+
+  const substrateEntries: AgentJournalEntry[] = [];
+  let substrateError: string | null = null;
+
+  for (const result of settled) {
+    if (result.status === 'fulfilled') {
+      for (const row of result.value) {
         const mapped = substrateRecordToAgentEntry(row);
         if (mapped) substrateEntries.push(mapped);
       }
-    } catch (error) {
-      console.error('[journal] substrate fetch failed:', error instanceof Error ? error.message : error);
-      if (!substrateError) substrateError = error instanceof Error ? error.message : 'substrate read failed';
+      continue;
+    }
+
+    const reason = result.reason instanceof Error ? result.reason.message : result.reason;
+    console.error('[journal] substrate fetch failed:', reason);
+    if (!substrateError) {
+      substrateError = result.reason instanceof Error ? result.reason.message : 'substrate read failed';
     }
   }
 
@@ -389,9 +401,14 @@ export async function GET(request: NextRequest) {
     kvEntries = mergeKvJournalFair(kvEntries, KV_JOURNAL_PER_AGENT_CAP, KV_JOURNAL_FAIR_MERGE_MAX);
   }
 
-  const { entries: substrateEntries, error: substrateError } = shouldReadSubstrate
-    ? await loadSubstrateEntries(agentFilters, limit)
-    : { entries: [], error: null };
+  let substrateEntries: AgentJournalEntry[] = [];
+  let substrateError: string | null = null;
+
+  if (shouldReadSubstrate) {
+    const substrateResult = await loadSubstrateEntries(agentFilters, limit);
+    substrateEntries = substrateResult.entries;
+    substrateError = substrateResult.error;
+  }
 
   const kvForSources = agentFilters.length > 0
     ? kvEntries.filter((e) => agentFilterSet.has(e.agentOrigin.toUpperCase()))
@@ -438,6 +455,8 @@ export async function GET(request: NextRequest) {
       archive_error: substrateError,
       archive_fetched_count: substrateEntries.length,
       archive_stale: archiveStale,
+      hot_authoritative: mode === 'hot' || mode === 'merged',
+      archive_enriching: mode === 'merged' && (substrateEntries.length > 0 || Boolean(substrateError)),
     },
     {
       headers: {
