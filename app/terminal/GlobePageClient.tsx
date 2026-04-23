@@ -4,24 +4,32 @@ import { useMemo } from 'react';
 import GlobeChamber from '@/components/terminal/chambers/GlobeChamber';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { buildEveEscalationStrip } from '@/components/terminal/chambers/globeDashboardExtras';
+import type { SentimentDomain } from '@/components/terminal/chambers/types';
 import { useGlobeChamber } from '@/hooks/useGlobeChamber';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 import type { MicroAgentSweepResult } from '@/lib/agents/micro';
 import type { EpiconItem } from '@/lib/terminal/types';
 
-type SentimentDomain = {
+type RawSentimentDomain = {
   key: string;
   label: string;
   agent: string;
   score: number | null;
-  sourceLabel: string;
+  sourceLabel?: string;
 };
 
 type SentimentPayload = {
-  domains?: SentimentDomain[];
+  domains?: RawSentimentDomain[];
   overall_sentiment?: number | null;
   gi?: number;
 };
+
+function toStatus(score: number | null): SentimentDomain['status'] {
+  if (score === null) return 'unknown';
+  if (score >= 0.8) return 'nominal';
+  if (score >= 0.6) return 'stressed';
+  return 'critical';
+}
 
 export default function GlobePageClient() {
   const { data, loading, preview, full, error } = useGlobeChamber(true);
@@ -42,7 +50,16 @@ export default function GlobePageClient() {
     ? (snapshot.sentiment.data as SentimentPayload)
     : null;
   const sentimentSource = chamberSentiment ?? snapshotSentiment;
-  const domains: SentimentDomain[] = sentimentSource?.domains ?? [];
+
+  // Map raw domains (which have sourceLabel) to the GlobeChamber-canonical
+  // shape (which requires status derived from score).
+  const domains: SentimentDomain[] = (sentimentSource?.domains ?? []).map((d) => ({
+    key: d.key as SentimentDomain['key'],
+    label: d.label,
+    agent: d.agent,
+    score: d.score,
+    status: toStatus(d.score),
+  }));
 
   // GI: prefer chamber data, then snapshot
   const gi = typeof data?.gi === 'number'
