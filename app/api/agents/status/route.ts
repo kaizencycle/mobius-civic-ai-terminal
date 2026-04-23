@@ -87,7 +87,11 @@ function deriveLiveness(input: {
   const actionFresh = isWithin(actionAge, ACTION_FRESH_MS);
   const journalFresh = isWithin(journalAge, JOURNAL_FRESH_MS);
 
-  if (hbFresh && actionFresh && journalFresh && input.confidence >= 0.6) return 'ACTIVE';
+  // C-290: ACTIVE should reflect runtime liveness first.
+  // Canon/journal freshness degrades health but should not freeze agents in BOOTING.
+  if (hbFresh && actionFresh && input.confidence >= 0.6) {
+    return journalFresh ? 'ACTIVE' : 'DEGRADED';
+  }
 
   const noHeartbeat = !Number.isFinite(hbAge) || hbAge > OFFLINE_AFTER_MS;
   const noAction = !Number.isFinite(actionAge) || actionAge > OFFLINE_AFTER_MS;
