@@ -15,7 +15,7 @@ export async function GET() {
     const [micro, integrity, sentimentRes] = await Promise.all([
       pollAllMicroAgents(),
       computeIntegrityPayload(),
-      getSentiment(new Request('http://localhost/api/sentiment/composite')).catch(() => null),
+      getSentiment().catch(() => null),
     ]);
 
     let sentiment: unknown = null;
