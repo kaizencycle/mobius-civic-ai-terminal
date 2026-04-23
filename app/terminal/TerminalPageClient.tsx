@@ -364,7 +364,7 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
         const runtime = json.runtime.data as RuntimeStatusResponse | null;
         if (!json.runtime.ok || !runtime?.ok) {
           setRuntimeBadge('offline');
-        } else if (!runtime.degraded && runtime.freshness?.status === 'fresh') {
+        } else if (!runtime.degraded && (runtime.freshness?.status === 'fresh' || runtime.freshness?.status === 'nominal')) {
           setRuntimeBadge('online');
         } else {
           setRuntimeBadge('degraded');
@@ -384,6 +384,18 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
         const microPayload = json.signals.data as MicroSweepResponse | null;
         const signalsLane = json.lanes?.find((l) => l.key === 'signals');
         if (json.signals.ok && microPayload?.ok) {
+          // C-290: KV-cached snapshots omit the `agents` array — synthesize it
+          // from allSignals so the Micro-Agent Signals sidebar renders correctly.
+          if (!microPayload.agents || microPayload.agents.length === 0) {
+            const agentNames = [
+              ...new Set(
+                (microPayload.allSignals ?? []).map((s) => s.agentName.split('-µ')[0]),
+              ),
+            ];
+            (microPayload as MicroSweepResponse & { agents: MicroAgent[] }).agents = agentNames.map(
+              (name) => ({ agentName: name, healthy: true }),
+            );
+          }
           microRef.current = microPayload;
           setMicro(microPayload);
           const time = new Date(microPayload.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
