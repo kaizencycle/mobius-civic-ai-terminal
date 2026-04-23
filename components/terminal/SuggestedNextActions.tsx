@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * SuggestedNextActions — Compact horizontal action pills.
+ */
+
 export type SuggestedAction = {
   id: string;
   label: string;
@@ -16,26 +20,24 @@ export default function SuggestedNextActions({
   onSelect?: (actionId: string) => void;
 }) {
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-      <div className="text-xs font-mono font-semibold uppercase tracking-[0.2em] text-sky-300">
-        {title}
+    <div className="rounded-lg border border-slate-800/60 bg-slate-900/40 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="shrink-0 text-[10px] font-mono uppercase tracking-[0.15em] text-slate-500">
+          {title}
+        </span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {actions.map((action) => (
+            <button
+              key={action.id}
+              onClick={() => onSelect?.(action.id)}
+              title={action.description}
+              className="rounded-md border border-slate-700/60 bg-slate-950/80 px-2.5 py-1 text-[11px] font-mono text-slate-300 transition hover:border-sky-500/30 hover:bg-sky-500/5 hover:text-sky-300"
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="mt-1 text-sm font-sans text-slate-400">
-        Keep operators in motion with the most likely follow-on steps.
-      </div>
-
-      <div className="mt-4 grid gap-2">
-        {actions.map((action) => (
-          <button
-            key={action.id}
-            onClick={() => onSelect?.(action.id)}
-            className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-3 text-left transition hover:border-slate-700 hover:bg-slate-900"
-          >
-            <div className="text-sm font-sans font-medium text-white">{action.label}</div>
-            <div className="mt-1 text-xs font-sans text-slate-400">{action.description}</div>
-          </button>
-        ))}
-      </div>
-    </section>
+    </div>
   );
 }

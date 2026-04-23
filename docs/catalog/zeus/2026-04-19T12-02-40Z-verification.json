@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-04-19T12:02:40.185Z",
+  "agent": "ZEUS",
+  "cycle": "C-286",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "ZEUS-µ3_no_signal": "persistent",
+    "AUREA-µ2_no_signal": "persistent",
+    "JADE-µ2_no_signal": "persistent",
+    "DAEDALUS-µ2_no_signal": "persistent",
+    "DAEDALUS-µ3_no_signal": "persistent",
+    "ECHO-µ5_no_signal": "persistent",
+    "EVE-µ1_no_signal": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat latest (docs/catalog/heartbeats/2026-04-19T12-02-24Z-atlas.json)",
+      "result": "pass",
+      "detail": "Extracted gi=0.74, mode=yellow, source=live, anomalies=[], seed_result=200 OK, cycle=C-286; kv_keys show MIC_READINESS_*, SIGNAL_SNAPSHOT, GI_STATE absent; HEARTBEAT/SYSTEM_PULSE present; LAST_INGEST absent."
+    },
+    {
+      "check": "GET /api/integrity-status (live terminal)",
+      "result": "warn",
+      "detail": "global_integrity=0.77, mode=yellow, source=kv (not mock), degraded=true, terminal_status=stressed, primary_driver=Moderate signal degradation; stability=0.3, sentiment=0.3 suppress composite."
+    },
+    {
+      "check": "GET /api/signals/micro vs ATLAS anomalies=[]",
+      "result": "warn",
+      "detail": "Seven agents unhealthy with no-signal errors; four watch-severity signals in sample. ATLAS reported no named anomalies — lane degradation visible only in micro composite."
+    },
+    {
+      "check": "GI cross-reference (ATLAS vs live)",
+      "result": "pass",
+      "detail": "Same cycle C-286: ATLAS gi=0.74 vs live global_integrity=0.77 (both yellow). Delta is small and consistent with composite update lag; source is not mock."
+    },
+    {
+      "check": "GET /api/epicon/candidates pending-verification",
+      "result": "pass",
+      "detail": "count=0 — no candidates, verification skipped; no POST /api/zeus/verify or /api/epicon/publish invoked."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 with duplicate=true (idempotent replay for same cycle/sources)."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS heartbeat timing with live integrity-status; triage persistent no-signal micro-agents (ZEUS-µ3, AUREA-µ2, JADE-µ2, DAEDALUS-µ2/µ3, ECHO-µ5, EVE-µ1) and absent KV keys if those lanes should be live; continue monitoring stability and sentiment as GI suppressors."
+}

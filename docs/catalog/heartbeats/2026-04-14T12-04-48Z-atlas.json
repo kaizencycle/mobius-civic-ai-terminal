@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-04-14T12:04:48.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-281",
+  "gi": 0.83,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    "Seismic: 75 quakes M2.5+ today, max M5.7 near 50 km ENE of Port Alsworth, Alaska",
+    "EONET: 50 open natural events (3 storms, 40 fires)",
+    "Self-ping: HTTP 401 in 68ms"
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": true,
+    "ECHO_STATE": false,
+    "ECHO_STATE_KV": false,
+    "TRIPWIRE_STATE": false,
+    "TRIPWIRE_STATE_KV": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "seed_attempted": true,
+  "seed_result": "401"
+}

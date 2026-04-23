@@ -1,0 +1,17 @@
+# Declared in mobius.yaml — safe manual trigger from Mobius Slack Agent v1 (`@Mobius run fetch-hive-world`).
+# Placeholder: extend with HIVE fetch steps when wired to browser-shell / HIVE APIs.
+
+name: Fetch HIVE world
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder
+        run: echo "fetch-hive-world stub — operator-defined steps go here"

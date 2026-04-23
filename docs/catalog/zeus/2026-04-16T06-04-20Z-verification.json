@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-04-16T06:04:20.458Z",
+  "agent": "ZEUS",
+  "cycle": "C-283",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "gi_value": 0.9,
+  "composite_signal": 0.618,
+  "instrument_count": 40,
+  "mode": "green",
+  "degraded": true,
+  "anomaly_persistence": {
+    "WB WLD GDP growth (watch)": "persistent",
+    "HN top story low score (watch)": "persistent",
+    "GDELT 0 governance articles (watch)": "persistent",
+    "Reddit 0 posts (watch)": "persistent"
+  },
+  "unhealthy_agents": [
+    "ZEUS-µ3",
+    "AUREA-µ2",
+    "JADE-µ2",
+    "DAEDALUS-µ2",
+    "DAEDALUS-µ3",
+    "EVE-µ1"
+  ],
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "GI source verification",
+      "result": "pass",
+      "detail": "GI served from kv-backed state (live), not mock. KV seed succeeded (200 OK)."
+    },
+    {
+      "check": "GI value consistency",
+      "result": "pass",
+      "detail": "ATLAS heartbeat GI=0.9 matches integrity-status GI=0.9. Consistent."
+    },
+    {
+      "check": "Signal composite vs GI",
+      "result": "pass",
+      "detail": "Composite=0.618 with GI=0.9. GI reflects weighted integrity including freshness(0.6) and information(0.6) penalties. Plausible."
+    },
+    {
+      "check": "Anomaly cross-reference",
+      "result": "pass",
+      "detail": "All 4 ATLAS anomalies independently confirmed via /api/signals/micro. WB GDP stale (2024), HN score=87, GDELT=0, Reddit=0."
+    },
+    {
+      "check": "Micro-agent health",
+      "result": "warn",
+      "detail": "6/40 micro-agents unhealthy (no signal): ZEUS-µ3, AUREA-µ2, JADE-µ2, DAEDALUS-µ2, DAEDALUS-µ3, EVE-µ1. Non-critical but persistent pattern."
+    },
+    {
+      "check": "EPICON verification",
+      "result": "pass",
+      "detail": "0 candidates pending. No verification or publishing actions required."
+    },
+    {
+      "check": "Degraded state",
+      "result": "warn",
+      "detail": "System reports degraded=true. Driven by freshness=0.6 and information=0.6. Expected given stale upstream data."
+    }
+  ],
+  "recommendation": "No operator action required. System operating within normal parameters. Monitor unhealthy micro-agents and GDELT/Reddit zero-result pattern."
+}

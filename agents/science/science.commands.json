@@ -1,0 +1,9 @@
+{
+  "commands": [
+    { "command": "/science", "action": "open science chamber" },
+    { "command": "/science-scan", "action": "scan science records" },
+    { "command": "/frontier-watch", "action": "open frontier watch" },
+    { "command": "/jade-translate-science", "action": "toggle civic translation" },
+    { "command": "/civic-science-brief", "action": "copy civic science brief" }
+  ]
+}

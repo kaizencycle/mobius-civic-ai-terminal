@@ -24,6 +24,7 @@ type EchoStore = {
   lastIngest: string | null;
   cycleId: string;
   totalIngested: number;
+  duplicateSuppressedCount: number;
 };
 
 // Module-level singleton — survives across requests in a warm serverless instance
@@ -35,17 +36,43 @@ const store: EchoStore = {
   lastIngest: null,
   cycleId: currentCycleId(),
   totalIngested: 0,
+  duplicateSuppressedCount: 0,
 };
 
 export function pushIngestResult(result: IngestResult): void {
-  // Prepend new items, cap at max
-  store.epicon = [...result.epicon, ...store.epicon].slice(0, MAX_EPICON);
-  store.ledger = [...result.ledger, ...store.ledger].slice(0, MAX_LEDGER);
+  const epiconSeen = new Set(store.epicon.map((item) => [item.category, item.title, item.timestamp].join('|')));
+  const ledgerSeen = new Set(store.ledger.map((row) => [row.source ?? 'unknown', row.category ?? 'unknown', row.title ?? row.summary, row.timestamp, row.status].join('|')));
+  const newEpicon: typeof store.epicon = [];
+  const newLedger: typeof store.ledger = [];
+  let duplicateSuppressed = result.duplicateSuppressedCount;
+
+  for (let i = 0; i < result.epicon.length; i++) {
+    const epicon = result.epicon[i];
+    const ledger = result.ledger[i];
+    if (!epicon || !ledger) continue;
+
+    const epiconKey = [epicon.category, epicon.title, epicon.timestamp].join('|');
+    const ledgerKey = [ledger.source ?? 'unknown', ledger.category ?? 'unknown', ledger.title ?? ledger.summary, ledger.timestamp, ledger.status].join('|');
+    if (epiconSeen.has(epiconKey) || ledgerSeen.has(ledgerKey)) {
+      duplicateSuppressed += 1;
+      continue;
+    }
+
+    epiconSeen.add(epiconKey);
+    ledgerSeen.add(ledgerKey);
+    newEpicon.push(epicon);
+    newLedger.push(ledger);
+  }
+
+  // Prepend deduped items, cap at max
+  store.epicon = [...newEpicon, ...store.epicon].slice(0, MAX_EPICON);
+  store.ledger = [...newLedger, ...store.ledger].slice(0, MAX_LEDGER);
   store.alerts = [...result.alerts, ...store.alerts].slice(0, MAX_ALERTS);
   store.integrity = result.integrity;
   store.lastIngest = result.timestamp;
   store.cycleId = result.cycleId;
-  store.totalIngested += result.sourceCount;
+  store.totalIngested += newLedger.length;
+  store.duplicateSuppressedCount += duplicateSuppressed;
 }
 
 export function getEchoEpicon(): EpiconItem[] {
@@ -69,11 +96,13 @@ export function getEchoStatus(): {
   cycleId: string;
   totalIngested: number;
   counts: { epicon: number; ledger: number; alerts: number };
+  duplicateSuppressedCount: number;
 } {
   return {
     lastIngest: store.lastIngest,
     cycleId: store.cycleId,
     totalIngested: store.totalIngested,
+    duplicateSuppressedCount: store.duplicateSuppressedCount,
     counts: {
       epicon: store.epicon.length,
       ledger: store.ledger.length,
@@ -97,4 +126,5 @@ export function clearStore(): void {
   store.integrity = null;
   store.lastIngest = null;
   store.totalIngested = 0;
+  store.duplicateSuppressedCount = 0;
 }

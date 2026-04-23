@@ -1,16 +1,43 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "ignoreCommand": "bash scripts/ignore-build.sh",
   "crons": [
     {
-      "path": "/api/eve/cycle-advance",
-      "schedule": "0 5 * * *"
+      "path": "/api/cron/watchdog",
+      "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/echo/ingest",
-      "schedule": "5 5 * * *"
+      "path": "/api/eve/cycle-synthesize",
+      "schedule": "15 0 * * *"
     },
     {
-      "path": "/api/aurea/oversee",
-      "schedule": "35 5 * * *"
+      "path": "/api/cron/promote",
+      "schedule": "30 0 * * *"
+    },
+    {
+      "path": "/api/cron/gi-refresh",
+      "schedule": "45 0 * * *"
+    },
+    {
+      "path": "/api/cron/vault-attestation",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/heartbeat",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/sweep",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/publish-oaa-snapshots",
+      "schedule": "*/15 * * * *"
     }
-  ]
+  ],
+  "installCommand": "pnpm install --no-frozen-lockfile"
 }

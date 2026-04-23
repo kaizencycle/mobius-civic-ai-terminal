@@ -35,6 +35,9 @@ export type EchoSnapshot = {
     market: number;
     infrastructure: number;
     governance: number;
+    narrative: number;
+    ethics: number;
+    'civic-risk': number;
   };
   alert_count: number;
   ledger_count: number;
@@ -85,7 +88,15 @@ export function buildSnapshot(
   timestamp: string,
 ): EchoSnapshot {
   const bySeverity = { high: 0, medium: 0, low: 0 };
-  const byCategory = { geopolitical: 0, market: 0, infrastructure: 0, governance: 0 };
+  const byCategory: EchoSnapshot['by_category'] = {
+    geopolitical: 0,
+    market: 0,
+    infrastructure: 0,
+    governance: 0,
+    narrative: 0,
+    ethics: 0,
+    'civic-risk': 0,
+  };
   const sourceCounts = { gdelt: 0, usgs: 0, coingecko: 0, total: 0 };
 
   for (const item of epicon) {
@@ -188,6 +199,9 @@ export function buildDashboard(snapshot: EchoSnapshot): string {
     `| Market | ${snapshot.by_category.market} |`,
     `| Infrastructure | ${snapshot.by_category.infrastructure} |`,
     `| Governance | ${snapshot.by_category.governance} |`,
+    `| Narrative | ${snapshot.by_category.narrative} |`,
+    `| Ethics | ${snapshot.by_category.ethics} |`,
+    `| Civic risk | ${snapshot.by_category['civic-risk']} |`,
     '',
     '## Sources',
     '',

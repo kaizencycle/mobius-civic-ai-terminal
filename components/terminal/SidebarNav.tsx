@@ -5,6 +5,7 @@ import type { NavKey } from '@/lib/terminal/types';
 import { cn } from '@/lib/terminal/utils';
 
 const NAV_ICONS: Partial<Record<NavKey, string>> = {
+  globe: '◉',
   pulse: 'P',
   agents: 'A',
   ledger: 'L',

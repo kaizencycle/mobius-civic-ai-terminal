@@ -151,10 +151,9 @@ export async function POST(req: NextRequest) {
     promoted_ledger_entry_id: promotion?.ledgerEntry.id,
   });
 
-  if (!updated) {
     return NextResponse.json(
-      { ok: false, error: 'Candidate not found' },
-      { status: 404 },
+      { ok: false, error: message },
+      { status },
     );
   }
 

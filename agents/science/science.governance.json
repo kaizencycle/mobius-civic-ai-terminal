@@ -1,0 +1,13 @@
+{
+  "rules": [
+    "Never imply certainty beyond source confidence.",
+    "Preserve original timestamps in descending canonical order.",
+    "Separate verified events from speculative frontier watch items.",
+    "Prefer public-readable synthesis over jargon when no technical audience is specified."
+  ],
+  "escalation": {
+    "verified_and_high_impact": "ZEUS -> AUREA -> terminal spotlight",
+    "uncertain_but_relevant": "JADE translation -> frontier watch",
+    "stale_or_unverifiable": "hold from primary synthesis"
+  }
+}

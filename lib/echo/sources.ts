@@ -7,6 +7,8 @@
 
 // ── Types ────────────────────────────────────────────────────
 
+import { eveItemsToRawEvents, fetchEveGlobalNews } from '@/lib/eve/global-news';
+
 export type RawEvent = {
   sourceId: string;
   source: string;
@@ -82,12 +84,21 @@ export async function fetchUSGS(): Promise<RawEvent[]> {
         tsunami?: number;
       };
       id: string;
+      geometry?: { type?: string; coordinates?: number[] | number[][] | number[][][] };
     }> = data?.features ?? [];
 
     return features.slice(0, 6).map((f) => {
       const mag = f.properties.mag ?? 0;
       const severity: RawEvent['severity'] =
         mag >= 6 ? 'high' : mag >= 4 ? 'medium' : 'low';
+
+      const coords = f.geometry?.coordinates;
+      let lat: number | undefined;
+      let lng: number | undefined;
+      if (Array.isArray(coords) && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+        lng = coords[0];
+        lat = coords[1];
+      }
 
       return {
         sourceId: `usgs-${f.id}`,
@@ -104,6 +115,8 @@ export async function fetchUSGS(): Promise<RawEvent[]> {
           magnitude: mag,
           alert: f.properties.alert,
           tsunami: f.properties.tsunami,
+          lat,
+          lng,
         },
       };
     });
@@ -156,16 +169,18 @@ export async function fetchCoinGecko(): Promise<RawEvent[]> {
 // ── Aggregate all sources ────────────────────────────────────
 
 export async function fetchAllSources(): Promise<RawEvent[]> {
-  const [gdelt, usgs, coingecko] = await Promise.allSettled([
+  const [gdelt, usgs, coingecko, eveNews] = await Promise.allSettled([
     fetchGDELT(),
     fetchUSGS(),
     fetchCoinGecko(),
+    fetchEveGlobalNews().then((synthesis) => eveItemsToRawEvents(synthesis.items)),
   ]);
 
   const events: RawEvent[] = [
     ...(gdelt.status === 'fulfilled' ? gdelt.value : []),
     ...(usgs.status === 'fulfilled' ? usgs.value : []),
     ...(coingecko.status === 'fulfilled' ? coingecko.value : []),
+    ...(eveNews.status === 'fulfilled' ? eveNews.value : []),
   ];
 
   // Sort by timestamp descending (most recent first)

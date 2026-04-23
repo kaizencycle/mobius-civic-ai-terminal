@@ -1,5 +1,11 @@
 import type { NextConfig } from 'next';
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  bundlePagesRouterDependencies: true,
+  serverExternalPackages: ['@mobius/integrity-core'],
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts'],
+  },
+};
 
 export default nextConfig;

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kaizen Core"
+  short_description: "Ledger-first continuity and governance design"
+  default_prompt: "Use Kaizen Core to turn civic or governance intent into manifests, chambers, specs, and reviewable operational artifacts."

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { useMobiusIdentity } from '@/hooks/useMobiusIdentity';
 import type { InspectorTarget, Tripwire } from '@/lib/terminal/types';
 import { confidenceLabel, statusColor, tripwireStyle, giScoreColor, metricBarColor, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
@@ -11,6 +12,7 @@ export type ZeusVerifyPayload = {
   finalStatus: 'verified' | 'contradicted';
   finalConfidenceTier: number;
   zeusNote: string;
+  reviewer?: string;
 };
 
 export type ZeusVerifyResult = {
@@ -132,6 +134,9 @@ function ZeusVerifyControls({
   const [tier, setTier] = useState(3);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ZeusVerifyResult | null>(null);
+  const { hasPermission } = useMobiusIdentity();
+  const canVerify = hasPermission('epicon:verify');
+  const canContradict = hasPermission('epicon:contradict');
 
   if (!onVerify) return null;
 
@@ -157,6 +162,7 @@ function ZeusVerifyControls({
         finalStatus: outcome === 'hit' ? 'verified' : 'contradicted',
         finalConfidenceTier: tier,
         zeusNote: note,
+        reviewer: 'kaizencycle',
       });
       setResult(res);
     } catch {
@@ -183,6 +189,12 @@ function ZeusVerifyControls({
 
   return (
     <div className="space-y-3">
+      {!canVerify && !canContradict ? (
+        <div className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-mono text-slate-500">
+          ZEUS verification unavailable for current role.
+        </div>
+      ) : null}
+
       <div className="flex items-center gap-2">
         <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500">
           Final Tier
@@ -214,16 +226,16 @@ function ZeusVerifyControls({
 
       <div className="flex gap-2">
         <button
-          disabled={busy}
+          disabled={busy || !canVerify}
           onClick={() => handleVerify('hit')}
-          className="flex-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.12em] text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-50"
+          className="flex-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.12em] text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-30"
         >
           {busy ? '...' : 'Verify (Hit)'}
         </button>
         <button
-          disabled={busy}
+          disabled={busy || !canContradict}
           onClick={() => handleVerify('miss')}
-          className="flex-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.12em] text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+          className="flex-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-mono uppercase tracking-[0.12em] text-rose-300 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-30"
         >
           {busy ? '...' : 'Contradict (Miss)'}
         </button>
@@ -301,6 +313,15 @@ function EpiconView({
       <div>
         <SmallLabel>Agent Trace</SmallLabel>
         <NumberedStepList items={event.trace} />
+      </div>
+
+      <div>
+        <SmallLabel>Promotion Pipeline</SmallLabel>
+        <div className="mt-2 grid grid-cols-1 gap-2">
+          <InspectorStat label="Promotion State" value={(event.promotionState ?? 'pending').toUpperCase()} />
+          <InspectorStat label="Assigned Agents" value={(event.assignedAgents ?? []).join(', ') || 'Awaiting assignment'} />
+          <InspectorStat label="Committed Entries" value={(event.committedEntries ?? []).join(', ') || 'Awaiting correlated ledger entry'} />
+        </div>
       </div>
 
       <div>
@@ -454,16 +475,16 @@ function GIView({ data }: { data: InspectorTarget & { kind: 'gi' } }) {
 
       <div className="grid grid-cols-2 gap-3">
         <InspectorStat
-          label="Institutional Trust"
-          value={`${Math.round(gi.institutionalTrust * 100)}%`}
+          label="GI Mode"
+          value={(gi.mode ?? 'yellow').toUpperCase()}
         />
         <InspectorStat
-          label="Info Reliability"
-          value={`${Math.round(gi.infoReliability * 100)}%`}
+          label="Terminal Status"
+          value={(gi.terminalStatus ?? 'stressed').toUpperCase()}
         />
         <InspectorStat
-          label="Consensus Stability"
-          value={`${Math.round(gi.consensusStability * 100)}%`}
+          label="Primary Driver"
+          value={gi.primaryDriver ?? 'No primary driver available'}
         />
         <InspectorStat
           label="Weekly Avg"
@@ -477,9 +498,10 @@ function GIView({ data }: { data: InspectorTarget & { kind: 'gi' } }) {
         <SmallLabel>Score Breakdown</SmallLabel>
         <div className="mt-2 space-y-3">
           {[
-            { label: 'Institutional Trust', value: gi.institutionalTrust },
-            { label: 'Info Reliability', value: gi.infoReliability },
-            { label: 'Consensus Stability', value: gi.consensusStability },
+            { label: 'Signal Quality', value: gi.signalBreakdown?.quality ?? gi.institutionalTrust },
+            { label: 'Signal Freshness', value: gi.signalBreakdown?.freshness ?? gi.infoReliability },
+            { label: 'Tripwire Stability', value: gi.signalBreakdown?.stability ?? gi.consensusStability },
+            { label: 'System Health', value: gi.signalBreakdown?.system ?? gi.score },
           ].map((m) => {
             const pct = Math.round(m.value * 100);
             return (

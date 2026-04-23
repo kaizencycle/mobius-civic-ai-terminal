@@ -1,0 +1,145 @@
+# STEP 0 — Read shared world state (C-274): GET https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot
+# (cycle, gi, anomalies, echo/epicon, sentiment, substrate.agents / substrate.latest). Do not duplicate USGS/CoinGecko/EONET fetches.
+# EPICON KV Sync — short-cycle keepalive for terminal UI KV reads
+# Class B at runtime: POST seed-kv + GET kv/health only (no repo writes).
+# Schedule: every 15 minutes UTC
+# Author: DAEDALUS · EPICON KV Sync
+
+name: EPICON KV Sync
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TERMINAL_URL: 'https://mobius-civic-ai-terminal.vercel.app'
+  CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+jobs:
+  kv-sync:
+    name: KV seed + health
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync KV (seed + verify)
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::INFRASTRUCTURE NOT READY — CRON_SECRET GitHub Actions secret is not set. Cannot authorize POST /api/admin/seed-kv."
+            exit 1
+          fi
+
+          START_MS=$(python3 -c 'import time; print(int(time.time() * 1000))')
+
+          LAST_SEEDED=""
+          CHECK=""
+          for ATTEMPT in 1 2; do
+            seed_http=$(curl -sS -o /tmp/seed.json -w '%{http_code}' -X POST \
+              "${TERMINAL_URL}/api/admin/seed-kv" \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              -H 'Content-Type: application/json' \
+              -d '{}' \
+              --max-time 120) || seed_http="000"
+
+            if [ "$seed_http" = "200" ]; then
+              LAST_SEEDED=$(python3 -c "import json; d=json.load(open('/tmp/seed.json')); print(','.join(d.get('seeded', [])))" 2>/dev/null || echo "")
+            else
+              echo "::warning::seed-kv attempt ${ATTEMPT}: HTTP ${seed_http}"
+              cat /tmp/seed.json 2>/dev/null || true
+            fi
+
+            curl -sS -o /tmp/kv-health.json "${TERMINAL_URL}/api/kv/health" --max-time 30 || {
+              echo "::warning::kv/health fetch failed on attempt ${ATTEMPT}"
+              echo "" > /tmp/kv-health.json
+            }
+
+            CHECK=$(python3 << 'PY'
+          import json
+          import sys
+
+          try:
+              with open("/tmp/kv-health.json", encoding="utf-8") as f:
+                  raw = f.read().strip()
+              if not raw:
+                  print("FETCH_FAILED")
+                  sys.exit(0)
+              h = json.loads(raw)
+          except (OSError, json.JSONDecodeError) as e:
+              print(f"PARSE_ERROR:{e}")
+              sys.exit(0)
+
+          required = ("SIGNAL_SNAPSHOT", "GI_STATE", "HEARTBEAT", "LAST_INGEST")
+          keys = h.get("keys") or {}
+
+          if not h.get("ok"):
+              err = h.get("error") or "unknown"
+              configured = h.get("configured")
+              print(f"KV_UNAVAILABLE:{err}:configured={configured}")
+              sys.exit(0)
+
+          failed = [k for k in required if not keys.get(k)]
+          if failed:
+              print("FAILED_KEYS:" + ",".join(failed))
+              sys.exit(0)
+
+          print("OK")
+          PY
+          )
+
+            case "$CHECK" in
+              OK)
+                break
+                ;;
+              KV_UNAVAILABLE:*)
+                echo "::error::Verification blocked: KV/Redis not provisioned or unavailable — ${CHECK#KV_UNAVAILABLE:}"
+                exit 1
+                ;;
+              FAILED_KEYS:*)
+                echo "::warning::Keys not present after seed (attempt ${ATTEMPT}): ${CHECK#FAILED_KEYS:}"
+                if [ "$ATTEMPT" -eq 1 ]; then
+                  echo "Retrying seed + health once..."
+                  sleep 2
+                fi
+                ;;
+              FETCH_FAILED)
+                echo "::warning::kv/health empty or unreachable (attempt ${ATTEMPT})"
+                if [ "$ATTEMPT" -eq 1 ]; then
+                  sleep 2
+                fi
+                ;;
+              PARSE_ERROR:*)
+                echo "::error::${CHECK}"
+                exit 1
+                ;;
+              *)
+                echo "::error::Unexpected health check output: ${CHECK}"
+                exit 1
+                ;;
+            esac
+          done
+
+          if [ "$CHECK" != "OK" ]; then
+            echo "::error::After 2 attempts, required KV keys are still false — last message: ${CHECK}"
+            exit 1
+          fi
+
+          END_MS=$(python3 -c 'import time; print(int(time.time() * 1000))')
+          LATENCY=$((END_MS - START_MS))
+          TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          if [ -n "$LAST_SEEDED" ]; then
+            LOG_LINE="kv-sync: ${LAST_SEEDED} written · latency ${LATENCY}ms · ${TS}"
+          else
+            LOG_LINE="kv-sync: (seed keys n/a) · latency ${LATENCY}ms · ${TS}"
+          fi
+
+          echo "$LOG_LINE"
+          {
+            echo "## EPICON KV Sync"
+            echo ""
+            echo "\`$LOG_LINE\`"
+          } >> "$GITHUB_STEP_SUMMARY"

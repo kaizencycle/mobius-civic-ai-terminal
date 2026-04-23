@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: mobius-terminal-gateway
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn gateway:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: THOUGHT_BROKER_URL
+        fromService:
+          name: thought-broker
+          type: web
+          property: host
+      - key: CIVIC_LEDGER_URL
+        fromService:
+          name: Civic-Protocol-Core Ledger API
+          type: web
+          property: host
+      - key: GIC_INDEXER_URL
+        fromService:
+          name: GIC Indexer API
+          type: web
+          property: host
+      - key: MIC_WALLET_URL
+        fromService:
+          name: mobius-mic-wallet-service
+          type: web
+          property: host
+      - key: IDENTITY_URL
+        fromService:
+          name: mobius-identity-service
+          type: web
+          property: host
+      - key: OAA_API_URL
+        fromService:
+          name: OAA-API-Library API
+          type: web
+          property: host
+      - key: LAB4_URL
+        fromService:
+          name: lab4-proof API
+          type: web
+          property: host
+      - key: LAB6_URL
+        fromService:
+          name: lab6-proof API
+          type: web
+          property: host
+      - key: LAB7_URL
+        fromService:
+          name: lab7-proof API
+          type: web
+          property: host
+      - fromGroup: mobius.sys

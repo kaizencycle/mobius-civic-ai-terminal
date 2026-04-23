@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-04-14T04:01:17.478Z",
+  "agent": "ATLAS",
+  "cycle": "C-281",
+  "gi": 0.83,
+  "mode": "green",
+  "source": "mock",
+  "anomalies": [
+    "Seismic: 73 quakes M2.5+ today, max M5.7 near 90 km SSE of Sand Point, Alaska",
+    "EONET: 50 open natural events (1 storms, 42 fires)",
+    "Self-ping: HTTP 401 in 42ms"
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": false,
+    "GI_STATE": false,
+    "ECHO_STATE": false,
+    "ECHO_STATE_KV": false,
+    "TRIPWIRE_STATE": false,
+    "TRIPWIRE_STATE_KV": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "seed_attempted": true,
+  "seed_result": "401"
+}

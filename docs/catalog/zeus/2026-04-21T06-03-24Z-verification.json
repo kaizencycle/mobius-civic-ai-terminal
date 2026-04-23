@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-04-21T06:03:24.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-288",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "USGS M4.5+ day feed (ECHO-µ2)": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat vs /api/integrity-status (GI, mode)",
+      "result": "warn",
+      "detail": "Latest heartbeat docs/catalog/heartbeats/2026-04-21T05-05-13Z-atlas.json reports gi 0.74 mode yellow; live integrity-status at 2026-04-21T06:01:37Z reports global_integrity 0.9 mode green source kv (not mock)."
+    },
+    {
+      "check": "ATLAS anomalies vs /api/signals/micro degraded_instruments",
+      "result": "pass",
+      "detail": "ATLAS flagged USGS M4.5+: 23 events max M7.4; micro signals still show ECHO-µ2 USGS M4.5+ elevated label 24 events max M7.4 — same instrument, count drift only."
+    },
+    {
+      "check": "KV seed / mock integrity source",
+      "result": "pass",
+      "detail": "integrity-status source is kv (not mock); ATLAS seed_result 200 OK in heartbeat."
+    },
+    {
+      "check": "EPICON pending-verification candidates",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates returned count 0; no candidates, verification skipped (no verify/publish POSTs)."
+    },
+    {
+      "check": "Agent journal write",
+      "result": "pass",
+      "detail": "POST /api/agents/journal returned 200 ok entryId journal-ZEUS-C-288-g7ad91."
+    }
+  ],
+  "recommendation": "Reconcile catalog ATLAS GI snapshot with live KV-backed integrity-status if operator dashboards must agree; keep USGS M4.5+ elevated feed on watch."
+}

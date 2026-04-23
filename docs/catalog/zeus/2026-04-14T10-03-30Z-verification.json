@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-04-14T10:03:30.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-281",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "Seismic (M2.5+ daily load)": "persistent",
+    "EONET open natural events": "persistent",
+    "Self-ping HTTP 401": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat (latest catalog artifact)",
+      "result": "pass",
+      "detail": "Read docs/catalog/heartbeats/2026-04-14T09-04-35Z-atlas.json: gi=0.83, mode=green, source=kv, anomalies=3, seed_result=401, kv_keys show ECHO_STATE/TRIPWIRE_STATE absent."
+    },
+    {
+      "check": "signals/micro vs ATLAS anomalies",
+      "result": "pass",
+      "detail": "Seismic remains elevated (76 quakes M2.5+ vs heartbeat 75; max M5.7 location shifted to Nevada vs Puerto Rico — domain persistent, epicenter detail transient). EONET unchanged at 50 open (1 storms, 42 fires), elevated. Self-ping still HTTP 401 (~58ms vs heartbeat 50ms), elevated."
+    },
+    {
+      "check": "integrity-status source and GI coherence",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock), global_integrity=0.83 matching ATLAS; degraded=true with signal weights (e.g. quality 0.8, freshness 0.6) consistent with elevated GAIA/DAEDALUS-µ readings."
+    },
+    {
+      "check": "epicon candidates queue",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates returned count=0; no candidates, verification skipped per procedure."
+    },
+    {
+      "check": "agent journal submission",
+      "result": "warn",
+      "detail": "CRON_SECRET was not available in this environment; unauthenticated POST /api/agents/journal returns 401. Journal body was not written to the live journal lane from this run."
+    }
+  ],
+  "recommendation": "Treat GI as KV-backed for this cycle (not mock), but keep degraded=true in view: fix persistent DAEDALUS self-ping 401, restore missing ECHO/TRIPWIRE KV keys if those lanes should be live, and ensure automation supplies CRON_SECRET so ZEUS can append the journal entry."
+}

@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-04-01T10:03:57.000Z",
+  "agent": "ZEUS",
+  "atlas_heartbeat_reviewed": "20260401T074328Z.json",
+  "verification_status": "disputed",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat parse (health, GI, anomalies, EVE)",
+      "result": "warn",
+      "detail": "Parsed 20260401T074328Z.json: health=degraded, composite=0.675, anomalies=2, gi=0.83, mode=green. Endpoints: micro_agents=true, integrity=true, runtime=false. No EVE global_tension field in heartbeat payload."
+    },
+    {
+      "check": "/api/signals/micro vs ATLAS anomaly set",
+      "result": "warn",
+      "detail": "Live composite 0.699 (slightly up vs 0.675). Two anomalies still listed: GAIA/USGS Earthquake elevated (78 quakes M2.5+, max M5.7) and DAEDALUS-µ/Self-ping elevated (HTTP 401, 63ms). Both remain elevated—persistent class. THEMIS is healthy=false with data.gov catalog/official and last-good-cache failed; not counted in anomalies array but is active degradation."
+    },
+    {
+      "check": "/api/integrity-status GI source and freshness",
+      "result": "fail",
+      "detail": "source=mock: GI is not production-truth. global_integrity=0.83 mode=green aligns directionally with live micro composite ~0.7 but cannot be verified as computed from live signals. signals.freshness=0.6 and signals.information=0.6 indicate degraded freshness axes; kv=false."
+    },
+    {
+      "check": "Vercel deployment health (last 6h, READY, ignoreCommand/bot skips)",
+      "result": "warn",
+      "detail": "No VERCEL_TOKEN or linked project in workspace; npx vercel whoami not usable non-interactively. Production origin responds 200 for key routes—site is up—but deployment list, ERROR states, and ignoreCommand behavior could not be verified via Vercel API/CLI this run."
+    },
+    {
+      "check": "/api/runtime/status vs heartbeat endpoints.runtime",
+      "result": "fail",
+      "detail": "Heartbeat records runtime=false. Live GET /api/runtime/status returns 200 ok=true, source=github-commit, last_run 2026-04-01T09:13:36Z; freshness.status=degraded (~61m lag at check). ATLAS endpoint probe appears false or stale relative to production."
+    },
+    {
+      "check": "/api/eve/global-news cross-check",
+      "result": "warn",
+      "detail": "source=mock, global_tension=low, degraded=true (reason: live feed returned no fresh items). No high/elevated tension vs green GI disconnect. Persistent micro anomalies (seismic volume, self-ping 401, THEMIS upstream) correlate with infrastructure/data feeds, not live geopolitical tension."
+    }
+  ],
+  "gi_verified": false,
+  "anomaly_persistence": {
+    "GAIA:USGS Earthquake": "persistent",
+    "DAEDALUS-µ:Self-ping": "persistent"
+  },
+  "eve_correlation": "EVE is on mock fallback with global_tension low; placeholder items only. Elevated seismic and auth-gated self-ping are orthogonal to EVE; THEMIS data.gov failures are transparency-pipeline, not news-driven.",
+  "recommendation": "Treat GI as indicative only until source is live and kv-backed. Investigate THEMIS data.gov path and DAEDALUS self-ping 401 (expected vs misconfig). Reconcile ATLAS runtime probe with live /api/runtime/status. Re-run ZEUS with Vercel token to validate deployments and ignoreCommand."
+}

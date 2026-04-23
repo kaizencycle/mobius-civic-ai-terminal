@@ -1,0 +1,187 @@
+# mobius.yaml — Node declaration contract v1 (C-286)
+# Canon: this file declares identity, pulse, ingest targets, MCP, and policy — it does not perform writes.
+# Write path: KV / runtime → writer / orchestrator → declared ingest target → durable ledger → optional feed mirror.
+
+version: "1.0"
+
+mesh:
+  enabled: true
+  node_id: "mobius-terminal"
+  node_name: "Mobius Civic AI Terminal"
+  tier: "operator"
+  role: "operator_console"
+  node_type: "app"
+  substrate_ref: "kaizencycle/Mobius-Substrate"
+  covenant: "integrity"
+  agent_affinity:
+    - ZEUS
+    - ATLAS
+
+  repository:
+    full_name: "kaizencycle/mobius-civic-ai-terminal"
+    default_branch: "main"
+
+  discovery:
+    enabled: true
+    registry_participation: true
+
+  # Legacy mesh blocks (retained for backward compatibility with prior manifests)
+  ledger:
+    enabled: true
+    backend: "github-actions"
+    feed_url: "https://mobius-civic-ai-terminal.vercel.app/api/epicon/feed"
+    push_to_substrate: true
+  mii:
+    track: true
+    baseline: 0.85
+  epicon:
+    intent_blocks_required: true
+    push_on_merge: true
+  mic:
+    participate: true
+    reward_type: "MIC_REWARD_V2"
+
+pulse:
+  enabled: true
+  health_url: "https://mobius-civic-ai-terminal.vercel.app/api/health"
+  feed_url: "https://mobius-civic-ai-terminal.vercel.app/api/epicon/feed"
+  snapshot_url: "https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot-lite"
+  freshness_sla_seconds: 900
+  integrity_weight: 1.0
+  lanes:
+    - integrity
+    - signals
+    - tripwire
+    - heartbeat
+    - mic_readiness
+    - vault
+    - mcp
+  authoritative_for:
+    - terminal_snapshot
+    - mic_readiness
+    - vault_runtime
+  emits:
+    heartbeat: true
+    gi: true
+    mii: false
+    mic: true
+    vault: true
+    tripwire: true
+    anomalies: true
+
+ingest:
+  enabled: true
+  # write_through: hot KV + sovereign OAA append + durable Civic Core (see mesh/mobius-yaml-spec.md)
+  mode: "write_through"
+  hot_state:
+    type: "upstash_kv"
+  sovereign_memory:
+    node_id: "oaa-api-library"
+    # Full URL to POST /api/oaa/kv — if empty, use OAA_API_BASE from env (see .env.example)
+    write_url: ""
+    auth: "hmac"
+  durable_ledger:
+    node_id: "civic-protocol-core"
+    # Same as ingest.targets[0]; bearer ingest to /mesh/ingest
+    write_url: ""
+    auth: "bearer"
+  targets:
+    - node_id: "civic-protocol-core"
+      purpose: "durable_ledger"
+      # If empty, runtime resolves from MOBIUS_INGEST_WRITE_URL (see .env.example).
+      write_url: ""
+      auth: "bearer"
+      accepts:
+        - EPICON_ENTRY_V1
+        - MIC_READINESS_V1
+        - MIC_SEAL_V1
+        - MIC_RESERVE_RECONCILIATION_V1
+        - MIC_GENESIS_BLOCK
+        - MOBIUS_PULSE_V1
+        - OAA_MEMORY_ENTRY_V1
+
+mcp:
+  enabled: true
+  server_url: "https://mobius-civic-ai-terminal.vercel.app/api/mcp"
+  discovery_url: "https://mobius-civic-ai-terminal.vercel.app/.well-known/mcp.json"
+  transport: "streamable-http"
+  schema_version: "MCP-2025-03-26"
+  integrity:
+    require_gi_above: 0.5
+    log_all_invocations: true
+    invocation_agent: "HERMES"
+    verification_agent: "ZEUS"
+    mic_reward_on_invocation: false
+  tools:
+    - name: "get_integrity_snapshot"
+      description: "Returns snapshot-lite GI, mode, lane freshness, deployment meta."
+      endpoint: "/api/terminal/snapshot-lite"
+      method: "GET"
+      auth: "none"
+      epicon_tag: "tool:integrity-read"
+    - name: "get_epicon_feed"
+      description: "Returns recent EPICON / civic ledger rows from the Terminal feed."
+      endpoint: "/api/epicon/feed"
+      method: "GET"
+      auth: "none"
+      epicon_tag: "tool:ledger-read"
+    - name: "get_vault_status"
+      description: "Returns MIC vault state — reserve, tranche, Seal lane, hash coverage."
+      endpoint: "/api/vault/status"
+      method: "GET"
+      auth: "none"
+      epicon_tag: "tool:vault-read"
+    - name: "get_agent_journal"
+      description: "Returns recent sentinel journal entries (substrate-backed)."
+      endpoint: "/api/agents/journal"
+      method: "GET"
+      auth: "none"
+      epicon_tag: "tool:journal-read"
+    - name: "post_epicon_entry"
+      description: "Triggers ECHO ingest (POST /api/echo/ingest) — operational write; MCP logs intent to EPICON feed."
+      endpoint: "/api/echo/ingest"
+      method: "POST"
+      auth: "none"
+      epicon_tag: "tool:ledger-write"
+      requires_gi_above: 0.6
+    - name: "get_mic_readiness"
+      description: "Returns MIC_READINESS_V1 (merged) + proof metadata."
+      endpoint: "/api/mic/readiness"
+      method: "GET"
+      auth: "none"
+      epicon_tag: "tool:mic-read"
+
+policy:
+  write_truth_locally: false
+  mirror_feed_to_repo: true
+  canonical_ledger_node: "civic-protocol-core"
+  hash_algorithm: "sha256"
+
+# C-288 — Mesh execution fabric (declaration only; Actions run the jobs).
+jobs:
+  enabled: true
+  workflows:
+    - id: "publish-cycle-state"
+      file: ".github/workflows/publish-cycle-state.yml"
+      trigger: "schedule"
+      cron: "*/10 * * * *"
+      description: "Fetch snapshot-lite → ledger/cycle-state.json for HIVE / Substrate / browser-shell"
+    - id: "fetch-hive-world"
+      file: ".github/workflows/fetch-hive-world.yml"
+      trigger: "manual"
+      description: "Slack-agent allowlisted stub — extend for HIVE world fetch"
+    - id: "mesh-aggregate"
+      file: ".github/workflows/mesh-aggregate.yml"
+      trigger: "manual"
+      description: "Slack-agent allowlisted stub — extend for mesh aggregation"
+    - id: "world-update"
+      file: ".github/workflows/world-update.yml"
+      trigger: "manual"
+      description: "Slack-agent allowlisted stub — extend for world update pipeline"
+
+governance:
+  agent_prs_allowed: true
+  auto_merge_allowed: false
+  required_reviewers:
+    - "ZEUS"
+    - "ATLAS"

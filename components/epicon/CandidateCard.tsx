@@ -5,7 +5,7 @@ type Candidate = {
   title: string;
   summary: string;
   category: string;
-  status: 'pending' | 'verified' | 'contradicted';
+  status: 'pending' | 'verified' | 'contradicted' | 'pending-verification' | 'contested';
   confidence_tier: number;
   external_source_system?: string;
   external_source_actor?: string;
@@ -20,6 +20,9 @@ type Candidate = {
 type Props = {
   item: Candidate;
   onVerify: (id: string, outcome: 'verified' | 'contradicted') => Promise<void>;
+  canVerify: boolean;
+  canContradict: boolean;
+  pipelineManaged?: boolean;
 };
 
 function tone(status: Candidate['status']) {
@@ -27,13 +30,20 @@ function tone(status: Candidate['status']) {
     case 'verified':
       return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
     case 'contradicted':
+    case 'contested':
       return 'border-rose-500/30 bg-rose-500/10 text-rose-300';
     default:
       return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
   }
 }
 
-export default function CandidateCard({ item, onVerify }: Props) {
+export default function CandidateCard({
+  item,
+  onVerify,
+  canVerify,
+  canContradict,
+  pipelineManaged = false,
+}: Props) {
   return (
     <div className="rounded-xl border border-slate-800 bg-black/40 p-4 text-white">
       <div className="flex items-start justify-between gap-3">
@@ -98,17 +108,33 @@ export default function CandidateCard({ item, onVerify }: Props) {
       {item.status === 'pending' ? (
         <div className="mt-4 flex gap-2">
           <button
+            disabled={!canVerify}
             onClick={() => onVerify(item.id, 'verified')}
-            className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300 hover:bg-emerald-500/20"
+            className={`rounded-lg border px-3 py-2 text-xs transition ${
+              canVerify
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                : 'cursor-not-allowed border-slate-800 bg-slate-950 text-slate-600'
+            }`}
           >
             ZEUS Verify
           </button>
           <button
+            disabled={!canContradict}
             onClick={() => onVerify(item.id, 'contradicted')}
-            className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300 hover:bg-rose-500/20"
+            className={`rounded-lg border px-3 py-2 text-xs transition ${
+              canContradict
+                ? 'border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20'
+                : 'cursor-not-allowed border-slate-800 bg-slate-950 text-slate-600'
+            }`}
           >
             ZEUS Contradict
           </button>
+        </div>
+      ) : null}
+
+      {item.status === 'pending' && !pipelineManaged && !canVerify && !canContradict ? (
+        <div className="mt-3 text-xs text-slate-500">
+          Verification unavailable for current role
         </div>
       ) : null}
     </div>

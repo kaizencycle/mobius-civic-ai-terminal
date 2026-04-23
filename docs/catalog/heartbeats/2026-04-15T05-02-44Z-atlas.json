@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-04-15T05:02:44Z",
+  "agent": "ATLAS",
+  "cycle": "C-282",
+  "gi": 0.83,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    "FX: USD vs basket spread \u2248 158.1130",
+    "GDELT: 0 articles (24h governance)",
+    "Reddit worldnews: avg score 0 on 0 posts",
+    "Self-ping: 401 in 38ms",
+    "EONET: 27 open events (7d window)"
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": true,
+    "ECHO_STATE": true,
+    "ECHO_STATE_KV": true,
+    "TRIPWIRE_STATE": false,
+    "TRIPWIRE_STATE_KV": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true,
+    "TRIPWIRE_STATE_REDIS": false
+  },
+  "seed_attempted": true,
+  "seed_result": "401"
+}

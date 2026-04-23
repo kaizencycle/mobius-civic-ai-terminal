@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-04-19T13:04:16.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-286",
+  "gi": 0.83,
+  "mode": "green",
+  "source": "mock",
+  "anomalies": [
+    "WB WLD GDP growth latest: 2.87% (y/y) [stale: 2024, -0.2]",
+    "GDELT: 0 articles (24h governance+civic)",
+    "Reddit narrative: avg score 0 on 0 posts"
+  ],
+  "kv_keys": {
+    "MIC_READINESS_SNAPSHOT": false,
+    "MIC_READINESS_FEED": false,
+    "SIGNAL_SNAPSHOT": false,
+    "GI_STATE": true,
+    "ECHO_STATE": false,
+    "ECHO_STATE_KV": false,
+    "TRIPWIRE_STATE": false,
+    "TRIPWIRE_STATE_KV": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true,
+    "SYSTEM_PULSE": true,
+    "TRIPWIRE_STATE_REDIS": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK"
+}

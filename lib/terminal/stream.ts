@@ -10,7 +10,7 @@ export type StreamMessage =
 
 const API_BASE =
   (typeof window !== 'undefined'
-    ? process.env.NEXT_PUBLIC_MOBIUS_API_BASE
+    ? process.env.NEXT_PUBLIC_MOBIUS_API_BASE ?? process.env.NEXT_PUBLIC_TERMINAL_API_BASE
     : ''
   )?.replace(/\/$/, '') || '';
 
@@ -61,38 +61,75 @@ function parseStreamPayload(raw: any): StreamMessage | null {
 
 export type StreamConnectionStatus = 'live' | 'reconnecting' | 'offline';
 
+// ── Optimization 3: exponential backoff reconnection ─────────────────────────
+// Retries at 2s, 4s, 8s, 16s, then caps at 30s. Resets on successful open.
+
+const MAX_BACKOFF_MS = 30_000;
+const BASE_BACKOFF_MS = 2_000;
+
 export function connectMobiusStream(
   onMessage: (msg: StreamMessage) => void,
   onStatusChange?: (status: StreamConnectionStatus) => void,
-) {
+): { close(): void } | null {
   if (!API_BASE) return null;
 
-  const source = new EventSource(`${API_BASE}/stream/events`);
-
-  source.onopen = () => {
-    onStatusChange?.('live');
-  };
+  let es: EventSource | null = null;
+  let retryCount = 0;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let closed = false;
 
   const eventTypes = ['heartbeat', 'agents', 'epicon', 'integrity', 'tripwire'];
-  for (const type of eventTypes) {
-    source.addEventListener(type, (event) => {
-      try {
-        const raw = JSON.parse((event as MessageEvent).data);
-        const msg = parseStreamPayload(raw);
-        if (msg) onMessage(msg);
-      } catch {
-        // Malformed SSE payload — skip silently
+
+  function connect() {
+    if (closed) return;
+
+    es = new EventSource(`${API_BASE}/stream/events`);
+
+    es.onopen = () => {
+      retryCount = 0;
+      onStatusChange?.('live');
+    };
+
+    for (const type of eventTypes) {
+      es.addEventListener(type, (event) => {
+        try {
+          const raw = JSON.parse((event as MessageEvent).data);
+          const msg = parseStreamPayload(raw);
+          if (msg) onMessage(msg);
+        } catch {
+          // Malformed SSE payload — skip silently
+        }
+      });
+    }
+
+    es.onerror = () => {
+      if (closed) return;
+      if (es?.readyState === EventSource.CONNECTING) {
+        // Browser is already attempting to reconnect natively
+        onStatusChange?.('reconnecting');
+      } else {
+        // Connection hard-closed — take over with backoff reconnect
+        es?.close();
+        es = null;
+        onStatusChange?.('reconnecting');
+        const delay = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * Math.pow(2, retryCount));
+        retryCount += 1;
+        retryTimer = setTimeout(connect, delay);
       }
-    });
+    };
   }
 
-  source.onerror = () => {
-    if (source.readyState === EventSource.CONNECTING) {
-      onStatusChange?.('reconnecting');
-    } else {
-      onStatusChange?.('offline');
-    }
-  };
+  connect();
 
-  return source;
+  return {
+    close() {
+      closed = true;
+      if (retryTimer !== null) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
+      es?.close();
+      es = null;
+    },
+  };
 }

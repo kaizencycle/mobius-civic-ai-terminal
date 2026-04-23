@@ -92,11 +92,13 @@ export async function POST() {
         eventCount: 1,
         avgMii: 0,
         totalGiDelta: 0,
+        totalMicProvisional: 0,
         totalMicMinted: 0,
         agentAverages: {},
         ratings: [],
       },
       sourceCount: 0,
+      duplicateSuppressedCount: 0,
       timestamp: now.toISOString(),
     });
 

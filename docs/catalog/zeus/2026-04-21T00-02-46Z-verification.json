@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-04-21T00:02:46.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-287",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "USGS M4.5+ day feed": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat vs latest file",
+      "result": "pass",
+      "detail": "Latest heartbeat docs/catalog/heartbeats/2026-04-20T23-01-41Z-atlas.json: gi=0.82, mode=green, source=live, anomalies=[USGS M4.5+: 20 events, max M7.4], seed_result=200 OK, kv_keys present for GI_STATE and SIGNAL_SNAPSHOT."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "source=kv (not mock), global_integrity=0.82, mode=green, degraded=true; signal composite quality=0.77, freshness=0.6, stability=1, system=1."
+    },
+    {
+      "check": "GET /api/signals/micro anomaly cross-check",
+      "result": "warn",
+      "detail": "degraded_instruments: ECHO-µ2 USGS M4.5+ elevated — 19 events, max M7.4 vs ATLAS text 20 events; persistent elevated seismic context with minor count drift between snapshots."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "count=0; no pending-verification candidates — verify/publish skipped."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200; duplicate token indicates idempotent replay for same derivedFrom scope this cycle."
+    }
+  ],
+  "recommendation": "No operator action required for EPICON this cycle. Treat USGS event-count differences as feed sampling variance while severity remains elevated. Continue monitoring optional instruments (e.g. ZEUS-µ3 fetch failed, AUREA-µ2 404) as lane noise, not GI mock failure."
+}

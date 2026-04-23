@@ -1,0 +1,101 @@
+# STEP 0 — Read shared world state (C-274): GET https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot
+# (cycle, gi, anomalies, echo/epicon, sentiment, substrate.agents / substrate.latest). Do not duplicate USGS/CoinGecko/EONET fetches.
+# ═══════════════════════════════════════════════════════════════════════════════
+# Anti-Nuke Guardrail — Civic AI Terminal
+# ═══════════════════════════════════════════════════════════════════════════════
+# Adapted from kaizencycle/Mobius-Substrate anti-nuke.yml
+# Prevents PRs from mass-deleting files, especially in protected paths.
+# Critical for repos with autonomous Codex agent PRs.
+# CC0 Public Domain
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Anti-Nuke
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute deletion stats
+        id: stats
+        run: |
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.event.pull_request.head.sha }}
+
+          DELETES=$(git diff --diff-filter=D --name-only $BASE...$HEAD | wc -l | xargs)
+          TOTAL=$(git diff --name-only $BASE...$HEAD | wc -l | xargs)
+
+          # Terminal-specific protected paths
+          PROTECTED=$(git diff --diff-filter=D --name-only $BASE...$HEAD | \
+            grep -E '^(app|components|lib|hooks|contexts|packages|docs|\.github)/' | \
+            wc -l | xargs || true)
+
+          echo "deletes=$DELETES" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "protected=$PROTECTED" >> $GITHUB_OUTPUT
+
+      - name: Enforce thresholds
+        run: |
+          DELETES=${{ steps.stats.outputs.deletes }}
+          TOTAL=${{ steps.stats.outputs.total }}
+          PROTECTED=${{ steps.stats.outputs.protected }}
+
+          MAX_DELETES=5
+          MAX_DELETE_RATIO=0.15
+
+          if [ "$TOTAL" -eq 0 ]; then
+            RATIO=0
+          else
+            RATIO=$(python3 -c "print(round($DELETES / max(1, $TOTAL), 3))")
+          fi
+
+          echo "Deletions: $DELETES / $TOTAL (ratio $RATIO) · Protected: $PROTECTED"
+
+          FAIL=0
+
+          if [ "$DELETES" -gt "$MAX_DELETES" ]; then
+            echo "::error::Too many deletions ($DELETES > $MAX_DELETES)"
+            FAIL=1
+          fi
+
+          if (( $(echo "$RATIO > $MAX_DELETE_RATIO" | bc -l) )); then
+            echo "::error::Deletion ratio $RATIO exceeds $MAX_DELETE_RATIO"
+            FAIL=1
+          fi
+
+          if [ "$PROTECTED" -gt 0 ]; then
+            echo "::error::Deletion in protected paths ($PROTECTED files)"
+            FAIL=1
+          fi
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo ""
+            echo "## 🚨 Anti-Nuke Guardrail Blocked This PR"
+            echo ""
+            echo "### Deletion Summary"
+            echo "- Total deletions: $DELETES"
+            echo "- Changed files: $TOTAL"
+            echo "- Deletion ratio: $RATIO"
+            echo "- Protected path deletions: $PROTECTED"
+            echo ""
+            echo "### Limits"
+            echo "- Max deletions: $MAX_DELETES"
+            echo "- Max ratio: $MAX_DELETE_RATIO"
+            echo "- Protected: app/, components/, lib/, hooks/, contexts/, packages/, docs/, .github/"
+            echo ""
+            echo "**Action:** Reduce deletions or split into smaller PRs."
+            exit 1
+          fi
+
+          echo "✅ Anti-nuke check passed ($DELETES deletions, ratio $RATIO)"

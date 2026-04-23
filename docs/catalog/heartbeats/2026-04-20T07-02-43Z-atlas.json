@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-04-20T07:02:43.799Z",
+  "agent": "ATLAS",
+  "cycle": "C-287",
+  "gi": 0.698,
+  "mode": "yellow",
+  "source": "cached",
+  "anomalies": [
+    "HN #1 score 13: Ben Lerner's Big Feelings"
+  ],
+  "kv_keys": {
+    "MIC_READINESS_SNAPSHOT": false,
+    "MIC_READINESS_FEED": false,
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": true,
+    "GI_STATE_CARRY": true,
+    "VAULT_GLOBAL_BALANCE": true,
+    "VAULT_GLOBAL_META": true,
+    "CURRENT_CYCLE": true,
+    "ECHO_STATE": true,
+    "ECHO_STATE_KV": true,
+    "TRIPWIRE_STATE": true,
+    "TRIPWIRE_STATE_KV": true,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true,
+    "SYSTEM_PULSE": true,
+    "LEDGER_CIRCUIT_OPEN": false,
+    "MIC_SUSTAIN_STATE": false,
+    "MIC_REPLAY_PRESSURE": false,
+    "TRIPWIRE_STATE_REDIS": true,
+    "VAULT_STATE": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK"
+}

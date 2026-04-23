@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { buildAureaOversightReport } from '@/lib/aurea/oversee';
+import { appendAgentJournalEntry } from '@/lib/agents/journal';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,6 +71,22 @@ export async function GET() {
       },
     ],
   });
+
+  void appendAgentJournalEntry({
+    agent: 'AUREA',
+    cycle: currentCycleId(),
+    observation: `AUREA oversight ran across ${report.adapter_health.total} sources with ${report.adapter_health.degraded} degraded lanes.`,
+    inference: `Candidate backlog is ${report.pending_epicon_backlog.status} with ${report.pending_epicon_backlog.count} pending items.`,
+    recommendation: report.pending_epicon_backlog.status === 'nominal'
+      ? 'Maintain current operating posture and continue routine close checks.'
+      : 'Review degraded adapter lanes and prioritize verification queue before daily close.',
+    confidence: report.pending_epicon_backlog.status === 'nominal' ? 0.88 : 0.76,
+    derivedFrom: ['aurea:oversight', 'adapter-health', 'source-reliability'],
+    relatedAgents: ['ATLAS', 'ZEUS', 'ECHO'],
+    status: 'committed',
+    category: 'close',
+    severity: report.pending_epicon_backlog.status === 'nominal' ? 'nominal' : 'elevated',
+  }).catch(() => {});
 
   return NextResponse.json({
     ok: true,

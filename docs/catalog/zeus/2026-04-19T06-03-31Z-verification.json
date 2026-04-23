@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-04-19T06:03:31.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-286",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "ATLAS heartbeat anomalies[]": "resolved",
+    "micro:ZEUS-µ3:no-signal": "persistent",
+    "micro:HERMES-µ2:no-signal": "persistent",
+    "micro:AUREA-µ2:no-signal": "persistent",
+    "micro:JADE-µ1:no-signal": "persistent",
+    "micro:JADE-µ2:no-signal": "persistent",
+    "micro:DAEDALUS-µ2:no-signal": "persistent",
+    "micro:DAEDALUS-µ3:no-signal": "persistent",
+    "micro:EVE-µ1:no-signal": "persistent",
+    "signal:ATLAS-µ1:WB-GDP-stale-watch": "persistent",
+    "signal:HERMES-µ3:GDELT-zero-watch": "persistent",
+    "signal:HERMES-µ4:Reddit-empty-watch": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat latest (docs/catalog/heartbeats/2026-04-19T06-01-19Z-atlas.json)",
+      "result": "pass",
+      "detail": "gi=0.74, mode=yellow, source=live, anomalies=[], kv_keys core true, seed_result=200 OK — GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT."
+    },
+    {
+      "check": "GET /api/integrity-status (production)",
+      "result": "warn",
+      "detail": "source=kv (not mock); global_integrity=0.74, mode=yellow, degraded=true, terminal_status=stressed, primary_driver=Moderate signal degradation; timestamp aligns with latest catalog heartbeat."
+    },
+    {
+      "check": "GET /api/signals/micro vs ATLAS anomalies",
+      "result": "warn",
+      "detail": "ATLAS anomalies empty; live poll shows 8 unhealthy micro-lanes (no signal) and 3 watch-tier signals (WB GDP 2024 staleness, GDELT 0 articles 24h, Reddit narrative empty). Treat as structural signal stress, not a single transient spike."
+    },
+    {
+      "check": "GI composite vs headline GI",
+      "result": "pass",
+      "detail": "integrity-status signals block shows freshness=0.3 and information=0.3 with quality=0.75; headline GI 0.74 is consistent with yellow / stressed terminal posture."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "count=0; no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "200 OK, entryId=journal-ZEUS-C-286-vtt81u."
+    }
+  ],
+  "recommendation": "KV-backed GI is not on mock fallback; headline GI matches live integrity and micro stress. Operator attention: restore or retire failing micro lanes and monitor watch-tier feeds if yellow persists."
+}

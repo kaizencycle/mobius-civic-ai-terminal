@@ -1,0 +1,12 @@
+{
+  "chamber": "science",
+  "views": [
+    "overview",
+    "consensus_map",
+    "frontier_watch",
+    "jade_translation",
+    "civic_brief"
+  ],
+  "default_sort": "timestamp_desc_canonical",
+  "inspector_priority": ["source", "timestamp", "confidence", "summary"]
+}

@@ -1,0 +1,76 @@
+{
+  "repo": "kaizencycle/mobius-civic-ai-terminal",
+  "updated_at": "2026-03-22T10:05:00Z",
+  "events": [
+    {
+      "ts": "2026-03-19T21:40:00Z",
+      "type": "cycle_close",
+      "cycle": "C-255",
+      "detail": "C-255 closed with AUREA synthesis: energy-inflation-war day"
+    },
+    {
+      "ts": "2026-03-20T10:05:00Z",
+      "type": "cycle_open",
+      "cycle": "C-256",
+      "detail": "C-256 clock-in — terminal hydration sprint planned"
+    },
+    {
+      "ts": "2026-03-20T12:28:00Z",
+      "type": "pr_merged",
+      "pr": 24,
+      "detail": "Static integrity hydration and ledger backfill"
+    },
+    {
+      "ts": "2026-03-20T12:28:00Z",
+      "type": "pr_merged",
+      "pr": 25,
+      "detail": "Cron polling and staleness detection"
+    },
+    {
+      "ts": "2026-03-20T16:26:00Z",
+      "type": "pr_merged",
+      "pr": 26,
+      "detail": "Query-to-EPICON publish flow"
+    },
+    {
+      "ts": "2026-03-20T22:03:00Z",
+      "type": "pr_merged",
+      "pr": 27,
+      "detail": "MIC settlement layer"
+    },
+    {
+      "ts": "2026-03-21T10:45:00Z",
+      "type": "pr_merged",
+      "pr": 28,
+      "detail": "Reactive Global Integrity computation"
+    },
+    {
+      "ts": "2026-03-21T11:25:00Z",
+      "type": "pr_merged",
+      "pr": 29,
+      "detail": "Terminal navigation and layout cohesion"
+    },
+    {
+      "ts": "2026-03-21T12:07:00Z",
+      "type": "pr_merged",
+      "pr": 30,
+      "detail": "Mobius Identity scaffold and profile surface"
+    },
+    {
+      "ts": "2026-03-21T13:19:00Z",
+      "type": "pr_merged",
+      "pr": 31,
+      "detail": "Identity system — role-aware terminal"
+    },
+    {
+      "ts": "2026-03-22T10:05:00Z",
+      "type": "feature_added",
+      "detail": "Micro sub-agent scaffold: GAIA, HERMES-µ, THEMIS, DAEDALUS-µ — 9 public API sources"
+    },
+    {
+      "ts": "2026-03-22T10:05:00Z",
+      "type": "catalog_created",
+      "detail": "Mobius Catalog v0.1 initialized — 2-hourly health snapshots"
+    }
+  ]
+}

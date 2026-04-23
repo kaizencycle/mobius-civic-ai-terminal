@@ -201,10 +201,10 @@ export default function IntegrityRatingPanel({
         </div>
         <div className="text-center">
           <div className="text-2xl font-mono font-semibold text-sky-300">
-            {integrity.totalMicMinted.toFixed(4)}
+            {(integrity.totalMicProvisional ?? integrity.totalMicMinted).toFixed(4)}
           </div>
           <div className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-500">
-            MIC Minted
+            MIC provisional
           </div>
         </div>
         <div className="text-center">

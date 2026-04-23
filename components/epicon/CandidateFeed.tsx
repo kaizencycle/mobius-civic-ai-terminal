@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useMobiusIdentity } from '@/hooks/useMobiusIdentity';
+import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import CandidateCard from './CandidateCard';
 
 type Candidate = {
@@ -8,7 +10,7 @@ type Candidate = {
   title: string;
   summary: string;
   category: string;
-  status: 'pending' | 'verified' | 'contradicted';
+  status: 'pending' | 'verified' | 'contradicted' | 'pending-verification' | 'contested';
   confidence_tier: number;
   external_source_system?: string;
   external_source_actor?: string;
@@ -22,11 +24,25 @@ type Candidate = {
 
 export default function CandidateFeed() {
   const [data, setData] = useState<Candidate[]>([]);
+  const { hasPermission } = useMobiusIdentity();
 
   async function load() {
     const res = await fetch('/api/epicon/candidates', { cache: 'no-store' });
     const json = await res.json();
-    setData(json.candidates || []);
+    const raw = (json.candidates || []) as Array<
+      Candidate & { confidenceTier?: number }
+    >;
+    setData(
+      raw.map((c) => ({
+        ...c,
+        confidence_tier:
+          typeof c.confidence_tier === 'number'
+            ? c.confidence_tier
+            : typeof c.confidenceTier === 'number'
+              ? c.confidenceTier
+              : 0,
+      })),
+    );
   }
 
   async function onVerify(id: string, outcome: 'verified' | 'contradicted') {
@@ -41,11 +57,13 @@ export default function CandidateFeed() {
           outcome === 'verified'
             ? 'Cross-source alignment sufficient for verified candidate status.'
             : 'Contradiction or insufficient support detected by ZEUS.',
+        reviewer: 'kaizencycle',
       }),
     });
 
     if (!res.ok) {
-      console.error('ZEUS verification failed');
+      const json = await res.json().catch(() => null);
+      console.error(json?.error || 'ZEUS verification failed');
       return;
     }
 
@@ -67,7 +85,14 @@ export default function CandidateFeed() {
       ) : null}
 
       {data.map((item) => (
-        <CandidateCard key={item.id} item={item} onVerify={onVerify} />
+        <CandidateCard
+          key={item.id}
+          item={item}
+          onVerify={onVerify}
+          canVerify={hasPermission('epicon:verify')}
+          canContradict={hasPermission('epicon:contradict')}
+          pipelineManaged={isEveSynthesisFeedSource(item.source)}
+        />
       ))}
     </div>
   );

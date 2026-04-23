@@ -1,0 +1,345 @@
+# STEP 0 — Read shared world state (C-274): GET https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot
+# (cycle, gi, anomalies, echo/epicon, sentiment, substrate.agents / substrate.latest). Do not duplicate USGS/CoinGecko/EONET fetches.
+# ═══════════════════════════════════════════════════════════════════════════════
+# Sentinel Review (AUREA + ATLAS) — Civic AI Terminal
+# ═══════════════════════════════════════════════════════════════════════════════
+# Adapted from kaizencycle/Mobius-Substrate sentinel-review.yml
+# Runs AI-powered PR review using OpenAI (AUREA) and Anthropic (ATLAS)
+# Posts a combined verdict comment and auto-labels on pass
+# CC0 Public Domain
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Sentinel Review (AUREA + ATLAS)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, edited, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: sentinel-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sentinel:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_MODEL: gpt-4o-mini
+      ANTHROPIC_MODEL: claude-sonnet-4-20250514
+      MAX_DIFF_CHARS: "120000"
+      MAX_PROMPT_CHARS: "200000"
+      AUTO_LABEL_ON_PASS: "true"
+      PASS_LABEL: "consensus:approved"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gate — only run when sentinel labels present
+        id: gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = (context.payload.pull_request.labels || []).map(l => l.name);
+            const run =
+              labels.includes('review:aurea') ||
+              labels.includes('review:atlas') ||
+              labels.includes('consensus:requested') ||
+              labels.includes('consensus:approved');
+            core.setOutput('run', run ? 'true' : 'false');
+            core.setOutput('labels', labels.join(', '));
+
+      - name: Skip — no sentinel labels
+        if: steps.gate.outputs.run != 'true'
+        run: |
+          echo "✅ Skipping: add label review:aurea, review:atlas, or consensus:requested."
+
+      - name: Build PR context + diff
+        if: steps.gate.outputs.run == 'true'
+        id: ctx
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.event.pull_request.head.sha }}
+          git fetch --no-tags --prune --depth=200 origin "${BASE}" "${HEAD}" || true
+
+          git diff --name-only "${BASE}" "${HEAD}" > /tmp/changed_files.txt || true
+          git diff --unified=3 "${BASE}" "${HEAD}" > /tmp/pr.diff || true
+
+          # Truncate diff if too large
+          python3 - <<'PY'
+          import os
+          max_chars = int(os.environ.get("MAX_DIFF_CHARS","120000"))
+          with open("/tmp/pr.diff","r",encoding="utf-8",errors="ignore") as f:
+            s = f.read()
+          if len(s) > max_chars:
+            s = s[:max_chars] + "\n\n[DIFF TRUNCATED]\n"
+          with open("/tmp/pr.diff","w",encoding="utf-8") as f:
+            f.write(s)
+          PY
+
+          # Build PR metadata JSON
+          python3 - <<'PY'
+          import json, os
+          pr = {
+            "number": int(os.environ["PR_NUMBER"]),
+            "title": os.environ.get("PR_TITLE",""),
+            "body": os.environ.get("PR_BODY",""),
+            "url": os.environ.get("PR_URL",""),
+            "head": os.environ.get("PR_HEAD",""),
+            "base": os.environ.get("PR_BASE",""),
+            "author": os.environ.get("PR_AUTHOR",""),
+          }
+          with open("/tmp/pr.meta.json","w",encoding="utf-8") as f:
+            json.dump(pr,f,ensure_ascii=False,indent=2)
+          PY
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+
+      - name: Run AUREA review (OpenAI)
+        if: steps.gate.outputs.run == 'true'
+        id: aurea
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const apiKey = process.env.OPENAI_API_KEY;
+            if (!apiKey) {
+              core.setOutput('json', JSON.stringify({
+                verdict:"pass", blocking:[], non_blocking:["OPENAI_API_KEY not configured — AUREA skipped"],
+                summary:"AUREA review skipped. Add OPENAI_API_KEY secret to enable."
+              }));
+              return;
+            }
+
+            const meta = fs.readFileSync('/tmp/pr.meta.json','utf8');
+            const diff = fs.readFileSync('/tmp/pr.diff','utf8');
+            const files = fs.readFileSync('/tmp/changed_files.txt','utf8');
+
+            const instruction = `
+            You are AUREA, a civic integrity reviewer for the Mobius Civic AI Terminal.
+            This is a Next.js app with EPICON ledger, GI computation, micro sub-agents, and MIC economics.
+
+            Return ONLY valid JSON (no markdown) with schema:
+            {
+              "verdict": "pass" | "fail",
+              "summary": "string (<=400 chars)",
+              "blocking": ["..."],
+              "non_blocking": ["..."]
+            }
+
+            Rules:
+            - Check for: type safety, API route correctness, signal normalization issues
+            - Flag any hardcoded secrets, missing error handling, or broken imports
+            - Only "fail" if there is at least one blocking item
+            - Be concrete: cite file paths
+            `;
+
+            const content = `# AUREA Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
+            const maxP = parseInt(process.env.MAX_PROMPT_CHARS || '200000', 10);
+            const finalContent = content.length > maxP ? content.slice(0, maxP) + '\n[TRUNCATED]' : content;
+
+            const res = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+                temperature: 0.1,
+                messages: [
+                  { role: 'system', content: 'You are AUREA, a civic integrity reviewer. Return STRICT JSON only.' },
+                  { role: 'user', content: finalContent }
+                ]
+              })
+            });
+
+            if (!res.ok) {
+              core.setOutput('json', JSON.stringify({verdict:"fail", blocking:[`OpenAI HTTP ${res.status}`], non_blocking:[], summary:"AUREA request failed."}));
+              return;
+            }
+
+            const data = await res.json();
+            let text = (data?.choices?.[0]?.message?.content ?? '').trim();
+            if (text.startsWith('```json')) text = text.slice(7);
+            if (text.startsWith('```')) text = text.slice(3);
+            if (text.endsWith('```')) text = text.slice(0, -3);
+
+            try {
+              core.setOutput('json', JSON.stringify(JSON.parse(text.trim())));
+            } catch (e) {
+              core.setOutput('json', JSON.stringify({verdict:"fail", blocking:["AUREA output was not valid JSON"], non_blocking:[], summary:"Parse failed."}));
+            }
+
+      - name: Run ATLAS review (Anthropic)
+        if: steps.gate.outputs.run == 'true'
+        id: atlas
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const apiKey = process.env.ANTHROPIC_API_KEY;
+            if (!apiKey) {
+              core.setOutput('json', JSON.stringify({
+                verdict:"pass", blocking:[], non_blocking:["ANTHROPIC_API_KEY not configured — ATLAS skipped"],
+                summary:"ATLAS review skipped. Add ANTHROPIC_API_KEY secret to enable."
+              }));
+              return;
+            }
+
+            const meta = fs.readFileSync('/tmp/pr.meta.json','utf8');
+            const diff = fs.readFileSync('/tmp/pr.diff','utf8');
+            const files = fs.readFileSync('/tmp/changed_files.txt','utf8');
+
+            const instruction = `
+            You are ATLAS, the primary sentinel of the Mobius Civic AI Terminal.
+            This is a Next.js app with EPICON ledger, GI computation, micro sub-agents, and MIC economics.
+
+            Return ONLY valid JSON (no markdown) with schema:
+            {
+              "verdict": "pass" | "fail",
+              "summary": "string (<=400 chars)",
+              "blocking": ["..."],
+              "non_blocking": ["..."]
+            }
+
+            Rules:
+            - Look for: falsifiability gaps, integrity drift, compliance-theater risk
+            - Flag broken signal normalization, GI computation errors, tripwire logic bugs
+            - Check that new API routes follow the existing pattern in app/api/
+            - Only "fail" if there is at least one blocking item
+            - Be concrete: cite file paths
+            `;
+
+            const content = `# ATLAS Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
+            const maxP = parseInt(process.env.MAX_PROMPT_CHARS || '200000', 10);
+            const finalContent = content.length > maxP ? content.slice(0, maxP) + '\n[TRUNCATED]' : content;
+
+            const res = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+                max_tokens: 1200,
+                temperature: 0.1,
+                system: 'You are ATLAS, a skeptical systems sentinel. Return STRICT JSON only.',
+                messages: [{ role: 'user', content: finalContent }]
+              })
+            });
+
+            if (!res.ok) {
+              core.setOutput('json', JSON.stringify({verdict:"fail", blocking:[`Anthropic HTTP ${res.status}`], non_blocking:[], summary:"ATLAS request failed."}));
+              return;
+            }
+
+            const data = await res.json();
+            let text = (data?.content || []).map(p => p.text || '').join('\n').trim();
+            if (text.startsWith('```json')) text = text.slice(7);
+            if (text.startsWith('```')) text = text.slice(3);
+            if (text.endsWith('```')) text = text.slice(0, -3);
+
+            try {
+              core.setOutput('json', JSON.stringify(JSON.parse(text.trim())));
+            } catch (e) {
+              core.setOutput('json', JSON.stringify({verdict:"fail", blocking:["ATLAS output was not valid JSON"], non_blocking:[], summary:"Parse failed."}));
+            }
+
+      - name: Render verdict and post comment
+        if: steps.gate.outputs.run == 'true'
+        id: decide
+        uses: actions/github-script@v7
+        with:
+          script: |
+            function safeParse(raw) {
+              try { return JSON.parse(raw || '{}'); }
+              catch { return { verdict: 'pass', blocking: [], non_blocking: ['Output parse failed'], summary: 'Parse error' }; }
+            }
+
+            const A = safeParse(`${{ steps.aurea.outputs.json || '{}' }}`);
+            const T = safeParse(`${{ steps.atlas.outputs.json || '{}' }}`);
+
+            const blocking = [...(A.blocking||[]), ...(T.blocking||[])].filter(Boolean);
+            const pass = blocking.length === 0 && (A.verdict||'pass') === 'pass' && (T.verdict||'pass') === 'pass';
+
+            const body = [
+              `## 🤖 Sentinel Review`,
+              ``,
+              pass ? `**Result:** ✅ PASS` : `**Result:** ❌ FAIL (${blocking.length} blocking)`,
+              ``,
+              `---`,
+              ``,
+              `### AUREA — ${(A.verdict||'pass').toUpperCase()}`,
+              A.summary ? `> ${A.summary}` : '',
+              (A.blocking||[]).length ? `**Blocking:** ${A.blocking.join(', ')}` : '',
+              (A.non_blocking||[]).length ? `**Notes:** ${A.non_blocking.join(', ')}` : '',
+              ``,
+              `### ATLAS — ${(T.verdict||'pass').toUpperCase()}`,
+              T.summary ? `> ${T.summary}` : '',
+              (T.blocking||[]).length ? `**Blocking:** ${T.blocking.join(', ')}` : '',
+              (T.non_blocking||[]).length ? `**Notes:** ${T.non_blocking.join(', ')}` : '',
+              ``,
+              `---`,
+              `*Add secrets OPENAI_API_KEY and ANTHROPIC_API_KEY to enable AI reviews.*`,
+            ].filter(x => x !== null && x !== undefined).join('\n');
+
+            // Upsert comment
+            const prNumber = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: prNumber, per_page: 100
+            });
+            const marker = '## 🤖 Sentinel Review';
+            const existing = comments.find(c => c.user?.type === 'Bot' && (c.body||'').includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: prNumber, body
+              });
+            }
+
+            core.setOutput('pass', pass ? 'true' : 'false');
+
+      - name: Auto-label on pass
+        if: steps.gate.outputs.run == 'true' && steps.decide.outputs.pass == 'true' && env.AUTO_LABEL_ON_PASS == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber
+            });
+            if (!labels.find(l => l.name === process.env.PASS_LABEL)) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: prNumber, labels: [process.env.PASS_LABEL]
+              });
+            }
+
+      - name: Fail check if blocking issues
+        if: steps.gate.outputs.run == 'true' && steps.decide.outputs.pass != 'true'
+        run: |
+          echo "❌ Sentinel review failed."
+          exit 1

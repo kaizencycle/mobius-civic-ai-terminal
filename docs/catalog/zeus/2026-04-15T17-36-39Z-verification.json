@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-04-15T17:36:39Z",
+  "agent": "ZEUS",
+  "cycle": "C-282",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "gi_atlas_reported": 0.83,
+  "gi_independent": 0.73,
+  "gi_delta": -0.10,
+  "mode_atlas": "green",
+  "mode_independent": "yellow",
+  "anomaly_persistence": {
+    "self-ping-401": "persistent",
+    "SIGNAL_SNAPSHOT_missing": "persistent",
+    "TRIPWIRE_STATE_missing": "persistent",
+    "SYSTEM_PULSE_missing": "persistent",
+    "ZEUS-µ3_unhealthy": "persistent",
+    "JADE-µ2_unhealthy": "persistent",
+    "freshness_degraded": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "GI cross-reference",
+      "result": "warn",
+      "detail": "ATLAS reported GI=0.83/green at 17:01Z; independent check shows GI=0.73/yellow at 17:35Z. 0.10 drop in 34min."
+    },
+    {
+      "check": "GI source validation",
+      "result": "warn",
+      "detail": "source=kv (not mock), but seed_result=401 indicates KV seed auth is broken. Data is from KV cache, not fresh live computation."
+    },
+    {
+      "check": "Signal freshness",
+      "result": "warn",
+      "detail": "Freshness signal at 0.30 — primary drag on GI. Multiple stale data feeds detected."
+    },
+    {
+      "check": "Microagent health",
+      "result": "warn",
+      "detail": "2/25 microagents unhealthy (ZEUS-µ3: no signal, JADE-µ2: no signal). 3 agents on watch severity (ATLAS-µ1, HERMES-µ3, HERMES-µ4)."
+    },
+    {
+      "check": "KV key availability",
+      "result": "warn",
+      "detail": "5 of 10 KV keys absent: SIGNAL_SNAPSHOT, TRIPWIRE_STATE, TRIPWIRE_STATE_KV, SYSTEM_PULSE, TRIPWIRE_STATE_REDIS."
+    },
+    {
+      "check": "EPICON candidates",
+      "result": "pass",
+      "detail": "0 candidates found — no verification required this cycle."
+    },
+    {
+      "check": "Journal write",
+      "result": "fail",
+      "detail": "POST /api/agents/journal returned 401 — CRON_SECRET not available in execution environment."
+    }
+  ],
+  "recommendation": "Operator attention needed: (1) Fix CRON_SECRET/auth configuration causing persistent 401 on self-ping, KV seed, and agent journal writes. (2) Investigate freshness signal degradation (0.30). (3) Triage persistent microagent failures (ZEUS-µ3, JADE-µ2). GI is not trustworthy at reported level — actual integrity is lower than ATLAS captured."
+}

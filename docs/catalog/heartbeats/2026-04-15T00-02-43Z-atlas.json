@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-04-15T00:02:43.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-281",
+  "gi": 0.83,
+  "mode": "green",
+  "source": "mock",
+  "anomalies": [
+    "Seismic: 82 quakes M2.5+ today, max M5.7 near 4 km ESE of Enterprise, Nevada",
+    "EONET: 50 open natural events (1 storms, 42 fires)",
+    "Self-ping: HTTP 401 in 55ms"
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": true,
+    "GI_STATE": true,
+    "ECHO_STATE": false,
+    "ECHO_STATE_KV": false,
+    "TRIPWIRE_STATE": false,
+    "TRIPWIRE_STATE_KV": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "seed_attempted": true,
+  "seed_result": "401"
+}

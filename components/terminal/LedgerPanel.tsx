@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import type { LedgerEntry } from '@/lib/terminal/types';
+import type { DataSource } from '@/lib/response-envelope';
 import { cn } from '@/lib/terminal/utils';
+import DataSourceBadge from './DataSourceBadge';
 import SectionLabel from './SectionLabel';
 import SortBar, { type SortOption } from './SortBar';
 
@@ -51,10 +54,26 @@ function sortLedger(entries: LedgerEntry[], key: LedgerSortKey, dir: 'asc' | 'de
 
 export default function LedgerPanel({
   entries,
+  duplicateSuppressedCount = 0,
+  promotionCounters,
   selectedId,
   onSelect,
 }: {
   entries: LedgerEntry[];
+  duplicateSuppressedCount?: number;
+  promotionCounters?: {
+    pending_promotable_count: number;
+    promoted_this_cycle_count: number;
+    committed_agent_count: number;
+    failed_promotion_count: number;
+    diagnostics?: {
+      last_promotion_run_at: string | null;
+      promoter_input_count: number;
+      promoter_eligible_count: number;
+      promoter_excluded_reasons: Record<string, number>;
+      promoted_ids_this_cycle: string[];
+    };
+  };
   selectedId?: string;
   onSelect?: (entry: LedgerEntry) => void;
 }) {
@@ -62,14 +81,48 @@ export default function LedgerPanel({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const sorted = useMemo(() => sortLedger(entries, sortKey, sortDir), [entries, sortKey, sortDir]);
+  const liveIngestEntries = useMemo(
+    () => sorted.filter((entry) => entry.source === 'echo' && entry.status === 'pending'),
+    [sorted],
+  );
+  const liveCommittedEntries = useMemo(
+    () =>
+      sorted.filter(
+        (entry) =>
+          (entry.source === 'echo' || isEveSynthesisFeedSource(entry.source) || entry.source === 'agent_commit') &&
+          entry.status === 'committed',
+      ),
+    [sorted],
+  );
+  const backfillEntries = useMemo(
+    () => sorted.filter((entry) => entry.source === 'backfill' || entry.source === 'mock'),
+    [sorted],
+  );
+  const cycleId = liveIngestEntries[0]?.cycleId ?? liveCommittedEntries[0]?.cycleId ?? sorted[0]?.cycleId ?? 'unknown';
+  const source = useMemo<DataSource>(() => {
+    if (entries.some((entry) => entry.source === 'echo')) return 'live';
+    if (entries.some((entry) => isEveSynthesisFeedSource(entry.source))) return 'live';
+    if (entries.some((entry) => entry.source === 'backfill')) return 'stale-cache';
+    return 'mock';
+  }, [entries]);
+  const freshAt = sorted[0]?.timestamp ?? null;
+  const degraded = source !== 'live';
 
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+    <section
+      className={cn(
+        'rounded-xl border bg-slate-900/60 p-4',
+        degraded ? 'border-amber-500/40' : 'border-slate-800'
+      )}
+    >
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <SectionLabel
-          title="Civic Ledger"
-          subtitle="Immutable event record — Mobius Substrate"
-        />
+        <div className="flex items-start gap-3 flex-wrap">
+          <SectionLabel
+            title="Civic Ledger"
+            subtitle="Immutable event record — Mobius Substrate"
+          />
+          <DataSourceBadge source={source} freshAt={freshAt} degraded={degraded} />
+        </div>
         <SortBar
           options={SORT_OPTIONS}
           active={sortKey}
@@ -78,12 +131,41 @@ export default function LedgerPanel({
         />
       </div>
       <div className="mt-3 space-y-2">
-        {sorted.map((entry) => (
+        <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-[11px] font-mono uppercase tracking-[0.1em] text-slate-300">
+          <div>live_ingest_count: <span className="text-amber-300">{liveIngestEntries.length}</span></div>
+          <div>live_committed_agent_count: <span className="text-emerald-300">{liveCommittedEntries.length}</span></div>
+          <div>backfill_count: <span className="text-slate-200">{backfillEntries.length}</span></div>
+          <div>duplicate_suppressed_count: <span className="text-fuchsia-300">{duplicateSuppressedCount}</span></div>
+          <div>pending_promotable_count: <span className="text-amber-300">{promotionCounters?.pending_promotable_count ?? 0}</span></div>
+          <div>promoted_this_cycle_count: <span className="text-sky-300">{promotionCounters?.promoted_this_cycle_count ?? 0}</span></div>
+          <div>committed_agent_count: <span className="text-emerald-300">{promotionCounters?.committed_agent_count ?? liveCommittedEntries.length}</span></div>
+          <div>failed_promotion_count: <span className="text-rose-300">{promotionCounters?.failed_promotion_count ?? 0}</span></div>
+          <div>promoter_input_count: <span className="text-slate-200">{promotionCounters?.diagnostics?.promoter_input_count ?? 0}</span></div>
+          <div>promoter_eligible_count: <span className="text-sky-300">{promotionCounters?.diagnostics?.promoter_eligible_count ?? 0}</span></div>
+          <div className="col-span-2">
+            promoted_ids_this_cycle: <span className="text-emerald-300">{promotionCounters?.diagnostics?.promoted_ids_this_cycle?.join(', ') || 'none'}</span>
+          </div>
+          <div className="col-span-2">
+            last_promotion_run_at: <span className="text-slate-200">{promotionCounters?.diagnostics?.last_promotion_run_at ?? 'n/a'}</span>
+          </div>
+        </div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-[10px] font-mono uppercase tracking-[0.08em] text-slate-400">
+          promoter_excluded_reasons: {Object.entries(promotionCounters?.diagnostics?.promoter_excluded_reasons ?? {})
+            .map(([reason, count]) => `${reason}=${count}`)
+            .join(' · ') || 'none'}
+        </div>
+        <div className="text-[11px] font-mono uppercase tracking-[0.1em] text-slate-500">
+          Cycle {cycleId} · default focus: committed agent memory
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-4">
+        {liveCommittedEntries.map((entry) => (
           <button
             key={entry.id}
             onClick={() => onSelect?.(entry)}
             className={cn(
-              'w-full rounded-lg border p-3 text-left transition',
+              'cv-auto w-full rounded-lg border p-3 text-left transition',
               selectedId === entry.id
                 ? 'border-sky-500/40 bg-sky-500/10'
                 : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-900',
@@ -91,7 +173,7 @@ export default function LedgerPanel({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-mono text-slate-400">
                     {entry.id}
                   </span>
@@ -103,8 +185,26 @@ export default function LedgerPanel({
                   >
                     {entry.type}
                   </span>
+                  {entry.category && (
+                    <span className="rounded-md border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] text-slate-300">
+                      {entry.category}
+                    </span>
+                  )}
+                  {typeof entry.confidenceTier === 'number' && (
+                    <span className="rounded-md border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] text-amber-300">
+                      Tier {entry.confidenceTier}
+                    </span>
+                  )}
                 </div>
-                <div className="mt-1 text-sm font-sans text-slate-200 truncate">
+                <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-slate-100">
+                  <span>{entry.title ?? entry.summary}</span>
+                  {isEveSynthesisFeedSource(entry.source) || entry.agentOrigin === 'EVE' ? (
+                    <span className="text-[10px] font-mono text-fuchsia-300 border border-fuchsia-400/35 rounded px-1 py-0.5 ml-1">
+                      EVE
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-1 text-sm font-sans text-slate-400">
                   {entry.summary}
                 </div>
               </div>
@@ -130,17 +230,63 @@ export default function LedgerPanel({
               </div>
             </div>
 
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] text-slate-300">
                 {entry.agentOrigin}
               </span>
               <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] text-slate-300">
                 {entry.cycleId}
               </span>
+              {entry.source && (
+                <span className="rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.1em] text-slate-400">
+                  {entry.source}
+                </span>
+              )}
             </div>
           </button>
         ))}
+        {liveCommittedEntries.length === 0 ? (
+          <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
+            No live committed agent records in the active cycle yet.
+          </div>
+        ) : null}
+
+        {liveIngestEntries.length > 0 ? (
+          <details className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2">
+            <summary className="cursor-pointer text-xs font-mono uppercase tracking-[0.1em] text-amber-300">
+              Live ingest (pending) · {liveIngestEntries.length}
+            </summary>
+            <div className="mt-2 space-y-2">
+              {liveIngestEntries.map((entry) => (
+                <button
+                  key={entry.id}
+                  onClick={() => onSelect?.(entry)}
+                  className={cn(
+                    'cv-auto w-full rounded-lg border p-3 text-left transition border-amber-500/20 bg-slate-950/60 hover:border-amber-400/40',
+                    selectedId === entry.id && 'border-amber-400/60 bg-amber-500/10',
+                  )}
+                >
+                  <div className="text-xs font-mono text-slate-400">{entry.id}</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-100">{entry.title ?? entry.summary}</div>
+                </button>
+              ))}
+            </div>
+          </details>
+        ) : null}
+
+        {backfillEntries.length > 0 ? (
+          <details className="rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+            <summary className="cursor-pointer text-xs font-mono uppercase tracking-[0.1em] text-slate-400">
+              Historical backfill · {backfillEntries.length}
+            </summary>
+          </details>
+        ) : null}
       </div>
+      {degraded ? (
+        <div className="mt-3 text-xs text-amber-300">
+          Showing mock/cached data — live source offline
+        </div>
+      ) : null}
     </section>
   );
 }

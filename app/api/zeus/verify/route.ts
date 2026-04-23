@@ -1,27 +1,26 @@
-/**
- * ZEUS Verification API Route
- *
- * POST /api/zeus/verify — Verify a submitted EPICON
- *
- * Flow:
- *   ZEUS (or custodian) reviews a pending EPICON
- *   → Outcome: hit (accurate) or miss (inaccurate/contradicted)
- *   → EPICON status updated (verified / contradicted)
- *   → Author profile stats updated (hits/misses)
- *   → MII recalculated
- *   → Node tier recalculated
- *
- * Principle: high MII = faster review priority, NOT automatic acceptance.
- */
+export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/identity/guards';
 import {
   getStoredEpicon,
   updateEpicon,
   recordVerification,
 } from '@/lib/mobius/stores';
-
-export const dynamic = 'force-dynamic';
+import { writeEpiconEntry } from '@/lib/epicon-writer';
+import {
+  getEveSynthesisCandidateById,
+  updateEveSynthesisCandidate,
+  type ZeusSynthesisVerdict,
+} from '@/lib/epicon/eveSynthesisCandidates';
+import {
+  getPipelineCandidateById,
+  updatePipelineCandidate,
+  type EpiconCandidate,
+} from '@/lib/eve/synthesis-pipeline-store';
+import { getServiceAuthError } from '@/lib/security/serviceAuth';
+import { appendAgentJournalEntry } from '@/lib/agents/journal';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 type VerifyRequest = {
   epiconId: string;
@@ -31,9 +30,119 @@ type VerifyRequest = {
   zeusNote?: string;
 };
 
-export async function POST(request: Request) {
+function zeusScoreForTier(tier: number): number {
+  if (tier >= 3) return 0.95;
+  if (tier >= 2) return 0.88;
+  return 0.7;
+}
+
+function computeEveSynthesisVerdict(candidate: {
+  confidenceTier: number;
+  flags: string[];
+  severity: string;
+}): ZeusSynthesisVerdict {
+  const { confidenceTier, flags, severity } = candidate;
+  const flagCount = flags.length;
+
+  if (severity === 'high' && flagCount > 0) return 'contested';
+  if (confidenceTier === 1) return 'low-confidence';
+  if (confidenceTier >= 2 && flagCount === 0) return 'confirmed';
+  if (confidenceTier >= 2 && flagCount > 0) return 'flagged';
+  return 'low-confidence';
+}
+
+function verifyEveSynthesisCandidateRecord(
+  id: string,
+  candidate: {
+    confidenceTier: number;
+    flags: string[];
+    severity: string;
+    status: string;
+  },
+): NextResponse {
+  if (candidate.status !== 'pending-verification') {
+    return NextResponse.json(
+      { ok: false, error: 'Candidate is not pending verification' },
+      { status: 400 },
+    );
+  }
+  const verdict = computeEveSynthesisVerdict(candidate);
+  const verifiedAt = new Date().toISOString();
+  const zeusScore = zeusScoreForTier(candidate.confidenceTier);
+  const nextStatus: EpiconCandidate['status'] = verdict === 'contested' ? 'contested' : 'verified';
+  if (getEveSynthesisCandidateById(id)) {
+    updateEveSynthesisCandidate(id, {
+      status: nextStatus,
+      verifiedBy: 'ZEUS',
+      verifiedAt,
+      zeusVerdict: verdict,
+    });
+  }
+  const pipe = getPipelineCandidateById(id);
+  if (pipe) {
+    const patch: Partial<EpiconCandidate> = {
+      status: nextStatus,
+      verifiedBy: 'ZEUS',
+      verifiedAt,
+      zeusVerdict: verdict,
+    };
+    updatePipelineCandidate(id, patch);
+  }
+  void appendAgentJournalEntry({
+    agent: 'ZEUS',
+    cycle: currentCycleId(),
+    observation: `Candidate ${id} reviewed with ${candidate.flags.length} flags at severity ${candidate.severity}.`,
+    inference: `ZEUS verdict: ${verdict}. Candidate transitioned to ${nextStatus}.`,
+    recommendation: verdict === 'contested' ? 'Escalate to ATLAS review before broad promotion.' : 'Proceed with standard ledger promotion checks.',
+    confidence: zeusScore,
+    derivedFrom: [id, `pipeline:candidate:${id}`],
+    relatedAgents: ['EVE', 'ATLAS'],
+    status: 'committed',
+    verifiedBy: verdict === 'contested' ? undefined : 'ZEUS',
+    category: 'inference',
+    severity: verdict === 'contested' ? 'elevated' : 'nominal',
+  }).catch(() => {});
+  return NextResponse.json({
+    ok: true,
+    candidateId: id,
+    verdict,
+    verifiedAt,
+    zeusScore,
+  });
+}
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    info: 'POST { candidateId } to verify a candidate',
+  });
+}
+
+export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as VerifyRequest;
+    const rawBody = await request.json();
+    const body = rawBody as VerifyRequest & { candidateId?: string; reviewer?: string };
+
+    if (typeof body.candidateId === 'string' && body.candidateId.trim()) {
+      const id = body.candidateId.trim();
+      const eveCand = getEveSynthesisCandidateById(id);
+      if (eveCand) {
+        return verifyEveSynthesisCandidateRecord(id, eveCand);
+      }
+      const pipeCand = getPipelineCandidateById(id);
+      if (pipeCand && pipeCand.source === 'eve-synthesis') {
+        return verifyEveSynthesisCandidateRecord(id, pipeCand);
+      }
+      return NextResponse.json({ ok: false, error: 'EVE synthesis candidate not found' }, { status: 404 });
+    }
+
+    const legacyAuthError = getServiceAuthError(request);
+    if (legacyAuthError) return legacyAuthError;
+
+    const reviewer = body.reviewer || 'kaizencycle';
+    const permission = body.finalStatus === 'contradicted' || body.outcome === 'miss'
+      ? 'epicon:contradict'
+      : 'epicon:verify';
 
     if (!body.epiconId) {
       return NextResponse.json({ ok: false, error: 'epiconId is required' }, { status: 400 });
@@ -45,6 +154,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'finalStatus must be "verified" or "contradicted"' }, { status: 400 });
     }
 
+    requirePermission(reviewer, permission);
+
     const epicon = getStoredEpicon(body.epiconId);
     if (!epicon) {
       return NextResponse.json({
@@ -53,7 +164,6 @@ export async function POST(request: Request) {
       }, { status: 404 });
     }
 
-    // Prevent double-verification
     if (epicon.verificationOutcome) {
       return NextResponse.json({
         ok: false,
@@ -78,6 +188,34 @@ export async function POST(request: Request) {
       updatedProfile = recordVerification(epicon.submittedByLogin, body.outcome);
     }
 
+    const confirmed = body.outcome === 'hit' && body.finalStatus === 'verified';
+    const reportRef = body.epiconId;
+
+    writeEpiconEntry({
+      type: 'zeus-verify',
+      severity: 'nominal',
+      title: `ZEUS: Verification ${confirmed ? 'confirmed' : 'flagged'} · ${reportRef}`,
+      author: 'ZEUS',
+      verified: true,
+      verifiedBy: 'ZEUS',
+      tags: ['zeus', 'verification', confirmed ? 'confirmed' : 'flagged'],
+    }).catch(() => {});
+
+    void appendAgentJournalEntry({
+      agent: 'ZEUS',
+      cycle: currentCycleId(),
+      observation: `EPICON ${body.epiconId} verification completed with outcome ${body.outcome}.`,
+      inference: `Final status set to ${body.finalStatus} at tier ${body.finalConfidenceTier}.`,
+      recommendation: body.outcome === 'miss' ? 'Route contradicted item to operator follow-up.' : 'Allow downstream publication routines.',
+      confidence: zeusScoreForTier(body.finalConfidenceTier),
+      derivedFrom: [body.epiconId, `verification:${body.outcome}`],
+      relatedAgents: ['ECHO', 'ATLAS'],
+      status: 'committed',
+      verifiedBy: 'ZEUS',
+      category: 'recommendation',
+      severity: body.outcome === 'miss' ? 'elevated' : 'nominal',
+    }).catch(() => {});
+
     return NextResponse.json({
       ok: true,
       epiconId: body.epiconId,
@@ -94,10 +232,13 @@ export async function POST(request: Request) {
           }
         : null,
     });
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid request body';
+    const status = message.startsWith('Permission denied:') ? 403 : 400;
+
     return NextResponse.json(
-      { ok: false, error: 'Invalid request body' },
-      { status: 400 },
+      { ok: false, error: message },
+      { status },
     );
   }
 }

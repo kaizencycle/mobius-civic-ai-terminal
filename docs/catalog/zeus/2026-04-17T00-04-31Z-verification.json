@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-04-17T00:04:31Z",
+  "agent": "ZEUS",
+  "cycle": "C-283",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "gi_atlas_reported": 0.6,
+  "gi_live_read": 0.75,
+  "gi_delta_explanation": "Timing variance in signal polling between ATLAS snapshot and live integrity-status read. Both consistent with yellow/stressed mode.",
+  "anomaly_persistence": {
+    "ZEUS-µ3_no_signal": "persistent",
+    "AUREA-µ2_no_signal": "persistent",
+    "JADE-µ2_no_signal": "persistent",
+    "DAEDALUS-µ2_no_signal": "persistent",
+    "DAEDALUS-µ3_no_signal": "persistent",
+    "EVE-µ1_no_signal": "persistent",
+    "WB_GDP_stale_2024": "persistent",
+    "GDELT_zero_articles": "persistent",
+    "Reddit_zero_posts": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "signal_summary": {
+    "total_agents": 40,
+    "healthy_agents": 34,
+    "unhealthy_agents": 6,
+    "severity_nominal": 31,
+    "severity_watch": 3,
+    "freshness": 0.3,
+    "quality": 0.77,
+    "stability": 1.0,
+    "system": 1.0
+  },
+  "findings": [
+    {
+      "check": "GI source is live (not mock)",
+      "result": "pass",
+      "detail": "source=kv, kv_backed=true. KV seed succeeded (200 OK). Not mock data."
+    },
+    {
+      "check": "GI value consistency",
+      "result": "pass",
+      "detail": "ATLAS reported 0.6, live read 0.75. Delta explained by polling timing. Both in yellow band."
+    },
+    {
+      "check": "Signal agent health",
+      "result": "warn",
+      "detail": "6/40 agents unhealthy (no signal): ZEUS-µ3, AUREA-µ2, JADE-µ2, DAEDALUS-µ2, DAEDALUS-µ3, EVE-µ1. Persistent across cycles."
+    },
+    {
+      "check": "Watch-severity signals",
+      "result": "warn",
+      "detail": "3 watch signals: WB GDP stale (2024 data, staleness penalty -0.2), GDELT 0 articles, Reddit 0 posts. External data source issues."
+    },
+    {
+      "check": "ATLAS anomaly coverage",
+      "result": "warn",
+      "detail": "ATLAS reported 0 anomalies but 6 agents are unhealthy. Coverage gap in anomaly detection — not a trust issue but a reporting gap."
+    },
+    {
+      "check": "EPICON candidates",
+      "result": "pass",
+      "detail": "0 candidates. No verification required."
+    },
+    {
+      "check": "KV key availability",
+      "result": "pass",
+      "detail": "All 10 expected KV keys present per ATLAS heartbeat."
+    },
+    {
+      "check": "Terminal degradation state",
+      "result": "pass",
+      "detail": "degraded=true, terminal_status=stressed correctly reported. No hidden failures."
+    }
+  ],
+  "recommendation": "No operator intervention required. Persistent no-signal agents (6) should be investigated as maintenance. Freshness drag (0.3) from stale external sources is expected, not a system fault."
+}

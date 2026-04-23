@@ -92,6 +92,11 @@ export function toEpiconItem(raw: RawEvent): EpiconItem {
     timestamp: formatTimestamp(raw.timestamp),
     sources: [raw.source, ...(raw.url ? [new URL(raw.url).hostname] : [])],
     summary: raw.summary,
+    echoIngest: {
+      source: raw.source,
+      severity: raw.severity,
+      metadata: raw.metadata,
+    },
     trace: [
       `ECHO captured signal from ${raw.source}`,
       `${agent} classified as ${raw.category}`,
@@ -116,9 +121,13 @@ export function toLedgerEntry(raw: RawEvent, epiconId: string): LedgerEntry {
     type: 'epicon',
     agentOrigin: 'ECHO',
     timestamp: formatTimestamp(raw.timestamp),
-    summary: `${epiconId} ingested — ${raw.title.slice(0, 60)}${raw.title.length > 60 ? '...' : ''} via ${agent}`,
+    title: raw.title,
+    summary: `${epiconId} ingested from ${raw.source} via ${agent}.`,
     integrityDelta: delta,
     status: raw.severity === 'high' ? 'pending' : 'committed',
+    category: raw.category,
+    confidenceTier: severityToConfidence(raw.severity),
+    source: 'echo',
   };
 }
 
@@ -155,15 +164,62 @@ export type IngestResult = {
   alerts: CivicRadarAlert[];
   integrity: CycleIntegritySummary;
   sourceCount: number;
+  duplicateSuppressedCount: number;
   timestamp: string;
 };
 
+function isFreshEntry(timestamp: string, maxAgeHours = 48): boolean {
+  try {
+    const entryTime = new Date(timestamp).getTime();
+    if (!Number.isFinite(entryTime)) return false;
+
+    const cutoff = Date.now() - maxAgeHours * 60 * 60 * 1000;
+    return entryTime >= cutoff;
+  } catch {
+    return false; // malformed timestamp — reject silently
+  }
+}
+
+function normalizeText(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function deriveRawEventFingerprint(event: RawEvent): string {
+  const bucketMinutes = 10;
+  const time = new Date(event.timestamp).getTime();
+  const bucket = Number.isFinite(time) ? Math.floor(time / (bucketMinutes * 60 * 1000)) : event.timestamp;
+  const symbol = typeof event.metadata?.coin === 'string' ? event.metadata.coin.toLowerCase() : '';
+  return [
+    event.source.toLowerCase(),
+    event.category,
+    symbol,
+    bucket,
+    normalizeText(event.title),
+    normalizeText(event.summary),
+  ].join('|');
+}
+
 export function transformBatch(events: RawEvent[]): IngestResult {
+  const freshEvents = events.filter((event) => isFreshEntry(event.timestamp));
+  const dedupedEvents: RawEvent[] = [];
+  const seenFingerprints = new Set<string>();
+  let duplicateSuppressedCount = 0;
+
+  for (const event of freshEvents) {
+    const fingerprint = deriveRawEventFingerprint(event);
+    if (seenFingerprints.has(fingerprint)) {
+      duplicateSuppressedCount += 1;
+      continue;
+    }
+    seenFingerprints.add(fingerprint);
+    dedupedEvents.push(event);
+  }
+
   const epicon: EpiconItem[] = [];
   const ledger: LedgerEntry[] = [];
   const alerts: CivicRadarAlert[] = [];
 
-  for (const raw of events) {
+  for (const raw of dedupedEvents) {
     const item = toEpiconItem(raw);
     epicon.push(item);
     ledger.push(toLedgerEntry(raw, item.id));
@@ -174,7 +230,7 @@ export function transformBatch(events: RawEvent[]): IngestResult {
 
   // Run integrity rating across all agents (ATLAS, ZEUS, JADE, EVE)
   const cycleId = getCurrentCycleId();
-  const integrity = rateBatch(events, epicon, cycleId);
+  const integrity = rateBatch(dedupedEvents, epicon, cycleId);
 
   // Update ledger deltas with integrity-engine-computed values
   for (let i = 0; i < ledger.length; i++) {
@@ -203,7 +259,8 @@ export function transformBatch(events: RawEvent[]): IngestResult {
     ledger,
     alerts,
     integrity,
-    sourceCount: events.length,
+    sourceCount: dedupedEvents.length,
+    duplicateSuppressedCount,
     timestamp: new Date().toISOString(),
   };
 }

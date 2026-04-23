@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
 import type { Tripwire, TripwireLayer } from '@/lib/terminal/types';
+import type { DataSource } from '@/lib/response-envelope';
 import { tripwireStyle, cn } from '@/lib/terminal/utils';
+import DataSourceBadge from './DataSourceBadge';
 import SectionLabel from './SectionLabel';
 
 const LAYER_COLORS: Record<TripwireLayer, string> = {
@@ -21,16 +24,57 @@ export default function TripwireWatchCard({
   onSelect?: (tripwire: Tripwire) => void;
 }) {
   const autoCount = tripwires.filter((t) => t.autoDetected).length;
+  const [source, setSource] = useState<DataSource>('mock');
+  const [freshAt, setFreshAt] = useState<string | null>(null);
+  const [degraded, setDegraded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/tripwire/status', { cache: 'no-store' });
+        const json = (await res.json()) as {
+          source?: DataSource;
+          freshAt?: string | null;
+          degraded?: boolean;
+        };
+        if (!alive) return;
+        setSource(json.source ?? 'mock');
+        setFreshAt(json.freshAt ?? null);
+        setDegraded(Boolean(json.degraded));
+      } catch {
+        // Keep prior status if refresh fails.
+      }
+    }
+
+    loadStatus();
+    const interval = setInterval(loadStatus, 15000);
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+    <div
+      className={cn(
+        'rounded-xl border bg-slate-900/60 p-4',
+        degraded ? 'border-amber-500/40' : 'border-slate-800'
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
-        <SectionLabel title="Tripwire Watch" subtitle="Substrate anomalies" />
-        {autoCount > 0 && (
-          <span className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-cyan-300">
-            {autoCount} auto
-          </span>
-        )}
+        <div className="flex items-start gap-2">
+          <SectionLabel title="Tripwire Watch" subtitle="Substrate anomalies" />
+          <DataSourceBadge source={source} freshAt={freshAt} degraded={degraded} />
+        </div>
+        <div className="flex items-center gap-2">
+          {autoCount > 0 && (
+            <span className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-cyan-300">
+              {autoCount} auto
+            </span>
+          )}
+        </div>
       </div>
       <div className="mt-3 space-y-3">
         {tripwires.length === 0 && (
@@ -93,6 +137,11 @@ export default function TripwireWatchCard({
           </button>
         ))}
       </div>
+      {degraded ? (
+        <div className="mt-3 text-xs text-amber-300">
+          Showing mock/cached data — live source offline
+        </div>
+      ) : null}
     </div>
   );
 }

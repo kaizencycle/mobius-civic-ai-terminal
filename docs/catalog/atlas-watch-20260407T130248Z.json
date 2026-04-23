@@ -1,0 +1,20 @@
+{
+  "gi": 0.83,
+  "mode": "green",
+  "cycle": "C-274",
+  "anomalies": [
+    {
+      "label": "Self-ping: HTTP 401 in 58ms",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "SIGNAL_SNAPSHOT": false,
+    "GI_STATE": false,
+    "ECHO_STATE": false,
+    "TRIPWIRE_STATE": false,
+    "HEARTBEAT": true,
+    "LAST_INGEST": true
+  },
+  "timestamp": "2026-04-07T13:02:48.407Z"
+}

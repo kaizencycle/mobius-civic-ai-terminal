@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import type { EpiconItem } from '@/lib/terminal/types';
 import { confidenceLabel, epiconStatusStyle, cn } from '@/lib/terminal/utils';
 import SectionLabel from './SectionLabel';
@@ -39,10 +40,12 @@ export default function EpiconFeedPanel({
   items,
   selectedId,
   onSelect,
+  noiseThreshold,
 }: {
   items: EpiconItem[];
   selectedId: string;
   onSelect: (item: EpiconItem) => void;
+  noiseThreshold?: number;
 }) {
   const [sortKey, setSortKey] = useState<EpiconSortKey>('time');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -71,7 +74,7 @@ export default function EpiconFeedPanel({
             key={item.id}
             onClick={() => onSelect(item)}
             className={cn(
-              'w-full rounded-lg border p-4 text-left transition',
+              'cv-auto w-full rounded-lg border p-4 text-left transition',
               selectedId === item.id
                 ? 'border-sky-500/40 bg-sky-500/10'
                 : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-900',
@@ -82,8 +85,13 @@ export default function EpiconFeedPanel({
                 <div className="text-xs font-mono font-medium uppercase tracking-[0.2em] text-slate-400">
                   {item.id}
                 </div>
-                <div className="mt-1 text-sm font-semibold text-white">
-                  {item.title}
+                <div className="mt-1 flex flex-wrap items-center gap-1 text-sm font-semibold text-white">
+                  <span>{item.title}</span>
+                  {isEveSynthesisFeedSource(item.feedSource) || item.agentOrigin === 'EVE' ? (
+                    <span className="text-[10px] font-mono text-fuchsia-300 border border-fuchsia-400/35 rounded px-1 py-0.5 ml-1">
+                      EVE
+                    </span>
+                  ) : null}
                 </div>
                 <div className="mt-2 text-sm font-sans text-slate-300">
                   {item.summary}
@@ -115,6 +123,11 @@ export default function EpiconFeedPanel({
               <span className="rounded-md bg-slate-800 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-slate-300">
                 {item.ownerAgent}
               </span>
+              {typeof noiseThreshold === 'number' && item.confidenceTier / 4 < noiseThreshold && (
+                <span className="rounded-md border border-orange-500/40 bg-orange-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-orange-300">
+                  C-261 Breach Risk
+                </span>
+              )}
               {item.id.includes('-USR-') && (
                 <span className="rounded-md border border-violet-500/20 bg-violet-500/10 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-violet-300">
                   participant

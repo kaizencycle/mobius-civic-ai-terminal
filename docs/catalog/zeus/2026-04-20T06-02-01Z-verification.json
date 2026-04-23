@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-04-20T06:02:01.789Z",
+  "agent": "ZEUS",
+  "cycle": "C-287",
+  "verification_status": "inconclusive",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {},
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat vs live integrity-status",
+      "result": "warn",
+      "detail": "Heartbeat gi=0.59 mode=red vs live gi=0.73 mode=yellow (source=kv); drift expected across time but prevents full cross-check alignment."
+    },
+    {
+      "check": "integrity-status source mock flag",
+      "result": "pass",
+      "detail": "source=kv (not mock); KV-backed GI; no KV seed failure indicated."
+    },
+    {
+      "check": "signals/micro independent health",
+      "result": "warn",
+      "detail": "Six agents returned errors (ZEUS-µ3 fetch failed, AUREA-µ2 HTTP 404, JADE-µ2, DAEDALUS-µ2/µ3, EVE-µ1 no signal); watch severities on stale WB GDP and quiet GDELT/Reddit contexts."
+    },
+    {
+      "check": "EPICON pending-verification queue",
+      "result": "pass",
+      "detail": "candidates count=0; no verify/publish calls required."
+    },
+    {
+      "check": "agent journal write",
+      "result": "pass",
+      "detail": "POST /api/agents/journal returned 200 with entryId journal-ZEUS-C-287-e03djr."
+    }
+  ],
+  "recommendation": "Operator attention: triage failing micro instruments and low freshness/information signal lanes; re-run when GI snapshot and live poll can be aligned or ATLAS names concrete anomalies."
+}

@@ -1,0 +1,18 @@
+name: auto-seal-check
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call seal issue
+        env:
+          SEAL_ISSUE_URL: ${{ secrets.SEAL_ISSUE_URL }}
+          SEAL_TOKEN: ${{ secrets.SEAL_TOKEN }}
+        run: |
+          curl -X POST "$SEAL_ISSUE_URL" \
+            -H "Authorization: Bearer $SEAL_TOKEN"

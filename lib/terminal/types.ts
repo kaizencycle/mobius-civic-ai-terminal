@@ -21,7 +21,14 @@ export type EpiconStatus = 'verified' | 'pending' | 'contradicted';
 export type EpiconItem = {
   id: string;
   title: string;
-  category: 'geopolitical' | 'market' | 'governance' | 'infrastructure';
+  category:
+    | 'geopolitical'
+    | 'market'
+    | 'governance'
+    | 'infrastructure'
+    | 'narrative'
+    | 'ethics'
+    | 'civic-risk';
   status: EpiconStatus;
   confidenceTier: 0 | 1 | 2 | 3 | 4;
   ownerAgent: string;
@@ -29,6 +36,19 @@ export type EpiconItem = {
   timestamp: string;
   summary: string;
   trace: string[];
+  /** Present on feed entries (e.g. EVE synthesis pipeline) */
+  feedSource?: string;
+  /** Ledger author lane when present (e.g. EVE governance synthesis) */
+  agentOrigin?: string;
+  promotionState?: 'pending' | 'selected' | 'promoted' | 'failed';
+  assignedAgents?: string[];
+  committedEntries?: string[];
+  /** ECHO pipeline: original external source + metadata for globe / inspectors */
+  echoIngest?: {
+    source: string;
+    severity: 'low' | 'medium' | 'high';
+    metadata?: Record<string, unknown>;
+  };
 };
 
 export type TripwireLayer =
@@ -77,13 +97,24 @@ export type Tripwire = {
 export type GISnapshot = {
   score: number;
   delta: number;
+  mode?: 'green' | 'yellow' | 'red';
+  terminalStatus?: 'nominal' | 'stressed' | 'critical';
+  primaryDriver?: string;
+  summary?: string;
   institutionalTrust: number;
   infoReliability: number;
   consensusStability: number;
+  signalBreakdown?: {
+    quality: number;
+    freshness: number;
+    stability: number;
+    system: number;
+  };
   weekly: number[];
 };
 
 export type NavKey =
+  | 'globe'
   | 'pulse'
   | 'agents'
   | 'ledger'
@@ -93,6 +124,7 @@ export type NavKey =
   | 'governance'
   | 'reflections'
   | 'infrastructure'
+  | 'sentiment'
   | 'search'
   | 'settings';
 
@@ -109,10 +141,48 @@ export type LedgerEntry = {
   type: 'epicon' | 'attestation' | 'shard' | 'ubi' | 'settlement';
   agentOrigin: string;
   timestamp: string;
+  title?: string;
   summary: string;
   integrityDelta: number;
   status: 'committed' | 'pending' | 'reverted';
+  category?:
+    | 'geopolitical'
+    | 'market'
+    | 'governance'
+    | 'infrastructure'
+    | 'narrative'
+    | 'ethics'
+    | 'civic-risk';
+  confidenceTier?: number;
+  tags?: string[];
+  source?: 'mock' | 'echo' | 'backfill' | 'eve-synthesis' | 'agent_commit';
 };
+
+export type AgentJournalStatus = 'draft' | 'committed' | 'contested' | 'verified';
+export type AgentJournalCategory = 'observation' | 'inference' | 'alert' | 'recommendation' | 'close';
+export type AgentJournalSeverity = 'nominal' | 'elevated' | 'critical';
+
+export interface AgentJournalEntry {
+  id: string;
+  agent: string;
+  cycle: string;
+  timestamp: string;
+  scope: string;
+  observation: string;
+  inference: string;
+  recommendation: string;
+  confidence: number;
+  derivedFrom: string[];
+  relatedAgents: string[];
+  status: AgentJournalStatus;
+  contestedBy?: string[];
+  verifiedBy?: string;
+  category: AgentJournalCategory;
+  severity: AgentJournalSeverity;
+  source: 'agent-journal';
+  agentOrigin: string;
+  tags?: string[];
+}
 
 export type MFSShard = {
   id: string;
