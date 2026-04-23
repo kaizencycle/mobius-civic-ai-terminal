@@ -25,6 +25,10 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
   const [full, setFull] = useState<T | null>(null);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  // C-290 v2: track fetch completion separately from loading.
+  // !loading alone is unreliable — React 18 can render loading=false before
+  // setFull flushes, causing previewData to be promoted live prematurely.
+  const [fetchedOnce, setFetchedOnce] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -42,10 +46,12 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
         const json = (await res.json()) as T;
         if (!mounted) return;
         setFull(json);
+        setFetchedOnce(true);
         setError(null);
       } catch (err) {
         if (!mounted) return;
         setError(err instanceof Error ? err.message : 'Chamber fetch failed');
+        setFetchedOnce(true);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -66,13 +72,14 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
     if (error && previewData) return 'degraded';
     if (error) return 'stale';
     if (full) return 'live';
-    // C-290: full fetch completed but returned no usable payload — promote
-    // previewData to 'live' rather than staying stuck in 'hydrating'.
-    if (!loading && previewData) return 'live';
+    // C-290 v2: promote previewData to 'live' only after fetchedOnce=true,
+    // not on !loading — setFull and setLoading are separate setState calls
+    // and !loading can be true one render before full populates.
+    if (fetchedOnce && previewData) return 'live';
     if (loading && previewData) return 'hydrating';
     if (previewData) return 'preview';
     return loading ? 'hydrating' : 'stale';
-  }, [error, previewData, full, loading]);
+  }, [error, previewData, full, loading, fetchedOnce]);
 
   const source: 'echo-digest' | 'api' | 'mixed' = full ? (previewData ? 'mixed' : 'api') : 'echo-digest';
 
