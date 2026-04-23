@@ -12,6 +12,7 @@ type Candidate = {
   category: string;
   status: 'pending' | 'verified' | 'contradicted' | 'pending-verification' | 'contested';
   confidence_tier: number;
+  source?: string;
   external_source_system?: string;
   external_source_actor?: string;
   zeus_note?: string;
