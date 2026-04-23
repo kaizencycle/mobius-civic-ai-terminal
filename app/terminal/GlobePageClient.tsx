@@ -10,7 +10,6 @@ import type { EpiconItem } from '@/lib/terminal/types';
 
 export default function GlobePageClient() {
   const { snapshot, loading } = useTerminalSnapshot();
-  if (loading && !snapshot) return <ChamberSkeleton blocks={4} />;
 
   const integrityData = snapshot?.integrity?.data;
   const integrity = (integrityData && typeof integrityData === 'object' ? integrityData : {}) as { cycle?: string; global_integrity?: number };
@@ -90,6 +89,8 @@ export default function GlobePageClient() {
       miiFeed: snapshot.mii?.data ?? null,
     };
   }, [snapshot, echoEpicon, loading, micro]);
+
+  if (loading && !snapshot) return <ChamberSkeleton blocks={4} />;
 
   return (
     <GlobeChamber
