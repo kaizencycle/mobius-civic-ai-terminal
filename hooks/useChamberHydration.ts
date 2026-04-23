@@ -66,6 +66,9 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
     if (error && previewData) return 'degraded';
     if (error) return 'stale';
     if (full) return 'live';
+    // C-290: full fetch completed but returned no usable payload — promote
+    // previewData to 'live' rather than staying stuck in 'hydrating'.
+    if (!loading && previewData) return 'live';
     if (loading && previewData) return 'hydrating';
     if (previewData) return 'preview';
     return loading ? 'hydrating' : 'stale';
