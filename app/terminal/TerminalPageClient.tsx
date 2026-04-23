@@ -8,7 +8,7 @@ import { evaluateCircuitBreaker } from '@/lib/integrity-check';
 import { integrityStatusToGISnapshot } from '@/lib/terminal/api';
 import { isEveSynthesisFeedSource } from '@/lib/epicon/eveLedgerSource';
 import { cn } from '@/lib/utils';
-import type { MicroAgentSweepResult } from '@/lib/agents/micro';
+import type { AgentPollResult, MicroAgentSweepResult } from '@/lib/agents/micro';
 import type { EpiconItem, LedgerEntry, NavKey } from '@/lib/terminal/types';
 import GlobeChamber from '@/components/terminal/chambers/GlobeChamber';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
@@ -38,7 +38,6 @@ type AgentStatusApi = {
 
 type AgentStatusResponse = { ok: boolean; agents: AgentStatusApi[] };
 
-type MicroAgent = { agentName: string; healthy: boolean };
 type MicroSweepResponse = MicroAgentSweepResult & {
   ok?: boolean;
   cached?: boolean;
@@ -387,14 +386,22 @@ function TerminalPage({ bootstrap }: TerminalPageWrapperProps) {
           // C-290: KV-cached snapshots omit the `agents` array — synthesize it
           // from allSignals so the Micro-Agent Signals sidebar renders correctly.
           if (!microPayload.agents || microPayload.agents.length === 0) {
-            const agentNames = [
-              ...new Set(
-                (microPayload.allSignals ?? []).map((s) => s.agentName.split('-µ')[0]),
-              ),
-            ];
-            (microPayload as MicroSweepResponse & { agents: MicroAgent[] }).agents = agentNames.map(
-              (name) => ({ agentName: name, healthy: true }),
-            );
+            const signalsByAgent = new Map<string, MicroSweepResponse['allSignals']>();
+            for (const signal of (microPayload.allSignals ?? [])) {
+              const key = signal.agentName.split('-µ')[0];
+              const bucket = signalsByAgent.get(key) ?? [];
+              bucket.push(signal);
+              signalsByAgent.set(key, bucket);
+            }
+            (microPayload as unknown as { agents: AgentPollResult[] }).agents = [
+              ...signalsByAgent.entries(),
+            ].map(([name, signals]) => ({
+              agentName: name,
+              signals,
+              polledAt: microPayload.timestamp,
+              errors: [],
+              healthy: true,
+            }));
           }
           microRef.current = microPayload;
           setMicro(microPayload);
