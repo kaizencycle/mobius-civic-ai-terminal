@@ -7,6 +7,8 @@ type UseChamberHydrationOptions<T> = {
   pollMs?: number;
 };
 
+export type ChamberHydrationStatus = 'preview' | 'hydrating' | 'live' | 'degraded' | 'stale';
+
 type UseChamberHydrationResult<T> = {
   preview: T | null;
   full: T | null;
@@ -14,6 +16,8 @@ type UseChamberHydrationResult<T> = {
   loading: boolean;
   error: string | null;
   degraded: boolean;
+  status: ChamberHydrationStatus;
+  source: 'echo-digest' | 'api' | 'mixed';
 };
 
 export function useChamberHydration<T>(url: string, enabled: boolean, options: UseChamberHydrationOptions<T> = {}): UseChamberHydrationResult<T> {
@@ -58,6 +62,17 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
 
   const data = useMemo(() => full ?? previewData ?? null, [full, previewData]);
 
+  const status: ChamberHydrationStatus = useMemo(() => {
+    if (error && previewData) return 'degraded';
+    if (error) return 'stale';
+    if (full) return 'live';
+    if (loading && previewData) return 'hydrating';
+    if (previewData) return 'preview';
+    return loading ? 'hydrating' : 'stale';
+  }, [error, previewData, full, loading]);
+
+  const source: 'echo-digest' | 'api' | 'mixed' = full ? (previewData ? 'mixed' : 'api') : 'echo-digest';
+
   return {
     preview: previewData,
     full,
@@ -65,5 +80,7 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
     loading,
     error,
     degraded: Boolean(error),
+    status,
+    source,
   };
 }
