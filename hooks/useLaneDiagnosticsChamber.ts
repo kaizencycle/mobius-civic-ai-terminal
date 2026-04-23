@@ -13,5 +13,5 @@ export type LaneDiagnosticsPayload = {
 };
 
 export function useLaneDiagnosticsChamber(enabled: boolean) {
-  return useChamberHydration<LaneDiagnosticsPayload>('/api/chambers/lane-diagnostics', enabled, 20_000);
+  return useChamberHydration<LaneDiagnosticsPayload>('/api/chambers/lane-diagnostics', enabled, { pollMs: 20_000 });
 }
