@@ -1,15 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+type UseChamberHydrationOptions<T> = {
+  previewData?: T | null;
+  pollMs?: number;
+};
 
 type UseChamberHydrationResult<T> = {
+  preview: T | null;
+  full: T | null;
   data: T | null;
   loading: boolean;
   error: string | null;
+  degraded: boolean;
 };
 
-export function useChamberHydration<T>(url: string, enabled: boolean, pollMs = 30_000): UseChamberHydrationResult<T> {
-  const [data, setData] = useState<T | null>(null);
+export function useChamberHydration<T>(url: string, enabled: boolean, options: UseChamberHydrationOptions<T> = {}): UseChamberHydrationResult<T> {
+  const { previewData = null, pollMs = 30_000 } = options;
+  const [full, setFull] = useState<T | null>(null);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +37,7 @@ export function useChamberHydration<T>(url: string, enabled: boolean, pollMs = 3
         const res = await fetch(url, { cache: 'no-store' });
         const json = (await res.json()) as T;
         if (!mounted) return;
-        setData(json);
+        setFull(json);
         setError(null);
       } catch (err) {
         if (!mounted) return;
@@ -47,5 +56,14 @@ export function useChamberHydration<T>(url: string, enabled: boolean, pollMs = 3
     };
   }, [enabled, url, pollMs]);
 
-  return { data, loading, error };
+  const data = useMemo(() => full ?? previewData ?? null, [full, previewData]);
+
+  return {
+    preview: previewData,
+    full,
+    data,
+    loading,
+    error,
+    degraded: Boolean(error),
+  };
 }

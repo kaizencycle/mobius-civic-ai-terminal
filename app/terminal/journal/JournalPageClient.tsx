@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import JournalEntryCard from '@/components/terminal/journal/JournalEntryCard';
 import ChamberEmptyState from '@/components/terminal/ChamberEmptyState';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
+import { useJournalChamber } from '@/hooks/useJournalChamber';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import type { JournalDisplayEntry, JournalDisplaySeverity, JournalDisplayStatus } from '@/lib/journal/types';
 
@@ -22,8 +23,6 @@ const AGENT_PILL_STYLE: Record<string, { border: string; activeBg: string; text:
   DAEDALUS: { border: 'border-amber-900/60', activeBg: 'bg-amber-950/40', text: 'text-amber-200' },
   ECHO: { border: 'border-slate-500/50', activeBg: 'bg-slate-600/20', text: 'text-slate-100' },
 };
-
-type JournalResponse = { count?: number; mode?: 'hot' | 'canon' | 'merged'; entries?: JournalDisplayEntry[] };
 
 type EpiconItem = {
   id: string;
@@ -128,6 +127,7 @@ export default function JournalPageClient() {
   const [cycleTab, setCycleTab] = useState<string>(() => currentCycleId());
   const [derivedMode, setDerivedMode] = useState(false);
   const [readMode, setReadMode] = useState<'hot' | 'canon' | 'merged'>('hot');
+  const journal = useJournalChamber(true, readMode, 100);
   const [missingRelatedId, setMissingRelatedId] = useState<string | null>(null);
   const anchorsRef = useRef<Map<string, HTMLElement>>(new Map());
 
@@ -151,13 +151,7 @@ export default function JournalPageClient() {
     let mounted = true;
     void (async () => {
       let journalEntries: JournalDisplayEntry[] = [];
-      try {
-        const res = await fetch(`/api/chambers/journal?limit=100&mode=${readMode}`, { cache: 'no-store' });
-        const data = (await res.json()) as JournalResponse;
-        journalEntries = data.entries ?? [];
-      } catch {
-        // network failure — fall through to epicon fallback
-      }
+      journalEntries = (journal.data?.entries ?? []) as JournalDisplayEntry[];
 
       if (!mounted) return;
 
@@ -189,7 +183,7 @@ export default function JournalPageClient() {
     return () => {
       mounted = false;
     };
-  }, [readMode]);
+  }, [journal.data]);
 
   const agentCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -252,6 +246,16 @@ export default function JournalPageClient() {
       {derivedMode ? (
         <div className="mb-3 rounded border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
           Derived from EPICON feed · Native journals pending SUBSTRATE_GITHUB_TOKEN
+        </div>
+      ) : null}
+      {journal.preview && !journal.full ? (
+        <div className="mb-3 rounded border border-cyan-500/40 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100">
+          Preview from snapshot · chamber enrichment in progress
+        </div>
+      ) : null}
+      {journal.error ? (
+        <div className="mb-3 rounded border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
+          Journal chamber degraded · showing snapshot/derived preview
         </div>
       ) : null}
 

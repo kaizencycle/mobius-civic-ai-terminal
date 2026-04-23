@@ -1,6 +1,8 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useChamberHydration } from '@/hooks/useChamberHydration';
+import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 
 export type GlobeChamberPayload = {
   ok: boolean;
@@ -13,5 +15,16 @@ export type GlobeChamberPayload = {
 };
 
 export function useGlobeChamber(enabled: boolean) {
-  return useChamberHydration<GlobeChamberPayload>('/api/chambers/globe', enabled);
+  const { snapshot } = useTerminalSnapshot();
+  const preview = useMemo(() => ({
+    ok: true,
+    fallback: true,
+    cycle: snapshot?.cycle ?? 'C-—',
+    micro: snapshot?.signals?.data ?? null,
+    echo: snapshot?.echo?.data ?? null,
+    sentiment: snapshot?.sentiment?.data ?? null,
+    timestamp: snapshot?.timestamp ?? new Date().toISOString(),
+  } satisfies GlobeChamberPayload), [snapshot]);
+
+  return useChamberHydration<GlobeChamberPayload>('/api/chambers/globe', enabled, { previewData: preview });
 }

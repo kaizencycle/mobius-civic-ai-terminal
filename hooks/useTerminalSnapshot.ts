@@ -30,6 +30,8 @@ export type TerminalSnapshot = {
   memory_mode?: MemoryModePayload;
   meta?: { total_ms?: number };
   lanes?: SnapshotLaneState[];
+  journal_summary?: { latest_agent_entries?: unknown[] };
+  agent_liveness?: unknown[];
   integrity?: SnapshotLeaf;
   signals?: SnapshotLeaf;
   kvHealth?: SnapshotLeaf;

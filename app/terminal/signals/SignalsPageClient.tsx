@@ -177,7 +177,7 @@ function PostureBadge({ posture, laneStale }: { posture: AgentPosture; laneStale
 }
 
 export default function SignalsPageClient() {
-  const { data, loading, error } = useSignalsChamber(true);
+  const { data, loading, error, preview, full } = useSignalsChamber(true);
 
   const payload = ((data?.raw && typeof data.raw === 'object') ? data.raw : {}) as MicroSweepPayload;
   const agents = useMemo(() => resolveAgents(payload), [payload]);
@@ -247,6 +247,11 @@ export default function SignalsPageClient() {
 
       {error ? (
         <div className="rounded border border-rose-900/50 bg-rose-950/20 px-3 py-2 text-[11px] text-rose-200">{error}</div>
+      ) : null}
+      {preview && !full ? (
+        <div className="rounded border border-cyan-900/50 bg-cyan-950/20 px-3 py-2 text-[11px] text-cyan-200">
+          Snapshot preview active · loading full chamber
+        </div>
       ) : null}
 
       {!signalsLeaf?.ok && signalsLeaf?.error ? (
