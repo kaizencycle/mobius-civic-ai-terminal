@@ -9,6 +9,7 @@ export type GlobeChamberPayload = {
   ok: boolean;
   fallback: boolean;
   cycle: string;
+  gi: number | null;
   micro: unknown;
   echo: unknown;
   sentiment: unknown;
@@ -22,6 +23,7 @@ export function useGlobeChamber(enabled: boolean) {
     ok: true,
     fallback: true,
     cycle: digest?.cycle ?? snapshot?.cycle ?? 'C-—',
+    gi: snapshot?.gi ?? null,
     micro: snapshot?.signals?.data ?? null,
     echo: {
       epicon: [],
