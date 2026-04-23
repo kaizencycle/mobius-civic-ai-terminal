@@ -152,7 +152,7 @@ export default function JournalPageClient() {
     void (async () => {
       let journalEntries: JournalDisplayEntry[] = [];
       try {
-        const res = await fetch(`/api/agents/journal?limit=100&mode=${readMode}`, { cache: 'no-store' });
+        const res = await fetch(`/api/chambers/journal?limit=100&mode=${readMode}`, { cache: 'no-store' });
         const data = (await res.json()) as JournalResponse;
         journalEntries = data.entries ?? [];
       } catch {
