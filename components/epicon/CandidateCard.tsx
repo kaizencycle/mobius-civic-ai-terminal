@@ -8,7 +8,13 @@ type Candidate = {
   status: 'pending' | 'verified' | 'contradicted' | 'pending-verification' | 'contested';
   confidence_tier: number;
   external_source_system?: string;
+  external_source_actor?: string;
   zeus_note?: string;
+  sources?: string[];
+  trace: string[];
+  promoted_epicon_id?: string;
+  promoted_ledger_entry_id?: string;
+  promotion_state?: 'pending' | 'promoted' | 'not_promoted';
 };
 
 type Props = {
@@ -43,7 +49,7 @@ export default function CandidateCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="mb-1 text-xs opacity-60">
-            {item.external_source_system} • {item.category}
+            {item.external_source_system} | {item.category}
           </div>
           <div className="font-semibold">{item.title}</div>
         </div>
@@ -61,19 +67,45 @@ export default function CandidateCard({
         confidence: {item.confidence_tier}
       </div>
 
+      {item.external_source_actor ? (
+        <div className="mt-2 text-xs opacity-60">
+          actor: {item.external_source_actor}
+        </div>
+      ) : null}
+
+      {item.sources?.length ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {item.sources.slice(0, 3).map((source) => (
+            <span
+              key={source}
+              className="rounded-md border border-slate-800 bg-slate-950 px-2 py-1 text-[10px] text-slate-400"
+            >
+              {source}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
       {item.zeus_note ? (
         <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-2 text-xs text-slate-300">
           ZEUS: {item.zeus_note}
         </div>
       ) : null}
 
-      {pipelineManaged ? (
-        <div className="mt-3 text-xs text-slate-500">
-          EVE synthesis candidate — verify via /api/eve/pipeline-synthesize or ZEUS pipeline routes.
+      {item.promoted_epicon_id ? (
+        <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 text-xs text-emerald-300">
+          Promoted to factual EPICON path as {item.promoted_epicon_id}
+          {item.promoted_ledger_entry_id ? ` | ledger ${item.promoted_ledger_entry_id}` : ''}
         </div>
       ) : null}
 
-      {item.status === 'pending' && !pipelineManaged ? (
+      {item.status === 'contradicted' ? (
+        <div className="mt-3 rounded-lg border border-rose-500/20 bg-rose-500/5 p-2 text-xs text-rose-300">
+          Contradicted candidates remain explicit review outcomes and are not promoted into factual EPICON/ledger records.
+        </div>
+      ) : null}
+
+      {item.status === 'pending' ? (
         <div className="mt-4 flex gap-2">
           <button
             disabled={!canVerify}

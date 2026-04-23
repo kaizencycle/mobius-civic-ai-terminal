@@ -13,8 +13,13 @@ type Candidate = {
   status: 'pending' | 'verified' | 'contradicted' | 'pending-verification' | 'contested';
   confidence_tier: number;
   external_source_system?: string;
+  external_source_actor?: string;
   zeus_note?: string;
-  source?: string;
+  sources?: string[];
+  trace: string[];
+  promoted_epicon_id?: string;
+  promoted_ledger_entry_id?: string;
+  promotion_state?: 'pending' | 'promoted' | 'not_promoted';
 };
 
 export default function CandidateFeed() {
