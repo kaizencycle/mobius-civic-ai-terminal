@@ -71,15 +71,16 @@ export async function GET(request: NextRequest) {
   const cycle = request.nextUrl.searchParams.get('cycle')?.trim();
   const includeCatalog = request.nextUrl.searchParams.get('include_catalog')?.trim();
   const includeSubstrate = request.nextUrl.searchParams.get('include_substrate')?.trim();
-  const journalMode = (request.nextUrl.searchParams.get('journal_mode')?.trim().toLowerCase() ?? 'merged');
+  const journalMode = (request.nextUrl.searchParams.get('journal_mode')?.trim().toLowerCase() ?? 'hot');
   const journalLimit = request.nextUrl.searchParams.get('journal_limit')?.trim();
+  const effectiveJournalLimit = journalMode === 'hot' ? '12' : (journalLimit ?? '20');
   const baseUrl = request.nextUrl.origin;
   try {
 
   const journalQuery = new URLSearchParams();
   if (cycle) journalQuery.set('cycle', cycle);
   if (journalMode === 'hot' || journalMode === 'canon' || journalMode === 'merged') journalQuery.set('mode', journalMode);
-  if (journalLimit) journalQuery.set('limit', journalLimit);
+  if (effectiveJournalLimit) journalQuery.set('limit', effectiveJournalLimit);
   const journalPath = `/api/agents/journal${journalQuery.toString() ? `?${journalQuery.toString()}` : ''}`;
   const epiconPath = includeCatalog === 'true' ? '/api/epicon/feed?include_catalog=true' : '/api/epicon/feed';
 

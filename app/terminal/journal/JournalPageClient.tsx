@@ -127,7 +127,7 @@ export default function JournalPageClient() {
   const [agent, setAgent] = useState('ALL');
   const [cycleTab, setCycleTab] = useState<string>(() => currentCycleId());
   const [derivedMode, setDerivedMode] = useState(false);
-  const [readMode, setReadMode] = useState<'hot' | 'canon' | 'merged'>('merged');
+  const [readMode, setReadMode] = useState<'hot' | 'canon' | 'merged'>('hot');
   const [missingRelatedId, setMissingRelatedId] = useState<string | null>(null);
   const anchorsRef = useRef<Map<string, HTMLElement>>(new Map());
 
