@@ -84,7 +84,10 @@ export async function GET(request: NextRequest) {
   const epiconPath = includeCatalog === 'true' ? '/api/epicon/feed?include_catalog=true' : '/api/epicon/feed';
 
   const signalsStart = Date.now();
-  const cachedPromise = loadSignalSnapshot().catch(() => null);
+  const cachedPromise = loadSignalSnapshot().catch((error) => {
+    console.error('[terminal/snapshot] loadSignalSnapshot failed:', error);
+    return null;
+  });
   const lanesPromise = Promise.all([
     timedHandler(makeRequest(baseUrl, '/api/integrity-status'), getIntegrity),
     timedHandler(makeRequest(baseUrl, '/api/kv/health'), getKvHealth),
@@ -183,7 +186,7 @@ export async function GET(request: NextRequest) {
   try {
     lanes = normalizeAllSnapshotLanes(leaves);
   } catch (error) {
-    console.error('[snapshot] lane normalize fail', error);
+    console.error('[terminal/snapshot] lane normalization failed:', error);
     lanes = [];
   }
   const laneByKey = new Map(lanes.map((lane) => [lane.key, lane]));
@@ -223,8 +226,17 @@ export async function GET(request: NextRequest) {
         ? integrityData.global_integrity
         : null;
   const trustPayload = (trustTripwire.leaf.data ?? {}) as Record<string, unknown> | null;
-  const trustSnapshot = (trustPayload?.trust_tripwire ?? null) as TrustTripwireSnapshot | null;
-  const effectiveGi = typeof topGi === 'number' ? Number((topGi * trustMultiplier(trustSnapshot)).toFixed(4)) : null;
+  const rawTrustSnapshot = trustPayload?.trust_tripwire;
+  const trustSnapshot =
+    rawTrustSnapshot &&
+    typeof rawTrustSnapshot === 'object' &&
+    Array.isArray((rawTrustSnapshot as { results?: unknown }).results)
+      ? (rawTrustSnapshot as TrustTripwireSnapshot)
+      : null;
+  const effectiveGi =
+    typeof topGi === 'number'
+      ? Number((topGi * trustMultiplier(trustSnapshot)).toFixed(4))
+      : null;
 
   const journalData = journal.leaf.data as Record<string, unknown> | null;
   const journalEntries = Array.isArray(journalData?.entries) ? journalData?.entries as Record<string, unknown>[] : [];
@@ -292,11 +304,15 @@ export async function GET(request: NextRequest) {
       }
     : { elevated: false, critical: false, tripwireCount: 0, top: [] };
 
-    console.log('[snapshot] SUCCESS', {
-      lanesCount: lanes.length,
-      agentCount: agentLiveness.length,
-      journalCount: journalEntries.length,
-    });
+  console.log('[terminal/snapshot] success', {
+    journalMode: journalMode,
+    lanesCount: lanes.length,
+    trustTripwireOk: Boolean(trustSnapshot),
+    journalCount: journalEntries.length,
+    agentCount: agentLiveness.length,
+    topGi,
+    effectiveGi,
+  });
 
     return NextResponse.json({
       ok: criticalOk && !criticalFail,
@@ -328,25 +344,25 @@ export async function GET(request: NextRequest) {
       headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'terminal-snapshot' },
     });
   } catch (error) {
-    console.error('[snapshot] fatal', error);
+    console.error('[terminal/snapshot] fatal aggregation error:', error);
     const msg = error instanceof Error ? error.message : 'snapshot_failed';
     const fallbackLeaf = { ok: false, status: 500, data: null, error: msg };
     return NextResponse.json({
       ok: false,
       fallback: true,
-      error: 'snapshot_failed',
-      cycle: cycle ?? null,
+      error: msg,
+      cycle: null,
       gi: null,
       effective_gi: null,
       degraded: true,
-      include_catalog: includeCatalog === 'true',
-      journal_mode: journalMode === 'hot' || journalMode === 'canon' || journalMode === 'merged' ? journalMode : 'merged',
+      include_catalog: false,
+      journal_mode: 'merged',
       timestamp: new Date().toISOString(),
       deployment: {
         commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
         environment: process.env.VERCEL_ENV ?? null,
       },
-      meta: { total_ms: Date.now() - totalStart, lane_ms: {} },
+      meta: { total_ms: 0, lane_ms: {} },
       memory_mode: null,
       trust_tripwire: { elevated: false, critical: false, tripwireCount: 0, top: [] },
       lanes: [],

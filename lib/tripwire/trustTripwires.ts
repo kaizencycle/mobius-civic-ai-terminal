@@ -158,15 +158,14 @@ export function evaluateTrustTripwires({ journals, epiconRows }: EvaluateArgs): 
 }
 
 export function trustMultiplier(snapshot: TrustTripwireSnapshot | null | undefined): number {
-  if (!snapshot) return 1;
+  if (!snapshot || !Array.isArray(snapshot.results)) return 1;
   const penalties = snapshot.results
-    .filter((result) => result.triggered)
+    .filter((result) => result && result.triggered)
     .reduce((sum, result) => {
       if (result.severity === 'critical') return sum + 0.12;
       if (result.severity === 'elevated') return sum + 0.05;
       return sum;
     }, 0);
-
   return Math.max(0.5, 1 - penalties);
 }
 
@@ -174,12 +173,14 @@ export function applyTrustTripwiresToAgentStatus(
   agent: string,
   snapshot: TrustTripwireSnapshot | null | undefined,
 ): 'ACTIVE' | 'DEGRADED' | 'CONTESTED' {
-  if (!snapshot) return 'ACTIVE';
-
+  if (!snapshot || !Array.isArray(snapshot.results)) return 'ACTIVE';
   const hits = snapshot.results.filter(
-    (result) => result.triggered && (result.affectedAgents ?? []).includes(agent),
+    (result) =>
+      result &&
+      result.triggered &&
+      Array.isArray(result.affectedAgents) &&
+      result.affectedAgents.includes(agent),
   );
-
   if (hits.some((result) => result.severity === 'critical')) return 'CONTESTED';
   if (hits.length > 0) return 'DEGRADED';
   return 'ACTIVE';
