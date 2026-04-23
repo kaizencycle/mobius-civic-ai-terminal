@@ -228,31 +228,43 @@ export async function GET(request: NextRequest) {
 
   const journalData = journal.leaf.data as Record<string, unknown> | null;
   const journalEntries = Array.isArray(journalData?.entries) ? journalData?.entries as Record<string, unknown>[] : [];
-  const journalSummary = {
-    latest_agent_entries: journalEntries.slice(0, 8).map((entry) => ({
-      agent: typeof entry.agent === 'string' ? entry.agent.toLowerCase() : 'unknown',
-      source: typeof entry.source_mode === 'string' ? entry.source_mode : 'unknown',
-      timestamp: typeof entry.timestamp === 'string' ? entry.timestamp : null,
-      severity: typeof entry.severity === 'string' ? entry.severity : 'nominal',
-      summary: typeof entry.observation === 'string' ? entry.observation : '—',
-      cycle: typeof entry.cycle === 'string' ? entry.cycle : null,
-      canonical_path: typeof entry.canonical_path === 'string' ? entry.canonical_path : null,
-    })),
-  };
+  let journalSummary: { latest_agent_entries: Record<string, unknown>[] } = { latest_agent_entries: [] };
+  try {
+    journalSummary = {
+      latest_agent_entries: journalEntries.slice(0, 8).map((entry) => ({
+        agent: typeof entry.agent === 'string' ? entry.agent.toLowerCase() : 'unknown',
+        source: typeof entry.source_mode === 'string' ? entry.source_mode : 'unknown',
+        timestamp: typeof entry.timestamp === 'string' ? entry.timestamp : null,
+        severity: typeof entry.severity === 'string' ? entry.severity : 'nominal',
+        summary: typeof entry.observation === 'string' ? entry.observation : '—',
+        cycle: typeof entry.cycle === 'string' ? entry.cycle : null,
+        canonical_path: typeof entry.canonical_path === 'string' ? entry.canonical_path : null,
+      })),
+    };
+  } catch (error) {
+    console.error('[snapshot] journal summary failed', error);
+    journalSummary = { latest_agent_entries: [] };
+  }
 
   const agentsData = agents.leaf.data as Record<string, unknown> | null;
   const agentRows = Array.isArray(agentsData?.agents) ? agentsData?.agents as Record<string, unknown>[] : [];
-  const agentLiveness = agentRows.map((agent) => ({
-    agent: typeof agent.name === 'string' ? agent.name : 'UNKNOWN',
-    status: typeof agent.liveness === 'string' ? agent.liveness : typeof agent.status === 'string' ? agent.status : 'DECLARED',
-    lane: typeof agent.lane === 'string' ? agent.lane : null,
-    role: typeof agent.role === 'string' ? agent.role : null,
-    last_seen: typeof agent.last_seen === 'string' ? agent.last_seen : null,
-    last_action: typeof agent.last_action === 'string' ? agent.last_action : null,
-    last_journal_at: typeof agent.last_journal_at === 'string' ? agent.last_journal_at : null,
-    confidence: typeof agent.confidence === 'number' ? agent.confidence : null,
-    source_badges: Array.isArray(agent.source_badges) ? agent.source_badges : [],
-  }));
+  let agentLiveness: Record<string, unknown>[] = [];
+  try {
+    agentLiveness = agentRows.map((agent) => ({
+      agent: typeof agent.name === 'string' ? agent.name : 'UNKNOWN',
+      status: typeof agent.liveness === 'string' ? agent.liveness : typeof agent.status === 'string' ? agent.status : 'DECLARED',
+      lane: typeof agent.lane === 'string' ? agent.lane : null,
+      role: typeof agent.role === 'string' ? agent.role : null,
+      last_seen: typeof agent.last_seen === 'string' ? agent.last_seen : null,
+      last_action: typeof agent.last_action === 'string' ? agent.last_action : null,
+      last_journal_at: typeof agent.last_journal_at === 'string' ? agent.last_journal_at : null,
+      confidence: typeof agent.confidence === 'number' ? agent.confidence : null,
+      source_badges: Array.isArray(agent.source_badges) ? agent.source_badges : [],
+    }));
+  } catch (error) {
+    console.error('[snapshot] agent liveness failed', error);
+    agentLiveness = [];
+  }
 
   const tripwireLaneState = laneByKey.get('tripwire');
   const tripwireElevated = tripwireLaneState?.state === 'degraded';
@@ -279,6 +291,12 @@ export async function GET(request: NextRequest) {
           })),
       }
     : { elevated: false, critical: false, tripwireCount: 0, top: [] };
+
+    console.log('[snapshot] SUCCESS', {
+      lanesCount: lanes.length,
+      agentCount: agentLiveness.length,
+      journalCount: journalEntries.length,
+    });
 
     return NextResponse.json({
       ok: criticalOk && !criticalFail,
