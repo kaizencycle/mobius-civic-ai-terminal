@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
-import { useTerminalSnapshot, type SnapshotLaneState } from '@/hooks/useTerminalSnapshot';
+import { useSignalsChamber } from '@/hooks/useSignalsChamber';
 
 type SignalEntry = {
   agentName: string;
@@ -139,7 +139,7 @@ function severityDot(severity: string): string {
 
 type FamilyComposite = { healthy: number; total: number; avg: number };
 
-function agentPosture(agent: AgentResult, signalsLane: SnapshotLaneState | undefined): AgentPosture {
+function agentPosture(agent: AgentResult, signalsLane: { ok?: boolean; state?: string } | undefined): AgentPosture {
   if (!signalsLane?.ok || signalsLane.state === 'offline') return 'standby';
   if (signalsLane.state === 'degraded' || signalsLane.state === 'stale') {
     if (!agent.healthy && agent.signals.length === 0) return 'standby';
@@ -177,15 +177,12 @@ function PostureBadge({ posture, laneStale }: { posture: AgentPosture; laneStale
 }
 
 export default function SignalsPageClient() {
-  const { snapshot, loading, error } = useTerminalSnapshot();
+  const { data, loading, error } = useSignalsChamber(true);
 
-  const signalsLeaf = snapshot?.signals;
-  const signalsData = signalsLeaf?.data;
-  const payload = (signalsData && typeof signalsData === 'object' ? signalsData : {}) as MicroSweepPayload;
+  const payload = ((data?.raw && typeof data.raw === 'object') ? data.raw : {}) as MicroSweepPayload;
   const agents = useMemo(() => resolveAgents(payload), [payload]);
-
-  const signalsLane = snapshot?.lanes?.find((l) => l.key === 'signals');
-  const laneStale = signalsLane?.state === 'stale';
+  const signalsLeaf = { ok: !data?.fallback, error: data?.fallback ? 'signals chamber fallback' : null };
+  const laneStale = false;
 
   const grouped = useMemo(() => {
     const map = new Map<string, AgentResult[]>();
@@ -222,7 +219,7 @@ export default function SignalsPageClient() {
     return out;
   }, [grouped]);
 
-  if (loading && !snapshot) return <ChamberSkeleton blocks={4} />;
+  if (loading && !data) return <ChamberSkeleton blocks={4} />;
 
   const expected = payload.instrumentCount ?? agents.length;
   const sweepOk = payload.ok !== false && signalsLeaf?.ok !== false;

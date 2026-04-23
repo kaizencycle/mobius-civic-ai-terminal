@@ -5,7 +5,7 @@ import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import type { LedgerEntry } from '@/lib/terminal/types';
 
 type EchoFeedResponse = {
-  ledger?: LedgerEntry[];
+  events?: LedgerEntry[];
   status?: {
     cycleId?: string;
   };
@@ -72,13 +72,13 @@ export default function LedgerPageClient() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   useEffect(() => {
-    fetch('/api/echo/feed', { cache: 'no-store' })
+    fetch('/api/chambers/ledger', { cache: 'no-store' })
       .then((r) => r.json())
       .then((json) => setFeed(json as EchoFeedResponse))
-      .catch(() => setFeed({ ledger: [] }));
+      .catch(() => setFeed({ events: [] }));
   }, []);
 
-  const rows = useMemo(() => feed?.ledger ?? [], [feed]);
+  const rows = useMemo(() => feed?.events ?? [], [feed]);
   const sorted = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
   const totalDelta = useMemo(() => rows.reduce((sum, row) => sum + (row.integrityDelta ?? 0), 0), [rows]);
 
