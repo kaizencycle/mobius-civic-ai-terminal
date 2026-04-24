@@ -37,6 +37,12 @@ function laneState(lanes: Record<string, unknown> | undefined, ...keys: string[]
   return 'unknown';
 }
 
+function shellState(shell: ShellSnapshot | null, okState: StageState, degradedState: StageState = 'watch'): StageState {
+  if (!shell) return 'unknown';
+  if (shell.degraded) return degradedState;
+  return okState;
+}
+
 function stageClass(state: StageState): string {
   if (state === 'fresh' || state === 'ok') return 'border-emerald-500/35 bg-emerald-500/10 text-emerald-100';
   if (state === 'watch' || state === 'slow') return 'border-amber-500/35 bg-amber-500/10 text-amber-100';
@@ -104,14 +110,14 @@ export default function DataflowCommandSpine({
       id: 'normalize',
       label: 'Normalize',
       agent: 'HERMES',
-      state: shell?.degraded ? 'watch' : 'ok',
+      state: shellState(shell, 'ok', 'watch'),
       detail: 'packet shaping',
     },
     {
       id: 'verify',
       label: 'Verify',
       agent: 'ZEUS',
-      state: shell?.tripwire?.elevated ? 'watch' : 'ok',
+      state: shell ? (shell.tripwire?.elevated ? 'watch' : 'ok') : 'unknown',
       detail: `${shell?.tripwire?.count ?? 0} tripwires`,
     },
     {
@@ -125,12 +131,12 @@ export default function DataflowCommandSpine({
       id: 'ui',
       label: 'UI',
       agent: 'ATLAS',
-      state: shell?.degraded ? 'degraded' : 'fresh',
+      state: shellState(shell, 'fresh', 'degraded'),
       detail: ageLabel(dataFreshness),
     },
   ];
 
-  const packetMode = shell?.source === 'fallback' || diagnostics?.fallback ? 'preview/fallback' : 'live packet';
+  const packetMode = shell?.source === 'fallback' || diagnostics?.fallback ? 'preview/fallback' : shell ? 'live packet' : 'awaiting shell';
 
   return (
     <section className="border-b border-cyan-950/60 bg-slate-950/85 px-3 py-2 md:px-4" aria-label="Dataflow command spine">
