@@ -9,11 +9,19 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const timestamp = new Date().toISOString();
   try {
-    // C-290: fetch sentiment in parallel with the micro sweep. Previously this
-    // route always returned sentiment: null, causing globe domain rings to
-    // never populate from the full chamber fetch.
-    const [micro, integrity, sentimentRes] = await Promise.all([
+    // OPT-8 (C-291): wrap pollAllMicroAgents in a race with a 7s timeout so the
+    // globe chamber can't silently stall when the micro sweep is slow. Previously
+    // a slow sweep would hold the entire chamber response hostage.
+    const MICRO_TIMEOUT_MS = 7_000;
+    const microWithTimeout = Promise.race([
       pollAllMicroAgents(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('micro_sweep_timeout')), MICRO_TIMEOUT_MS),
+      ),
+    ]);
+
+    const [micro, integrity, sentimentRes] = await Promise.all([
+      microWithTimeout.catch(() => null),
       computeIntegrityPayload(),
       getSentiment().catch(() => null),
     ]);

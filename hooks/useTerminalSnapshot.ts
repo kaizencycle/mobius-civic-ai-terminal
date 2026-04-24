@@ -2,22 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import type { MemoryModePayload } from '@/lib/terminal/memoryMode';
+// OPT-4 (C-291): import from canonical lib rather than re-declaring with a looser
+// `key: string` type. Also re-exported so existing importers of this hook don't break.
+import type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
+export type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
 
 type SnapshotLeaf = {
   ok: boolean;
   status: number;
   data: unknown;
   error: string | null;
-};
-
-export type SnapshotLaneState = {
-  key: string;
-  ok: boolean;
-  state: string;
-  statusCode?: number;
-  message?: string;
-  lastUpdated?: string | null;
-  fallbackMode?: string | null;
 };
 
 export type TerminalSnapshot = {

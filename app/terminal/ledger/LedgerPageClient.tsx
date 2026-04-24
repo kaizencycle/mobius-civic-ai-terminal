@@ -112,6 +112,17 @@ export default function LedgerPageClient() {
         </div>
       </div>
       {error ? <div className="mb-2 rounded border border-amber-700/40 bg-amber-950/20 px-2 py-1 text-[11px] text-amber-200">Ledger chamber degraded · showing snapshot preview</div> : null}
+      {/* OPT-15 / Bug-1 (C-291): surface LEDGER_CIRCUIT_OPEN state with recovery guidance.
+          When the ledger circuit breaker is open, EPICON candidates can't be promoted.
+          This was previously silent — operators had no indication or recovery path. */}
+      {(data as { degraded?: boolean; ledgerError?: string } | null)?.ledgerError === 'ledger_circuit_open' ? (
+        <div className="mb-2 rounded border border-rose-700/50 bg-rose-950/20 px-3 py-2 text-[11px] text-rose-200">
+          <span className="font-semibold">LEDGER CIRCUIT OPEN</span>
+          {' · '}Ledger API returned 503 — promotion pipeline paused. Run{' '}
+          <code className="rounded bg-slate-900 px-1 text-[10px] text-rose-300">POST /api/epicon/promote</code>
+          {' '}to reset, or check Render/Render KV health.
+        </div>
+      ) : null}
       {stabilizationActive ? <div className="mb-2 rounded border border-amber-700/50 bg-amber-950/30 px-2 py-1 text-[11px] text-amber-100">⚠ Predictive Stabilization Active · Preview state prioritized due to integrity drift</div> : null}
       {rows.length === 0 ? (
         <div className="rounded border border-slate-800 bg-slate-900/60 p-4 text-slate-400">

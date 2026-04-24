@@ -62,8 +62,10 @@ export function useLaneDiagnosticsChamber(enabled: boolean) {
     fallback: true,
   } satisfies LaneDiagnosticsPayload), [digest, snapshot]);
 
+  // OPT-9 (C-291): raise pollMs from 20s to 60s — lane diagnostics is a low-urgency
+  // panel but was polling 3x more frequently than all other chambers (30s).
   return useChamberHydration<LaneDiagnosticsPayload>('/api/chambers/lane-diagnostics', enabled, {
-    pollMs: 20_000,
+    pollMs: 60_000,
     previewData: preview,
     lockToPreview: stabilizationActive,
   });

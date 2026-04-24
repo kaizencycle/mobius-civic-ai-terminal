@@ -12,11 +12,14 @@ export async function GET() {
   const now = new Date().toISOString();
 
   try {
+    // OPT-5 (C-291): replace 'as never' casts with NextRequest construction.
+    // The 'as never' suppressed type errors but is unsafe if handler signatures change.
+    const { NextRequest: Req } = await import('next/server');
     const [liteRes, agentsRes, journalRes, vaultRes] = await Promise.all([
-      getSnapshotLite(new Request('http://localhost/api/terminal/snapshot-lite') as never),
+      getSnapshotLite(new Req('http://localhost/api/terminal/snapshot-lite')),
       getAgentsStatus(),
-      getAgentsJournal(new Request('http://localhost/api/agents/journal?mode=hot&limit=8') as never),
-      getVaultStatus(new Request('http://localhost/api/vault/status') as never),
+      getAgentsJournal(new Req('http://localhost/api/agents/journal?mode=hot&limit=8')),
+      getVaultStatus(new Req('http://localhost/api/vault/status')),
     ]);
 
     const lite = (await liteRes.json()) as Record<string, unknown>;

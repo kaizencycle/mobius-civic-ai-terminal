@@ -47,12 +47,12 @@ const FAMILIES: Array<{
   { id: 'ZEUS', label: 'ZEUS', focus: 'Verification / Knowledge', color: 'text-yellow-300', borderColor: 'border-yellow-500/30', bgColor: 'bg-yellow-500/5' },
   { id: 'HERMES', label: 'HERMES', focus: 'Narrative / Information', color: 'text-rose-300', borderColor: 'border-rose-500/30', bgColor: 'bg-rose-500/5' },
   { id: 'AUREA', label: 'AUREA', focus: 'Governance / Civic', color: 'text-amber-300', borderColor: 'border-amber-500/30', bgColor: 'bg-amber-500/5' },
-  { id: 'THEMIS', label: 'THEMIS', focus: 'Governance / Transparency', color: 'text-amber-200', borderColor: 'border-amber-400/30', bgColor: 'bg-amber-400/5' },
+  // OPT-6 (C-291): THEMIS removed — not in agent roster or signal sweep (dead slot).
   { id: 'JADE', label: 'JADE', focus: 'Memory / Culture', color: 'text-emerald-300', borderColor: 'border-emerald-500/30', bgColor: 'bg-emerald-500/5' },
   { id: 'DAEDALUS', label: 'DAEDALUS', focus: 'Infrastructure / Build', color: 'text-violet-300', borderColor: 'border-violet-500/30', bgColor: 'bg-violet-500/5' },
   { id: 'ECHO', label: 'ECHO', focus: 'Events / Markets', color: 'text-slate-300', borderColor: 'border-slate-500/30', bgColor: 'bg-slate-500/5' },
   { id: 'EVE', label: 'EVE', focus: 'Observer / Civic', color: 'text-rose-200', borderColor: 'border-rose-400/30', bgColor: 'bg-rose-400/5' },
-  { id: 'GAIA', label: 'GAIA', focus: 'Environmental / Planetary', color: 'text-teal-300', borderColor: 'border-teal-500/30', bgColor: 'bg-teal-500/5' },
+  // OPT-6 (C-291): GAIA removed — not in agent roster or signal sweep (dead slot).
 ];
 
 const UNKNOWN_FAMILY_STYLE = {

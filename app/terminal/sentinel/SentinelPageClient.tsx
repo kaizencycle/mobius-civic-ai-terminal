@@ -216,8 +216,16 @@ export default function SentinelPageClient() {
                   className="flex items-center gap-1"
                   title="From /api/agents/status — KV runtime heartbeat for the fleet"
                 >
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${agent.status === 'active' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                  HB {agent.status === 'active' ? 'live' : 'stale'}
+                  {/* OPT-10 (C-291): use heartbeat_ok+confidence to distinguish live HB from truly stale.
+                      agent.status='degraded' because journal is stale, not because HB is down. */}
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                    (agent as Agent & { heartbeat_ok?: boolean }).heartbeat_ok
+                      ? 'bg-emerald-400'
+                      : agent.status === 'active'
+                        ? 'bg-emerald-400'
+                        : 'bg-amber-400'
+                  }`} />
+                  HB {(agent as Agent & { heartbeat_ok?: boolean }).heartbeat_ok || agent.status === 'active' ? 'live' : 'stale'}
                 </span>
               </div>
             </div>

@@ -263,7 +263,7 @@ export default function PulsePageClient() {
     const posture = resolvePosture(lanes, integrity, latestSynthesis, tripwireElevated);
     const synthSev = latestSynthesis?.severity ?? 'nominal';
     const tripwireActive = tripwireElevated;
-    const treasuryLane = lanes.find((l) => l.key === 'vault' || l.key === 'treasury');
+    const treasuryLane = lanes.find((l) => l.key === 'vault');
     const treasuryAvailable = !treasuryLane || treasuryLane.state === 'healthy';
 
     const giSourceLabel =
