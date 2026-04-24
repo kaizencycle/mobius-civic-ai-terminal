@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import type { MemoryModePayload } from '@/lib/terminal/memoryMode';
+// OPT-4 (C-291): import from canonical lib rather than re-declaring with a looser
+// `key: string` type. Also re-exported so existing importers of this hook don't break.
+import type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
+export type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
 
 type SnapshotLeaf = {
   ok: boolean;
@@ -9,12 +13,6 @@ type SnapshotLeaf = {
   data: unknown;
   error: string | null;
 };
-
-// OPT-4 (C-291): re-export SnapshotLaneState from the canonical lib definition
-// rather than re-declaring it with a looser `key: string` type. This prevents
-// divergence between TerminalShell (which imports from lib) and PulsePageClient
-// (which imports from this hook). Single source of truth at lib/terminal/snapshotLanes.
-export type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
 
 export type TerminalSnapshot = {
   ok: boolean;
