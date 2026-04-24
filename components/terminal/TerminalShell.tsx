@@ -6,6 +6,7 @@ import OnboardingOverlay from '@/components/terminal/OnboardingOverlay';
 import ShellBridgeBanner from '@/components/terminal/ShellBridgeBanner';
 import { DegradedBanner } from '@/components/terminal/DegradedBanner';
 import SnapshotDiagnostics from '@/components/terminal/SnapshotDiagnostics';
+import DataflowCommandSpine from '@/components/terminal/DataflowCommandSpine';
 import { useShellSnapshot } from '@/hooks/useShellSnapshot';
 import { useLaneDiagnosticsChamber } from '@/hooks/useLaneDiagnosticsChamber';
 import { cn } from '@/lib/utils';
@@ -22,9 +23,10 @@ function runtimeBadgeClass(runtime: 'online' | 'degraded' | 'offline') {
 export default function TerminalShell({ children }: { children: ReactNode }) {
   const [clock, setClock] = useState('—');
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
+  const [showDataflowCommand, setShowDataflowCommand] = useState(true);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
   const { shell, loading } = useShellSnapshot();
-  const laneDiagnostics = useLaneDiagnosticsChamber(showLaneDiagnostics);
+  const laneDiagnostics = useLaneDiagnosticsChamber(showLaneDiagnostics || showDataflowCommand);
 
   useEffect(() => {
     const tick = () => setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
@@ -110,13 +112,20 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
 
         <div className="flex items-center justify-between gap-1.5 md:gap-2">
           <ChamberSwitcher />
-          <button type="button" onClick={() => setShowLaneDiagnostics((current) => !current)} className={cn('shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.12em] md:px-2 md:py-1 md:text-[10px]', showLaneDiagnostics ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-700 text-slate-400')}>
-            Lane diag
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button type="button" onClick={() => setShowDataflowCommand((current) => !current)} className={cn('rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.12em] md:px-2 md:py-1 md:text-[10px]', showDataflowCommand ? 'border-violet-500/60 text-violet-200' : 'border-slate-700 text-slate-400')}>
+              Flow
+            </button>
+            <button type="button" onClick={() => setShowLaneDiagnostics((current) => !current)} className={cn('rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.12em] md:px-2 md:py-1 md:text-[10px]', showLaneDiagnostics ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-700 text-slate-400')}>
+              Lane diag
+            </button>
+          </div>
         </div>
       </header>
 
       <DegradedBanner memoryMode={null} />
+
+      <DataflowCommandSpine shell={shell} diagnostics={laneDiagnostics.data} visible={showDataflowCommand} />
 
       {showLaneDiagnostics ? (
         <div className="border-b border-slate-800 bg-slate-950/80 px-3 py-2 md:px-4">
