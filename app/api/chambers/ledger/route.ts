@@ -54,20 +54,16 @@ function normalizeAgent(item: EpiconFeedItem): string {
   return (item.agentOrigin ?? item.author ?? 'ECHO').trim().toUpperCase();
 }
 
-function normalizeStatus(item: EpiconFeedItem): LedgerEntry['status'] {
-  const status = cleanText(item.status).toLowerCase();
+function isMergeEvent(item: EpiconFeedItem): boolean {
   const title = cleanText(item.title).toLowerCase();
   const type = cleanText(item.type).toLowerCase();
-  const source = cleanText(item.source).toLowerCase();
-  if (
-    status === 'committed' ||
-    status === 'verified' ||
-    item.verified === true ||
-    title.startsWith('merge pull request') ||
-    type === 'merge' ||
-    source === 'github' ||
-    source === 'github-commit'
-  ) {
+  const tags = (item.tags ?? []).map((tag) => tag.toLowerCase());
+  return title.startsWith('merge pull request') || type === 'merge' || tags.includes('merge');
+}
+
+function normalizeStatus(item: EpiconFeedItem): LedgerEntry['status'] {
+  const status = cleanText(item.status).toLowerCase();
+  if (status === 'committed' || status === 'verified' || item.verified === true || isMergeEvent(item)) {
     return 'committed';
   }
   if (status === 'failed' || status === 'reverted' || status === 'contested') return 'reverted';
