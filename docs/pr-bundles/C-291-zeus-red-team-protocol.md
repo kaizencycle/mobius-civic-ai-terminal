@@ -20,6 +20,66 @@ Authority: inspect, challenge, flag, quarantine
 Cannot: mutate GI directly, erase canon, impersonate agents, or auto-patch without operator approval
 ```
 
+## Sentinel Team Model
+
+Mobius should treat agents as a Sentinel team with separated duties, not as interchangeable chat agents.
+
+```txt
+ECHO     = memory pulse / event intake
+ATLAS    = assessment / signal reading
+ZEUS     = adversarial verification / red team
+JADE     = truth seal / canon verification
+EVE      = synthesis / meaning
+HERMES   = routing / dataflow
+AUREA    = strategy / architecture
+DAEDALUS = build logic / system craft
+```
+
+The checks-and-balances loop is:
+
+```txt
+Signal enters
+  ↓
+ECHO records
+  ↓
+ATLAS assesses
+  ↓
+ZEUS attacks it
+  ↓
+JADE verifies memory
+  ↓
+EVE synthesizes meaning
+  ↓
+HERMES routes the result
+  ↓
+AUREA / DAEDALUS turn it into system improvements
+```
+
+## Sentinel Team Panel Concept
+
+The Operator Terminal should eventually include a Sentinel Team panel that makes the agent duties visible without exposing unsafe internals to public users.
+
+Example panel:
+
+```txt
+Agent      Role              Current Duty              Status
+ECHO       Intake            Watching event feed        Active
+ATLAS      Assessment        Reading C-291 signals      Active
+ZEUS       Red Team          Checking public surface    Watch
+JADE       Verification      Canon confidence           Pending
+EVE        Synthesis         Weekly digest prep         Drafting
+HERMES     Routing           Dataflow smoothing         Active
+AUREA      Strategy          Architecture review        Standby
+DAEDALUS   Build Logic       PR/system craft            Standby
+```
+
+Panel rules:
+
+- Public mode may show high-level agent posture only.
+- Operator mode may show current duty, lane health, and latest pulse.
+- Red-team findings stay operator-only unless explicitly published.
+- No secret-bearing route names, tokens, or internal diagnostics appear in public mode.
+
 ## Threat Classes
 
 ZEUS should watch four primary attack classes.
@@ -166,6 +226,7 @@ Operator Terminal:
 - cron health
 - raw ledger rows
 - red team findings
+- Sentinel Team panel with current duties and posture
 
 Guiding phrase:
 
@@ -201,6 +262,7 @@ ZEUS cannot:
 - [ ] Write ZEUS Red Team Pulse to KV.
 - [ ] Allow JADE to verify the Red Team Pulse.
 - [ ] Display latest Red Team Pulse in Operator Mode.
+- [ ] Add Sentinel Team panel concept to Operator Mode.
 - [ ] Keep Public Mode free of raw attack-map diagnostics.
 
 ## Non-Goals
