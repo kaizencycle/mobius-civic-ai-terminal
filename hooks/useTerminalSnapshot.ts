@@ -10,15 +10,11 @@ type SnapshotLeaf = {
   error: string | null;
 };
 
-export type SnapshotLaneState = {
-  key: string;
-  ok: boolean;
-  state: string;
-  statusCode?: number;
-  message?: string;
-  lastUpdated?: string | null;
-  fallbackMode?: string | null;
-};
+// OPT-4 (C-291): re-export SnapshotLaneState from the canonical lib definition
+// rather than re-declaring it with a looser `key: string` type. This prevents
+// divergence between TerminalShell (which imports from lib) and PulsePageClient
+// (which imports from this hook). Single source of truth at lib/terminal/snapshotLanes.
+export type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
 
 export type TerminalSnapshot = {
   ok: boolean;

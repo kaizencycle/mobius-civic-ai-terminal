@@ -11,11 +11,15 @@ export async function GET() {
   const timestamp = new Date().toISOString();
 
   try {
-    const [micRaw, gi, tripwire] = await Promise.all([
+    // OPT-1 (C-291): loadMicReadinessSnapshotRaw was called twice in parallel —
+    // once for the raw source label and once piped into resolveGiForTerminal.
+    // Call it once, then pass the result to both consumers.
+    const [micRaw, tripwire] = await Promise.all([
       loadMicReadinessSnapshotRaw(),
-      loadMicReadinessSnapshotRaw().then((row) => resolveGiForTerminal({ micReadinessSnapshotRaw: row.raw })),
       loadTripwireState(),
     ]);
+
+    const gi = await resolveGiForTerminal({ micReadinessSnapshotRaw: micRaw.raw });
 
     const mode = typeof gi.mode === 'string' ? gi.mode : null;
     const degraded = Boolean(gi.degraded || mode === 'red' || tripwire?.elevated);

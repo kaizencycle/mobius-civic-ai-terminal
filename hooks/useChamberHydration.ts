@@ -54,9 +54,15 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
   const [error, setError] = useState<string | null>(null);
   const [fetchedOnce, setFetchedOnce] = useState(false);
   const [envelopeDegraded, setEnvelopeDegraded] = useState(false);
+  // OPT-3 (C-291): track consecutive errors for exponential backoff.
+  // Previously the hook polled at a fixed pollMs even after repeated failures,
+  // compounding serverless invocation waste when a chamber is persistently down.
+  const [errorCount, setErrorCount] = useState(0);
 
   useEffect(() => {
     let mounted = true;
+    let currentPollMs = pollMs;
+    let timerId: ReturnType<typeof window.setTimeout> | null = null;
 
     if (!enabled) {
       setLoading(false);
@@ -77,22 +83,31 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
         setEnvelopeDegraded(normalized.envelopeDegraded || !res.ok);
         setFetchedOnce(true);
         setError(null);
+        setErrorCount(0);
+        currentPollMs = pollMs;
       } catch (err) {
         if (!mounted) return;
         setError(err instanceof Error ? err.message : 'Chamber fetch failed');
         setFetchedOnce(true);
+        setErrorCount((n) => {
+          const next = n + 1;
+          currentPollMs = Math.min(pollMs * Math.pow(2, next), 300_000);
+          return next;
+        });
       } finally {
         window.clearTimeout(timeoutId);
         if (mounted) setLoading(false);
+        if (mounted) {
+          timerId = window.setTimeout(() => { void load(); }, currentPollMs);
+        }
       }
     }
 
     setLoading(true);
     void load();
-    const id = window.setInterval(load, pollMs);
     return () => {
       mounted = false;
-      window.clearInterval(id);
+      if (timerId !== null) window.clearTimeout(timerId);
     };
   }, [enabled, url, pollMs, requestTimeoutMs]);
 

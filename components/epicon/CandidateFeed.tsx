@@ -73,7 +73,9 @@ export default function CandidateFeed() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 5000);
+    // OPT-11 (C-291): raise from 5s to 15s — candidate feed is non-critical UI;
+    // 5s was creating unnecessary serverless invocations on every open tab.
+    const interval = setInterval(load, 15_000);
     return () => clearInterval(interval);
   }, []);
 

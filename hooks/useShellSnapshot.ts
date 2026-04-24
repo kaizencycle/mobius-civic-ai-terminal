@@ -33,8 +33,15 @@ export function useShellSnapshot() {
     let mounted = true;
 
     async function load() {
+      // OPT-12 (C-291): add AbortController timeout so the shell fetch can't
+      // hang indefinitely on slow cold starts, causing the header to freeze at "—".
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 6_000);
       try {
-        const res = await fetch('/api/terminal/shell', { cache: 'no-store' });
+        const res = await fetch('/api/terminal/shell', {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
         const json = (await res.json()) as ShellSnapshot;
         if (!mounted) return;
         setShell(json);
@@ -43,6 +50,7 @@ export function useShellSnapshot() {
         if (!mounted) return;
         setError(err instanceof Error ? err.message : 'Shell snapshot load failed');
       } finally {
+        window.clearTimeout(timeoutId);
         if (mounted) setLoading(false);
       }
     }
