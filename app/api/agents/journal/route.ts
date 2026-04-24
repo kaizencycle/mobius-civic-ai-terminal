@@ -582,6 +582,8 @@ export async function POST(request: NextRequest) {
       ...entry,
       id: entry.id,
       timestamp: entry.timestamp,
+      canon: false,
+      ...(giAt !== undefined ? { gi_at_time: giAt } : {}),
     });
     mirroredToKv = writeResult.written || writeResult.token === 'already_exists';
   }
