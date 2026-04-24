@@ -40,6 +40,14 @@ const DVA_TIERS: Array<{
   { id: 't1', label: 'SUBSTRATE', desc: 'ECHO · Event memory', color: 'text-slate-300', border: 'border-slate-500/50', activeBg: 'bg-slate-600/20' },
 ];
 
+const DVA_TIER_AGENT_MAP: Record<Exclude<DvaTier, 'ALL'>, readonly string[]> = {
+  t1: ['ECHO'],
+  t2: ['ATLAS', 'ZEUS'],
+  t3: ['EVE', 'JADE', 'HERMES'],
+  sentinel: ['ATLAS', 'ZEUS', 'EVE'],
+  architects: ['AUREA', 'DAEDALUS'],
+};
+
 type EpiconItem = {
   id: string;
   timestamp: string;
@@ -51,8 +59,37 @@ type EpiconItem = {
   severity: string;
 };
 
+function normalizeAgentName(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toUpperCase() : '';
+}
+
+function resolveDvaTierAgents(tier: DvaTier): readonly string[] {
+  return tier === 'ALL' ? [] : DVA_TIER_AGENT_MAP[tier] ?? [];
+}
+
+function journalEntryAgent(entry: JournalDisplayEntry): string {
+  const candidate = entry as JournalDisplayEntry & { agentOrigin?: string; sourceAgent?: string; author?: string };
+  return (
+    normalizeAgentName(candidate.agentOrigin) ||
+    normalizeAgentName(candidate.agent) ||
+    normalizeAgentName(candidate.sourceAgent) ||
+    normalizeAgentName(candidate.author)
+  );
+}
+
+function entryMatchesDvaTier(entry: JournalDisplayEntry, tier: DvaTier): boolean {
+  const allowed = resolveDvaTierAgents(tier);
+  if (allowed.length === 0) return true;
+  const agent = journalEntryAgent(entry);
+  return agent.length > 0 && allowed.includes(agent);
+}
+
+function isDerivableEpiconItem(item: EpiconItem): boolean {
+  return item.type === 'zeus-verify' || item.author === 'cursor-agent' || item.author === 'mobius-bot' || item.type === 'heartbeat';
+}
+
 function deriveAgent(item: EpiconItem): string {
-  const tags = item.tags.map((tag) => tag.toLowerCase());
+  const tags = (item.tags ?? []).map((tag) => tag.toLowerCase());
   if (item.type === 'zeus-verify') return 'ZEUS';
   if (item.type === 'heartbeat') return 'ATLAS';
   if (tags.includes('atlas')) return 'ATLAS';
@@ -138,6 +175,7 @@ function sortJournalOperatorFirst(rows: JournalDisplayEntry[], focusCycleId: str
 }
 
 export default function JournalPageClient() {
+  const currentCycle = useMemo(() => currentCycleId(), []);
   const [entries, setEntries] = useState<JournalDisplayEntry[] | null>(null);
   const [agent, setAgent] = useState('ALL');
   const [cycleTab, setCycleTab] = useState<string>(() => currentCycleId());
@@ -145,8 +183,20 @@ export default function JournalPageClient() {
   const [readMode, setReadMode] = useState<'hot' | 'canon' | 'merged'>('hot');
   const [dvaTier, setDvaTier] = useState<DvaTier>('t2');
   const journal = useJournalChamber(true, readMode, 100, dvaTier);
+  const journalEntries = useMemo(() => (journal.data?.entries ?? []) as JournalDisplayEntry[], [journal.data?.entries]);
+  const activeTier = useMemo(() => DVA_TIERS.find((tier) => tier.id === dvaTier), [dvaTier]);
   const [missingRelatedId, setMissingRelatedId] = useState<string | null>(null);
   const anchorsRef = useRef<Map<string, HTMLElement>>(new Map());
+  const missingRelatedTimerRef = useRef<number | null>(null);
+
+  const clearMissingRelatedTimer = useCallback(() => {
+    if (missingRelatedTimerRef.current !== null) {
+      window.clearTimeout(missingRelatedTimerRef.current);
+      missingRelatedTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearMissingRelatedTimer, [clearMissingRelatedTimer]);
 
   const registerAnchor = useCallback((id: string, el: HTMLElement | null) => {
     if (el) anchorsRef.current.set(id, el);
@@ -154,6 +204,7 @@ export default function JournalPageClient() {
   }, []);
 
   const onRelatedClick = useCallback((journalEntryId: string) => {
+    clearMissingRelatedTimer();
     const el = anchorsRef.current.get(journalEntryId);
     if (el) {
       setMissingRelatedId(null);
@@ -161,37 +212,47 @@ export default function JournalPageClient() {
       return;
     }
     setMissingRelatedId(journalEntryId);
-    window.setTimeout(() => setMissingRelatedId(null), 5000);
-  }, []);
+    missingRelatedTimerRef.current = window.setTimeout(() => {
+      setMissingRelatedId(null);
+      missingRelatedTimerRef.current = null;
+    }, 5000);
+  }, [clearMissingRelatedTimer]);
 
   useEffect(() => {
     let mounted = true;
+    const controller = new AbortController();
+
     void (async () => {
-      let journalEntries: JournalDisplayEntry[] = [];
-      journalEntries = (journal.data?.entries ?? []) as JournalDisplayEntry[];
+      const scopedJournalEntries = journalEntries.filter((entry) => entryMatchesDvaTier(entry, dvaTier));
 
       if (!mounted) return;
 
-      if (journalEntries.length > 0) {
+      if (scopedJournalEntries.length > 0) {
         setDerivedMode(false);
-        setEntries(journalEntries);
+        setEntries(scopedJournalEntries);
+        return;
+      }
+
+      if (journal.loading && !journal.error && journal.status !== 'stale') {
         return;
       }
 
       let epiconItems: EpiconItem[] = [];
       try {
-        const res = await fetch('/api/epicon/feed?limit=100', { cache: 'no-store' });
+        const res = await fetch('/api/epicon/feed?limit=100', { cache: 'no-store', signal: controller.signal });
+        if (!res.ok) throw new Error(`epicon_feed_${res.status}`);
         const data = (await res.json()) as { items?: EpiconItem[] };
         epiconItems = data.items ?? [];
-      } catch {
-        // ignore
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
       }
 
       if (!mounted) return;
 
       const derived = epiconItems
-        .filter((item) => item.type === 'zeus-verify' || item.author === 'cursor-agent' || item.author === 'mobius-bot' || item.type === 'heartbeat')
-        .map(toDerivedEntry);
+        .filter(isDerivableEpiconItem)
+        .map(toDerivedEntry)
+        .filter((entry) => entryMatchesDvaTier(entry, dvaTier));
 
       setDerivedMode(derived.length > 0);
       setEntries(derived);
@@ -199,8 +260,9 @@ export default function JournalPageClient() {
 
     return () => {
       mounted = false;
+      controller.abort();
     };
-  }, [journal.data]);
+  }, [journalEntries, dvaTier, journal.loading, journal.error, journal.status]);
 
   const agentCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -230,10 +292,15 @@ export default function JournalPageClient() {
       if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return nb - na;
       return b.localeCompare(a);
     });
-    const current = currentCycleId();
-    if (!list.includes(current)) list.unshift(current);
+    if (!list.includes(currentCycle)) list.unshift(currentCycle);
     return ['All', ...list];
-  }, [entries]);
+  }, [entries, currentCycle]);
+
+  useEffect(() => {
+    if (entries && cycleTab !== 'All' && !cycleOptions.includes(cycleTab)) {
+      setCycleTab(currentCycle);
+    }
+  }, [cycleOptions, currentCycle, cycleTab, entries]);
 
   const cycleCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -253,8 +320,8 @@ export default function JournalPageClient() {
     if (agent !== 'ALL') {
       rows = rows.filter((e) => e.agent === agent);
     }
-    return sortJournalOperatorFirst(rows, currentCycleId());
-  }, [entries, agent, cycleTab]);
+    return sortJournalOperatorFirst(rows, currentCycle);
+  }, [entries, agent, cycleTab, currentCycle]);
 
   if (entries === null) return <ChamberSkeleton blocks={8} />;
 
@@ -262,12 +329,17 @@ export default function JournalPageClient() {
     <div className="h-full overflow-y-auto p-4">
       {derivedMode ? (
         <div className="mb-3 rounded border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
-          Derived from EPICON feed · Native journals pending SUBSTRATE_GITHUB_TOKEN
+          Derived from EPICON feed · {dvaTier === 'ALL' ? 'all-agent fallback' : 'tier-scoped fallback'} · Native journals pending SUBSTRATE_GITHUB_TOKEN
         </div>
       ) : null}
       {journal.preview && !journal.full ? (
         <div className="mb-3 rounded border border-cyan-500/40 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100">
           Preview from snapshot · chamber enrichment in progress
+        </div>
+      ) : null}
+      {journal.data?.scoped ? (
+        <div className="mb-3 rounded border border-slate-700/60 bg-slate-950/40 px-3 py-2 text-[11px] text-slate-300">
+          Tier scope active · {(journal.data.tier_agents ?? []).join(' + ') || activeTier?.label || 'selected agents'}
         </div>
       ) : null}
       {journal.error ? (
@@ -284,7 +356,7 @@ export default function JournalPageClient() {
       <div className="mb-3 rounded border border-slate-800/60 bg-slate-950/40 p-2">
         <div className="mb-1.5 flex items-center justify-between">
           <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-slate-500">DVA Tier · Agent Layer</span>
-          <span className="text-[9px] text-slate-600">{DVA_TIERS.find((tier) => tier.id === dvaTier)?.desc ?? ''}</span>
+          <span className="text-[9px] text-slate-600">{activeTier?.desc ?? ''}</span>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {DVA_TIERS.map((tier) => {
@@ -293,6 +365,7 @@ export default function JournalPageClient() {
               <button
                 key={tier.id}
                 type="button"
+                aria-pressed={active}
                 onClick={() => {
                   setDvaTier(tier.id);
                   setAgent('ALL');
@@ -315,6 +388,8 @@ export default function JournalPageClient() {
         {(['hot', 'canon', 'merged'] as const).map((mode) => (
           <button
             key={mode}
+            type="button"
+            aria-pressed={readMode === mode}
             onClick={() => setReadMode(mode)}
             className={`rounded border px-2 py-1 uppercase tracking-[0.14em] ${readMode === mode ? 'border-cyan-400/60 bg-cyan-500/10 text-cyan-200' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}
           >
@@ -327,7 +402,7 @@ export default function JournalPageClient() {
         <div className="space-y-4">
           <ChamberEmptyState
             title="No journal entries yet for this cycle"
-            reason="Agent journals initialize when automations run."
+            reason={`Agent journals initialize when automations run${dvaTier === 'ALL' ? '' : ` for ${activeTier?.label ?? 'this tier'}`}.`}
             action="To activate: set SUBSTRATE_GITHUB_TOKEN in Vercel"
             actionDetail="Use a fine-grained PAT for kaizencycle/Mobius-Substrate with Contents read + write permissions."
           />
@@ -351,6 +426,7 @@ export default function JournalPageClient() {
                 <button
                   key={c}
                   type="button"
+                  aria-pressed={cycleTab === c}
                   onClick={() => setCycleTab(c)}
                   className={`whitespace-nowrap rounded border px-2 py-1 text-xs ${
                     cycleTab === c
@@ -367,14 +443,17 @@ export default function JournalPageClient() {
             {agentPills.map(({ name, count }) => {
               const st = AGENT_PILL_STYLE[name] ?? AGENT_PILL_STYLE.ALL;
               const active = agent === name;
+              const disabled = name !== 'ALL' && count === 0;
               return (
                 <button
                   key={name}
                   type="button"
+                  aria-pressed={active}
+                  disabled={disabled}
                   onClick={() => setAgent(name)}
                   className={`whitespace-nowrap rounded border px-2 py-1 text-xs transition ${
                     active ? `${st.border} ${st.activeBg} ${st.text}` : 'border-slate-700 text-slate-500'
-                  }`}
+                  } ${disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-slate-500'}`}
                 >
                   {name} ({count})
                 </button>
