@@ -28,15 +28,36 @@ const DVA_TIER_AGENTS: Record<Exclude<DvaTier, 'ALL'>, string[]> = {
 };
 
 type PreviewJournalCandidate = {
+  id?: string;
   agent?: string;
   agentOrigin?: string;
   author?: string;
   source?: string;
   sourceAgent?: string;
+  cycle?: string;
+  category?: string;
+  observation?: string;
+  inference?: string;
+  recommendation?: string;
+  summary?: string;
+  title?: string;
+  body?: string;
+  message?: string;
+  timestamp?: string;
+  status?: string;
+  severity?: string;
+  confidence?: number;
+  derivedFrom?: string[];
+  source_mode?: 'kv' | 'substrate';
+  canonical_path?: string;
 };
 
 function normalizeAgentName(value: unknown): string {
   return typeof value === 'string' ? value.trim().toUpperCase() : '';
+}
+
+function normalizeText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function resolveTierAgents(tier: DvaTier): string[] {
@@ -55,12 +76,59 @@ function getPreviewEntryAgent(entry: unknown): string {
   );
 }
 
+function normalizePreviewStatus(value: unknown): 'draft' | 'committed' | 'contested' | 'verified' {
+  const status = normalizeText(value).toLowerCase();
+  if (status === 'draft' || status === 'contested' || status === 'verified') return status;
+  return 'committed';
+}
+
+function normalizePreviewSeverity(value: unknown): 'nominal' | 'elevated' | 'critical' {
+  const severity = normalizeText(value).toLowerCase();
+  if (severity === 'critical') return 'critical';
+  if (severity === 'elevated' || severity === 'high' || severity === 'medium') return 'elevated';
+  return 'nominal';
+}
+
+function normalizePreviewEntry(entry: unknown, idx: number, fallbackTimestamp: string) {
+  const candidate = entry as PreviewJournalCandidate;
+  const agent = getPreviewEntryAgent(entry) || 'ECHO';
+  const observation =
+    normalizeText(candidate.observation) ||
+    normalizeText(candidate.summary) ||
+    normalizeText(candidate.title) ||
+    normalizeText(candidate.body) ||
+    normalizeText(candidate.message) ||
+    'Preview journal row awaiting native observation payload.';
+  const inference =
+    normalizeText(candidate.inference) ||
+    normalizeText(candidate.recommendation) ||
+    'Preview source did not include a separate inference field.';
+
+  return {
+    ...candidate,
+    id: normalizeText(candidate.id) || `preview-${agent}-${idx}`,
+    agent,
+    agentOrigin: normalizeAgentName(candidate.agentOrigin) || agent,
+    sourceAgent: normalizeAgentName(candidate.sourceAgent) || agent,
+    cycle: normalizeText(candidate.cycle) || 'C-—',
+    category: normalizeText(candidate.category) || 'observation',
+    observation,
+    inference,
+    recommendation: normalizeText(candidate.recommendation),
+    timestamp: normalizeText(candidate.timestamp) || fallbackTimestamp,
+    source: normalizeText(candidate.source) || 'snapshot-preview',
+    status: normalizePreviewStatus(candidate.status),
+    severity: normalizePreviewSeverity(candidate.severity),
+    confidence: typeof candidate.confidence === 'number' ? candidate.confidence : undefined,
+    derivedFrom: Array.isArray(candidate.derivedFrom) ? candidate.derivedFrom : [],
+    source_mode: candidate.source_mode,
+    canonical_path: candidate.canonical_path,
+  };
+}
+
 function entryBelongsToTier(entry: unknown, tierAgents: Set<string>): boolean {
   if (tierAgents.size === 0) return true;
   const agent = getPreviewEntryAgent(entry);
-  // C-291 fix: unscoped preview rows must not bypass a non-ALL tier filter.
-  // If a fallback/digest row cannot prove an agent origin, it is excluded until
-  // the live chamber response returns canonical scoping metadata.
   return agent.length > 0 && tierAgents.has(agent);
 }
 
@@ -78,9 +146,7 @@ export function useJournalChamber(
   const url = useMemo(() => {
     const params = new URLSearchParams({ mode, limit: String(safeLimit) });
     params.set('tier', tier);
-    for (const agent of tierAgentsList) {
-      params.append('agent', agent);
-    }
+    for (const agent of tierAgentsList) params.append('agent', agent);
     return `/api/chambers/journal?${params.toString()}`;
   }, [mode, safeLimit, tier, tierAgentsList]);
 
@@ -106,7 +172,9 @@ export function useJournalChamber(
 
     const latestEntries = Array.isArray(latest) ? latest : digestEntries;
     const tierAgents = new Set(tierAgentsList);
-    const scopedEntries = latestEntries.filter((entry) => entryBelongsToTier(entry, tierAgents));
+    const scopedEntries = latestEntries
+      .filter((entry) => entryBelongsToTier(entry, tierAgents))
+      .map((entry, idx) => normalizePreviewEntry(entry, idx, timestamp));
 
     return {
       ok: true,
