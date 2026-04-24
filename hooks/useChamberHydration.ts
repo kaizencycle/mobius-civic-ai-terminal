@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 type UseChamberHydrationOptions<T> = {
   previewData?: T | null;
   pollMs?: number;
+  requestTimeoutMs?: number;
 };
 
 export type ChamberHydrationStatus = 'preview' | 'hydrating' | 'live' | 'degraded' | 'stale';
@@ -20,15 +21,37 @@ type UseChamberHydrationResult<T> = {
   source: 'echo-digest' | 'api' | 'mixed';
 };
 
+type ChamberEnvelope<T> = {
+  ok?: boolean;
+  degraded?: boolean;
+  fallback?: boolean;
+  data?: T;
+};
+
+const DEFAULT_TIMEOUT_MS = 8_000;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') return null;
+  return value as Record<string, unknown>;
+}
+
+function normalizeHydrationPayload<T>(json: unknown): { payload: T | null; envelopeDegraded: boolean } {
+  const record = asRecord(json);
+  if (!record) return { payload: null, envelopeDegraded: true };
+
+  const envelope = record as ChamberEnvelope<T>;
+  const payload = (envelope.data ?? json) as T;
+  const envelopeDegraded = envelope.ok === false || envelope.degraded === true;
+  return { payload, envelopeDegraded };
+}
+
 export function useChamberHydration<T>(url: string, enabled: boolean, options: UseChamberHydrationOptions<T> = {}): UseChamberHydrationResult<T> {
-  const { previewData = null, pollMs = 30_000 } = options;
+  const { previewData = null, pollMs = 30_000, requestTimeoutMs = DEFAULT_TIMEOUT_MS } = options;
   const [full, setFull] = useState<T | null>(null);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
-  // C-290 v2: track fetch completion separately from loading.
-  // !loading alone is unreliable — React 18 can render loading=false before
-  // setFull flushes, causing previewData to be promoted live prematurely.
   const [fetchedOnce, setFetchedOnce] = useState(false);
+  const [envelopeDegraded, setEnvelopeDegraded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -41,11 +64,15 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
     }
 
     async function load() {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), requestTimeoutMs);
       try {
-        const res = await fetch(url, { cache: 'no-store' });
-        const json = (await res.json()) as T;
+        const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+        const json = (await res.json()) as unknown;
+        const normalized = normalizeHydrationPayload<T>(json);
         if (!mounted) return;
-        setFull(json);
+        setFull(normalized.payload);
+        setEnvelopeDegraded(normalized.envelopeDegraded || !res.ok);
         setFetchedOnce(true);
         setError(null);
       } catch (err) {
@@ -53,6 +80,7 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
         setError(err instanceof Error ? err.message : 'Chamber fetch failed');
         setFetchedOnce(true);
       } finally {
+        window.clearTimeout(timeoutId);
         if (mounted) setLoading(false);
       }
     }
@@ -64,22 +92,19 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
       mounted = false;
       window.clearInterval(id);
     };
-  }, [enabled, url, pollMs]);
+  }, [enabled, url, pollMs, requestTimeoutMs]);
 
   const data = useMemo(() => full ?? previewData ?? null, [full, previewData]);
 
   const status: ChamberHydrationStatus = useMemo(() => {
-    if (error && previewData) return 'degraded';
-    if (error) return 'stale';
+    if ((error || envelopeDegraded) && previewData) return 'degraded';
+    if (error || envelopeDegraded) return 'stale';
     if (full) return 'live';
-    // C-290 v2: promote previewData to 'live' only after fetchedOnce=true,
-    // not on !loading — setFull and setLoading are separate setState calls
-    // and !loading can be true one render before full populates.
     if (fetchedOnce && previewData) return 'live';
     if (loading && previewData) return 'hydrating';
     if (previewData) return 'preview';
     return loading ? 'hydrating' : 'stale';
-  }, [error, previewData, full, loading, fetchedOnce]);
+  }, [error, envelopeDegraded, previewData, full, loading, fetchedOnce]);
 
   const source: 'echo-digest' | 'api' | 'mixed' = full ? (previewData ? 'mixed' : 'api') : 'echo-digest';
 
@@ -89,7 +114,7 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
     data,
     loading,
     error,
-    degraded: Boolean(error),
+    degraded: Boolean(error || envelopeDegraded),
     status,
     source,
   };

@@ -40,7 +40,7 @@ export default function GlobePageClient() {
   const micro = (data?.micro && typeof data.micro === 'object' ? data.micro : null) as MicroAgentSweepResult | null;
   const echo = (data?.echo && typeof data.echo === 'object' ? data.echo : {}) as { epicon?: EpiconItem[] };
   const echoEpicon = echo.epicon ?? [];
-  const cycle = data?.cycle ?? 'C-271';
+  const cycle = data?.cycle ?? preview?.cycle ?? 'C-—';
 
   // Prefer live sentiment from the chamber response, fall back to snapshot
   const chamberSentiment = (data?.sentiment && typeof data.sentiment === 'object')
@@ -62,11 +62,13 @@ export default function GlobePageClient() {
   }));
 
   // GI: prefer chamber data, then snapshot
-  const gi = typeof data?.gi === 'number'
+  const gi = typeof data?.gi === 'number' && data.gi > 0
     ? data.gi
-    : typeof snapshot?.gi === 'number'
-      ? snapshot.gi
-      : 0;
+    : typeof preview?.gi === 'number'
+      ? preview.gi
+      : typeof snapshot?.gi === 'number'
+        ? snapshot.gi
+        : 0;
 
   const miiScore = snapshotSentiment?.overall_sentiment ?? null;
 

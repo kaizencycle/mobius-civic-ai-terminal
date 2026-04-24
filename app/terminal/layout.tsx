@@ -3,6 +3,7 @@ import { WalletProvider } from '@/contexts/WalletContext';
 import CommandSurface from '@/components/terminal/CommandSurface';
 import FooterStatusBar from '@/components/terminal/FooterStatusBar';
 import TerminalShell from '@/components/terminal/TerminalShell';
+import { EchoDigestProvider } from '@/components/terminal/EchoDigestProvider';
 
 type ShellSeed = {
   gi?: number | null;
@@ -50,7 +51,9 @@ export default async function TerminalLayout({ children }: { children: ReactNode
           }}
         />
       ) : null}
-      <TerminalShell>{children}</TerminalShell>
+      <EchoDigestProvider>
+        <TerminalShell>{children}</TerminalShell>
+      </EchoDigestProvider>
       <CommandSurface />
       <FooterStatusBar />
     </WalletProvider>

@@ -1,19 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { EchoDigestPayload } from '@/lib/echo/buildDigest';
-import { useEchoDigestContext } from '@/components/terminal/EchoDigestProvider';
+
+type EchoDigestContextValue = {
+  digest: EchoDigestPayload | null;
+  loading: boolean;
+  error: string | null;
+};
 
 const POLL_MS = 20_000;
+const EchoDigestContext = createContext<EchoDigestContextValue | null>(null);
 
-export function useEchoDigest(enabled = true) {
-  const context = useEchoDigestContext();
+export function EchoDigestProvider({ children }: { children: ReactNode }) {
   const [digest, setDigest] = useState<EchoDigestPayload | null>(null);
-  const [loading, setLoading] = useState(enabled);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (context || !enabled) return;
     let mounted = true;
 
     async function load() {
@@ -37,15 +41,13 @@ export function useEchoDigest(enabled = true) {
       mounted = false;
       window.clearInterval(id);
     };
-  }, [enabled, context]);
+  }, []);
 
-  if (!enabled) {
-    return { digest: null, loading: false, error: null };
-  }
+  const value = useMemo(() => ({ digest, loading, error }), [digest, loading, error]);
 
-  if (context) {
-    return context;
-  }
+  return <EchoDigestContext.Provider value={value}>{children}</EchoDigestContext.Provider>;
+}
 
-  return { digest, loading, error };
+export function useEchoDigestContext() {
+  return useContext(EchoDigestContext);
 }
