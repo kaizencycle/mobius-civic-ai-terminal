@@ -93,6 +93,12 @@ export async function GET() {
           tranche: null,
           fountain_locked: true,
         },
+
+        predictive: {
+          risk_level: 'critical',
+          signals: ['digest_unavailable'],
+          recommendation: 'maintain snapshot preview mode until digest recovers',
+        },
       },
       {
         status: 200,

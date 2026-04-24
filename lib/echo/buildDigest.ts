@@ -110,6 +110,11 @@ export type EchoDigestPayload = {
     tranche: number | null;
     fountain_locked: boolean;
   };
+  predictive: {
+    risk_level: 'nominal' | 'watch' | 'elevated' | 'critical';
+    signals: string[];
+    recommendation: string;
+  };
 };
 
 function countByCycle(entries: JournalEntry[]): Array<{ cycle: string; count: number }> {
@@ -136,21 +141,22 @@ function buildHeadline(args: {
   return 'System stable. Snapshot and chamber preview lanes are coherent.';
 }
 
-function detectDvaMode(agents: AgentStatusRow[]): DvaMode {
-  const up = new Set(
-    agents
-      .filter((a) => {
-        const s = (a.status ?? a.liveness ?? '').toLowerCase();
-        return s === 'active' || s === 'degraded' || s === 'booting';
-      })
-      .map((a) => (a.name ?? '').toUpperCase()),
-  );
-  const hasAtlas = up.has('ATLAS');
-  const hasZeus = up.has('ZEUS');
-  const hasHermes = up.has('HERMES');
+function detectDvaMode(args: {
+  agents: AgentStatusRow[];
+  snapshotLite: SnapshotLitePayload;
+}): DvaMode {
+  const { agents, snapshotLite } = args;
+  const fresh = (v: LiteLaneFreshness | undefined) => v === 'fresh' || v === 'nominal';
+  const hasEcho = Boolean(snapshotLite.ok !== false);
+  const hasAtlas = agents.some((a) => (a.name ?? '').toUpperCase() === 'ATLAS' && (a.status ?? '').toLowerCase() === 'active');
+  const hasZeus = agents.some((a) => (a.name ?? '').toUpperCase() === 'ZEUS' && (a.status ?? '').toLowerCase() === 'active');
+  const hasHermes = agents.some((a) => (a.name ?? '').toUpperCase() === 'HERMES' && (a.status ?? '').toLowerCase() === 'active');
+  const atlasFresh = fresh(snapshotLite.lanes?.integrity?.freshness);
+  const zeusFresh = fresh(snapshotLite.lanes?.signals?.freshness);
+  const hermesFresh = fresh(snapshotLite.lanes?.echo?.freshness);
 
-  if (hasAtlas && hasZeus && hasHermes) return 'full';
-  if (hasAtlas) return 'one';
+  if (hasEcho && hasAtlas && hasZeus && hasHermes && atlasFresh && zeusFresh && hermesFresh) return 'full';
+  if (hasEcho && hasAtlas && atlasFresh) return 'one';
   return 'lite';
 }
 
@@ -190,6 +196,12 @@ export function buildEchoDigest(input: {
     Boolean(snapshotLite.lanes?.tripwire?.elevated) ||
     status.toLowerCase() === 'stressed';
 
+  const integrityLaneGi = typeof snapshotLite.lanes?.integrity?.gi === 'number' ? snapshotLite.lanes.integrity.gi : null;
+  const divergence = typeof snapshotLite.gi === 'number' && typeof integrityLaneGi === 'number'
+    ? Math.abs(snapshotLite.gi - integrityLaneGi)
+    : 0;
+  const hydrationDrift = snapshotLite.lanes?.signals?.freshness === 'stale' || snapshotLite.lanes?.signals?.freshness === 'degraded';
+
   const warnings: string[] = [];
   if (archiveStale) warnings.push('Journal archive stale; hot lane authoritative');
   if (ledgerDegraded) warnings.push('Ledger rows unavailable');
@@ -200,7 +212,7 @@ export function buildEchoDigest(input: {
     ok: true,
     cycle,
     timestamp,
-    dva_mode: detectDvaMode(agents),
+    dva_mode: detectDvaMode({ agents, snapshotLite }),
     source: 'echo-digest',
     degraded,
     integrity: {
@@ -240,6 +252,20 @@ export function buildEchoDigest(input: {
       reserve: typeof vault?.balance_reserve === 'number' ? vault.balance_reserve : null,
       tranche: typeof vault?.current_tranche_balance === 'number' ? vault.current_tranche_balance : null,
       fountain_locked: (vault?.fountain_status ?? 'locked') !== 'active' && (vault?.fountain_status ?? 'locked') !== 'unsealed',
+    },
+    predictive: {
+      risk_level: divergence > 0.2 || hydrationDrift ? 'elevated' : degraded ? 'watch' : 'nominal',
+      signals: [
+        divergence > 0.2 ? 'divergence_detected' : null,
+        hydrationDrift ? 'hydration_drift' : null,
+        degraded ? 'digest_instability' : null,
+      ].filter((v): v is string => Boolean(v)),
+      recommendation:
+        divergence > 0.2 || hydrationDrift
+          ? 'bias snapshot authority and delay chamber promotion'
+          : degraded
+            ? 'keep preview authority until chamber confirms'
+            : 'normal operation',
     },
   };
 }
