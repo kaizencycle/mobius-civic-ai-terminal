@@ -48,6 +48,8 @@ const DVA_TIER_AGENT_MAP: Record<Exclude<DvaTier, 'ALL'>, readonly string[]> = {
   architects: ['AUREA', 'DAEDALUS'],
 };
 
+const CURRENT_CYCLE_REFRESH_MS = 60_000;
+
 type EpiconItem = {
   id: string;
   timestamp: string;
@@ -104,8 +106,7 @@ function epiconSeverityToJournal(sev: string): JournalDisplaySeverity {
   return 'nominal';
 }
 
-function toDerivedEntry(item: EpiconItem): JournalDisplayEntry {
-  const cycle = currentCycleId();
+function toDerivedEntry(item: EpiconItem, cycle: string): JournalDisplayEntry {
   const status: JournalDisplayStatus = item.type === 'zeus-verify' ? 'verified' : 'committed';
   const severity = epiconSeverityToJournal(item.severity ?? 'nominal');
   return {
@@ -175,7 +176,7 @@ function sortJournalOperatorFirst(rows: JournalDisplayEntry[], focusCycleId: str
 }
 
 export default function JournalPageClient() {
-  const currentCycle = useMemo(() => currentCycleId(), []);
+  const [currentCycle, setCurrentCycle] = useState(() => currentCycleId());
   const [entries, setEntries] = useState<JournalDisplayEntry[] | null>(null);
   const [agent, setAgent] = useState('ALL');
   const [cycleTab, setCycleTab] = useState<string>(() => currentCycleId());
@@ -188,6 +189,18 @@ export default function JournalPageClient() {
   const [missingRelatedId, setMissingRelatedId] = useState<string | null>(null);
   const anchorsRef = useRef<Map<string, HTMLElement>>(new Map());
   const missingRelatedTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const refreshCurrentCycle = () => {
+      setCurrentCycle((previous) => {
+        const next = currentCycleId();
+        return previous === next ? previous : next;
+      });
+    };
+    refreshCurrentCycle();
+    const timerId = window.setInterval(refreshCurrentCycle, CURRENT_CYCLE_REFRESH_MS);
+    return () => window.clearInterval(timerId);
+  }, []);
 
   const clearMissingRelatedTimer = useCallback(() => {
     if (missingRelatedTimerRef.current !== null) {
@@ -251,7 +264,7 @@ export default function JournalPageClient() {
 
       const derived = epiconItems
         .filter(isDerivableEpiconItem)
-        .map(toDerivedEntry)
+        .map((item) => toDerivedEntry(item, currentCycle))
         .filter((entry) => entryMatchesDvaTier(entry, dvaTier));
 
       setDerivedMode(derived.length > 0);
@@ -262,7 +275,7 @@ export default function JournalPageClient() {
       mounted = false;
       controller.abort();
     };
-  }, [journalEntries, dvaTier, journal.loading, journal.error, journal.status]);
+  }, [journalEntries, dvaTier, journal.loading, journal.error, journal.status, currentCycle]);
 
   const agentCounts = useMemo(() => {
     const m = new Map<string, number>();

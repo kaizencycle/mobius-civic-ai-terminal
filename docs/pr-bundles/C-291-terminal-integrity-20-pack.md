@@ -6,12 +6,22 @@ This pass fixes the P2 tier-filter leakage reported against `hooks/useJournalCha
 
 Primary issue: when a non-`ALL` DVA tier is selected, unscoped preview rows with no `agent` / `agentOrigin` were retained. During initial hydration, and especially during predictive stabilization with `lockToPreview`, fallback digest rows could appear inside the wrong tier view.
 
+## Follow-up fixes
+
+Codex review surfaced two additional P2 issues after the first pass:
+
+1. Conflicting tier/agent filters widened back to the tier default. Example: `tier=t2&agent=EVE` returned ATLAS/ZEUS rows instead of no rows.
+2. `currentCycle` was frozen at mount via `useMemo(..., [])`, so long-lived Journal tabs could mis-prioritize rows after the ET cycle rollover.
+
+Both are fixed in this PR.
+
 ## Fix summary
 
 - Non-`ALL` tier filters now require provable agent origin before a preview row can be shown.
 - Digest fallback rows now carry explicit `ECHO` provenance instead of anonymous preview metadata.
-- The Journal chamber API now intersects explicit `agent` query params with the selected tier and re-filters downstream responses before returning them.
+- The Journal chamber API now intersects explicit `agent` query params with the selected tier and keeps empty intersections empty.
 - EPICON-derived fallback rows in the UI now use the same tier gate as native journal rows.
+- Current cycle is refreshed every minute so open Journal tabs roll over without a full page reload.
 
 ## 20 optimizations
 
@@ -23,7 +33,7 @@ Primary issue: when a non-`ALL` DVA tier is selected, unscoped preview rows with
 6. Return `tier`, `tier_agents`, and `scoped` metadata in the chamber payload.
 7. Normalize API tier params case-insensitively.
 8. De-duplicate explicit `agent` query params.
-9. Intersect explicit `agent` query params with the selected DVA tier to avoid contradictory requests.
+9. Preserve empty tier/agent intersections instead of broadening back to the full tier.
 10. Clamp API request limits before forwarding to the canonical journal route.
 11. Re-filter `entries` in the chamber API after the downstream journal response as defense-in-depth.
 12. Return an accurate `count` after post-filtering.
@@ -34,7 +44,7 @@ Primary issue: when a non-`ALL` DVA tier is selected, unscoped preview rows with
 17. Avoid fetching EPICON fallback rows while journal hydration is still actively in progress.
 18. Abort EPICON fallback fetches on unmount or tier changes.
 19. Clean and de-duplicate missing-related-entry timers to prevent stacked timeout state updates.
-20. Improve Journal filter accessibility and state clarity with `type="button"`, `aria-pressed`, disabled zero-count agent pills, active-tier banner, and invalid cycle reset.
+20. Refresh the current cycle every minute so sorting, seeded cycle tabs, and invalid-cycle resets survive cycle rollover.
 
 ## Files changed
 
