@@ -26,7 +26,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   const [showDataflowCommand, setShowDataflowCommand] = useState(true);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
   const { shell, loading } = useShellSnapshot();
-  const laneDiagnostics = useLaneDiagnosticsChamber(showLaneDiagnostics || showDataflowCommand);
+  const laneDiagnostics = useLaneDiagnosticsChamber(showLaneDiagnostics);
 
   useEffect(() => {
     const tick = () => setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
@@ -125,7 +125,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
 
       <DegradedBanner memoryMode={null} />
 
-      <DataflowCommandSpine shell={shell} diagnostics={laneDiagnostics.data} visible={showDataflowCommand} />
+      <DataflowCommandSpine shell={shell} diagnostics={showLaneDiagnostics ? laneDiagnostics.data : null} visible={showDataflowCommand} />
 
       {showLaneDiagnostics ? (
         <div className="border-b border-slate-800 bg-slate-950/80 px-3 py-2 md:px-4">
