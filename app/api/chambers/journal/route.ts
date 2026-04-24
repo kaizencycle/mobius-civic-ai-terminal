@@ -6,6 +6,12 @@ export const dynamic = 'force-dynamic';
 type DvaTier = 'ALL' | 't1' | 't2' | 't3' | 'sentinel' | 'architects';
 type AgentJournalEntry = { agent?: string; agentOrigin?: string };
 
+type RequestedAgentScope = {
+  agents: string[];
+  explicitAgents: string[];
+  conflictingExplicitScope: boolean;
+};
+
 const MAX_READ = 100;
 
 const DVA_TIER_AGENTS: Record<Exclude<DvaTier, 'ALL'>, string[]> = {
@@ -34,18 +40,27 @@ function clampLimit(input: string | null): number {
   return Math.min(MAX_READ, Math.max(1, Math.floor(parsed)));
 }
 
-function resolveRequestedAgents(request: NextRequest, tier: DvaTier): string[] {
+function resolveRequestedAgents(request: NextRequest, tier: DvaTier): RequestedAgentScope {
   const explicitAgents = Array.from(
     new Set(request.nextUrl.searchParams.getAll('agent').map(normalizeAgent).filter(Boolean)),
   );
-  if (tier === 'ALL') return explicitAgents;
+
+  if (tier === 'ALL') {
+    return { agents: explicitAgents, explicitAgents, conflictingExplicitScope: false };
+  }
 
   const tierAgents = DVA_TIER_AGENTS[tier] ?? [];
-  if (explicitAgents.length === 0) return tierAgents;
+  if (explicitAgents.length === 0) {
+    return { agents: tierAgents, explicitAgents, conflictingExplicitScope: false };
+  }
 
   const allowed = new Set(tierAgents);
   const scopedExplicit = explicitAgents.filter((agent) => allowed.has(agent));
-  return scopedExplicit.length > 0 ? scopedExplicit : tierAgents;
+  return {
+    agents: scopedExplicit,
+    explicitAgents,
+    conflictingExplicitScope: scopedExplicit.length === 0,
+  };
 }
 
 function entryIsInAgents(entry: unknown, agents: Set<string>): boolean {
@@ -55,12 +70,48 @@ function entryIsInAgents(entry: unknown, agents: Set<string>): boolean {
   return agent.length > 0 && agents.has(agent);
 }
 
+function emptyScopedResponse(
+  mode: string,
+  tier: DvaTier,
+  requestedScope: RequestedAgentScope,
+  reason: string,
+) {
+  return NextResponse.json(
+    {
+      ok: true,
+      mode: mode as 'hot' | 'canon' | 'merged',
+      entries: [],
+      count: 0,
+      tier,
+      tier_agents: requestedScope.agents,
+      requested_agents: requestedScope.explicitAgents,
+      scoped: tier !== 'ALL',
+      canonical_available: false,
+      fallback: false,
+      degraded: false,
+      empty_scope: true,
+      empty_scope_reason: reason,
+      timestamp: new Date().toISOString(),
+    },
+    {
+      status: 200,
+      headers: { 'Cache-Control': 'no-store' },
+    },
+  );
+}
+
 export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get('mode') ?? 'merged';
   const limit = clampLimit(request.nextUrl.searchParams.get('limit'));
   const tier = normalizeTier(request.nextUrl.searchParams.get('tier'));
-  const requestedAgents = resolveRequestedAgents(request, tier);
+  const requestedScope = resolveRequestedAgents(request, tier);
+  const requestedAgents = requestedScope.agents;
   const cycle = request.nextUrl.searchParams.get('cycle');
+
+  if (requestedScope.conflictingExplicitScope) {
+    return emptyScopedResponse(mode, tier, requestedScope, 'tier_agent_intersection_empty');
+  }
+
   const q = new URLSearchParams({ mode, limit: String(limit) });
   for (const agent of requestedAgents) {
     q.append('agent', agent);
@@ -95,6 +146,7 @@ export async function GET(request: NextRequest) {
         count: entries.length,
         tier,
         tier_agents: requestedAgents,
+        requested_agents: requestedScope.explicitAgents,
         scoped: tier !== 'ALL',
         canonical_available: canonicalAvailable,
         fallback: degraded,
@@ -118,6 +170,7 @@ export async function GET(request: NextRequest) {
         count: 0,
         tier,
         tier_agents: requestedAgents,
+        requested_agents: requestedScope.explicitAgents,
         scoped: tier !== 'ALL',
         canonical_available: false,
         timestamp: new Date().toISOString(),
