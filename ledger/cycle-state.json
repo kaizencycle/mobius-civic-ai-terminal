@@ -3,19 +3,19 @@
   "node_id": "mobius-terminal",
   "source": "snapshot-lite",
   "cycle": "C-290",
-  "fetched_at": "2026-04-23T23:32:11.475Z",
-  "gi": 0.82,
-  "mode": "green",
-  "degraded": false,
+  "fetched_at": "2026-04-24T01:11:25.513Z",
+  "gi": 0.685,
+  "mode": "yellow",
+  "degraded": true,
   "gi_provenance": "kv-live",
   "gi_verified": false,
   "memory_mode": null,
   "deployment": {
-    "commit_sha": "a829278e9de8b5bd127c05c394c50b18fc88ddcb",
+    "commit_sha": "97f280d690998d50b1c3f4be42eadef92c0723e5",
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 17,
+    "total_ms": 15,
     "lane_ms": null
   }
 }
