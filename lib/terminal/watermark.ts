@@ -26,8 +26,17 @@ function asRecord(input: unknown): Record<string, unknown> | null {
   return input && typeof input === 'object' ? (input as Record<string, unknown>) : null;
 }
 
+function parseMaybeJson(input: unknown): unknown {
+  if (typeof input !== 'string') return input;
+  try {
+    return JSON.parse(input) as unknown;
+  } catch {
+    return input;
+  }
+}
+
 function asWatermark(input: unknown): TerminalWatermark | null {
-  const record = asRecord(input);
+  const record = asRecord(parseMaybeJson(input));
   if (!record) return null;
   const version = typeof record.version === 'number' && Number.isFinite(record.version) ? record.version : 0;
   const updatedAt = typeof record.updatedAt === 'string' ? record.updatedAt : new Date(0).toISOString();
