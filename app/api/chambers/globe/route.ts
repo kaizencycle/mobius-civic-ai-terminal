@@ -40,6 +40,11 @@ export async function GET() {
       fallback: false,
       cycle: integrity.cycle,
       gi: integrity.global_integrity ?? null,
+      dva: {
+        primaryAgent: 'ECHO',
+        tier: 't1',
+        chambers: ['globe', 'ledger', 'pulse'],
+      },
       micro,
       echo: { epicon: getEchoEpicon() },
       sentiment,
@@ -51,6 +56,11 @@ export async function GET() {
       fallback: true,
       cycle: 'C-—',
       gi: null,
+      dva: {
+        primaryAgent: 'ECHO',
+        tier: 't1',
+        chambers: ['globe', 'ledger', 'pulse'],
+      },
       micro: null,
       echo: { epicon: [] },
       sentiment: null,

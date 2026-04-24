@@ -14,6 +14,12 @@ export async function GET() {
       ok: true,
       events,
       candidates: { pending, confirmed, contested },
+      dva: {
+        primaryAgent: 'ECHO',
+        tier: 't1',
+        chambers: ['ledger'],
+        promotionGate: 'ZEUS',
+      },
       fallback: false,
       timestamp: new Date().toISOString(),
     });
@@ -22,6 +28,12 @@ export async function GET() {
       ok: true,
       events: [],
       candidates: { pending: 0, confirmed: 0, contested: 0 },
+      dva: {
+        primaryAgent: 'ECHO',
+        tier: 't1',
+        chambers: ['ledger'],
+        promotionGate: 'ZEUS',
+      },
       fallback: true,
       timestamp: new Date().toISOString(),
     });

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import JournalEntryCard from '@/components/terminal/journal/JournalEntryCard';
 import ChamberEmptyState from '@/components/terminal/ChamberEmptyState';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
-import { useJournalChamber } from '@/hooks/useJournalChamber';
+import { useJournalChamber, type DvaTier } from '@/hooks/useJournalChamber';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import type { JournalDisplayEntry, JournalDisplaySeverity, JournalDisplayStatus } from '@/lib/journal/types';
 
@@ -23,6 +23,22 @@ const AGENT_PILL_STYLE: Record<string, { border: string; activeBg: string; text:
   DAEDALUS: { border: 'border-amber-900/60', activeBg: 'bg-amber-950/40', text: 'text-amber-200' },
   ECHO: { border: 'border-slate-500/50', activeBg: 'bg-slate-600/20', text: 'text-slate-100' },
 };
+
+const DVA_TIERS: Array<{
+  id: DvaTier;
+  label: string;
+  desc: string;
+  color: string;
+  border: string;
+  activeBg: string;
+}> = [
+  { id: 'ALL', label: 'ALL', desc: 'All agents', color: 'text-slate-100', border: 'border-slate-600', activeBg: 'bg-slate-700/40' },
+  { id: 't2', label: 'SENTINEL', desc: 'ATLAS + ZEUS · Verification', color: 'text-cyan-100', border: 'border-cyan-600/50', activeBg: 'bg-cyan-500/15' },
+  { id: 'sentinel', label: 'COUNCIL', desc: 'ATLAS + ZEUS + EVE · Council', color: 'text-amber-100', border: 'border-amber-600/50', activeBg: 'bg-amber-500/15' },
+  { id: 't3', label: 'STABILIZE', desc: 'EVE + JADE + HERMES · Flow', color: 'text-emerald-100', border: 'border-emerald-600/50', activeBg: 'bg-emerald-500/15' },
+  { id: 'architects', label: 'ARCHITECTS', desc: 'AUREA + DAEDALUS · Synthesis', color: 'text-violet-100', border: 'border-violet-600/50', activeBg: 'bg-violet-500/15' },
+  { id: 't1', label: 'SUBSTRATE', desc: 'ECHO · Event memory', color: 'text-slate-300', border: 'border-slate-500/50', activeBg: 'bg-slate-600/20' },
+];
 
 type EpiconItem = {
   id: string;
@@ -127,7 +143,8 @@ export default function JournalPageClient() {
   const [cycleTab, setCycleTab] = useState<string>(() => currentCycleId());
   const [derivedMode, setDerivedMode] = useState(false);
   const [readMode, setReadMode] = useState<'hot' | 'canon' | 'merged'>('hot');
-  const journal = useJournalChamber(true, readMode, 100);
+  const [dvaTier, setDvaTier] = useState<DvaTier>('t2');
+  const journal = useJournalChamber(true, readMode, 100, dvaTier);
   const [missingRelatedId, setMissingRelatedId] = useState<string | null>(null);
   const anchorsRef = useRef<Map<string, HTMLElement>>(new Map());
 
@@ -263,6 +280,35 @@ export default function JournalPageClient() {
           ⚠ Predictive Stabilization Active · Preview state prioritized due to integrity drift
         </div>
       ) : null}
+
+      <div className="mb-3 rounded border border-slate-800/60 bg-slate-950/40 p-2">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-slate-500">DVA Tier · Agent Layer</span>
+          <span className="text-[9px] text-slate-600">{DVA_TIERS.find((tier) => tier.id === dvaTier)?.desc ?? ''}</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {DVA_TIERS.map((tier) => {
+            const active = dvaTier === tier.id;
+            return (
+              <button
+                key={tier.id}
+                type="button"
+                onClick={() => {
+                  setDvaTier(tier.id);
+                  setAgent('ALL');
+                }}
+                className={`rounded border px-2 py-1 text-[10px] font-mono tracking-[0.12em] transition ${
+                  active
+                    ? `${tier.border} ${tier.activeBg} ${tier.color}`
+                    : 'border-slate-800 text-slate-500 hover:border-slate-600 hover:text-slate-400'
+                }`}
+              >
+                {tier.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="mb-3 flex items-center gap-2 text-[11px] font-mono">
         <span className="text-slate-500">Journal mode</span>
