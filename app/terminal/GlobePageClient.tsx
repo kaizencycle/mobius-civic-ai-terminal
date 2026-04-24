@@ -32,7 +32,7 @@ function toStatus(score: number | null): SentimentDomain['status'] {
 }
 
 export default function GlobePageClient() {
-  const { data, loading, preview, full, error } = useGlobeChamber(true);
+  const { data, loading, preview, full, error, stabilizationActive } = useGlobeChamber(true);
   // C-290: the globe chamber API returns sentiment: null (it only runs the
   // micro sweep). Pull sentiment from the snapshot so domain rings populate.
   const { snapshot } = useTerminalSnapshot();
@@ -102,6 +102,11 @@ export default function GlobePageClient() {
       {error ? (
         <div className="mx-4 mt-2 rounded border border-amber-800/40 bg-amber-950/20 px-3 py-1 text-[10px] text-amber-200">
           Globe chamber degraded · showing preview state
+        </div>
+      ) : null}
+      {stabilizationActive ? (
+        <div className="mx-4 mt-2 rounded border border-amber-700/50 bg-amber-950/30 px-3 py-1 text-[10px] text-amber-100">
+          ⚠ Predictive Stabilization Active · Preview state prioritized due to integrity drift
         </div>
       ) : null}
       <GlobeChamber

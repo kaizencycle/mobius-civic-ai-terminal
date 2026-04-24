@@ -19,6 +19,7 @@ export type GlobeChamberPayload = {
 export function useGlobeChamber(enabled: boolean) {
   const { snapshot } = useTerminalSnapshot();
   const { digest } = useEchoDigest(enabled);
+  const stabilizationActive = digest?.predictive.risk_level === 'elevated' || digest?.predictive.risk_level === 'critical';
   const preview = useMemo(() => ({
     ok: true,
     fallback: true,
@@ -36,5 +37,8 @@ export function useGlobeChamber(enabled: boolean) {
     timestamp: digest?.timestamp ?? snapshot?.timestamp ?? new Date().toISOString(),
   } satisfies GlobeChamberPayload), [digest, snapshot]);
 
-  return useChamberHydration<GlobeChamberPayload>('/api/chambers/globe', enabled, { previewData: preview });
+  return useChamberHydration<GlobeChamberPayload>('/api/chambers/globe', enabled, {
+    previewData: preview,
+    lockToPreview: stabilizationActive,
+  });
 }

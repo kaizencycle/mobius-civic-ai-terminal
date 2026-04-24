@@ -43,6 +43,7 @@ function laneFromDigest(digest: ReturnType<typeof useEchoDigest>['digest']) {
 export function useLaneDiagnosticsChamber(enabled: boolean) {
   const { snapshot } = useTerminalSnapshot();
   const { digest } = useEchoDigest(enabled);
+  const stabilizationActive = digest?.predictive.risk_level === 'elevated' || digest?.predictive.risk_level === 'critical';
 
   const preview = useMemo(() => ({
     ok: true,
@@ -61,5 +62,9 @@ export function useLaneDiagnosticsChamber(enabled: boolean) {
     fallback: true,
   } satisfies LaneDiagnosticsPayload), [digest, snapshot]);
 
-  return useChamberHydration<LaneDiagnosticsPayload>('/api/chambers/lane-diagnostics', enabled, { pollMs: 20_000, previewData: preview });
+  return useChamberHydration<LaneDiagnosticsPayload>('/api/chambers/lane-diagnostics', enabled, {
+    pollMs: 20_000,
+    previewData: preview,
+    lockToPreview: stabilizationActive,
+  });
 }

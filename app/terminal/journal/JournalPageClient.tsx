@@ -258,6 +258,11 @@ export default function JournalPageClient() {
           Journal chamber degraded · showing snapshot/derived preview
         </div>
       ) : null}
+      {journal.stabilizationActive ? (
+        <div className="mb-3 rounded border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
+          ⚠ Predictive Stabilization Active · Preview state prioritized due to integrity drift
+        </div>
+      ) : null}
 
       <div className="mb-3 flex items-center gap-2 text-[11px] font-mono">
         <span className="text-slate-500">Journal mode</span>

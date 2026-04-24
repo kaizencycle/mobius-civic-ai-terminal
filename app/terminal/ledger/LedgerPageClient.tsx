@@ -68,7 +68,7 @@ function sortRows(rows: LedgerEntry[], key: SortKey, dir: SortDir): LedgerEntry[
 }
 
 export default function LedgerPageClient() {
-  const { data, preview, full, error } = useLedgerChamber(true);
+  const { data, preview, full, error, stabilizationActive } = useLedgerChamber(true);
   const [sortKey, setSortKey] = useState<SortKey>('timestamp');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const feed = useMemo(() => (data ? ({ events: data.events, status: { cycleId: 'C-—' } } as EchoFeedResponse) : null), [data]);
@@ -112,6 +112,7 @@ export default function LedgerPageClient() {
         </div>
       </div>
       {error ? <div className="mb-2 rounded border border-amber-700/40 bg-amber-950/20 px-2 py-1 text-[11px] text-amber-200">Ledger chamber degraded · showing snapshot preview</div> : null}
+      {stabilizationActive ? <div className="mb-2 rounded border border-amber-700/50 bg-amber-950/30 px-2 py-1 text-[11px] text-amber-100">⚠ Predictive Stabilization Active · Preview state prioritized due to integrity drift</div> : null}
       {rows.length === 0 ? (
         <div className="rounded border border-slate-800 bg-slate-900/60 p-4 text-slate-400">
           No ledger rows available yet.

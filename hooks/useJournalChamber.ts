@@ -17,6 +17,7 @@ export type JournalChamberPayload = {
 export function useJournalChamber(enabled: boolean, mode: 'hot' | 'canon' | 'merged', limit = 100) {
   const { snapshot } = useTerminalSnapshot();
   const { digest } = useEchoDigest(enabled);
+  const stabilizationActive = digest?.predictive.risk_level === 'elevated' || digest?.predictive.risk_level === 'critical';
   const url = useMemo(() => `/api/chambers/journal?mode=${mode}&limit=${limit}`, [mode, limit]);
 
   const preview = useMemo(() => {
@@ -40,5 +41,8 @@ export function useJournalChamber(enabled: boolean, mode: 'hot' | 'canon' | 'mer
     } satisfies JournalChamberPayload;
   }, [mode, snapshot, digest]);
 
-  return useChamberHydration<JournalChamberPayload>(url, enabled, { previewData: preview });
+  return useChamberHydration<JournalChamberPayload>(url, enabled, {
+    previewData: preview,
+    lockToPreview: stabilizationActive,
+  });
 }

@@ -6,6 +6,7 @@ type UseChamberHydrationOptions<T> = {
   previewData?: T | null;
   pollMs?: number;
   requestTimeoutMs?: number;
+  lockToPreview?: boolean;
 };
 
 export type ChamberHydrationStatus = 'preview' | 'hydrating' | 'live' | 'degraded' | 'stale';
@@ -19,6 +20,7 @@ type UseChamberHydrationResult<T> = {
   degraded: boolean;
   status: ChamberHydrationStatus;
   source: 'echo-digest' | 'api' | 'mixed';
+  stabilizationActive: boolean;
 };
 
 type ChamberEnvelope<T> = {
@@ -46,7 +48,7 @@ function normalizeHydrationPayload<T>(json: unknown): { payload: T | null; envel
 }
 
 export function useChamberHydration<T>(url: string, enabled: boolean, options: UseChamberHydrationOptions<T> = {}): UseChamberHydrationResult<T> {
-  const { previewData = null, pollMs = 30_000, requestTimeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const { previewData = null, pollMs = 30_000, requestTimeoutMs = DEFAULT_TIMEOUT_MS, lockToPreview = false } = options;
   const [full, setFull] = useState<T | null>(null);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
@@ -94,9 +96,13 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
     };
   }, [enabled, url, pollMs, requestTimeoutMs]);
 
-  const data = useMemo(() => full ?? previewData ?? null, [full, previewData]);
+  const data = useMemo(() => {
+    if (lockToPreview && previewData) return previewData;
+    return full ?? previewData ?? null;
+  }, [full, previewData, lockToPreview]);
 
   const status: ChamberHydrationStatus = useMemo(() => {
+    if (lockToPreview && previewData) return 'preview';
     if ((error || envelopeDegraded) && previewData) return 'degraded';
     if (error || envelopeDegraded) return 'stale';
     if (full) return 'live';
@@ -104,9 +110,13 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
     if (loading && previewData) return 'hydrating';
     if (previewData) return 'preview';
     return loading ? 'hydrating' : 'stale';
-  }, [error, envelopeDegraded, previewData, full, loading, fetchedOnce]);
+  }, [error, envelopeDegraded, previewData, full, loading, fetchedOnce, lockToPreview]);
 
-  const source: 'echo-digest' | 'api' | 'mixed' = full ? (previewData ? 'mixed' : 'api') : 'echo-digest';
+  const source: 'echo-digest' | 'api' | 'mixed' = lockToPreview && previewData
+    ? 'echo-digest'
+    : full
+      ? (previewData ? 'mixed' : 'api')
+      : 'echo-digest';
 
   return {
     preview: previewData,
@@ -117,5 +127,6 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
     degraded: Boolean(error || envelopeDegraded),
     status,
     source,
+    stabilizationActive: lockToPreview,
   };
 }

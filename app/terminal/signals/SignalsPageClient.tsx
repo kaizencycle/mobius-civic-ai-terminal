@@ -177,7 +177,7 @@ function PostureBadge({ posture, laneStale }: { posture: AgentPosture; laneStale
 }
 
 export default function SignalsPageClient() {
-  const { data, loading, error, preview, full } = useSignalsChamber(true);
+  const { data, loading, error, preview, full, stabilizationActive } = useSignalsChamber(true);
 
   const payload = ((data?.raw && typeof data.raw === 'object') ? data.raw : {}) as MicroSweepPayload;
   const agents = useMemo(() => resolveAgents(payload), [payload]);
@@ -226,6 +226,11 @@ export default function SignalsPageClient() {
 
   return (
     <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
+      {stabilizationActive ? (
+        <div className="rounded border border-amber-700/50 bg-amber-950/30 px-3 py-1 text-[10px] text-amber-100">
+          ⚠ Predictive Stabilization Active · Preview state prioritized due to integrity drift
+        </div>
+      ) : null}
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <div className="text-[11px] text-slate-400">
           <span className="font-mono text-slate-200">{agents.length}</span>
