@@ -1,0 +1,75 @@
+{
+  "seal_id": "seal-C-288-001",
+  "sequence": 1,
+  "cycle_at_seal": "C-288",
+  "sealed_at": "2026-04-21T17:02:39.381Z",
+  "reserve": 50,
+  "gi_at_seal": 0.74,
+  "mode_at_seal": "compat",
+  "source_entries": 50,
+  "deposit_hashes": [
+    "dph-001",
+    "dph-002",
+    "dph-003"
+  ],
+  "carried_forward_deposit_hashes": [
+    "dph-cf-001"
+  ],
+  "prev_seal_hash": null,
+  "seal_hash": "3e0c2403c291a4f54a8d6b5111a64278bfc23eb5e92e5e5d6e41b044dbcdaf92",
+  "attestations": {
+    "ATLAS": {
+      "agent": "ATLAS",
+      "verdict": "flag",
+      "rationale": "timeout",
+      "gi_at_attestation": 0.74,
+      "timestamp": "2026-04-21T17:03:00.000Z",
+      "signature": "atlas-timeout"
+    },
+    "ZEUS": {
+      "agent": "ZEUS",
+      "verdict": "flag",
+      "rationale": "timeout",
+      "gi_at_attestation": 0.74,
+      "timestamp": "2026-04-21T17:03:00.000Z",
+      "signature": "zeus-timeout"
+    },
+    "EVE": {
+      "agent": "EVE",
+      "verdict": "flag",
+      "rationale": "timeout",
+      "gi_at_attestation": 0.74,
+      "timestamp": "2026-04-21T17:03:00.000Z",
+      "signature": "eve-timeout"
+    },
+    "JADE": {
+      "agent": "JADE",
+      "verdict": "flag",
+      "rationale": "timeout",
+      "gi_at_attestation": 0.74,
+      "timestamp": "2026-04-21T17:03:00.000Z",
+      "signature": "jade-timeout"
+    },
+    "AUREA": {
+      "agent": "AUREA",
+      "verdict": "flag",
+      "rationale": "timeout",
+      "gi_at_attestation": 0.74,
+      "timestamp": "2026-04-21T17:03:00.000Z",
+      "signature": "aurea-timeout"
+    }
+  },
+  "status": "quarantined",
+  "fountain_status": "pending",
+  "fountain_emitted_at": null,
+  "posture": "degraded",
+  "reconciliation": {
+    "quarantine_reason": "attestation_timeout",
+    "attempt_count": 0,
+    "last_attempt_at": null,
+    "last_attempt_result": null,
+    "finalized_at": null,
+    "failed_at": null,
+    "reserve_increment_applied": false
+  }
+}
