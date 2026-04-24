@@ -201,6 +201,24 @@ export function buildEchoDigest(input: {
     ? Math.abs(snapshotLite.gi - integrityLaneGi)
     : 0;
   const hydrationDrift = snapshotLite.lanes?.signals?.freshness === 'stale' || snapshotLite.lanes?.signals?.freshness === 'degraded';
+  const anomalyCount = Number(snapshotLite.lanes?.signals?.anomalies ?? 0);
+  const digestInstabilityScore = [
+    degraded,
+    ledgerDegraded,
+    anomalyCount >= 5,
+    booting > activeLike,
+    archiveStale,
+  ].filter(Boolean).length;
+  const atlasStalled = agents.some((a) => (a.name ?? '').toUpperCase() === 'ATLAS' && (a.status ?? '').toLowerCase() === 'booting');
+  const zeusStalled = agents.some((a) => (a.name ?? '').toUpperCase() === 'ZEUS' && (a.status ?? '').toLowerCase() === 'booting');
+  const agentStallDetected = atlasStalled || zeusStalled || booting > activeLike;
+  const riskLevel: EchoDigestPayload['predictive']['risk_level'] = divergence > 0.35 || digestInstabilityScore >= 4
+    ? 'critical'
+    : divergence > 0.2 || hydrationDrift || digestInstabilityScore >= 2 || agentStallDetected
+      ? 'elevated'
+      : digestInstabilityScore >= 1
+        ? 'watch'
+        : 'nominal';
 
   const warnings: string[] = [];
   if (archiveStale) warnings.push('Journal archive stale; hot lane authoritative');
@@ -254,18 +272,22 @@ export function buildEchoDigest(input: {
       fountain_locked: (vault?.fountain_status ?? 'locked') !== 'active' && (vault?.fountain_status ?? 'locked') !== 'unsealed',
     },
     predictive: {
-      risk_level: divergence > 0.2 || hydrationDrift ? 'elevated' : degraded ? 'watch' : 'nominal',
+      risk_level: riskLevel,
       signals: [
         divergence > 0.2 ? 'divergence_detected' : null,
         hydrationDrift ? 'hydration_drift' : null,
-        degraded ? 'digest_instability' : null,
+        digestInstabilityScore >= 2 ? 'digest_instability' : null,
+        ledgerDegraded ? 'ledger_stall' : null,
+        agentStallDetected ? 'agent_stall_detected' : null,
       ].filter((v): v is string => Boolean(v)),
       recommendation:
-        divergence > 0.2 || hydrationDrift
-          ? 'bias snapshot authority and delay chamber promotion'
-          : degraded
-            ? 'keep preview authority until chamber confirms'
-            : 'normal operation',
+        riskLevel === 'critical'
+          ? 'lock preview, pause chamber promotion, and prioritize lane recovery'
+          : riskLevel === 'elevated'
+            ? 'lock preview, delay hydration promotion'
+            : riskLevel === 'watch'
+              ? 'bias snapshot authority and monitor lane freshness'
+              : 'normal operation',
     },
   };
 }

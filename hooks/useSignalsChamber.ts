@@ -22,6 +22,7 @@ type RawSnapshotSignals = { allSignals?: RawSignal[]; composite?: number; timest
 export function useSignalsChamber(enabled: boolean) {
   const { snapshot } = useTerminalSnapshot();
   const { digest } = useEchoDigest(enabled);
+  const stabilizationActive = digest?.predictive.risk_level === 'elevated' || digest?.predictive.risk_level === 'critical';
 
   const preview = useMemo(() => {
     const raw = snapshot?.signals?.data;
@@ -96,5 +97,8 @@ export function useSignalsChamber(enabled: boolean) {
     } satisfies SignalsChamberPayload;
   }, [snapshot, digest]);
 
-  return useChamberHydration<SignalsChamberPayload>('/api/chambers/signals', enabled, { previewData: preview });
+  return useChamberHydration<SignalsChamberPayload>('/api/chambers/signals', enabled, {
+    previewData: preview,
+    lockToPreview: stabilizationActive,
+  });
 }

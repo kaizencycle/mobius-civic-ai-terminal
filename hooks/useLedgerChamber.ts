@@ -17,6 +17,7 @@ export type LedgerChamberPayload = {
 export function useLedgerChamber(enabled: boolean) {
   const { snapshot } = useTerminalSnapshot();
   const { digest } = useEchoDigest(enabled);
+  const stabilizationActive = digest?.predictive.risk_level === 'elevated' || digest?.predictive.risk_level === 'critical';
 
   const preview = useMemo(() => {
     const epicon = snapshot?.epicon?.data as { items?: Array<Record<string, unknown>> } | undefined;
@@ -66,5 +67,8 @@ export function useLedgerChamber(enabled: boolean) {
     } satisfies LedgerChamberPayload;
   }, [digest, snapshot]);
 
-  return useChamberHydration<LedgerChamberPayload>('/api/chambers/ledger', enabled, { previewData: preview });
+  return useChamberHydration<LedgerChamberPayload>('/api/chambers/ledger', enabled, {
+    previewData: preview,
+    lockToPreview: stabilizationActive,
+  });
 }
