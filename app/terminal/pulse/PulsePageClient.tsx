@@ -544,6 +544,28 @@ export default function PulsePageClient() {
             <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Settings / data provenance</div>
             <p>Synthesis freshness: {synthesisFresh.line}</p>
             <p className="mt-1">Journal lane status: {journalLane?.state ?? 'unknown'}.</p>
+            <div className="mt-3 rounded border border-slate-800 bg-slate-950/50 p-2.5">
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">DVA Tier · Chamber Routing</div>
+              <div className="space-y-1.5">
+                {([
+                  { tier: 'T1 · Substrate', agents: 'ECHO', chambers: 'Globe · Ledger · Pulse', color: 'text-slate-300', dot: 'bg-slate-400' },
+                  { tier: 'T2 · Sentinel Council', agents: 'ATLAS + ZEUS', chambers: 'Journal · EPICON', color: 'text-cyan-300', dot: 'bg-cyan-400' },
+                  { tier: 'T3 · Stabilizers', agents: 'EVE + JADE + HERMES', chambers: 'KV Flow · Substrate Sync', color: 'text-emerald-300', dot: 'bg-emerald-400' },
+                  { tier: 'Architects', agents: 'AUREA + DAEDALUS', chambers: 'Pulse synthesis · Lane Diagnostics', color: 'text-violet-300', dot: 'bg-violet-400' },
+                ] as const).map(({ tier, agents, chambers, color, dot }) => (
+                  <div key={tier} className="flex items-start gap-2 text-[10px]">
+                    <span className={`mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
+                    <div>
+                      <span className={`font-semibold ${color}`}>{tier}</span>
+                      <span className="mx-1 text-slate-600">·</span>
+                      <span className="text-slate-400">{agents}</span>
+                      <span className="mx-1 text-slate-700">→</span>
+                      <span className="text-slate-500">{chambers}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </section>
         </div>
       </div>
