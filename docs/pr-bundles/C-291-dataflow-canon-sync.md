@@ -1,21 +1,12 @@
-# C-291 — Dataflow Canon Sync
+# C-291 Dataflow Canon Sync
 
 ## Purpose
 
 Make the Terminal dataflow smoother by separating fast UI hydration from durable canon continuity.
 
-The intended flow is:
+## Flow
 
-```txt
-Agent event
-  → hot KV journal lane
-  → terminal watermark bump
-  → canon outbox
-  → Substrate journal write
-  → watermark canon update
-```
-
-This keeps KV as the fast nervous system while Substrate remains the canonical memory layer.
+Agent event to hot KV journal lane to terminal watermark bump to canon outbox to Substrate journal write to watermark canon update.
 
 ## Changes
 
@@ -24,26 +15,16 @@ This keeps KV as the fast nervous system while Substrate remains the canonical m
 - Added `lib/agents/journalCanonOutbox.ts` for queued Substrate journal writes.
 - Added `/api/agents/journal/canonize` to process pending journal canon writes.
 - Updated `appendJournalLaneEntry` so KV journal writes automatically enqueue canonical Substrate writes by default.
-- Updated direct journal POST mirroring to avoid duplicate canon enqueue after a direct Substrate write.
 
-## Why this helps UI/UX
+## Why this helps UI and UX
 
 The UI no longer needs to infer freshness from large snapshot payloads alone. It can poll the small watermark endpoint and rehydrate only the lanes that changed.
 
 ## Canon continuity
 
-Agent journal writes that previously landed only in KV now get a canon path:
+Agent journal writes that previously landed only in KV now get a canon path from KV hot journal to `journal:canon:outbox` to `Mobius-Substrate/journals/{agent}/...`.
 
-```txt
-KV hot journal → journal:canon:outbox → Mobius-Substrate journals/{agent}/...
-```
-
-The UI can represent the progression as:
-
-- HOT
-- CANON PENDING
-- CANON WRITTEN
-- CANON FAILED
+The UI can represent the progression as HOT, CANON PENDING, CANON WRITTEN, or CANON FAILED.
 
 ## Operational note
 
