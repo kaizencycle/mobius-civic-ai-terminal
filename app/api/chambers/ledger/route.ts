@@ -24,8 +24,26 @@ type EpiconFeedItem = {
   gi?: number | null;
 };
 
-function normalizeCycle(input: unknown): string {
-  return typeof input === 'string' && input.trim().length > 0 ? input.trim() : 'C-—';
+const CYCLE_PATTERN = /\bC-?(\d{1,5})\b/i;
+
+function cleanText(input: unknown): string {
+  return typeof input === 'string' ? input.trim() : '';
+}
+
+function inferCycleFromText(...inputs: unknown[]): string {
+  for (const input of inputs) {
+    const text = Array.isArray(input) ? input.join(' ') : cleanText(input);
+    if (!text) continue;
+    const match = text.match(CYCLE_PATTERN);
+    if (match?.[1]) return `C-${match[1]}`;
+  }
+  return 'C-—';
+}
+
+function normalizeCycle(item: EpiconFeedItem): string {
+  const explicit = cleanText(item.cycle);
+  if (explicit) return inferCycleFromText(explicit);
+  return inferCycleFromText(item.id, item.title, item.body, item.tags, item.source);
 }
 
 function normalizeTimestamp(input: unknown): string {
@@ -36,9 +54,19 @@ function normalizeAgent(item: EpiconFeedItem): string {
   return (item.agentOrigin ?? item.author ?? 'ECHO').trim().toUpperCase();
 }
 
+function isMergeEvent(item: EpiconFeedItem): boolean {
+  const title = cleanText(item.title).toLowerCase();
+  const type = cleanText(item.type).toLowerCase();
+  const tags = (item.tags ?? []).map((tag) => tag.toLowerCase());
+  return title.startsWith('merge pull request') || type === 'merge' || tags.includes('merge');
+}
+
 function normalizeStatus(item: EpiconFeedItem): LedgerEntry['status'] {
-  if (item.status === 'committed' || item.verified === true) return 'committed';
-  if (item.status === 'failed' || item.status === 'reverted') return 'reverted';
+  const status = cleanText(item.status).toLowerCase();
+  if (status === 'committed' || status === 'verified' || item.verified === true || isMergeEvent(item)) {
+    return 'committed';
+  }
+  if (status === 'failed' || status === 'reverted' || status === 'contested') return 'reverted';
   return 'pending';
 }
 
@@ -66,7 +94,7 @@ function epiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry {
   const timestamp = normalizeTimestamp(item.timestamp);
   return {
     id: item.id?.trim() || `epicon-feed-${idx}-${timestamp}`,
-    cycleId: normalizeCycle(item.cycle),
+    cycleId: normalizeCycle(item),
     type: 'epicon',
     agentOrigin: normalizeAgent(item),
     timestamp,
@@ -113,6 +141,7 @@ export async function GET(request: NextRequest) {
     const pending = events.filter((e) => e.status === 'pending').length;
     const confirmed = events.filter((e) => e.status === 'committed').length;
     const contested = events.filter((e) => e.status === 'reverted').length;
+    const missingCycle = events.filter((e) => e.cycleId === 'C-—').length;
 
     return NextResponse.json(
       {
@@ -123,6 +152,7 @@ export async function GET(request: NextRequest) {
           echoMemory: echoEvents.length,
           epiconFeed: epiconEvents.length,
           merged: events.length,
+          missingCycle,
         },
         dva: {
           primaryAgent: 'ECHO',
@@ -141,7 +171,7 @@ export async function GET(request: NextRequest) {
         ok: true,
         events: [],
         candidates: { pending: 0, confirmed: 0, contested: 0 },
-        sources: { echoMemory: 0, epiconFeed: 0, merged: 0 },
+        sources: { echoMemory: 0, epiconFeed: 0, merged: 0, missingCycle: 0 },
         dva: {
           primaryAgent: 'ECHO',
           tier: 't1',
