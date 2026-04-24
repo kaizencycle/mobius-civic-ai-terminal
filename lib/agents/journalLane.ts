@@ -1,4 +1,7 @@
 import { Redis } from '@upstash/redis';
+import { enqueueJournalCanonWrite } from '@/lib/agents/journalCanonOutbox';
+import { bumpTerminalWatermark } from '@/lib/terminal/watermark';
+import type { SubstrateJournalWriteInput } from '@/lib/substrate/github-journal';
 
 const KEY_ALL = 'journal:all';
 const MAX_LIST_ENTRIES = 200;
@@ -21,11 +24,19 @@ export type AgentJournalLaneEntry = {
   source: 'agent-journal';
   agentOrigin: string;
   tags?: string[];
+  storage?: {
+    hot: true;
+    substrate: boolean;
+    canonStatus: 'canon_pending' | 'canon_written' | 'canon_failed';
+    canonicalPath?: string | null;
+  };
 };
 
-export type AgentJournalLaneInput = Omit<AgentJournalLaneEntry, 'id' | 'timestamp' | 'source'> & {
+export type AgentJournalLaneInput = Omit<AgentJournalLaneEntry, 'id' | 'timestamp' | 'source' | 'storage'> & {
   id?: string;
   timestamp?: string;
+  canon?: boolean;
+  gi_at_time?: number;
 };
 
 export function getJournalRedisClient(): Redis | null {
@@ -53,10 +64,31 @@ function compactToken(input: string): string {
   return input.replace(/[^a-zA-Z0-9]/g, '').slice(0, 36) || 'auto';
 }
 
+function toSubstrateJournalInput(entry: AgentJournalLaneEntry, giAtTime?: number): SubstrateJournalWriteInput {
+  return {
+    id: entry.id,
+    agent: entry.agent,
+    agentOrigin: entry.agentOrigin,
+    cycle: entry.cycle,
+    scope: entry.scope,
+    category: entry.category,
+    severity: entry.severity,
+    observation: entry.observation,
+    inference: entry.inference,
+    recommendation: entry.recommendation,
+    confidence: entry.confidence,
+    derivedFrom: entry.derivedFrom,
+    source: entry.source,
+    tags: entry.tags ?? [],
+    ...(typeof giAtTime === 'number' && Number.isFinite(giAtTime) ? { gi_at_time: giAtTime } : {}),
+    status: entry.status,
+  };
+}
+
 export async function appendJournalLaneEntry(
   redis: Redis,
   input: AgentJournalLaneInput,
-): Promise<{ written: true; entry: AgentJournalLaneEntry } | { written: false; reason: 'duplicate'; token: string }> {
+): Promise<{ written: true; entry: AgentJournalLaneEntry; canonQueued: boolean } | { written: false; reason: 'duplicate'; token: string }> {
   const agent = input.agent.trim().toUpperCase();
   const cycle = input.cycle.trim();
   const derivedFrom = normalizeDerivedFrom(input.derivedFrom);
@@ -68,6 +100,7 @@ export async function appendJournalLaneEntry(
     return { written: false, reason: 'duplicate', token };
   }
 
+  const canonEnabled = input.canon !== false;
   const entry: AgentJournalLaneEntry = {
     id: input.id?.trim() || `journal-${agent}-${cycle}-${compactToken(token)}`,
     agent,
@@ -85,6 +118,12 @@ export async function appendJournalLaneEntry(
     source: 'agent-journal',
     agentOrigin: input.agentOrigin.trim().toUpperCase(),
     tags: input.tags,
+    storage: {
+      hot: true,
+      substrate: false,
+      canonStatus: canonEnabled ? 'canon_pending' : 'canon_failed',
+      canonicalPath: null,
+    },
   };
 
   const packed = JSON.stringify(entry);
@@ -94,6 +133,15 @@ export async function appendJournalLaneEntry(
   await redis.ltrim(KEY_ALL, 0, MAX_LIST_ENTRIES - 1);
   await redis.lpush(agentKey, packed);
   await redis.ltrim(agentKey, 0, MAX_LIST_ENTRIES - 1);
+  await bumpTerminalWatermark(redis, 'journal', {
+    cycle,
+    status: canonEnabled ? 'pending' : 'hot',
+    hotCount: 1,
+  });
 
-  return { written: true, entry };
+  const outboxItem = canonEnabled
+    ? await enqueueJournalCanonWrite(redis, toSubstrateJournalInput(entry, input.gi_at_time))
+    : null;
+
+  return { written: true, entry, canonQueued: Boolean(outboxItem) };
 }
