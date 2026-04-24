@@ -62,7 +62,7 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
   useEffect(() => {
     let mounted = true;
     let currentPollMs = pollMs;
-    let timerId: ReturnType<typeof window.setTimeout> | null = null;
+    let timerId: number | null = null;
 
     if (!enabled) {
       setLoading(false);
