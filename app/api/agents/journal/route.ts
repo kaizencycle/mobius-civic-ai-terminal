@@ -55,6 +55,7 @@ type AgentJournalCreateInput = Omit<AgentJournalEntry, 'id' | 'timestamp' | 'sta
 const MAX_READ = 100;
 const KV_JOURNAL_PER_AGENT_CAP = 50;
 const KV_JOURNAL_FAIR_MERGE_MAX = 600;
+const KV_JOURNAL_LIST_READ_MAX = 200;
 const GENESIS_AGENTS = ['ATLAS', 'ZEUS', 'EVE', 'HERMES', 'AUREA', 'JADE', 'DAEDALUS', 'ECHO'] as const;
 const DEFAULT_READ_MODE = ((process.env.JOURNAL_DEFAULT_READ_MODE ?? 'merged').trim().toLowerCase() as JournalReadMode);
 
@@ -263,22 +264,39 @@ function mergeKvJournalFair(entries: AgentJournalEntry[], perAgent: number, maxT
     .slice(0, maxTotal);
 }
 
-function parseJournalStorageKey(key: string): { agent: string; cycle: string } | null {
-  if (key.startsWith('mobius:')) {
-    const rest = key.slice('mobius:'.length);
-    const segments = rest.split(':');
-    if (segments.length !== 3 || segments[0] !== 'journal') return null;
-    const keyAgent = asString(segments[1]).toUpperCase();
-    const keyCycle = asString(segments[2]);
-    if (!keyAgent || !keyCycle) return null;
-    return { agent: keyAgent, cycle: keyCycle };
+function parseJournalStorageKey(key: string): { agent?: string; cycle?: string; kind: 'list' | 'legacy' } | null {
+  const normalizedKey = key.startsWith('mobius:') ? key.slice('mobius:'.length) : key;
+  const segments = normalizedKey.split(':');
+  if (segments[0] !== 'journal') return null;
+  if (segments.length === 2 && segments[1] === 'all') return { kind: 'list' };
+  if (segments.length === 2 && segments[1]) return { kind: 'list', agent: asString(segments[1]).toUpperCase() };
+  if (segments.length === 3 && segments[1] && segments[2]) {
+    return { kind: 'legacy', agent: asString(segments[1]).toUpperCase(), cycle: asString(segments[2]) };
   }
-  const segments = key.split(':');
-  if (segments.length !== 3 || segments[0] !== 'journal') return null;
-  const keyAgent = asString(segments[1]).toUpperCase();
-  const keyCycle = asString(segments[2]);
-  if (!keyAgent || !keyCycle) return null;
-  return { agent: keyAgent, cycle: keyCycle };
+  return null;
+}
+
+function parseMaybeJson(row: unknown): unknown | null {
+  if (typeof row !== 'string') return row ?? null;
+  try {
+    return JSON.parse(row) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+async function readJournalRows(redis: ReturnType<typeof getJournalRedisClient>, key: string, kind: 'list' | 'legacy'): Promise<unknown[]> {
+  if (!redis) return [];
+  try {
+    if (kind === 'list') {
+      const rows = await redis.lrange<unknown>(key, 0, KV_JOURNAL_LIST_READ_MAX - 1);
+      return Array.isArray(rows) ? rows : [];
+    }
+    const raw = await redis.get<unknown>(key);
+    return Array.isArray(raw) ? raw : [raw];
+  } catch {
+    return [];
+  }
 }
 
 async function loadEntries(
@@ -289,36 +307,28 @@ async function loadEntries(
 
   try {
     const normalized = new Set((agentFilters ?? []).map((agent) => agent.trim().toUpperCase()).filter(Boolean));
+    const listKeys = normalized.size > 0
+      ? Array.from(normalized).map((agent) => `journal:${agent.toLowerCase()}`)
+      : ['journal:all'];
     const [keysUnprefixed, keysPrefixed] = await Promise.all([
       redis.keys('journal:*'),
       redis.keys('mobius:journal:*'),
     ]);
-    const keys = [...new Set([...keysUnprefixed, ...keysPrefixed])];
+    const keys = [...new Set([...listKeys, ...keysUnprefixed, ...keysPrefixed])];
     const seen = new Set<string>();
     const out: AgentJournalEntry[] = [];
 
     for (const key of keys) {
       const parsedKey = parseJournalStorageKey(key);
       if (!parsedKey) continue;
-      const { agent: keyAgent, cycle: keyCycle } = parsedKey;
-      if (normalized.size > 0 && !normalized.has(keyAgent)) continue;
+      if (parsedKey.agent && normalized.size > 0 && !normalized.has(parsedKey.agent)) continue;
 
-      const raw = await redis.get<unknown>(key);
-      const rows = Array.isArray(raw) ? raw : [raw];
+      const rows = await readJournalRows(redis, key, parsedKey.kind);
       for (const row of rows) {
-        const candidate =
-          typeof row === 'string'
-            ? (() => {
-                try {
-                  return JSON.parse(row) as unknown;
-                } catch {
-                  return null;
-                }
-              })()
-            : row;
+        const candidate = parseMaybeJson(row);
         if (!candidate) continue;
 
-        const parsed = parseEntry(candidate, keyAgent, keyCycle);
+        const parsed = parseEntry(candidate, parsedKey.agent, parsedKey.cycle);
         if (!parsed) continue;
         if (parsed.source !== 'agent-journal') continue;
         if (!asString(parsed.agentOrigin)) continue;
