@@ -127,7 +127,7 @@ function countByCycle(entries: JournalEntry[]): Array<{ cycle: string; count: nu
   }
   return [...bucket.entries()]
     .map(([cycle, count]) => ({ cycle, count }))
-    .sort((a, b) => b.cycle.localeCompare(a.cycle))
+    .sort((a, b) => b.cycle.localeCompare(a))
     .slice(0, 3);
 }
 
@@ -217,9 +217,11 @@ export function buildEchoDigest(input: {
   const sub50Gi = typeof gi === 'number' && gi < STABILIZATION_GI_THRESHOLD;
   const riskLevel: EchoDigestPayload['predictive']['risk_level'] = sub50Gi
     ? (divergence > 0.35 || digestInstabilityScore >= 4 ? 'critical' : 'elevated')
-    : digestInstabilityScore >= 1 || hydrationDrift || agentStallDetected || divergence > 0.2
+    : digestInstabilityScore >= 2 || hydrationDrift || agentStallDetected || divergence > 0.2
       ? 'watch'
-      : 'nominal';
+      : digestInstabilityScore >= 1
+        ? 'watch'
+        : 'nominal';
 
   const warnings: string[] = [];
   if (archiveStale) warnings.push('Journal archive stale; hot lane authoritative');
