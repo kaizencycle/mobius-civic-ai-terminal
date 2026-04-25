@@ -5,6 +5,8 @@ import { scheduleVaultDepositForJournal } from '@/lib/vault/vault';
 import { writeToSubstrate } from '@/lib/substrate/client';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { setJournalHeartbeat } from '@/lib/runtime/heartbeat';
+import { bumpTerminalWatermark } from '@/lib/terminal/watermark';
+import { getJournalRedisClient } from '@/lib/agents/journalLane';
 
 const INDEX_KEY = 'journal:index';
 const MAX_ENTRIES_PER_AGENT = 100;
@@ -177,6 +179,16 @@ export async function appendAgentJournalEntry(input: NewJournalEntryInput): Prom
   const next = [...existing, entry].slice(-MAX_ENTRIES_PER_AGENT);
   await kvSet(key, next);
   await upsertIndex(agent, entry.cycle);
+  // C-292: bump watermark so the journal lane reflects Writer A (cron/synthesis)
+  // writes, not just Writer B (appendJournalLaneEntry / direct POST). Fire-and-forget
+  // so a watermark failure never blocks the journal write itself.
+  void bumpTerminalWatermark(getJournalRedisClient(), 'journal', {
+    cycle: entry.cycle,
+    status: 'hot',
+    hotCount: 1,
+  }).catch((err) => {
+    console.warn('[journal] watermark bump failed (non-blocking):', err instanceof Error ? err.message : err);
+  });
   if (entry.status === 'committed') {
     scheduleVaultDepositForJournal(entry);
 
