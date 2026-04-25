@@ -91,6 +91,9 @@ export type EchoDigestPayload = {
     mode: 'hot';
     latest_count: number;
     cycles: Array<{ cycle: string; count: number }>;
+    // OPT-9 (C-292): explicit current-cycle count so the UI can distinguish
+    // "cron hasn't written yet this cycle" from a data-loading state.
+    current_cycle_entry_count: number;
     archive_stale: boolean;
   };
   ledger_preview: {
@@ -117,7 +120,9 @@ export type EchoDigestPayload = {
   };
 };
 
-const STABILIZATION_GI_THRESHOLD = 0.5;
+// OPT-2 (C-292): raised from 0.5 to 0.65 — yellow-zone GI (0.65-0.75) benefits
+// most from stabilization lock, not just genuine red-zone (<0.5).
+const STABILIZATION_GI_THRESHOLD = 0.65;
 
 function countByCycle(entries: JournalEntry[]): Array<{ cycle: string; count: number }> {
   const bucket = new Map<string, number>();
@@ -127,7 +132,7 @@ function countByCycle(entries: JournalEntry[]): Array<{ cycle: string; count: nu
   }
   return [...bucket.entries()]
     .map(([cycle, count]) => ({ cycle, count }))
-    .sort((a, b) => b.cycle.localeCompare(a))
+    .sort((a, b) => b.cycle.localeCompare(a.cycle))
     .slice(0, 3);
 }
 
@@ -189,6 +194,9 @@ export function buildEchoDigest(input: {
 
   const cycles = countByCycle(journalEntries);
   const latestCount = Math.min(journalEntries.length, 8);
+  const currentCycleEntryCount = journalEntries.filter(
+    (e) => typeof e.cycle === 'string' && e.cycle.trim() === cycle,
+  ).length;
   const archiveStale = Boolean(snapshotLite.lanes?.echo?.freshness === 'stale' || snapshotLite.lanes?.echo?.freshness === 'degraded');
   const ledgerRows = promotion.pending + promotion.promoted + promotion.contested;
   const ledgerDegraded = ledgerRows === 0;
@@ -256,6 +264,7 @@ export function buildEchoDigest(input: {
       mode: 'hot',
       latest_count: latestCount,
       cycles,
+      current_cycle_entry_count: currentCycleEntryCount,
       archive_stale: archiveStale,
     },
     ledger_preview: {

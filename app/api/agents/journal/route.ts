@@ -307,14 +307,16 @@ async function loadEntries(
 
   try {
     const normalized = new Set((agentFilters ?? []).map((agent) => agent.trim().toUpperCase()).filter(Boolean));
-    const listKeys = normalized.size > 0
+    // OPT-3 (C-292): always include journal:all so tier-filtered requests surface entries
+    // when per-agent list keys are empty (e.g. before current-cycle cron writes agent keys).
+    // OPT-4 (C-292): single redis.keys() scan — mobius: prefix is normalized in
+    // parseJournalStorageKey so a second scan for 'mobius:journal:*' is redundant.
+    const agentListKeys = normalized.size > 0
       ? Array.from(normalized).map((agent) => `journal:${agent.toLowerCase()}`)
-      : ['journal:all'];
-    const [keysUnprefixed, keysPrefixed] = await Promise.all([
-      redis.keys('journal:*'),
-      redis.keys('mobius:journal:*'),
-    ]);
-    const keys = [...new Set([...listKeys, ...keysUnprefixed, ...keysPrefixed])];
+      : [];
+    const allEntriesKey = 'journal:all';
+    const discoveredKeys = await redis.keys('journal:*');
+    const keys = [...new Set([allEntriesKey, ...agentListKeys, ...discoveredKeys])];
     const seen = new Set<string>();
     const out: AgentJournalEntry[] = [];
 
