@@ -30,6 +30,7 @@ type EpiconFeedItem = {
 type LedgerProofState = Pick<LedgerEntry, 'status' | 'statusReason' | 'proofSource' | 'canonState'>;
 
 const CYCLE_PATTERN = /\bC-?(\d{1,5})\b/i;
+const UNKNOWN_CYCLE = 'C-—';
 
 function cleanText(input: unknown): string {
   return typeof input === 'string' ? input.trim() : '';
@@ -45,9 +46,9 @@ function inferCycleFromText(...inputs: unknown[]): string | null {
   return null;
 }
 
-function normalizeCycle(item: EpiconFeedItem, fallbackCycle: string): string {
+function normalizeCycle(item: EpiconFeedItem): string {
   const explicit = cleanText(item.cycle ?? item.cycleId);
-  return inferCycleFromText(explicit, item.id, item.title, item.body, item.summary, item.tags, item.source) ?? fallbackCycle;
+  return inferCycleFromText(explicit, item.id, item.title, item.body, item.summary, item.tags, item.source) ?? UNKNOWN_CYCLE;
 }
 
 function normalizeTimestamp(input: unknown): string {
@@ -134,12 +135,12 @@ function normalizeSource(input: unknown): LedgerEntry['source'] {
   return 'echo';
 }
 
-function epiconToLedgerEntry(item: EpiconFeedItem, idx: number, fallbackCycle: string): LedgerEntry {
+function epiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry {
   const timestamp = normalizeTimestamp(item.timestamp);
   const proofState = normalizeProofState(item);
   return {
     id: item.id?.trim() || `epicon-feed-${idx}-${timestamp}`,
-    cycleId: normalizeCycle(item, fallbackCycle),
+    cycleId: normalizeCycle(item),
     type: 'epicon',
     agentOrigin: normalizeAgent(item),
     timestamp,
@@ -154,10 +155,10 @@ function epiconToLedgerEntry(item: EpiconFeedItem, idx: number, fallbackCycle: s
   };
 }
 
-function annotateEchoEntry(entry: LedgerEntry, fallbackCycle: string): LedgerEntry {
+function annotateEchoEntry(entry: LedgerEntry): LedgerEntry {
   const committed = entry.status === 'committed';
   const reverted = entry.status === 'reverted';
-  const inferredCycle = inferCycleFromText(entry.cycleId, entry.id, entry.title, entry.summary, entry.tags, entry.source) ?? fallbackCycle;
+  const inferredCycle = inferCycleFromText(entry.cycleId, entry.id, entry.title, entry.summary, entry.tags, entry.source) ?? UNKNOWN_CYCLE;
   return {
     ...entry,
     cycleId: inferredCycle,
@@ -178,14 +179,14 @@ function dedupeSort(entries: LedgerEntry[]): LedgerEntry[] {
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
-async function fetchEpiconLedgerFallback(request: NextRequest, fallbackCycle: string): Promise<LedgerEntry[]> {
+async function fetchEpiconLedgerFallback(request: NextRequest): Promise<LedgerEntry[]> {
   try {
     const url = new URL('/api/epicon/feed?limit=100&include_catalog=false', request.nextUrl.origin);
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return [];
     const data = (await res.json()) as { items?: EpiconFeedItem[] };
     const items = Array.isArray(data.items) ? data.items : [];
-    return items.map((item, idx) => epiconToLedgerEntry(item, idx, fallbackCycle));
+    return items.map(epiconToLedgerEntry);
   } catch {
     return [];
   }
@@ -194,13 +195,13 @@ async function fetchEpiconLedgerFallback(request: NextRequest, fallbackCycle: st
 export async function GET(request: NextRequest) {
   const activeCycle = currentCycleId();
   try {
-    const echoEvents = getEchoLedger().map((entry) => annotateEchoEntry(entry, activeCycle));
-    const epiconEvents = await fetchEpiconLedgerFallback(request, activeCycle);
+    const echoEvents = getEchoLedger().map(annotateEchoEntry);
+    const epiconEvents = await fetchEpiconLedgerFallback(request);
     const events = dedupeSort([...echoEvents, ...epiconEvents]).slice(0, 100);
     const pending = events.filter((e) => e.status === 'pending').length;
     const confirmed = events.filter((e) => e.status === 'committed').length;
     const contested = events.filter((e) => e.status === 'reverted').length;
-    const missingCycle = events.filter((e) => e.cycleId === 'C-—').length;
+    const missingCycle = events.filter((e) => e.cycleId === UNKNOWN_CYCLE).length;
     const canon = {
       hot: events.filter((e) => e.canonState === 'hot').length,
       candidate: events.filter((e) => e.canonState === 'candidate').length,
