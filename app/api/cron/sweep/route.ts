@@ -7,6 +7,8 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
 import { runMicroSweepPipeline } from '@/lib/signals/runMicroSweep';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { appendFullCouncilJournalPulse } from '@/lib/agents/sentinel-cycle-journals';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,12 +17,29 @@ async function run(req: NextRequest) {
   if (authErr) return authErr;
   try {
     const data = await runMicroSweepPipeline();
+    const gi = typeof data.composite?.globalIntegrity === 'number'
+      ? data.composite.globalIntegrity
+      : typeof data.composite?.gi === 'number'
+        ? data.composite.gi
+        : null;
+    const council = await appendFullCouncilJournalPulse({
+      cycle: currentCycleId(),
+      gi,
+      source: 'cron',
+    });
     return NextResponse.json({
       ok: true,
       source: 'cron-sweep',
       timestamp: new Date().toISOString(),
       composite: data.composite,
       instrumentCount: data.instrumentCount ?? null,
+      councilJournalPulse: {
+        ok: council.ok,
+        gi: council.gi,
+        written: council.entries.length,
+        agents: council.entries.map((entry) => entry.agent),
+        failedAgents: council.failedAgents,
+      },
     });
   } catch (err) {
     console.error('[cron/sweep] failed:', err);
