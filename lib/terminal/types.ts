@@ -145,6 +145,12 @@ export type LedgerEntry = {
   summary: string;
   integrityDelta: number;
   status: 'committed' | 'pending' | 'reverted';
+  /** Human-readable reason explaining why the current proof status was assigned. */
+  statusReason?: string;
+  /** Evidence source used for status assignment, e.g. github_merge, epicon_verified, feed_status. */
+  proofSource?: string;
+  /** Canon lifecycle state. Pending rows can still be visible without being sealed. */
+  canonState?: 'hot' | 'candidate' | 'attested' | 'sealed' | 'blocked';
   category?:
     | 'geopolitical'
     | 'market'
