@@ -1,16 +1,94 @@
-# Declared in mobius.yaml — safe manual trigger from Mobius Slack Agent v1 (`@Mobius run world-update`).
+# Declared in mobius.yaml — Phase 1 Civic Mesh post-merge publisher.
+# Manual trigger: @Mobius run world-update
 
 name: World update
 
 on:
   workflow_dispatch:
+    inputs:
+      update_reason:
+        description: "Why this world update is being published"
+        required: false
+        default: "manual operator pulse"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  noop:
+  world-update:
     runs-on: ubuntu-latest
     steps:
-      - name: Placeholder
-        run: echo "world-update stub — operator-defined steps go here"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+
+      - name: Publish merged canon world update
+        env:
+          TERMINAL_SNAPSHOT_URL: https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot-lite
+          UPDATE_REASON: ${{ github.event.inputs.update_reason }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p ledger
+          python3 << 'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+          import urllib.request
+          from datetime import datetime, timezone
+
+          def fetch_json(url, timeout=20):
+              try:
+                  req = urllib.request.Request(url, headers={"User-Agent": "mobius-world-update/1.0"})
+                  with urllib.request.urlopen(req, timeout=timeout) as res:
+                      return json.loads(res.read().decode("utf-8")), None
+              except Exception as exc:
+                  return None, str(exc)
+
+          def git_lines(args):
+              try:
+                  return subprocess.check_output(args, text=True).strip().splitlines()
+              except Exception:
+                  return []
+
+          now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+          snapshot, err = fetch_json(os.environ["TERMINAL_SNAPSHOT_URL"])
+          cycle = (snapshot or {}).get("cycle") or "C-—"
+          gi = (snapshot or {}).get("gi")
+          merged = git_lines(["git", "log", "--oneline", "--since=24 hours ago", "--grep=Merge pull request"])
+          recent = git_lines(["git", "log", "--oneline", "-5"])
+          update = {
+              "schema": "WORLD_UPDATE_V1",
+              "node_id": "mobius-terminal",
+              "generated_at": now,
+              "cycle": cycle,
+              "gi": gi,
+              "reason": os.environ.get("UPDATE_REASON") or "manual operator pulse",
+              "head_sha": os.environ.get("HEAD_SHA"),
+              "snapshot_available": snapshot is not None,
+              "snapshot_error": err,
+              "recent_merge_count_24h": len(merged),
+              "recent_merges": merged[:10],
+              "recent_commits": recent[:5],
+              "canon_rule": "Only merged repository state can be published as world update. Agents may propose; human merge is consent.",
+          }
+          encoded = json.dumps(update, sort_keys=True).encode("utf-8")
+          update["source_hash"] = hashlib.sha256(encoded).hexdigest()
+          update["idempotency_key"] = f"mobius-terminal:WORLD_UPDATE_V1:{cycle}:{update['source_hash'][:16]}:world-update"
+          with open("ledger/world-update.json", "w", encoding="utf-8") as f:
+              json.dump(update, f, indent=2, sort_keys=True)
+              f.write("\n")
+          PY
+
+      - name: Commit world update
+        run: |
+          git config user.name "mobius-bot"
+          git config user.email "bot@mobius.substrate"
+          git add ledger/world-update.json
+          if git diff --cached --quiet; then
+            echo "No world update changes"
+          else
+            git commit -m "chore(mesh): publish world update [skip ci]"
+            git push
+          fi
