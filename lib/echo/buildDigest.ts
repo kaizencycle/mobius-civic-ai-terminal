@@ -117,6 +117,8 @@ export type EchoDigestPayload = {
   };
 };
 
+const STABILIZATION_GI_THRESHOLD = 0.5;
+
 function countByCycle(entries: JournalEntry[]): Array<{ cycle: string; count: number }> {
   const bucket = new Map<string, number>();
   for (const row of entries) {
@@ -212,19 +214,19 @@ export function buildEchoDigest(input: {
   const atlasStalled = agents.some((a) => (a.name ?? '').toUpperCase() === 'ATLAS' && (a.status ?? '').toLowerCase() === 'booting');
   const zeusStalled = agents.some((a) => (a.name ?? '').toUpperCase() === 'ZEUS' && (a.status ?? '').toLowerCase() === 'booting');
   const agentStallDetected = atlasStalled || zeusStalled || booting > activeLike;
-  const riskLevel: EchoDigestPayload['predictive']['risk_level'] = divergence > 0.35 || digestInstabilityScore >= 4
-    ? 'critical'
-    : divergence > 0.2 || hydrationDrift || digestInstabilityScore >= 2 || agentStallDetected
-      ? 'elevated'
-      : digestInstabilityScore >= 1
-        ? 'watch'
-        : 'nominal';
+  const sub50Gi = typeof gi === 'number' && gi < STABILIZATION_GI_THRESHOLD;
+  const riskLevel: EchoDigestPayload['predictive']['risk_level'] = sub50Gi
+    ? (divergence > 0.35 || digestInstabilityScore >= 4 ? 'critical' : 'elevated')
+    : digestInstabilityScore >= 1 || hydrationDrift || agentStallDetected || divergence > 0.2
+      ? 'watch'
+      : 'nominal';
 
   const warnings: string[] = [];
   if (archiveStale) warnings.push('Journal archive stale; hot lane authoritative');
   if (ledgerDegraded) warnings.push('Ledger rows unavailable');
   if (!snapshotLite.heartbeat?.journal) warnings.push('Heartbeat journal cycle lagging');
   if (snapshotLite.lanes?.tripwire?.elevated) warnings.push('Tripwire elevated; promotion should remain guarded');
+  if (sub50Gi) warnings.push('GI below 0.50; predictive stabilization may prioritize preview');
 
   return {
     ok: true,
@@ -279,14 +281,15 @@ export function buildEchoDigest(input: {
         digestInstabilityScore >= 2 ? 'digest_instability' : null,
         ledgerDegraded ? 'ledger_stall' : null,
         agentStallDetected ? 'agent_stall_detected' : null,
+        sub50Gi ? 'sub50_gi_stabilization_threshold' : null,
       ].filter((v): v is string => Boolean(v)),
       recommendation:
-        riskLevel === 'critical'
+        sub50Gi && riskLevel === 'critical'
           ? 'lock preview, pause chamber promotion, and prioritize lane recovery'
-          : riskLevel === 'elevated'
+          : sub50Gi
             ? 'lock preview, delay hydration promotion'
             : riskLevel === 'watch'
-              ? 'bias snapshot authority and monitor lane freshness'
+              ? 'normal operation; monitor lane freshness without preview lock'
               : 'normal operation',
     },
   };
