@@ -17,11 +17,9 @@ async function run(req: NextRequest) {
   if (authErr) return authErr;
   try {
     const data = await runMicroSweepPipeline();
-    const gi = typeof data.composite?.globalIntegrity === 'number'
-      ? data.composite.globalIntegrity
-      : typeof data.composite?.gi === 'number'
-        ? data.composite.gi
-        : null;
+    const gi = typeof data.composite === 'number' && Number.isFinite(data.composite)
+      ? data.composite
+      : null;
     const council = await appendFullCouncilJournalPulse({
       cycle: currentCycleId(),
       gi,
