@@ -15,6 +15,10 @@ export type JournalChamberPayload = {
   tier?: DvaTier;
   tier_agents?: string[];
   scoped?: boolean;
+  fallback_reason?: string | null;
+  // OPT-10 (C-292): from echo digest — distinguishes "cron hasn't run yet this cycle"
+  // from a genuine error/empty state.
+  current_cycle_entry_count?: number;
 };
 
 export type DvaTier = 'ALL' | 't1' | 't2' | 't3' | 'sentinel' | 'architects';
@@ -189,8 +193,11 @@ export function useJournalChamber(
     } satisfies JournalChamberPayload;
   }, [mode, snapshot, digest, tier, tierAgentsList]);
 
+  // OPT-8 (C-292): raise pollMs to 90s — journal data changes at most once per cron
+  // cycle (~hourly). Prior default of 30s generated ~2 KV scans/min per open tab.
   return useChamberHydration<JournalChamberPayload>(url, enabled, {
     previewData: preview,
     lockToPreview: stabilizationActive,
+    pollMs: 90_000,
   });
 }

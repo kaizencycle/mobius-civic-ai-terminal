@@ -179,10 +179,13 @@ export default function JournalPageClient() {
   const [currentCycle, setCurrentCycle] = useState(() => currentCycleId());
   const [entries, setEntries] = useState<JournalDisplayEntry[] | null>(null);
   const [agent, setAgent] = useState('ALL');
-  const [cycleTab, setCycleTab] = useState<string>(() => currentCycleId());
+  // C-292 fix: default 'All' so prior-cycle entries show before current-cycle cron fires.
+  const [cycleTab, setCycleTab] = useState<string>('All');
   const [derivedMode, setDerivedMode] = useState(false);
   const [readMode, setReadMode] = useState<'hot' | 'canon' | 'merged'>('hot');
-  const [dvaTier, setDvaTier] = useState<DvaTier>('t2');
+  // C-292 fix: default ALL so journal shows entries on first load regardless of
+  // whether current cycle cron has written yet. Operators can narrow via tier selector.
+  const [dvaTier, setDvaTier] = useState<DvaTier>('ALL');
   const journal = useJournalChamber(true, readMode, 100, dvaTier);
   const journalEntries = useMemo(() => (journal.data?.entries ?? []) as JournalDisplayEntry[], [journal.data?.entries]);
   const activeTier = useMemo(() => DVA_TIERS.find((tier) => tier.id === dvaTier), [dvaTier]);
@@ -360,6 +363,20 @@ export default function JournalPageClient() {
           Journal chamber degraded · showing snapshot/derived preview
         </div>
       ) : null}
+      {/* OPT-6 (C-292): surface fallback_reason when tier scoped but empty */}
+      {!journal.error && dvaTier !== 'ALL' && (journal.data as { fallback_reason?: string } | null)?.fallback_reason ? (
+        <div className="mb-3 rounded border border-slate-700/50 bg-slate-900/40 px-3 py-2 text-xs text-slate-400">
+          {(journal.data as { fallback_reason?: string } | null)?.fallback_reason}
+          {' · '}
+          <button
+            type="button"
+            onClick={() => setDvaTier('ALL')}
+            className="underline hover:text-slate-300"
+          >
+            Show all agents
+          </button>
+        </div>
+      ) : null}
       {journal.stabilizationActive ? (
         <div className="mb-3 rounded border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
           ⚠ Predictive Stabilization Active · Preview state prioritized due to integrity drift
@@ -411,11 +428,33 @@ export default function JournalPageClient() {
         ))}
       </div>
 
-      {entries.length === 0 ? (
+      {entries.length === 0 && dvaTier !== 'ALL' ? (
+        /* OPT-7 (C-292): scoped tier returned nothing — give operator a one-click escape */
+        <div className="space-y-3">
+          <div className="rounded border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-400">
+            <div className="mb-2 font-semibold text-slate-300">
+              No entries for{' '}
+              <span className="font-mono">{DVA_TIERS.find((t) => t.id === dvaTier)?.label ?? dvaTier}</span>{' '}
+              in this view
+            </div>
+            <p className="mb-3">
+              The current cycle cron may not have written yet, or there are no entries matching this tier
+              in the active window. Switch to ALL to see all available entries.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setDvaTier('ALL'); setCycleTab('All'); }}
+              className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 hover:border-slate-400"
+            >
+              Show all agents · all cycles
+            </button>
+          </div>
+        </div>
+      ) : entries.length === 0 ? (
         <div className="space-y-4">
           <ChamberEmptyState
             title="No journal entries yet for this cycle"
-            reason={`Agent journals initialize when automations run${dvaTier === 'ALL' ? '' : ` for ${activeTier?.label ?? 'this tier'}`}.`}
+            reason="Agent journals initialize when automations run."
             action="To activate: set SUBSTRATE_GITHUB_TOKEN in Vercel"
             actionDetail="Use a fine-grained PAT for kaizencycle/Mobius-Substrate with Contents read + write permissions."
           />

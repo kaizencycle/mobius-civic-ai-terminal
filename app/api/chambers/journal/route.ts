@@ -136,6 +136,13 @@ export async function GET(request: NextRequest) {
     const archiveFetchedCount = typeof json.archive_fetched_count === 'number' ? json.archive_fetched_count : 0;
     const canonicalAvailable = mode === 'hot' ? false : !json.archive_error && archiveFetchedCount > 0;
     const degraded = json.ok === false || !res.ok || Boolean(json.archive_error);
+    // OPT-5 (C-292): surface fallback_reason when tier is scoped but returned nothing —
+    // only when the chamber is healthy so degraded states don't misdirect operators
+    // toward "cron hasn't run yet" when the real problem is an upstream retrieval failure.
+    const fallbackReason: string | null =
+      tier !== 'ALL' && entries.length === 0 && !degraded
+        ? `No ${tier.toUpperCase()} entries in current window — current cycle cron may not have written yet`
+        : null;
 
     return NextResponse.json(
       {
@@ -148,6 +155,7 @@ export async function GET(request: NextRequest) {
         tier_agents: requestedAgents,
         requested_agents: requestedScope.explicitAgents,
         scoped: tier !== 'ALL',
+        fallback_reason: fallbackReason,
         canonical_available: canonicalAvailable,
         fallback: degraded,
         degraded,
@@ -155,7 +163,10 @@ export async function GET(request: NextRequest) {
       },
       {
         status: 200,
-        headers: { 'Cache-Control': 'no-store' },
+        // OPT-5 (C-292): allow 20s edge cache + 40s stale-while-revalidate.
+        // Journal data changes at most once per cron cycle (~hourly). The prior
+        // 'no-store' header caused every 30s poll to cold-hit KV unnecessarily.
+        headers: { 'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=40' },
       },
     );
   } catch (error) {
