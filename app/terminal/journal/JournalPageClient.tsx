@@ -280,6 +280,16 @@ export default function JournalPageClient() {
     };
   }, [journalEntries, dvaTier, journal.loading, journal.error, journal.status, currentCycle]);
 
+  const currentCycleCount = useMemo(
+    () => (entries ?? []).filter((entry) => (entry.cycle?.trim() ?? '') === currentCycle).length,
+    [entries, currentCycle],
+  );
+  const latestEntryCycle = useMemo(() => {
+    const sorted = sortJournalOperatorFirst(entries ?? [], currentCycle);
+    return sorted[0]?.cycle?.trim() || null;
+  }, [entries, currentCycle]);
+  const cycleLagging = (entries?.length ?? 0) > 0 && currentCycleCount === 0;
+
   const agentCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of entries ?? []) {
@@ -351,6 +361,12 @@ export default function JournalPageClient() {
       {journal.preview && !journal.full ? (
         <div className="mb-3 rounded border border-cyan-500/40 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100">
           Preview from snapshot · chamber enrichment in progress
+        </div>
+      ) : null}
+      {cycleLagging ? (
+        <div className="mb-3 rounded border border-violet-500/40 bg-violet-950/20 px-3 py-2 text-xs text-violet-100">
+          Current cycle active · <span className="font-mono">{currentCycle}</span> has no HOT entries yet. Showing latest available cycle{' '}
+          <span className="font-mono">{latestEntryCycle ?? '—'}</span> until the next automation write.
         </div>
       ) : null}
       {journal.data?.scoped ? (
@@ -453,7 +469,7 @@ export default function JournalPageClient() {
       ) : entries.length === 0 ? (
         <div className="space-y-4">
           <ChamberEmptyState
-            title="No journal entries yet for this cycle"
+            title={`No journal entries yet for ${currentCycle}`}
             reason="Agent journals initialize when automations run."
             action="To activate: set SUBSTRATE_GITHUB_TOKEN in Vercel"
             actionDetail="Use a fine-grained PAT for kaizencycle/Mobius-Substrate with Contents read + write permissions."
@@ -474,6 +490,7 @@ export default function JournalPageClient() {
             {cycleOptions.map((c) => {
               const count = c === 'All' ? (entries?.length ?? 0) : (cycleCounts.get(c) ?? 0);
               const label = c === 'All' ? `All (${count})` : `${c} (${count})`;
+              const isCurrent = c === currentCycle;
               return (
                 <button
                   key={c}
@@ -483,10 +500,12 @@ export default function JournalPageClient() {
                   className={`whitespace-nowrap rounded border px-2 py-1 text-xs ${
                     cycleTab === c
                       ? 'border-violet-400/60 bg-violet-500/10 text-violet-100'
-                      : 'border-slate-700 text-slate-400'
+                      : isCurrent
+                        ? 'border-cyan-500/40 text-cyan-200'
+                        : 'border-slate-700 text-slate-400'
                   }`}
                 >
-                  {label}
+                  {label}{isCurrent ? ' · current' : ''}
                 </button>
               );
             })}
