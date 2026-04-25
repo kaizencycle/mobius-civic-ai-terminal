@@ -26,7 +26,8 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   const [showDataflowCommand, setShowDataflowCommand] = useState(true);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
   const { shell, loading } = useShellSnapshot();
-  const laneDiagnostics = useLaneDiagnosticsChamber(showLaneDiagnostics || showDataflowCommand);
+  const flowTelemetryEnabled = showDataflowCommand || showLaneDiagnostics;
+  const laneDiagnostics = useLaneDiagnosticsChamber(flowTelemetryEnabled);
 
   useEffect(() => {
     const tick = () => setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
