@@ -1,4 +1,5 @@
-# Declared in mobius.yaml — safe manual trigger from Mobius Slack Agent v1 (`@Mobius run mesh-aggregate`).
+# Declared in mobius.yaml — Phase 1 Civic Mesh filter.
+# Manual trigger: @Mobius run mesh-aggregate
 
 name: Mesh aggregate
 
@@ -6,11 +7,161 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  noop:
+  mesh-aggregate:
     runs-on: ubuntu-latest
     steps:
-      - name: Placeholder
-        run: echo "mesh-aggregate stub — operator-defined steps go here"
+      - uses: actions/checkout@v4
+
+      - name: Aggregate Civic Mesh state
+        env:
+          TERMINAL_SNAPSHOT_URL: https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot-lite
+          TERMINAL_JOURNAL_URL: https://mobius-civic-ai-terminal.vercel.app/api/chambers/journal?mode=hot&limit=100
+          TERMINAL_EPICON_URL: https://mobius-civic-ai-terminal.vercel.app/api/epicon/feed?limit=50
+          TERMINAL_LANE_DIAGNOSTICS_URL: https://mobius-civic-ai-terminal.vercel.app/api/chambers/lane-diagnostics
+        run: |
+          set -euo pipefail
+          mkdir -p ledger
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          python3 << 'PY'
+          import hashlib
+          import json
+          import os
+          import urllib.request
+          from datetime import datetime, timezone
+
+          def fetch_json(url, timeout=20):
+              try:
+                  req = urllib.request.Request(url, headers={"User-Agent": "mobius-mesh-aggregate/1.0"})
+                  with urllib.request.urlopen(req, timeout=timeout) as res:
+                      return json.loads(res.read().decode("utf-8")), None
+              except Exception as exc:
+                  return None, str(exc)
+
+          def safe_get(obj, *path, default=None):
+              cur = obj
+              for key in path:
+                  if not isinstance(cur, dict):
+                      return default
+                  cur = cur.get(key)
+              return cur if cur is not None else default
+
+          now = os.environ.get("NOW") or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+          endpoints = {
+              "snapshot": os.environ["TERMINAL_SNAPSHOT_URL"],
+              "journal_hot": os.environ["TERMINAL_JOURNAL_URL"],
+              "epicon": os.environ["TERMINAL_EPICON_URL"],
+              "lane_diagnostics": os.environ["TERMINAL_LANE_DIAGNOSTICS_URL"],
+          }
+          payloads = {}
+          errors = {}
+          for name, url in endpoints.items():
+              payload, err = fetch_json(url)
+              payloads[name] = payload
+              if err:
+                  errors[name] = err
+
+          snapshot = payloads.get("snapshot") or {}
+          journal = payloads.get("journal_hot") or {}
+          epicon = payloads.get("epicon") or {}
+          diag = payloads.get("lane_diagnostics") or {}
+          lanes = safe_get(diag, "lanes", default={}) or {}
+          journal_entries = journal.get("entries") if isinstance(journal, dict) else []
+          epicon_items = epicon.get("items") if isinstance(epicon, dict) else []
+          journal_entries = journal_entries if isinstance(journal_entries, list) else []
+          epicon_items = epicon_items if isinstance(epicon_items, list) else []
+
+          cycle = snapshot.get("cycle") or journal.get("cycle") or "C-—"
+          gi = snapshot.get("gi") or safe_get(snapshot, "integrity", "gi")
+          degraded = bool(snapshot.get("degraded"))
+
+          problem_lanes = []
+          if isinstance(lanes, dict):
+              for key, row in lanes.items():
+                  if not isinstance(row, dict):
+                      continue
+                  text = " ".join(str(row.get(k, "")).lower() for k in ("freshness", "state", "status", "message"))
+                  if row.get("ok") is False or row.get("available") is False or row.get("elevated") is True or any(t in text for t in ("watch", "slow", "stale", "degraded", "offline", "failed")):
+                      problem_lanes.append(key)
+
+          journal_cycles = {}
+          for entry in journal_entries:
+              if isinstance(entry, dict):
+                  c = entry.get("cycle") or "C-—"
+                  journal_cycles[c] = journal_cycles.get(c, 0) + 1
+
+          todos = []
+          if errors:
+              todos.append({"agent": "HERMES", "priority": "high", "task": "Repair unreachable mesh endpoints", "evidence": sorted(errors.keys())})
+          if problem_lanes:
+              todos.append({"agent": "AUREA", "priority": "medium", "task": "Review pressure on problem lanes", "evidence": problem_lanes})
+          if cycle not in journal_cycles:
+              todos.append({"agent": "ECHO", "priority": "medium", "task": "Confirm current-cycle HOT journal writes", "evidence": {"cycle": cycle, "journal_cycles": journal_cycles}})
+          if not epicon_items:
+              todos.append({"agent": "JADE", "priority": "medium", "task": "Confirm EPICON feed proof lane", "evidence": "no epicon items returned"})
+
+          mesh_state = {
+              "schema": "MESH_STATE_V1",
+              "node_id": "mobius-terminal",
+              "generated_at": now,
+              "cycle": cycle,
+              "gi": gi,
+              "degraded": degraded,
+              "counts": {
+                  "journal_hot": len(journal_entries),
+                  "epicon": len(epicon_items),
+                  "lanes": len(lanes) if isinstance(lanes, dict) else 0,
+                  "problem_lanes": len(problem_lanes),
+                  "todos": len(todos),
+              },
+              "journal_cycles": journal_cycles,
+              "problem_lanes": problem_lanes,
+              "endpoint_errors": errors,
+          }
+          encoded = json.dumps(mesh_state, sort_keys=True).encode("utf-8")
+          mesh_state["source_hash"] = hashlib.sha256(encoded).hexdigest()
+          mesh_state["idempotency_key"] = f"mobius-terminal:MESH_STATE_V1:{cycle}:{mesh_state['source_hash'][:16]}:mesh-aggregate"
+
+          mesh_health = {
+              "schema": "MESH_HEALTH_V1",
+              "node_id": "mobius-terminal",
+              "generated_at": now,
+              "cycle": cycle,
+              "status": "degraded" if degraded or errors or problem_lanes else "ok",
+              "gi": gi,
+              "open_lanes": len(lanes) if isinstance(lanes, dict) else 0,
+              "problem_lanes": problem_lanes,
+              "errors": errors,
+          }
+          mesh_todos = {
+              "schema": "MESH_TODOS_V1",
+              "node_id": "mobius-terminal",
+              "generated_at": now,
+              "cycle": cycle,
+              "todos": todos,
+          }
+
+          for path, data in [
+              ("ledger/mesh-state.json", mesh_state),
+              ("ledger/mesh-health.json", mesh_health),
+              ("ledger/mesh-todos.json", mesh_todos),
+          ]:
+              with open(path, "w", encoding="utf-8") as f:
+                  json.dump(data, f, indent=2, sort_keys=True)
+                  f.write("\n")
+          PY
+
+      - name: Commit mesh aggregate output
+        run: |
+          git config user.name "mobius-bot"
+          git config user.email "bot@mobius.substrate"
+          git add ledger/mesh-state.json ledger/mesh-health.json ledger/mesh-todos.json
+          if git diff --cached --quiet; then
+            echo "No mesh aggregate changes"
+          else
+            git commit -m "chore(mesh): aggregate civic mesh pulse [skip ci]"
+            git push
+          fi
