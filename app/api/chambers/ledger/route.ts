@@ -31,6 +31,9 @@ type LedgerProofState = Pick<LedgerEntry, 'status' | 'statusReason' | 'proofSour
 
 const CYCLE_PATTERN = /\bC-?(\d{1,5})\b/i;
 const UNKNOWN_CYCLE = 'C-—';
+const LEDGER_MAX_ROWS = 300;
+const LEDGER_PAGE_SIZE = 100;
+const LEDGER_SCROLL_PAGES = 3;
 
 function cleanText(input: unknown): string {
   return typeof input === 'string' ? input.trim() : '';
@@ -179,14 +182,23 @@ function dedupeSort(entries: LedgerEntry[]): LedgerEntry[] {
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
+async function fetchEpiconPage(request: NextRequest, page: number, limit: number): Promise<EpiconFeedItem[]> {
+  const url = new URL('/api/epicon/feed', request.nextUrl.origin);
+  url.searchParams.set('page', String(page));
+  url.searchParams.set('limit', String(limit));
+  url.searchParams.set('include_catalog', 'false');
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) return [];
+  const data = (await res.json()) as { items?: EpiconFeedItem[] };
+  return Array.isArray(data.items) ? data.items : [];
+}
+
 async function fetchEpiconLedgerFallback(request: NextRequest): Promise<LedgerEntry[]> {
   try {
-    const url = new URL('/api/epicon/feed?limit=100&include_catalog=false', request.nextUrl.origin);
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { items?: EpiconFeedItem[] };
-    const items = Array.isArray(data.items) ? data.items : [];
-    return items.map(epiconToLedgerEntry);
+    const pages = await Promise.all(
+      Array.from({ length: LEDGER_SCROLL_PAGES }, (_, page) => fetchEpiconPage(request, page, LEDGER_PAGE_SIZE)),
+    );
+    return pages.flat().map(epiconToLedgerEntry).slice(0, LEDGER_MAX_ROWS);
   } catch {
     return [];
   }
@@ -197,7 +209,7 @@ export async function GET(request: NextRequest) {
   try {
     const echoEvents = getEchoLedger().map(annotateEchoEntry);
     const epiconEvents = await fetchEpiconLedgerFallback(request);
-    const events = dedupeSort([...echoEvents, ...epiconEvents]).slice(0, 100);
+    const events = dedupeSort([...echoEvents, ...epiconEvents]).slice(0, LEDGER_MAX_ROWS);
     const pending = events.filter((e) => e.status === 'pending').length;
     const confirmed = events.filter((e) => e.status === 'committed').length;
     const contested = events.filter((e) => e.status === 'reverted').length;
@@ -217,6 +229,11 @@ export async function GET(request: NextRequest) {
         events,
         candidates: { pending, confirmed, contested },
         canon,
+        pagination: {
+          maxRows: LEDGER_MAX_ROWS,
+          pageSize: LEDGER_PAGE_SIZE,
+          pages: LEDGER_SCROLL_PAGES,
+        },
         sources: {
           echoMemory: echoEvents.length,
           epiconFeed: epiconEvents.length,
@@ -242,6 +259,11 @@ export async function GET(request: NextRequest) {
         events: [],
         candidates: { pending: 0, confirmed: 0, contested: 0 },
         canon: { hot: 0, candidate: 0, attested: 0, sealed: 0, blocked: 0 },
+        pagination: {
+          maxRows: LEDGER_MAX_ROWS,
+          pageSize: LEDGER_PAGE_SIZE,
+          pages: LEDGER_SCROLL_PAGES,
+        },
         sources: { echoMemory: 0, epiconFeed: 0, merged: 0, missingCycle: 0 },
         dva: {
           primaryAgent: 'ECHO',

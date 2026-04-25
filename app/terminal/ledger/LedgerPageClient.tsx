@@ -15,6 +15,9 @@ type EchoFeedResponse = {
 type SortKey = 'timestamp' | 'agent' | 'category' | 'tier' | 'delta' | 'status';
 type SortDir = 'asc' | 'desc';
 
+const DEFAULT_LEDGER_PAGE_SIZE = 100;
+const DEFAULT_LEDGER_PAGES = 3;
+
 function statusBadge(status: string) {
   if (status === 'committed') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
   if (status === 'flagged') return 'border-rose-500/40 bg-rose-500/10 text-rose-200';
@@ -78,10 +81,16 @@ export default function LedgerPageClient() {
   const { data, preview, full, error, stabilizationActive } = useLedgerChamber(true);
   const [sortKey, setSortKey] = useState<SortKey>('timestamp');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [scrollPage, setScrollPage] = useState(0);
   const feed = useMemo(() => (data ? ({ events: data.events, status: { cycleId: data.cycleId ?? data.events[0]?.cycleId ?? 'C-—' } } as EchoFeedResponse) : null), [data]);
   const rows = useMemo(() => feed?.events ?? [], [feed]);
+  const pageSize = data?.pagination?.pageSize ?? DEFAULT_LEDGER_PAGE_SIZE;
+  const maxPages = data?.pagination?.pages ?? DEFAULT_LEDGER_PAGES;
   const activeCycle = data?.cycleId ?? feed?.status?.cycleId ?? rows.find((row) => row.cycleId !== 'C-—')?.cycleId ?? 'C-—';
   const sorted = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
+  const pageCount = Math.max(1, Math.min(maxPages, Math.ceil(sorted.length / pageSize)));
+  const safePage = Math.min(scrollPage, pageCount - 1);
+  const visibleRows = useMemo(() => sorted.slice(safePage * pageSize, safePage * pageSize + pageSize), [sorted, safePage, pageSize]);
   const totalDelta = useMemo(() => rows.reduce((sum, row) => sum + (row.integrityDelta ?? 0), 0), [rows]);
   const canon = data?.canon;
   const pendingRows = data?.candidates.pending ?? rows.filter((row) => row.status === 'pending').length;
@@ -94,6 +103,7 @@ export default function LedgerPageClient() {
       setSortKey(key);
       setSortDir('desc');
     }
+    setScrollPage(0);
   };
 
   const arrow = (key: SortKey) => (sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
@@ -125,6 +135,7 @@ export default function LedgerPageClient() {
       <div className="mb-3 flex flex-wrap gap-1.5 text-[10px] font-mono uppercase tracking-[0.08em] text-slate-400">
         <span className="rounded border border-amber-700/40 bg-amber-950/20 px-2 py-1 text-amber-200">pending {pendingRows}</span>
         <span className="rounded border border-emerald-700/40 bg-emerald-950/20 px-2 py-1 text-emerald-200">committed {committedRows}</span>
+        <span className="rounded border border-cyan-700/40 bg-cyan-950/20 px-2 py-1 text-cyan-200">max {data?.pagination?.maxRows ?? 300}</span>
         {canon ? (
           <>
             <span className="rounded border border-slate-700 bg-slate-950/50 px-2 py-1">hot {canon.hot}</span>
@@ -134,6 +145,23 @@ export default function LedgerPageClient() {
           </>
         ) : null}
       </div>
+      {pageCount > 1 ? (
+        <div className="mb-3 flex items-center justify-between gap-2 rounded border border-slate-800 bg-slate-950/40 px-2 py-1.5 text-[10px] text-slate-400">
+          <span className="font-mono uppercase tracking-[0.12em]">Scroll page {safePage + 1}/{pageCount}</span>
+          <div className="flex gap-1">
+            {Array.from({ length: pageCount }, (_, page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setScrollPage(page)}
+                className={`rounded border px-2 py-0.5 font-mono ${safePage === page ? 'border-cyan-600/60 bg-cyan-500/10 text-cyan-200' : 'border-slate-700 text-slate-500'}`}
+              >
+                {page + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {error ? <div className="mb-2 rounded border border-amber-700/40 bg-amber-950/20 px-2 py-1 text-[11px] text-amber-200">Ledger chamber degraded · showing snapshot preview</div> : null}
       {(data as { degraded?: boolean; ledgerError?: string } | null)?.ledgerError === 'ledger_circuit_open' ? (
         <div className="mb-2 rounded border border-rose-700/50 bg-rose-950/20 px-3 py-2 text-[11px] text-rose-200">
@@ -173,7 +201,7 @@ export default function LedgerPageClient() {
           </div>
 
           <div className="min-h-0 flex-1 divide-y divide-slate-800 overflow-y-auto bg-slate-900/50">
-            {sorted.map((row) => {
+            {visibleRows.map((row) => {
               const delta = row.integrityDelta ?? 0;
               const hasDelta = Math.abs(delta) > 0.0001;
               return (
@@ -225,7 +253,7 @@ export default function LedgerPageClient() {
           </div>
 
           <div className="border-t border-slate-800 bg-slate-950/70 px-3 py-2 text-right text-[11px] text-slate-300">
-            {rows.length} entries · GI Δ{' '}
+            Showing {safePage * pageSize + 1}-{Math.min(safePage * pageSize + visibleRows.length, rows.length)} of {rows.length} entries · GI Δ{' '}
             <span className={totalDelta >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
               {totalDelta >= 0 ? '+' : ''}
               {totalDelta.toFixed(4)}

@@ -3,7 +3,7 @@
  */
 
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
-import { loadEchoState, loadSignalSnapshot } from '@/lib/kv/store';
+import { loadEchoState, loadGIState, loadSignalSnapshot } from '@/lib/kv/store';
 import { writeMiiState } from '@/lib/kv/mii';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
 
@@ -131,6 +131,85 @@ async function writeMiiForEntry(entry: AgentJournalEntry, gi: number): Promise<v
   } catch (err) {
     console.error(`[steward-journal] mii write failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
   }
+}
+
+export async function appendEveCronJournal(input: {
+  cycle: string;
+  gi: number;
+  source: CronSentinelSource;
+  anomalies?: { count: number; labels: string[] };
+}): Promise<AgentJournalEntry> {
+  const gi = clampGi(input.gi);
+  const anomalies = input.anomalies ?? (await summarizeMicroAnomalies());
+  const mode = gi < 0.5 ? 'stabilization-required' : gi < 0.72 ? 'watch' : 'nominal';
+
+  return appendAgentJournalEntry({
+    agent: 'EVE',
+    cycle: input.cycle,
+    observation: `EVE ethics/governance pulse (${input.source}) for ${input.cycle}. Mode=${mode}; elevated micro signals=${anomalies.count}.`,
+    inference:
+      gi < 0.5
+        ? 'Integrity is below the stabilization threshold; governance actions should remain review-first until ZEUS and ATLAS corroborate.'
+        : 'Governance pulse can continue open-flow observation while preserving human-merge consent.',
+    recommendation:
+      gi < 0.5
+        ? 'Prioritize stabilization, provenance checks, and contested-row review before expanding promotion.'
+        : 'Keep the HOT lane flowing; surface civic-risk deltas without blocking agent observation.',
+    confidence: Number((0.81 + gi * 0.07).toFixed(4)),
+    derivedFrom: ['signal-snapshot:kv', `cycle:${input.cycle}`, `source:${input.source}`],
+    relatedAgents: ['ATLAS', 'ZEUS', 'JADE'],
+    status: 'committed',
+    category: gi < 0.5 ? 'alert' : 'observation',
+    severity: gi < 0.5 ? 'critical' : gi < 0.72 ? 'elevated' : 'nominal',
+  });
+}
+
+export async function appendFullCouncilJournalPulse(input: {
+  cycle: string;
+  gi?: number | null;
+  source: CronSentinelSource;
+}): Promise<{ ok: boolean; entries: AgentJournalEntry[]; failedAgents: string[]; gi: number }> {
+  let gi = clampGi(typeof input.gi === 'number' ? input.gi : 0.74);
+  try {
+    const st = await loadGIState();
+    if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
+      gi = clampGi(st.global_integrity);
+    }
+  } catch {
+    // keep provided/default GI
+  }
+
+  const anomalies = await summarizeMicroAnomalies();
+  const entries: AgentJournalEntry[] = [];
+  const failedAgents: string[] = [];
+
+  const run = async (agent: string, fn: () => Promise<AgentJournalEntry>) => {
+    try {
+      const entry = await fn();
+      await writeMiiForEntry(entry, gi);
+      entries.push(entry);
+    } catch (err) {
+      failedAgents.push(agent);
+      console.error(`[full-council-pulse] ${agent} journal append failed:`, err instanceof Error ? err.message : err);
+    }
+  };
+
+  await run('ATLAS', () => appendAtlasCronJournal({ cycle: input.cycle, gi, source: input.source }));
+  const atlasRef = entries.find((entry) => entry.agent === 'ATLAS')?.id ?? null;
+  await run('ZEUS', () => appendZeusCronJournal({ cycle: input.cycle, gi, atlasEntry: atlasRef, source: input.source }));
+  const zeusRef = entries.find((entry) => entry.agent === 'ZEUS')?.id ?? null;
+  await run('EVE', () => appendEveCronJournal({ cycle: input.cycle, gi, source: input.source, anomalies }));
+
+  const stewards = await appendStewardCronJournals({
+    cycle: input.cycle,
+    gi,
+    source: input.source,
+    zeusJournalId: zeusRef,
+    anomalies,
+  });
+  entries.push(...stewards);
+
+  return { ok: failedAgents.length === 0, entries, failedAgents, gi };
 }
 
 /**
