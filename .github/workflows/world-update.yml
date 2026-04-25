@@ -18,9 +18,17 @@ jobs:
   world-update:
     runs-on: ubuntu-latest
     steps:
+      - name: Guard default branch canon publishing
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "refs/heads/${GITHUB_DEFAULT_BRANCH}" ]; then
+            echo "world-update publishes canon state and must run from ${GITHUB_DEFAULT_BRANCH}. Current ref: ${GITHUB_REF}" >&2
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 20
+          fetch-depth: 0
 
       - name: Publish merged canon world update
         env:
@@ -66,12 +74,14 @@ jobs:
               "gi": gi,
               "reason": os.environ.get("UPDATE_REASON") or "manual operator pulse",
               "head_sha": os.environ.get("HEAD_SHA"),
+              "default_branch": os.environ.get("GITHUB_DEFAULT_BRANCH"),
+              "ref": os.environ.get("GITHUB_REF"),
               "snapshot_available": snapshot is not None,
               "snapshot_error": err,
               "recent_merge_count_24h": len(merged),
               "recent_merges": merged[:10],
               "recent_commits": recent[:5],
-              "canon_rule": "Only merged repository state can be published as world update. Agents may propose; human merge is consent.",
+              "canon_rule": "Only protected default-branch merged repository state can be published as world update. Agents may propose; human merge is consent.",
           }
           encoded = json.dumps(update, sort_keys=True).encode("utf-8")
           update["source_hash"] = hashlib.sha256(encoded).hexdigest()
