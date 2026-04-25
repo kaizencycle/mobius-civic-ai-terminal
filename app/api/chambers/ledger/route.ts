@@ -24,6 +24,8 @@ type EpiconFeedItem = {
   gi?: number | null;
 };
 
+type LedgerProofState = Pick<LedgerEntry, 'status' | 'statusReason' | 'proofSource' | 'canonState'>;
+
 const CYCLE_PATTERN = /\bC-?(\d{1,5})\b/i;
 
 function cleanText(input: unknown): string {
@@ -61,13 +63,53 @@ function isMergeEvent(item: EpiconFeedItem): boolean {
   return title.startsWith('merge pull request') || type === 'merge' || tags.includes('merge');
 }
 
-function normalizeStatus(item: EpiconFeedItem): LedgerEntry['status'] {
+function isVerifiedSignal(item: EpiconFeedItem): boolean {
   const status = cleanText(item.status).toLowerCase();
-  if (status === 'committed' || status === 'verified' || item.verified === true || isMergeEvent(item)) {
-    return 'committed';
+  const type = cleanText(item.type).toLowerCase();
+  const tags = (item.tags ?? []).map((tag) => tag.toLowerCase());
+  return item.verified === true || status === 'verified' || type === 'zeus-verify' || tags.includes('verified');
+}
+
+function normalizeProofState(item: EpiconFeedItem): LedgerProofState {
+  const status = cleanText(item.status).toLowerCase();
+  if (status === 'failed' || status === 'reverted' || status === 'contested') {
+    return {
+      status: 'reverted',
+      statusReason: 'contested_or_reverted_signal',
+      proofSource: status || 'feed_status',
+      canonState: 'blocked',
+    };
   }
-  if (status === 'failed' || status === 'reverted' || status === 'contested') return 'reverted';
-  return 'pending';
+  if (isVerifiedSignal(item)) {
+    return {
+      status: 'committed',
+      statusReason: 'explicit_verification_signal',
+      proofSource: item.verified === true ? 'epicon_verified' : cleanText(item.type) || 'feed_status',
+      canonState: 'attested',
+    };
+  }
+  if (isMergeEvent(item)) {
+    return {
+      status: 'committed',
+      statusReason: 'explicit_merge_event',
+      proofSource: 'github_merge',
+      canonState: 'candidate',
+    };
+  }
+  if (status === 'committed') {
+    return {
+      status: 'committed',
+      statusReason: 'feed_declared_committed',
+      proofSource: 'feed_status',
+      canonState: 'candidate',
+    };
+  }
+  return {
+    status: 'pending',
+    statusReason: 'awaiting_merge_or_verification_evidence',
+    proofSource: 'none',
+    canonState: 'hot',
+  };
 }
 
 function normalizeCategory(input: unknown): LedgerEntry['category'] | undefined {
@@ -92,6 +134,7 @@ function normalizeSource(input: unknown): LedgerEntry['source'] {
 
 function epiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry {
   const timestamp = normalizeTimestamp(item.timestamp);
+  const proofState = normalizeProofState(item);
   return {
     id: item.id?.trim() || `epicon-feed-${idx}-${timestamp}`,
     cycleId: normalizeCycle(item),
@@ -101,11 +144,23 @@ function epiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry {
     title: item.title,
     summary: item.body ?? item.title ?? 'EPICON feed event',
     integrityDelta: 0,
-    status: normalizeStatus(item),
+    ...proofState,
     category: normalizeCategory(item.category),
     confidenceTier: typeof item.confidenceTier === 'number' ? item.confidenceTier : undefined,
     tags: item.tags,
     source: normalizeSource(item.source),
+  };
+}
+
+function annotateEchoEntry(entry: LedgerEntry): LedgerEntry {
+  if (entry.statusReason && entry.proofSource && entry.canonState) return entry;
+  const committed = entry.status === 'committed';
+  const reverted = entry.status === 'reverted';
+  return {
+    ...entry,
+    statusReason: entry.statusReason ?? (reverted ? 'echo_memory_reverted' : committed ? 'echo_memory_committed' : 'echo_memory_pending'),
+    proofSource: entry.proofSource ?? 'echo_memory',
+    canonState: entry.canonState ?? (reverted ? 'blocked' : committed ? 'candidate' : 'hot'),
   };
 }
 
@@ -135,19 +190,27 @@ async function fetchEpiconLedgerFallback(request: NextRequest): Promise<LedgerEn
 
 export async function GET(request: NextRequest) {
   try {
-    const echoEvents = getEchoLedger();
+    const echoEvents = getEchoLedger().map(annotateEchoEntry);
     const epiconEvents = await fetchEpiconLedgerFallback(request);
     const events = dedupeSort([...echoEvents, ...epiconEvents]).slice(0, 100);
     const pending = events.filter((e) => e.status === 'pending').length;
     const confirmed = events.filter((e) => e.status === 'committed').length;
     const contested = events.filter((e) => e.status === 'reverted').length;
     const missingCycle = events.filter((e) => e.cycleId === 'C-—').length;
+    const canon = {
+      hot: events.filter((e) => e.canonState === 'hot').length,
+      candidate: events.filter((e) => e.canonState === 'candidate').length,
+      attested: events.filter((e) => e.canonState === 'attested').length,
+      sealed: events.filter((e) => e.canonState === 'sealed').length,
+      blocked: events.filter((e) => e.canonState === 'blocked').length,
+    };
 
     return NextResponse.json(
       {
         ok: true,
         events,
         candidates: { pending, confirmed, contested },
+        canon,
         sources: {
           echoMemory: echoEvents.length,
           epiconFeed: epiconEvents.length,
@@ -171,6 +234,7 @@ export async function GET(request: NextRequest) {
         ok: true,
         events: [],
         candidates: { pending: 0, confirmed: 0, contested: 0 },
+        canon: { hot: 0, candidate: 0, attested: 0, sealed: 0, blocked: 0 },
         sources: { echoMemory: 0, epiconFeed: 0, merged: 0, missingCycle: 0 },
         dva: {
           primaryAgent: 'ECHO',

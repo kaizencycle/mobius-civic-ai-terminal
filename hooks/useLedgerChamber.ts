@@ -6,13 +6,24 @@ import { useEchoDigest } from '@/hooks/useEchoDigest';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 import type { LedgerEntry } from '@/lib/terminal/types';
 
+export type LedgerCanonCounts = {
+  hot: number;
+  candidate: number;
+  attested: number;
+  sealed: number;
+  blocked: number;
+};
+
 export type LedgerChamberPayload = {
   ok: boolean;
   events: LedgerEntry[];
   candidates: { pending: number; confirmed: number; contested: number };
+  canon?: LedgerCanonCounts;
   fallback: boolean;
   timestamp: string;
 };
+
+const EMPTY_CANON: LedgerCanonCounts = { hot: 0, candidate: 0, attested: 0, sealed: 0, blocked: 0 };
 
 export function useLedgerChamber(enabled: boolean) {
   const { snapshot } = useTerminalSnapshot();
@@ -33,6 +44,9 @@ export function useLedgerChamber(enabled: boolean) {
       summary: typeof item.summary === 'string' ? item.summary : 'Digest preview event',
       integrityDelta: 0,
       status: 'pending',
+      statusReason: 'preview_snapshot_pending_verification',
+      proofSource: 'snapshot_preview',
+      canonState: 'hot',
       category: undefined,
       confidenceTier: typeof item.confidenceTier === 'number' ? item.confidenceTier : undefined,
       source: 'echo',
@@ -49,6 +63,9 @@ export function useLedgerChamber(enabled: boolean) {
           summary: 'Digest preview row',
           integrityDelta: 0,
           status: 'pending',
+          statusReason: 'digest_preview_pending_verification',
+          proofSource: 'echo_digest',
+          canonState: 'hot',
           source: 'echo',
         });
       }
@@ -62,6 +79,7 @@ export function useLedgerChamber(enabled: boolean) {
         confirmed: digest?.ledger_preview.promoted ?? 0,
         contested: digest?.ledger_preview.contested ?? 0,
       },
+      canon: { ...EMPTY_CANON, hot: events.length },
       fallback: true,
       timestamp: digest?.timestamp ?? snapshot?.timestamp ?? new Date().toISOString(),
     } satisfies LedgerChamberPayload;

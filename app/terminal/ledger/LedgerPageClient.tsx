@@ -21,6 +21,13 @@ function statusBadge(status: string) {
   return 'border-amber-500/40 bg-amber-500/10 text-amber-200';
 }
 
+function canonBadge(canonState: LedgerEntry['canonState']) {
+  if (canonState === 'sealed' || canonState === 'attested') return 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200';
+  if (canonState === 'candidate') return 'border-cyan-500/35 bg-cyan-500/10 text-cyan-200';
+  if (canonState === 'blocked') return 'border-rose-500/35 bg-rose-500/10 text-rose-200';
+  return 'border-slate-700 bg-slate-900/60 text-slate-400';
+}
+
 function agentColor(agent: string): string {
   const a = agent.toUpperCase();
   if (a === 'ATLAS') return 'text-cyan-400';
@@ -75,6 +82,9 @@ export default function LedgerPageClient() {
   const rows = useMemo(() => feed?.events ?? [], [feed]);
   const sorted = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
   const totalDelta = useMemo(() => rows.reduce((sum, row) => sum + (row.integrityDelta ?? 0), 0), [rows]);
+  const canon = data?.canon;
+  const pendingRows = data?.candidates.pending ?? rows.filter((row) => row.status === 'pending').length;
+  const committedRows = data?.candidates.confirmed ?? rows.filter((row) => row.status === 'committed').length;
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -110,6 +120,18 @@ export default function LedgerPageClient() {
             </button>
           ))}
         </div>
+      </div>
+      <div className="mb-3 flex flex-wrap gap-1.5 text-[10px] font-mono uppercase tracking-[0.08em] text-slate-400">
+        <span className="rounded border border-amber-700/40 bg-amber-950/20 px-2 py-1 text-amber-200">pending {pendingRows}</span>
+        <span className="rounded border border-emerald-700/40 bg-emerald-950/20 px-2 py-1 text-emerald-200">committed {committedRows}</span>
+        {canon ? (
+          <>
+            <span className="rounded border border-slate-700 bg-slate-950/50 px-2 py-1">hot {canon.hot}</span>
+            <span className="rounded border border-cyan-700/40 bg-cyan-950/20 px-2 py-1 text-cyan-200">candidate {canon.candidate}</span>
+            <span className="rounded border border-emerald-700/40 bg-emerald-950/20 px-2 py-1 text-emerald-200">attested {canon.attested + canon.sealed}</span>
+            <span className="rounded border border-rose-700/40 bg-rose-950/20 px-2 py-1 text-rose-200">blocked {canon.blocked}</span>
+          </>
+        ) : null}
       </div>
       {error ? <div className="mb-2 rounded border border-amber-700/40 bg-amber-950/20 px-2 py-1 text-[11px] text-amber-200">Ledger chamber degraded · showing snapshot preview</div> : null}
       {/* OPT-15 / Bug-1 (C-291): surface LEDGER_CIRCUIT_OPEN state with recovery guidance.
@@ -187,15 +209,19 @@ export default function LedgerPageClient() {
                             {delta >= 0 ? '+' : ''}{delta.toFixed(4)}
                           </span>
                         ) : null}
+                        <span className={`rounded border px-1.5 py-0.5 text-[9px] ${canonBadge(row.canonState)}`}>{row.canonState ?? 'hot'}</span>
                         <span className={`rounded border px-1.5 py-0.5 text-[9px] ${statusBadge(row.status)}`}>{row.status}</span>
                       </div>
                     </div>
                     <div className="text-[11px] leading-snug text-slate-200">{row.title ?? row.summary}</div>
-                    <div className="flex items-center gap-3 text-[9px] text-slate-500">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] text-slate-500">
                       <span className="font-mono">{row.timestamp.slice(11, 19)}Z</span>
                       <span>{relTime(row.timestamp)}</span>
                       {row.category ? <span>{row.category}</span> : null}
                       {row.confidenceTier != null ? <span>T{row.confidenceTier}</span> : null}
+                    </div>
+                    <div className="text-[9px] text-slate-600">
+                      {row.statusReason ?? 'status pending'} · proof {row.proofSource ?? 'none'}
                     </div>
                   </div>
                 </div>
