@@ -55,23 +55,7 @@ export async function GET() {
   });
 }
 
-export async function POST(req: NextRequest) {
-  const auth = requireWriteAuth(req);
-  if (!auth.ok) {
-    return NextResponse.json(
-      {
-        agent: 'ECHO',
-        action: 'ingest',
-        result: 'blocked',
-        error: auth.code,
-        message: auth.code === 'write_auth_not_configured'
-          ? 'Write auth is not configured. Set AGENT_SERVICE_TOKEN, CRON_SECRET, or MOBIUS_WRITE_TOKEN.'
-          : 'Write auth required for ECHO ingest POST.',
-      },
-      { status: auth.status },
-    );
-  }
-
+export async function runEchoIngest() {
   const startTime = Date.now();
 
   try {
@@ -191,4 +175,24 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+export async function POST(req: NextRequest) {
+  const auth = requireWriteAuth(req);
+  if (!auth.ok) {
+    return NextResponse.json(
+      {
+        agent: 'ECHO',
+        action: 'ingest',
+        result: 'blocked',
+        error: auth.code,
+        message: auth.code === 'write_auth_not_configured'
+          ? 'Write auth is not configured. Set AGENT_SERVICE_TOKEN, CRON_SECRET, or MOBIUS_WRITE_TOKEN.'
+          : 'Write auth required for ECHO ingest POST.',
+      },
+      { status: auth.status },
+    );
+  }
+
+  return runEchoIngest();
 }
