@@ -22,6 +22,11 @@ export type ZeusVerifyCronInput = {
   source: CronSentinelSource;
 };
 
+export type StewardJournalResult = {
+  entries: AgentJournalEntry[];
+  failedAgents: string[];
+};
+
 function clampGi(n: number): number {
   if (!Number.isFinite(n)) return 0.74;
   return Math.max(0, Math.min(1, n));
@@ -207,7 +212,8 @@ export async function appendFullCouncilJournalPulse(input: {
     zeusJournalId: zeusRef,
     anomalies,
   });
-  entries.push(...stewards);
+  entries.push(...stewards.entries);
+  failedAgents.push(...stewards.failedAgents);
 
   return { ok: failedAgents.length === 0, entries, failedAgents, gi };
 }
@@ -222,7 +228,7 @@ export async function appendStewardCronJournals(input: {
   source: CronSentinelSource;
   zeusJournalId?: string | null;
   anomalies?: { count: number; labels: string[] };
-}): Promise<AgentJournalEntry[]> {
+}): Promise<StewardJournalResult> {
   const gi = clampGi(input.gi);
   const { count, labels } = input.anomalies ?? (await summarizeMicroAnomalies());
   const labelShort = labels.slice(0, 5).join('; ') || 'No elevated micro-agent lines in snapshot.';
@@ -231,6 +237,7 @@ export async function appendStewardCronJournals(input: {
   const zeusRef = input.zeusJournalId?.trim() || 'pending';
 
   const written: AgentJournalEntry[] = [];
+  const failedAgents: string[] = [];
 
   const appendOne = async (fn: () => Promise<AgentJournalEntry>, agent: string) => {
     try {
@@ -238,6 +245,7 @@ export async function appendStewardCronJournals(input: {
       await writeMiiForEntry(entry, gi);
       written.push(entry);
     } catch (err) {
+      failedAgents.push(agent);
       console.error(`[steward-journal] ${agent} append failed:`, err instanceof Error ? err.message : err);
     }
   };
@@ -341,5 +349,5 @@ export async function appendStewardCronJournals(input: {
     'ECHO',
   );
 
-  return written;
+  return { entries: written, failedAgents };
 }
