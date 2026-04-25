@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEchoLedger } from '@/lib/echo/store';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 import type { LedgerEntry } from '@/lib/terminal/types';
 
 export const dynamic = 'force-dynamic';
@@ -8,10 +9,12 @@ export const revalidate = 0;
 type EpiconFeedItem = {
   id?: string;
   cycle?: string;
+  cycleId?: string;
   timestamp?: string;
   author?: string;
   title?: string;
   body?: string;
+  summary?: string;
   type?: string;
   category?: string;
   status?: string;
@@ -32,20 +35,19 @@ function cleanText(input: unknown): string {
   return typeof input === 'string' ? input.trim() : '';
 }
 
-function inferCycleFromText(...inputs: unknown[]): string {
+function inferCycleFromText(...inputs: unknown[]): string | null {
   for (const input of inputs) {
     const text = Array.isArray(input) ? input.join(' ') : cleanText(input);
     if (!text) continue;
     const match = text.match(CYCLE_PATTERN);
     if (match?.[1]) return `C-${match[1]}`;
   }
-  return 'C-—';
+  return null;
 }
 
-function normalizeCycle(item: EpiconFeedItem): string {
-  const explicit = cleanText(item.cycle);
-  if (explicit) return inferCycleFromText(explicit);
-  return inferCycleFromText(item.id, item.title, item.body, item.tags, item.source);
+function normalizeCycle(item: EpiconFeedItem, fallbackCycle: string): string {
+  const explicit = cleanText(item.cycle ?? item.cycleId);
+  return inferCycleFromText(explicit, item.id, item.title, item.body, item.summary, item.tags, item.source) ?? fallbackCycle;
 }
 
 function normalizeTimestamp(input: unknown): string {
@@ -132,17 +134,17 @@ function normalizeSource(input: unknown): LedgerEntry['source'] {
   return 'echo';
 }
 
-function epiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry {
+function epiconToLedgerEntry(item: EpiconFeedItem, idx: number, fallbackCycle: string): LedgerEntry {
   const timestamp = normalizeTimestamp(item.timestamp);
   const proofState = normalizeProofState(item);
   return {
     id: item.id?.trim() || `epicon-feed-${idx}-${timestamp}`,
-    cycleId: normalizeCycle(item),
+    cycleId: normalizeCycle(item, fallbackCycle),
     type: 'epicon',
     agentOrigin: normalizeAgent(item),
     timestamp,
     title: item.title,
-    summary: item.body ?? item.title ?? 'EPICON feed event',
+    summary: item.body ?? item.summary ?? item.title ?? 'EPICON feed event',
     integrityDelta: 0,
     ...proofState,
     category: normalizeCategory(item.category),
@@ -152,12 +154,13 @@ function epiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry {
   };
 }
 
-function annotateEchoEntry(entry: LedgerEntry): LedgerEntry {
-  if (entry.statusReason && entry.proofSource && entry.canonState) return entry;
+function annotateEchoEntry(entry: LedgerEntry, fallbackCycle: string): LedgerEntry {
   const committed = entry.status === 'committed';
   const reverted = entry.status === 'reverted';
+  const inferredCycle = inferCycleFromText(entry.cycleId, entry.id, entry.title, entry.summary, entry.tags, entry.source) ?? fallbackCycle;
   return {
     ...entry,
+    cycleId: inferredCycle,
     statusReason: entry.statusReason ?? (reverted ? 'echo_memory_reverted' : committed ? 'echo_memory_committed' : 'echo_memory_pending'),
     proofSource: entry.proofSource ?? 'echo_memory',
     canonState: entry.canonState ?? (reverted ? 'blocked' : committed ? 'candidate' : 'hot'),
@@ -175,23 +178,24 @@ function dedupeSort(entries: LedgerEntry[]): LedgerEntry[] {
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
-async function fetchEpiconLedgerFallback(request: NextRequest): Promise<LedgerEntry[]> {
+async function fetchEpiconLedgerFallback(request: NextRequest, fallbackCycle: string): Promise<LedgerEntry[]> {
   try {
     const url = new URL('/api/epicon/feed?limit=100&include_catalog=false', request.nextUrl.origin);
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return [];
     const data = (await res.json()) as { items?: EpiconFeedItem[] };
     const items = Array.isArray(data.items) ? data.items : [];
-    return items.map(epiconToLedgerEntry);
+    return items.map((item, idx) => epiconToLedgerEntry(item, idx, fallbackCycle));
   } catch {
     return [];
   }
 }
 
 export async function GET(request: NextRequest) {
+  const activeCycle = currentCycleId();
   try {
-    const echoEvents = getEchoLedger().map(annotateEchoEntry);
-    const epiconEvents = await fetchEpiconLedgerFallback(request);
+    const echoEvents = getEchoLedger().map((entry) => annotateEchoEntry(entry, activeCycle));
+    const epiconEvents = await fetchEpiconLedgerFallback(request, activeCycle);
     const events = dedupeSort([...echoEvents, ...epiconEvents]).slice(0, 100);
     const pending = events.filter((e) => e.status === 'pending').length;
     const confirmed = events.filter((e) => e.status === 'committed').length;
@@ -208,6 +212,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         ok: true,
+        cycleId: activeCycle,
         events,
         candidates: { pending, confirmed, contested },
         canon,
@@ -232,6 +237,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         ok: true,
+        cycleId: activeCycle,
         events: [],
         candidates: { pending: 0, confirmed: 0, contested: 0 },
         canon: { hot: 0, candidate: 0, attested: 0, sealed: 0, blocked: 0 },
