@@ -2,16 +2,18 @@
  * ECHO Ingest API Route
  *
  * GET  /api/echo/ingest — Check ingest status
- * POST /api/echo/ingest — Trigger a new ingest cycle (called by Vercel Cron)
+ * POST /api/echo/ingest — Trigger a new ingest cycle (called by Vercel Cron / authorized agents)
  *
- * Vercel Cron hits this endpoint daily at 6 AM UTC.
- * Feed route auto-re-ingests when data is stale (>2h).
- * Can also be triggered manually: curl -X POST /api/echo/ingest
+ * POST requires a configured write token via one of:
+ * - Authorization: Bearer <AGENT_SERVICE_TOKEN | CRON_SECRET | MOBIUS_WRITE_TOKEN>
+ * - x-agent-service-token
+ * - x-cron-secret
+ * - x-mobius-write-token
  *
  * After ingest, generates a docs/echo/ snapshot (JSON ledger + dashboard).
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { fetchAllSources } from '@/lib/echo/sources';
 import type { RawEvent } from '@/lib/echo/sources';
 import { transformBatch } from '@/lib/echo/transform';
@@ -27,6 +29,7 @@ import { writeSnapshot } from '@/lib/echo/snapshot-writer';
 import { saveEchoState } from '@/lib/kv/store';
 import { querySonarForLane } from '@/lib/signals/perplexity-sonar';
 import { persistEchoIngestSideEffects, writeEchoKvHeartbeatToMobius } from '@/lib/echo/kv-persist-ingest';
+import { requireWriteAuth } from '@/lib/auth/agent-write-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,12 +49,13 @@ export async function GET() {
   return NextResponse.json({
     agent: 'ECHO',
     status: 'operational',
+    write_auth: 'required_for_post',
     ...echoMicProvisionalFields(),
     ...status,
   });
 }
 
-export async function POST() {
+export async function runEchoIngest() {
   const startTime = Date.now();
 
   try {
@@ -171,4 +175,24 @@ export async function POST() {
       { status: 500 },
     );
   }
+}
+
+export async function POST(req: NextRequest) {
+  const auth = requireWriteAuth(req);
+  if (!auth.ok) {
+    return NextResponse.json(
+      {
+        agent: 'ECHO',
+        action: 'ingest',
+        result: 'blocked',
+        error: auth.code,
+        message: auth.code === 'write_auth_not_configured'
+          ? 'Write auth is not configured. Set AGENT_SERVICE_TOKEN, CRON_SECRET, or MOBIUS_WRITE_TOKEN.'
+          : 'Write auth required for ECHO ingest POST.',
+      },
+      { status: auth.status },
+    );
+  }
+
+  return runEchoIngest();
 }

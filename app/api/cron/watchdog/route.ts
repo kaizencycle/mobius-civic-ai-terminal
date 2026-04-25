@@ -12,7 +12,7 @@ import { GET as getKvHealth } from '@/app/api/kv/health/route';
 import { POST as postSeedKv } from '@/app/api/admin/seed-kv/route';
 import { GET as getIntegrityStatus } from '@/app/api/integrity-status/route';
 import { GET as getTripwireStatus } from '@/app/api/tripwire/status/route';
-import { POST as postEchoIngest } from '@/app/api/echo/ingest/route';
+import { runEchoIngest } from '@/app/api/echo/ingest/route';
 import { POST as postEpiconPromote } from '@/app/api/epicon/promote/route';
 
 /**
@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
   const tripwireResult = await runAction(() => getTripwireStatus());
   actions.push(`tripwire-state:${tripwireResult.ok ? 'ok' : `fail:${tripwireResult.status}`}`);
 
-  const echoResult = await runAction(() => postEchoIngest(), 30_000);
+  const echoResult = await runAction(() => runEchoIngest(), 30_000);
   actions.push(`echo-ingest:${echoResult.ok ? 'ok' : `fail:${echoResult.status}`}`);
 
   const promoteRequest = makeInternalRequest(origin, '/api/epicon/promote', {
