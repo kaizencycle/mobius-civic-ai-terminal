@@ -41,6 +41,9 @@ function laneState(lanes: Record<string, unknown> | undefined, ...keys: string[]
     if (!row) continue;
     const state = normalizeState(row.freshness ?? row.state ?? row.status ?? row.message);
     if (state !== 'unknown') return state;
+    if (row.ok === false || row.available === false) return 'degraded';
+    if (row.elevated === true) return 'watch';
+    if (row.ok === true || row.available === true) return 'ok';
   }
   return 'unknown';
 }
@@ -86,13 +89,19 @@ function countLaneRows(lanes: Record<string, unknown> | undefined): number {
   return Object.keys(lanes).length;
 }
 
+function isProblemLane(value: unknown): boolean {
+  const row = value as Record<string, unknown> | undefined;
+  if (!row || typeof row !== 'object') return false;
+  const state = normalizeState(row.freshness ?? row.state ?? row.status ?? row.message);
+  if (state === 'watch' || state === 'slow' || state === 'stale' || state === 'degraded' || state === 'offline') {
+    return true;
+  }
+  return row.ok === false || row.available === false || row.elevated === true;
+}
+
 function countProblemLanes(lanes: Record<string, unknown> | undefined): number {
   if (!lanes) return 0;
-  return Object.values(lanes).filter((value) => {
-    const row = value as Record<string, unknown> | undefined;
-    const state = normalizeState(row?.freshness ?? row?.state ?? row?.status ?? row?.message);
-    return state === 'watch' || state === 'slow' || state === 'stale' || state === 'degraded' || state === 'offline';
-  }).length;
+  return Object.values(lanes).filter(isProblemLane).length;
 }
 
 function flowBudgetClass(state: StageState): string {
