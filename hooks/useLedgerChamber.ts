@@ -16,6 +16,7 @@ export type LedgerCanonCounts = {
 
 export type LedgerChamberPayload = {
   ok: boolean;
+  cycleId?: string;
   events: LedgerEntry[];
   candidates: { pending: number; confirmed: number; contested: number };
   canon?: LedgerCanonCounts;
@@ -33,10 +34,11 @@ export function useLedgerChamber(enabled: boolean) {
   const preview = useMemo(() => {
     const epicon = snapshot?.epicon?.data as { items?: Array<Record<string, unknown>> } | undefined;
     const items = Array.isArray(epicon?.items) ? epicon.items : [];
+    const activeCycle = digest?.cycle ?? snapshot?.cycle ?? 'C-—';
     const fallbackRows = Math.max(digest?.ledger_preview.pending ?? 0, items.length, 1);
     const events: LedgerEntry[] = items.slice(0, 20).map((item, idx) => ({
       id: typeof item.id === 'string' ? item.id : `snapshot-${idx}`,
-      cycleId: digest?.cycle ?? snapshot?.cycle ?? 'C-—',
+      cycleId: typeof item.cycle === 'string' ? item.cycle : activeCycle,
       type: 'epicon',
       agentOrigin: typeof item.agentOrigin === 'string' ? item.agentOrigin : 'ECHO',
       timestamp: typeof item.timestamp === 'string' ? item.timestamp : (digest?.timestamp ?? snapshot?.timestamp ?? new Date().toISOString()),
@@ -56,7 +58,7 @@ export function useLedgerChamber(enabled: boolean) {
       for (let i = 0; i < fallbackRows; i += 1) {
         events.push({
           id: `digest-${i}`,
-          cycleId: digest?.cycle ?? 'C-—',
+          cycleId: activeCycle,
           type: 'epicon',
           agentOrigin: 'ECHO',
           timestamp: digest?.timestamp ?? new Date().toISOString(),
@@ -73,6 +75,7 @@ export function useLedgerChamber(enabled: boolean) {
 
     return {
       ok: true,
+      cycleId: activeCycle,
       events,
       candidates: {
         pending: digest?.ledger_preview.pending ?? events.length,
