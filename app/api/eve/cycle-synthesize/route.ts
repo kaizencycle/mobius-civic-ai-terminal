@@ -63,7 +63,6 @@ async function fanOutSentinelCouncilAfterEve(
   });
   const atlasJson = (await atlasRes.json().catch(() => null)) as { journalId?: string; journal?: AgentJournalEntry } | null;
   const atlasJournalId = typeof atlasJson?.journalId === 'string' ? atlasJson.journalId : null;
-  const atlasEntry = atlasJson?.journal && typeof atlasJson.journal === 'object' ? atlasJson.journal : null;
 
   const zeusRes = await fetch(`${base}/api/agents/zeus/verify`, {
     method: 'POST',
@@ -79,7 +78,6 @@ async function fanOutSentinelCouncilAfterEve(
   });
   const zeusJson = (await zeusRes.json().catch(() => null)) as { journalId?: string; journal?: AgentJournalEntry } | null;
   const zeusJournalId = typeof zeusJson?.journalId === 'string' ? zeusJson.journalId : null;
-  const zeusEntry = zeusJson?.journal && typeof zeusJson.journal === 'object' ? zeusJson.journal : null;
 
   let giForSteward = giVal;
   try {
@@ -91,12 +89,16 @@ async function fanOutSentinelCouncilAfterEve(
     // keep giVal
   }
 
-  const stewardEntries = await appendStewardCronJournals({
+  const stewardResult = await appendStewardCronJournals({
     cycle: cycleId,
     gi: giForSteward,
     source: 'cron',
     zeusJournalId,
   });
+
+  if (stewardResult.failedAgents.length > 0) {
+    console.warn('[eve/cycle-synthesize] steward journal partial failures:', stewardResult.failedAgents.join(', '));
+  }
 
   // Fire-and-forget promotion sweep — runs after every synthesis so eligible
   // EPICONs commit in the same cycle rather than waiting for the nightly cron.
@@ -218,9 +220,8 @@ export async function POST(request: NextRequest) {
 
     const eveMii = inferEveConfidence(payload);
 
-    let eveJournal: AgentJournalEntry | null = null;
     try {
-      eveJournal = await appendAgentJournalEntry({
+      await appendAgentJournalEntry({
         agent: 'EVE',
         cycle: cycleId,
         observation: `EVE ${mode} synthesis executed${reason ? ` for reason ${reason}` : ''}.`,

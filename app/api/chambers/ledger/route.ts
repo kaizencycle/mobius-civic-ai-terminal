@@ -39,6 +39,11 @@ function cleanText(input: unknown): string {
   return typeof input === 'string' ? input.trim() : '';
 }
 
+function safeText(input: unknown): string | undefined {
+  const text = cleanText(input);
+  return text.length > 0 ? text : undefined;
+}
+
 function inferCycleFromText(...inputs: unknown[]): string | null {
   for (const input of inputs) {
     const text = Array.isArray(input) ? input.join(' ') : cleanText(input);
@@ -59,7 +64,7 @@ function normalizeTimestamp(input: unknown): string {
 }
 
 function normalizeAgent(item: EpiconFeedItem): string {
-  return (item.agentOrigin ?? item.author ?? 'ECHO').trim().toUpperCase();
+  return safeText(item.agentOrigin ?? item.author)?.toUpperCase() ?? 'ECHO';
 }
 
 function isMergeEvent(item: EpiconFeedItem): boolean {
@@ -142,13 +147,13 @@ function epiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry {
   const timestamp = normalizeTimestamp(item.timestamp);
   const proofState = normalizeProofState(item);
   return {
-    id: item.id?.trim() || `epicon-feed-${idx}-${timestamp}`,
+    id: safeText(item.id) ?? `epicon-feed-${idx}-${timestamp}`,
     cycleId: normalizeCycle(item),
     type: 'epicon',
     agentOrigin: normalizeAgent(item),
     timestamp,
-    title: item.title,
-    summary: item.body ?? item.summary ?? item.title ?? 'EPICON feed event',
+    title: safeText(item.title),
+    summary: safeText(item.body ?? item.summary ?? item.title) ?? 'EPICON feed event',
     integrityDelta: 0,
     ...proofState,
     category: normalizeCategory(item.category),
@@ -156,6 +161,14 @@ function epiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry {
     tags: item.tags,
     source: normalizeSource(item.source),
   };
+}
+
+function safeEpiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry | null {
+  try {
+    return epiconToLedgerEntry(item, idx);
+  } catch {
+    return null;
+  }
 }
 
 function annotateEchoEntry(entry: LedgerEntry): LedgerEntry {
@@ -194,14 +207,14 @@ async function fetchEpiconPage(request: NextRequest, page: number, limit: number
 }
 
 async function fetchEpiconLedgerFallback(request: NextRequest): Promise<LedgerEntry[]> {
-  try {
-    const pages = await Promise.all(
-      Array.from({ length: LEDGER_SCROLL_PAGES }, (_, page) => fetchEpiconPage(request, page, LEDGER_PAGE_SIZE)),
-    );
-    return pages.flat().map(epiconToLedgerEntry).slice(0, LEDGER_MAX_ROWS);
-  } catch {
-    return [];
-  }
+  const pageResults = await Promise.allSettled(
+    Array.from({ length: LEDGER_SCROLL_PAGES }, (_, page) => fetchEpiconPage(request, page, LEDGER_PAGE_SIZE)),
+  );
+  return pageResults
+    .flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
+    .map(safeEpiconToLedgerEntry)
+    .filter((entry): entry is LedgerEntry => Boolean(entry))
+    .slice(0, LEDGER_MAX_ROWS);
 }
 
 export async function GET(request: NextRequest) {
