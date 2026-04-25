@@ -3,9 +3,27 @@ import type { NextRequest } from 'next/server';
 
 const WRITE_TOKEN_ENVS = ['AGENT_SERVICE_TOKEN', 'CRON_SECRET', 'MOBIUS_WRITE_TOKEN'] as const;
 
+function normalizeTokenMaterial(value?: string | null): string | null {
+  if (!value) return null;
+  let normalized = value.trim();
+  if (!normalized) return null;
+
+  const bearerMatch = normalized.match(/^Bearer\s+(.+)$/i);
+  if (bearerMatch) normalized = bearerMatch[1].trim();
+
+  if (
+    (normalized.startsWith('"') && normalized.endsWith('"')) ||
+    (normalized.startsWith("'") && normalized.endsWith("'"))
+  ) {
+    normalized = normalized.slice(1, -1).trim();
+  }
+
+  return normalized || null;
+}
+
 function configuredWriteTokens(): string[] {
   return WRITE_TOKEN_ENVS
-    .map((key) => process.env[key]?.trim())
+    .map((key) => normalizeTokenMaterial(process.env[key]))
     .filter((value): value is string => Boolean(value));
 }
 
@@ -18,10 +36,11 @@ export function hasConfiguredWriteToken(): boolean {
 }
 
 export function verifyWriteToken(candidate?: string | null): boolean {
-  if (!candidate) return false;
+  const normalizedCandidate = normalizeTokenMaterial(candidate);
+  if (!normalizedCandidate) return false;
   const tokens = configuredWriteTokens();
   if (tokens.length === 0) return false;
-  const candidateDigest = digest(candidate.trim());
+  const candidateDigest = digest(normalizedCandidate);
   return tokens.some((token) => timingSafeEqual(candidateDigest, digest(token)));
 }
 
