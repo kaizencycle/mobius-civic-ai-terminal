@@ -14,17 +14,25 @@ export type LedgerCanonCounts = {
   blocked: number;
 };
 
+export type LedgerPagination = {
+  maxRows: number;
+  pageSize: number;
+  pages: number;
+};
+
 export type LedgerChamberPayload = {
   ok: boolean;
   cycleId?: string;
   events: LedgerEntry[];
   candidates: { pending: number; confirmed: number; contested: number };
   canon?: LedgerCanonCounts;
+  pagination?: LedgerPagination;
   fallback: boolean;
   timestamp: string;
 };
 
 const EMPTY_CANON: LedgerCanonCounts = { hot: 0, candidate: 0, attested: 0, sealed: 0, blocked: 0 };
+const PREVIEW_PAGINATION: LedgerPagination = { maxRows: 300, pageSize: 100, pages: 3 };
 
 export function useLedgerChamber(enabled: boolean) {
   const { snapshot } = useTerminalSnapshot();
@@ -83,6 +91,7 @@ export function useLedgerChamber(enabled: boolean) {
         contested: digest?.ledger_preview.contested ?? 0,
       },
       canon: { ...EMPTY_CANON, hot: events.length },
+      pagination: PREVIEW_PAGINATION,
       fallback: true,
       timestamp: digest?.timestamp ?? snapshot?.timestamp ?? new Date().toISOString(),
     } satisfies LedgerChamberPayload;
