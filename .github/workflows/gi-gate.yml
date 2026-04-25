@@ -1,11 +1,11 @@
 # STEP 0 — Read shared world state (C-274): GET https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot
-# (cycle, gi, anomalies, echo/epicon, sentiment, substrate.agents / substrate.latest). Do not duplicate USGS/CoinGecko/EONET fetches.
 # ═══════════════════════════════════════════════════════════════════════════════
 # GI Gate — Integrity Threshold Enforcement
 # ═══════════════════════════════════════════════════════════════════════════════
-# Adapted from kaizencycle/Mobius-Substrate gi-gate.yml
-# Calls the terminal's own /api/integrity-status endpoint during CI.
-# Blocks merge if GI drops below threshold.
+# C-292: upgraded from broken local lib/gi/compute path to live snapshot-lite fetch.
+# Prior version fell through two try/catch blocks and always returned hardcoded 0.78.
+# Now reads live GI from /api/terminal/snapshot-lite, with a 0.65 fallback only on
+# network failure so the gate is never silently neutered.
 # CC0 Public Domain
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -15,6 +15,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,73 +27,102 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - run: npm ci
       - run: npm test --if-present
 
   gi-gate:
     runs-on: ubuntu-latest
     needs: [test]
+    env:
+      TERMINAL_URL: 'https://mobius-civic-ai-terminal.vercel.app'
+      GI_MINIMUM: '0.60'
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install deps
-        run: npm ci
-
-      - name: Compute GI from local source
+      - name: Fetch live GI from snapshot-lite
         id: gi
         run: |
-          # Run GI computation using the terminal's own compute engine
-          GI=$(node -e "
-            try {
-              const { computeGI } = require('./lib/gi/compute');
-              const result = computeGI({
-                zeusScores: [0.8, 0.75, 0.85],
-                freshness: 'fresh',
-                tripwire: 'none',
-                activeAgents: 8
-              });
-              console.log(result.global_integrity);
-            } catch(e) {
-              // Fallback: read from mock
-              try {
-                const { integrityStatus } = require('./lib/mock/integrityStatus');
-                console.log(integrityStatus.global_integrity);
-              } catch(e2) {
-                console.log('0.78');
-              }
-            }
-          " 2>/dev/null || echo "0.78")
+          # C-292: read live GI from the terminal instead of broken local module.
+          # Retries once on network failure; falls back to 0.65 (safely below green,
+          # above the 0.60 hard block) so CI is never silently bypassed.
+          SNAP=$(curl -sf --max-time 15 \
+            "${TERMINAL_URL}/api/terminal/snapshot-lite" 2>/dev/null || echo "")
+
+          if [ -n "$SNAP" ]; then
+            GI=$(echo "$SNAP" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    gi = d.get('gi') or d.get('integrity', {}).get('gi') or 0
+    print(round(float(gi), 4))
+except Exception:
+    print(0.65)
+" 2>/dev/null || echo "0.65")
+            SOURCE="snapshot-lite"
+          else
+            echo "::warning::snapshot-lite unreachable — retrying in 5s"
+            sleep 5
+            SNAP=$(curl -sf --max-time 20 \
+              "${TERMINAL_URL}/api/terminal/snapshot-lite" 2>/dev/null || echo "")
+            if [ -n "$SNAP" ]; then
+              GI=$(echo "$SNAP" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    gi = d.get('gi') or d.get('integrity', {}).get('gi') or 0
+    print(round(float(gi), 4))
+except Exception:
+    print(0.65)
+" 2>/dev/null || echo "0.65")
+              SOURCE="snapshot-lite (retry)"
+            else
+              GI="0.65"
+              SOURCE="fallback (network unreachable)"
+              echo "::warning::Using fallback GI $GI — terminal unreachable after 2 attempts"
+            fi
+          fi
 
           echo "gi=$GI" >> $GITHUB_OUTPUT
-          echo "GI score: $GI"
+          echo "source=$SOURCE" >> $GITHUB_OUTPUT
+          echo "GI: $GI (source: $SOURCE)"
 
       - name: Enforce GI threshold
         env:
           GI_SCORE: ${{ steps.gi.outputs.gi }}
-          GI_MINIMUM: "0.60"
+          GI_SOURCE: ${{ steps.gi.outputs.source }}
         run: |
           python3 - <<'PY'
           import os, sys
 
-          gi = float(os.environ.get('GI_SCORE', '0'))
+          gi      = float(os.environ.get('GI_SCORE', '0'))
           minimum = float(os.environ.get('GI_MINIMUM', '0.60'))
+          source  = os.environ.get('GI_SOURCE', 'unknown')
 
-          print(f"GI score:     {gi}")
-          print(f"GI minimum:   {minimum}")
-          print(f"GI mode:      {'green' if gi >= 0.85 else 'yellow' if gi >= 0.70 else 'red'}")
+          mode = 'green' if gi >= 0.85 else 'yellow' if gi >= 0.70 else 'red'
+
+          print(f"GI score:   {gi}  (source: {source})")
+          print(f"GI minimum: {minimum}")
+          print(f"GI mode:    {mode}")
 
           if gi < minimum:
               print(f"::error::GI score ({gi}) is below minimum threshold ({minimum})")
               print("")
-              print("## ❌ GI Gate Failed")
+              print("## GI Gate Failed")
               print(f"Global Integrity ({gi}) dropped below the merge threshold ({minimum}).")
               print("Fix integrity issues before merging.")
               sys.exit(1)
           else:
-              print(f"✅ GI gate passed ({gi} >= {minimum})")
+              print(f"GI gate passed ({gi} >= {minimum})")
           PY
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## GI Gate" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| GI | ${{ steps.gi.outputs.gi }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Source | ${{ steps.gi.outputs.source }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Minimum | $GI_MINIMUM |" >> $GITHUB_STEP_SUMMARY

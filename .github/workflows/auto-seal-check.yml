@@ -1,18 +1,29 @@
-name: auto-seal-check
+# C-292: SUSPENDED — this workflow was firing 288 times/day (every 5 minutes) with
+# no configured SEAL_ISSUE_URL secret, producing 288 silent curl failures per day.
+# The Auto-Seal Engine is handled by Vercel cron at /api/cron/vault-attestation.
+# This GitHub Actions workflow is superseded and no longer needed for sealing.
+#
+# To re-enable: configure SEAL_ISSUE_URL and SEAL_TOKEN secrets, then restore
+# the schedule trigger below. Until then the workflow is workflow_dispatch-only.
+
+name: auto-seal-check (SUSPENDED C-292)
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
-  workflow_dispatch:
+  workflow_dispatch:    # manual only — schedule removed to stop 288 no-op runs/day
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Call seal issue
+      - name: Check seal endpoint configuration
         env:
           SEAL_ISSUE_URL: ${{ secrets.SEAL_ISSUE_URL }}
           SEAL_TOKEN: ${{ secrets.SEAL_TOKEN }}
         run: |
+          if [ -z "${SEAL_ISSUE_URL:-}" ]; then
+            echo "::notice::SEAL_ISSUE_URL secret not configured — auto-seal-check is a no-op."
+            echo "The vault-attestation cron on Vercel handles sealing. This workflow can be deleted."
+            exit 0
+          fi
           curl -X POST "$SEAL_ISSUE_URL" \
             -H "Authorization: Bearer $SEAL_TOKEN"

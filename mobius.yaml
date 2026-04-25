@@ -1,8 +1,9 @@
-# mobius.yaml — Node declaration contract v1 (C-286)
-# Canon: this file declares identity, pulse, ingest targets, MCP, and policy — it does not perform writes.
-# Write path: KV / runtime → writer / orchestrator → declared ingest target → durable ledger → optional feed mirror.
+# mobius.yaml — Node declaration contract v1.1 (C-292)
+# Canon: this file declares identity, pulse, ingest targets, MCP, workflow status, and policy.
+# C-292: workflow statuses corrected — catalog and gi-gate are active (were: unlisted/planned).
+# auto-seal-check suspended. sentinel-heartbeat and epicon-kv-sync rates updated.
 
-version: "1.0"
+version: "1.1"
 
 mesh:
   enabled: true
@@ -46,6 +47,11 @@ pulse:
   health_url: "https://mobius-civic-ai-terminal.vercel.app/api/health"
   feed_url: "https://mobius-civic-ai-terminal.vercel.app/api/epicon/feed"
   snapshot_url: "https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot-lite"
+  full_snapshot_url: "https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot"
+  journal_url: "https://mobius-civic-ai-terminal.vercel.app/api/chambers/journal?mode=hot&limit=100"
+  lane_diagnostics_url: "https://mobius-civic-ai-terminal.vercel.app/api/chambers/lane-diagnostics"
+  # C-292: watermark endpoint for diagnosing cron write flow per lane
+  watermark_url: "https://mobius-civic-ai-terminal.vercel.app/api/debug/watermark"
   freshness_sla_seconds: 900
   integrity_weight: 1.0
   lanes:
@@ -53,6 +59,8 @@ pulse:
     - signals
     - tripwire
     - heartbeat
+    - journal
+    - ledger
     - mic_readiness
     - vault
     - mcp
@@ -60,14 +68,18 @@ pulse:
     - terminal_snapshot
     - mic_readiness
     - vault_runtime
+    - current_cycle
+    - operator_pulse
   emits:
     heartbeat: true
     gi: true
-    mii: false
+    mii: true
     mic: true
     vault: true
     tripwire: true
     anomalies: true
+    current_cycle: true
+    journal_hot: true
 
 ingest:
   enabled: true
@@ -156,28 +168,100 @@ policy:
   mirror_feed_to_repo: true
   canonical_ledger_node: "civic-protocol-core"
   hash_algorithm: "sha256"
+  terminal_is_storage: false
+  terminal_is_operator_view: true
+  human_merge_required_for_canon: true
 
-# C-288 — Mesh execution fabric (declaration only; Actions run the jobs).
+# C-292 — Workflow statuses corrected; auto-seal-check suspended; rates updated.
 jobs:
   enabled: true
+  status_values:
+    - active
+    - manual
+    - planned
+    - suspended
+    - archived
   workflows:
     - id: "publish-cycle-state"
       file: ".github/workflows/publish-cycle-state.yml"
+      status: "active"
       trigger: "schedule"
       cron: "*/10 * * * *"
+      role: "pulse_publish"
       description: "Fetch snapshot-lite → ledger/cycle-state.json for HIVE / Substrate / browser-shell"
-    - id: "fetch-hive-world"
-      file: ".github/workflows/fetch-hive-world.yml"
-      trigger: "manual"
-      description: "Slack-agent allowlisted stub — extend for HIVE world fetch"
+
+    - id: "sentinel-heartbeat"
+      file: ".github/workflows/sentinel-heartbeat.yml"
+      status: "active"
+      trigger: "schedule"
+      cron: "0 */4 * * *"
+      role: "health_attestation"
+      description: "C-292: reduced from */30 (48x/day) to 0 */4 (6x/day); diff-gated commits"
+
+    - id: "epicon-kv-sync"
+      file: ".github/workflows/epicon-kv-sync.yml"
+      status: "active"
+      trigger: "schedule"
+      cron: "*/30 * * * *"
+      role: "kv_keepalive"
+      description: "C-292: reduced from */15 (96x/day) to */30 (48x/day)"
+
+    - id: "catalog"
+      file: ".github/workflows/catalog.yml"
+      status: "active"
+      trigger: "schedule"
+      cron: "0 */2 * * *"
+      role: "catalog_snapshot"
+      description: "C-292: upgraded — now reads live GI/mode/cycle from snapshot-lite (was hardcoded 0.78)"
+
+    - id: "gi-gate"
+      file: ".github/workflows/gi-gate.yml"
+      status: "active"
+      trigger: "pull_request"
+      role: "merge_integrity_gate"
+      description: "C-292: upgraded — now fetches live GI from snapshot-lite (was broken local lib/gi/compute)"
+
+    - id: "anti-nuke"
+      file: ".github/workflows/anti-nuke.yml"
+      status: "active"
+      trigger: "pull_request"
+      role: "mass_delete_guard"
+      description: "Blocks PRs with excessive file deletions in protected paths"
+
+    - id: "sentinel-review"
+      file: ".github/workflows/sentinel-review.yml"
+      status: "active"
+      trigger: "pull_request"
+      role: "ai_pr_review"
+      description: "ATLAS (Anthropic) + AUREA (OpenAI) PR review — label-gated"
+
     - id: "mesh-aggregate"
       file: ".github/workflows/mesh-aggregate.yml"
+      status: "manual"
       trigger: "manual"
-      description: "Slack-agent allowlisted stub — extend for mesh aggregation"
+      role: "mesh_filter"
+      description: "Aggregate Terminal/Substrate/Civic/OAA/Browser/HIVE node pulses"
+
+    - id: "fetch-hive-world"
+      file: ".github/workflows/fetch-hive-world.yml"
+      status: "manual"
+      trigger: "manual"
+      role: "world_signal_filter"
+      description: "HIVE world signal fetch"
+
     - id: "world-update"
       file: ".github/workflows/world-update.yml"
+      status: "manual"
       trigger: "manual"
-      description: "Slack-agent allowlisted stub — extend for world update pipeline"
+      role: "post_merge_state_publisher"
+      description: "Post-merge state publisher"
+
+    - id: "auto-seal-check"
+      file: ".github/workflows/auto-seal-check.yml"
+      status: "suspended"
+      trigger: "manual"
+      role: "vault_seal_trigger"
+      description: "C-292: suspended — was firing 288x/day with unconfigured SEAL_ISSUE_URL secret. Vercel cron at /api/cron/vault-attestation handles sealing."
 
 governance:
   agent_prs_allowed: true

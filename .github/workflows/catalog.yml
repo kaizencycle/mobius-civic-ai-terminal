@@ -1,14 +1,19 @@
 # STEP 0 — Read shared world state (C-274): GET https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot
-# (cycle, gi, anomalies, echo/epicon, sentiment, substrate.agents / substrate.latest). Do not duplicate USGS/CoinGecko/EONET fetches.
+# C-292: upgraded — fetch live GI/mode/cycle/terminal_status from snapshot-lite
+# instead of hardcoding gi: 0.78, mode: "yellow", terminal_status: "stressed".
+
 name: Mobius Catalog Update
 
 on:
   schedule:
     - cron: '0 */2 * * *'   # Every 2 hours
-  workflow_dispatch:          # Manual trigger
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+env:
+  TERMINAL_URL: 'https://mobius-civic-ai-terminal.vercel.app'
 
 jobs:
   catalog:
@@ -16,23 +21,67 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0     # Full history for stats
+          fetch-depth: 0
+
+      - name: Fetch live terminal state
+        id: terminal
+        run: |
+          # C-292: read live GI, mode, cycle, and degraded state from snapshot-lite.
+          SNAP=$(curl -sf --max-time 15 "${TERMINAL_URL}/api/terminal/snapshot-lite" 2>/dev/null || echo "")
+
+          if [ -n "$SNAP" ]; then
+            GI=$(echo "$SNAP" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print(round(float(d.get('gi') or 0.0), 4))
+" 2>/dev/null || echo "0")
+            MODE=$(echo "$SNAP" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print(d.get('mode') or 'unknown')
+" 2>/dev/null || echo "unknown")
+            CYCLE=$(echo "$SNAP" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print(d.get('cycle') or 'C-—')
+" 2>/dev/null || echo "C-—")
+            TERMINAL_STATUS=$(echo "$SNAP" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+lanes = d.get('lanes') or {}
+integrity = lanes.get('integrity') or {}
+print(integrity.get('terminal_status') or ('degraded' if d.get('degraded') else 'nominal'))
+" 2>/dev/null || echo "unknown")
+          else
+            echo "::warning::snapshot-lite unreachable — using fallback values"
+            GI="0"; MODE="unknown"; CYCLE="C-—"; TERMINAL_STATUS="unknown"
+          fi
+
+          echo "gi=$GI" >> $GITHUB_OUTPUT
+          echo "mode=$MODE" >> $GITHUB_OUTPUT
+          echo "cycle=$CYCLE" >> $GITHUB_OUTPUT
+          echo "terminal_status=$TERMINAL_STATUS" >> $GITHUB_OUTPUT
+          echo "GI=$GI mode=$MODE cycle=$CYCLE terminal_status=$TERMINAL_STATUS"
 
       - name: Generate catalog snapshot
         run: |
           set -e
           NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           NOW_FILE=$(date -u +"%Y%m%dT%H%M%SZ")
-          CYCLE=$(node -e "
-            const EPOCH = new Date('2025-07-07T00:00:00-05:00');
-            const now = new Date();
-            const est = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-            const estDate = new Date(est + 'T00:00:00-05:00');
-            const days = Math.floor((estDate.getTime() - EPOCH.getTime()) / 86400000);
-            console.log('C-' + days);
-          " 2>/dev/null || echo "C-260")
 
-          # Gather stats
+          # Use live cycle from snapshot-lite, fall back to local computation
+          CYCLE="${{ steps.terminal.outputs.cycle }}"
+          if [ "$CYCLE" = "C-—" ] || [ -z "$CYCLE" ]; then
+            CYCLE=$(node -e "
+              const EPOCH = new Date('2025-07-07T00:00:00-05:00');
+              const now = new Date();
+              const est = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+              const estDate = new Date(est + 'T00:00:00-05:00');
+              const days = Math.floor((estDate.getTime() - EPOCH.getTime()) / 86400000);
+              console.log('C-' + days);
+            " 2>/dev/null || echo "C-260")
+          fi
+
           COMMITS=$(git rev-list --count HEAD)
           FILES=$(git ls-files | wc -l)
           LOC=$(git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.css' | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
@@ -41,11 +90,11 @@ jobs:
           HOOKS=$(ls hooks/*.ts 2>/dev/null | wc -l)
           LIB_MODULES=$(ls lib/ 2>/dev/null | wc -l)
 
-          # Get deployment state from Vercel (public API)
-          DEPLOY_STATE="unknown"
+          GI="${{ steps.terminal.outputs.gi }}"
+          MODE="${{ steps.terminal.outputs.mode }}"
+          TERMINAL_STATUS="${{ steps.terminal.outputs.terminal_status }}"
 
-          # Build the snapshot
-          SNAPSHOT=$(cat <<EOF
+          SNAPSHOT=$(cat <<SNAPEOF
           {
             "repo": "kaizencycle/mobius-civic-ai-terminal",
             "generated_at": "${NOW}",
@@ -57,9 +106,10 @@ jobs:
               "api_routes": ${ROUTES}
             },
             "integrity": {
-              "gi": 0.78,
-              "mode": "yellow",
-              "terminal_status": "stressed"
+              "gi": ${GI:-0},
+              "mode": "${MODE}",
+              "terminal_status": "${TERMINAL_STATUS}",
+              "source": "snapshot-lite"
             },
             "agents": {
               "canonical_count": 8,
@@ -67,20 +117,21 @@ jobs:
               "micro_sources_total": 9
             },
             "recent_prs_merged": $(git log --oneline --since="7 days ago" --grep="Merge pull request" | wc -l),
-            "deployment_state": "${DEPLOY_STATE}"
+            "deployment_state": "production"
           }
-          EOF
+          SNAPEOF
           )
 
-          # Write timestamped snapshot
+          mkdir -p docs/catalog/history
           echo "${SNAPSHOT}" | python3 -m json.tool > "docs/catalog/history/${NOW_FILE}.json"
 
-          # Update data.json with fresh stats
           python3 -c "
           import json
           with open('docs/catalog/data.json') as f:
               data = json.load(f)
           data['generated_at'] = '${NOW}'
+          data['cycle'] = '${CYCLE}'
+          data['integrity'] = {'gi': float('${GI:-0}'), 'mode': '${MODE}', 'source': 'snapshot-lite'}
           data['stats']['total_commits'] = ${COMMITS}
           data['stats']['total_files'] = ${FILES}
           data['stats']['lines_of_code'] = ${LOC:-0}
@@ -93,10 +144,9 @@ jobs:
               f.write('\n')
           "
 
-          # Append to history index (keep last 500 entries)
           python3 -c "
           import json
-          snapshot = json.loads('''${SNAPSHOT}''')
+          snapshot = json.loads(open('docs/catalog/history/${NOW_FILE}.json').read())
           with open('docs/catalog/history/index.json') as f:
               idx = json.load(f)
           idx['updated_at'] = '${NOW}'
@@ -107,7 +157,6 @@ jobs:
               f.write('\n')
           "
 
-          # Update dashboard.md timestamp
           sed -i "s|^\*\*Generated:\*\*.*|\*\*Generated:\*\* \`${NOW}\`  |" docs/catalog/dashboard.md
 
       - name: Commit and push

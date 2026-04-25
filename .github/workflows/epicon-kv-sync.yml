@@ -9,7 +9,7 @@ name: EPICON KV Sync
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/30 * * * *'  # C-292: every 30m (was */15 = 96x/day → 48x/day, -50%)
   workflow_dispatch:
 
 permissions:
