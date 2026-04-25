@@ -194,14 +194,13 @@ async function fetchEpiconPage(request: NextRequest, page: number, limit: number
 }
 
 async function fetchEpiconLedgerFallback(request: NextRequest): Promise<LedgerEntry[]> {
-  try {
-    const pages = await Promise.all(
-      Array.from({ length: LEDGER_SCROLL_PAGES }, (_, page) => fetchEpiconPage(request, page, LEDGER_PAGE_SIZE)),
-    );
-    return pages.flat().map(epiconToLedgerEntry).slice(0, LEDGER_MAX_ROWS);
-  } catch {
-    return [];
-  }
+  const pageResults = await Promise.allSettled(
+    Array.from({ length: LEDGER_SCROLL_PAGES }, (_, page) => fetchEpiconPage(request, page, LEDGER_PAGE_SIZE)),
+  );
+  return pageResults
+    .flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
+    .map(epiconToLedgerEntry)
+    .slice(0, LEDGER_MAX_ROWS);
 }
 
 export async function GET(request: NextRequest) {
