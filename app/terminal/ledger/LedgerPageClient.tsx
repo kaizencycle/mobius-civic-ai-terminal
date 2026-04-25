@@ -78,8 +78,9 @@ export default function LedgerPageClient() {
   const { data, preview, full, error, stabilizationActive } = useLedgerChamber(true);
   const [sortKey, setSortKey] = useState<SortKey>('timestamp');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const feed = useMemo(() => (data ? ({ events: data.events, status: { cycleId: 'C-—' } } as EchoFeedResponse) : null), [data]);
+  const feed = useMemo(() => (data ? ({ events: data.events, status: { cycleId: data.cycleId ?? data.events[0]?.cycleId ?? 'C-—' } } as EchoFeedResponse) : null), [data]);
   const rows = useMemo(() => feed?.events ?? [], [feed]);
+  const activeCycle = data?.cycleId ?? feed?.status?.cycleId ?? rows.find((row) => row.cycleId !== 'C-—')?.cycleId ?? 'C-—';
   const sorted = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
   const totalDelta = useMemo(() => rows.reduce((sum, row) => sum + (row.integrityDelta ?? 0), 0), [rows]);
   const canon = data?.canon;
@@ -103,7 +104,7 @@ export default function LedgerPageClient() {
     <div className="flex h-full flex-col overflow-hidden p-4 text-xs">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span className="text-slate-400">
-          {feed.status?.cycleId ?? 'C-—'} · {rows.length} ledger rows
+          {activeCycle} · {rows.length} ledger rows
         </span>
         {preview && !full ? (
           <span className="rounded border border-cyan-700/40 bg-cyan-950/20 px-2 py-1 text-[10px] text-cyan-200">preview</span>
@@ -134,9 +135,6 @@ export default function LedgerPageClient() {
         ) : null}
       </div>
       {error ? <div className="mb-2 rounded border border-amber-700/40 bg-amber-950/20 px-2 py-1 text-[11px] text-amber-200">Ledger chamber degraded · showing snapshot preview</div> : null}
-      {/* OPT-15 / Bug-1 (C-291): surface LEDGER_CIRCUIT_OPEN state with recovery guidance.
-          When the ledger circuit breaker is open, EPICON candidates can't be promoted.
-          This was previously silent — operators had no indication or recovery path. */}
       {(data as { degraded?: boolean; ledgerError?: string } | null)?.ledgerError === 'ledger_circuit_open' ? (
         <div className="mb-2 rounded border border-rose-700/50 bg-rose-950/20 px-3 py-2 text-[11px] text-rose-200">
           <span className="font-semibold">LEDGER CIRCUIT OPEN</span>
@@ -152,7 +150,6 @@ export default function LedgerPageClient() {
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-slate-800">
-          {/* Desktop header — hidden on mobile */}
           <div className="hidden md:grid grid-cols-[90px_70px_1fr_90px_50px_80px_70px] bg-slate-950/80 px-3 py-2 text-[10px] uppercase tracking-wide text-slate-400">
             <button type="button" onClick={() => toggleSort('timestamp')} className="text-left hover:text-slate-200">
               Time{arrow('timestamp')}
@@ -181,7 +178,6 @@ export default function LedgerPageClient() {
               const hasDelta = Math.abs(delta) > 0.0001;
               return (
                 <div key={row.id}>
-                  {/* Desktop row */}
                   <div className="hidden md:grid grid-cols-[90px_70px_1fr_90px_50px_80px_70px] items-center gap-1 px-3 py-1.5 text-slate-200">
                     <span className="font-mono text-[10px] text-slate-500">{row.timestamp.slice(11, 19)}Z</span>
                     <span className={`truncate font-mono text-[10px] ${agentColor(row.agentOrigin)}`} title={row.agentOrigin}>
@@ -197,7 +193,6 @@ export default function LedgerPageClient() {
                     </span>
                     <span className={`inline-flex w-fit rounded border px-1.5 py-0.5 text-[9px] ${statusBadge(row.status)}`}>{row.status}</span>
                   </div>
-                  {/* Mobile card */}
                   <div className="md:hidden px-3 py-2.5 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className={`font-mono text-[11px] font-semibold ${agentColor(row.agentOrigin)}`}>
