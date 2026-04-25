@@ -137,9 +137,10 @@ export async function GET(request: NextRequest) {
     const canonicalAvailable = mode === 'hot' ? false : !json.archive_error && archiveFetchedCount > 0;
     const degraded = json.ok === false || !res.ok || Boolean(json.archive_error);
     // OPT-5 (C-292): surface fallback_reason when tier is scoped but returned nothing —
-    // disambiguates "cron hasn't run yet" from a loading/error state in the UI.
+    // only when the chamber is healthy so degraded states don't misdirect operators
+    // toward "cron hasn't run yet" when the real problem is an upstream retrieval failure.
     const fallbackReason: string | null =
-      tier !== 'ALL' && entries.length === 0
+      tier !== 'ALL' && entries.length === 0 && !degraded
         ? `No ${tier.toUpperCase()} entries in current window — current cycle cron may not have written yet`
         : null;
 
