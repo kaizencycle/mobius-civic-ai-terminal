@@ -1,8 +1,9 @@
-# mobius.yaml — Node declaration contract v1 (C-286)
-# Canon: this file declares identity, pulse, ingest targets, MCP, and policy — it does not perform writes.
+# mobius.yaml — Node declaration contract v1.1 (C-292)
+# Canon: this file declares identity, pulse, ingest targets, MCP, workflow status, and policy — it does not perform writes.
 # Write path: KV / runtime → writer / orchestrator → declared ingest target → durable ledger → optional feed mirror.
+# Phase 1 Civic Mesh: Terminal is the big pulse; workflows are mesh filters, not random jobs.
 
-version: "1.0"
+version: "1.1"
 
 mesh:
   enabled: true
@@ -25,6 +26,19 @@ mesh:
     enabled: true
     registry_participation: true
 
+  civic_mesh:
+    phase: 1
+    role: "big_pulse"
+    loop: "observe_digest_interpret_propose_review_merge_canonize"
+    canon: "The Terminal is the pulse. Repos are organs. Workflows are arteries. Agents are immune cells. Human merge is consent."
+    nodes:
+      terminal: "kaizencycle/mobius-civic-ai-terminal"
+      substrate: "kaizencycle/Mobius-Substrate"
+      civic_ledger: "kaizencycle/Civic-Protocol-Core"
+      browser_shell: "kaizencycle/mobius-browser-shell"
+      oaa_memory: "kaizencycle/OAA-API-Library"
+      hive_world: "kaizencycle/mobius-hive"
+
   # Legacy mesh blocks (retained for backward compatibility with prior manifests)
   ledger:
     enabled: true
@@ -46,6 +60,9 @@ pulse:
   health_url: "https://mobius-civic-ai-terminal.vercel.app/api/health"
   feed_url: "https://mobius-civic-ai-terminal.vercel.app/api/epicon/feed"
   snapshot_url: "https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot-lite"
+  full_snapshot_url: "https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot"
+  journal_url: "https://mobius-civic-ai-terminal.vercel.app/api/chambers/journal?mode=hot&limit=100"
+  lane_diagnostics_url: "https://mobius-civic-ai-terminal.vercel.app/api/chambers/lane-diagnostics"
   freshness_sla_seconds: 900
   integrity_weight: 1.0
   lanes:
@@ -53,6 +70,8 @@ pulse:
     - signals
     - tripwire
     - heartbeat
+    - journal
+    - ledger
     - mic_readiness
     - vault
     - mcp
@@ -60,14 +79,47 @@ pulse:
     - terminal_snapshot
     - mic_readiness
     - vault_runtime
+    - current_cycle
+    - operator_pulse
   emits:
     heartbeat: true
     gi: true
-    mii: false
+    mii: true
     mic: true
     vault: true
     tripwire: true
     anomalies: true
+    current_cycle: true
+    journal_hot: true
+
+flow:
+  model: "river_not_dam"
+  hot:
+    lane: "KV HOT"
+    role: "short_term_live_memory"
+    visible_window: 100
+    recommended_retention: "rolling"
+  digest:
+    lane: "ECHO LANE DIGEST"
+    role: "filter_firehose_into_chamber_packets"
+  agents:
+    role: "sample_shape_challenge_gate_synthesize_repair"
+    rate_limiters:
+      ECHO: "intake_sampler"
+      HERMES: "dedupe_packet_router"
+      ZEUS: "contamination_challenge"
+      JADE: "canon_gate"
+      EVE: "synthesis_compressor"
+      AUREA: "overflow_architecture_review"
+      DAEDALUS: "repair_pr_generator"
+      ATLAS: "operator_assessment"
+  terminal:
+    role: "operator_view_not_storage"
+  overflow_route:
+    - "HOT_KV"
+    - "SUBSTRATE_JOURNAL"
+    - "CIVIC_LEDGER_PROOF"
+  rule: "All data may enter HOT. Not all HOT becomes priority. Not all priority becomes canon. Not all canon candidates become sealed."
 
 ingest:
   enabled: true
@@ -85,6 +137,14 @@ ingest:
     # Same as ingest.targets[0]; bearer ingest to /mesh/ingest
     write_url: ""
     auth: "bearer"
+  idempotency:
+    required: true
+    key_fields:
+      - node_id
+      - event_type
+      - cycle
+      - source_hash
+      - workflow_id
   targets:
     - node_id: "civic-protocol-core"
       purpose: "durable_ledger"
@@ -99,6 +159,9 @@ ingest:
         - MIC_GENESIS_BLOCK
         - MOBIUS_PULSE_V1
         - OAA_MEMORY_ENTRY_V1
+        - MESH_STATE_V1
+        - HIVE_WORLD_PULSE_V1
+        - WORLD_UPDATE_V1
 
 mcp:
   enabled: true
@@ -156,28 +219,70 @@ policy:
   mirror_feed_to_repo: true
   canonical_ledger_node: "civic-protocol-core"
   hash_algorithm: "sha256"
+  terminal_is_storage: false
+  terminal_is_operator_view: true
+  human_merge_required_for_canon: true
 
-# C-288 — Mesh execution fabric (declaration only; Actions run the jobs).
+# C-292 — Phase 1 Civic Mesh execution fabric.
 jobs:
   enabled: true
+  status_values:
+    - active
+    - manual
+    - planned
+    - archived
   workflows:
     - id: "publish-cycle-state"
       file: ".github/workflows/publish-cycle-state.yml"
+      status: "active"
       trigger: "schedule"
       cron: "*/10 * * * *"
+      role: "pulse_publish"
+      lane: "terminal_snapshot"
+      output:
+        - "ledger/cycle-state.json"
       description: "Fetch snapshot-lite → ledger/cycle-state.json for HIVE / Substrate / browser-shell"
-    - id: "fetch-hive-world"
-      file: ".github/workflows/fetch-hive-world.yml"
-      trigger: "manual"
-      description: "Slack-agent allowlisted stub — extend for HIVE world fetch"
     - id: "mesh-aggregate"
       file: ".github/workflows/mesh-aggregate.yml"
+      status: "manual"
       trigger: "manual"
-      description: "Slack-agent allowlisted stub — extend for mesh aggregation"
+      role: "mesh_filter"
+      lane: "civic_mesh_state"
+      output:
+        - "ledger/mesh-state.json"
+        - "ledger/mesh-health.json"
+        - "ledger/mesh-todos.json"
+      description: "Aggregate Terminal/Substrate/Civic/OAA/Browser/HIVE node pulses into one mesh state"
+    - id: "fetch-hive-world"
+      file: ".github/workflows/fetch-hive-world.yml"
+      status: "manual"
+      trigger: "manual"
+      role: "world_signal_filter"
+      lane: "hive_world"
+      output:
+        - "ledger/hive-world-pulse.json"
+      description: "Fetch Browser Shell / HIVE world pulse and convert it into civic signal packets"
     - id: "world-update"
       file: ".github/workflows/world-update.yml"
+      status: "manual"
       trigger: "manual"
-      description: "Slack-agent allowlisted stub — extend for world update pipeline"
+      role: "post_merge_state_publisher"
+      lane: "merged_canon_update"
+      output:
+        - "ledger/world-update.json"
+      description: "Publish approved merged canon state back into Terminal-readable world state"
+    - id: "catalog"
+      file: ".github/workflows/catalog.yml"
+      status: "planned"
+      trigger: "schedule"
+      role: "catalog_snapshot"
+      issue: "Uses hardcoded GI; should read snapshot-lite before active use"
+    - id: "gi-gate"
+      file: ".github/workflows/gi-gate.yml"
+      status: "planned"
+      trigger: "pull_request"
+      role: "merge_integrity_gate"
+      issue: "Uses fallback/local GI; should read live snapshot-lite or PR-local integrity output"
 
 governance:
   agent_prs_allowed: true
