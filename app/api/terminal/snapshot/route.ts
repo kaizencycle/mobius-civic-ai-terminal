@@ -30,9 +30,14 @@ import type { TrustTripwireSnapshot } from '@/lib/tripwire/types';
 
 export const dynamic = 'force-dynamic';
 
+// C-293 OPT-1: echo + promotion lanes persistently hit the 5s budget.
+// timedHandlerWith() lets individual lanes get a longer window so they
+// don't time-block faster lanes on the same Promise.all.
 const LANE_TIMEOUT_MS = 5_000;
+const SLOW_LANE_TIMEOUT_MS = 7_500; // for echo + promotion (Render cold-start tolerance)
 
-async function timedHandler(
+async function timedHandlerWith(
+  timeoutMs: number,
   request: NextRequest,
   handler: (request: NextRequest) => Promise<NextResponse>,
 ): Promise<{ leaf: SnapshotLeaf; duration_ms: number }> {
@@ -40,7 +45,7 @@ async function timedHandler(
   try {
     const response = await Promise.race([
       handler(request),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('lane_timeout')), LANE_TIMEOUT_MS)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('lane_timeout')), timeoutMs)),
     ]);
     const status = response.status;
     const payload = await response.json().catch(() => null);
@@ -60,6 +65,22 @@ async function timedHandler(
       duration_ms: Date.now() - start,
     };
   }
+}
+
+// Standard timeout wrapper (5s)
+function timedHandler(
+  request: NextRequest,
+  handler: (request: NextRequest) => Promise<NextResponse>,
+): Promise<{ leaf: SnapshotLeaf; duration_ms: number }> {
+  return timedHandlerWith(LANE_TIMEOUT_MS, request, handler);
+}
+
+// Slow-lane wrapper (7.5s) for Render-backed routes (echo, promotion)
+function slowTimedHandler(
+  request: NextRequest,
+  handler: (request: NextRequest) => Promise<NextResponse>,
+): Promise<{ leaf: SnapshotLeaf; duration_ms: number }> {
+  return timedHandlerWith(SLOW_LANE_TIMEOUT_MS, request, handler);
 }
 
 function makeRequest(baseUrl: string, path: string): NextRequest {
@@ -94,11 +115,11 @@ export async function GET(request: NextRequest) {
     timedHandler(makeRequest(baseUrl, '/api/kv/health'), getKvHealth),
     timedHandler(makeRequest(baseUrl, '/api/agents/status'), getAgents),
     timedHandler(makeRequest(baseUrl, epiconPath), getEpicon),
-    timedHandler(makeRequest(baseUrl, '/api/echo/feed'), getEcho),
+    slowTimedHandler(makeRequest(baseUrl, '/api/echo/feed'), getEcho),          // OPT-1: 7.5s
     timedHandler(makeRequest(baseUrl, journalPath), getJournal),
     timedHandler(makeRequest(baseUrl, '/api/sentiment/composite'), getSentiment),
     timedHandler(makeRequest(baseUrl, '/api/runtime/status'), getRuntime),
-    timedHandler(makeRequest(baseUrl, '/api/epicon/promotion-status'), getPromotion),
+    slowTimedHandler(makeRequest(baseUrl, '/api/epicon/promotion-status'), getPromotion), // OPT-1: 7.5s
     timedHandler(makeRequest(baseUrl, '/api/eve/cycle-advance'), getEve),
     timedHandler(makeRequest(baseUrl, '/api/mii/feed'), getMii),
     timedHandler(makeRequest(baseUrl, '/api/vault/status'), getVault),

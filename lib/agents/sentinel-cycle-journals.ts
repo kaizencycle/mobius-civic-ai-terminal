@@ -51,12 +51,12 @@ export async function summarizeMicroAnomalies(): Promise<{ count: number; labels
   }
 }
 
-export async function appendAtlasCronJournal(input: AtlasObserveInput): Promise<AgentJournalEntry> {
+export async function appendAtlasCronJournal(input: AtlasObserveInput): Promise<AgentJournalEntry> { // C-293 OPT-4
   const { count, labels } = await summarizeMicroAnomalies();
   const gi = clampGi(input.gi);
   const labelText = labels.length > 0 ? labels.join('; ') : 'No elevated micro-agent anomalies in cached signal snapshot.';
 
-  return appendAgentJournalEntry({
+  const entry = await appendAgentJournalEntry({
     agent: 'ATLAS',
     cycle: input.cycle,
     observation: `ATLAS cycle observation (${input.source}) for ${input.cycle}. Micro snapshot anomalies: ${count}.`,
@@ -72,6 +72,17 @@ export async function appendAtlasCronJournal(input: AtlasObserveInput): Promise<
     category: 'observation',
     severity: count > 3 ? 'elevated' : 'nominal',
   });
+  // C-293 OPT-4: also push to journal:all (Writer B list) so ATLAS appears in
+  // snapshot journal_summary.latest_agent_entries. Writer A writes only to
+  // mobius:journal:ATLAS:CYCLE (kvSet) which journal_summary never samples.
+  try {
+    const { appendJournalLaneEntry, getJournalRedisClient } = await import('@/lib/agents/journalLane');
+    const redis = getJournalRedisClient();
+    if (redis) await appendJournalLaneEntry(redis, entry);
+  } catch {
+    // non-blocking: lane write failure does not affect the core journal write
+  }
+  return entry;
 }
 
 export async function appendZeusCronJournal(input: ZeusVerifyCronInput): Promise<AgentJournalEntry> {
