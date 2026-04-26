@@ -13,6 +13,11 @@ import {
 } from '@/lib/vault-v2/store';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { SENTINEL_ATTESTATION_COUNT, VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
+import {
+  CANONICAL_STATE_MACHINE_VERSION,
+  deriveQuorumCanonState,
+  deriveVaultBlockState,
+} from '@/lib/protocol/state-machine';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -67,12 +72,35 @@ export async function GET() {
   const inProgressBlock = candidate?.sequence ?? Math.max(sealsAuditCount, sealsCount) + 1;
   const reserveProgressPct = blockSize > 0 ? Math.min(100, Math.round((inProgressBalance / blockSize) * 100)) : 0;
   const latestImmortalized = Boolean(latestSeal?.substrate_attestation_id && latestSeal?.substrate_event_hash);
+  const attestationsReceived = candidate ? Object.keys(candidate.attestations).length : 0;
+  const quorum_state = deriveQuorumCanonState({
+    candidateInFlight: Boolean(candidate),
+    attestationsReceived,
+    attestationsRequired: SENTINEL_ATTESTATION_COUNT,
+    latestStatus: latestSeal?.status ?? null,
+    substrateAttestationId: latestSeal?.substrate_attestation_id ?? null,
+    substrateEventHash: latestSeal?.substrate_event_hash ?? null,
+  });
+  const vault_block_state = deriveVaultBlockState({
+    candidateInFlight: Boolean(candidate),
+    inProgressBalance,
+    blockSize,
+    latestStatus: latestSeal?.status ?? null,
+    fountainStatus: latestSeal?.fountain_status ?? null,
+    substrateAttestationId: latestSeal?.substrate_attestation_id ?? null,
+    substrateEventHash: latestSeal?.substrate_event_hash ?? null,
+  });
 
   return NextResponse.json({
     ok: true,
     timestamp: new Date().toISOString(),
     cycle,
-    phase: 'C-293-phase1-quorum-state-reader',
+    phase: 'C-293-phase2-canonical-state-machine',
+    state_machine: {
+      version: CANONICAL_STATE_MACHINE_VERSION,
+      quorum_state,
+      vault_block_state,
+    },
     integrity: {
       gi,
       mode: chain.mode ?? integrityPayload.mode ?? modeFromGi(gi),
@@ -84,6 +112,7 @@ export async function GET() {
     },
     reserve_block: {
       block_size: blockSize,
+      state: vault_block_state,
       in_progress_block: inProgressBlock,
       in_progress_balance: Number(inProgressBalance.toFixed(6)),
       in_progress_pct: reserveProgressPct,
@@ -123,8 +152,9 @@ export async function GET() {
     },
     attestations: attestationStatus(candidate),
     decision: {
+      state: quorum_state,
       ready_for_quorum: Boolean(candidate),
-      ready_for_substrate: Boolean(candidate && Object.keys(candidate.attestations).length >= SENTINEL_ATTESTATION_COUNT),
+      ready_for_substrate: Boolean(candidate && attestationsReceived >= SENTINEL_ATTESTATION_COUNT),
       canon: 'Agents should read this shared quorum state before signing a Reserve Block. Quorum signs one seal_id, one seal_hash, one candidate truth.',
     },
   }, {
