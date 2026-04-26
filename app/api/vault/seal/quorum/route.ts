@@ -11,7 +11,7 @@
  *   { "bootstrapLegacyReserve": true }
  *
  * This explicitly seeds v2 from the existing v1 cumulative reserve only when no
- * attested Seal exists yet. It is operator controlled so compatibility history
+ * finalized Seal exists yet. It is operator controlled so compatibility history
  * is never silently converted into canon.
  */
 
@@ -22,7 +22,7 @@ import { SENTINEL_ATTESTATION_COUNT, VAULT_RESERVE_PARCEL_UNITS } from '@/lib/va
 import { tryFormNextCandidate } from '@/lib/vault-v2/deposit';
 import { evaluateQuorum, finalizeSeal, computeAttestationSignature } from '@/lib/vault-v2/seal';
 import {
-  countSeals,
+  countAllSeals,
   getCandidate,
   getInProgressBalance,
   getLatestSeal,
@@ -31,7 +31,7 @@ import {
   setInProgressBalance,
   writeInProgressHashes,
 } from '@/lib/vault-v2/store';
-import type { Posture, SealAttestation, SentinelAgent } from '@/lib/vault-v2/types';
+import type { Posture, Seal, SealAttestation, SentinelAgent } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import { getVaultStatusPayload, listVaultDeposits } from '@/lib/vault/vault';
@@ -92,9 +92,9 @@ async function bootstrapLegacyReserveForFirstSeal(): Promise<{
   seededHashes: number;
   reason: string;
 }> {
-  const attestedCount = await countSeals();
-  if (attestedCount > 0) {
-    return { ok: false, seededBalance: 0, seededHashes: 0, reason: 'attested_seal_already_exists' };
+  const finalizedCount = await countAllSeals();
+  if (finalizedCount > 0) {
+    return { ok: false, seededBalance: 0, seededHashes: 0, reason: 'finalized_seal_history_exists' };
   }
 
   const v1 = await getVaultStatusPayload(null);
@@ -130,9 +130,18 @@ async function bootstrapLegacyReserveForFirstSeal(): Promise<{
   };
 }
 
-async function submitInternalAttestation(agent: SentinelAgent) {
-  const candidate = await getCandidate();
-  if (!candidate) return { agent, ok: false, error: 'no_candidate' };
+async function submitInternalAttestation(agent: SentinelAgent, pinnedCandidate: Seal) {
+  const current = await getCandidate();
+  if (!current) return { agent, ok: false, error: 'no_candidate' };
+  if (current.seal_id !== pinnedCandidate.seal_id) {
+    return {
+      agent,
+      ok: false,
+      error: 'candidate_changed',
+      expected_seal_id: pinnedCandidate.seal_id,
+      current_seal_id: current.seal_id,
+    };
+  }
 
   const token = getVaultAttestationToken(agent);
   if (!token) return { agent, ok: false, error: 'missing_attestation_token' };
@@ -140,7 +149,7 @@ async function submitInternalAttestation(agent: SentinelAgent) {
   const rationale = rationaleFor(agent);
   const signature = computeAttestationSignature({
     token,
-    seal_hash: candidate.seal_hash,
+    seal_hash: pinnedCandidate.seal_hash,
     verdict: 'pass',
     rationale,
   });
@@ -149,18 +158,19 @@ async function submitInternalAttestation(agent: SentinelAgent) {
     agent,
     verdict: 'pass',
     rationale,
-    gi_at_attestation: candidate.gi_at_seal,
+    gi_at_attestation: pinnedCandidate.gi_at_seal,
     timestamp: new Date().toISOString(),
     signature,
-    ...(agent === 'AUREA' ? { posture: postureForGi(candidate.gi_at_seal) } : {}),
+    ...(agent === 'AUREA' ? { posture: postureForGi(pinnedCandidate.gi_at_seal) } : {}),
   };
 
-  const updated = await recordAttestation(candidate.seal_id, agent, attestation);
+  const updated = await recordAttestation(pinnedCandidate.seal_id, agent, attestation);
   if (!updated) return { agent, ok: false, error: 'record_failed' };
   return {
     agent,
     ok: true,
     verdict: 'pass' as const,
+    seal_id: pinnedCandidate.seal_id,
     attestations_received: Object.keys(updated.attestations).length,
   };
 }
@@ -211,9 +221,12 @@ export async function POST(req: NextRequest) {
     }, { status: 500 });
   }
 
+  const pinnedSealId = candidate.seal_id;
   const submissions = [];
   for (const agent of SENTINEL_AGENTS) {
-    submissions.push(await submitInternalAttestation(agent));
+    const result = await submitInternalAttestation(agent, candidate);
+    submissions.push(result);
+    if (!result.ok && result.error === 'candidate_changed') break;
   }
 
   const failed = submissions.filter((s) => !s.ok);
@@ -222,22 +235,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: false,
       outcome: 'candidate_missing_after_attestation',
-      seal_id: candidate.seal_id,
+      seal_id: pinnedSealId,
       submissions,
       bootstrap,
     }, { status: 500 });
+  }
+  if (refreshed.seal_id !== pinnedSealId) {
+    return NextResponse.json({
+      ok: false,
+      outcome: 'candidate_changed_before_quorum',
+      expected_seal_id: pinnedSealId,
+      current_seal_id: refreshed.seal_id,
+      submissions,
+      bootstrap,
+    }, { status: 409 });
   }
 
   const quorum = evaluateQuorum(refreshed);
   const finalized = await finalizeSeal(quorum);
   const balanceAfter = await getInProgressBalance();
-  const finalizedSeal = finalized ?? (await getSeal(candidate.seal_id));
+  const finalizedSeal = finalized ?? (await getSeal(pinnedSealId));
 
   return NextResponse.json({
     ok: failed.length === 0 && quorum.decision === 'attested' && finalizedSeal?.status === 'attested',
     outcome: finalizedSeal?.status === 'attested' ? 'seal_attested' : `quorum_${quorum.decision}`,
     cycle,
-    seal_id: candidate.seal_id,
+    seal_id: pinnedSealId,
     sequence: candidate.sequence,
     seal_hash: candidate.seal_hash,
     status: finalizedSeal?.status ?? null,
