@@ -55,6 +55,17 @@ const AGENT_COLORS: Record<string, string> = {
   ECHO: '#94a3b8',
 };
 
+const SENTINEL_LAYOUT: Array<{ name: string; x: number; y: number }> = [
+  { name: 'AUREA', x: 50, y: 20 },
+  { name: 'ATLAS', x: 80, y: 36 },
+  { name: 'ZEUS', x: 80, y: 66 },
+  { name: 'JADE', x: 58, y: 84 },
+  { name: 'EVE', x: 32, y: 80 },
+  { name: 'HERMES', x: 18, y: 58 },
+  { name: 'ECHO', x: 20, y: 32 },
+  { name: 'DAEDALUS', x: 38, y: 16 },
+];
+
 export default function SentinelPageClient() {
   const { snapshot, loading } = useTerminalSnapshot();
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -154,6 +165,20 @@ export default function SentinelPageClient() {
     const latestCycle = rows[0]?.cycle?.trim() || null;
     return Boolean(latestCycle && latestCycle !== currentCycle);
   });
+  const sentinelNodes = SENTINEL_LAYOUT.map((node) => {
+    const agent = (agents.agents ?? []).find((a) => a.name === node.name);
+    const hbLive = Boolean(
+      agent && ((agent as Agent & { heartbeat_ok?: boolean }).heartbeat_ok || agent.status === 'active'),
+    );
+    return {
+      ...node,
+      color: AGENT_COLORS[node.name] ?? '#22d3ee',
+      hbLive,
+      mii: latestByAgent[node.name] ?? null,
+      role: agent?.role ?? 'No runtime descriptor',
+    };
+  });
+  const liveCount = sentinelNodes.filter((node) => node.hbLive).length;
 
   return (
     <div className="h-full overflow-y-auto p-4">
@@ -189,6 +214,54 @@ export default function SentinelPageClient() {
           </div>
         </div>
       ) : null}
+      <section className="mb-4 rounded border border-cyan-900/40 bg-slate-950/70 p-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-cyan-200/90">Sentinel constellation</div>
+            <div className="text-xs text-slate-400">Heartbeat and MII overlay across all chamber agents.</div>
+          </div>
+          <div className="rounded border border-slate-700 bg-slate-900/80 px-2 py-1 text-[10px] font-mono text-slate-300">
+            live {liveCount}/{sentinelNodes.length}
+          </div>
+        </div>
+        <div className="relative h-44 rounded border border-slate-800/80 bg-slate-950/70">
+          <svg className="absolute inset-0 h-full w-full" aria-hidden="true" preserveAspectRatio="none">
+            {sentinelNodes.map((from, idx) =>
+              sentinelNodes.slice(idx + 1).map((to) => (
+                <line
+                  key={`${from.name}-${to.name}`}
+                  x1={`${from.x}%`}
+                  y1={`${from.y}%`}
+                  x2={`${to.x}%`}
+                  y2={`${to.y}%`}
+                  stroke="rgba(148,163,184,0.14)"
+                  strokeWidth="0.6"
+                />
+              )),
+            )}
+          </svg>
+          {sentinelNodes.map((node) => (
+            <div
+              key={node.name}
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${node.x}%`, top: `${node.y}%` }}
+              title={`${node.name} · ${node.role} · ${node.hbLive ? 'heartbeat live' : 'heartbeat stale'}`}
+            >
+              <div
+                className={`h-3 w-3 rounded-full border ${node.hbLive ? 'border-emerald-300/70' : 'border-amber-400/70'}`}
+                style={{
+                  backgroundColor: node.color,
+                  boxShadow: node.hbLive ? `0 0 12px ${node.color}` : undefined,
+                }}
+              />
+              <div className="mt-1 -ml-4 w-12 text-center font-mono text-[9px] text-slate-400">{node.name}</div>
+              {node.mii != null ? (
+                <div className="-mt-0.5 -ml-4 w-12 text-center font-mono text-[8px] text-slate-500">{node.mii.toFixed(3)}</div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </section>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {(agents.agents ?? []).map((agent) => {
           const rows = journalByAgent[agent.name] ?? [];
