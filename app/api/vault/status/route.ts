@@ -74,8 +74,10 @@ export async function GET(req: NextRequest) {
   ]);
 
   const seal_lane = computeVaultSealLaneSemantics({
+    v1BalanceReserve: v1.balance_reserve,
     inProgressBalance: inProgressBalance,
     sealsCountAttested: sealsCount,
+    sealsAuditCount,
     giCurrent: gi,
     giThreshold: v1.gi_threshold,
     sustainCyclesRequired: v1.sustain_cycles_required,
@@ -92,6 +94,14 @@ export async function GET(req: NextRequest) {
     sealed_reserve_total: seal_lane.sealed_reserve_total,
     current_tranche_balance: seal_lane.current_tranche_balance,
     carry_forward_in_tranche: seal_lane.carry_forward_in_tranche,
+    reserve_block: seal_lane.reserve_block,
+    reserve_block_label: seal_lane.reserve_block.label,
+    reserve_block_size: seal_lane.reserve_block.block_size,
+    reserve_blocks_completed_v1: seal_lane.reserve_block.completed_blocks_v1,
+    reserve_blocks_sealed: seal_lane.reserve_block.sealed_blocks,
+    reserve_blocks_audit: seal_lane.reserve_block.audit_blocks,
+    reserve_block_in_progress: seal_lane.reserve_block.in_progress_block,
+    reserve_block_progress_pct: seal_lane.reserve_block.in_progress_pct,
     reserve_threshold_met: seal_lane.reserve_threshold_met,
     gi_threshold_met: seal_lane.gi_threshold_met,
     sustain_cycles_met: seal_lane.sustain_met,
@@ -132,7 +142,9 @@ export async function GET(req: NextRequest) {
     hash_coverage_pct: hashCoverage.hash_coverage_pct,
     hash_coverage_rows_scanned: hashCoverage.rows_scanned,
     _balance_reserve_deprecated:
-      'balance_reserve is v1 cumulative compat. Prefer in_progress_balance + sealed_reserve_total for tranche truth. Removed in a later cycle.',
+      'balance_reserve is v1 cumulative compat. Prefer reserve_block + in_progress_balance + sealed_reserve_total for Reserve Block truth. Removed in a later cycle.',
+    _tranche_language_deprecated:
+      'tranche fields remain for API compatibility. Operator-facing UI should use Reserve Block language.',
   };
 
   return NextResponse.json(body, {
