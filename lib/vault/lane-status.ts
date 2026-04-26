@@ -1,23 +1,41 @@
 /**
- * Operator-facing Vault lane labels: reserve tranche sealing vs Fountain / integrity.
- * See docs/protocols/vault-seal-i.md (Seal the tranche, not the history).
+ * Operator-facing Vault lane labels: Reserve Block sealing vs Fountain / integrity.
+ *
+ * A Reserve Block is the operator-facing name for one canonical 50-unit v2
+ * reserve parcel. Internal API names may still expose tranche fields for
+ * backwards compatibility, but the UI/protocol language should describe each
+ * 50-unit parcel as a Block.
  */
 
 import { VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
 
 export type VaultFountainLaneStatus = 'locked' | 'preview' | 'tracking' | 'unsealed' | 'active';
 
-export type VaultReserveLaneStatus = 'accumulating' | 'tranche_ready' | 'sealing' | 'sealed_tranches';
+export type VaultReserveLaneStatus = 'accumulating' | 'block_ready' | 'sealing' | 'sealed_blocks';
+
+export type ReserveBlockSummary = {
+  block_size: number;
+  sealed_blocks: number;
+  audit_blocks: number;
+  completed_blocks_v1: number;
+  in_progress_block: number;
+  in_progress_balance: number;
+  in_progress_pct: number;
+  remaining_to_next_block: number;
+  label: string;
+  canon: string;
+};
 
 export type VaultSealOneSemantics = {
-  /** Sum of completed v2 attested reserve parcels (50-unit tranches). */
+  /** Sum of completed v2 attested Reserve Blocks. */
   sealed_reserve_total: number;
-  /** Canonical forming tranche progress (v2 in_progress_balance). */
+  /** Canonical forming Reserve Block progress (v2 in_progress_balance). */
   current_tranche_balance: number;
-  /** Same as current_tranche_balance for spec wording. */
+  /** Same as current_tranche_balance for legacy spec wording. */
   carry_forward_in_tranche: number;
   reserve_threshold: number;
   reserve_threshold_met: boolean;
+  reserve_block: ReserveBlockSummary;
   gi_threshold: number;
   gi_threshold_met: boolean;
   sustain_cycles_required: number;
@@ -25,19 +43,52 @@ export type VaultSealOneSemantics = {
   sustain_met: boolean;
   /** v1 payload status: sealed | preview | activating */
   vault_status: 'sealed' | 'preview' | 'activating';
-  /** Reserve tranche lifecycle for UI. */
+  /** Reserve Block lifecycle for UI. */
   reserve_lane: VaultReserveLaneStatus;
   /** Fountain / integrity gate for UI — not the same as reserve seal. */
   fountain_lane: VaultFountainLaneStatus;
-  /** Human-readable headline (e.g. Seal I achieved). */
+  /** Human-readable headline (e.g. Block 1 sealed). */
   headline: string;
   /** Short operator line. */
   canon: string;
 };
 
-export function computeVaultSealLaneSemantics(args: {
+export function computeReserveBlockSummary(args: {
+  v1BalanceReserve: number;
   inProgressBalance: number;
   sealsCountAttested: number;
+  sealsAuditCount: number;
+}): ReserveBlockSummary {
+  const block_size = VAULT_RESERVE_PARCEL_UNITS;
+  const safeV1 = Number.isFinite(args.v1BalanceReserve) ? Math.max(0, args.v1BalanceReserve) : 0;
+  const safeProgress = Number.isFinite(args.inProgressBalance) ? Math.max(0, args.inProgressBalance) : 0;
+  const completed_blocks_v1 = Math.floor(safeV1 / block_size);
+  const sealed_blocks = Math.max(0, Math.floor(args.sealsCountAttested));
+  const audit_blocks = Math.max(0, Math.floor(args.sealsAuditCount));
+  const in_progress_block = Math.max(sealed_blocks, audit_blocks, completed_blocks_v1) + 1;
+  const in_progress_balance = Number((safeProgress % block_size).toFixed(6));
+  const in_progress_pct = block_size > 0 ? Math.min(100, Math.round((in_progress_balance / block_size) * 100)) : 0;
+  const remaining_to_next_block = Number(Math.max(0, block_size - in_progress_balance).toFixed(6));
+
+  return {
+    block_size,
+    sealed_blocks,
+    audit_blocks,
+    completed_blocks_v1,
+    in_progress_block,
+    in_progress_balance,
+    in_progress_pct,
+    remaining_to_next_block,
+    label: `Block ${in_progress_block} in progress — ${in_progress_balance.toFixed(2)} / ${block_size.toFixed(0)} MIC (${in_progress_pct}%)`,
+    canon: 'One Reserve Block equals one 50-unit reserve parcel. Blocks can seal before the Fountain unlocks.',
+  };
+}
+
+export function computeVaultSealLaneSemantics(args: {
+  v1BalanceReserve?: number;
+  inProgressBalance: number;
+  sealsCountAttested: number;
+  sealsAuditCount?: number;
   giCurrent: number | null;
   giThreshold: number;
   sustainCyclesRequired: number;
@@ -48,6 +99,12 @@ export function computeVaultSealLaneSemantics(args: {
   const sealed_reserve_total = args.sealsCountAttested * reserve_threshold;
   const current_tranche_balance = args.inProgressBalance;
   const carry_forward_in_tranche = current_tranche_balance;
+  const reserve_block = computeReserveBlockSummary({
+    v1BalanceReserve: args.v1BalanceReserve ?? sealed_reserve_total + current_tranche_balance,
+    inProgressBalance: current_tranche_balance,
+    sealsCountAttested: args.sealsCountAttested,
+    sealsAuditCount: args.sealsAuditCount ?? args.sealsCountAttested,
+  });
 
   const gi = args.giCurrent;
   const gi_threshold_met = gi !== null && Number.isFinite(gi) && gi >= args.giThreshold;
@@ -62,25 +119,24 @@ export function computeVaultSealLaneSemantics(args: {
   if (args.candidateInFlight) {
     reserve_lane = 'sealing';
   } else if (reserve_threshold_met) {
-    reserve_lane = 'tranche_ready';
+    reserve_lane = 'block_ready';
   } else if (args.sealsCountAttested > 0) {
-    reserve_lane = 'sealed_tranches';
+    reserve_lane = 'sealed_blocks';
   }
 
-  const sealOrdinal = args.sealsCountAttested;
   const headline = (() => {
     if (args.candidateInFlight) {
-      return 'Reserve tranche sealing in progress (council attestation)';
+      return 'Reserve Block sealing in progress (council attestation)';
     }
-    if (sealOrdinal >= 1) {
-      return sealOrdinal === 1
-        ? 'Seal I achieved — reserve tranche sealed'
-        : `Seal ${sealOrdinal} achieved — reserve tranche sealed`;
+    if (reserve_block.sealed_blocks >= 1) {
+      return reserve_block.sealed_blocks === 1
+        ? 'Block 1 sealed — reserve proof attested'
+        : `${reserve_block.sealed_blocks} Reserve Blocks sealed`;
     }
     if (reserve_threshold_met) {
-      return 'Reserve tranche ready to seal (50 units)';
+      return `Reserve Block ${reserve_block.in_progress_block} ready to seal (50 MIC)`;
     }
-    return 'Reserve accumulating toward first tranche';
+    return reserve_block.label;
   })();
 
   return {
@@ -89,6 +145,7 @@ export function computeVaultSealLaneSemantics(args: {
     carry_forward_in_tranche: Number(carry_forward_in_tranche.toFixed(6)),
     reserve_threshold,
     reserve_threshold_met,
+    reserve_block,
     gi_threshold: args.giThreshold,
     gi_threshold_met,
     sustain_cycles_required: args.sustainCyclesRequired,
@@ -97,6 +154,6 @@ export function computeVaultSealLaneSemantics(args: {
     reserve_lane,
     fountain_lane,
     headline,
-    canon: 'Reserve can be sealed before integrity unseals the Fountain.',
+    canon: reserve_block.canon,
   };
 }
