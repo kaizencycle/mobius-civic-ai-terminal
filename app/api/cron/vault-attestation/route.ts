@@ -23,11 +23,18 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type { Seal } from '@/lib/vault-v2/types';
-import { countAllSeals, countSeals, getCandidate, listSeals } from '@/lib/vault-v2/store';
+import {
+  countAllSeals,
+  countSeals,
+  getCandidate,
+  getInProgressBalance,
+  listSeals,
+} from '@/lib/vault-v2/store';
 import { evaluateQuorum, finalizeSeal, injectTimeouts } from '@/lib/vault-v2/seal';
 import { tryFormNextCandidate } from '@/lib/vault-v2/deposit';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
+import { VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +56,9 @@ type Report = {
   candidate_seal_id: string | null;
   attestations_received: number;
   next_candidate_formed: string | null;
+  in_progress_balance: number;
+  threshold: typeof VAULT_RESERVE_PARCEL_UNITS;
+  auto_seal_reason: string;
   seals_total: number;
   seals_attested_total: number;
   seals_audit_total: number;
@@ -67,6 +77,10 @@ export async function GET(req: NextRequest) {
 
   const started = Date.now();
   const errors: string[] = [];
+  const inProgressBalanceStart = await getInProgressBalance();
+  let autoSealReason = inProgressBalanceStart >= VAULT_RESERVE_PARCEL_UNITS
+    ? 'canonical_v2_balance_ready'
+    : 'canonical_v2_balance_below_threshold';
 
   let currentCycle: string;
   try {
@@ -86,6 +100,7 @@ export async function GET(req: NextRequest) {
   if (candidate) {
     candidate_seal_id = candidate.seal_id;
     attestations_received = Object.keys(candidate.attestations).length;
+    autoSealReason = 'candidate_in_flight_waiting_for_quorum_or_timeout';
 
     const quorum1 = evaluateQuorum(candidate);
     if (quorum1.decision !== 'waiting') {
@@ -97,6 +112,7 @@ export async function GET(req: NextRequest) {
             : quorum1.decision === 'quarantined'
               ? 'finalized-quarantined'
               : 'finalized-rejected';
+        autoSealReason = `candidate_finalized_${sealed.status}`;
         console.info('[vault-v2:cron] seal finalized', {
           seal_id: sealed.seal_id,
           status: sealed.status,
@@ -118,6 +134,7 @@ export async function GET(req: NextRequest) {
                   : quorum2.decision === 'quarantined'
                     ? 'finalized-quarantined'
                     : 'finalized-rejected';
+              autoSealReason = `candidate_finalized_after_timeout_${sealed.status}`;
               console.info('[vault-v2:cron] seal finalized after timeout', {
                 seal_id: sealed.seal_id,
                 status: sealed.status,
@@ -125,10 +142,12 @@ export async function GET(req: NextRequest) {
             }
           } else {
             candidate_state = 'timeout-injected';
+            autoSealReason = 'timeout_injected_but_quorum_still_waiting';
           }
         }
       } else {
         candidate_state = 'forming-waiting';
+        autoSealReason = `candidate_waiting_for_${quorum1.missing.length}_attestations`;
       }
     }
   }
@@ -139,13 +158,17 @@ export async function GET(req: NextRequest) {
       const next = await tryFormNextCandidate({ cycle: currentCycle });
       if (next) {
         next_candidate_formed = next.seal_id;
+        autoSealReason = 'candidate_formed_from_canonical_v2_balance';
         console.info('[vault-v2:cron] next candidate formed', {
           seal_id: next.seal_id,
           sequence: next.sequence,
         });
+      } else if (inProgressBalanceStart >= VAULT_RESERVE_PARCEL_UNITS) {
+        autoSealReason = 'candidate_not_formed_despite_threshold_check_candidate_or_store';
       }
     } catch (e) {
       errors.push(`next-candidate formation: ${e instanceof Error ? e.message : String(e)}`);
+      autoSealReason = 'candidate_formation_error';
     }
   }
 
@@ -179,6 +202,9 @@ export async function GET(req: NextRequest) {
     candidate_seal_id,
     attestations_received,
     next_candidate_formed,
+    in_progress_balance: await getInProgressBalance(),
+    threshold: VAULT_RESERVE_PARCEL_UNITS,
+    auto_seal_reason: autoSealReason,
     seals_total,
     seals_attested_total,
     seals_audit_total,
