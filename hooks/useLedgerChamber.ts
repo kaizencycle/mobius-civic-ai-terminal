@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useChamberHydration } from '@/hooks/useChamberHydration';
 import { useEchoDigest } from '@/hooks/useEchoDigest';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
@@ -45,6 +45,7 @@ export function useLedgerChamber(enabled: boolean) {
   const { snapshot } = useTerminalSnapshot();
   const { digest } = useEchoDigest(enabled);
   const stabilizationActive = digest?.predictive.risk_level === 'elevated' || digest?.predictive.risk_level === 'critical';
+  const getSavepointCount = useCallback((payload: LedgerChamberPayload) => Array.isArray(payload.events) ? payload.events.length : 0, []);
 
   const preview = useMemo(() => {
     const epicon = snapshot?.epicon?.data as { items?: Array<Record<string, unknown>> } | undefined;
@@ -108,6 +109,6 @@ export function useLedgerChamber(enabled: boolean) {
     previewData: preview,
     lockToPreview: stabilizationActive,
     savepointKey: 'ledger:all:300:3-pages',
-    getSavepointCount: (payload) => Array.isArray(payload.events) ? payload.events.length : 0,
+    getSavepointCount,
   });
 }
