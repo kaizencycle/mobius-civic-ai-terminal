@@ -95,9 +95,9 @@ function CollapsiblePanel(props: {
         id={panelId}
         role="region"
         aria-labelledby={`${props.id}-trigger`}
-        className={cn('overflow-hidden transition-[max-height] duration-200 ease-out', open ? 'max-h-[min(70vh,520px)]' : 'max-h-0')}
+        className={cn('overflow-hidden transition-[max-height] duration-200 ease-out', open ? 'max-h-[min(46vh,420px)] md:max-h-[min(70vh,520px)]' : 'max-h-0')}
       >
-        <div className="max-h-[min(70vh,520px)] overflow-y-auto overscroll-y-contain p-3 pt-2 [-webkit-overflow-scrolling:touch]">
+        <div className="max-h-[min(46vh,420px)] overflow-y-auto overscroll-y-contain p-3 pt-2 md:max-h-[min(70vh,520px)] [-webkit-overflow-scrolling:touch]">
           {props.children}
         </div>
       </div>
@@ -161,8 +161,8 @@ export default function GlobeChapterDashboards(props: {
   }, [micro]);
 
   return (
-    <div className="flex min-h-[min(28vh,200px)] flex-1 flex-col border-t border-white/[0.08] bg-[#020408]/98">
-      <div className="max-h-[min(55vh,480px)] min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-3 sm:max-h-[min(50vh,560px)] sm:px-3 [-webkit-overflow-scrolling:touch]">
+    <div className="flex min-h-[260px] flex-1 flex-col border-t border-white/[0.08] bg-[#020408]/98 md:min-h-[min(28vh,200px)]">
+      <div className="max-h-[calc(100svh-500px)] min-h-[240px] flex-1 overflow-y-auto overscroll-y-contain px-2 py-3 sm:px-3 md:max-h-[min(50vh,560px)] [-webkit-overflow-scrolling:touch]">
         {eveStrip ? (
           <div className="mb-3 rounded border border-amber-500/35 bg-amber-950/40 px-3 py-2 text-[10px] leading-snug text-amber-100/95">
             <span className="font-semibold text-amber-200/90">EVE · </span>
@@ -227,7 +227,7 @@ export default function GlobeChapterDashboards(props: {
             </div>
           </CollapsiblePanel>
 
-          <CollapsiblePanel id={`${uid}-seq`} title="Seismic · EPICON" subtitle="ECHO EPICON ingest with coordinates" freshness={panelAge.seismic ?? null}>
+          <CollapsiblePanel id={`${uid}-seq`} title="Seismic · EPICON" subtitle="ECHO EPICON ingest with coordinates" freshness={panelAge.seismic ?? null} defaultOpen={false}>
             {seismic.length === 0 ? (
               <p className="text-[10px] text-slate-500">No seismic EPICON events in current sweep.</p>
             ) : (
@@ -245,7 +245,7 @@ export default function GlobeChapterDashboards(props: {
             )}
           </CollapsiblePanel>
 
-          <CollapsiblePanel id={`${uid}-env`} title="Environmental · ECHO lane" subtitle="GAIA / ECHO micro (non-seismic)" freshness={panelAge.environmental ?? null}>
+          <CollapsiblePanel id={`${uid}-env`} title="Environmental · ECHO lane" subtitle="GAIA / ECHO micro (non-seismic)" freshness={panelAge.environmental ?? null} defaultOpen={false}>
             {environmental.length === 0 ? (
               <p className="text-[10px] text-slate-500">No environmental instruments in sweep.</p>
             ) : (
@@ -280,6 +280,7 @@ export default function GlobeChapterDashboards(props: {
             subtitle="Tap a row for raw label"
             freshness={panelAge.markets ?? null}
             badge={signalWarning ? `${signalWarning.count} absent` : null}
+            defaultOpen={false}
           >
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div>
@@ -328,7 +329,7 @@ export default function GlobeChapterDashboards(props: {
             </div>
           </CollapsiblePanel>
 
-          <CollapsiblePanel id={`${uid}-mii`} title="Agent MII" subtitle="Latest per agent from mii:feed" freshness={panelAge.mii ?? null}>
+          <CollapsiblePanel id={`${uid}-mii`} title="Agent MII" subtitle="Latest per agent from mii:feed" freshness={panelAge.mii ?? null} defaultOpen={false}>
             <div className="space-y-1.5">
               {MII_ORDER.map((agent) => {
                 const row: MiiAgentScore | undefined = miiMap[agent];
@@ -351,7 +352,7 @@ export default function GlobeChapterDashboards(props: {
             </div>
           </CollapsiblePanel>
 
-          <CollapsiblePanel id={`${uid}-vault`} title="Vault · tranche" subtitle="/api/vault/status" freshness={panelAge.vault ?? null}>
+          <CollapsiblePanel id={`${uid}-vault`} title="Vault · tranche" subtitle="/api/vault/status" freshness={panelAge.vault ?? null} defaultOpen={false}>
             <div className="space-y-2 text-[10px] text-slate-400">
               {typeof vault?.seals_audit_count === 'number' && vault.seals_audit_count > 0 && (inProg ?? 999) < 5 ? (
                 <div className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-mono text-[10px] text-amber-300">
@@ -397,7 +398,7 @@ export default function GlobeChapterDashboards(props: {
             </div>
           </CollapsiblePanel>
 
-          <CollapsiblePanel id={`${uid}-infra`} title="Infrastructure pulse" subtitle="KV · backup Redis · pulse · tripwire" freshness={panelAge.infrastructure ?? null}>
+          <CollapsiblePanel id={`${uid}-infra`} title="Infrastructure pulse" subtitle="KV · backup Redis · pulse · tripwire" freshness={panelAge.infrastructure ?? null} defaultOpen={false}>
             <ul className="space-y-1 font-mono text-[10px] text-slate-400">
               <li>
                 KV primary:{' '}
