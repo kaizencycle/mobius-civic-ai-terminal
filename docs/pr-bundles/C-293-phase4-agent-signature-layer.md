@@ -50,6 +50,21 @@ A signed action is valid only when:
 5. payload hash matches body
 6. signature verifies
 7. dedupe key has not already been consumed
+8. dedupe persistence succeeds
+
+## Atomic dedupe claim
+
+The dedupe layer now uses Redis `SET ... NX` semantics for one-time claims.
+
+That means two concurrent requests with the same `dedupe_key` cannot both pass as first use.
+
+If the dedupe store is unavailable, the consume endpoint fails closed with:
+
+```txt
+dedupe_store_unavailable
+```
+
+This prevents signed actions from executing when one-time persistence cannot be proven.
 
 ## Dedupe patterns
 
@@ -87,7 +102,7 @@ Quorum is not consensus by vibes.
 Quorum is signed agreement over one shared state.
 
 Signatures prevent impersonation.
-Dedupe prevents repeated action.
+Atomic dedupe prevents repeated action.
 Scope prevents authority drift.
 State machine prevents invalid transitions.
 
