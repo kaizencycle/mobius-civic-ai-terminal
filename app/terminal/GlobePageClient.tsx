@@ -25,11 +25,44 @@ type SentimentPayload = {
   gi?: number;
 };
 
+type LeafLike = {
+  ok?: boolean;
+  data?: unknown;
+  error?: string | null;
+};
+
 function toStatus(score: number | null): SentimentDomain['status'] {
   if (score === null) return 'unknown';
   if (score >= 0.8) return 'nominal';
   if (score >= 0.6) return 'stressed';
   return 'critical';
+}
+
+function leafData(leaf: LeafLike | undefined): unknown {
+  return leaf?.ok === false ? null : (leaf?.data ?? null);
+}
+
+function leafAge(snapshotTimestamp: string | undefined, leaf: LeafLike | undefined): number | null {
+  if (!leaf || leaf.ok === false) return null;
+  const data = leaf.data;
+  const row = data && typeof data === 'object' ? data as Record<string, unknown> : null;
+  const ts =
+    typeof row?.timestamp === 'string' ? row.timestamp :
+    typeof row?.updated_at === 'string' ? row.updated_at :
+    typeof snapshotTimestamp === 'string' ? snapshotTimestamp : null;
+  if (!ts) return null;
+  const ms = Date.now() - new Date(ts).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  return Math.floor(ms / 1000);
+}
+
+function epiconItemsFrom(data: unknown): EpiconItem[] {
+  const row = data && typeof data === 'object' ? data as Record<string, unknown> : null;
+  const candidates = [row?.items, row?.epicon, row?.events, row?.feed];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate as EpiconItem[];
+  }
+  return [];
 }
 
 export default function GlobePageClient() {
@@ -38,10 +71,17 @@ export default function GlobePageClient() {
   // micro sweep). Pull sentiment from the snapshot so domain rings populate.
   const { snapshot } = useTerminalSnapshot();
 
-  const micro = (data?.micro && typeof data.micro === 'object' ? data.micro : null) as MicroAgentSweepResult | null;
-  const echo = (data?.echo && typeof data.echo === 'object' ? data.echo : {}) as { epicon?: EpiconItem[] };
-  const echoEpicon = echo.epicon ?? [];
-  const cycle = data?.cycle ?? preview?.cycle ?? 'C-—';
+  const chamberMicro = (data?.micro && typeof data.micro === 'object' ? data.micro : null) as MicroAgentSweepResult | null;
+  const snapshotMicro = (snapshot?.signals?.data && typeof snapshot.signals.data === 'object'
+    ? snapshot.signals.data
+    : null) as MicroAgentSweepResult | null;
+  const micro = chamberMicro ?? snapshotMicro;
+
+  const chamberEcho = (data?.echo && typeof data.echo === 'object' ? data.echo : {}) as { epicon?: EpiconItem[] };
+  const snapshotEpicon = epiconItemsFrom(snapshot?.epicon?.data);
+  const snapshotEchoEpicon = epiconItemsFrom(snapshot?.echo?.data);
+  const echoEpicon = chamberEcho.epicon?.length ? chamberEcho.epicon : (snapshotEpicon.length ? snapshotEpicon : snapshotEchoEpicon);
+  const cycle = data?.cycle ?? preview?.cycle ?? snapshot?.cycle ?? 'C-—';
 
   // Prefer live sentiment from the chamber response, fall back to snapshot
   const chamberSentiment = (data?.sentiment && typeof data.sentiment === 'object')
@@ -99,14 +139,22 @@ export default function GlobePageClient() {
       eveStrip,
       snapshotLoaded: !loading,
       signalWarnings: [],
-      panelAgeSeconds: {},
+      panelAgeSeconds: {
+        sentiment: leafAge(snapshot?.timestamp, snapshot?.sentiment),
+        seismic: leafAge(snapshot?.timestamp, snapshot?.epicon ?? snapshot?.echo),
+        environmental: leafAge(snapshot?.timestamp, snapshot?.signals),
+        markets: leafAge(snapshot?.timestamp, snapshot?.signals),
+        mii: leafAge(snapshot?.timestamp, snapshot?.mii),
+        vault: leafAge(snapshot?.timestamp, snapshot?.vault),
+        infrastructure: leafAge(snapshot?.timestamp, snapshot?.kvHealth ?? snapshot?.runtime),
+      },
       echoEpicon,
-      kvHealth: null,
-      runtime: null,
-      tripwire: null,
-      vault: null,
-      micReadiness: null,
-      miiFeed: null,
+      kvHealth: leafData(snapshot?.kvHealth),
+      runtime: leafData(snapshot?.runtime),
+      tripwire: leafData(snapshot?.tripwire),
+      vault: leafData(snapshot?.vault),
+      micReadiness: leafData(snapshot?.micReadiness),
+      miiFeed: leafData(snapshot?.mii),
     };
   }, [data, snapshot, echoEpicon, loading]);
 
