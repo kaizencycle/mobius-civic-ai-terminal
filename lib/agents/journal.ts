@@ -179,6 +179,19 @@ export async function appendAgentJournalEntry(input: NewJournalEntryInput): Prom
   const next = [...existing, entry].slice(-MAX_ENTRIES_PER_AGENT);
   await kvSet(key, next);
   await upsertIndex(agent, entry.cycle);
+  // OPT-8 (C-293): cross-write to journal:all (Writer B list) so ATLAS, ZEUS, EVE
+  // appear in snapshot journal_summary.latest_agent_entries. Previously Writer A
+  // (kvSet to mobius:journal:AGENT:CYCLE) was invisible to journal_summary which
+  // only samples the journal:all Redis list written by appendJournalLaneEntry.
+  void (async () => {
+    try {
+      const { appendJournalLaneEntry } = await import('@/lib/agents/journalLane');
+      const redis = getJournalRedisClient();
+      if (redis) await appendJournalLaneEntry(redis, entry);
+    } catch {
+      // non-blocking: if journalLane fails, the primary write already succeeded
+    }
+  })();
   // C-292: bump watermark so the journal lane reflects Writer A (cron/synthesis)
   // writes, not just Writer B (appendJournalLaneEntry / direct POST). Fire-and-forget
   // so a watermark failure never blocks the journal write itself.
