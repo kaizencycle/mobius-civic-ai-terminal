@@ -31,7 +31,7 @@ import {
   setInProgressBalance,
   writeInProgressHashes,
 } from '@/lib/vault-v2/store';
-import type { Posture, SealAttestation, SentinelAgent } from '@/lib/vault-v2/types';
+import type { Posture, SealAttestation, SealCandidate, SentinelAgent } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import { getVaultStatusPayload, listVaultDeposits } from '@/lib/vault/vault';
@@ -74,15 +74,15 @@ function postureForGi(gi: number): Posture {
 function rationaleFor(agent: SentinelAgent): string {
   switch (agent) {
     case 'ATLAS':
-      return 'ATLAS pass — reserve tranche hash and cycle metadata accepted for Seal I proof formation.';
+      return 'ATLAS pass — reserve block hash and cycle metadata accepted for Seal I proof formation.';
     case 'ZEUS':
-      return 'ZEUS pass — no reject condition; reserve Seal may finalize while Fountain remains locked.';
+      return 'ZEUS pass — no reject condition; reserve Block may finalize while Fountain remains locked.';
     case 'EVE':
-      return 'EVE pass — civic-risk posture permits reserve accounting seal without payout or Fountain unlock.';
+      return 'EVE pass — civic-risk posture permits reserve accounting block without payout or Fountain unlock.';
     case 'JADE':
-      return 'JADE pass — constitutional separation preserved: seal proves reserve, GI later proves readiness.';
+      return 'JADE pass — constitutional separation preserved: block proves reserve, GI later proves readiness.';
     case 'AUREA':
-      return 'AUREA pass — strategic quorum complete; Seal may enter attested reserve chain pending integrity sustain.';
+      return 'AUREA pass — strategic quorum complete; Reserve Block may enter attested chain pending integrity sustain.';
   }
 }
 
@@ -93,31 +93,17 @@ async function bootstrapLegacyReserveForFirstSeal(): Promise<{
   reason: string;
 }> {
   const attestedCount = await countSeals();
-  if (attestedCount > 0) {
-    return { ok: false, seededBalance: 0, seededHashes: 0, reason: 'attested_seal_already_exists' };
-  }
+  if (attestedCount > 0) return { ok: false, seededBalance: 0, seededHashes: 0, reason: 'attested_seal_already_exists' };
 
   const v1 = await getVaultStatusPayload(null);
   if (v1.balance_reserve < VAULT_RESERVE_PARCEL_UNITS) {
-    return {
-      ok: false,
-      seededBalance: v1.balance_reserve,
-      seededHashes: 0,
-      reason: 'v1_cumulative_below_threshold',
-    };
+    return { ok: false, seededBalance: v1.balance_reserve, seededHashes: 0, reason: 'v1_cumulative_below_threshold' };
   }
 
   const deposits = await listVaultDeposits(200);
-  const hashes = Array.from(
-    new Set(deposits.map((d) => d.deposit_hash).filter((h): h is string => typeof h === 'string' && h.length > 0)),
-  );
+  const hashes = Array.from(new Set(deposits.map((d) => d.deposit_hash).filter((h): h is string => typeof h === 'string' && h.length > 0)));
   if (hashes.length === 0) {
-    return {
-      ok: false,
-      seededBalance: v1.balance_reserve,
-      seededHashes: 0,
-      reason: 'no_hashed_deposits_for_legacy_bootstrap',
-    };
+    return { ok: false, seededBalance: v1.balance_reserve, seededHashes: 0, reason: 'no_hashed_deposits_for_legacy_bootstrap' };
   }
 
   await setInProgressBalance(Number(v1.balance_reserve.toFixed(6)));
@@ -130,45 +116,34 @@ async function bootstrapLegacyReserveForFirstSeal(): Promise<{
   };
 }
 
-async function submitInternalAttestation(agent: SentinelAgent) {
-  const candidate = await getCandidate();
-  if (!candidate) return { agent, ok: false, error: 'no_candidate' };
+async function submitInternalAttestation(agent: SentinelAgent, pinnedCandidate: SealCandidate) {
+  const current = await getCandidate();
+  if (!current) return { agent, ok: false, error: 'no_candidate' };
+  if (current.seal_id !== pinnedCandidate.seal_id) return { agent, ok: false, error: 'candidate_changed' };
 
   const token = getVaultAttestationToken(agent);
   if (!token) return { agent, ok: false, error: 'missing_attestation_token' };
 
   const rationale = rationaleFor(agent);
-  const signature = computeAttestationSignature({
-    token,
-    seal_hash: candidate.seal_hash,
-    verdict: 'pass',
-    rationale,
-  });
+  const signature = computeAttestationSignature({ token, seal_hash: pinnedCandidate.seal_hash, verdict: 'pass', rationale });
 
   const attestation: SealAttestation = {
     agent,
     verdict: 'pass',
     rationale,
-    gi_at_attestation: candidate.gi_at_seal,
+    gi_at_attestation: pinnedCandidate.gi_at_seal,
     timestamp: new Date().toISOString(),
     signature,
-    ...(agent === 'AUREA' ? { posture: postureForGi(candidate.gi_at_seal) } : {}),
+    ...(agent === 'AUREA' ? { posture: postureForGi(pinnedCandidate.gi_at_seal) } : {}),
   };
 
-  const updated = await recordAttestation(candidate.seal_id, agent, attestation);
+  const updated = await recordAttestation(pinnedCandidate.seal_id, agent, attestation);
   if (!updated) return { agent, ok: false, error: 'record_failed' };
-  return {
-    agent,
-    ok: true,
-    verdict: 'pass' as const,
-    attestations_received: Object.keys(updated.attestations).length,
-  };
+  return { agent, ok: true, verdict: 'pass' as const, attestations_received: Object.keys(updated.attestations).length };
 }
 
 export async function POST(req: NextRequest) {
-  if (!sealQuorumAuth(req)) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!sealQuorumAuth(req)) return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
 
   const body = await readBody(req);
   const bootstrapLegacyReserve = body.bootstrapLegacyReserve === true;
@@ -193,56 +168,51 @@ export async function POST(req: NextRequest) {
         threshold: VAULT_RESERVE_PARCEL_UNITS,
         latest_seal_id: latest?.seal_id ?? null,
         bootstrap,
-        reason:
-          'No v2 candidate exists and canonical in_progress_balance is below 50. Pass bootstrapLegacyReserve=true only for explicit first-seal migration from v1 cumulative reserve.',
+        reason: 'No v2 candidate exists and canonical in_progress_balance is below 50. Pass bootstrapLegacyReserve=true only for explicit first-seal migration from v1 cumulative reserve.',
       });
     }
     candidate = await tryFormNextCandidate({ cycle });
   }
 
   if (!candidate) {
-    return NextResponse.json({
-      ok: false,
-      outcome: 'candidate_not_formed',
-      cycle,
-      in_progress_balance: balanceBefore,
-      threshold: VAULT_RESERVE_PARCEL_UNITS,
-      bootstrap,
-    }, { status: 500 });
+    return NextResponse.json({ ok: false, outcome: 'candidate_not_formed', cycle, in_progress_balance: balanceBefore, threshold: VAULT_RESERVE_PARCEL_UNITS, bootstrap }, { status: 500 });
   }
 
+  const pinnedCandidate = candidate;
   const submissions = [];
   for (const agent of SENTINEL_AGENTS) {
-    submissions.push(await submitInternalAttestation(agent));
+    const result = await submitInternalAttestation(agent, pinnedCandidate);
+    submissions.push(result);
+    if (!result.ok && result.error === 'candidate_changed') break;
   }
 
   const failed = submissions.filter((s) => !s.ok);
   const refreshed = await getCandidate();
   if (!refreshed) {
-    return NextResponse.json({
-      ok: false,
-      outcome: 'candidate_missing_after_attestation',
-      seal_id: candidate.seal_id,
-      submissions,
-      bootstrap,
-    }, { status: 500 });
+    return NextResponse.json({ ok: false, outcome: 'candidate_missing_after_attestation', seal_id: pinnedCandidate.seal_id, submissions, bootstrap }, { status: 500 });
   }
 
   const quorum = evaluateQuorum(refreshed);
   const finalized = await finalizeSeal(quorum);
   const balanceAfter = await getInProgressBalance();
-  const finalizedSeal = finalized ?? (await getSeal(candidate.seal_id));
+  const finalizedSeal = finalized ?? (await getSeal(pinnedCandidate.seal_id));
 
   return NextResponse.json({
     ok: failed.length === 0 && quorum.decision === 'attested' && finalizedSeal?.status === 'attested',
     outcome: finalizedSeal?.status === 'attested' ? 'seal_attested' : `quorum_${quorum.decision}`,
     cycle,
-    seal_id: candidate.seal_id,
-    sequence: candidate.sequence,
-    seal_hash: candidate.seal_hash,
+    seal_id: pinnedCandidate.seal_id,
+    sequence: pinnedCandidate.sequence,
+    reserve_block: pinnedCandidate.sequence,
+    seal_hash: pinnedCandidate.seal_hash,
     status: finalizedSeal?.status ?? null,
     fountain_status: finalizedSeal?.fountain_status ?? null,
     reserve: finalizedSeal?.reserve ?? VAULT_RESERVE_PARCEL_UNITS,
+    substrate_attestation_id: finalizedSeal?.substrate_attestation_id ?? null,
+    substrate_event_hash: finalizedSeal?.substrate_event_hash ?? null,
+    substrate_attested_at: finalizedSeal?.substrate_attested_at ?? null,
+    substrate_attestation_error: finalizedSeal?.substrate_attestation_error ?? null,
+    immortalized: Boolean(finalizedSeal?.substrate_attestation_id && finalizedSeal?.substrate_event_hash),
     in_progress_balance_before: balanceBefore,
     in_progress_balance_after: balanceAfter,
     bootstrap,
@@ -250,6 +220,6 @@ export async function POST(req: NextRequest) {
     submissions,
     attestations_received: refreshed ? Object.keys(refreshed.attestations).length : 0,
     attestations_needed: refreshed ? SENTINEL_ATTESTATION_COUNT - Object.keys(refreshed.attestations).length : SENTINEL_ATTESTATION_COUNT,
-    canon: 'Reserve Seal attested. Fountain remains locked until GI sustain unlock conditions pass.',
+    canon: 'Reserve Block attested. Substrate pointer recorded when available. Fountain remains locked until GI sustain unlock conditions pass.',
   });
 }
