@@ -7,9 +7,12 @@
  * attestation secrets, evaluates quorum, and finalizes the Seal when quorum
  * passes.
  *
- * This exists for the first Seal / recovery path where the operator wants a
- * synchronous full-council outcome instead of waiting for each Sentinel to poll
- * and POST independently.
+ * Optional first-seal migration:
+ *   { "bootstrapLegacyReserve": true }
+ *
+ * This explicitly seeds v2 from the existing v1 cumulative reserve only when no
+ * attested Seal exists yet. It is operator controlled so compatibility history
+ * is never silently converted into canon.
  */
 
 import type { NextRequest } from 'next/server';
@@ -19,17 +22,36 @@ import { SENTINEL_ATTESTATION_COUNT, VAULT_RESERVE_PARCEL_UNITS } from '@/lib/va
 import { tryFormNextCandidate } from '@/lib/vault-v2/deposit';
 import { evaluateQuorum, finalizeSeal, computeAttestationSignature } from '@/lib/vault-v2/seal';
 import {
+  countSeals,
   getCandidate,
   getInProgressBalance,
   getLatestSeal,
   getSeal,
   recordAttestation,
+  setInProgressBalance,
+  writeInProgressHashes,
 } from '@/lib/vault-v2/store';
 import type { Posture, SealAttestation, SentinelAgent } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
+import { getVaultStatusPayload, listVaultDeposits } from '@/lib/vault/vault';
 
 export const dynamic = 'force-dynamic';
+
+type QuorumBody = {
+  bootstrapLegacyReserve?: unknown;
+};
+
+async function readBody(req: NextRequest): Promise<QuorumBody> {
+  try {
+    const text = await req.text();
+    if (!text.trim()) return {};
+    const parsed = JSON.parse(text) as unknown;
+    return parsed && typeof parsed === 'object' ? (parsed as QuorumBody) : {};
+  } catch {
+    return {};
+  }
+}
 
 function sealQuorumAuth(req: NextRequest): boolean {
   const agents = process.env.AGENT_SERVICE_TOKEN ?? '';
@@ -62,6 +84,50 @@ function rationaleFor(agent: SentinelAgent): string {
     case 'AUREA':
       return 'AUREA pass — strategic quorum complete; Seal may enter attested reserve chain pending integrity sustain.';
   }
+}
+
+async function bootstrapLegacyReserveForFirstSeal(): Promise<{
+  ok: boolean;
+  seededBalance: number;
+  seededHashes: number;
+  reason: string;
+}> {
+  const attestedCount = await countSeals();
+  if (attestedCount > 0) {
+    return { ok: false, seededBalance: 0, seededHashes: 0, reason: 'attested_seal_already_exists' };
+  }
+
+  const v1 = await getVaultStatusPayload(null);
+  if (v1.balance_reserve < VAULT_RESERVE_PARCEL_UNITS) {
+    return {
+      ok: false,
+      seededBalance: v1.balance_reserve,
+      seededHashes: 0,
+      reason: 'v1_cumulative_below_threshold',
+    };
+  }
+
+  const deposits = await listVaultDeposits(200);
+  const hashes = Array.from(
+    new Set(deposits.map((d) => d.deposit_hash).filter((h): h is string => typeof h === 'string' && h.length > 0)),
+  );
+  if (hashes.length === 0) {
+    return {
+      ok: false,
+      seededBalance: v1.balance_reserve,
+      seededHashes: 0,
+      reason: 'no_hashed_deposits_for_legacy_bootstrap',
+    };
+  }
+
+  await setInProgressBalance(Number(v1.balance_reserve.toFixed(6)));
+  await writeInProgressHashes(hashes);
+  return {
+    ok: true,
+    seededBalance: Number(v1.balance_reserve.toFixed(6)),
+    seededHashes: hashes.length,
+    reason: 'legacy_v1_cumulative_seeded_into_v2_first_seal',
+  };
 }
 
 async function submitInternalAttestation(agent: SentinelAgent) {
@@ -104,9 +170,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
+  const body = await readBody(req);
+  const bootstrapLegacyReserve = body.bootstrapLegacyReserve === true;
   const cycle = await resolveOperatorCycleId();
-  const balanceBefore = await getInProgressBalance();
+  let balanceBefore = await getInProgressBalance();
   let candidate = await getCandidate();
+  let bootstrap: Awaited<ReturnType<typeof bootstrapLegacyReserveForFirstSeal>> | null = null;
+
+  if (!candidate && balanceBefore < VAULT_RESERVE_PARCEL_UNITS && bootstrapLegacyReserve) {
+    bootstrap = await bootstrapLegacyReserveForFirstSeal();
+    balanceBefore = await getInProgressBalance();
+  }
 
   if (!candidate) {
     if (balanceBefore < VAULT_RESERVE_PARCEL_UNITS) {
@@ -118,8 +192,9 @@ export async function POST(req: NextRequest) {
         in_progress_balance: balanceBefore,
         threshold: VAULT_RESERVE_PARCEL_UNITS,
         latest_seal_id: latest?.seal_id ?? null,
+        bootstrap,
         reason:
-          'No v2 candidate exists and canonical in_progress_balance is below 50. v1 cumulative reserve is compatibility history, not an auto-seal trigger.',
+          'No v2 candidate exists and canonical in_progress_balance is below 50. Pass bootstrapLegacyReserve=true only for explicit first-seal migration from v1 cumulative reserve.',
       });
     }
     candidate = await tryFormNextCandidate({ cycle });
@@ -132,6 +207,7 @@ export async function POST(req: NextRequest) {
       cycle,
       in_progress_balance: balanceBefore,
       threshold: VAULT_RESERVE_PARCEL_UNITS,
+      bootstrap,
     }, { status: 500 });
   }
 
@@ -148,6 +224,7 @@ export async function POST(req: NextRequest) {
       outcome: 'candidate_missing_after_attestation',
       seal_id: candidate.seal_id,
       submissions,
+      bootstrap,
     }, { status: 500 });
   }
 
@@ -168,6 +245,7 @@ export async function POST(req: NextRequest) {
     reserve: finalizedSeal?.reserve ?? VAULT_RESERVE_PARCEL_UNITS,
     in_progress_balance_before: balanceBefore,
     in_progress_balance_after: balanceAfter,
+    bootstrap,
     quorum,
     submissions,
     attestations_received: refreshed ? Object.keys(refreshed.attestations).length : 0,
