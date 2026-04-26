@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import { Redis } from '@upstash/redis';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
-import { kvGet, kvSet } from '@/lib/kv/store';
+import { kvGet, kvLpushCapped, kvSet } from '@/lib/kv/store';
 
 export const INCIDENT_PROTOCOL_VERSION = 'C-293.phase6.v1' as const;
 
@@ -52,9 +54,34 @@ type ReportIncidentInput = {
 
 const INCIDENT_INDEX_KEY = 'system:incidents:index';
 const INCIDENT_TTL_SECONDS = 60 * 60 * 24 * 90;
+const INCIDENT_INDEX_MAX = 200;
+const PREFIX = 'mobius:';
+
+let redisClient: Redis | null | undefined;
 
 function incidentKey(id: string): string {
   return `system:incident:${id}`;
+}
+
+function prefixed(key: string): string {
+  return `${PREFIX}${key}`;
+}
+
+function getRedis(): Redis | null {
+  if (redisClient !== undefined) return redisClient;
+  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) {
+    redisClient = null;
+    return null;
+  }
+  try {
+    redisClient = new Redis({ url, token });
+    return redisClient;
+  } catch {
+    redisClient = null;
+    return null;
+  }
 }
 
 function normalizeSeverity(value: unknown): IncidentSeverity {
@@ -71,23 +98,31 @@ function normalizeRecommendation(value: unknown, severity: IncidentSeverity): Ro
 }
 
 function nextIncidentId(cycle: string): string {
-  const suffix = Date.now().toString(36).toUpperCase();
-  return `INC-${cycle}-${suffix}`;
+  return `INC-${cycle}-${randomUUID()}`;
 }
 
-async function readIndex(): Promise<string[]> {
-  const ids = await kvGet<string[]>(INCIDENT_INDEX_KEY);
-  return Array.isArray(ids) ? ids : [];
+async function readIndex(limit = INCIDENT_INDEX_MAX): Promise<string[]> {
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const ids = await redis.lrange<string>(prefixed(INCIDENT_INDEX_KEY), 0, Math.max(0, limit - 1));
+      return Array.isArray(ids) ? ids : [];
+    } catch {
+      // Fall through to legacy array index read below.
+    }
+  }
+  const legacyIds = await kvGet<string[]>(INCIDENT_INDEX_KEY);
+  return Array.isArray(legacyIds) ? legacyIds.slice(-limit).reverse() : [];
 }
 
-async function writeIndex(ids: string[]): Promise<void> {
-  await kvSet(INCIDENT_INDEX_KEY, Array.from(new Set(ids)).slice(-200), INCIDENT_TTL_SECONDS);
+async function appendIndex(id: string): Promise<boolean> {
+  // LPUSH avoids the lost-update read/modify/write race from array index writes.
+  return kvLpushCapped(INCIDENT_INDEX_KEY, id, INCIDENT_INDEX_MAX);
 }
 
 export async function listIncidents(limit = 50): Promise<IncidentRecord[]> {
-  const ids = await readIndex();
-  const recent = ids.slice(-Math.max(1, Math.min(100, limit))).reverse();
-  const rows = await Promise.all(recent.map((id) => kvGet<IncidentRecord>(incidentKey(id))));
+  const ids = await readIndex(Math.max(1, Math.min(100, limit)));
+  const rows = await Promise.all(ids.map((id) => kvGet<IncidentRecord>(incidentKey(id))));
   return rows.filter((row): row is IncidentRecord => Boolean(row));
 }
 
@@ -119,10 +154,13 @@ export async function reportIncident(input: ReportIncidentInput): Promise<Incide
     source: String(input.source ?? 'operator'),
     canon: 'Incidents are never erased by rollback. Rollback must preserve the incident trail.',
   };
-  await kvSet(incidentKey(id), record, INCIDENT_TTL_SECONDS);
-  const ids = await readIndex();
-  ids.push(id);
-  await writeIndex(ids);
+
+  const recordWritten = await kvSet(incidentKey(id), record, INCIDENT_TTL_SECONDS);
+  if (!recordWritten) throw new Error('incident_record_persistence_failed');
+
+  const indexWritten = await appendIndex(id);
+  if (!indexWritten) throw new Error('incident_index_persistence_failed');
+
   return record;
 }
 
