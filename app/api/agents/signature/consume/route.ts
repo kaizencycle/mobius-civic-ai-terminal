@@ -29,6 +29,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!consumed.ok) {
+      if ('error' in consumed) {
+        return NextResponse.json({
+          ok: false,
+          reason: consumed.error,
+          canon: 'Signed action rejected because dedupe persistence could not be proven.',
+        }, { status: 503 });
+      }
       return NextResponse.json({
         ok: false,
         reason: 'dedupe_key_already_consumed',
