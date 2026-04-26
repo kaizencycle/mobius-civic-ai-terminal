@@ -29,6 +29,13 @@ export type LedgerChamberPayload = {
   pagination?: LedgerPagination;
   fallback: boolean;
   timestamp: string;
+  savepoint?: {
+    status: 'live' | 'saved' | 'none';
+    saved_at: string | null;
+    saved_count: number;
+    live_count: number;
+    reason: string | null;
+  };
 };
 
 const EMPTY_CANON: LedgerCanonCounts = { hot: 0, candidate: 0, attested: 0, sealed: 0, blocked: 0 };
@@ -100,5 +107,7 @@ export function useLedgerChamber(enabled: boolean) {
   return useChamberHydration<LedgerChamberPayload>('/api/chambers/ledger', enabled, {
     previewData: preview,
     lockToPreview: stabilizationActive,
+    savepointKey: 'ledger:all:300:3-pages',
+    getSavepointCount: (payload) => Array.isArray(payload.events) ? payload.events.length : 0,
   });
 }
