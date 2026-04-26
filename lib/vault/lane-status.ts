@@ -61,6 +61,10 @@ export function computeReserveBlockSummary(args: {
   const completed_blocks_v1 = Math.floor(safeV1 / block_size);
   const sealed_blocks = Math.max(0, Math.floor(args.sealsCountAttested));
   const audit_blocks = Math.max(0, Math.floor(args.sealsAuditCount));
+  // OPT-5 (C-293): completed_blocks_v1 (from cumulative v1 balance) is the authoritative
+  // block count during the v1→v2 compatibility window. sealed_blocks and audit_blocks are
+  // the v2 chain counters — once the v1 compat field is removed, those will take over.
+  // The max ensures we never display a block number lower than any of the three sources.
   const in_progress_block = Math.max(sealed_blocks, audit_blocks, completed_blocks_v1) + 1;
   const in_progress_balance = Number((safeProgress % block_size).toFixed(6));
   const in_progress_pct = block_size > 0 ? Math.min(100, Math.round((in_progress_balance / block_size) * 100)) : 0;
@@ -75,7 +79,8 @@ export function computeReserveBlockSummary(args: {
     in_progress_balance,
     in_progress_pct,
     remaining_to_next_block,
-    label: `Block ${in_progress_block} in progress — ${in_progress_balance.toFixed(2)} / ${block_size.toFixed(0)} MIC (${in_progress_pct}%)`,
+    // OPT-6 (C-293): include remaining-to-next so operators see the gap without computing it
+    label: `Block ${in_progress_block} in progress — ${in_progress_balance.toFixed(2)} / ${block_size.toFixed(0)} MIC (${in_progress_pct}%) · ${remaining_to_next_block.toFixed(2)} remaining`,
     canon: 'One Reserve Block equals one 50-unit reserve parcel. Blocks can seal before the Fountain unlocks.',
   };
 }

@@ -35,6 +35,7 @@ import { tryFormNextCandidate } from '@/lib/vault-v2/deposit';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import { VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
+import { bearerMatchesToken } from '@/lib/vault-v2/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,7 +71,8 @@ export async function GET(req: NextRequest) {
   const cronHeader = req.headers.get('x-vercel-cron');
   const authHeader = req.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET || '';
-  const manuallyAuthed = cronSecret !== '' && authHeader === `Bearer ${cronSecret}`;
+  // FIX-2 (C-293): use timingSafeEqual via bearerMatchesToken
+  const manuallyAuthed = bearerMatchesToken(authHeader, cronSecret);
   if (!cronHeader && !manuallyAuthed) {
     return NextResponse.json({ error: 'Cron-only endpoint' }, { status: 403 });
   }
@@ -117,7 +119,11 @@ export async function GET(req: NextRequest) {
           seal_id: sealed.seal_id,
           status: sealed.status,
           decision: quorum1.decision,
+          // OPT-3 (C-293): surface substrate error in cron logs
+          substrate_error: sealed.substrate_attestation_error ?? null,
         });
+      } else {
+        errors.push('finalizeSeal returned null for decision: ' + quorum1.decision);
       }
     } else {
       const timedOut = new Date(candidate.timeout_at).getTime() < Date.now();
@@ -148,6 +154,11 @@ export async function GET(req: NextRequest) {
       } else {
         candidate_state = 'forming-waiting';
         autoSealReason = `candidate_waiting_for_${quorum1.missing.length}_attestations`;
+        // OPT-4 (C-293): log missing agents + ms-to-timeout
+        console.info('[vault-v2:cron] waiting for attestations', {
+          seal_id: candidate.seal_id, missing: quorum1.missing,
+          ms_to_timeout: Math.max(0, new Date(candidate.timeout_at).getTime() - Date.now()),
+        });
       }
     }
   }

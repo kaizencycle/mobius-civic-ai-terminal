@@ -156,6 +156,18 @@ export async function POST(req: NextRequest) {
     ...(submission.posture ? { posture: submission.posture } : {}),
   };
 
+  // OPT-8 (C-293): log if agent is replacing a prior attestation (correction).
+  // recordAttestation is idempotent — same agent submitting twice replaces.
+  const existingAttestation = candidate.attestations[submission.agent];
+  if (existingAttestation) {
+    console.info('[vault-v2:attest] agent replacing prior attestation', {
+      agent: submission.agent,
+      seal_id: submission.seal_id,
+      prior_verdict: existingAttestation.verdict,
+      new_verdict: submission.verdict,
+    });
+  }
+
   const updated = await recordAttestation(submission.seal_id, submission.agent, attestation);
 
   if (!updated) {

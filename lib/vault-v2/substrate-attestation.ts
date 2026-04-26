@@ -55,6 +55,7 @@ export async function attestReserveBlockToSubstrate(seal: Seal): Promise<Reserve
         `seal_hash:${seal.seal_hash}`,
         ...(seal.prev_seal_hash ? [`prev_seal_hash:${seal.prev_seal_hash}`] : []),
       ],
+      // OPT-7 (C-293): include cycle tag so substrate queries can filter by cycle
       tags: [
         'vault',
         'reserve-block',
@@ -62,6 +63,8 @@ export async function attestReserveBlockToSubstrate(seal: Seal): Promise<Reserve
         `block-${seal.sequence}`,
         seal.status,
         `fountain-${seal.fountain_status}`,
+        `cycle-${seal.cycle_at_seal}`,
+        seal.prev_seal_hash ? `prev-${seal.prev_seal_hash.slice(0, 8)}` : 'genesis',
       ],
     });
 
