@@ -62,7 +62,7 @@ export async function GET() {
   ]);
   const chain = await resolveGiChain({ micReadinessSnapshotRaw: micRaw.raw });
   const gi = safeFinite(chain.gi) ?? safeFinite(integrityPayload.global_integrity);
-  const cycle = chain.cycle ?? integrityPayload.cycle ?? currentCycleId();
+  const cycle = integrityPayload.cycle ?? currentCycleId();
   const blockSize = VAULT_RESERVE_PARCEL_UNITS;
   const inProgressBlock = candidate?.sequence ?? Math.max(sealsAuditCount, sealsCount) + 1;
   const reserveProgressPct = blockSize > 0 ? Math.min(100, Math.round((inProgressBalance / blockSize) * 100)) : 0;
@@ -79,7 +79,7 @@ export async function GET() {
       terminal_status: chain.terminal_status ?? integrityPayload.terminal_status ?? 'unknown',
       source: chain.source ?? integrityPayload.source,
       verified: chain.verified ?? false,
-      degraded: chain.degraded ?? integrityPayload.degraded ?? false,
+      degraded: chain.degraded ?? false,
       age_seconds: chain.age_seconds ?? null,
     },
     reserve_block: {
