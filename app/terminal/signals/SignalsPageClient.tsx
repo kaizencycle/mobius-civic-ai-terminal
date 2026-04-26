@@ -179,20 +179,23 @@ function PostureBadge({ posture, laneStale }: { posture: AgentPosture; laneStale
 function RadarSixDomain({
   scores,
 }: {
-  scores: Array<{ label: string; score: number; family: string }>;
+  scores: Array<{ label: string; score: number | null; family: string }>;
 }) {
+  const complete = scores.every((entry) => entry.score != null);
   const size = 260;
   const cx = size / 2;
   const cy = size / 2;
   const maxR = 92;
   const polygon = scores
     .map((entry, index) => {
+      if (entry.score == null) return null;
       const angle = (index / scores.length) * Math.PI * 2 - Math.PI / 2;
       const r = maxR * Math.min(Math.max(entry.score, 0), 1);
       const x = cx + Math.cos(angle) * r;
       const y = cy + Math.sin(angle) * r;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
+    .filter((value): value is string => value !== null)
     .join(' ');
 
   return (
@@ -217,8 +220,9 @@ function RadarSixDomain({
             const y = cy + Math.sin(angle) * maxR;
             return <line key={`axis-${index}`} x1={cx} y1={cy} x2={x} y2={y} stroke="rgba(100,116,139,0.25)" strokeWidth="0.8" />;
           })}
-          <polygon points={polygon} fill="rgba(34,211,238,0.18)" stroke="rgba(103,232,249,0.95)" strokeWidth="1.3" />
+          {complete ? <polygon points={polygon} fill="rgba(34,211,238,0.18)" stroke="rgba(103,232,249,0.95)" strokeWidth="1.3" /> : null}
           {scores.map((entry, index) => {
+            if (entry.score == null) return null;
             const angle = (index / scores.length) * Math.PI * 2 - Math.PI / 2;
             const x = cx + Math.cos(angle) * maxR * Math.min(Math.max(entry.score, 0), 1);
             const y = cy + Math.sin(angle) * maxR * Math.min(Math.max(entry.score, 0), 1);
@@ -230,13 +234,18 @@ function RadarSixDomain({
             <div key={entry.label} className="rounded border border-slate-800/90 bg-slate-900/70 px-2.5 py-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-300">{entry.label}</span>
-                <span className="font-mono text-[10px] text-cyan-200">{entry.score.toFixed(3)}</span>
+                <span className="font-mono text-[10px] text-cyan-200">{entry.score == null ? '—' : entry.score.toFixed(3)}</span>
               </div>
-              <div className="mt-1 text-[10px] text-slate-500">{entry.family}</div>
+              <div className="mt-1 text-[10px] text-slate-500">{entry.family}{entry.score == null ? ' · no sweep data' : ''}</div>
             </div>
           ))}
         </div>
       </div>
+      {!complete ? (
+        <div className="mt-2 rounded border border-amber-900/50 bg-amber-950/20 px-2 py-1 text-[10px] text-amber-200">
+          Radar polygon hidden: one or more domains have no live family composite.
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -284,16 +293,19 @@ export default function SignalsPageClient() {
     return out;
   }, [grouped]);
   const radarScores = useMemo(() => {
-    const byFamily = (id: string, fallback: number) => familyComposites[id]?.avg ?? fallback;
+    const byFamily = (id: string) => familyComposites[id]?.avg ?? null;
     return [
-      { label: 'CIVIC', score: byFamily('EVE', 0.45), family: 'EVE' },
-      { label: 'ENVIRON', score: byFamily('JADE', 0.45), family: 'JADE' },
-      { label: 'FINANCIAL', score: byFamily('ECHO', 0.45), family: 'ECHO' },
-      { label: 'NARRATIVE', score: byFamily('HERMES', 0.45), family: 'HERMES' },
-      { label: 'INFRASTR', score: byFamily('DAEDALUS', 0.45), family: 'DAEDALUS' },
+      { label: 'CIVIC', score: byFamily('EVE'), family: 'EVE' },
+      { label: 'ENVIRON', score: byFamily('JADE'), family: 'JADE' },
+      { label: 'FINANCIAL', score: byFamily('ECHO'), family: 'ECHO' },
+      { label: 'NARRATIVE', score: byFamily('HERMES'), family: 'HERMES' },
+      { label: 'INFRASTR', score: byFamily('DAEDALUS'), family: 'DAEDALUS' },
       {
         label: 'INSTITUTIONAL',
-        score: Math.min(1, ((familyComposites.ATLAS?.avg ?? 0.45) + (familyComposites.ZEUS?.avg ?? 0.45)) / 2),
+        score:
+          familyComposites.ATLAS?.avg != null && familyComposites.ZEUS?.avg != null
+            ? Math.min(1, (familyComposites.ATLAS.avg + familyComposites.ZEUS.avg) / 2)
+            : null,
         family: 'ATLAS/ZEUS',
       },
     ];
@@ -346,7 +358,7 @@ export default function SignalsPageClient() {
       ) : null}
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
-        <RadarSixDomain scores={radarScores} />
+        {agents.length > 0 ? <RadarSixDomain scores={radarScores} /> : null}
         {agents.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80">

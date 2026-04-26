@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 import GlobeChamber from '@/components/terminal/chambers/GlobeChamber';
-import GlobeView3D from '@/components/terminal/chambers/GlobeView3D';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { buildEveEscalationStrip } from '@/components/terminal/chambers/globeDashboardExtras';
 import type { SentimentDomain } from '@/components/terminal/chambers/types';
@@ -115,8 +114,18 @@ export default function GlobePageClient() {
           ⚠ Predictive Stabilization Active · Preview state prioritized due to integrity drift
         </div>
       ) : null}
-      <div className="hidden h-[calc(100%-0px)] overflow-hidden border-y border-white/[0.06] bg-[radial-gradient(ellipse_at_top,_#0a1628_0%,_#050810_50%,_#02040a_100%)] text-[#e9e6df] md:flex md:flex-col">
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-3">
+      <div className="relative h-[calc(100%-0px)] overflow-hidden">
+        <GlobeChamber
+          micro={micro}
+          echoEpicon={echoEpicon}
+          domains={domains}
+          cycleId={cycle}
+          clockLabel={`${new Date().toISOString().slice(11, 16)} UTC`}
+          giScore={gi}
+          miiScore={miiScore}
+          globeDashboard={globeDashboard}
+        />
+        <div className="pointer-events-none absolute inset-x-0 top-0 hidden md:flex items-center justify-between border-b border-white/[0.06] bg-slate-950/45 px-6 py-3 text-[#e9e6df] backdrop-blur-sm">
           <div className="flex items-center gap-4">
             <div className="font-semibold tracking-tight text-[#fafaf7]">Möbius</div>
             <div className="font-mono text-[10px] tracking-[0.18em] text-slate-400">CIVIC TERMINAL · {cycle}</div>
@@ -133,78 +142,43 @@ export default function GlobePageClient() {
             {clock}
           </div>
         </div>
-        <div className="grid min-h-0 flex-1 grid-cols-[1.2fr_1fr]">
-          <div className="relative overflow-hidden border-r border-white/[0.06]">
-            <GlobeView3D
-              micro={micro}
-              echoEpicon={echoEpicon}
-              domains={domains}
-              cycleId={cycle}
-              clockLabel={clock}
-              giScore={gi}
-              miiScore={miiScore}
-            />
-            <div className="absolute bottom-5 left-5 max-w-md rounded border border-slate-700/70 bg-slate-950/60 px-3 py-2 backdrop-blur-sm">
-              <div className="font-mono text-[10px] tracking-[0.2em] text-slate-400">WORLD STATE</div>
-              <div className="mt-1 text-xl leading-tight text-[#fafaf7]">
-                Eight agents, watching {microSignalsCount} signals across live lanes.
-              </div>
+        <aside className="pointer-events-none absolute bottom-4 left-4 right-4 hidden rounded border border-slate-700/70 bg-slate-950/70 p-4 text-[#e9e6df] backdrop-blur-sm md:block lg:left-auto lg:right-4 lg:top-16 lg:w-[430px] lg:bottom-auto">
+          <div className="font-mono text-[10px] tracking-[0.22em] text-slate-400">GLOBAL INTEGRITY</div>
+          <div className="mt-1 text-6xl font-extralight leading-none tracking-[-0.04em] text-[#fafaf7]">{gi.toFixed(3)}</div>
+          <div className="mt-1 font-mono text-[10px] text-slate-400">Live chamber composite · source: snapshot + globe chamber</div>
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <div>
+              <div className="font-mono text-[9px] tracking-[0.18em] text-slate-500">SIGNALS</div>
+              <div className="text-xl text-[#fafaf7]">{microSignalsCount}</div>
+            </div>
+            <div>
+              <div className="font-mono text-[9px] tracking-[0.18em] text-slate-500">TRIPWIRES</div>
+              <div className="text-xl text-[#fafaf7]">{tripwireCount}</div>
+            </div>
+            <div>
+              <div className="font-mono text-[9px] tracking-[0.18em] text-slate-500">VERIFIED</div>
+              <div className="text-xl text-[#fafaf7]">{verifiedCount}</div>
             </div>
           </div>
-          <div className="flex flex-col gap-6 overflow-y-auto p-8">
-            <div>
-              <div className="font-mono text-[10px] tracking-[0.22em] text-slate-400">GLOBAL INTEGRITY</div>
-              <div className="mt-2 text-7xl font-extralight leading-none tracking-[-0.04em] text-[#fafaf7]">{gi.toFixed(3)}</div>
-              <div className="mt-2 font-mono text-[10px] text-slate-400">Live chamber composite · source: snapshot + globe chamber</div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <div className="font-mono text-[9px] tracking-[0.18em] text-slate-500">SIGNALS</div>
-                <div className="text-2xl text-[#fafaf7]">{microSignalsCount}</div>
-              </div>
-              <div>
-                <div className="font-mono text-[9px] tracking-[0.18em] text-slate-500">TRIPWIRES</div>
-                <div className="text-2xl text-[#fafaf7]">{tripwireCount}</div>
-              </div>
-              <div>
-                <div className="font-mono text-[9px] tracking-[0.18em] text-slate-500">VERIFIED</div>
-                <div className="text-2xl text-[#fafaf7]">{verifiedCount}</div>
-              </div>
-            </div>
-            <div>
-              <div className="border-b border-white/[0.08] pb-2 font-mono text-[10px] tracking-[0.2em] text-slate-400">LIVE FEED</div>
-              <div className="mt-3 space-y-2">
-                {liveFeed.length ? (
-                  liveFeed.map((item) => (
-                    <div key={item.id} className="flex items-start justify-between gap-3 border-b border-white/[0.06] pb-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm text-slate-100">{item.title}</div>
-                        <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-slate-500">
-                          {item.ownerAgent} · {item.category}
-                        </div>
-                      </div>
-                      <div className="font-mono text-[10px] text-emerald-300">T{item.confidenceTier}</div>
+          <div className="mt-3 border-t border-white/[0.08] pt-2 font-mono text-[10px] tracking-[0.2em] text-slate-400">LIVE FEED</div>
+          <div className="mt-2 space-y-1.5">
+            {liveFeed.length ? (
+              liveFeed.map((item) => (
+                <div key={item.id} className="flex items-start justify-between gap-2 border-b border-white/[0.06] pb-1.5">
+                  <div className="min-w-0">
+                    <div className="truncate text-xs text-slate-100">{item.title}</div>
+                    <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-slate-500">
+                      {item.ownerAgent} · {item.category}
                     </div>
-                  ))
-                ) : (
-                  <div className="text-xs text-slate-500">No live feed entries available for this cycle.</div>
-                )}
-              </div>
-            </div>
+                  </div>
+                  <div className="font-mono text-[10px] text-emerald-300">T{item.confidenceTier}</div>
+                </div>
+              ))
+            ) : (
+              <div className="text-xs text-slate-500">No live feed entries available for this cycle.</div>
+            )}
           </div>
-        </div>
-      </div>
-      <div className="md:hidden">
-        <GlobeChamber
-          micro={micro}
-          echoEpicon={echoEpicon}
-          domains={domains}
-          cycleId={cycle}
-          clockLabel={`${new Date().toISOString().slice(11, 16)} UTC`}
-          giScore={gi}
-          miiScore={miiScore}
-          globeDashboard={globeDashboard}
-        />
+        </aside>
       </div>
     </div>
   );
