@@ -76,7 +76,6 @@ export default function GlobePageClient() {
   const microSignalsCount = Array.isArray(micro?.allSignals) ? micro.allSignals.length : 0;
   const tripwireCount = Array.isArray(micro?.anomalies) ? micro.anomalies.length : 0;
   const verifiedCount = echoEpicon.filter((item) => item.status === 'verified').length;
-  const clock = `${new Date().toISOString().slice(11, 19)} UTC`;
   const sentinelCount =
     snapshot?.agents?.ok &&
     typeof snapshot.agents.data === 'object' &&
@@ -141,23 +140,6 @@ export default function GlobePageClient() {
           miiScore={miiScore}
           globeDashboard={globeDashboard}
         />
-        <div className="pointer-events-none absolute inset-x-0 top-0 hidden md:flex items-center justify-between border-b border-white/[0.06] bg-slate-950/45 px-6 py-3 text-[#e9e6df] backdrop-blur-sm">
-          <div className="flex items-center gap-4">
-            <div className="font-semibold tracking-tight text-[#fafaf7]">Möbius</div>
-            <div className="font-mono text-[10px] tracking-[0.18em] text-slate-400">CIVIC TERMINAL · {cycle}</div>
-          </div>
-          <div className="flex gap-4 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
-            {['World', 'Pulse', 'Signals', 'Sentinel', 'Ledger', 'Journal', 'Vault'].map((tab) => (
-              <span key={tab} className={tab === 'World' ? 'border-b border-cyan-300 pb-1 text-cyan-200' : ''}>
-                {tab}
-              </span>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 font-mono text-[10px] text-slate-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
-            {clock}
-          </div>
-        </div>
         <aside className="pointer-events-none absolute bottom-4 left-4 right-4 hidden rounded border border-slate-700/70 bg-slate-950/70 p-4 text-[#e9e6df] backdrop-blur-sm md:block lg:left-auto lg:right-4 lg:top-16 lg:w-[430px] lg:bottom-auto">
           <div className="font-mono text-[10px] tracking-[0.22em] text-slate-400">GLOBAL INTEGRITY</div>
           <div className="mt-1 text-6xl font-extralight leading-none tracking-[-0.04em] text-[#fafaf7]">{gi.toFixed(3)}</div>
