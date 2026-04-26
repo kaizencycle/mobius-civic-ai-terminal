@@ -4,8 +4,10 @@ import { getSeal, listAllSeals, writeSeal } from '@/lib/vault-v2/store';
 import type { AgentSignedAction } from '@/lib/agents/signatures';
 import { hashPayload, verifyAgentAction } from '@/lib/agents/signatures';
 import { consumeDedupeKey } from '@/lib/agents/dedupe';
+import { kvGet, kvSet } from '@/lib/kv/store';
 
 export const HISTORICAL_ATTESTATION_VERSION = 'C-293.phase7.v1' as const;
+const HISTORICAL_ATTESTATION_TTL_SECONDS = 60 * 60 * 24 * 365;
 
 export type HistoricalBlockAttestationPayload = {
   version: typeof HISTORICAL_ATTESTATION_VERSION;
@@ -34,6 +36,10 @@ export type HistoricalAttestationSubmission = {
   signed: AgentSignedAction;
 };
 
+function historicalAttestationKey(sealId: string, agent: SentinelAgent): string {
+  return `vault:historical_attestation:${sealId}:${agent}`;
+}
+
 export function buildHistoricalAttestationPayload(seal: Seal): HistoricalBlockAttestationPayload {
   return {
     version: HISTORICAL_ATTESTATION_VERSION,
@@ -55,6 +61,26 @@ export function buildHistoricalAttestationPayload(seal: Seal): HistoricalBlockAt
 
 export function missingSentinelAgents(seal: Seal): SentinelAgent[] {
   return SENTINEL_AGENTS.filter((agent) => !seal.attestations?.[agent]);
+}
+
+async function loadHistoricalAttestationSidecars(sealId: string): Promise<Partial<Record<SentinelAgent, SealAttestation>>> {
+  const rows = await Promise.all(
+    SENTINEL_AGENTS.map(async (agent) => [agent, await kvGet<SealAttestation>(historicalAttestationKey(sealId, agent))] as const),
+  );
+  return Object.fromEntries(rows.filter(([, attestation]) => Boolean(attestation))) as Partial<Record<SentinelAgent, SealAttestation>>;
+}
+
+async function mergeHistoricalAttestationIntoSeal(sealId: string): Promise<Seal | null> {
+  const latest = await getSeal(sealId);
+  if (!latest) return null;
+  const sidecars = await loadHistoricalAttestationSidecars(sealId);
+  const next: Seal = {
+    ...latest,
+    attestations: { ...latest.attestations, ...sidecars },
+    posture: sidecars.AUREA?.posture ?? latest.posture,
+  };
+  await writeSeal(next);
+  return next;
 }
 
 export async function listHistoricalBackfillCandidates(limit = 25) {
@@ -87,14 +113,6 @@ export async function submitHistoricalBlockAttestation(submission: HistoricalAtt
   const verification = verifyAgentAction({ signed: submission.signed, payload });
   if (!verification.ok) return { ok: false, reason: verification.reason, payload };
 
-  const consumed = await consumeDedupeKey({
-    dedupe_key: submission.signed.dedupe_key,
-    agent: submission.signed.agent,
-    action: submission.signed.action,
-    payload_hash: submission.signed.payload_hash,
-  });
-  if (!consumed.ok) return { ok: false, reason: 'error' in consumed ? consumed.error : 'dedupe_key_already_consumed', payload };
-
   const attestation: SealAttestation = {
     agent: submission.agent,
     verdict: submission.verdict,
@@ -106,18 +124,32 @@ export async function submitHistoricalBlockAttestation(submission: HistoricalAtt
     posture: submission.agent === 'AUREA' ? submission.posture ?? seal.posture ?? 'cautionary' : undefined,
   };
 
-  const next: Seal = {
-    ...seal,
-    attestations: { ...seal.attestations, [submission.agent]: attestation },
-    posture: submission.agent === 'AUREA' ? attestation.posture ?? seal.posture : seal.posture,
-  };
+  const sidecarWritten = await kvSet(
+    historicalAttestationKey(submission.seal_id, submission.agent),
+    attestation,
+    HISTORICAL_ATTESTATION_TTL_SECONDS,
+  );
+  if (!sidecarWritten) return { ok: false, reason: 'historical_attestation_persistence_failed' as const, payload };
 
-  await writeSeal(next);
-  const missing = missingSentinelAgents(next);
+  const merged = await mergeHistoricalAttestationIntoSeal(submission.seal_id);
+  if (!merged?.attestations?.[submission.agent]) {
+    return { ok: false, reason: 'historical_attestation_merge_failed' as const, payload };
+  }
+
+  const consumed = await consumeDedupeKey({
+    dedupe_key: submission.signed.dedupe_key,
+    agent: submission.signed.agent,
+    action: submission.signed.action,
+    payload_hash: submission.signed.payload_hash,
+  });
+  if (!consumed.ok) return { ok: false, reason: 'error' in consumed ? consumed.error : 'dedupe_key_already_consumed', payload };
+
+  const finalSeal = await mergeHistoricalAttestationIntoSeal(submission.seal_id) ?? merged;
+  const missing = missingSentinelAgents(finalSeal);
   return {
     ok: true,
     reason: missing.length === 0 ? 'historical_quorum_complete' : 'historical_attestation_recorded',
-    seal: next,
+    seal: finalSeal,
     payload,
     missing_agents: missing,
   };
