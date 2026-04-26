@@ -29,6 +29,7 @@ Do not break existing callers. Keep these fields for now:
 - `current_tranche_balance`
 - `carry_forward_in_tranche`
 - `reserve_threshold_met`
+- legacy `reserve_lane` values: `tranche_ready`, `sealed_tranches`
 
 Add the new canonical operator-facing fields:
 
@@ -40,6 +41,7 @@ Add the new canonical operator-facing fields:
 - `reserve_blocks_audit`
 - `reserve_block_in_progress`
 - `reserve_block_progress_pct`
+- `reserve_block_lane`
 
 ## UI changes
 
@@ -49,22 +51,43 @@ Vault chamber now displays:
 - `Reserve Block seal`
 - current Block progress
 - Block history rows
-- attested / pending quorum / compat complete / in progress states
+- attested / immortalized / finalized non-attested / compat complete / in progress states
 
 Example:
 
 ```txt
-Block 1  50.00 MIC  pending quorum
-Block 2  50.00 MIC  pending quorum
-Block 3  50.00 MIC  pending quorum
+Block 1  50.00 MIC  immortalized
+Block 2  50.00 MIC  attested
+Block 3  50.00 MIC  finalized non-attested
 Block 4  24.17 MIC  in progress
 ```
+
+## Substrate immortalization
+
+A Reserve Block is not fully immortal until it has both:
+
+```txt
+seal.status === "attested"
+substrate_attestation_id exists
+substrate_event_hash exists
+```
+
+This PR adds a finalization hook:
+
+```txt
+finalizeSeal(attested)
+→ attestReserveBlockToSubstrate(seal)
+→ append Seal with substrate_attestation_id / substrate_event_hash
+```
+
+If the Substrate write fails, the seal remains attested, but the error is stored on the seal as `substrate_attestation_error`. That preserves proof state without hiding the failure.
 
 ## Important semantic guard
 
 A Reserve Block can seal before the Fountain unlocks.
 
 - Block seal = proof/accounting event
+- Substrate immortalization = civic proof pointer
 - Fountain unlock = economic activation event
 - Fountain still requires GI sustain
 
@@ -73,6 +96,8 @@ A Reserve Block can seal before the Fountain unlocks.
 One Reserve Block equals one 50-unit reserve parcel.
 
 Blocks prove accumulation.
+Quorum proves agreement.
+Substrate proves memory.
 GI sustain proves readiness.
 Fountain remains locked until integrity conditions pass.
 
