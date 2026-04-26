@@ -51,6 +51,8 @@ export type AgentScopeCard = {
   canon: string;
 };
 
+const SENTINEL_SIGNATURE_ACTIONS = ['quorum_attestation', 'historical_quorum_attestation'];
+
 export const MOBIUS_AGENT_REGISTRY: Record<MobiusAgentId, AgentScopeCard> = {
   ECHO: {
     id: 'ECHO',
@@ -81,7 +83,7 @@ export const MOBIUS_AGENT_REGISTRY: Record<MobiusAgentId, AgentScopeCard> = {
     forbidden: ['rewrite_governance_meaning', 'mint_MIC', 'unlock_fountain', 'override_operator'],
     outputs: ['heartbeat report', 'integrity diagnostic', 'quorum attestation'],
     automation_hints: ['heartbeat', 'sentinel check', 'quorum structural pass'],
-    signature: { phase: 'planned', public_key_env: 'ATLAS_PUBLIC_KEY', signs: ['heartbeat', 'journal_entry', 'quorum_attestation'] },
+    signature: { phase: 'planned', public_key_env: 'ATLAS_PUBLIC_KEY', signs: ['heartbeat', 'journal_entry', ...SENTINEL_SIGNATURE_ACTIONS] },
     canon: 'ATLAS checks structure before memory becomes trust.',
   },
   ZEUS: {
@@ -97,7 +99,7 @@ export const MOBIUS_AGENT_REGISTRY: Record<MobiusAgentId, AgentScopeCard> = {
     forbidden: ['synthesize_final_strategy', 'rewrite_JADE_canon', 'mint_MIC', 'unlock_fountain_without_state_machine'],
     outputs: ['verification report', 'quorum attestation', 'reject rationale'],
     automation_hints: ['watchdog', 'vault quorum', 'verification pass'],
-    signature: { phase: 'planned', public_key_env: 'ZEUS_PUBLIC_KEY', signs: ['verification_report', 'journal_entry', 'quorum_attestation'] },
+    signature: { phase: 'planned', public_key_env: 'ZEUS_PUBLIC_KEY', signs: ['verification_report', 'journal_entry', ...SENTINEL_SIGNATURE_ACTIONS] },
     canon: 'ZEUS verifies and may veto. ZEUS does not narrate around failed proof.',
   },
   AUREA: {
@@ -113,7 +115,7 @@ export const MOBIUS_AGENT_REGISTRY: Record<MobiusAgentId, AgentScopeCard> = {
     forbidden: ['directly_mint_MIC', 'finalize_quorum', 'override_ZEUS_verification', 'modify_source_code_from_class_b_automation'],
     outputs: ['daily close', 'strategic synthesis', 'AUREA posture'],
     automation_hints: ['daily close at end of cycle', 'strategic synthesis read'],
-    signature: { phase: 'planned', public_key_env: 'AUREA_PUBLIC_KEY', signs: ['daily_close', 'journal_entry', 'quorum_attestation'] },
+    signature: { phase: 'planned', public_key_env: 'AUREA_PUBLIC_KEY', signs: ['daily_close', 'journal_entry', ...SENTINEL_SIGNATURE_ACTIONS] },
     canon: 'AUREA sees the arc. AUREA advises; proof decides.',
   },
   EVE: {
@@ -129,7 +131,7 @@ export const MOBIUS_AGENT_REGISTRY: Record<MobiusAgentId, AgentScopeCard> = {
     forbidden: ['silently_approve_high_risk_change', 'mint_MIC', 'override_ZEUS', 'erase_operator_review_need'],
     outputs: ['risk synthesis', 'escalation entry', 'quorum attestation'],
     automation_hints: ['cycle synthesis', 'critical GI escalation', 'ethics pass'],
-    signature: { phase: 'planned', public_key_env: 'EVE_PUBLIC_KEY', signs: ['risk_synthesis', 'journal_entry', 'quorum_attestation'] },
+    signature: { phase: 'planned', public_key_env: 'EVE_PUBLIC_KEY', signs: ['risk_synthesis', 'journal_entry', ...SENTINEL_SIGNATURE_ACTIONS] },
     canon: 'EVE protects the civic boundary where optimization could harm people.',
   },
   JADE: {
@@ -145,7 +147,7 @@ export const MOBIUS_AGENT_REGISTRY: Record<MobiusAgentId, AgentScopeCard> = {
     forbidden: ['alter_numeric_state', 'change_proof_math', 'mint_MIC', 'override_substrate_record'],
     outputs: ['canon annotation', 'memory frame', 'quorum attestation'],
     automation_hints: ['constitutional annotation pass', 'canon synthesis'],
-    signature: { phase: 'planned', public_key_env: 'JADE_PUBLIC_KEY', signs: ['canon_annotation', 'journal_entry', 'quorum_attestation'] },
+    signature: { phase: 'planned', public_key_env: 'JADE_PUBLIC_KEY', signs: ['canon_annotation', 'journal_entry', ...SENTINEL_SIGNATURE_ACTIONS] },
     canon: 'JADE frames memory. JADE does not change the math.',
   },
   HERMES: {
