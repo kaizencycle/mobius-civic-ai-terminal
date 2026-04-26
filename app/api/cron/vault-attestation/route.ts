@@ -123,7 +123,12 @@ export async function GET(req: NextRequest) {
           substrate_error: sealed.substrate_attestation_error ?? null,
         });
       } else {
-        errors.push('finalizeSeal returned null for decision: ' + quorum1.decision);
+        // null means another cron/manual invocation raced and already finalized+cleared
+        // the candidate. Benign race — log for visibility but don't mark report ok: false.
+        console.warn('[vault-v2:cron] finalizeSeal returned null (likely race)', {
+          decision: quorum1.decision,
+          seal_id: candidate.seal_id,
+        });
       }
     } else {
       const timedOut = new Date(candidate.timeout_at).getTime() < Date.now();
