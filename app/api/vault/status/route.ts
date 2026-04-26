@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
 
   const seal_lane = computeVaultSealLaneSemantics({
     v1BalanceReserve: v1.balance_reserve,
-    inProgressBalance: inProgressBalance,
+    inProgressBalance,
     sealsCountAttested: sealsCount,
     sealsAuditCount,
     giCurrent: gi,
@@ -86,6 +86,7 @@ export async function GET(req: NextRequest) {
   });
 
   const hashCoverage = await getVaultDepositHashCoverage(200);
+  const latestImmortalized = Boolean(latestSeal?.substrate_attestation_id && latestSeal?.substrate_event_hash);
 
   const body = {
     ...v1,
@@ -107,6 +108,7 @@ export async function GET(req: NextRequest) {
     sustain_cycles_met: seal_lane.sustain_met,
     fountain_status: seal_lane.fountain_lane,
     reserve_lane: seal_lane.reserve_lane,
+    reserve_block_lane: seal_lane.reserve_block_lane,
     vault_headline: seal_lane.headline,
     vault_canon: seal_lane.canon,
     unseal_requirements_remaining: {
@@ -118,6 +120,11 @@ export async function GET(req: NextRequest) {
     latest_seal_id: latestSeal?.seal_id ?? null,
     latest_seal_at: latestSeal?.sealed_at ?? null,
     latest_seal_hash: latestSeal?.seal_hash ?? null,
+    substrate_attestation_id: latestSeal?.substrate_attestation_id ?? null,
+    substrate_event_hash: latestSeal?.substrate_event_hash ?? null,
+    substrate_attested_at: latestSeal?.substrate_attested_at ?? null,
+    substrate_attestation_error: latestSeal?.substrate_attestation_error ?? null,
+    latest_block_immortalized: latestImmortalized,
     candidate_attestation_state: candidate
       ? {
           in_flight: true,
@@ -126,8 +133,7 @@ export async function GET(req: NextRequest) {
           requested_at: candidate.requested_at,
           timeout_at: candidate.timeout_at,
           attestations_received: Object.keys(candidate.attestations).length,
-          attestations_needed:
-            SENTINEL_ATTESTATION_COUNT - Object.keys(candidate.attestations).length,
+          attestations_needed: SENTINEL_ATTESTATION_COUNT - Object.keys(candidate.attestations).length,
         }
       : {
           in_flight: false,
