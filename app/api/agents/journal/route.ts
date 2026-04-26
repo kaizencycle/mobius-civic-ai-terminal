@@ -316,10 +316,13 @@ async function loadEntries(
       ? Array.from(normalized).map((agent) => `journal:${agent.toLowerCase()}`)
       : [];
     const allEntriesKey = 'journal:all';
-    const [keysUnprefixed, keysPrefixed] = await Promise.all([
-      redis.keys('journal:*'),
-      redis.keys('mobius:journal:*'),
-    ]);
+    // OPT-2 (C-293): skip second keys() scan entirely — the reader uses rawGetWithFallback
+    // which tries both prefixes per-key anyway. Scanning 'mobius:journal:*' separately
+    // doubles round-trips without adding entries the 'journal:*' scan doesn't already catch
+    // once parseJournalStorageKey strips the prefix. For envs that write ONLY under mobius:
+    // prefix, include it only when the unprefixed scan returns nothing.
+    const keysUnprefixed = await redis.keys('journal:*');
+    const keysPrefixed = keysUnprefixed.length === 0 ? await redis.keys('mobius:journal:*') : [];
     const keys = [...new Set([allEntriesKey, ...agentListKeys, ...keysUnprefixed, ...keysPrefixed])];
     const seen = new Set<string>();
     const out: AgentJournalEntry[] = [];
@@ -362,8 +365,10 @@ async function loadSubstrateEntries(agentFilters: string[], limit: number): Prom
     substrateAgents.map((agent) =>
       Promise.race([
         readAgentJournals(agent.toLowerCase(), substrateLimit),
+        // OPT-2b (C-293): substrate is consistently empty (totalEntries=0); lower timeout
+        // from 5000ms to 2000ms so merged-mode reads don't block on a ghost source.
         new Promise<SubstrateJournalEntry[]>((_, reject) =>
-          setTimeout(() => reject(new Error('substrate_timeout')), 5000),
+          setTimeout(() => reject(new Error('substrate_timeout')), 2000),
         ),
       ]),
     ),
