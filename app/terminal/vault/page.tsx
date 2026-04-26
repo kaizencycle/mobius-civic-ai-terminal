@@ -40,6 +40,7 @@ type VaultPayload = {
   sustain_cycles_met?: boolean;
   fountain_status?: string;
   reserve_lane?: string;
+  reserve_block_lane?: string;
   vault_headline?: string;
   vault_canon?: string;
   reserve_block?: ReserveBlockSummary;
@@ -52,6 +53,11 @@ type VaultPayload = {
   reserve_block_progress_pct?: number;
   latest_seal_id?: string | null;
   latest_seal_at?: string | null;
+  substrate_attestation_id?: string | null;
+  substrate_event_hash?: string | null;
+  substrate_attested_at?: string | null;
+  substrate_attestation_error?: string | null;
+  latest_block_immortalized?: boolean;
   timestamp?: string;
 };
 
@@ -79,6 +85,12 @@ type ContributionsPayload = {
   };
 };
 
+type BlockRow = {
+  id: number;
+  amount: number;
+  status: 'attested' | 'immortalized' | 'finalized non-attested' | 'compat complete' | 'in progress';
+};
+
 function fallbackReserveBlock(data: VaultPayload): ReserveBlockSummary {
   const blockSize = data.reserve_block_size ?? data.activation_threshold ?? 50;
   const v1Balance = data.balance_reserve ?? 0;
@@ -102,20 +114,42 @@ function fallbackReserveBlock(data: VaultPayload): ReserveBlockSummary {
   };
 }
 
-function buildBlockRows(block: ReserveBlockSummary) {
+function buildBlockRows(block: ReserveBlockSummary, latestImmortalized: boolean): BlockRow[] {
   const maxCompleted = Math.max(block.audit_blocks, block.completed_blocks_v1, block.sealed_blocks);
-  const rows = [];
+  const rows: BlockRow[] = [];
   for (let i = 1; i <= maxCompleted; i += 1) {
     const attested = i <= block.sealed_blocks;
     const audited = i <= block.audit_blocks;
+    const isLatestAttested = attested && i === block.sealed_blocks;
     rows.push({
       id: i,
       amount: block.block_size,
-      status: attested ? 'attested' : audited ? 'pending quorum' : 'compat complete',
+      status: isLatestAttested && latestImmortalized
+        ? 'immortalized'
+        : attested
+          ? 'attested'
+          : audited
+            ? 'finalized non-attested'
+            : 'compat complete',
     });
   }
   rows.push({ id: block.in_progress_block, amount: block.in_progress_balance, status: 'in progress' });
   return rows;
+}
+
+function blockStatusClass(status: BlockRow['status']): string {
+  switch (status) {
+    case 'immortalized':
+      return 'text-cyan-300';
+    case 'attested':
+      return 'text-emerald-300';
+    case 'finalized non-attested':
+      return 'text-rose-300';
+    case 'in progress':
+      return 'text-cyan-300';
+    default:
+      return 'text-amber-300';
+  }
 }
 
 export default function VaultPage() {
@@ -166,15 +200,13 @@ export default function VaultPage() {
   const v1Status = (data.status ?? 'sealed').toUpperCase();
   const fountain = (data.fountain_status ?? 'locked').toUpperCase();
   const headline = data.vault_headline ?? block.label;
-  const blockRows = buildBlockRows(block);
+  const blockRows = buildBlockRows(block, Boolean(data.latest_block_immortalized));
 
   return (
     <div className="h-full overflow-y-auto p-4 text-slate-200">
       <div className="mb-3 flex items-center justify-between">
         <h1 className="text-sm font-semibold uppercase tracking-[0.15em] text-violet-200">Vault · Reserve Blocks</h1>
-        <Link href="/terminal/sentinel" className="text-[10px] font-mono text-slate-500 hover:text-cyan-300">
-          ← Sentinel
-        </Link>
+        <Link href="/terminal/sentinel" className="text-[10px] font-mono text-slate-500 hover:text-cyan-300">← Sentinel</Link>
       </div>
 
       <div className="mb-3 rounded border border-emerald-500/25 bg-slate-950/90 p-3 font-mono text-[11px] text-emerald-100/95">
@@ -185,39 +217,23 @@ export default function VaultPage() {
 
       <div className="rounded border border-violet-500/30 bg-slate-950/80 p-4 font-mono text-xs">
         <div className="text-[11px] uppercase tracking-[0.2em] text-violet-300/90">Fountain / v1 gate · {v1Status}</div>
-        <div className="mt-2 text-[10px] text-slate-400">
-          v1 cumulative (compat): {v1Bal.toFixed(2)} units · completed Reserve Blocks: {block.completed_blocks_v1}
-        </div>
+        <div className="mt-2 text-[10px] text-slate-400">v1 cumulative (compat): {v1Bal.toFixed(2)} units · completed Reserve Blocks: {block.completed_blocks_v1}</div>
         <div className="mt-3 space-y-1 text-slate-400">
-          <div>
-            Sealed reserve total: <span className="text-violet-200">{sealedTotal.toFixed(2)}</span> ({block.sealed_blocks} attested Blocks)
-          </div>
-          <div>
-            Current Block:{' '}
-            <span className="text-violet-200">
-              {blockBar} {inProg.toFixed(2)} / {cap.toFixed(2)} MIC
-            </span>
-          </div>
-          <div>
-            Block status: <span className="text-cyan-200">{block.label}</span>
-          </div>
-          <div>
-            Audit Blocks: {block.audit_blocks} · Pending/compat Blocks: {Math.max(0, block.completed_blocks_v1 - block.sealed_blocks)}
-          </div>
-          <div>
-            Fountain: <span className="text-amber-200/90">{fountain}</span>
-            {data.reserve_lane ? <span className="text-slate-500"> · reserve_lane: {data.reserve_lane}</span> : null}
-          </div>
-          <div>
-            GI threshold: {data.gi_threshold ?? 0.95} · Current: {giCur != null && Number.isFinite(giCur) ? giCur.toFixed(2) : '—'}
-            {data.gi_threshold_met ? ' · GI gate met' : ''}
-          </div>
+          <div>Sealed reserve total: <span className="text-violet-200">{sealedTotal.toFixed(2)}</span> ({block.sealed_blocks} attested Blocks)</div>
+          <div>Current Block: <span className="text-violet-200">{blockBar} {inProg.toFixed(2)} / {cap.toFixed(2)} MIC</span></div>
+          <div>Block status: <span className="text-cyan-200">{block.label}</span></div>
+          <div>Audit Blocks: {block.audit_blocks} · Non-attested finalized Blocks: {Math.max(0, block.audit_blocks - block.sealed_blocks)}</div>
+          <div>Fountain: <span className="text-amber-200/90">{fountain}</span>{data.reserve_block_lane ? <span className="text-slate-500"> · reserve_block_lane: {data.reserve_block_lane}</span> : null}</div>
+          <div>GI threshold: {data.gi_threshold ?? 0.95} · Current: {giCur != null && Number.isFinite(giCur) ? giCur.toFixed(2) : '—'}{data.gi_threshold_met ? ' · GI gate met' : ''}</div>
           <div>Sustain cycles required: {data.sustain_cycles_required ?? 5}{data.sustain_cycles_met ? ' · sustain met' : ' · sustain: not tracked in KV yet'}</div>
           <div>preview_active: {data.preview_active ? 'true' : 'false'} (GI preview band)</div>
           <div>source_entries: {data.source_entries ?? 0}</div>
           <div>last_deposit: {data.last_deposit ?? 'null'}</div>
-          {(data.latest_seal_id || data.latest_seal_at) && (
-            <div className="pt-1 text-slate-500">Latest seal: {data.latest_seal_id ?? '—'} @ {data.latest_seal_at ?? '—'}</div>
+          {(data.latest_seal_id || data.latest_seal_at) && <div className="pt-1 text-slate-500">Latest seal: {data.latest_seal_id ?? '—'} @ {data.latest_seal_at ?? '—'}</div>}
+          {(data.substrate_attestation_id || data.substrate_attestation_error) && (
+            <div className={data.substrate_attestation_id ? 'text-cyan-300' : 'text-rose-300'}>
+              Substrate: {data.substrate_attestation_id ?? data.substrate_attestation_error}
+            </div>
           )}
         </div>
       </div>
@@ -229,9 +245,7 @@ export default function VaultPage() {
             <div key={`${row.id}-${row.status}`} className="flex items-center justify-between border-b border-slate-800/70 py-1 last:border-0">
               <span className="text-slate-300">Block {row.id}</span>
               <span className="text-slate-400">{row.amount.toFixed(2)} MIC</span>
-              <span className={row.status === 'attested' ? 'text-emerald-300' : row.status === 'in progress' ? 'text-cyan-300' : 'text-amber-300'}>
-                {row.status}
-              </span>
+              <span className={blockStatusClass(row.status)}>{row.status}</span>
             </div>
           ))}
         </div>
@@ -250,68 +264,28 @@ export default function VaultPage() {
           return (
             <div className="space-y-2.5">
               <div>
-                <div className="mb-1 flex items-center justify-between text-[10px]">
-                  <span className="text-slate-400">GI ≥ {giThresh.toFixed(2)} (Fountain)</span>
-                  <span className={giReady ? 'text-emerald-400' : 'text-amber-400'}>{giReady ? 'MET' : `gap: ${giGap.toFixed(2)}`}</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded bg-slate-800">
-                  <div className="h-full rounded transition-all duration-500" style={{ width: `${giCur != null ? Math.min(100, (giCur / giThresh) * 100) : 0}%`, background: giReady ? '#10b981' : '#f59e0b' }} />
-                </div>
+                <div className="mb-1 flex items-center justify-between text-[10px]"><span className="text-slate-400">GI ≥ {giThresh.toFixed(2)} (Fountain)</span><span className={giReady ? 'text-emerald-400' : 'text-amber-400'}>{giReady ? 'MET' : `gap: ${giGap.toFixed(2)}`}</span></div>
+                <div className="h-1.5 overflow-hidden rounded bg-slate-800"><div className="h-full rounded transition-all duration-500" style={{ width: `${giCur != null ? Math.min(100, (giCur / giThresh) * 100) : 0}%`, background: giReady ? '#10b981' : '#f59e0b' }} /></div>
               </div>
-
               <div>
-                <div className="mb-1 flex items-center justify-between text-[10px]">
-                  <span className="text-slate-400">Next Reserve Block ≥ {cap.toFixed(0)} MIC</span>
-                  <span className={reserveReady ? 'text-emerald-400' : 'text-amber-400'}>{reserveReady ? 'MET' : `need: ${reserveGap.toFixed(2)} more`}</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded bg-slate-800">
-                  <div className="h-full rounded transition-all duration-500" style={{ width: `${blockPct}%`, background: reserveReady ? '#10b981' : '#a78bfa' }} />
-                </div>
+                <div className="mb-1 flex items-center justify-between text-[10px]"><span className="text-slate-400">Next Reserve Block ≥ {cap.toFixed(0)} MIC</span><span className={reserveReady ? 'text-emerald-400' : 'text-amber-400'}>{reserveReady ? 'MET' : `need: ${reserveGap.toFixed(2)} more`}</span></div>
+                <div className="h-1.5 overflow-hidden rounded bg-slate-800"><div className="h-full rounded transition-all duration-500" style={{ width: `${blockPct}%`, background: reserveReady ? '#10b981' : '#a78bfa' }} /></div>
               </div>
-
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-slate-400">Sustain GI ≥ {giThresh} for {sustain} cycles</span>
-                <span className="text-slate-500">tracking (when wired)</span>
-              </div>
-
-              <p className="mt-1 text-[9px] leading-relaxed text-slate-600">
-                A <strong className="text-slate-500">Reserve Block</strong> can seal at 50 MIC without Fountain unlock. Fountain unlock still requires GI sustain and the v1 activating path — do not conflate &quot;Block sealed&quot; with &quot;Vault unsealed&quot; for payouts.
-              </p>
+              <div className="flex items-center justify-between text-[10px]"><span className="text-slate-400">Sustain GI ≥ {giThresh} for {sustain} cycles</span><span className="text-slate-500">tracking (when wired)</span></div>
+              <p className="mt-1 text-[9px] leading-relaxed text-slate-600">A <strong className="text-slate-500">Reserve Block</strong> can seal at 50 MIC without Fountain unlock. Fountain unlock still requires GI sustain and the v1 activating path — do not conflate &quot;Block sealed&quot; with &quot;Vault unsealed&quot; for payouts.</p>
             </div>
           );
         })()}
       </div>
 
       <div className="mt-4 rounded border border-cyan-900/40 bg-slate-950/70 p-4 font-mono text-xs">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] uppercase tracking-[0.18em] text-cyan-300/85">
-          <span>Contributions · {focusCycle}</span>
-          <span className="text-[10px] font-normal normal-case tracking-normal text-slate-500">GET /api/vault/contributions?group_by=agent&amp;cycle={focusCycle}</span>
-        </div>
-        {contribErr ? (
-          <p className="text-[11px] text-amber-200/90">{contribErr}</p>
-        ) : !contrib?.ok ? (
-          <p className="text-slate-500">Loading contributions…</p>
-        ) : (
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] uppercase tracking-[0.18em] text-cyan-300/85"><span>Contributions · {focusCycle}</span><span className="text-[10px] font-normal normal-case tracking-normal text-slate-500">GET /api/vault/contributions?group_by=agent&amp;cycle={focusCycle}</span></div>
+        {contribErr ? <p className="text-[11px] text-amber-200/90">{contribErr}</p> : !contrib?.ok ? <p className="text-slate-500">Loading contributions…</p> : (
           <>
-            <div className="mb-3 grid gap-2 text-[10px] text-slate-400 sm:grid-cols-2">
-              <div>Reserve in window: <span className="text-cyan-100">{(contrib.total_reserve_contributed ?? 0).toFixed(4)}</span> · rows {contrib.rows_scanned ?? 0}</div>
-              {contrib.aggregates ? (
-                <div className="space-y-0.5">
-                  <div>Avg journal_score: {contrib.aggregates.avg_journal_score != null ? contrib.aggregates.avg_journal_score.toFixed(3) : '—'} · Avg Wg (dep/J): {contrib.aggregates.avg_gi_weight_factor != null ? contrib.aggregates.avg_gi_weight_factor.toFixed(3) : '—'}</div>
-                  <div>Replay N / D: {contrib.aggregates.avg_novelty_factor != null ? contrib.aggregates.avg_novelty_factor.toFixed(3) : '—'} / {contrib.aggregates.avg_duplication_decay != null ? contrib.aggregates.avg_duplication_decay.toFixed(3) : '—'}</div>
-                </div>
-              ) : null}
-            </div>
+            <div className="mb-3 grid gap-2 text-[10px] text-slate-400 sm:grid-cols-2"><div>Reserve in window: <span className="text-cyan-100">{(contrib.total_reserve_contributed ?? 0).toFixed(4)}</span> · rows {contrib.rows_scanned ?? 0}</div>{contrib.aggregates ? <div className="space-y-0.5"><div>Avg journal_score: {contrib.aggregates.avg_journal_score != null ? contrib.aggregates.avg_journal_score.toFixed(3) : '—'} · Avg Wg (dep/J): {contrib.aggregates.avg_gi_weight_factor != null ? contrib.aggregates.avg_gi_weight_factor.toFixed(3) : '—'}</div><div>Replay N / D: {contrib.aggregates.avg_novelty_factor != null ? contrib.aggregates.avg_novelty_factor.toFixed(3) : '—'} / {contrib.aggregates.avg_duplication_decay != null ? contrib.aggregates.avg_duplication_decay.toFixed(3) : '—'}</div></div> : null}</div>
             {contrib.aggregates?.duplication_note ? <p className="mb-3 text-[10px] leading-relaxed text-slate-500">{contrib.aggregates.duplication_note}</p> : null}
             <div className="text-[10px] uppercase tracking-wide text-slate-500">Top agents (this cycle)</div>
-            <ul className="mt-1 space-y-1.5">
-              {(contrib.agents ?? []).slice(0, 8).map((a) => (
-                <li key={a.agent} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-800/80 py-1 last:border-0">
-                  <span className="text-slate-300">{a.agent}</span>
-                  <span className="text-right text-slate-400"><span className="text-cyan-100">{a.total_reserve_contributed.toFixed(4)}</span><span className="text-slate-600"> · </span>{a.deposit_count} dep<span className="text-slate-600"> · avg </span>{a.avg_deposit_per_entry.toFixed(4)}</span>
-                </li>
-              ))}
-            </ul>
+            <ul className="mt-1 space-y-1.5">{(contrib.agents ?? []).slice(0, 8).map((a) => <li key={a.agent} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-800/80 py-1 last:border-0"><span className="text-slate-300">{a.agent}</span><span className="text-right text-slate-400"><span className="text-cyan-100">{a.total_reserve_contributed.toFixed(4)}</span><span className="text-slate-600"> · </span>{a.deposit_count} dep<span className="text-slate-600"> · avg </span>{a.avg_deposit_per_entry.toFixed(4)}</span></li>)}</ul>
             {(contrib.agents ?? []).length === 0 ? <p className="mt-2 text-[10px] text-slate-600">No deposits parsed for this cycle in the current window.</p> : null}
           </>
         )}
