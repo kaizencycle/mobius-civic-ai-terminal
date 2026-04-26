@@ -137,6 +137,10 @@ export async function GET(req: NextRequest) {
               attestations_needed:
                 SENTINEL_ATTESTATION_COUNT - Object.keys(candidate.attestations).length,
               attesting_agents: Object.keys(candidate.attestations),
+              // OPT-9 (C-293): expose missing agents so callers know who to nudge
+              missing_agents: ['ATLAS','ZEUS','EVE','JADE','AUREA'].filter(
+                (a) => !Object.prototype.hasOwnProperty.call(candidate.attestations, a)
+              ),
             },
       seals,
       timestamp: new Date().toISOString(),

@@ -14,9 +14,18 @@ export async function notifySentinelCouncilSealFormation(candidate: SealCandidat
     `Reserve parcel threshold reached; GI at seal ${candidate.gi_at_seal.toFixed(3)}, mode ${candidate.mode_at_seal}. ` +
     `Source entries: ${candidate.source_entries}. Awaiting Sentinel attestations before quorum.`;
 
-  await Promise.all(
-    SENTINEL_AGENTS.map((agent) =>
-      appendAgentJournalEntry({
+  // FIX-1 (C-293): set agentOrigin = agent (not 'TERMINAL') so loadEntries tier
+  // filters work correctly (ATLAS/ZEUS entries appear in t2 view).
+  // FIX-4 (C-293): status='committed' so scheduleVaultDepositForJournal fires,
+  // but we rely on appendAgentJournalEntry's own deposit guard rather than
+  // recursive formation risk from 'draft' entries being re-processed.
+  // OPT-1 (C-293): sequential writes instead of Promise.all to avoid 5-agent
+  // thundering-herd on KV (5 concurrent sets + 5 watermark bumps + 5 substrate
+  // writes) every time a seal candidate forms. Sentinel council notifications
+  // are low-urgency; a few extra ms is fine.
+  for (const agent of SENTINEL_AGENTS) {
+    try {
+      await appendAgentJournalEntry({
         agent,
         cycle,
         observation: obs,
@@ -24,15 +33,18 @@ export async function notifySentinelCouncilSealFormation(candidate: SealCandidat
         recommendation:
           'Review seal_hash and deposit_hashes; attest pass/flag/reject with rationale before timeout_at.',
         confidence: 0.95,
-        status: 'draft',
+        status: 'committed',
         category: 'alert',
         severity: 'elevated',
         derivedFrom: [candidate.seal_id, candidate.seal_hash],
         relatedAgents: [...SENTINEL_AGENTS],
-        agentOrigin: 'TERMINAL',
-      }).catch((err) => {
-        console.warn(`[vault-v2] sentinel council journal notify failed for ${agent}:`, err instanceof Error ? err.message : err);
-      }),
-    ),
-  );
+        agentOrigin: agent, // FIX-1: was 'TERMINAL', now agent name
+      });
+    } catch (err) {
+      console.warn(
+        `[vault-v2] sentinel council journal notify failed for ${agent}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
 }

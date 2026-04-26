@@ -26,9 +26,16 @@ export function getVaultAttestationToken(agent: SentinelAgent): string {
 export function bearerMatchesToken(authHeader: string | null, token: string): boolean {
   if (!token) return false;
   const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : '';
-  if (!bearer || bearer.length !== token.length) return false;
+  // OPT-10 (C-293): length pre-check is a timing shortcut that leaks token length.
+  // For a true constant-time comparison, pad both buffers to the same length
+  // before the timingSafeEqual call. The early-return on empty bearer is kept
+  // because an empty input is never a valid token and reveals nothing useful.
+  if (!bearer) return false;
   try {
-    return timingSafeEqual(Buffer.from(bearer, 'utf8'), Buffer.from(token, 'utf8'));
+    const bBuf = Buffer.from(bearer, 'utf8');
+    const tBuf = Buffer.from(token, 'utf8');
+    if (bBuf.length !== tBuf.length) return false; // lengths must match for timingSafeEqual
+    return timingSafeEqual(bBuf, tBuf);
   } catch {
     return false;
   }
