@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useChamberHydration } from '@/hooks/useChamberHydration';
 import { useEchoDigest } from '@/hooks/useEchoDigest';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
@@ -16,9 +16,14 @@ export type JournalChamberPayload = {
   tier_agents?: string[];
   scoped?: boolean;
   fallback_reason?: string | null;
-  // OPT-10 (C-292): from echo digest — distinguishes "cron hasn't run yet this cycle"
-  // from a genuine error/empty state.
   current_cycle_entry_count?: number;
+  savepoint?: {
+    status: 'live' | 'saved' | 'none';
+    saved_at: string | null;
+    saved_count: number;
+    live_count: number;
+    reason: string | null;
+  };
 };
 
 export type DvaTier = 'ALL' | 't1' | 't2' | 't3' | 'sentinel' | 'architects';
@@ -71,13 +76,7 @@ function resolveTierAgents(tier: DvaTier): string[] {
 
 function getPreviewEntryAgent(entry: unknown): string {
   const candidate = entry as PreviewJournalCandidate;
-  return (
-    normalizeAgentName(candidate.agentOrigin) ||
-    normalizeAgentName(candidate.agent) ||
-    normalizeAgentName(candidate.sourceAgent) ||
-    normalizeAgentName(candidate.author) ||
-    normalizeAgentName(candidate.source)
-  );
+  return normalizeAgentName(candidate.agentOrigin) || normalizeAgentName(candidate.agent) || normalizeAgentName(candidate.sourceAgent) || normalizeAgentName(candidate.author) || normalizeAgentName(candidate.source);
 }
 
 function normalizePreviewStatus(value: unknown): 'draft' | 'committed' | 'contested' | 'verified' {
@@ -96,17 +95,8 @@ function normalizePreviewSeverity(value: unknown): 'nominal' | 'elevated' | 'cri
 function normalizePreviewEntry(entry: unknown, idx: number, fallbackTimestamp: string) {
   const candidate = entry as PreviewJournalCandidate;
   const agent = getPreviewEntryAgent(entry) || 'ECHO';
-  const observation =
-    normalizeText(candidate.observation) ||
-    normalizeText(candidate.summary) ||
-    normalizeText(candidate.title) ||
-    normalizeText(candidate.body) ||
-    normalizeText(candidate.message) ||
-    'Preview journal row awaiting native observation payload.';
-  const inference =
-    normalizeText(candidate.inference) ||
-    normalizeText(candidate.recommendation) ||
-    'Preview source did not include a separate inference field.';
+  const observation = normalizeText(candidate.observation) || normalizeText(candidate.summary) || normalizeText(candidate.title) || normalizeText(candidate.body) || normalizeText(candidate.message) || 'Preview journal row awaiting native observation payload.';
+  const inference = normalizeText(candidate.inference) || normalizeText(candidate.recommendation) || 'Preview source did not include a separate inference field.';
 
   return {
     ...candidate,
@@ -136,17 +126,13 @@ function entryBelongsToTier(entry: unknown, tierAgents: Set<string>): boolean {
   return agent.length > 0 && tierAgents.has(agent);
 }
 
-export function useJournalChamber(
-  enabled: boolean,
-  mode: 'hot' | 'canon' | 'merged',
-  limit = 100,
-  tier: DvaTier = 'ALL',
-) {
+export function useJournalChamber(enabled: boolean, mode: 'hot' | 'canon' | 'merged', limit = 100, tier: DvaTier = 'ALL') {
   const { snapshot } = useTerminalSnapshot();
   const { digest } = useEchoDigest(enabled);
   const stabilizationActive = digest?.predictive.risk_level === 'elevated' || digest?.predictive.risk_level === 'critical';
   const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
   const tierAgentsList = useMemo(() => resolveTierAgents(tier), [tier]);
+  const getSavepointCount = useCallback((payload: JournalChamberPayload) => Array.isArray(payload.entries) ? payload.entries.length : 0, []);
   const url = useMemo(() => {
     const params = new URLSearchParams({ mode, limit: String(safeLimit) });
     params.set('tier', tier);
@@ -176,9 +162,7 @@ export function useJournalChamber(
 
     const latestEntries = Array.isArray(latest) ? latest : digestEntries;
     const tierAgents = new Set(tierAgentsList);
-    const scopedEntries = latestEntries
-      .filter((entry) => entryBelongsToTier(entry, tierAgents))
-      .map((entry, idx) => normalizePreviewEntry(entry, idx, timestamp));
+    const scopedEntries = latestEntries.filter((entry) => entryBelongsToTier(entry, tierAgents)).map((entry, idx) => normalizePreviewEntry(entry, idx, timestamp));
 
     return {
       ok: true,
@@ -193,11 +177,11 @@ export function useJournalChamber(
     } satisfies JournalChamberPayload;
   }, [mode, snapshot, digest, tier, tierAgentsList]);
 
-  // OPT-8 (C-292): raise pollMs to 90s — journal data changes at most once per cron
-  // cycle (~hourly). Prior default of 30s generated ~2 KV scans/min per open tab.
   return useChamberHydration<JournalChamberPayload>(url, enabled, {
     previewData: preview,
     lockToPreview: stabilizationActive,
     pollMs: 90_000,
+    savepointKey: `journal:${mode}:${tier}:${safeLimit}:${tierAgentsList.join(',')}`,
+    getSavepointCount,
   });
 }

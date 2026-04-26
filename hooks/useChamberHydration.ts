@@ -7,6 +7,9 @@ type UseChamberHydrationOptions<T> = {
   pollMs?: number;
   requestTimeoutMs?: number;
   lockToPreview?: boolean;
+  savepointKey?: string;
+  savepointMinCount?: number;
+  getSavepointCount?: (payload: T) => number;
 };
 
 export type ChamberHydrationStatus = 'preview' | 'hydrating' | 'live' | 'degraded' | 'stale';
@@ -30,6 +33,12 @@ type ChamberEnvelope<T> = {
   data?: T;
 };
 
+type BrowserSavepoint<T> = {
+  payload: T;
+  saved_at: string;
+  count: number;
+};
+
 const DEFAULT_TIMEOUT_MS = 8_000;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -47,8 +56,59 @@ function normalizeHydrationPayload<T>(json: unknown): { payload: T | null; envel
   return { payload, envelopeDegraded };
 }
 
+function defaultSavepointCount(payload: unknown): number {
+  const record = asRecord(payload);
+  if (!record) return 0;
+  const entries = record.entries;
+  if (Array.isArray(entries)) return entries.length;
+  const events = record.events;
+  if (Array.isArray(events)) return events.length;
+  const items = record.items;
+  if (Array.isArray(items)) return items.length;
+  const count = record.count;
+  return typeof count === 'number' && Number.isFinite(count) ? count : 0;
+}
+
+function attachSavepointMeta<T>(payload: T, meta: Record<string, unknown>): T {
+  const record = asRecord(payload);
+  if (!record) return payload;
+  return { ...record, savepoint: meta } as T;
+}
+
+function readSavepoint<T>(key: string): BrowserSavepoint<T> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as BrowserSavepoint<T>;
+    if (!parsed || typeof parsed !== 'object' || !('payload' in parsed)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeSavepoint<T>(key: string, payload: T, count: number): string | null {
+  if (typeof window === 'undefined') return null;
+  const savedAt = new Date().toISOString();
+  try {
+    window.localStorage.setItem(key, JSON.stringify({ payload, count, saved_at: savedAt }));
+    return savedAt;
+  } catch {
+    return null;
+  }
+}
+
 export function useChamberHydration<T>(url: string, enabled: boolean, options: UseChamberHydrationOptions<T> = {}): UseChamberHydrationResult<T> {
-  const { previewData = null, pollMs = 30_000, requestTimeoutMs = DEFAULT_TIMEOUT_MS, lockToPreview = false } = options;
+  const {
+    previewData = null,
+    pollMs = 30_000,
+    requestTimeoutMs = DEFAULT_TIMEOUT_MS,
+    lockToPreview = false,
+    savepointKey,
+    savepointMinCount = 1,
+    getSavepointCount,
+  } = options;
   const [full, setFull] = useState<T | null>(null);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
@@ -63,12 +123,26 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
     let mounted = true;
     let currentPollMs = pollMs;
     let timerId: number | null = null;
+    const countPayload = getSavepointCount ?? ((payload: T) => defaultSavepointCount(payload));
+    const storageKey = savepointKey ? `mobius:chamber:savepoint:${savepointKey}` : null;
 
     if (!enabled) {
       setLoading(false);
       return () => {
         mounted = false;
       };
+    }
+
+    const savedAtBoot = storageKey ? readSavepoint<T>(storageKey) : null;
+    if (savedAtBoot && countPayload(savedAtBoot.payload) >= savepointMinCount) {
+      setFull(attachSavepointMeta(savedAtBoot.payload, {
+        status: 'saved',
+        saved_at: savedAtBoot.saved_at,
+        saved_count: savedAtBoot.count,
+        live_count: 0,
+        reason: 'hydrated_before_live_fetch',
+      }));
+      setEnvelopeDegraded(true);
     }
 
     async function load() {
@@ -79,14 +153,54 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
         const json = (await res.json()) as unknown;
         const normalized = normalizeHydrationPayload<T>(json);
         if (!mounted) return;
-        setFull(normalized.payload);
-        setEnvelopeDegraded(normalized.envelopeDegraded || !res.ok);
+        const livePayload = normalized.payload;
+        let nextPayload = livePayload;
+        let savepointDegraded = false;
+
+        if (storageKey && livePayload) {
+          const liveCount = countPayload(livePayload);
+          const saved = readSavepoint<T>(storageKey);
+          const savedCount = saved?.count ?? 0;
+          if (saved && savedCount >= savepointMinCount && liveCount < savedCount) {
+            nextPayload = attachSavepointMeta(saved.payload, {
+              status: 'saved',
+              saved_at: saved.saved_at,
+              saved_count: savedCount,
+              live_count: liveCount,
+              reason: 'live_payload_thinner_than_saved_state',
+            });
+            savepointDegraded = true;
+          } else if (liveCount >= savepointMinCount || liveCount >= savedCount) {
+            const savedAt = writeSavepoint(storageKey, livePayload, liveCount);
+            nextPayload = attachSavepointMeta(livePayload, {
+              status: 'live',
+              saved_at: savedAt,
+              saved_count: liveCount,
+              live_count: liveCount,
+              reason: null,
+            });
+          }
+        }
+
+        setFull(nextPayload);
+        setEnvelopeDegraded(normalized.envelopeDegraded || !res.ok || savepointDegraded);
         setFetchedOnce(true);
         setError(null);
         setErrorCount(0);
         currentPollMs = pollMs;
       } catch (err) {
         if (!mounted) return;
+        const saved = storageKey ? readSavepoint<T>(storageKey) : null;
+        if (saved && countPayload(saved.payload) >= savepointMinCount) {
+          setFull(attachSavepointMeta(saved.payload, {
+            status: 'saved',
+            saved_at: saved.saved_at,
+            saved_count: saved.count,
+            live_count: 0,
+            reason: 'live_fetch_failed_saved_state_used',
+          }));
+          setEnvelopeDegraded(true);
+        }
         setError(err instanceof Error ? err.message : 'Chamber fetch failed');
         setFetchedOnce(true);
         setErrorCount((n) => {
@@ -109,7 +223,7 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
       mounted = false;
       if (timerId !== null) window.clearTimeout(timerId);
     };
-  }, [enabled, url, pollMs, requestTimeoutMs]);
+  }, [enabled, url, pollMs, requestTimeoutMs, savepointKey, savepointMinCount, getSavepointCount]);
 
   const data = useMemo(() => {
     if (lockToPreview && previewData) return previewData;
