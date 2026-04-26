@@ -114,7 +114,7 @@ export default function GlobePageClient() {
   if (loading && !data && !snapshot) return <ChamberSkeleton blocks={4} />;
 
   return (
-    <div className="h-full">
+    <div className="h-full min-h-0 overflow-y-auto pb-28 md:pb-4 [-webkit-overflow-scrolling:touch]">
       {preview && !full ? (
         <div className="mx-4 mt-3 rounded border border-cyan-800/40 bg-cyan-950/20 px-3 py-1 text-[10px] text-cyan-200">
           Globe preview from snapshot · enriching in background
@@ -130,7 +130,7 @@ export default function GlobePageClient() {
           ⚠ Predictive Stabilization Active · Preview state prioritized due to integrity drift
         </div>
       ) : null}
-      <div className="relative h-[calc(100%-0px)] overflow-hidden">
+      <div className="relative min-h-0">
         <GlobeChamber
           micro={micro}
           echoEpicon={echoEpicon}
