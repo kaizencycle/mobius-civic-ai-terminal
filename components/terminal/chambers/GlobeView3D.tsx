@@ -142,7 +142,7 @@ export default function GlobeView3D({
         return;
       }
       const width = el.clientWidth || 800;
-      const height = el.clientHeight || 520;
+      const height = el.clientHeight || 420;
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
       camera.position.z = 2.8;
@@ -479,7 +479,7 @@ export default function GlobeView3D({
           __html: `@keyframes globeInsp { from { opacity: 0; transform: translateY(-50%) translateX(8px); } to { opacity: 1; transform: translateY(-50%) translateX(0); } }`,
         }}
       />
-      <div ref={containerRef} className="relative h-[min(72vh,640px)] w-full" />
+      <div ref={containerRef} className="relative h-[min(42vh,360px)] w-full md:h-[min(64vh,620px)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-[#020408]/95 to-transparent px-4 py-3">
         <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Mobius Civic Terminal</div>
         <div
@@ -494,14 +494,14 @@ export default function GlobeView3D({
           {cycleId} · {clockLabel}
         </div>
       </div>
-      <div className="pointer-events-none absolute bottom-14 left-1/2 -translate-x-1/2 text-[9px] uppercase tracking-[0.12em] text-slate-600">
+      <div className="pointer-events-none absolute bottom-14 left-1/2 hidden -translate-x-1/2 text-[9px] uppercase tracking-[0.12em] text-slate-600 md:block">
         Drag to rotate · Click pins to inspect
       </div>
-      <div className="pointer-events-none absolute bottom-9 left-1/2 flex -translate-x-1/2 flex-col items-center gap-0.5 text-[9px] uppercase tracking-[0.12em] text-cyan-400/80">
+      <div className="pointer-events-none absolute bottom-9 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-0.5 text-[9px] uppercase tracking-[0.12em] text-cyan-400/80 md:flex">
         <span>EPICON · {cycleId}</span>
         <span className="normal-case tracking-normal text-violet-400/90">SEISMIC · EPICON — violet pins (M3+ USGS)</span>
       </div>
-      <div className="flex border-t border-white/[0.08] bg-[#020408]/95">
+      <div className="grid grid-cols-3 border-t border-white/[0.08] bg-[#020408]/95 md:flex">
         {GLOBE_DOMAIN_ORDER.map((key) => {
           const d = domainByKey[key];
           const score = d?.score;
@@ -517,11 +517,11 @@ export default function GlobeView3D({
               key={key}
               type="button"
               onClick={() => focusDomain(key)}
-              className="flex flex-1 flex-col items-center border-r border-white/[0.06] px-1 py-2.5 transition hover:bg-white/[0.06] sm:px-2"
+              className="flex min-w-0 flex-col items-center border-r border-white/[0.06] px-1 py-1.5 transition hover:bg-white/[0.06] md:flex-1 md:py-2.5 sm:px-2"
             >
-              <div className="text-[9px] uppercase tracking-[0.12em] text-slate-400">{label}</div>
-              <div className={cn('text-[14px] font-bold', scoreClass)}>{score != null ? score.toFixed(2) : '—'}</div>
-              <div className="text-[8px] text-slate-500">{agent}</div>
+              <div className="truncate text-[8px] uppercase tracking-[0.12em] text-slate-400 md:text-[9px]">{label}</div>
+              <div className={cn('text-[12px] font-bold md:text-[14px]', scoreClass)}>{score != null ? score.toFixed(2) : '—'}</div>
+              <div className="hidden text-[8px] text-slate-500 sm:block">{agent}</div>
             </button>
           );
         })}
