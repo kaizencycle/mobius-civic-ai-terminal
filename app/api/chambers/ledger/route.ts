@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getEchoLedger } from '@/lib/echo/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import type { LedgerEntry } from '@/lib/terminal/types';
+import { chamberSavepointKey, resolveChamberSavepoint } from '@/lib/chambers/savepoint-cache';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -25,6 +26,19 @@ type EpiconFeedItem = {
   verified?: boolean;
   confidenceTier?: number;
   gi?: number | null;
+};
+
+type LedgerPayload = {
+  ok: true;
+  cycleId: string;
+  events: LedgerEntry[];
+  candidates: { pending: number; confirmed: number; contested: number };
+  canon: { hot: number; candidate: number; attested: number; sealed: number; blocked: number };
+  pagination: { maxRows: number; pageSize: number; pages: number };
+  sources: { echoMemory: number; epiconFeed: number; merged: number; missingCycle: number };
+  dva: { primaryAgent: string; tier: string; chambers: string[]; promotionGate: string };
+  fallback: boolean;
+  timestamp: string;
 };
 
 type LedgerProofState = Pick<LedgerEntry, 'status' | 'statusReason' | 'proofSource' | 'canonState'>;
@@ -84,57 +98,22 @@ function isVerifiedSignal(item: EpiconFeedItem): boolean {
 function normalizeProofState(item: EpiconFeedItem): LedgerProofState {
   const status = cleanText(item.status).toLowerCase();
   if (status === 'failed' || status === 'reverted' || status === 'contested') {
-    return {
-      status: 'reverted',
-      statusReason: 'contested_or_reverted_signal',
-      proofSource: status || 'feed_status',
-      canonState: 'blocked',
-    };
+    return { status: 'reverted', statusReason: 'contested_or_reverted_signal', proofSource: status || 'feed_status', canonState: 'blocked' };
   }
   if (isVerifiedSignal(item)) {
-    return {
-      status: 'committed',
-      statusReason: 'explicit_verification_signal',
-      proofSource: item.verified === true ? 'epicon_verified' : cleanText(item.type) || 'feed_status',
-      canonState: 'attested',
-    };
+    return { status: 'committed', statusReason: 'explicit_verification_signal', proofSource: item.verified === true ? 'epicon_verified' : cleanText(item.type) || 'feed_status', canonState: 'attested' };
   }
   if (isMergeEvent(item)) {
-    return {
-      status: 'committed',
-      statusReason: 'explicit_merge_event',
-      proofSource: 'github_merge',
-      canonState: 'candidate',
-    };
+    return { status: 'committed', statusReason: 'explicit_merge_event', proofSource: 'github_merge', canonState: 'candidate' };
   }
   if (status === 'committed') {
-    return {
-      status: 'committed',
-      statusReason: 'feed_declared_committed',
-      proofSource: 'feed_status',
-      canonState: 'candidate',
-    };
+    return { status: 'committed', statusReason: 'feed_declared_committed', proofSource: 'feed_status', canonState: 'candidate' };
   }
-  return {
-    status: 'pending',
-    statusReason: 'awaiting_merge_or_verification_evidence',
-    proofSource: 'none',
-    canonState: 'hot',
-  };
+  return { status: 'pending', statusReason: 'awaiting_merge_or_verification_evidence', proofSource: 'none', canonState: 'hot' };
 }
 
 function normalizeCategory(input: unknown): LedgerEntry['category'] | undefined {
-  if (
-    input === 'geopolitical' ||
-    input === 'market' ||
-    input === 'governance' ||
-    input === 'infrastructure' ||
-    input === 'narrative' ||
-    input === 'ethics' ||
-    input === 'civic-risk'
-  ) {
-    return input;
-  }
+  if (input === 'geopolitical' || input === 'market' || input === 'governance' || input === 'infrastructure' || input === 'narrative' || input === 'ethics' || input === 'civic-risk') return input;
   return undefined;
 }
 
@@ -164,11 +143,7 @@ function epiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry {
 }
 
 function safeEpiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry | null {
-  try {
-    return epiconToLedgerEntry(item, idx);
-  } catch {
-    return null;
-  }
+  try { return epiconToLedgerEntry(item, idx); } catch { return null; }
 }
 
 function annotateEchoEntry(entry: LedgerEntry): LedgerEntry {
@@ -186,13 +161,11 @@ function annotateEchoEntry(entry: LedgerEntry): LedgerEntry {
 
 function dedupeSort(entries: LedgerEntry[]): LedgerEntry[] {
   const seen = new Set<string>();
-  return entries
-    .filter((entry) => {
-      if (seen.has(entry.id)) return false;
-      seen.add(entry.id);
-      return true;
-    })
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return entries.filter((entry) => {
+    if (seen.has(entry.id)) return false;
+    seen.add(entry.id);
+    return true;
+  }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
 async function fetchEpiconPage(request: NextRequest, page: number, limit: number): Promise<EpiconFeedItem[]> {
@@ -207,14 +180,41 @@ async function fetchEpiconPage(request: NextRequest, page: number, limit: number
 }
 
 async function fetchEpiconLedgerFallback(request: NextRequest): Promise<LedgerEntry[]> {
-  const pageResults = await Promise.allSettled(
-    Array.from({ length: LEDGER_SCROLL_PAGES }, (_, page) => fetchEpiconPage(request, page, LEDGER_PAGE_SIZE)),
-  );
-  return pageResults
-    .flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
-    .map(safeEpiconToLedgerEntry)
-    .filter((entry): entry is LedgerEntry => Boolean(entry))
-    .slice(0, LEDGER_MAX_ROWS);
+  const pageResults = await Promise.allSettled(Array.from({ length: LEDGER_SCROLL_PAGES }, (_, page) => fetchEpiconPage(request, page, LEDGER_PAGE_SIZE)));
+  return pageResults.flatMap((result) => (result.status === 'fulfilled' ? result.value : [])).map(safeEpiconToLedgerEntry).filter((entry): entry is LedgerEntry => Boolean(entry)).slice(0, LEDGER_MAX_ROWS);
+}
+
+function buildPayload(activeCycle: string, echoEvents: LedgerEntry[], epiconEvents: LedgerEntry[]): LedgerPayload {
+  const events = dedupeSort([...echoEvents, ...epiconEvents]).slice(0, LEDGER_MAX_ROWS);
+  const pending = events.filter((e) => e.status === 'pending').length;
+  const confirmed = events.filter((e) => e.status === 'committed').length;
+  const contested = events.filter((e) => e.status === 'reverted').length;
+  const missingCycle = events.filter((e) => e.cycleId === UNKNOWN_CYCLE).length;
+  const canon = {
+    hot: events.filter((e) => e.canonState === 'hot').length,
+    candidate: events.filter((e) => e.canonState === 'candidate').length,
+    attested: events.filter((e) => e.canonState === 'attested').length,
+    sealed: events.filter((e) => e.canonState === 'sealed').length,
+    blocked: events.filter((e) => e.canonState === 'blocked').length,
+  };
+  return {
+    ok: true,
+    cycleId: activeCycle,
+    events,
+    candidates: { pending, confirmed, contested },
+    canon,
+    pagination: { maxRows: LEDGER_MAX_ROWS, pageSize: LEDGER_PAGE_SIZE, pages: LEDGER_SCROLL_PAGES },
+    sources: { echoMemory: echoEvents.length, epiconFeed: epiconEvents.length, merged: events.length, missingCycle },
+    dva: { primaryAgent: 'ECHO', tier: 't1', chambers: ['ledger'], promotionGate: 'ZEUS' },
+    fallback: echoEvents.length === 0 && epiconEvents.length > 0,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+async function respondWithSavepoint(payload: LedgerPayload) {
+  const savepointKey = chamberSavepointKey('ledger', { scope: 'all', maxRows: LEDGER_MAX_ROWS, pages: LEDGER_SCROLL_PAGES });
+  const resolved = await resolveChamberSavepoint({ key: savepointKey, livePayload: payload, liveCount: payload.events.length, minimumUsefulCount: 1 });
+  return NextResponse.json(resolved.payload, { headers: { 'Cache-Control': 'no-store' } });
 }
 
 export async function GET(request: NextRequest) {
@@ -222,72 +222,8 @@ export async function GET(request: NextRequest) {
   try {
     const echoEvents = getEchoLedger().map(annotateEchoEntry);
     const epiconEvents = await fetchEpiconLedgerFallback(request);
-    const events = dedupeSort([...echoEvents, ...epiconEvents]).slice(0, LEDGER_MAX_ROWS);
-    const pending = events.filter((e) => e.status === 'pending').length;
-    const confirmed = events.filter((e) => e.status === 'committed').length;
-    const contested = events.filter((e) => e.status === 'reverted').length;
-    const missingCycle = events.filter((e) => e.cycleId === UNKNOWN_CYCLE).length;
-    const canon = {
-      hot: events.filter((e) => e.canonState === 'hot').length,
-      candidate: events.filter((e) => e.canonState === 'candidate').length,
-      attested: events.filter((e) => e.canonState === 'attested').length,
-      sealed: events.filter((e) => e.canonState === 'sealed').length,
-      blocked: events.filter((e) => e.canonState === 'blocked').length,
-    };
-
-    return NextResponse.json(
-      {
-        ok: true,
-        cycleId: activeCycle,
-        events,
-        candidates: { pending, confirmed, contested },
-        canon,
-        pagination: {
-          maxRows: LEDGER_MAX_ROWS,
-          pageSize: LEDGER_PAGE_SIZE,
-          pages: LEDGER_SCROLL_PAGES,
-        },
-        sources: {
-          echoMemory: echoEvents.length,
-          epiconFeed: epiconEvents.length,
-          merged: events.length,
-          missingCycle,
-        },
-        dva: {
-          primaryAgent: 'ECHO',
-          tier: 't1',
-          chambers: ['ledger'],
-          promotionGate: 'ZEUS',
-        },
-        fallback: echoEvents.length === 0 && epiconEvents.length > 0,
-        timestamp: new Date().toISOString(),
-      },
-      { headers: { 'Cache-Control': 'no-store' } },
-    );
+    return respondWithSavepoint(buildPayload(activeCycle, echoEvents, epiconEvents));
   } catch {
-    return NextResponse.json(
-      {
-        ok: true,
-        cycleId: activeCycle,
-        events: [],
-        candidates: { pending: 0, confirmed: 0, contested: 0 },
-        canon: { hot: 0, candidate: 0, attested: 0, sealed: 0, blocked: 0 },
-        pagination: {
-          maxRows: LEDGER_MAX_ROWS,
-          pageSize: LEDGER_PAGE_SIZE,
-          pages: LEDGER_SCROLL_PAGES,
-        },
-        sources: { echoMemory: 0, epiconFeed: 0, merged: 0, missingCycle: 0 },
-        dva: {
-          primaryAgent: 'ECHO',
-          tier: 't1',
-          chambers: ['ledger'],
-          promotionGate: 'ZEUS',
-        },
-        fallback: true,
-        timestamp: new Date().toISOString(),
-      },
-      { headers: { 'Cache-Control': 'no-store' } },
-    );
+    return respondWithSavepoint(buildPayload(activeCycle, [], []));
   }
 }
