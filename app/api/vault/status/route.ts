@@ -74,8 +74,10 @@ export async function GET(req: NextRequest) {
   ]);
 
   const seal_lane = computeVaultSealLaneSemantics({
-    inProgressBalance: inProgressBalance,
+    v1BalanceReserve: v1.balance_reserve,
+    inProgressBalance,
     sealsCountAttested: sealsCount,
+    sealsAuditCount,
     giCurrent: gi,
     giThreshold: v1.gi_threshold,
     sustainCyclesRequired: v1.sustain_cycles_required,
@@ -84,6 +86,7 @@ export async function GET(req: NextRequest) {
   });
 
   const hashCoverage = await getVaultDepositHashCoverage(200);
+  const latestImmortalized = Boolean(latestSeal?.substrate_attestation_id && latestSeal?.substrate_event_hash);
 
   const body = {
     ...v1,
@@ -92,11 +95,20 @@ export async function GET(req: NextRequest) {
     sealed_reserve_total: seal_lane.sealed_reserve_total,
     current_tranche_balance: seal_lane.current_tranche_balance,
     carry_forward_in_tranche: seal_lane.carry_forward_in_tranche,
+    reserve_block: seal_lane.reserve_block,
+    reserve_block_label: seal_lane.reserve_block.label,
+    reserve_block_size: seal_lane.reserve_block.block_size,
+    reserve_blocks_completed_v1: seal_lane.reserve_block.completed_blocks_v1,
+    reserve_blocks_sealed: seal_lane.reserve_block.sealed_blocks,
+    reserve_blocks_audit: seal_lane.reserve_block.audit_blocks,
+    reserve_block_in_progress: seal_lane.reserve_block.in_progress_block,
+    reserve_block_progress_pct: seal_lane.reserve_block.in_progress_pct,
     reserve_threshold_met: seal_lane.reserve_threshold_met,
     gi_threshold_met: seal_lane.gi_threshold_met,
     sustain_cycles_met: seal_lane.sustain_met,
     fountain_status: seal_lane.fountain_lane,
     reserve_lane: seal_lane.reserve_lane,
+    reserve_block_lane: seal_lane.reserve_block_lane,
     vault_headline: seal_lane.headline,
     vault_canon: seal_lane.canon,
     unseal_requirements_remaining: {
@@ -108,6 +120,11 @@ export async function GET(req: NextRequest) {
     latest_seal_id: latestSeal?.seal_id ?? null,
     latest_seal_at: latestSeal?.sealed_at ?? null,
     latest_seal_hash: latestSeal?.seal_hash ?? null,
+    substrate_attestation_id: latestSeal?.substrate_attestation_id ?? null,
+    substrate_event_hash: latestSeal?.substrate_event_hash ?? null,
+    substrate_attested_at: latestSeal?.substrate_attested_at ?? null,
+    substrate_attestation_error: latestSeal?.substrate_attestation_error ?? null,
+    latest_block_immortalized: latestImmortalized,
     candidate_attestation_state: candidate
       ? {
           in_flight: true,
@@ -116,8 +133,7 @@ export async function GET(req: NextRequest) {
           requested_at: candidate.requested_at,
           timeout_at: candidate.timeout_at,
           attestations_received: Object.keys(candidate.attestations).length,
-          attestations_needed:
-            SENTINEL_ATTESTATION_COUNT - Object.keys(candidate.attestations).length,
+          attestations_needed: SENTINEL_ATTESTATION_COUNT - Object.keys(candidate.attestations).length,
         }
       : {
           in_flight: false,
@@ -132,7 +148,9 @@ export async function GET(req: NextRequest) {
     hash_coverage_pct: hashCoverage.hash_coverage_pct,
     hash_coverage_rows_scanned: hashCoverage.rows_scanned,
     _balance_reserve_deprecated:
-      'balance_reserve is v1 cumulative compat. Prefer in_progress_balance + sealed_reserve_total for tranche truth. Removed in a later cycle.',
+      'balance_reserve is v1 cumulative compat. Prefer reserve_block + in_progress_balance + sealed_reserve_total for Reserve Block truth. Removed in a later cycle.',
+    _tranche_language_deprecated:
+      'tranche fields remain for API compatibility. Operator-facing UI should use Reserve Block language.',
   };
 
   return NextResponse.json(body, {

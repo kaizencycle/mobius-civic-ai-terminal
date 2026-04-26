@@ -76,6 +76,11 @@ export type Seal = {
   fountain_emitted_at: string | null;
   /** AUREA's posture, copied out of attestations for quick lookup. */
   posture: Posture | null;
+  /** Civic Protocol Core / Substrate attestation pointer for immortalized blocks. */
+  substrate_attestation_id?: string | null;
+  substrate_event_hash?: string | null;
+  substrate_attested_at?: string | null;
+  substrate_attestation_error?: string | null;
 };
 
 /**

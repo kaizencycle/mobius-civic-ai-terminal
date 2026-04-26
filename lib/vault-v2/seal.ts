@@ -8,6 +8,7 @@
  */
 
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { attestReserveBlockToSubstrate } from '@/lib/vault-v2/substrate-attestation';
 import {
   appendSealToAuditChain,
   appendSealToChain,
@@ -32,10 +33,6 @@ import { VAULT_QUORUM_MIN_PASSES, VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault
 
 const ATTESTATION_TIMEOUT_MS = 5 * 60 * 1000; // 5 min per spec §6
 
-// ────────────────────────────────────────────────────────────────
-// Hash chain
-// ────────────────────────────────────────────────────────────────
-
 type CanonicalFields = {
   seal_id: string;
   sequence: number;
@@ -49,11 +46,6 @@ type CanonicalFields = {
   prev_seal_hash: string | null;
 };
 
-/**
- * Canonical serialization for hashing. Order matters — every field in this
- * exact order, no extras, no missing. Changing this shape breaks the chain.
- * Spec §7.
- */
 function canonicalize(fields: CanonicalFields): string {
   return JSON.stringify([
     fields.seal_id,
@@ -73,10 +65,6 @@ export function computeSealHash(fields: CanonicalFields): string {
   return createHash('sha256').update(canonicalize(fields)).digest('hex');
 }
 
-/**
- * Verify a Seal's hash matches its declared fields. ZEUS uses this during
- * attestation to check cryptographic integrity.
- */
 export function verifySealHash(seal: Seal): boolean {
   const recomputed = computeSealHash({
     seal_id: seal.seal_id,
@@ -93,23 +81,6 @@ export function verifySealHash(seal: Seal): boolean {
   return recomputed === seal.seal_hash;
 }
 
-// ────────────────────────────────────────────────────────────────
-// Attestation signatures
-// ────────────────────────────────────────────────────────────────
-
-/**
- * HMAC-SHA256(agent-specific Vault secret, seal_hash :: verdict :: rationale).
- *
- * Preferred envs:
- *   - VAULT_ATLAS_SECRET_TOKEN
- *   - VAULT_ZEUS_SECRET_TOKEN
- *   - VAULT_EVE_SECRET_TOKEN
- *   - VAULT_JADE_SECRET_TOKEN
- *   - VAULT_AUREA_SECRET_TOKEN
- *
- * Legacy fallback (when a per-sentinel secret is unset):
- *   - AGENT_SERVICE_TOKEN
- */
 export function computeAttestationSignature(args: {
   token: string;
   seal_hash: string;
@@ -139,17 +110,6 @@ export function verifyAttestationSignature(
   }
 }
 
-// ────────────────────────────────────────────────────────────────
-// Candidate formation
-// ────────────────────────────────────────────────────────────────
-
-/**
- * Called by the deposit path when in_progress_balance crosses 50.
- * Creates a SealCandidate, persists it, and returns it for observation.
- *
- * Returns null if a candidate is already in flight — deposits queue until
- * the current candidate resolves (spec §11.3, chain continuity).
- */
 export async function formCandidate(args: {
   cycle: string;
   gi_at_seal: number;
@@ -214,50 +174,28 @@ function formatSealId(cycle: string, sequence: number): string {
   return `seal-${cycle}-${paddedSeq}`;
 }
 
-// ────────────────────────────────────────────────────────────────
-// Quorum evaluation
-// ────────────────────────────────────────────────────────────────
-
 export type QuorumResult =
   | { decision: 'attested' }
   | { decision: 'quarantined'; reasons: string[] }
   | { decision: 'rejected'; rejecter: SentinelAgent; rationale: string }
   | { decision: 'waiting'; missing: SentinelAgent[] };
 
-/**
- * Applies spec §6 quorum rules:
- *   - ZEUS reject → rejected (absolute)
- *   - All attestations present, ZEUS pass, ≥ 4 pass, no non-ZEUS reject → attested
- *   - All attestations present, otherwise → quarantined
- *   - Missing attestations → waiting
- *
- * Timeouts are injected by the cron as `flag: timeout` before this is called.
- */
 export function evaluateQuorum(candidate: SealCandidate): QuorumResult {
   const attestations = candidate.attestations;
 
   const zeus = attestations.ZEUS;
   if (zeus?.verdict === 'reject') {
-    return {
-      decision: 'rejected',
-      rejecter: 'ZEUS',
-      rationale: zeus.rationale,
-    };
+    return { decision: 'rejected', rejecter: 'ZEUS', rationale: zeus.rationale };
   }
 
   const missing: SentinelAgent[] = [];
   for (const agent of SENTINEL_AGENTS) {
     if (!attestations[agent]) missing.push(agent);
   }
-  if (missing.length > 0) {
-    return { decision: 'waiting', missing };
-  }
+  if (missing.length > 0) return { decision: 'waiting', missing };
 
   if (zeus?.verdict !== 'pass') {
-    return {
-      decision: 'quarantined',
-      reasons: ['ZEUS did not pass'],
-    };
+    return { decision: 'quarantined', reasons: ['ZEUS did not pass'] };
   }
 
   let passes = 0;
@@ -270,35 +208,18 @@ export function evaluateQuorum(candidate: SealCandidate): QuorumResult {
   }
 
   if (nonZeusRejects.length > 0) {
-    return {
-      decision: 'quarantined',
-      reasons: nonZeusRejects.map((r) => `${r} rejected`),
-    };
+    return { decision: 'quarantined', reasons: nonZeusRejects.map((r) => `${r} rejected`) };
   }
   if (passes < VAULT_QUORUM_MIN_PASSES) {
     return {
       decision: 'quarantined',
-      reasons: [
-        `only ${passes}/${SENTINEL_AGENTS.length} passes — quorum requires ${VAULT_QUORUM_MIN_PASSES}`,
-      ],
+      reasons: [`only ${passes}/${SENTINEL_AGENTS.length} passes — quorum requires ${VAULT_QUORUM_MIN_PASSES}`],
     };
   }
 
   return { decision: 'attested' };
 }
 
-// ────────────────────────────────────────────────────────────────
-// Seal finalization
-// ────────────────────────────────────────────────────────────────
-
-/**
- * Called by the attestation cron after quorum reaches a terminal state.
- * Promotes the candidate to a Seal (attested, quarantined, or rejected),
- * writes to KV, and clears the candidate slot so the next parcel can fill.
- *
- * Returns the finalized Seal, or null if no candidate exists or decision
- * is not terminal.
- */
 export async function finalizeSeal(decision: QuorumResult): Promise<Seal | null> {
   const candidate = await getCandidate();
   if (!candidate) return null;
@@ -339,30 +260,32 @@ export async function finalizeSeal(decision: QuorumResult): Promise<Seal | null>
     fountain_status: 'pending',
     fountain_emitted_at: null,
     posture: aurea?.posture ?? candidate.posture ?? null,
+    substrate_attestation_id: null,
+    substrate_event_hash: null,
+    substrate_attested_at: null,
+    substrate_attestation_error: null,
   };
 
-  // Attested seals advance the proof chain; all outcomes append to the full
-  // audit index so quarantined/rejected history remains visible.
+  let finalized = seal;
   if (status === 'attested') {
-    await appendSealToChain(seal);
+    const substrate = await attestReserveBlockToSubstrate(seal);
+    finalized = {
+      ...seal,
+      substrate_attestation_id: substrate.entryId ?? null,
+      substrate_event_hash: substrate.eventHash ?? substrate.entryId ?? null,
+      substrate_attested_at: substrate.ok ? (substrate.attestedAt ?? new Date().toISOString()) : null,
+      substrate_attestation_error: substrate.ok ? null : (substrate.error ?? 'substrate_attestation_failed'),
+    };
+    await appendSealToChain(finalized);
   } else {
-    await writeSeal(seal);
-    await appendSealToAuditChain(seal);
+    await writeSeal(finalized);
+    await appendSealToAuditChain(finalized);
   }
 
   await clearCandidate();
-  return seal;
+  return finalized;
 }
 
-// ────────────────────────────────────────────────────────────────
-// Timeout injection
-// ────────────────────────────────────────────────────────────────
-
-/**
- * Cron-callable. For a candidate past its timeout_at with missing attestations,
- * inject `flag: timeout` for each missing agent so quorum can be evaluated.
- * Returns the updated candidate, or null if no candidate or not yet timed out.
- */
 export async function injectTimeouts(now: number = Date.now()): Promise<SealCandidate | null> {
   const candidate = await getCandidate();
   if (!candidate) return null;
@@ -371,7 +294,7 @@ export async function injectTimeouts(now: number = Date.now()): Promise<SealCand
   const injected: Partial<Record<SentinelAgent, SealAttestation>> = { ...candidate.attestations };
   for (const agent of SENTINEL_AGENTS) {
     if (!injected[agent]) {
-      const stamp: SealAttestation = {
+      injected[agent] = {
         agent,
         verdict: 'flag',
         rationale: 'timeout',
@@ -379,7 +302,6 @@ export async function injectTimeouts(now: number = Date.now()): Promise<SealCand
         timestamp: new Date(now).toISOString(),
         signature: 'timeout',
       };
-      injected[agent] = stamp;
     }
   }
 
@@ -388,11 +310,6 @@ export async function injectTimeouts(now: number = Date.now()): Promise<SealCand
   return next;
 }
 
-// ────────────────────────────────────────────────────────────────
-// Convenience: counters for UI / ops surfaces
-// ────────────────────────────────────────────────────────────────
-
 export async function countAttestedSeals(): Promise<number> {
-  // Index only contains attested seals (by design — see finalizeSeal).
   return (await listSealIds()).length;
 }
