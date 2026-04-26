@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import GlobeChamber from '@/components/terminal/chambers/GlobeChamber';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { buildEveEscalationStrip } from '@/components/terminal/chambers/globeDashboardExtras';
@@ -76,6 +77,21 @@ export default function GlobePageClient() {
   const tripwireCount = Array.isArray(micro?.anomalies) ? micro.anomalies.length : 0;
   const verifiedCount = echoEpicon.filter((item) => item.status === 'verified').length;
   const clock = `${new Date().toISOString().slice(11, 19)} UTC`;
+  const sentinelCount =
+    snapshot?.agents?.ok &&
+    typeof snapshot.agents.data === 'object' &&
+    Array.isArray((snapshot.agents.data as { agents?: unknown[] }).agents)
+      ? (snapshot.agents.data as { agents: unknown[] }).agents.length
+      : 0;
+  const chamberShell = [
+    { label: 'World', href: '/terminal/globe', meta: `${microSignalsCount} signals` },
+    { label: 'Pulse', href: '/terminal/pulse', meta: `${echoEpicon.length} feed rows` },
+    { label: 'Signals', href: '/terminal/signals', meta: `${domains.length} domains` },
+    { label: 'Sentinel', href: '/terminal/sentinel', meta: `${sentinelCount} agents` },
+    { label: 'Ledger', href: '/terminal/ledger', meta: `${verifiedCount} verified` },
+    { label: 'Journal', href: '/terminal/journal', meta: 'events · journals · runtime' },
+    { label: 'Vault', href: '/terminal/vault', meta: 'seal · attestation · reserve' },
+  ];
 
   const globeDashboard = useMemo(() => {
     if (!data && !snapshot) return null;
@@ -131,7 +147,7 @@ export default function GlobePageClient() {
             <div className="font-mono text-[10px] tracking-[0.18em] text-slate-400">CIVIC TERMINAL · {cycle}</div>
           </div>
           <div className="flex gap-4 font-mono text-[10px] uppercase tracking-[0.16em] text-slate-400">
-            {['World', 'Pulse', 'Signals', 'Sentinel', 'Ledger', 'Tripwire', 'MIC'].map((tab) => (
+            {['World', 'Pulse', 'Signals', 'Sentinel', 'Ledger', 'Journal', 'Vault'].map((tab) => (
               <span key={tab} className={tab === 'World' ? 'border-b border-cyan-300 pb-1 text-cyan-200' : ''}>
                 {tab}
               </span>
@@ -177,6 +193,19 @@ export default function GlobePageClient() {
             ) : (
               <div className="text-xs text-slate-500">No live feed entries available for this cycle.</div>
             )}
+          </div>
+          <div className="mt-3 border-t border-white/[0.08] pt-2 font-mono text-[10px] tracking-[0.2em] text-slate-400">LANDING SHELL</div>
+          <div className="pointer-events-auto mt-2 grid grid-cols-2 gap-2">
+            {chamberShell.map((chamber) => (
+              <Link
+                key={chamber.label}
+                href={chamber.href}
+                className="rounded border border-slate-700/70 bg-slate-900/70 px-2 py-1.5 transition hover:border-cyan-500/60 hover:bg-slate-900"
+              >
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-200">{chamber.label}</div>
+                <div className="mt-1 text-[10px] text-slate-500">{chamber.meta}</div>
+              </Link>
+            ))}
           </div>
         </aside>
       </div>
