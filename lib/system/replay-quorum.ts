@@ -133,6 +133,9 @@ export type ReplayCouncilError = {
     | 'missing_body'
     | 'invalid_agent'
     | 'invalid_verdict'
+    | 'invalid_signed_at'
+    | 'missing_signature'
+    | 'invalid_signature_scope'
     | 'snapshot_hash_mismatch'
     | 'write_failed';
   readonly: true;
@@ -162,6 +165,24 @@ function isSentinelAgent(value: string): value is SentinelAgent {
 
 function isReplayCouncilVerdict(value: string): value is ReplayCouncilVerdict {
   return value === 'pass' || value === 'flag' || value === 'abstain';
+}
+
+function hasNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isIsoDateString(value: unknown): value is string {
+  if (!hasNonEmptyString(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed);
+}
+
+function signatureReferencesSnapshot(signature: string, replaySnapshotHash: string): boolean {
+  // Phase 5 guardrail: until agent public-key verification is wired, require
+  // signatures to be explicitly scoped to the snapshot they are voting on.
+  // Accepted formats include raw strings that contain the snapshot hash, such as
+  // `replay:<hash>:agent:<agent>:sig:<digest>`.
+  return signature.includes(replaySnapshotHash);
 }
 
 function normalizeCouncilRecord(record: ReplayCouncilRecord): ReplayCouncilRecord {
@@ -333,10 +354,15 @@ export async function submitReplayCouncilMessage(body: unknown): Promise<ReplayC
   if (!candidate.seal_id) return { ok: false, error: 'missing_seal_id', readonly: true };
   if (!candidate.from_agent || !isSentinelAgent(candidate.from_agent)) return { ok: false, error: 'invalid_agent', readonly: true };
   if (!candidate.verdict || !isReplayCouncilVerdict(candidate.verdict)) return { ok: false, error: 'invalid_verdict', readonly: true };
+  if (!isIsoDateString(candidate.signed_at)) return { ok: false, error: 'invalid_signed_at', readonly: true };
+  if (!hasNonEmptyString(candidate.signature)) return { ok: false, error: 'missing_signature', readonly: true };
   const snapshotResponse = await buildReplaySnapshotResponse(candidate.seal_id);
   if (!snapshotResponse.ok) return snapshotResponse;
   if (candidate.replay_snapshot_hash !== snapshotResponse.snapshot.replay_snapshot_hash) {
     return { ok: false, error: 'snapshot_hash_mismatch', readonly: true };
+  }
+  if (!signatureReferencesSnapshot(candidate.signature, candidate.replay_snapshot_hash)) {
+    return { ok: false, error: 'invalid_signature_scope', readonly: true };
   }
 
   const current = await kvGet<ReplayCouncilRecord>(replayCouncilKey(candidate.seal_id));
@@ -347,8 +373,8 @@ export async function submitReplayCouncilMessage(body: unknown): Promise<ReplayC
     replay_snapshot_hash: candidate.replay_snapshot_hash,
     verdict: candidate.verdict,
     reason: candidate.reason ?? '',
-    signed_at: candidate.signed_at ?? new Date().toISOString(),
-    signature: candidate.signature ?? '',
+    signed_at: candidate.signed_at,
+    signature: candidate.signature,
   });
   const next: ReplayCouncilRecord = normalizeCouncilRecord({
     ...base,
