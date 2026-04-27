@@ -95,8 +95,8 @@ function shortSignature(signature: string | undefined): string | null {
   return `${signature.slice(0, 10)}…${signature.slice(-6)}`;
 }
 
-function isTimeoutSignature(signature: string | null): boolean {
-  return signature === 'timeout' || signature?.toLowerCase().includes('timeout') === true;
+function isTimeoutValue(value: string | null | undefined): boolean {
+  return value?.toLowerCase().includes('timeout') === true;
 }
 
 function attestationToView(agent: SentinelAgent, attestation: SealAttestation | undefined): CanonAttestationView {
@@ -116,8 +116,13 @@ function attestationToView(agent: SentinelAgent, attestation: SealAttestation | 
 function attestationState(seal: Seal, attestations: CanonAttestationView[], missingAgents: SentinelAgent[]): CanonAttestationMode {
   if (missingAgents.length === SENTINEL_AGENTS.length) return 'missing';
   if (missingAgents.length > 0) return 'partial';
-  const allTimeoutFlagged = attestations.every((a) => a.verdict === 'flag' && isTimeoutSignature(a.signature_short));
-  if (seal.status === 'quarantined' && allTimeoutFlagged) return 'timed_out';
+
+  const anyTimeoutInjected = SENTINEL_AGENTS.some((agent) => {
+    const attestation = seal.attestations?.[agent];
+    return isTimeoutValue(attestation?.signature) || isTimeoutValue(attestation?.rationale);
+  });
+
+  if (seal.status === 'quarantined' && anyTimeoutInjected) return 'timed_out';
   if (seal.status === 'quarantined' || seal.status === 'rejected') return 'failed';
   return 'complete';
 }
