@@ -4,7 +4,12 @@ import { bumpTerminalWatermark } from '@/lib/terminal/watermark';
 import type { SubstrateJournalWriteInput } from '@/lib/substrate/github-journal';
 
 const KEY_ALL = 'journal:all';
-const MAX_LIST_ENTRIES = 200;
+// Hard cap — entries beyond this are dropped by ltrim. At ~15/hr this covers ~33h.
+const MAX_LIST_ENTRIES = 500;
+// Soft cap — warn and begin time-pruning when the list is 80% full.
+const SOFT_CAP = Math.floor(MAX_LIST_ENTRIES * 0.8);
+// Rolling window — entries older than this are pruned before the hard ltrim.
+const ROLLING_WINDOW_MS = 72 * 60 * 60 * 1000; // 72h
 const IDEMPOTENCY_TTL_SECONDS = 60 * 60 * 24 * 14;
 
 export type AgentJournalLaneEntry = {
@@ -62,6 +67,48 @@ function idempotencyToken(agent: string, cycle: string, derivedFrom: string[]): 
 
 function compactToken(input: string): string {
   return input.replace(/[^a-zA-Z0-9]/g, '').slice(0, 36) || 'auto';
+}
+
+// Remove entries older than ROLLING_WINDOW_MS from a Redis list key.
+// Operates only when the list length exceeds SOFT_CAP to avoid unnecessary scans.
+async function pruneStaleEntries(redis: Redis, key: string): Promise<number> {
+  const len = await redis.llen(key);
+  if (len < SOFT_CAP) return 0;
+
+  console.warn(`[journalLane] soft-cap reached on ${key}: ${len}/${MAX_LIST_ENTRIES} entries. Running time-based prune.`);
+
+  const cutoff = Date.now() - ROLLING_WINDOW_MS;
+  const raw = await redis.lrange<unknown>(key, 0, -1);
+  const fresh: string[] = [];
+  let pruned = 0;
+
+  for (const item of raw) {
+    try {
+      const parsed = typeof item === 'string' ? (JSON.parse(item) as { timestamp?: string }) : (item as { timestamp?: string });
+      const ts = parsed?.timestamp ? new Date(parsed.timestamp).getTime() : 0;
+      if (ts > cutoff) {
+        fresh.push(typeof item === 'string' ? item : JSON.stringify(item));
+      } else {
+        pruned += 1;
+      }
+    } catch {
+      // keep unparseable entries rather than silently losing them
+      fresh.push(typeof item === 'string' ? item : JSON.stringify(item));
+    }
+  }
+
+  if (pruned > 0) {
+    // Atomically replace the list with only fresh entries
+    const pipeline = redis.pipeline();
+    pipeline.del(key);
+    for (const entry of fresh) {
+      pipeline.rpush(key, entry);
+    }
+    await pipeline.exec();
+    console.warn(`[journalLane] pruned ${pruned} stale entries from ${key} (${fresh.length} retained)`);
+  }
+
+  return pruned;
 }
 
 function toSubstrateJournalInput(entry: AgentJournalLaneEntry, giAtTime?: number): SubstrateJournalWriteInput {
@@ -128,6 +175,10 @@ export async function appendJournalLaneEntry(
 
   const packed = JSON.stringify(entry);
   const agentKey = `journal:${agent.toLowerCase()}`;
+
+  // Time-based rolling prune before hard count trim — prevents silent data loss
+  await pruneStaleEntries(redis, KEY_ALL);
+  await pruneStaleEntries(redis, agentKey);
 
   await redis.lpush(KEY_ALL, packed);
   await redis.ltrim(KEY_ALL, 0, MAX_LIST_ENTRIES - 1);
