@@ -137,6 +137,14 @@ export default function ReplayPage() {
 
   const active = dryRun ?? plan;
   const confidence = useMemo(() => confidenceLabel(active?.rebuild.confidence ?? 0), [active]);
+  const confidencePct = useMemo(() => {
+    const raw = active?.rebuild.confidence ?? 0;
+    return Math.max(0, Math.min(100, Math.round(raw * 100)));
+  }, [active]);
+  const sortedSources = useMemo(() => {
+    if (!active?.sources) return [];
+    return [...active.sources].sort((a, b) => a.layer - b.layer);
+  }, [active]);
 
   async function runDryReplay() {
     setRunning(true);
@@ -155,8 +163,6 @@ export default function ReplayPage() {
 
   if (err && !active) return <div className="p-4 text-sm text-rose-300">{err}</div>;
   if (!active) return <div className="p-4 text-sm text-slate-400">Loading replay inspector…</div>;
-
-  const confidencePct = Math.round(active.rebuild.confidence * 100);
 
   return (
     <div className="h-full overflow-y-auto p-4 font-mono text-xs text-slate-200">
@@ -222,7 +228,7 @@ export default function ReplayPage() {
         <section className="rounded border border-slate-800 bg-slate-950/70 p-4">
           <div className="mb-3 text-[10px] uppercase tracking-[0.2em] text-violet-300/80">8-layer rebuild ladder</div>
           <div className="space-y-2">
-            {active.sources.sort((a, b) => a.layer - b.layer).map((src) => (
+            {sortedSources.map((src) => (
               <div key={src.id} className="grid gap-2 rounded border border-slate-800 bg-slate-950/60 p-3 sm:grid-cols-[42px_1fr_110px]">
                 <div className="text-cyan-300">L{src.layer}</div>
                 <div>
