@@ -1,10 +1,11 @@
 import { hashPayload } from '@/lib/agents/signatures';
+import { readReplayPromotion, type ReplayPromotionAuthorization } from '@/lib/system/replay-promotion';
 import { historicalAttestationDigest } from '@/lib/vault-v2/historical-attestation';
 import { getSeal, listAllSeals } from '@/lib/vault-v2/store';
 import type { Seal, SealAttestation, SentinelAgent } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 
-export const SUBSTRATE_CANON_VERSION = 'C-293.phase8.v2' as const;
+export const SUBSTRATE_CANON_VERSION = 'C-294.phase8.replay-promotion.v1' as const;
 
 export type CanonEventType =
   | 'epicon'
@@ -12,9 +13,10 @@ export type CanonEventType =
   | 'reserve_block'
   | 'incident'
   | 'rollback_plan'
-  | 'substrate_attestation';
+  | 'substrate_attestation'
+  | 'replay_promotion';
 
-export type CanonFilterType = CanonEventType | 'reserve_blocks' | 'substrate_attestations';
+export type CanonFilterType = CanonEventType | 'reserve_blocks' | 'substrate_attestations' | 'replay_promotions';
 
 export type CanonAttestationMode = 'missing' | 'partial' | 'complete' | 'timed_out' | 'failed';
 
@@ -25,6 +27,7 @@ export type CanonCounts = {
   quarantined_other: number;
   rejected: number;
   needs_reattestation: number;
+  replay_promotions: number;
 };
 
 export type CanonAttestationView = {
@@ -36,6 +39,17 @@ export type CanonAttestationView = {
   signature_short: string | null;
   signature_hash: string | null;
   historical: boolean;
+};
+
+export type CanonReplayPromotionView = {
+  status: ReplayPromotionAuthorization['status'];
+  replay_snapshot_hash: string;
+  quorum_hash: string;
+  operator_id: string;
+  operator_approved_at: string;
+  operator_reason: string;
+  authorization_hash: string;
+  mutation_allowed: false;
 };
 
 export type CanonReserveBlockView = {
@@ -62,6 +76,7 @@ export type CanonReserveBlockView = {
     attested_at: string | null;
     error: string | null;
   };
+  replay_promotion: CanonReplayPromotionView | null;
   needs_reattestation: boolean;
   historical_digest: ReturnType<typeof historicalAttestationDigest>;
 };
@@ -99,6 +114,20 @@ function isTimeoutValue(value: string | null | undefined): boolean {
   return value?.toLowerCase().includes('timeout') === true;
 }
 
+function promotionToView(promotion: ReplayPromotionAuthorization | null): CanonReplayPromotionView | null {
+  if (!promotion) return null;
+  return {
+    status: promotion.status,
+    replay_snapshot_hash: promotion.replay_snapshot_hash,
+    quorum_hash: promotion.quorum_hash,
+    operator_id: promotion.operator_id,
+    operator_approved_at: promotion.operator_approved_at,
+    operator_reason: promotion.operator_reason,
+    authorization_hash: promotion.authorization_hash,
+    mutation_allowed: promotion.mutation_allowed,
+  };
+}
+
 function attestationToView(agent: SentinelAgent, attestation: SealAttestation | undefined): CanonAttestationView {
   const historical = attestation?.rationale?.startsWith('[historical]') ?? false;
   return {
@@ -127,10 +156,12 @@ function attestationState(seal: Seal, attestations: CanonAttestationView[], miss
   return 'complete';
 }
 
-export function sealToCanonReserveBlock(seal: Seal): CanonReserveBlockView {
+export async function sealToCanonReserveBlock(seal: Seal): Promise<CanonReserveBlockView> {
   const attestations = SENTINEL_AGENTS.map((agent) => attestationToView(agent, seal.attestations?.[agent]));
   const missingAgents = attestations.filter((a) => !a.signed).map((a) => a.agent);
   const state = attestationState(seal, attestations, missingAgents);
+  const promotionResult = await readReplayPromotion(seal.seal_id);
+  const replayPromotion = promotionResult.ok ? promotionToView(promotionResult.promotion) : null;
   return {
     type: 'reserve_block',
     block_number: seal.sequence,
@@ -155,7 +186,8 @@ export function sealToCanonReserveBlock(seal: Seal): CanonReserveBlockView {
       attested_at: seal.substrate_attested_at ?? null,
       error: seal.substrate_attestation_error ?? null,
     },
-    needs_reattestation: seal.status === 'quarantined' || state === 'timed_out' || state === 'failed',
+    replay_promotion: replayPromotion,
+    needs_reattestation: (seal.status === 'quarantined' || state === 'timed_out' || state === 'failed') && replayPromotion === null,
     historical_digest: historicalAttestationDigest(seal),
   };
 }
@@ -171,9 +203,23 @@ function reserveBlockToTimeline(block: CanonReserveBlockView): CanonTimelineEven
       severity: block.status === 'attested' && block.attestation_state === 'complete' ? 'proof' : block.needs_reattestation ? 'incident' : 'watch',
       seal_id: block.seal_id,
       hash: block.seal_hash,
-      summary: `${block.amount} MIC · ${block.status} · ${block.attestation_state}${block.needs_reattestation ? ' · needs re-attestation' : ''}`,
+      summary: `${block.amount} MIC · ${block.status} · ${block.attestation_state}${block.needs_reattestation ? ' · needs re-attestation' : ''}${block.replay_promotion ? ' · replay promotion authorized' : ''}`,
     },
   ];
+
+  if (block.replay_promotion) {
+    events.push({
+      id: `replay-promotion:${block.seal_id}`,
+      type: 'replay_promotion',
+      title: `Replay promotion authorized · Block ${block.block_number}`,
+      timestamp: block.replay_promotion.operator_approved_at,
+      cycle: block.cycle_at_seal,
+      severity: 'proof',
+      seal_id: block.seal_id,
+      hash: block.replay_promotion.authorization_hash,
+      summary: `operator ${block.replay_promotion.operator_id} authorized replay promotion · mutation_allowed=false`,
+    });
+  }
 
   if (block.substrate_pointer.attestation_id || block.substrate_pointer.event_hash) {
     events.push({
@@ -218,19 +264,20 @@ function buildCounts(blocks: CanonReserveBlockView[]): CanonCounts {
     quarantined_other: blocks.filter((b) => b.status === 'quarantined' && b.attestation_state !== 'timed_out').length,
     rejected: blocks.filter((b) => b.status === 'rejected').length,
     needs_reattestation: blocks.filter((b) => b.needs_reattestation).length,
+    replay_promotions: blocks.filter((b) => b.replay_promotion !== null).length,
   };
 }
 
 export async function buildSubstrateCanon(options: { limit?: number; type?: CanonFilterType | null; seal_id?: string | null } = {}): Promise<CanonResponse> {
   const limit = Math.max(1, Math.min(100, Math.floor(options.limit ?? 50)));
   const seals = options.seal_id ? [await getSeal(options.seal_id)] : await listAllSeals(limit);
-  const reserveBlocks = seals.filter((seal): seal is Seal => Boolean(seal)).map(sealToCanonReserveBlock);
+  const reserveBlocks = await Promise.all(seals.filter((seal): seal is Seal => Boolean(seal)).map(sealToCanonReserveBlock));
   const allTimeline = sortTimeline(reserveBlocks.flatMap(reserveBlockToTimeline));
 
   const type = options.type ?? null;
   const filteredReserveBlocks = type === 'reserve_blocks' || type === 'reserve_block' || !type ? reserveBlocks : [];
   const filteredTimeline = type && type !== 'reserve_blocks'
-    ? allTimeline.filter((event) => event.type === (type === 'substrate_attestations' ? 'substrate_attestation' : type))
+    ? allTimeline.filter((event) => event.type === (type === 'substrate_attestations' ? 'substrate_attestation' : type === 'replay_promotions' ? 'replay_promotion' : type))
     : allTimeline;
 
   return {
@@ -243,6 +290,7 @@ export async function buildSubstrateCanon(options: { limit?: number; type?: Cano
     timeline: filteredTimeline,
     canon: [
       'Substrate canon is read-only in Phase 8.',
+      'Replay promotion is an annotation/proof overlay, not a rewrite of original seal history.',
       'Historical attestation validates stored proof only.',
       'Historical attestation does not rewrite history or pretend agents signed live at the time.',
       'Historical attestation does not unlock Fountain by itself.',
