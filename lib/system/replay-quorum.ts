@@ -4,7 +4,8 @@ import { getSeal } from '@/lib/vault-v2/store';
 import type { Seal, SentinelAgent } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 
-export const REPLAY_QUORUM_VERSION = 'C-294.phase3.v1' as const;
+export const REPLAY_QUORUM_VERSION = 'C-294.phase4.v1' as const;
+export const REPLAY_QUORUM_THRESHOLD = 3 as const;
 
 export type ReplaySnapshot = {
   version: typeof REPLAY_QUORUM_VERSION;
@@ -60,6 +61,28 @@ export type ReplayCouncilRecord = {
   canon: string[];
 };
 
+export type ReplayQuorumStatus = 'pending' | 'approved' | 'blocked' | 'contested';
+
+export type ReplayQuorumEvaluation = {
+  version: typeof REPLAY_QUORUM_VERSION;
+  seal_id: string;
+  replay_snapshot_hash: string;
+  quorum_threshold: typeof REPLAY_QUORUM_THRESHOLD;
+  required_agents: readonly SentinelAgent[];
+  approved_count: number;
+  flagged_count: number;
+  abstained_count: number;
+  message_count: number;
+  missing_agents: SentinelAgent[];
+  agents_present: SentinelAgent[];
+  quorum_reached: boolean;
+  quorum_hash: string | null;
+  status: ReplayQuorumStatus;
+  back_attestation_candidate: boolean;
+  readonly: true;
+  canon: string[];
+};
+
 export type ReplaySnapshotResponse = {
   ok: true;
   readonly: true;
@@ -94,6 +117,12 @@ export type ReplayCouncilResponse = {
   ok: true;
   readonly: true;
   record: ReplayCouncilRecord;
+};
+
+export type ReplayQuorumResponse = {
+  ok: true;
+  readonly: true;
+  evaluation: ReplayQuorumEvaluation;
 };
 
 export type ReplayCouncilError = {
@@ -162,6 +191,60 @@ function emptyCouncilRecord(sealId: string, replaySnapshotHash: string): ReplayC
       'Replay Council Bus stores agent reviews over a reconstructed past-state hash.',
       'Each Sentinel agent may have at most one current message per seal_id.',
       'Council messages do not promote, mint, unlock, rollback, or rewrite Canon by themselves.',
+    ],
+  };
+}
+
+function evaluateCouncilRecord(record: ReplayCouncilRecord): ReplayQuorumEvaluation {
+  const normalized = normalizeCouncilRecord(record);
+  const messages = SENTINEL_AGENTS.map((agent) => normalized.messages[agent]).filter((message): message is ReplayCouncilMessage => Boolean(message));
+  const approvedCount = messages.filter((message) => message.verdict === 'pass').length;
+  const flaggedCount = messages.filter((message) => message.verdict === 'flag').length;
+  const abstainedCount = messages.filter((message) => message.verdict === 'abstain').length;
+  const quorumReached = approvedCount >= REPLAY_QUORUM_THRESHOLD;
+  const blockingReached = flaggedCount >= REPLAY_QUORUM_THRESHOLD;
+  const contested = approvedCount > 0 && flaggedCount > 0 && !quorumReached && !blockingReached;
+  const status: ReplayQuorumStatus = quorumReached
+    ? 'approved'
+    : blockingReached
+      ? 'blocked'
+      : contested
+        ? 'contested'
+        : 'pending';
+  const quorumHash = quorumReached
+    ? hashPayload({
+        seal_id: normalized.seal_id,
+        replay_snapshot_hash: normalized.replay_snapshot_hash,
+        approved_agents: messages
+          .filter((message) => message.verdict === 'pass')
+          .map((message) => message.from_agent)
+          .sort(),
+        threshold: REPLAY_QUORUM_THRESHOLD,
+      })
+    : null;
+
+  return {
+    version: REPLAY_QUORUM_VERSION,
+    seal_id: normalized.seal_id,
+    replay_snapshot_hash: normalized.replay_snapshot_hash,
+    quorum_threshold: REPLAY_QUORUM_THRESHOLD,
+    required_agents: SENTINEL_AGENTS,
+    approved_count: approvedCount,
+    flagged_count: flaggedCount,
+    abstained_count: abstainedCount,
+    message_count: normalized.message_count,
+    missing_agents: normalized.missing_agents,
+    agents_present: normalized.agents_present,
+    quorum_reached: quorumReached,
+    quorum_hash: quorumHash,
+    status,
+    back_attestation_candidate: quorumReached,
+    readonly: true,
+    canon: [
+      'Replay quorum evaluates Council Bus messages over one replay_snapshot_hash.',
+      'Replay quorum approval does not promote a seal by itself.',
+      'Back-attestation candidate means operator promotion may be considered in a later phase.',
+      'No Vault mutation, Canon rewrite, MIC issuance, Fountain unlock, or rollback occurs here.',
     ],
   };
 }
@@ -280,4 +363,14 @@ export async function submitReplayCouncilMessage(body: unknown): Promise<ReplayC
   const wrote = await kvSet(replayCouncilKey(candidate.seal_id), next);
   if (!wrote) return { ok: false, error: 'write_failed', readonly: true };
   return { ok: true, readonly: true, record: next };
+}
+
+export async function evaluateReplayQuorum(sealId: string | null): Promise<ReplayQuorumResponse | ReplayCouncilError> {
+  const council = await readReplayCouncil(sealId);
+  if (!council.ok) return council;
+  return {
+    ok: true,
+    readonly: true,
+    evaluation: evaluateCouncilRecord(council.record),
+  };
 }
