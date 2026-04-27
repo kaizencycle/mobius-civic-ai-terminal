@@ -4,7 +4,7 @@ import { getSeal, listAllSeals } from '@/lib/vault-v2/store';
 import type { Seal, SealAttestation, SentinelAgent } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 
-export const SUBSTRATE_CANON_VERSION = 'C-293.phase8.v1' as const;
+export const SUBSTRATE_CANON_VERSION = 'C-293.phase8.v2' as const;
 
 export type CanonEventType =
   | 'epicon'
@@ -15,6 +15,17 @@ export type CanonEventType =
   | 'substrate_attestation';
 
 export type CanonFilterType = CanonEventType | 'reserve_blocks' | 'substrate_attestations';
+
+export type CanonAttestationMode = 'missing' | 'partial' | 'complete' | 'timed_out' | 'failed';
+
+export type CanonCounts = {
+  total_seals: number;
+  attested: number;
+  quarantined_timeout: number;
+  quarantined_other: number;
+  rejected: number;
+  needs_reattestation: number;
+};
 
 export type CanonAttestationView = {
   agent: SentinelAgent;
@@ -42,7 +53,7 @@ export type CanonReserveBlockView = {
   mode_at_seal: Seal['mode_at_seal'];
   source_entries: number;
   deposit_hashes_count: number;
-  attestation_state: 'missing' | 'partial' | 'complete';
+  attestation_state: CanonAttestationMode;
   missing_agents: SentinelAgent[];
   attestations: CanonAttestationView[];
   substrate_pointer: {
@@ -51,6 +62,7 @@ export type CanonReserveBlockView = {
     attested_at: string | null;
     error: string | null;
   };
+  needs_reattestation: boolean;
   historical_digest: ReturnType<typeof historicalAttestationDigest>;
 };
 
@@ -71,6 +83,7 @@ export type CanonResponse = {
   version: typeof SUBSTRATE_CANON_VERSION;
   readonly: true;
   count: number;
+  counts: CanonCounts;
   reserve_blocks: CanonReserveBlockView[];
   timeline: CanonTimelineEvent[];
   canon: string[];
@@ -80,6 +93,10 @@ function shortSignature(signature: string | undefined): string | null {
   if (!signature) return null;
   if (signature.length <= 16) return signature;
   return `${signature.slice(0, 10)}…${signature.slice(-6)}`;
+}
+
+function isTimeoutSignature(signature: string | null): boolean {
+  return signature === 'timeout' || signature?.toLowerCase().includes('timeout') === true;
 }
 
 function attestationToView(agent: SentinelAgent, attestation: SealAttestation | undefined): CanonAttestationView {
@@ -96,15 +113,19 @@ function attestationToView(agent: SentinelAgent, attestation: SealAttestation | 
   };
 }
 
-function attestationState(missingAgents: SentinelAgent[]): CanonReserveBlockView['attestation_state'] {
-  if (missingAgents.length === 0) return 'complete';
+function attestationState(seal: Seal, attestations: CanonAttestationView[], missingAgents: SentinelAgent[]): CanonAttestationMode {
   if (missingAgents.length === SENTINEL_AGENTS.length) return 'missing';
-  return 'partial';
+  if (missingAgents.length > 0) return 'partial';
+  const allTimeoutFlagged = attestations.every((a) => a.verdict === 'flag' && isTimeoutSignature(a.signature_short));
+  if (seal.status === 'quarantined' && allTimeoutFlagged) return 'timed_out';
+  if (seal.status === 'quarantined' || seal.status === 'rejected') return 'failed';
+  return 'complete';
 }
 
 export function sealToCanonReserveBlock(seal: Seal): CanonReserveBlockView {
   const attestations = SENTINEL_AGENTS.map((agent) => attestationToView(agent, seal.attestations?.[agent]));
   const missingAgents = attestations.filter((a) => !a.signed).map((a) => a.agent);
+  const state = attestationState(seal, attestations, missingAgents);
   return {
     type: 'reserve_block',
     block_number: seal.sequence,
@@ -120,7 +141,7 @@ export function sealToCanonReserveBlock(seal: Seal): CanonReserveBlockView {
     mode_at_seal: seal.mode_at_seal,
     source_entries: seal.source_entries,
     deposit_hashes_count: seal.deposit_hashes.length,
-    attestation_state: attestationState(missingAgents),
+    attestation_state: state,
     missing_agents: missingAgents,
     attestations,
     substrate_pointer: {
@@ -129,6 +150,7 @@ export function sealToCanonReserveBlock(seal: Seal): CanonReserveBlockView {
       attested_at: seal.substrate_attested_at ?? null,
       error: seal.substrate_attestation_error ?? null,
     },
+    needs_reattestation: seal.status === 'quarantined' || state === 'timed_out' || state === 'failed',
     historical_digest: historicalAttestationDigest(seal),
   };
 }
@@ -141,10 +163,10 @@ function reserveBlockToTimeline(block: CanonReserveBlockView): CanonTimelineEven
       title: `Reserve Block ${block.block_number}`,
       timestamp: block.sealed_at,
       cycle: block.cycle_at_seal,
-      severity: block.attestation_state === 'complete' ? 'proof' : 'watch',
+      severity: block.status === 'attested' && block.attestation_state === 'complete' ? 'proof' : block.needs_reattestation ? 'incident' : 'watch',
       seal_id: block.seal_id,
       hash: block.seal_hash,
-      summary: `${block.amount} MIC · ${block.status} · ${block.attestation_state} attestation`,
+      summary: `${block.amount} MIC · ${block.status} · ${block.attestation_state}${block.needs_reattestation ? ' · needs re-attestation' : ''}`,
     },
   ];
 
@@ -183,6 +205,17 @@ function sortTimeline(events: CanonTimelineEvent[]): CanonTimelineEvent[] {
   return [...events].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
 }
 
+function buildCounts(blocks: CanonReserveBlockView[]): CanonCounts {
+  return {
+    total_seals: blocks.length,
+    attested: blocks.filter((b) => b.status === 'attested' && b.attestation_state === 'complete').length,
+    quarantined_timeout: blocks.filter((b) => b.status === 'quarantined' && b.attestation_state === 'timed_out').length,
+    quarantined_other: blocks.filter((b) => b.status === 'quarantined' && b.attestation_state !== 'timed_out').length,
+    rejected: blocks.filter((b) => b.status === 'rejected').length,
+    needs_reattestation: blocks.filter((b) => b.needs_reattestation).length,
+  };
+}
+
 export async function buildSubstrateCanon(options: { limit?: number; type?: CanonFilterType | null; seal_id?: string | null } = {}): Promise<CanonResponse> {
   const limit = Math.max(1, Math.min(100, Math.floor(options.limit ?? 50)));
   const seals = options.seal_id ? [await getSeal(options.seal_id)] : await listAllSeals(limit);
@@ -200,6 +233,7 @@ export async function buildSubstrateCanon(options: { limit?: number; type?: Cano
     version: SUBSTRATE_CANON_VERSION,
     readonly: true,
     count: type && type !== 'reserve_blocks' ? filteredTimeline.length : filteredReserveBlocks.length,
+    counts: buildCounts(filteredReserveBlocks.length ? filteredReserveBlocks : reserveBlocks),
     reserve_blocks: filteredReserveBlocks,
     timeline: filteredTimeline,
     canon: [
@@ -207,6 +241,7 @@ export async function buildSubstrateCanon(options: { limit?: number; type?: Cano
       'Historical attestation validates stored proof only.',
       'Historical attestation does not rewrite history or pretend agents signed live at the time.',
       'Historical attestation does not unlock Fountain by itself.',
+      'Quarantined timeout blocks require re-attestation before they count as canonical attested blocks.',
       'No rollback without proof, operator consent, and preserved incident history.',
     ],
   };
