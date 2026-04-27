@@ -88,7 +88,7 @@ async function pruneStaleEntries(redis: Redis, key: string): Promise<number> {
     const currentLen = await redis.llen(key);
     if (currentLen < SOFT_CAP) break;
 
-    const tail = await redis.lindex<unknown>(key, -1);
+    const tail = await redis.lindex(key, -1);
     if (tail === null || tail === undefined) break;
 
     try {
