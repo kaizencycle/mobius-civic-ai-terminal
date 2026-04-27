@@ -1,9 +1,10 @@
 import { hashPayload } from '@/lib/agents/signatures';
+import { kvGet, kvSet } from '@/lib/kv/store';
 import { getSeal } from '@/lib/vault-v2/store';
 import type { Seal, SentinelAgent } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 
-export const REPLAY_QUORUM_VERSION = 'C-294.phase1-2.v1' as const;
+export const REPLAY_QUORUM_VERSION = 'C-294.phase3.v1' as const;
 
 export type ReplaySnapshot = {
   version: typeof REPLAY_QUORUM_VERSION;
@@ -45,6 +46,20 @@ export type ReplayCouncilMessage = {
   readonly: true;
 };
 
+export type ReplayCouncilRecord = {
+  version: typeof REPLAY_QUORUM_VERSION;
+  seal_id: string;
+  replay_snapshot_hash: string;
+  created_at: string;
+  updated_at: string;
+  readonly: true;
+  messages: Partial<Record<SentinelAgent, ReplayCouncilMessage>>;
+  message_count: number;
+  agents_present: SentinelAgent[];
+  missing_agents: SentinelAgent[];
+  canon: string[];
+};
+
 export type ReplaySnapshotResponse = {
   ok: true;
   readonly: true;
@@ -65,6 +80,39 @@ export type ReplaySnapshotError = {
   readonly: true;
 };
 
+export type ReplayCouncilSubmission = {
+  from_agent: SentinelAgent;
+  seal_id: string;
+  replay_snapshot_hash: string;
+  verdict: ReplayCouncilVerdict;
+  reason: string;
+  signed_at: string;
+  signature: string;
+};
+
+export type ReplayCouncilResponse = {
+  ok: true;
+  readonly: true;
+  record: ReplayCouncilRecord;
+};
+
+export type ReplayCouncilError = {
+  ok: false;
+  error:
+    | 'missing_seal_id'
+    | 'seal_not_found'
+    | 'missing_body'
+    | 'invalid_agent'
+    | 'invalid_verdict'
+    | 'snapshot_hash_mismatch'
+    | 'write_failed';
+  readonly: true;
+};
+
+function replayCouncilKey(sealId: string): string {
+  return `system:replay:council:${sealId}`;
+}
+
 function replayHashInput(seal: Seal) {
   return {
     seal_id: seal.seal_id,
@@ -76,6 +124,45 @@ function replayHashInput(seal: Seal) {
     gi_at_seal: seal.gi_at_seal,
     mode_at_seal: seal.mode_at_seal,
     source_entries: seal.source_entries,
+  };
+}
+
+function isSentinelAgent(value: string): value is SentinelAgent {
+  return (SENTINEL_AGENTS as readonly string[]).includes(value);
+}
+
+function isReplayCouncilVerdict(value: string): value is ReplayCouncilVerdict {
+  return value === 'pass' || value === 'flag' || value === 'abstain';
+}
+
+function normalizeCouncilRecord(record: ReplayCouncilRecord): ReplayCouncilRecord {
+  const agentsPresent = SENTINEL_AGENTS.filter((agent) => Boolean(record.messages[agent]));
+  return {
+    ...record,
+    message_count: agentsPresent.length,
+    agents_present: agentsPresent,
+    missing_agents: SENTINEL_AGENTS.filter((agent) => !record.messages[agent]),
+  };
+}
+
+function emptyCouncilRecord(sealId: string, replaySnapshotHash: string): ReplayCouncilRecord {
+  const now = new Date().toISOString();
+  return {
+    version: REPLAY_QUORUM_VERSION,
+    seal_id: sealId,
+    replay_snapshot_hash: replaySnapshotHash,
+    created_at: now,
+    updated_at: now,
+    readonly: true,
+    messages: {},
+    message_count: 0,
+    agents_present: [],
+    missing_agents: [...SENTINEL_AGENTS],
+    canon: [
+      'Replay Council Bus stores agent reviews over a reconstructed past-state hash.',
+      'Each Sentinel agent may have at most one current message per seal_id.',
+      'Council messages do not promote, mint, unlock, rollback, or rewrite Canon by themselves.',
+    ],
   };
 }
 
@@ -112,15 +199,7 @@ export function buildReplaySnapshotFromSeal(seal: Seal): ReplaySnapshot {
   };
 }
 
-export function buildReplayCouncilMessageDraft(args: {
-  from_agent: SentinelAgent;
-  seal_id: string;
-  replay_snapshot_hash: string;
-  verdict: ReplayCouncilVerdict;
-  reason: string;
-  signed_at: string;
-  signature: string;
-}): ReplayCouncilMessage {
+export function buildReplayCouncilMessageDraft(args: ReplayCouncilSubmission): ReplayCouncilMessage {
   return {
     version: REPLAY_QUORUM_VERSION,
     ...args,
@@ -154,4 +233,51 @@ export async function buildReplaySnapshotResponse(sealId: string | null): Promis
       },
     },
   };
+}
+
+export async function readReplayCouncil(sealId: string | null): Promise<ReplayCouncilResponse | ReplayCouncilError> {
+  if (!sealId) return { ok: false, error: 'missing_seal_id', readonly: true };
+  const snapshotResponse = await buildReplaySnapshotResponse(sealId);
+  if (!snapshotResponse.ok) return snapshotResponse;
+  const stored = await kvGet<ReplayCouncilRecord>(replayCouncilKey(sealId));
+  const record = stored ?? emptyCouncilRecord(sealId, snapshotResponse.snapshot.replay_snapshot_hash);
+  return { ok: true, readonly: true, record: normalizeCouncilRecord(record) };
+}
+
+export async function submitReplayCouncilMessage(body: unknown): Promise<ReplayCouncilResponse | ReplayCouncilError> {
+  if (!body || typeof body !== 'object') return { ok: false, error: 'missing_body', readonly: true };
+  const candidate = body as Partial<ReplayCouncilSubmission>;
+  if (!candidate.seal_id) return { ok: false, error: 'missing_seal_id', readonly: true };
+  if (!candidate.from_agent || !isSentinelAgent(candidate.from_agent)) return { ok: false, error: 'invalid_agent', readonly: true };
+  if (!candidate.verdict || !isReplayCouncilVerdict(candidate.verdict)) return { ok: false, error: 'invalid_verdict', readonly: true };
+  const snapshotResponse = await buildReplaySnapshotResponse(candidate.seal_id);
+  if (!snapshotResponse.ok) return snapshotResponse;
+  if (candidate.replay_snapshot_hash !== snapshotResponse.snapshot.replay_snapshot_hash) {
+    return { ok: false, error: 'snapshot_hash_mismatch', readonly: true };
+  }
+
+  const current = await kvGet<ReplayCouncilRecord>(replayCouncilKey(candidate.seal_id));
+  const base = current ?? emptyCouncilRecord(candidate.seal_id, candidate.replay_snapshot_hash);
+  const message = buildReplayCouncilMessageDraft({
+    from_agent: candidate.from_agent,
+    seal_id: candidate.seal_id,
+    replay_snapshot_hash: candidate.replay_snapshot_hash,
+    verdict: candidate.verdict,
+    reason: candidate.reason ?? '',
+    signed_at: candidate.signed_at ?? new Date().toISOString(),
+    signature: candidate.signature ?? '',
+  });
+  const next: ReplayCouncilRecord = normalizeCouncilRecord({
+    ...base,
+    version: REPLAY_QUORUM_VERSION,
+    replay_snapshot_hash: candidate.replay_snapshot_hash,
+    updated_at: new Date().toISOString(),
+    messages: {
+      ...base.messages,
+      [candidate.from_agent]: message,
+    },
+  });
+  const wrote = await kvSet(replayCouncilKey(candidate.seal_id), next);
+  if (!wrote) return { ok: false, error: 'write_failed', readonly: true };
+  return { ok: true, readonly: true, record: next };
 }
