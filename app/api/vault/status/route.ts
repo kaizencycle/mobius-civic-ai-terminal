@@ -26,6 +26,7 @@ import {
   getCandidate,
   getInProgressBalance,
   getLatestSeal,
+  listAllSeals,
 } from '@/lib/vault-v2/store';
 import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
 
@@ -45,7 +46,8 @@ export async function GET(req: NextRequest) {
     const st = await loadGIState();
     if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
       const age = Date.now() - new Date(st.timestamp).getTime();
-      const maxAgeMs = st.gi_write_source === 'micro_sweep' ? 2 * 60 * 1000 : 10 * 60 * 1000;
+      // Sweep cron runs every 10 min — use 12 min window so GI doesn't read stale between ticks.
+      const maxAgeMs = st.gi_write_source === 'micro_sweep' ? 12 * 60 * 1000 : 15 * 60 * 1000;
       if (age < maxAgeMs) {
         gi = Math.max(0, Math.min(1, st.global_integrity));
         gi_provenance = 'kv-live';
@@ -65,13 +67,26 @@ export async function GET(req: NextRequest) {
 
   const v1 = await getVaultStatusPayload(gi);
 
-  const [inProgressBalance, sealsCount, sealsAuditCount, latestSeal, candidate] = await Promise.all([
-    getInProgressBalance(),
-    countSeals(),
-    countAllSeals(),
-    getLatestSeal(),
-    getCandidate(),
-  ]);
+  const [inProgressBalance, sealsCount, sealsAuditCount, latestSeal, candidate, allRecentSeals] =
+    await Promise.all([
+      getInProgressBalance(),
+      countSeals(),
+      countAllSeals(),
+      getLatestSeal(),
+      getCandidate(),
+      listAllSeals(50),
+    ]);
+
+  const sealsQuarantinedCount = allRecentSeals.filter((s) => s.status === 'quarantined').length;
+  const sealsNeedingReattestation = allRecentSeals
+    .filter((s) => s.status === 'quarantined')
+    .map((s) => ({
+      seal_id: s.seal_id,
+      sequence: s.sequence,
+      missing_agents: (['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA'] as const).filter(
+        (a) => !s.attestations[a],
+      ),
+    }));
 
   const seal_lane = computeVaultSealLaneSemantics({
     v1BalanceReserve: v1.balance_reserve,
@@ -117,6 +132,8 @@ export async function GET(req: NextRequest) {
     },
     seals_count: sealsCount,
     seals_audit_count: sealsAuditCount,
+    seals_quarantined_count: sealsQuarantinedCount,
+    seals_needing_reattestation: sealsNeedingReattestation,
     latest_seal_id: latestSeal?.seal_id ?? null,
     latest_seal_at: latestSeal?.sealed_at ?? null,
     latest_seal_hash: latestSeal?.seal_hash ?? null,

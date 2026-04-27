@@ -35,6 +35,7 @@ type ReplayPlan = {
     in_progress_balance: number;
     in_progress_hash_count: number;
     attested_seals: number;
+    quarantined_seals: number;
     finalized_seals: number;
     latest_seal_id: string | null;
     latest_seal_hash: string | null;
@@ -48,6 +49,7 @@ type ReplayPlan = {
       substrate_attestation_id?: string | null;
       substrate_event_hash?: string | null;
     }>;
+    quarantined_seal_ids: string[];
   };
   hot_state: {
     gi_available: boolean;
@@ -248,6 +250,7 @@ export default function ReplayPage() {
               <div>in_progress_balance: <span className="text-cyan-100">{active.vault.in_progress_balance.toFixed(4)}</span></div>
               <div>in_progress_hashes: <span className="text-cyan-100">{active.vault.in_progress_hash_count}</span></div>
               <div>attested_seals: <span className="text-cyan-100">{active.vault.attested_seals}</span></div>
+              <div>quarantined_seals: <span className={active.vault.quarantined_seals > 0 ? 'text-amber-300' : 'text-cyan-100'}>{active.vault.quarantined_seals ?? 0}</span></div>
               <div>finalized_seals: <span className="text-cyan-100">{active.vault.finalized_seals}</span></div>
               <div>candidate: <span className="text-cyan-100">{active.vault.candidate_seal_id ?? '—'}</span></div>
               <div>latest: <span className="text-cyan-100">{active.vault.latest_seal_id ?? '—'}</span></div>
@@ -256,12 +259,22 @@ export default function ReplayPage() {
             <div className="mt-3 text-[10px] uppercase tracking-[0.16em] text-slate-500">recent seals</div>
             <div className="mt-1 space-y-1.5">
               {active.vault.recent_seals.length ? active.vault.recent_seals.map((seal) => (
-                <div key={seal.seal_id} className="rounded border border-slate-800/80 bg-slate-950/60 p-2 text-[10px]">
-                  <div className="flex justify-between gap-2"><span className="text-cyan-200">#{seal.sequence}</span><span className="text-slate-400">{seal.status}</span></div>
+                <div key={seal.seal_id} className={`rounded border p-2 text-[10px] ${seal.status === 'quarantined' ? 'border-amber-600/40 bg-amber-950/20' : 'border-slate-800/80 bg-slate-950/60'}`}>
+                  <div className="flex justify-between gap-2"><span className="text-cyan-200">#{seal.sequence}</span><span className={seal.status === 'quarantined' ? 'text-amber-300' : 'text-slate-400'}>{seal.status}</span></div>
                   <div className="mt-1 text-violet-200" title={seal.seal_hash}>{shortHash(seal.seal_hash)}</div>
                 </div>
               )) : <div className="text-[10px] text-slate-500">No recent seals.</div>}
             </div>
+            {(active.vault.quarantined_seal_ids?.length ?? 0) > 0 ? (
+              <div className="mt-3">
+                <div className="mb-1 text-[10px] uppercase tracking-[0.16em] text-amber-400/80">quarantined — need reattestation</div>
+                <div className="space-y-1">
+                  {active.vault.quarantined_seal_ids.map((id) => (
+                    <div key={id} className="rounded border border-amber-700/30 bg-amber-950/10 px-2 py-1 text-[10px] text-amber-200">{id}</div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section className="rounded border border-slate-800 bg-slate-950/70 p-4">

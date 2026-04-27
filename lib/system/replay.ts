@@ -52,6 +52,7 @@ export type ReplayPlan = {
     in_progress_balance: number;
     in_progress_hash_count: number;
     attested_seals: number;
+    quarantined_seals: number;
     finalized_seals: number;
     latest_seal_id: string | null;
     latest_seal_hash: string | null;
@@ -65,6 +66,7 @@ export type ReplayPlan = {
       substrate_attestation_id?: string | null;
       substrate_event_hash?: string | null;
     }>;
+    quarantined_seal_ids: string[];
   };
   hot_state: {
     gi_available: boolean;
@@ -244,6 +246,7 @@ export async function buildReplayPlan(mode: 'plan' | 'dry_run' = 'plan'): Promis
       in_progress_balance: Number(inProgressBalance.toFixed(6)),
       in_progress_hash_count: inProgressHashes.length,
       attested_seals: attestedSeals,
+      quarantined_seals: recentSeals.filter((s) => s.status === 'quarantined').length,
       finalized_seals: finalizedSeals,
       latest_seal_id: latestSeal?.seal_id ?? null,
       latest_seal_hash: latestSeal?.seal_hash ?? null,
@@ -257,6 +260,9 @@ export async function buildReplayPlan(mode: 'plan' | 'dry_run' = 'plan'): Promis
         substrate_attestation_id: seal.substrate_attestation_id ?? null,
         substrate_event_hash: seal.substrate_event_hash ?? null,
       })),
+      quarantined_seal_ids: recentSeals
+        .filter((s) => s.status === 'quarantined')
+        .map((s) => s.seal_id),
     },
     hot_state: {
       gi_available: Boolean(gi),
