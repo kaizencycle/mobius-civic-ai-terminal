@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readReplayMutationReceipt, previewReplayMutationPlan } from '@/lib/system/replay-promotion';
+import { getServiceAuthError } from '@/lib/security/serviceAuth';
+import {
+  previewReplayMutationPlan,
+  readReplayMutationReceipt,
+  recordReplayMutationReceipt,
+} from '@/lib/system/replay-promotion';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +24,26 @@ export async function GET(req: NextRequest) {
   }, {
     headers: {
       'Cache-Control': 'no-store',
-      'X-Mobius-Phase': 'C-294.phase9-ui',
+      'X-Mobius-Phase': 'C-294.phase10',
+    },
+  });
+}
+
+export async function POST(req: NextRequest) {
+  const authErr = getServiceAuthError(req);
+  if (authErr) return authErr;
+
+  const body = await req.json().catch(() => null);
+  const result = await recordReplayMutationReceipt(body);
+
+  if (!result.ok) {
+    return NextResponse.json(result, { status: 400 });
+  }
+
+  return NextResponse.json(result, {
+    headers: {
+      'Cache-Control': 'no-store',
+      'X-Mobius-Phase': 'C-294.phase10',
     },
   });
 }
