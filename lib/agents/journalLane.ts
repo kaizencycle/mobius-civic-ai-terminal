@@ -78,34 +78,34 @@ async function pruneStaleEntries(redis: Redis, key: string): Promise<number> {
   console.warn(`[journalLane] soft-cap reached on ${key}: ${len}/${MAX_LIST_ENTRIES} entries. Running time-based prune.`);
 
   const cutoff = Date.now() - ROLLING_WINDOW_MS;
-  const raw = await redis.lrange<unknown>(key, 0, -1);
-  const fresh: string[] = [];
   let pruned = 0;
 
-  for (const item of raw) {
+  // Atomically pop stale entries from the tail (oldest end) one at a time.
+  // RPOP is a single Redis command and therefore atomic — concurrent LPUSH writes
+  // at the head are never affected. We stop as soon as the tail is within the
+  // rolling window or the list drops below SOFT_CAP.
+  while (true) {
+    const currentLen = await redis.llen(key);
+    if (currentLen < SOFT_CAP) break;
+
+    const tail = await redis.lindex<unknown>(key, -1);
+    if (tail === null || tail === undefined) break;
+
     try {
-      const parsed = typeof item === 'string' ? (JSON.parse(item) as { timestamp?: string }) : (item as { timestamp?: string });
+      const parsed = typeof tail === 'string'
+        ? (JSON.parse(tail) as { timestamp?: string })
+        : (tail as { timestamp?: string });
       const ts = parsed?.timestamp ? new Date(parsed.timestamp).getTime() : 0;
-      if (ts > cutoff) {
-        fresh.push(typeof item === 'string' ? item : JSON.stringify(item));
-      } else {
-        pruned += 1;
-      }
+      if (ts > cutoff) break; // Oldest entry is within the window — stop pruning
+      await redis.rpop(key);
+      pruned += 1;
     } catch {
-      // keep unparseable entries rather than silently losing them
-      fresh.push(typeof item === 'string' ? item : JSON.stringify(item));
+      break; // Unparseable tail — leave it, let the hard ltrim decide its fate
     }
   }
 
   if (pruned > 0) {
-    // Atomically replace the list with only fresh entries
-    const pipeline = redis.pipeline();
-    pipeline.del(key);
-    for (const entry of fresh) {
-      pipeline.rpush(key, entry);
-    }
-    await pipeline.exec();
-    console.warn(`[journalLane] pruned ${pruned} stale entries from ${key} (${fresh.length} retained)`);
+    console.warn(`[journalLane] pruned ${pruned} stale entries from ${key}`);
   }
 
   return pruned;

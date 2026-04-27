@@ -426,7 +426,9 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
     const assignedAgents = AGENT_ROUTING[epicon.category] ?? ['ZEUS'];
 
     if (existing.promotion_state === 'promoted' && existing.assigned_agents.length > 0) {
-      continue;
+      // Items flagged for recheck by the re-entry window (promotionState === 'selected')
+      // are allowed through — they were promoted >6h ago and need a confirmation pass.
+      if (epicon.promotionState !== 'selected') continue;
     }
 
     const attestation = epicon.echoIngest?.metadata?.integrityAttestation as

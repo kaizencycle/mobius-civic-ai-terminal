@@ -1,4 +1,4 @@
-import { kvGet, kvSet, kvSetRawKey } from '@/lib/kv/store';
+import { kvGet, kvSet } from '@/lib/kv/store';
 
 export type PromotionStateValue = {
   promotion_state: 'pending' | 'selected' | 'promoted' | 'failed';
@@ -14,6 +14,10 @@ export type PromotionStateMap = Record<string, PromotionStateValue>;
 // 72h TTL — covers any cycle overlap without leaking into the next cycle
 const PROMOTION_STATE_TTL_SECONDS = 60 * 60 * 72;
 
+// In-memory mirror keyed by cycleId — survives KV outages within a single process.
+// Scoped by cycle so stale data from a prior cycle never bleeds into a new one.
+const memoryMirror = new Map<string, PromotionStateMap>();
+
 function cycleKey(cycleId: string): string {
   return `epicon:promotion:state:${cycleId}`;
 }
@@ -21,12 +25,18 @@ function cycleKey(cycleId: string): string {
 export async function getPromotionState(cycleId: string): Promise<PromotionStateMap> {
   const fromKv = await kvGet<PromotionStateMap>(cycleKey(cycleId));
   if (fromKv && typeof fromKv === 'object') {
+    // Keep mirror in sync whenever KV is healthy
+    memoryMirror.set(cycleId, fromKv);
     return fromKv;
   }
-  return {};
+  // KV unavailable — return in-process mirror so promoted IDs are not forgotten
+  return memoryMirror.get(cycleId) ?? {};
 }
 
 export async function savePromotionState(state: PromotionStateMap, cycleId: string): Promise<void> {
+  // Always update memory mirror first so the next getPromotionState within the same
+  // process sees the latest state even if the KV write below is slow or fails.
+  memoryMirror.set(cycleId, state);
   await kvSet(cycleKey(cycleId), state, PROMOTION_STATE_TTL_SECONDS);
 }
 
