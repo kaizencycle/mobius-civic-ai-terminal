@@ -206,7 +206,10 @@ export default function VaultPage() {
     <div className="h-full overflow-y-auto p-4 text-slate-200">
       <div className="mb-3 flex items-center justify-between">
         <h1 className="text-sm font-semibold uppercase tracking-[0.15em] text-violet-200">Vault · Reserve Blocks</h1>
-        <Link href="/terminal/sentinel" className="text-[10px] font-mono text-slate-500 hover:text-cyan-300">← Sentinel</Link>
+        <div className="flex gap-2 text-[10px] font-mono">
+          <Link href="/terminal/canon" className="text-slate-500 hover:text-cyan-300">Canon →</Link>
+          <Link href="/terminal/sentinel" className="text-slate-500 hover:text-cyan-300">← Sentinel</Link>
+        </div>
       </div>
 
       <div className="mb-3 rounded border border-emerald-500/25 bg-slate-950/90 p-3 font-mono text-[11px] text-emerald-100/95">
