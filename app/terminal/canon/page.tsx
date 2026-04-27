@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { CanonResponse, CanonReserveBlockView, CanonTimelineEvent } from '@/lib/substrate/canon';
 
@@ -30,8 +30,11 @@ function stateClass(state: CanonReserveBlockView['attestation_state']): string {
       return 'border-emerald-500/30 bg-emerald-950/20 text-emerald-200';
     case 'partial':
       return 'border-amber-500/30 bg-amber-950/20 text-amber-200';
-    default:
+    case 'timed_out':
+    case 'failed':
       return 'border-rose-500/30 bg-rose-950/20 text-rose-200';
+    default:
+      return 'border-slate-600 bg-slate-950/70 text-slate-400';
   }
 }
 
@@ -61,6 +64,12 @@ function BlockInspector({ block }: { block: CanonReserveBlockView }) {
           {block.attestation_state}
         </div>
       </div>
+
+      {block.needs_reattestation ? (
+        <div className="mb-3 rounded border border-amber-500/25 bg-amber-950/10 p-2 text-[10px] text-amber-200">
+          This seal is not canonical-attested yet and needs re-attestation before it can count as approved Reserve Block proof.
+        </div>
+      ) : null}
 
       <div className="grid gap-2 text-[10px] text-slate-400 md:grid-cols-2">
         <div className="rounded border border-slate-800/80 bg-slate-950/70 p-2">
@@ -97,7 +106,7 @@ function BlockInspector({ block }: { block: CanonReserveBlockView }) {
           {block.attestations.map((a) => (
             <div key={a.agent} className="grid gap-2 border-b border-slate-800/70 py-1.5 last:border-0 sm:grid-cols-[80px_80px_1fr_1fr]">
               <span className="text-cyan-200">{a.agent}</span>
-              <span className={a.signed ? 'text-emerald-300' : 'text-rose-300'}>{a.signed ? a.verdict : 'missing'}</span>
+              <span className={a.signed ? (a.verdict === 'pass' ? 'text-emerald-300' : 'text-amber-300') : 'text-rose-300'}>{a.signed ? a.verdict : 'missing'}</span>
               <span className="text-slate-500">signed_at: <span className="text-slate-300">{formatTime(a.signed_at)}</span></span>
               <span className="truncate text-slate-500" title={a.signature_hash ?? undefined}>sig: <span className="text-violet-200">{a.signature_short ?? '—'}</span>{a.historical ? <span className="ml-2 text-amber-300">historical</span> : null}</span>
             </div>
@@ -153,13 +162,15 @@ export default function CanonPage() {
       .catch(() => setErr('Failed to load canon'));
   }, []);
 
-  const completeBlocks = useMemo(() => data?.reserve_blocks.filter((b) => b.attestation_state === 'complete').length ?? 0, [data]);
-  const partialBlocks = useMemo(() => data?.reserve_blocks.filter((b) => b.attestation_state === 'partial').length ?? 0, [data]);
-  const missingBlocks = useMemo(() => data?.reserve_blocks.filter((b) => b.attestation_state === 'missing').length ?? 0, [data]);
-
   if (state === 'error') return <div className="p-4 text-sm text-rose-300">{err}</div>;
   if (state === 'loading') return <div className="p-4 text-sm text-slate-400">Loading canon…</div>;
   if (!data) return null;
+
+  const counts = data.counts;
+  const totalSeals = counts?.total_seals ?? data.reserve_blocks.length;
+  const attested = counts?.attested ?? 0;
+  const timeout = counts?.quarantined_timeout ?? 0;
+  const needsReattestation = counts?.needs_reattestation ?? timeout;
 
   return (
     <div className="h-full overflow-y-auto p-4 font-mono text-xs text-slate-200">
@@ -182,11 +193,15 @@ export default function CanonPage() {
         </div>
       </div>
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-4">
-        <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Blocks</div><div className="mt-1 text-lg text-cyan-200">{data.reserve_blocks.length}</div></div>
-        <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Complete</div><div className="mt-1 text-lg text-emerald-300">{completeBlocks}</div></div>
-        <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Partial</div><div className="mt-1 text-lg text-amber-300">{partialBlocks}</div></div>
-        <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Missing</div><div className="mt-1 text-lg text-rose-300">{missingBlocks}</div></div>
+      <div className="mb-3 grid gap-2 sm:grid-cols-4">
+        <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Seals</div><div className="mt-1 text-lg text-cyan-200">{totalSeals}</div></div>
+        <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Attested</div><div className="mt-1 text-lg text-emerald-300">{attested}</div></div>
+        <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Timeout</div><div className="mt-1 text-lg text-rose-300">{timeout}</div></div>
+        <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Re-Attest</div><div className="mt-1 text-lg text-amber-300">{needsReattestation}</div></div>
+      </div>
+
+      <div className="mb-4 text-[11px] text-slate-400">
+        {totalSeals} seals · {attested} attested · {timeout} quarantined (timeout — re-attestation needed)
       </div>
 
       {state === 'empty' ? <div className="rounded border border-slate-800 bg-slate-950/70 p-4 text-slate-500">No Reserve Blocks have been written to canon yet.</div> : null}
