@@ -20,7 +20,7 @@ type ReplayPlan = {
   timestamp: string;
   cycle: string;
   mode: 'plan' | 'dry_run';
-  destructive: false;
+  destructive: boolean;
   sources: ReplaySource[];
   rebuild: {
     possible: boolean;
@@ -96,11 +96,25 @@ function formatTime(value?: string | null): string {
   return parsed.toLocaleString(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-function BoolPill({ label, value }: { label: string; value: boolean }) {
+function BoolPill({
+  label,
+  value,
+  trueLabel = 'available',
+  falseLabel = 'missing',
+  trueClassName = 'text-emerald-300',
+  falseClassName = 'text-slate-500',
+}: {
+  label: string;
+  value: boolean;
+  trueLabel?: string;
+  falseLabel?: string;
+  trueClassName?: string;
+  falseClassName?: string;
+}) {
   return (
     <div className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/70 px-3 py-2 text-[10px]">
       <span className="uppercase tracking-[0.16em] text-slate-500">{label}</span>
-      <span className={value ? 'text-emerald-300' : 'text-slate-500'}>{value ? 'available' : 'missing'}</span>
+      <span className={value ? trueClassName : falseClassName}>{value ? trueLabel : falseLabel}</span>
     </div>
   );
 }
@@ -189,7 +203,7 @@ export default function ReplayPage() {
             <BoolPill label="Hot state" value={active.rebuild.can_restore_hot_state} />
             <BoolPill label="Vault state" value={active.rebuild.can_restore_vault_state} />
             <BoolPill label="Savepoints" value={active.rebuild.can_restore_chamber_savepoints} />
-            <BoolPill label="Destructive" value={active.destructive} />
+            <BoolPill label="Destructive" value={active.destructive} trueLabel="true" falseLabel="false" trueClassName="text-rose-300" falseClassName="text-emerald-300" />
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
