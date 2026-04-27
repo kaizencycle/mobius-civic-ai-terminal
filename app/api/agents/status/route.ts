@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { Redis } from '@upstash/redis';
 import { mockAgentStatus } from '@/lib/mock-data';
 import { KV_KEYS, kvGet } from '@/lib/kv/store';
 import {
@@ -42,6 +43,33 @@ const AGENT_BASE = [
 ] as const;
 
 let staleSnapshot: { cycle: string; timestamp: string } | null = null;
+
+function getKvRedis(): Redis | null {
+  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  try {
+    return new Redis({ url, token });
+  } catch {
+    return null;
+  }
+}
+
+async function loadLatestKvJournalTimestamp(agentName: string): Promise<string | null> {
+  try {
+    const redis = getKvRedis();
+    if (!redis) return null;
+    const key = `journal:${agentName.toLowerCase()}`;
+    const rows = await redis.lrange<string>(key, 0, 0);
+    if (!rows?.length) return null;
+    const raw = rows[0];
+    const parsed = typeof raw === 'string' ? (JSON.parse(raw) as Record<string, unknown>) : raw;
+    const ts = (parsed as Record<string, unknown>)?.timestamp;
+    return typeof ts === 'string' ? ts : null;
+  } catch {
+    return null;
+  }
+}
 
 const HEARTBEAT_FRESH_MS = Number(process.env.AGENT_HEARTBEAT_FRESH_MS ?? 300000);
 const ACTION_FRESH_MS = Number(process.env.AGENT_ACTION_FRESH_MS ?? 900000);
@@ -105,15 +133,48 @@ function deriveLiveness(input: {
   return 'DEGRADED';
 }
 
-async function loadLatestJournalByAgent(): Promise<Record<string, SubstrateJournalEntry | null>> {
+async function loadLatestJournalByAgent(): Promise<
+  Record<string, (SubstrateJournalEntry & { _kv_fallback?: boolean }) | null>
+> {
   const pairs = await Promise.all(
     AGENT_BASE.map(async (agent) => {
+      let ghEntry: SubstrateJournalEntry | null = null;
       try {
         const rows = await readAgentJournals(agent.id, 1);
-        return [agent.name, rows[0] ?? null] as const;
+        ghEntry = rows[0] ?? null;
       } catch {
-        return [agent.name, null] as const;
+        // GitHub fetch failed — fall through to KV fallback
       }
+
+      if (ghEntry) return [agent.name, ghEntry] as const;
+
+      // KV fallback: read the latest journal:lane entry written by the sweep cron.
+      // This ensures agents that write via appendJournalLaneEntry (not GitHub)
+      // still show as live rather than DEGRADED.
+      const kvTs = await loadLatestKvJournalTimestamp(agent.name);
+      if (kvTs) {
+        const synthetic: SubstrateJournalEntry & { _kv_fallback: boolean } = {
+          id: `kv-fallback-${agent.name.toLowerCase()}`,
+          agent: agent.name,
+          timestamp: kvTs,
+          cycle: 'kv-live',
+          scope: 'kv-journal-lane',
+          category: 'observation',
+          severity: 'nominal',
+          observation: 'KV journal lane entry (fallback for GitHub latency).',
+          inference: 'Agent has recent KV journal writes; substrate sync may be pending.',
+          recommendation: 'No action required.',
+          confidence: 0.75,
+          derivedFrom: [`journal:${agent.name.toLowerCase()}`],
+          source: 'kv-fallback',
+          tags: ['kv-fallback'],
+          agentOrigin: agent.name,
+          _kv_fallback: true,
+        };
+        return [agent.name, synthetic] as const;
+      }
+
+      return [agent.name, null] as const;
     }),
   );
   return Object.fromEntries(pairs);

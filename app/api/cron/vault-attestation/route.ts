@@ -28,6 +28,7 @@ import {
   countSeals,
   getCandidate,
   getInProgressBalance,
+  listAllSeals,
   listSeals,
 } from '@/lib/vault-v2/store';
 import { evaluateQuorum, finalizeSeal, injectTimeouts } from '@/lib/vault-v2/seal';
@@ -47,6 +48,12 @@ type CandidateState =
   | 'finalized-quarantined'
   | 'finalized-rejected';
 
+type QuarantinedSealDigest = {
+  seal_id: string;
+  sequence: number;
+  missing_agents: string[];
+};
+
 type Report = {
   ok: boolean;
   at: string;
@@ -63,6 +70,8 @@ type Report = {
   seals_total: number;
   seals_attested_total: number;
   seals_audit_total: number;
+  seals_quarantined_total: number;
+  quarantined_needing_reattestation: QuarantinedSealDigest[];
   fountain_pending_count: number;
   errors: string[];
 };
@@ -193,9 +202,15 @@ export async function GET(req: NextRequest) {
   let seals_total = 0;
   let seals_attested_total = 0;
   let seals_audit_total = 0;
+  let seals_quarantined_total = 0;
+  let quarantined_needing_reattestation: QuarantinedSealDigest[] = [];
+
+  const SENTINEL_NAMES = ['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA'] as const;
+
   try {
-    const [seals, attestedCount, auditCount] = await Promise.all([
+    const [seals, allSeals, attestedCount, auditCount] = await Promise.all([
       listSeals(200),
+      listAllSeals(200),
       countSeals(),
       countAllSeals(),
     ]);
@@ -205,6 +220,13 @@ export async function GET(req: NextRequest) {
     fountain_pending_count = seals.filter(
       (s: Seal) => s.status === 'attested' && s.fountain_status === 'pending',
     ).length;
+    const quarantined = allSeals.filter((s: Seal) => s.status === 'quarantined');
+    seals_quarantined_total = quarantined.length;
+    quarantined_needing_reattestation = quarantined.map((s: Seal) => ({
+      seal_id: s.seal_id,
+      sequence: s.sequence,
+      missing_agents: SENTINEL_NAMES.filter((a) => !s.attestations[a]),
+    }));
   } catch (e) {
     errors.push(`seals list: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -224,6 +246,8 @@ export async function GET(req: NextRequest) {
     seals_total,
     seals_attested_total,
     seals_audit_total,
+    seals_quarantined_total,
+    quarantined_needing_reattestation,
     fountain_pending_count,
     errors,
   };
