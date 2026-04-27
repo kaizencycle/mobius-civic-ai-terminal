@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const canon = await buildSubstrateCanon({ limit, type: rawType ?? null, seal_id: sealId });
+  const type: CanonFilterType | null = rawType ? rawType : null;
+  const canon = await buildSubstrateCanon({ limit, type, seal_id: sealId });
 
   return NextResponse.json(canon, {
     headers: {
