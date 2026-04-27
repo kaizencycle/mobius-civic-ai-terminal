@@ -66,6 +66,45 @@ type ReplayPlan = {
   note?: string;
 };
 
+type ReplayQuorumEvaluation = {
+  seal_id: string;
+  replay_snapshot_hash: string;
+  quorum_threshold: number;
+  approved_count: number;
+  flagged_count: number;
+  abstained_count: number;
+  message_count: number;
+  missing_agents: string[];
+  agents_present: string[];
+  quorum_reached: boolean;
+  quorum_hash: string | null;
+  status: 'pending' | 'approved' | 'blocked' | 'contested';
+  back_attestation_candidate: boolean;
+};
+
+type ReplayCouncilRecord = {
+  seal_id: string;
+  replay_snapshot_hash: string;
+  message_count: number;
+  agents_present: string[];
+  missing_agents: string[];
+  messages: Record<string, {
+    from_agent: string;
+    verdict: 'pass' | 'flag' | 'abstain';
+    reason: string;
+    signed_at: string;
+    signature_hash: string;
+  } | undefined>;
+};
+
+type ReplayCouncilView = {
+  sealId: string | null;
+  loading: boolean;
+  error: string | null;
+  quorum: ReplayQuorumEvaluation | null;
+  council: ReplayCouncilRecord | null;
+};
+
 function confidenceLabel(confidence: number): { label: string; className: string } {
   if (confidence >= 0.85) return { label: 'STRONG', className: 'text-emerald-300' };
   if (confidence >= 0.5) return { label: 'PARTIAL', className: 'text-amber-300' };
@@ -82,6 +121,32 @@ function statusClass(status: ReplaySourceStatus): string {
       return 'border-rose-500/30 bg-rose-950/20 text-rose-200';
     default:
       return 'border-slate-700 bg-slate-950/70 text-slate-400';
+  }
+}
+
+function quorumStatusClass(status?: ReplayQuorumEvaluation['status']): string {
+  switch (status) {
+    case 'approved':
+      return 'text-emerald-300';
+    case 'blocked':
+      return 'text-rose-300';
+    case 'contested':
+      return 'text-amber-300';
+    default:
+      return 'text-slate-400';
+  }
+}
+
+function verdictClass(verdict?: 'pass' | 'flag' | 'abstain'): string {
+  switch (verdict) {
+    case 'pass':
+      return 'text-emerald-300';
+    case 'flag':
+      return 'text-rose-300';
+    case 'abstain':
+      return 'text-amber-300';
+    default:
+      return 'text-slate-500';
   }
 }
 
@@ -121,11 +186,68 @@ function BoolPill({
   );
 }
 
+function ReplayCouncilPanel({ selectedSealId, view }: { selectedSealId: string | null; view: ReplayCouncilView }) {
+  const agents = ['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA'];
+  return (
+    <section className="rounded border border-violet-500/25 bg-slate-950/70 p-4">
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.2em] text-violet-300/80">Replay Council</div>
+          <div className="mt-1 text-[10px] text-slate-500">Read-only quorum viewer. No promotion or mutation.</div>
+        </div>
+        <span className={quorumStatusClass(view.quorum?.status)}>{view.quorum?.status ?? 'pending'}</span>
+      </div>
+
+      {!selectedSealId ? <div className="text-[10px] text-slate-500">No quarantined or recent seal selected.</div> : null}
+      {view.loading ? <div className="text-[10px] text-slate-500">Loading council…</div> : null}
+      {view.error ? <div className="rounded border border-rose-500/30 bg-rose-950/20 p-2 text-[10px] text-rose-200">{view.error}</div> : null}
+
+      {view.quorum ? (
+        <div className="space-y-3">
+          <div className="space-y-1 text-[10px] text-slate-400">
+            <div>seal_id: <span className="text-cyan-100">{view.quorum.seal_id}</span></div>
+            <div title={view.quorum.replay_snapshot_hash}>snapshot_hash: <span className="text-violet-200">{shortHash(view.quorum.replay_snapshot_hash)}</span></div>
+            <div>threshold: <span className="text-slate-200">{view.quorum.quorum_threshold}</span> / 5</div>
+            <div>candidate: <span className={view.quorum.back_attestation_candidate ? 'text-emerald-300' : 'text-slate-500'}>{view.quorum.back_attestation_candidate ? 'true' : 'false'}</span></div>
+            <div title={view.quorum.quorum_hash ?? undefined}>quorum_hash: <span className="text-violet-200">{shortHash(view.quorum.quorum_hash)}</span></div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+            <div className="rounded border border-emerald-700/30 bg-emerald-950/10 p-2"><div className="text-emerald-300">{view.quorum.approved_count}</div><div className="text-slate-500">pass</div></div>
+            <div className="rounded border border-rose-700/30 bg-rose-950/10 p-2"><div className="text-rose-300">{view.quorum.flagged_count}</div><div className="text-slate-500">flag</div></div>
+            <div className="rounded border border-amber-700/30 bg-amber-950/10 p-2"><div className="text-amber-300">{view.quorum.abstained_count}</div><div className="text-slate-500">abstain</div></div>
+          </div>
+
+          <div className="space-y-1.5">
+            {agents.map((agent) => {
+              const message = view.council?.messages?.[agent];
+              return (
+                <div key={agent} className="rounded border border-slate-800 bg-slate-950/60 p-2 text-[10px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-cyan-200">{agent}</span>
+                    <span className={verdictClass(message?.verdict)}>{message?.verdict ?? 'missing'}</span>
+                  </div>
+                  {message ? <div className="mt-1 truncate text-slate-500" title={message.reason}>reason: {message.reason || '—'}</div> : null}
+                  {message ? <div className="mt-1 text-slate-600">signed: {formatTime(message.signed_at)} · {shortHash(message.signature_hash)}</div> : null}
+                </div>
+              );
+            })}
+          </div>
+
+          {view.quorum.missing_agents.length > 0 ? <div className="text-[10px] text-slate-500">missing: {view.quorum.missing_agents.join(', ')}</div> : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export default function ReplayPage() {
   const [plan, setPlan] = useState<ReplayPlan | null>(null);
   const [dryRun, setDryRun] = useState<ReplayPlan | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [selectedSealId, setSelectedSealId] = useState<string | null>(null);
+  const [councilView, setCouncilView] = useState<ReplayCouncilView>({ sealId: null, loading: false, error: null, quorum: null, council: null });
 
   useEffect(() => {
     void fetch('/api/system/replay/plan', { cache: 'no-store' })
@@ -138,6 +260,46 @@ export default function ReplayPage() {
   }, []);
 
   const active = dryRun ?? plan;
+  const defaultSealId = useMemo(() => {
+    if (!active) return null;
+    return active.vault.quarantined_seal_ids?.[0] ?? active.vault.latest_seal_id ?? active.vault.recent_seals[0]?.seal_id ?? null;
+  }, [active]);
+
+  useEffect(() => {
+    if (!selectedSealId && defaultSealId) setSelectedSealId(defaultSealId);
+  }, [defaultSealId, selectedSealId]);
+
+  useEffect(() => {
+    if (!selectedSealId) {
+      setCouncilView({ sealId: null, loading: false, error: null, quorum: null, council: null });
+      return;
+    }
+    let cancelled = false;
+    setCouncilView((prev) => ({ ...prev, sealId: selectedSealId, loading: true, error: null }));
+    void Promise.all([
+      fetch(`/api/system/replay/quorum?seal_id=${encodeURIComponent(selectedSealId)}`, { cache: 'no-store' }).then((r) => r.json()),
+      fetch(`/api/system/replay/council?seal_id=${encodeURIComponent(selectedSealId)}`, { cache: 'no-store' }).then((r) => r.json()),
+    ])
+      .then(([quorumPayload, councilPayload]) => {
+        if (cancelled) return;
+        if (!quorumPayload.ok || !councilPayload.ok) throw new Error('replay_council_failed');
+        setCouncilView({
+          sealId: selectedSealId,
+          loading: false,
+          error: null,
+          quorum: quorumPayload.evaluation as ReplayQuorumEvaluation,
+          council: councilPayload.record as ReplayCouncilRecord,
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCouncilView({ sealId: selectedSealId, loading: false, error: 'Unable to load Replay Council', quorum: null, council: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSealId]);
+
   const confidence = useMemo(() => confidenceLabel(active?.rebuild.confidence ?? 0), [active]);
   const confidencePct = useMemo(() => {
     const raw = active?.rebuild.confidence ?? 0;
@@ -244,6 +406,8 @@ export default function ReplayPage() {
         </section>
 
         <aside className="space-y-4">
+          <ReplayCouncilPanel selectedSealId={selectedSealId} view={councilView} />
+
           <section className="rounded border border-cyan-900/40 bg-slate-950/70 p-4">
             <div className="mb-3 text-[10px] uppercase tracking-[0.2em] text-cyan-300/80">Vault replay snapshot</div>
             <div className="space-y-1 text-[10px] text-slate-400">
@@ -259,10 +423,10 @@ export default function ReplayPage() {
             <div className="mt-3 text-[10px] uppercase tracking-[0.16em] text-slate-500">recent seals</div>
             <div className="mt-1 space-y-1.5">
               {active.vault.recent_seals.length ? active.vault.recent_seals.map((seal) => (
-                <div key={seal.seal_id} className={`rounded border p-2 text-[10px] ${seal.status === 'quarantined' ? 'border-amber-600/40 bg-amber-950/20' : 'border-slate-800/80 bg-slate-950/60'}`}>
+                <button key={seal.seal_id} type="button" onClick={() => setSelectedSealId(seal.seal_id)} className={`w-full rounded border p-2 text-left text-[10px] ${selectedSealId === seal.seal_id ? 'border-violet-500/50 bg-violet-950/20' : seal.status === 'quarantined' ? 'border-amber-600/40 bg-amber-950/20' : 'border-slate-800/80 bg-slate-950/60'}`}>
                   <div className="flex justify-between gap-2"><span className="text-cyan-200">#{seal.sequence}</span><span className={seal.status === 'quarantined' ? 'text-amber-300' : 'text-slate-400'}>{seal.status}</span></div>
                   <div className="mt-1 text-violet-200" title={seal.seal_hash}>{shortHash(seal.seal_hash)}</div>
-                </div>
+                </button>
               )) : <div className="text-[10px] text-slate-500">No recent seals.</div>}
             </div>
             {(active.vault.quarantined_seal_ids?.length ?? 0) > 0 ? (
@@ -270,7 +434,7 @@ export default function ReplayPage() {
                 <div className="mb-1 text-[10px] uppercase tracking-[0.16em] text-amber-400/80">quarantined — need reattestation</div>
                 <div className="space-y-1">
                   {active.vault.quarantined_seal_ids.map((id) => (
-                    <div key={id} className="rounded border border-amber-700/30 bg-amber-950/10 px-2 py-1 text-[10px] text-amber-200">{id}</div>
+                    <button key={id} type="button" onClick={() => setSelectedSealId(id)} className={`w-full rounded border px-2 py-1 text-left text-[10px] ${selectedSealId === id ? 'border-violet-500/50 bg-violet-950/20 text-violet-100' : 'border-amber-700/30 bg-amber-950/10 text-amber-200'}`}>{id}</button>
                   ))}
                 </div>
               </div>
