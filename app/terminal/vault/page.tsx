@@ -88,7 +88,7 @@ type ContributionsPayload = {
 type BlockRow = {
   id: number;
   amount: number;
-  status: 'attested' | 'immortalized' | 'finalized non-attested' | 'compat complete' | 'in progress';
+  status: 'attested' | 'immortalized' | 'quarantined timeout' | 'legacy v1 parcel' | 'in progress';
 };
 
 function fallbackReserveBlock(data: VaultPayload): ReserveBlockSummary {
@@ -129,8 +129,8 @@ function buildBlockRows(block: ReserveBlockSummary, latestImmortalized: boolean)
         : attested
           ? 'attested'
           : audited
-            ? 'finalized non-attested'
-            : 'compat complete',
+            ? 'quarantined timeout'
+            : 'legacy v1 parcel',
     });
   }
   rows.push({ id: block.in_progress_block, amount: block.in_progress_balance, status: 'in progress' });
@@ -143,12 +143,12 @@ function blockStatusClass(status: BlockRow['status']): string {
       return 'text-cyan-300';
     case 'attested':
       return 'text-emerald-300';
-    case 'finalized non-attested':
+    case 'quarantined timeout':
       return 'text-rose-300';
     case 'in progress':
       return 'text-cyan-300';
     default:
-      return 'text-amber-300';
+      return 'text-slate-400';
   }
 }
 
@@ -201,6 +201,8 @@ export default function VaultPage() {
   const fountain = (data.fountain_status ?? 'locked').toUpperCase();
   const headline = data.vault_headline ?? block.label;
   const blockRows = buildBlockRows(block, Boolean(data.latest_block_immortalized));
+  const quarantinedBlocks = Math.max(0, block.audit_blocks - block.sealed_blocks);
+  const legacyOnlyBlocks = Math.max(0, block.completed_blocks_v1 - block.audit_blocks);
 
   return (
     <div className="h-full overflow-y-auto p-4 text-slate-200">
@@ -220,12 +222,14 @@ export default function VaultPage() {
 
       <div className="rounded border border-violet-500/30 bg-slate-950/80 p-4 font-mono text-xs">
         <div className="text-[11px] uppercase tracking-[0.2em] text-violet-300/90">Fountain / v1 gate · {v1Status}</div>
-        <div className="mt-2 text-[10px] text-slate-400">v1 cumulative (compat): {v1Bal.toFixed(2)} units · completed Reserve Blocks: {block.completed_blocks_v1}</div>
+        <div className="mt-2 text-[10px] text-slate-400">v1 cumulative (compat): {v1Bal.toFixed(2)} units · legacy parcels: {block.completed_blocks_v1}</div>
         <div className="mt-3 space-y-1 text-slate-400">
-          <div>Sealed reserve total: <span className="text-violet-200">{sealedTotal.toFixed(2)}</span> ({block.sealed_blocks} attested Blocks)</div>
+          <div>Sealed reserve total: <span className="text-violet-200">{sealedTotal.toFixed(2)}</span></div>
+          <div>Sealed & attested: <span className="text-emerald-300">{block.sealed_blocks}</span> blocks</div>
+          <div>Quarantined / timeout: <span className="text-rose-300">{quarantinedBlocks}</span> blocks · needs re-attestation</div>
+          <div>Legacy v1 parcels: <span className="text-slate-300">{block.completed_blocks_v1}</span>{legacyOnlyBlocks > 0 ? <span className="text-slate-500"> · {legacyOnlyBlocks} not represented in audit seals yet</span> : null}</div>
           <div>Current Block: <span className="text-violet-200">{blockBar} {inProg.toFixed(2)} / {cap.toFixed(2)} MIC</span></div>
           <div>Block status: <span className="text-cyan-200">{block.label}</span></div>
-          <div>Audit Blocks: {block.audit_blocks} · Non-attested finalized Blocks: {Math.max(0, block.audit_blocks - block.sealed_blocks)}</div>
           <div>Fountain: <span className="text-amber-200/90">{fountain}</span>{data.reserve_block_lane ? <span className="text-slate-500"> · reserve_block_lane: {data.reserve_block_lane}</span> : null}</div>
           <div>GI threshold: {data.gi_threshold ?? 0.95} · Current: {giCur != null && Number.isFinite(giCur) ? giCur.toFixed(2) : '—'}{data.gi_threshold_met ? ' · GI gate met' : ''}</div>
           <div>Sustain cycles required: {data.sustain_cycles_required ?? 5}{data.sustain_cycles_met ? ' · sustain met' : ' · sustain: not tracked in KV yet'}</div>
