@@ -4,7 +4,7 @@ import { getSeal } from '@/lib/vault-v2/store';
 import type { Seal, SentinelAgent } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 
-export const REPLAY_QUORUM_VERSION = 'C-294.phase4.v1' as const;
+export const REPLAY_QUORUM_VERSION = 'C-294.phase6.v1' as const;
 export const REPLAY_QUORUM_THRESHOLD = 3 as const;
 
 export type ReplaySnapshot = {
@@ -62,6 +62,7 @@ export type ReplayCouncilRecord = {
 };
 
 export type ReplayQuorumStatus = 'pending' | 'approved' | 'blocked' | 'contested';
+export type ReplayCandidateState = 'not_ready' | 'candidate' | 'blocked';
 
 export type ReplayQuorumEvaluation = {
   version: typeof REPLAY_QUORUM_VERSION;
@@ -79,6 +80,10 @@ export type ReplayQuorumEvaluation = {
   quorum_hash: string | null;
   status: ReplayQuorumStatus;
   back_attestation_candidate: boolean;
+  candidate_state: ReplayCandidateState;
+  candidate_reason: string;
+  operator_action_required: boolean;
+  promotion_preconditions: string[];
   readonly: true;
   canon: string[];
 };
@@ -178,10 +183,6 @@ function isIsoDateString(value: unknown): value is string {
 }
 
 function signatureReferencesSnapshot(signature: string, replaySnapshotHash: string): boolean {
-  // Phase 5 guardrail: until agent public-key verification is wired, require
-  // signatures to be explicitly scoped to the snapshot they are voting on.
-  // Accepted formats include raw strings that contain the snapshot hash, such as
-  // `replay:<hash>:agent:<agent>:sig:<digest>`.
   return signature.includes(replaySnapshotHash);
 }
 
@@ -216,6 +217,19 @@ function emptyCouncilRecord(sealId: string, replaySnapshotHash: string): ReplayC
   };
 }
 
+function candidateReason(status: ReplayQuorumStatus): string {
+  switch (status) {
+    case 'approved':
+      return 'Replay quorum reached over one snapshot hash. Operator may consider promotion in a later phase.';
+    case 'blocked':
+      return 'Replay quorum blocked by flag threshold. Operator should review agent rationales before any future attempt.';
+    case 'contested':
+      return 'Replay council is contested. More review or agent correction is required before candidate status.';
+    default:
+      return 'Replay council is still pending. Missing or abstaining agents prevent candidate status.';
+  }
+}
+
 function evaluateCouncilRecord(record: ReplayCouncilRecord): ReplayQuorumEvaluation {
   const normalized = normalizeCouncilRecord(record);
   const messages = SENTINEL_AGENTS.map((agent) => normalized.messages[agent]).filter((message): message is ReplayCouncilMessage => Boolean(message));
@@ -232,6 +246,7 @@ function evaluateCouncilRecord(record: ReplayCouncilRecord): ReplayQuorumEvaluat
       : contested
         ? 'contested'
         : 'pending';
+  const candidateState: ReplayCandidateState = quorumReached ? 'candidate' : blockingReached ? 'blocked' : 'not_ready';
   const quorumHash = quorumReached
     ? hashPayload({
         seal_id: normalized.seal_id,
@@ -260,6 +275,16 @@ function evaluateCouncilRecord(record: ReplayCouncilRecord): ReplayQuorumEvaluat
     quorum_hash: quorumHash,
     status,
     back_attestation_candidate: quorumReached,
+    candidate_state: candidateState,
+    candidate_reason: candidateReason(status),
+    operator_action_required: quorumReached,
+    promotion_preconditions: [
+      'Operator explicitly approves promotion in a later phase.',
+      'Replay snapshot hash still matches stored seal data at promotion time.',
+      'Quorum hash is preserved with approved agent set.',
+      'Original seal history remains preserved; replay does not rewrite original seal time.',
+      'Promotion route confirms no conflicting successor state before mutation.',
+    ],
     readonly: true,
     canon: [
       'Replay quorum evaluates Council Bus messages over one replay_snapshot_hash.',
