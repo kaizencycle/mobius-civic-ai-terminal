@@ -20,6 +20,16 @@ export type LedgerPagination = {
   pages: number;
 };
 
+export type LedgerFreshness = {
+  activeCycle: string;
+  latestRowCycle: string;
+  cycleLag: number | null;
+  currentCycleRows: number;
+  staleRows: number;
+  missingCycleRows: number;
+  warning: 'LIVE' | 'EMPTY_CURRENT_CYCLE' | 'STALE_CYCLE_LAG' | 'UNKNOWN_CYCLE_ROWS';
+};
+
 export type LedgerChamberPayload = {
   ok: boolean;
   cycleId?: string;
@@ -27,6 +37,7 @@ export type LedgerChamberPayload = {
   candidates: { pending: number; confirmed: number; contested: number };
   canon?: LedgerCanonCounts;
   pagination?: LedgerPagination;
+  freshness?: LedgerFreshness;
   fallback: boolean;
   timestamp: string;
   savepoint?: {
@@ -100,6 +111,15 @@ export function useLedgerChamber(enabled: boolean) {
       },
       canon: { ...EMPTY_CANON, hot: events.length },
       pagination: PREVIEW_PAGINATION,
+      freshness: {
+        activeCycle,
+        latestRowCycle: events.find((row) => row.cycleId !== 'C-—')?.cycleId ?? 'C-—',
+        cycleLag: null,
+        currentCycleRows: events.filter((row) => row.cycleId === activeCycle).length,
+        staleRows: events.filter((row) => row.cycleId !== activeCycle).length,
+        missingCycleRows: events.filter((row) => row.cycleId === 'C-—').length,
+        warning: 'EMPTY_CURRENT_CYCLE',
+      },
       fallback: true,
       timestamp: digest?.timestamp ?? snapshot?.timestamp ?? new Date().toISOString(),
     } satisfies LedgerChamberPayload;
