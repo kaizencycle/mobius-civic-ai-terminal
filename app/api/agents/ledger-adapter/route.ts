@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   adaptAgentJournalToLedger,
   summarizeAgentLedgerPreview,
+  type AgentLedgerAdapterPreview,
   type AgentLedgerJournalEntry,
 } from '@/lib/agents/ledger-adapter';
 
@@ -92,8 +93,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const previews = journal.entries.map(adaptAgentJournalToLedger);
-  const filtered = eligibleOnly ? previews.filter((preview) => preview.decision.eligible) : previews;
+  const previews: AgentLedgerAdapterPreview[] = journal.entries.map(adaptAgentJournalToLedger);
+  const filtered: AgentLedgerAdapterPreview[] = eligibleOnly
+    ? previews.filter((preview: AgentLedgerAdapterPreview) => preview.decision.eligible)
+    : previews;
   const summary = summarizeAgentLedgerPreview(previews);
 
   return NextResponse.json(
