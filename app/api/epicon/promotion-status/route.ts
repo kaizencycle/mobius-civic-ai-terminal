@@ -48,10 +48,10 @@ function isPromotable(item: EpiconItem, state: Record<string, PromotionStateValu
  */
 export async function GET(_request: NextRequest): Promise<NextResponse> {
   try {
-    const [state, epicon, cycleId] = await Promise.all([
-      getPromotionState(),
+    const cycleId = currentCycleId();
+    const [state, epicon] = await Promise.all([
+      getPromotionState(cycleId),
       Promise.resolve(getEchoEpicon()),
-      Promise.resolve(currentCycleId()),
     ]);
 
     const items = epicon ?? [];

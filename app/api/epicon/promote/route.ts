@@ -8,7 +8,13 @@ import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 import type { EpiconItem } from '@/lib/terminal/types';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
-import { defaultPromotionState, getPromotionState, savePromotionState } from '@/lib/epicon/promotion';
+import {
+  defaultPromotionState,
+  getPromotionState,
+  savePromotionState,
+  incrementStallCounter,
+  resetStallCounter,
+} from '@/lib/epicon/promotion';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 import { getAgentBearerToken, writeToSubstrate } from '@/lib/substrate/client';
 
@@ -332,9 +338,17 @@ async function getPromotablePending(
       excluded.category_not_promotable += 1;
       continue;
     }
-    if (state[item.id]?.promotion_state === 'promoted') {
-      excluded.already_promoted += 1;
-      continue;
+    const existingState = state[item.id];
+    if (existingState?.promotion_state === 'promoted') {
+      const promotedAt = existingState.promoted_at ? new Date(existingState.promoted_at).getTime() : 0;
+      const ageMs = Date.now() - promotedAt;
+      if (ageMs < RECHECK_WINDOW_MS || !promotedAt) {
+        // Recently promoted (within 6h) — hard block
+        excluded.already_promoted += 1;
+        continue;
+      }
+      // Promoted >6h ago — allow re-entry as confirmation; will be treated as a re-check
+      item.promotionState = 'selected';
     }
     pendingById.set(item.id, item);
   }
@@ -357,6 +371,36 @@ async function getPromotablePending(
       promoted_ids_this_cycle: promotedIdsThisCycle,
     },
   };
+}
+
+// Stall threshold — 3 consecutive zero-promotion runs triggers a critical journal entry
+const STALL_THRESHOLD = 3;
+// Re-entry window — items promoted more than 6h ago may re-enter as a confirmation pass
+const RECHECK_WINDOW_MS = 6 * 60 * 60 * 1000;
+
+async function writeStallJournalEntry(
+  cycleId: string,
+  stallCount: number,
+  excluded: Record<string, number>,
+): Promise<void> {
+  const redis = getJournalRedisClient();
+  if (!redis) return;
+  await appendJournalLaneEntry(redis, {
+    agent: 'ATLAS',
+    cycle: cycleId,
+    scope: 'epicon-promotion-health',
+    observation: `EPICON promotion lane stalled for ${stallCount} consecutive runs in ${cycleId}.`,
+    inference: `All ${excluded.already_promoted ?? 0} input items are pre-blocked by dedup. No new EPICONs are reaching the ledger. Feed is frozen.`,
+    recommendation:
+      'Inspect epicon:promotion:state KV key. Verify new items are ingested with distinct IDs. Call /api/admin/epicon-dedup-reset to unblock if needed.',
+    confidence: 0.95,
+    derivedFrom: [],
+    status: 'committed',
+    category: 'alert',
+    severity: 'critical',
+    agentOrigin: 'ATLAS',
+    tags: ['epicon', 'stall', 'promotion', cycleId],
+  });
 }
 
 async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: string, state: PromotionState) {
@@ -382,7 +426,9 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
     const assignedAgents = AGENT_ROUTING[epicon.category] ?? ['ZEUS'];
 
     if (existing.promotion_state === 'promoted' && existing.assigned_agents.length > 0) {
-      continue;
+      // Items flagged for recheck by the re-entry window (promotionState === 'selected')
+      // are allowed through — they were promoted >6h ago and need a confirmation pass.
+      if (epicon.promotionState !== 'selected') continue;
     }
 
     const attestation = epicon.echoIngest?.metadata?.integrityAttestation as
@@ -478,6 +524,7 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
 
       if (anyCommitSucceeded || allAgentsSatisfied) {
         existing.promotion_state = 'promoted';
+        existing.promoted_at = nowIso;
         promoted += 1;
         promotedIdsThisCycle.push(epicon.id);
       } else {
