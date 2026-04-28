@@ -2,20 +2,20 @@
   "schema": "MOBIUS_CYCLE_STATE_V1",
   "node_id": "mobius-terminal",
   "source": "snapshot-lite",
-  "cycle": "C-294",
-  "fetched_at": "2026-04-28T01:19:33.923Z",
-  "gi": 0.694,
+  "cycle": "C-295",
+  "fetched_at": "2026-04-28T04:47:05.692Z",
+  "gi": 0.676,
   "mode": "yellow",
   "degraded": false,
   "gi_provenance": "live-compute",
   "gi_verified": false,
   "memory_mode": null,
   "deployment": {
-    "commit_sha": "eb94807e36c41247c50d28371c3f42d291e2db41",
+    "commit_sha": "6b647693723e58723d8a7b0a27204f6067f04394",
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 30,
+    "total_ms": 21,
     "lane_ms": null
   }
 }
