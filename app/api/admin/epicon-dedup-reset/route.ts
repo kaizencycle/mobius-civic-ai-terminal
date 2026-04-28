@@ -10,23 +10,26 @@ import { promotionFlushKeys } from '@/lib/epicon/promotion';
 
 export const dynamic = 'force-dynamic';
 
-function isAuthorized(req: NextRequest): boolean {
-  const body_token = req.headers.get('x-service-token') ?? '';
+function isAuthorized(token: string): boolean {
   const expected = process.env.AGENT_SERVICE_TOKEN?.trim() ?? '';
-  return expected.length > 0 && body_token === expected;
+  return expected.length > 0 && token === expected;
 }
 
 export async function POST(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
-
   let requestedCycle: string | undefined;
+  let bodyToken = '';
+
   try {
-    const body = (await req.json()) as { cycle?: string };
+    const body = (await req.json()) as { token?: string; cycle?: string };
     requestedCycle = typeof body.cycle === 'string' ? body.cycle.trim() : undefined;
+    bodyToken = typeof body.token === 'string' ? body.token.trim() : '';
   } catch {
     // body optional
+  }
+
+  const token = req.headers.get('x-service-token') ?? bodyToken;
+  if (!isAuthorized(token)) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
   const cycleId = requestedCycle ?? currentCycleId();
