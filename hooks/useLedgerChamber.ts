@@ -106,14 +106,16 @@ export function useLedgerChamber(enabled: boolean) {
     } satisfies LedgerChamberPayload;
   }, [digest, snapshot]);
 
-  // Include cycle in savepoint key so a C-293 savepoint (300 rows) can never beat
-  // a C-295 live response (fewer rows on cold start) and show the wrong cycle label.
-  const savepointKey = `ledger:all:300:3-pages:${currentCycleId()}`;
-
   return useChamberHydration<LedgerChamberPayload>('/api/chambers/ledger', enabled, {
     previewData: preview,
     lockToPreview: stabilizationActive,
-    savepointKey,
+    savepointKey: 'ledger:all:300:3-pages',
     getSavepointCount,
+    // Discard a saved payload whose cycleId predates the current cycle. This
+    // prevents a C-293 savepoint (300 rows) from overriding a C-295 live
+    // response (fewer rows on cold start) and showing the wrong cycle label.
+    // A single fixed key is reused each day — no localStorage accumulation.
+    savepointFilter: (live, saved) =>
+      (saved as { cycleId?: string }).cycleId === (live as { cycleId?: string }).cycleId,
   });
 }
