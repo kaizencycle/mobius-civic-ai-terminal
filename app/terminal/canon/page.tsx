@@ -33,6 +33,13 @@ type EffectiveCanonResponse = {
   canon: string[];
 };
 
+type OperatorActionResult = {
+  label: string;
+  endpoint: string;
+  timestamp: string;
+  payload: unknown;
+};
+
 function shortHash(hash?: string | null, head = 12, tail = 8): string {
   if (!hash) return '—';
   if (hash.length <= head + tail + 1) return hash;
@@ -114,6 +121,105 @@ function EffectiveOverlay({ effective }: { effective?: EffectiveCanonBlock }) {
   );
 }
 
+function JsonPreview({ value }: { value: unknown }) {
+  return (
+    <pre className="mt-2 max-h-64 overflow-auto rounded border border-slate-800 bg-black/30 p-2 text-[10px] leading-relaxed text-slate-300">
+      {JSON.stringify(value, null, 2)}
+    </pre>
+  );
+}
+
+function OperatorControls({ block }: { block: CanonReserveBlockView }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState<string | null>(null);
+  const [result, setResult] = useState<OperatorActionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runAction(label: string, endpoint: string, init?: RequestInit) {
+    setOpen(true);
+    setLoading(label);
+    setError(null);
+    try {
+      const response = await fetch(endpoint, { cache: 'no-store', ...init });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error ?? `${label} failed`);
+      setResult({ label, endpoint, timestamp: new Date().toISOString(), payload });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `${label} failed`);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded border border-violet-500/20 bg-violet-950/10 p-3 text-[10px] text-slate-400">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="uppercase tracking-[0.18em] text-violet-300/80">Operator Controls</div>
+          <div className="mt-1 text-slate-500">Read-only replay inspection. No promotion, mutation, MIC, Fountain, or Vault writes.</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="rounded border border-slate-700 px-2 py-1 uppercase tracking-[0.14em] text-slate-300 hover:border-violet-500/50 hover:text-violet-200"
+        >
+          {open ? 'hide' : 'inspect'}
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => runAction('Replay Plan', '/api/system/replay/plan')}
+          disabled={Boolean(loading)}
+          className="rounded border border-cyan-600/40 px-2 py-1 text-cyan-200 hover:border-cyan-300 disabled:opacity-50"
+        >
+          Replay Plan
+        </button>
+        <button
+          type="button"
+          onClick={() => runAction('Dry Run', '/api/system/replay/dry-run', { method: 'POST' })}
+          disabled={Boolean(loading)}
+          className="rounded border border-cyan-600/40 px-2 py-1 text-cyan-200 hover:border-cyan-300 disabled:opacity-50"
+        >
+          Dry Run
+        </button>
+        <button
+          type="button"
+          onClick={() => runAction('Quorum', `/api/system/replay/quorum?seal_id=${encodeURIComponent(block.seal_id)}`)}
+          disabled={Boolean(loading)}
+          className="rounded border border-amber-600/40 px-2 py-1 text-amber-200 hover:border-amber-300 disabled:opacity-50"
+        >
+          Quorum
+        </button>
+        <button
+          type="button"
+          onClick={() => runAction('Mutation Layer', `/api/system/replay/mutation?seal_id=${encodeURIComponent(block.seal_id)}`)}
+          disabled={Boolean(loading)}
+          className="rounded border border-violet-600/40 px-2 py-1 text-violet-200 hover:border-violet-300 disabled:opacity-50"
+        >
+          Mutation Layer
+        </button>
+      </div>
+
+      {open ? (
+        <div className="mt-3 rounded border border-slate-800 bg-slate-950/60 p-2">
+          <div>seal_id: <span className="text-cyan-100">{block.seal_id}</span></div>
+          <div>selected_action: <span className={loading ? 'text-amber-300' : 'text-slate-300'}>{loading ?? result?.label ?? 'none'}</span></div>
+          {error ? <div className="mt-2 rounded border border-rose-500/30 bg-rose-950/20 p-2 text-rose-200">{error}</div> : null}
+          {result ? (
+            <div className="mt-2">
+              <div>endpoint: <span className="text-slate-200">{result.endpoint}</span></div>
+              <div>fetched_at: <span className="text-slate-200">{formatTime(result.timestamp)}</span></div>
+              <JsonPreview value={result.payload} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function BlockInspector({ block, effective }: { block: CanonReserveBlockView; effective?: EffectiveCanonBlock }) {
   return (
     <article className="rounded border border-violet-500/25 bg-slate-950/80 p-4 shadow-lg shadow-black/20">
@@ -186,6 +292,8 @@ function BlockInspector({ block, effective }: { block: CanonReserveBlockView; ef
         <div>attested_at: <span className="text-cyan-100">{formatTime(block.substrate_pointer.attested_at)}</span></div>
         {block.substrate_pointer.error ? <div className="mt-1 text-rose-300">error: {block.substrate_pointer.error}</div> : null}
       </div>
+
+      <OperatorControls block={block} />
     </article>
   );
 }
@@ -312,6 +420,7 @@ export default function CanonPage() {
             <div>GET /api/substrate/canon?seal_id=&lt;seal_id&gt;</div>
             <div className="mt-2 text-cyan-300">GET /api/substrate/effective-state</div>
             <div>GET /api/substrate/effective-state?seal_id=&lt;seal_id&gt;</div>
+            <div className="mt-2 text-violet-300">Operator inspection controls call replay plan, dry-run, quorum, and mutation endpoints read-only.</div>
           </div>
         </aside>
       </div>
