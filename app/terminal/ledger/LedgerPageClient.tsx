@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { useLedgerChamber } from '@/hooks/useLedgerChamber';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 import type { LedgerEntry } from '@/lib/terminal/types';
 
 type EchoFeedResponse = {
@@ -86,7 +87,9 @@ export default function LedgerPageClient() {
   const rows = useMemo(() => feed?.events ?? [], [feed]);
   const pageSize = data?.pagination?.pageSize ?? DEFAULT_LEDGER_PAGE_SIZE;
   const maxPages = data?.pagination?.pages ?? DEFAULT_LEDGER_PAGES;
-  const activeCycle = data?.cycleId ?? feed?.status?.cycleId ?? rows.find((row) => row.cycleId !== 'C-—')?.cycleId ?? 'C-—';
+  // currentCycleId() is deterministic from the calendar date and is always correct.
+  // data?.cycleId can lag if a cross-cycle savepoint is served before the live fetch lands.
+  const activeCycle = currentCycleId();
   const sorted = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
   const pageCount = Math.max(1, Math.min(maxPages, Math.ceil(sorted.length / pageSize)));
   const safePage = Math.min(scrollPage, pageCount - 1);
