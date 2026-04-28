@@ -494,7 +494,7 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
     state[epicon.id] = existing;
   }
 
-  await savePromotionState(state);
+  await savePromotionState(state, cycleId);
   const postRun = await getPromotablePending(state, nowIso, promotedIdsThisCycle);
   return { pending, promoted, committed, failed, failedCommits, trace: postRun.trace };
 }
@@ -502,7 +502,7 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
 export async function GET() {
   const nowIso = new Date().toISOString();
   const cycleId = currentCycleId();
-  const state = await getPromotionState();
+  const state = await getPromotionState(cycleId);
   const promotable = await getPromotablePending(state, nowIso);
   const pending = promotable.pending;
 
@@ -562,7 +562,7 @@ export async function POST(request: NextRequest) {
   const maxItems = typeof body.maxItems === 'number' ? Math.min(Math.max(body.maxItems, 1), 50) : 25;
   const nowIso = new Date().toISOString();
   const cycleId = currentCycleId();
-  const state = await getPromotionState();
+  const state = await getPromotionState(cycleId);
   const run = await runPromotionCycle(maxItems, nowIso, cycleId, state);
   const tokenPresent = Boolean(process.env.AGENT_SERVICE_TOKEN?.trim() || process.env.RENDER_API_KEY?.trim());
   if (!tokenPresent) {
