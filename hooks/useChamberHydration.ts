@@ -10,6 +10,10 @@ type UseChamberHydrationOptions<T> = {
   savepointKey?: string;
   savepointMinCount?: number;
   getSavepointCount?: (payload: T) => number;
+  // Return false to discard the saved payload in favour of the (thinner) live one.
+  // Called only when the saved count exceeds the live count — the normal path
+  // where live >= saved is unaffected. Useful for invalidating cross-cycle state.
+  savepointFilter?: (live: T, saved: T) => boolean;
 };
 
 export type ChamberHydrationStatus = 'preview' | 'hydrating' | 'live' | 'degraded' | 'stale';
@@ -108,6 +112,7 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
     savepointKey,
     savepointMinCount = 1,
     getSavepointCount,
+    savepointFilter,
   } = options;
   const [full, setFull] = useState<T | null>(null);
   const [loading, setLoading] = useState(enabled);
@@ -161,7 +166,12 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
           const liveCount = countPayload(livePayload);
           const saved = readSavepoint<T>(storageKey);
           const savedCount = saved?.count ?? 0;
-          if (saved && savedCount >= savepointMinCount && liveCount < savedCount) {
+          const useSaved =
+            saved !== null &&
+            savedCount >= savepointMinCount &&
+            liveCount < savedCount &&
+            (savepointFilter == null || savepointFilter(livePayload, saved.payload));
+          if (useSaved && saved) {
             nextPayload = attachSavepointMeta(saved.payload, {
               status: 'saved',
               saved_at: saved.saved_at,

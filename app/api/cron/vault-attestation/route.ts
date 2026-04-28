@@ -198,6 +198,9 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Step 3: fountain pending count (informational) ─────────────
+  // Skip the 4× KV reads when the vault is idle: no candidate in flight and
+  // balance below the formation threshold. This fires every 2 minutes, so
+  // skipping here saves ~8,600 unnecessary KV reads/month when nothing is queued.
   let fountain_pending_count = 0;
   let seals_total = 0;
   let seals_attested_total = 0;
@@ -205,30 +208,37 @@ export async function GET(req: NextRequest) {
   let seals_quarantined_total = 0;
   let quarantined_needing_reattestation: QuarantinedSealDigest[] = [];
 
-  const SENTINEL_NAMES = ['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA'] as const;
+  const vaultIdle =
+    candidate_state === 'none' &&
+    next_candidate_formed === null &&
+    inProgressBalanceStart < VAULT_RESERVE_PARCEL_UNITS;
 
-  try {
-    const [seals, allSeals, attestedCount, auditCount] = await Promise.all([
-      listSeals(200),
-      listAllSeals(200),
-      countSeals(),
-      countAllSeals(),
-    ]);
-    seals_total = seals.length;
-    seals_attested_total = attestedCount;
-    seals_audit_total = auditCount;
-    fountain_pending_count = seals.filter(
-      (s: Seal) => s.status === 'attested' && s.fountain_status === 'pending',
-    ).length;
-    const quarantined = allSeals.filter((s: Seal) => s.status === 'quarantined');
-    seals_quarantined_total = quarantined.length;
-    quarantined_needing_reattestation = quarantined.map((s: Seal) => ({
-      seal_id: s.seal_id,
-      sequence: s.sequence,
-      missing_agents: SENTINEL_NAMES.filter((a) => !s.attestations[a]),
-    }));
-  } catch (e) {
-    errors.push(`seals list: ${e instanceof Error ? e.message : String(e)}`);
+  if (!vaultIdle) {
+    const SENTINEL_NAMES = ['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA'] as const;
+
+    try {
+      const [seals, allSeals, attestedCount, auditCount] = await Promise.all([
+        listSeals(200),
+        listAllSeals(200),
+        countSeals(),
+        countAllSeals(),
+      ]);
+      seals_total = seals.length;
+      seals_attested_total = attestedCount;
+      seals_audit_total = auditCount;
+      fountain_pending_count = seals.filter(
+        (s: Seal) => s.status === 'attested' && s.fountain_status === 'pending',
+      ).length;
+      const quarantined = allSeals.filter((s: Seal) => s.status === 'quarantined');
+      seals_quarantined_total = quarantined.length;
+      quarantined_needing_reattestation = quarantined.map((s: Seal) => ({
+        seal_id: s.seal_id,
+        sequence: s.sequence,
+        missing_agents: SENTINEL_NAMES.filter((a) => !s.attestations[a]),
+      }));
+    } catch (e) {
+      errors.push(`seals list: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   const report: Report = {

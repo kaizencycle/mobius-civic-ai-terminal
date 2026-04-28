@@ -334,6 +334,15 @@ function describeLedgerHost(url: string): string {
 }
 
 const LEDGER_CIRCUIT_TTL_SEC = 300;
+// KV cache key and TTL for Render ledger entries.
+// Prevents concurrent cache-miss requests from all hitting the Render cold-start simultaneously.
+const RENDER_LEDGER_CACHE_KEY = 'epicon:render-ledger-cache';
+const RENDER_LEDGER_CACHE_TTL_SEC = 60;
+
+type RenderLedgerCache = {
+  entries: EpiconEntry[];
+  cachedAt: string;
+};
 
 async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult> {
   const renderLedgerUrl = normalizeLedgerBaseUrl(
@@ -355,6 +364,16 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult>
       error: 'ledger_circuit_open',
       statusCode: 503,
     };
+  }
+
+  // Serve from KV cache when fresh — avoids 3+ concurrent requests all waking Render from cold start.
+  const cached = await kvGet<RenderLedgerCache>(RENDER_LEDGER_CACHE_KEY);
+  if (cached && Array.isArray(cached.entries) && cached.entries.length > 0) {
+    const ageMs = Date.now() - new Date(cached.cachedAt).getTime();
+    if (ageMs < RENDER_LEDGER_CACHE_TTL_SEC * 1000) {
+      console.info(`[ledger-api] serving KV cache age=${Math.round(ageMs / 1000)}s entries=${cached.entries.length}`);
+      return { entries: cached.entries, degraded: false };
+    }
   }
 
   try {
@@ -403,6 +422,10 @@ async function fetchRenderLedgerEntries(limit = 100): Promise<LedgerFetchResult>
             ? payload.entries
             : [];
     const entries = rows.map((row) => normalizeLedgerEntry(row)).filter((row): row is EpiconEntry => row !== null);
+    // Populate KV cache so subsequent requests within the TTL window skip the Render round-trip.
+    if (entries.length > 0) {
+      kvSet<RenderLedgerCache>(RENDER_LEDGER_CACHE_KEY, { entries, cachedAt: new Date().toISOString() }, RENDER_LEDGER_CACHE_TTL_SEC).catch(() => {});
+    }
     return { entries, degraded: false, statusCode: response.status };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown_fetch_error';

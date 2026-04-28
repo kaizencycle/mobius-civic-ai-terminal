@@ -4,6 +4,7 @@ import { useCallback, useMemo } from 'react';
 import { useChamberHydration } from '@/hooks/useChamberHydration';
 import { useEchoDigest } from '@/hooks/useEchoDigest';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 import type { LedgerEntry } from '@/lib/terminal/types';
 
 export type LedgerCanonCounts = {
@@ -130,5 +131,11 @@ export function useLedgerChamber(enabled: boolean) {
     lockToPreview: stabilizationActive,
     savepointKey: 'ledger:all:300:3-pages',
     getSavepointCount,
+    // Discard a saved payload whose cycleId predates the current cycle. This
+    // prevents a C-293 savepoint (300 rows) from overriding a C-295 live
+    // response (fewer rows on cold start) and showing the wrong cycle label.
+    // A single fixed key is reused each day — no localStorage accumulation.
+    savepointFilter: (live, saved) =>
+      (saved as { cycleId?: string }).cycleId === (live as { cycleId?: string }).cycleId,
   });
 }
