@@ -215,27 +215,30 @@ function Timeline({ events }: { events: CanonTimelineEvent[] }) {
 export default function CanonPage() {
   const [data, setData] = useState<CanonResponse | null>(null);
   const [effectiveData, setEffectiveData] = useState<EffectiveCanonResponse | null>(null);
+  const [effectiveErr, setEffectiveErr] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const state: LoadState = err ? 'error' : data ? (data.reserve_blocks.length ? 'ready' : 'empty') : 'loading';
 
   useEffect(() => {
-    void Promise.all([
-      fetch('/api/substrate/canon?type=reserve_blocks', { cache: 'no-store' }).then(async (r) => {
+    void fetch('/api/substrate/canon?type=reserve_blocks', { cache: 'no-store' })
+      .then(async (r) => {
         const j = (await r.json()) as CanonResponse;
         if (!r.ok) throw new Error('canon_fetch_failed');
-        return j;
-      }),
-      fetch('/api/substrate/effective-state', { cache: 'no-store' }).then(async (r) => {
-        const j = (await r.json()) as EffectiveCanonResponse;
-        if (!r.ok || !j.ok) throw new Error('effective_state_fetch_failed');
-        return j;
-      }),
-    ])
-      .then(([canon, effective]) => {
-        setData(canon);
-        setEffectiveData(effective);
+        setData(j);
       })
       .catch(() => setErr('Failed to load canon'));
+
+    void fetch('/api/substrate/effective-state', { cache: 'no-store' })
+      .then(async (r) => {
+        const j = (await r.json()) as EffectiveCanonResponse;
+        if (!r.ok || !j.ok) throw new Error('effective_state_fetch_failed');
+        setEffectiveData(j);
+        setEffectiveErr(null);
+      })
+      .catch(() => {
+        setEffectiveData(null);
+        setEffectiveErr('Effective-state overlay unavailable; original Canon remains visible.');
+      });
   }, []);
 
   const effectiveBySeal = useMemo(() => {
@@ -277,6 +280,7 @@ export default function CanonPage() {
           {data.canon.map((rule) => <div key={rule}>• {rule}</div>)}
           {effectiveData?.canon.map((rule) => <div key={rule}>• {rule}</div>)}
         </div>
+        {effectiveErr ? <div className="mt-2 rounded border border-amber-500/25 bg-amber-950/10 p-2 text-[10px] text-amber-200">{effectiveErr}</div> : null}
       </div>
 
       <div className="mb-3 grid gap-2 sm:grid-cols-4 lg:grid-cols-7">
