@@ -163,11 +163,10 @@ export async function GET(req: NextRequest) {
   const tripwire = bundle.tripwire;
   const kv = bundle.kvHealth;
 
-  const cycle =
-    (typeof pulse?.cycle === 'string' && pulse.cycle.trim().length > 0 ? pulse.cycle.trim() : null) ??
-    echo?.cycleId?.trim() ??
-    tripwire?.cycleId?.trim() ??
-    currentCycleId();
+  // currentCycleId() is deterministic from the calendar date and is always authoritative.
+  // KV-sourced values (pulse.cycle, echo.cycleId) can be stale across cycle boundaries,
+  // which previously caused the digest to broadcast the wrong cycle to all UI consumers.
+  const cycle = currentCycleId();
   const giAge = age(gi?.timestamp);
   const signalAge = age(signals?.timestamp);
   const echoAge = age(echo?.timestamp);
@@ -276,14 +275,7 @@ export async function GET(req: NextRequest) {
           kv_available: isRedisAvailable(),
           kv_bundle_mget: true,
           kv_cache_fresh: cacheFresh,
-          cycle_source:
-            typeof pulse?.cycle === 'string' && pulse.cycle.trim().length > 0
-              ? 'pulse'
-              : echo?.cycleId?.trim()
-                ? 'echo'
-                : tripwire?.cycleId?.trim()
-                  ? 'tripwire'
-                  : 'calendar',
+          cycle_source: 'calendar',
         },
       },
       {

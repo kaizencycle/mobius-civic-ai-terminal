@@ -4,6 +4,7 @@ import { useCallback, useMemo } from 'react';
 import { useChamberHydration } from '@/hooks/useChamberHydration';
 import { useEchoDigest } from '@/hooks/useEchoDigest';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 import type { LedgerEntry } from '@/lib/terminal/types';
 
 export type LedgerCanonCounts = {
@@ -105,10 +106,14 @@ export function useLedgerChamber(enabled: boolean) {
     } satisfies LedgerChamberPayload;
   }, [digest, snapshot]);
 
+  // Include cycle in savepoint key so a C-293 savepoint (300 rows) can never beat
+  // a C-295 live response (fewer rows on cold start) and show the wrong cycle label.
+  const savepointKey = `ledger:all:300:3-pages:${currentCycleId()}`;
+
   return useChamberHydration<LedgerChamberPayload>('/api/chambers/ledger', enabled, {
     previewData: preview,
     lockToPreview: stabilizationActive,
-    savepointKey: 'ledger:all:300:3-pages',
+    savepointKey,
     getSavepointCount,
   });
 }
