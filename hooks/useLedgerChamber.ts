@@ -52,6 +52,43 @@ export type LedgerChamberPayload = {
 
 const EMPTY_CANON: LedgerCanonCounts = { hot: 0, candidate: 0, attested: 0, sealed: 0, blocked: 0 };
 const PREVIEW_PAGINATION: LedgerPagination = { maxRows: 300, pageSize: 100, pages: 3 };
+const CYCLE_PATTERN = /\bC-?(\d{1,5})\b/i;
+const UNKNOWN_CYCLE = 'C-—';
+
+function cycleNumber(cycleId: string): number | null {
+  const match = cycleId.match(CYCLE_PATTERN);
+  if (!match?.[1]) return null;
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildPreviewFreshness(activeCycle: string, events: LedgerEntry[]): LedgerFreshness {
+  const latestRowCycle = events.find((row) => row.cycleId !== UNKNOWN_CYCLE)?.cycleId ?? UNKNOWN_CYCLE;
+  const activeNumber = cycleNumber(activeCycle);
+  const latestNumber = cycleNumber(latestRowCycle);
+  const cycleLag = activeNumber !== null && latestNumber !== null ? Math.max(0, activeNumber - latestNumber) : null;
+  const currentCycleRows = events.filter((row) => row.cycleId === activeCycle).length;
+  const staleRows = events.filter((row) => row.cycleId !== activeCycle).length;
+  const missingCycleRows = events.filter((row) => row.cycleId === UNKNOWN_CYCLE).length;
+  const warning: LedgerFreshness['warning'] =
+    cycleLag !== null && cycleLag > 0
+      ? 'STALE_CYCLE_LAG'
+      : events.length === 0 || currentCycleRows === 0
+        ? 'EMPTY_CURRENT_CYCLE'
+        : missingCycleRows > 0
+          ? 'UNKNOWN_CYCLE_ROWS'
+          : 'LIVE';
+
+  return {
+    activeCycle,
+    latestRowCycle,
+    cycleLag,
+    currentCycleRows,
+    staleRows,
+    missingCycleRows,
+    warning,
+  };
+}
 
 export function useLedgerChamber(enabled: boolean) {
   const { snapshot } = useTerminalSnapshot();
@@ -62,7 +99,7 @@ export function useLedgerChamber(enabled: boolean) {
   const preview = useMemo(() => {
     const epicon = snapshot?.epicon?.data as { items?: Array<Record<string, unknown>> } | undefined;
     const items = Array.isArray(epicon?.items) ? epicon.items : [];
-    const activeCycle = digest?.cycle ?? snapshot?.cycle ?? 'C-—';
+    const activeCycle = digest?.cycle ?? snapshot?.cycle ?? currentCycleId();
     const fallbackRows = Math.max(digest?.ledger_preview.pending ?? 0, items.length, 1);
     const events: LedgerEntry[] = items.slice(0, 20).map((item, idx) => ({
       id: typeof item.id === 'string' ? item.id : `snapshot-${idx}`,
@@ -112,15 +149,7 @@ export function useLedgerChamber(enabled: boolean) {
       },
       canon: { ...EMPTY_CANON, hot: events.length },
       pagination: PREVIEW_PAGINATION,
-      freshness: {
-        activeCycle,
-        latestRowCycle: events.find((row) => row.cycleId !== 'C-—')?.cycleId ?? 'C-—',
-        cycleLag: null,
-        currentCycleRows: events.filter((row) => row.cycleId === activeCycle).length,
-        staleRows: events.filter((row) => row.cycleId !== activeCycle).length,
-        missingCycleRows: events.filter((row) => row.cycleId === 'C-—').length,
-        warning: 'EMPTY_CURRENT_CYCLE',
-      },
+      freshness: buildPreviewFreshness(activeCycle, events),
       fallback: true,
       timestamp: digest?.timestamp ?? snapshot?.timestamp ?? new Date().toISOString(),
     } satisfies LedgerChamberPayload;
