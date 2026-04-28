@@ -1,4 +1,5 @@
 import { kvGet, kvSet } from '@/lib/kv/store';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 export type PromotionStateValue = {
   promotion_state: 'pending' | 'selected' | 'promoted' | 'failed';
@@ -18,26 +19,32 @@ const PROMOTION_STATE_TTL_SECONDS = 60 * 60 * 72;
 // Scoped by cycle so stale data from a prior cycle never bleeds into a new one.
 const memoryMirror = new Map<string, PromotionStateMap>();
 
+function activeCycleId(cycleId?: string): string {
+  return cycleId?.trim() || currentCycleId();
+}
+
 function cycleKey(cycleId: string): string {
   return `epicon:promotion:state:${cycleId}`;
 }
 
-export async function getPromotionState(cycleId: string): Promise<PromotionStateMap> {
-  const fromKv = await kvGet<PromotionStateMap>(cycleKey(cycleId));
+export async function getPromotionState(cycleId?: string): Promise<PromotionStateMap> {
+  const resolvedCycleId = activeCycleId(cycleId);
+  const fromKv = await kvGet<PromotionStateMap>(cycleKey(resolvedCycleId));
   if (fromKv && typeof fromKv === 'object') {
     // Keep mirror in sync whenever KV is healthy
-    memoryMirror.set(cycleId, fromKv);
+    memoryMirror.set(resolvedCycleId, fromKv);
     return fromKv;
   }
   // KV unavailable — return in-process mirror so promoted IDs are not forgotten
-  return memoryMirror.get(cycleId) ?? {};
+  return memoryMirror.get(resolvedCycleId) ?? {};
 }
 
-export async function savePromotionState(state: PromotionStateMap, cycleId: string): Promise<void> {
+export async function savePromotionState(state: PromotionStateMap, cycleId?: string): Promise<void> {
+  const resolvedCycleId = activeCycleId(cycleId);
   // Always update memory mirror first so the next getPromotionState within the same
   // process sees the latest state even if the KV write below is slow or fails.
-  memoryMirror.set(cycleId, state);
-  await kvSet(cycleKey(cycleId), state, PROMOTION_STATE_TTL_SECONDS);
+  memoryMirror.set(resolvedCycleId, state);
+  await kvSet(cycleKey(resolvedCycleId), state, PROMOTION_STATE_TTL_SECONDS);
 }
 
 export function defaultPromotionState(nowIso: string): PromotionStateValue {

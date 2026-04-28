@@ -542,21 +542,6 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
   }
 
   await savePromotionState(state, cycleId);
-
-  // Stall detection — track consecutive runs where nothing was promoted
-  if (promoted === 0 && pending.length > 0) {
-    const stallCount = await incrementStallCounter(cycleId);
-    if (stallCount >= STALL_THRESHOLD) {
-      console.error(
-        `[epicon/promote] PROMOTION_LANE_STALL: ${stallCount} consecutive zero-promotion runs in ${cycleId}. ` +
-        `Input: ${pending.length}. Excluded: ${JSON.stringify(promotable.trace.promoter_excluded_reasons)}`,
-      );
-      await writeStallJournalEntry(cycleId, stallCount, promotable.trace.promoter_excluded_reasons);
-    }
-  } else if (promoted > 0) {
-    await resetStallCounter(cycleId);
-  }
-
   const postRun = await getPromotablePending(state, nowIso, promotedIdsThisCycle);
   return { pending, promoted, committed, failed, failedCommits, trace: postRun.trace };
 }
