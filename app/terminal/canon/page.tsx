@@ -1,10 +1,44 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { CanonResponse, CanonReserveBlockView, CanonTimelineEvent } from '@/lib/substrate/canon';
 
 type LoadState = 'loading' | 'ready' | 'empty' | 'error';
+
+type EffectiveCanonBlock = {
+  seal_id: string;
+  original_status: string;
+  effective_status: string;
+  replay_receipt_hash: string | null;
+  has_replay_receipt: boolean;
+  mutation_effective: boolean;
+};
+
+type EffectiveCanonResponse = {
+  ok: boolean;
+  readonly: boolean;
+  version: string;
+  count: number;
+  counts: {
+    total: number;
+    original_attested: number;
+    original_quarantined: number;
+    original_rejected: number;
+    recovered_view: number;
+    mutation_receipts: number;
+    still_quarantined_effective: number;
+  };
+  effective: EffectiveCanonBlock[];
+  canon: string[];
+};
+
+type OperatorActionResult = {
+  label: string;
+  endpoint: string;
+  timestamp: string;
+  payload: unknown;
+};
 
 function shortHash(hash?: string | null, head = 12, tail = 8): string {
   if (!hash) return '—';
@@ -38,6 +72,13 @@ function stateClass(state: CanonReserveBlockView['attestation_state']): string {
   }
 }
 
+function effectiveClass(effective?: EffectiveCanonBlock): string {
+  if (!effective) return 'border-slate-800 bg-slate-950/70 text-slate-500';
+  if (effective.effective_status === 'recovered_view') return 'border-emerald-500/30 bg-emerald-950/20 text-emerald-200';
+  if (effective.effective_status === 'quarantined') return 'border-rose-500/30 bg-rose-950/20 text-rose-200';
+  return 'border-slate-700 bg-slate-950/70 text-slate-300';
+}
+
 function severityClass(severity: CanonTimelineEvent['severity']): string {
   switch (severity) {
     case 'proof':
@@ -51,7 +92,143 @@ function severityClass(severity: CanonTimelineEvent['severity']): string {
   }
 }
 
-function BlockInspector({ block }: { block: CanonReserveBlockView }) {
+function EffectiveOverlay({ effective }: { effective?: EffectiveCanonBlock }) {
+  if (!effective) {
+    return (
+      <div className="mb-3 rounded border border-slate-800 bg-slate-950/60 p-2 text-[10px] text-slate-500">
+        Effective state unavailable. Original Canon state remains authoritative.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-3 rounded border border-cyan-500/25 bg-cyan-950/10 p-3 text-[10px] text-slate-400">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="uppercase tracking-[0.18em] text-cyan-300/80">Effective Canon Overlay</div>
+        <div className={`rounded border px-2 py-1 uppercase tracking-[0.14em] ${effectiveClass(effective)}`}>{effective.effective_status}</div>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        <div>original: <span className="text-slate-100">{effective.original_status}</span></div>
+        <div>effective: <span className={effective.effective_status === 'recovered_view' ? 'text-emerald-300' : 'text-slate-100'}>{effective.effective_status}</span></div>
+        <div>receipt: <span className={effective.has_replay_receipt ? 'text-emerald-300' : 'text-slate-500'}>{effective.has_replay_receipt ? 'present' : 'missing'}</span></div>
+        <div>mutation_effective: <span className={effective.mutation_effective ? 'text-emerald-300' : 'text-slate-500'}>{String(effective.mutation_effective)}</span></div>
+      </div>
+      {effective.replay_receipt_hash ? (
+        <div className="mt-2" title={effective.replay_receipt_hash}>receipt_hash: <span className="text-violet-200">{shortHash(effective.replay_receipt_hash, 18, 10)}</span></div>
+      ) : null}
+      <div className="mt-2 text-slate-500">Overlay only. Original seal status is not replaced.</div>
+    </div>
+  );
+}
+
+function JsonPreview({ value }: { value: unknown }) {
+  return (
+    <pre className="mt-2 max-h-64 overflow-auto rounded border border-slate-800 bg-black/30 p-2 text-[10px] leading-relaxed text-slate-300">
+      {JSON.stringify(value, null, 2)}
+    </pre>
+  );
+}
+
+function OperatorControls({ block }: { block: CanonReserveBlockView }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState<string | null>(null);
+  const [result, setResult] = useState<OperatorActionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runAction(label: string, endpoint: string, init?: RequestInit) {
+    setOpen(true);
+    setLoading(label);
+    setError(null);
+    try {
+      const response = await fetch(endpoint, { cache: 'no-store', ...init });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error ?? `${label} failed`);
+      setResult({ label, endpoint, timestamp: new Date().toISOString(), payload });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `${label} failed`);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded border border-violet-500/20 bg-violet-950/10 p-3 text-[10px] text-slate-400">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="uppercase tracking-[0.18em] text-violet-300/80">Operator Controls</div>
+          <div className="mt-1 text-slate-500">Read-only replay inspection. No promotion, mutation, MIC, Fountain, or Vault writes.</div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="rounded border border-slate-700 px-2 py-1 uppercase tracking-[0.14em] text-slate-300 hover:border-violet-500/50 hover:text-violet-200"
+        >
+          {open ? 'hide' : 'inspect'}
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => runAction('Replay Plan', '/api/system/replay/plan')}
+          disabled={Boolean(loading)}
+          className="rounded border border-cyan-600/40 px-2 py-1 text-cyan-200 hover:border-cyan-300 disabled:opacity-50"
+        >
+          Replay Plan
+        </button>
+        <button
+          type="button"
+          onClick={() => runAction('Dry Run', '/api/system/replay/dry-run', { method: 'POST' })}
+          disabled={Boolean(loading)}
+          className="rounded border border-cyan-600/40 px-2 py-1 text-cyan-200 hover:border-cyan-300 disabled:opacity-50"
+        >
+          Dry Run
+        </button>
+        <button
+          type="button"
+          onClick={() => runAction('Quorum', `/api/system/replay/quorum?seal_id=${encodeURIComponent(block.seal_id)}`)}
+          disabled={Boolean(loading)}
+          className="rounded border border-amber-600/40 px-2 py-1 text-amber-200 hover:border-amber-300 disabled:opacity-50"
+        >
+          Quorum
+        </button>
+        <button
+          type="button"
+          onClick={() => runAction('Mutation Layer', `/api/system/replay/mutation?seal_id=${encodeURIComponent(block.seal_id)}`)}
+          disabled={Boolean(loading)}
+          className="rounded border border-violet-600/40 px-2 py-1 text-violet-200 hover:border-violet-300 disabled:opacity-50"
+        >
+          Mutation Layer
+        </button>
+        <button
+          type="button"
+          onClick={() => runAction('Council Packet', `/api/system/replay/council-packet?seal_id=${encodeURIComponent(block.seal_id)}`)}
+          disabled={Boolean(loading)}
+          className="rounded border border-emerald-600/40 px-2 py-1 text-emerald-200 hover:border-emerald-300 disabled:opacity-50"
+        >
+          Council Packet
+        </button>
+      </div>
+
+      {open ? (
+        <div className="mt-3 rounded border border-slate-800 bg-slate-950/60 p-2">
+          <div>seal_id: <span className="text-cyan-100">{block.seal_id}</span></div>
+          <div>selected_action: <span className={loading ? 'text-amber-300' : 'text-slate-300'}>{loading ?? result?.label ?? 'none'}</span></div>
+          {error ? <div className="mt-2 rounded border border-rose-500/30 bg-rose-950/20 p-2 text-rose-200">{error}</div> : null}
+          {result ? (
+            <div className="mt-2">
+              <div>endpoint: <span className="text-slate-200">{result.endpoint}</span></div>
+              <div>fetched_at: <span className="text-slate-200">{formatTime(result.timestamp)}</span></div>
+              <JsonPreview value={result.payload} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function BlockInspector({ block, effective }: { block: CanonReserveBlockView; effective?: EffectiveCanonBlock }) {
   return (
     <article className="rounded border border-violet-500/25 bg-slate-950/80 p-4 shadow-lg shadow-black/20">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -64,6 +241,8 @@ function BlockInspector({ block }: { block: CanonReserveBlockView }) {
           {block.attestation_state}
         </div>
       </div>
+
+      <EffectiveOverlay effective={effective} />
 
       {block.needs_reattestation ? (
         <div className="mb-3 rounded border border-amber-500/25 bg-amber-950/10 p-2 text-[10px] text-amber-200">
@@ -121,6 +300,8 @@ function BlockInspector({ block }: { block: CanonReserveBlockView }) {
         <div>attested_at: <span className="text-cyan-100">{formatTime(block.substrate_pointer.attested_at)}</span></div>
         {block.substrate_pointer.error ? <div className="mt-1 text-rose-300">error: {block.substrate_pointer.error}</div> : null}
       </div>
+
+      <OperatorControls block={block} />
     </article>
   );
 }
@@ -149,6 +330,8 @@ function Timeline({ events }: { events: CanonTimelineEvent[] }) {
 
 export default function CanonPage() {
   const [data, setData] = useState<CanonResponse | null>(null);
+  const [effectiveData, setEffectiveData] = useState<EffectiveCanonResponse | null>(null);
+  const [effectiveErr, setEffectiveErr] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const state: LoadState = err ? 'error' : data ? (data.reserve_blocks.length ? 'ready' : 'empty') : 'loading';
 
@@ -160,7 +343,25 @@ export default function CanonPage() {
         setData(j);
       })
       .catch(() => setErr('Failed to load canon'));
+
+    void fetch('/api/substrate/effective-state', { cache: 'no-store' })
+      .then(async (r) => {
+        const j = (await r.json()) as EffectiveCanonResponse;
+        if (!r.ok || !j.ok) throw new Error('effective_state_fetch_failed');
+        setEffectiveData(j);
+        setEffectiveErr(null);
+      })
+      .catch(() => {
+        setEffectiveData(null);
+        setEffectiveErr('Effective-state overlay unavailable; original Canon remains visible.');
+      });
   }, []);
+
+  const effectiveBySeal = useMemo(() => {
+    const map = new Map<string, EffectiveCanonBlock>();
+    effectiveData?.effective.forEach((block) => map.set(block.seal_id, block));
+    return map;
+  }, [effectiveData]);
 
   if (state === 'error') return <div className="p-4 text-sm text-rose-300">{err}</div>;
   if (state === 'loading') return <div className="p-4 text-sm text-slate-400">Loading canon…</div>;
@@ -171,6 +372,9 @@ export default function CanonPage() {
   const attested = counts?.attested ?? 0;
   const timeout = counts?.quarantined_timeout ?? 0;
   const needsReattestation = counts?.needs_reattestation ?? timeout;
+  const recoveredView = effectiveData?.counts.recovered_view ?? 0;
+  const mutationReceipts = effectiveData?.counts.mutation_receipts ?? 0;
+  const stillQuarantinedEffective = effectiveData?.counts.still_quarantined_effective ?? timeout;
 
   return (
     <div className="h-full overflow-y-auto p-4 font-mono text-xs text-slate-200">
@@ -187,28 +391,33 @@ export default function CanonPage() {
       </div>
 
       <div className="mb-4 rounded border border-emerald-500/25 bg-slate-950/90 p-3 text-[11px] text-emerald-50/90">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-emerald-400/90">Canon law · Phase 8</div>
+        <div className="text-[10px] uppercase tracking-[0.18em] text-emerald-400/90">Canon law · Phase 11</div>
         <div className="mt-1 grid gap-1 text-[10px] text-slate-400 md:grid-cols-2">
           {data.canon.map((rule) => <div key={rule}>• {rule}</div>)}
+          {effectiveData?.canon.map((rule) => <div key={rule}>• {rule}</div>)}
         </div>
+        {effectiveErr ? <div className="mt-2 rounded border border-amber-500/25 bg-amber-950/10 p-2 text-[10px] text-amber-200">{effectiveErr}</div> : null}
       </div>
 
-      <div className="mb-3 grid gap-2 sm:grid-cols-4">
+      <div className="mb-3 grid gap-2 sm:grid-cols-4 lg:grid-cols-7">
         <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Seals</div><div className="mt-1 text-lg text-cyan-200">{totalSeals}</div></div>
         <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Attested</div><div className="mt-1 text-lg text-emerald-300">{attested}</div></div>
         <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Timeout</div><div className="mt-1 text-lg text-rose-300">{timeout}</div></div>
         <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Re-Attest</div><div className="mt-1 text-lg text-amber-300">{needsReattestation}</div></div>
+        <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Recovered</div><div className="mt-1 text-lg text-emerald-300">{recoveredView}</div></div>
+        <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Receipts</div><div className="mt-1 text-lg text-violet-300">{mutationReceipts}</div></div>
+        <div className="rounded border border-slate-800 bg-slate-950/80 p-3"><div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Still Q</div><div className="mt-1 text-lg text-rose-300">{stillQuarantinedEffective}</div></div>
       </div>
 
       <div className="mb-4 text-[11px] text-slate-400">
-        {totalSeals} seals · {attested} attested · {timeout} quarantined (timeout — re-attestation needed)
+        {totalSeals} seals · {attested} attested · {timeout} original quarantined timeout · {recoveredView} recovered view overlays · {stillQuarantinedEffective} still quarantined effectively
       </div>
 
       {state === 'empty' ? <div className="rounded border border-slate-800 bg-slate-950/70 p-4 text-slate-500">No Reserve Blocks have been written to canon yet.</div> : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-4">
-          {data.reserve_blocks.map((block) => <BlockInspector key={block.seal_id} block={block} />)}
+          {data.reserve_blocks.map((block) => <BlockInspector key={block.seal_id} block={block} effective={effectiveBySeal.get(block.seal_id)} />)}
         </div>
         <aside className="space-y-4">
           <Timeline events={data.timeline} />
@@ -217,6 +426,9 @@ export default function CanonPage() {
             <div>GET /api/substrate/canon</div>
             <div>GET /api/substrate/canon?type=reserve_blocks</div>
             <div>GET /api/substrate/canon?seal_id=&lt;seal_id&gt;</div>
+            <div className="mt-2 text-cyan-300">GET /api/substrate/effective-state</div>
+            <div>GET /api/substrate/effective-state?seal_id=&lt;seal_id&gt;</div>
+            <div className="mt-2 text-violet-300">Operator inspection controls call replay plan, dry-run, quorum, mutation, and council packet endpoints read-only.</div>
           </div>
         </aside>
       </div>
