@@ -256,12 +256,10 @@ async function getLedgerRows(limit = 400): Promise<EpiconLedgerFeedEntry[]> {
 async function ensureEchoIngested(): Promise<void> {
   if (getEchoEpicon().length > 0) return;
   try {
-    // C-296 OPT-7: 4s cap — promotion cron must not stall indefinitely on a
-    // hung upstream source during its candidate-gather phase.
-    const raw = await Promise.race([
-      fetchAllSources(),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('sources_timeout')), 4_000)),
-    ]);
+    // fetchAllSources uses Promise.allSettled over per-fetcher AbortSignal(10s)
+    // timeouts, so it always resolves with partial results rather than hanging
+    // forever. A caller-level race would throw before allSettled returns.
+    const raw = await fetchAllSources();
     if (raw.length > 0) {
       pushIngestResult(transformBatch(raw));
     }
