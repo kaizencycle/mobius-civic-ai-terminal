@@ -5,6 +5,7 @@ import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { useLedgerChamber } from '@/hooks/useLedgerChamber';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import type { LedgerEntry } from '@/lib/terminal/types';
+import AgentLedgerAdapterPanel from './AgentLedgerAdapterPanel';
 
 type EchoFeedResponse = {
   events?: LedgerEntry[];
@@ -87,9 +88,11 @@ export default function LedgerPageClient() {
   const rows = useMemo(() => feed?.events ?? [], [feed]);
   const pageSize = data?.pagination?.pageSize ?? DEFAULT_LEDGER_PAGE_SIZE;
   const maxPages = data?.pagination?.pages ?? DEFAULT_LEDGER_PAGES;
-  // currentCycleId() is deterministic from the calendar date and is always correct.
-  // data?.cycleId can lag if a cross-cycle savepoint is served before the live fetch lands.
-  const activeCycle = currentCycleId();
+  const deterministicCycle = currentCycleId();
+  const freshness = data?.freshness;
+  const activeCycle = freshness?.activeCycle ?? deterministicCycle;
+  const latestRowCycle = freshness?.latestRowCycle ?? feed?.status?.cycleId ?? rows[0]?.cycleId ?? 'C-—';
+  const cycleLag = freshness?.cycleLag ?? null;
   const sorted = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
   const pageCount = Math.max(1, Math.min(maxPages, Math.ceil(sorted.length / pageSize)));
   const safePage = Math.min(scrollPage, pageCount - 1);
@@ -115,6 +118,34 @@ export default function LedgerPageClient() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden p-4 text-xs">
+      <div className="mb-3 rounded border border-slate-800 bg-slate-950/70 px-3 py-2 text-[11px] text-slate-400">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span>
+            Active cycle <span className="text-cyan-200">{activeCycle}</span> · latest ledger row <span className={cycleLag && cycleLag > 0 ? 'text-rose-200' : 'text-emerald-200'}>{latestRowCycle}</span>
+          </span>
+          <span className="text-slate-500">
+            current rows {freshness?.currentCycleRows ?? rows.filter((row) => row.cycleId === activeCycle).length} · stale rows {freshness?.staleRows ?? rows.filter((row) => row.cycleId !== activeCycle).length}
+          </span>
+        </div>
+        {cycleLag && cycleLag > 0 ? (
+          <div className="mt-2 rounded border border-rose-700/40 bg-rose-950/20 px-2 py-1 text-rose-200">
+            ⚠ Ledger freshness lag: showing rows up to {latestRowCycle}, {cycleLag} cycle{cycleLag > 1 ? 's' : ''} behind {activeCycle}.
+          </div>
+        ) : null}
+        {freshness?.warning === 'EMPTY_CURRENT_CYCLE' ? (
+          <div className="mt-2 rounded border border-amber-700/40 bg-amber-950/20 px-2 py-1 text-amber-200">
+            ⚠ No entries yet for the active cycle. This is honest empty state, not a live-data failure.
+          </div>
+        ) : null}
+        {freshness?.warning === 'UNKNOWN_CYCLE_ROWS' ? (
+          <div className="mt-2 rounded border border-amber-700/40 bg-amber-950/20 px-2 py-1 text-amber-200">
+            ⚠ Some ledger rows have unknown cycle metadata and cannot be aligned safely.
+          </div>
+        ) : null}
+      </div>
+
+      <AgentLedgerAdapterPanel activeCycle={activeCycle} />
+
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span className="text-slate-400">
           {activeCycle} · {rows.length} ledger rows

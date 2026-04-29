@@ -8,6 +8,7 @@ import { loadGIState, kvGet, kvSet, KV_KEYS } from '@/lib/kv/store';
 import { getAgentBearerToken } from '@/lib/substrate/client';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type EpiconType = 'heartbeat' | 'catalog' | 'zeus-verify' | 'zeus-report' | 'epicon' | 'merge' | 'unknown';
 type EpiconSeverity =
@@ -93,7 +94,7 @@ async function fetchGitHubCommits(limit = 80): Promise<GitHubCommit[]> {
     headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   }
 
-  const res = await fetch(url, { headers, next: { revalidate: 120 } });
+  const res = await fetch(url, { headers, cache: 'no-store' });
   if (!res.ok) {
     return [];
   }
@@ -662,9 +663,12 @@ export async function GET(request: NextRequest) {
     },
     {
       headers: {
-        'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
+        'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
         'X-Mobius-Source': ledgerEntries.length > 0 ? 'epicon-ledger-api' : 'epicon-github-bridge',
         'X-Mobius-KV': getRedisClient() ? 'active' : 'unconfigured',
+        'X-Mobius-Freshness': 'live-required',
       },
     },
   );

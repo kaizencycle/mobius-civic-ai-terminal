@@ -28,6 +28,16 @@ type EpiconFeedItem = {
   gi?: number | null;
 };
 
+type LedgerFreshness = {
+  activeCycle: string;
+  latestRowCycle: string;
+  cycleLag: number | null;
+  currentCycleRows: number;
+  staleRows: number;
+  missingCycleRows: number;
+  warning: 'LIVE' | 'EMPTY_CURRENT_CYCLE' | 'STALE_CYCLE_LAG' | 'UNKNOWN_CYCLE_ROWS';
+};
+
 type LedgerPayload = {
   ok: true;
   cycleId: string;
@@ -36,6 +46,7 @@ type LedgerPayload = {
   canon: { hot: number; candidate: number; attested: number; sealed: number; blocked: number };
   pagination: { maxRows: number; pageSize: number; pages: number };
   sources: { echoMemory: number; epiconFeed: number; merged: number; missingCycle: number };
+  freshness: LedgerFreshness;
   dva: { primaryAgent: string; tier: string; chambers: string[]; promotionGate: string };
   fallback: boolean;
   timestamp: string;
@@ -66,6 +77,51 @@ function inferCycleFromText(...inputs: unknown[]): string | null {
     if (match?.[1]) return `C-${match[1]}`;
   }
   return null;
+}
+
+function cycleNumber(cycleId: string): number | null {
+  const match = cycleId.match(CYCLE_PATTERN);
+  if (!match?.[1]) return null;
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function latestKnownCycle(events: LedgerEntry[]): string {
+  const cycles = events
+    .map((event) => event.cycleId)
+    .filter((cycle) => cycle !== UNKNOWN_CYCLE)
+    .map((cycle) => ({ cycle, number: cycleNumber(cycle) }))
+    .filter((item): item is { cycle: string; number: number } => typeof item.number === 'number');
+  if (cycles.length === 0) return UNKNOWN_CYCLE;
+  return cycles.sort((a, b) => b.number - a.number)[0].cycle;
+}
+
+function buildFreshness(activeCycle: string, events: LedgerEntry[]): LedgerFreshness {
+  const latestRowCycle = latestKnownCycle(events);
+  const activeNumber = cycleNumber(activeCycle);
+  const latestNumber = cycleNumber(latestRowCycle);
+  const cycleLag = activeNumber !== null && latestNumber !== null ? Math.max(0, activeNumber - latestNumber) : null;
+  const currentCycleRows = events.filter((event) => event.cycleId === activeCycle).length;
+  const missingCycleRows = events.filter((event) => event.cycleId === UNKNOWN_CYCLE).length;
+  const staleRows = events.filter((event) => event.cycleId !== activeCycle).length;
+  const warning: LedgerFreshness['warning'] =
+    cycleLag !== null && cycleLag > 0
+      ? 'STALE_CYCLE_LAG'
+      : events.length === 0 || currentCycleRows === 0
+        ? 'EMPTY_CURRENT_CYCLE'
+        : missingCycleRows > 0
+          ? 'UNKNOWN_CYCLE_ROWS'
+          : 'LIVE';
+
+  return {
+    activeCycle,
+    latestRowCycle,
+    cycleLag,
+    currentCycleRows,
+    staleRows,
+    missingCycleRows,
+    warning,
+  };
 }
 
 function normalizeCycle(item: EpiconFeedItem): string {
@@ -205,6 +261,7 @@ function buildPayload(activeCycle: string, echoEvents: LedgerEntry[], epiconEven
     canon,
     pagination: { maxRows: LEDGER_MAX_ROWS, pageSize: LEDGER_PAGE_SIZE, pages: LEDGER_SCROLL_PAGES },
     sources: { echoMemory: echoEvents.length, epiconFeed: epiconEvents.length, merged: events.length, missingCycle },
+    freshness: buildFreshness(activeCycle, events),
     dva: { primaryAgent: 'ECHO', tier: 't1', chambers: ['ledger'], promotionGate: 'ZEUS' },
     fallback: echoEvents.length === 0 && epiconEvents.length > 0,
     timestamp: new Date().toISOString(),
