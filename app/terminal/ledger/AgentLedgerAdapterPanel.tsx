@@ -42,6 +42,34 @@ type AgentLedgerAdapterResponse = {
   timestamp: string;
 };
 
+type AdapterWriteReceipt = {
+  journal_id: string;
+  ledger_entry_id: string;
+  external_entry_id: string | null;
+  agent: string;
+  cycle: string;
+  status: 'written' | 'duplicate' | 'failed' | 'skipped';
+  reason: string;
+  timestamp: string;
+};
+
+type AdapterWriteResponse = {
+  ok: boolean;
+  readonly: false;
+  version: string;
+  dry_run: boolean;
+  summary: {
+    journal_entries: number;
+    eligible: number;
+    written: number;
+    duplicate: number;
+    failed: number;
+    skipped: number;
+  };
+  receipts: AdapterWriteReceipt[];
+  timestamp: string;
+};
+
 function agentText(agent: string): string {
   const upper = agent.toUpperCase();
   if (upper === 'ATLAS') return 'text-cyan-300';
@@ -59,10 +87,20 @@ function statusClass(eligible: boolean): string {
     : 'border-slate-700 bg-slate-950/50 text-slate-400';
 }
 
+function receiptClass(status: AdapterWriteReceipt['status']): string {
+  if (status === 'written') return 'border-emerald-700/40 bg-emerald-950/20 text-emerald-200';
+  if (status === 'duplicate') return 'border-cyan-700/40 bg-cyan-950/20 text-cyan-200';
+  if (status === 'failed') return 'border-rose-700/40 bg-rose-950/20 text-rose-200';
+  return 'border-slate-700 bg-slate-950/50 text-slate-400';
+}
+
 export default function AgentLedgerAdapterPanel({ activeCycle }: { activeCycle: string }) {
   const [data, setData] = useState<AgentLedgerAdapterResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [writeLoading, setWriteLoading] = useState<'dry-run' | 'write' | null>(null);
+  const [writeError, setWriteError] = useState<string | null>(null);
+  const [writeResult, setWriteResult] = useState<AdapterWriteResponse | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +121,31 @@ export default function AgentLedgerAdapterPanel({ activeCycle }: { activeCycle: 
       cancelled = true;
     };
   }, [activeCycle]);
+
+  async function runControlledWrite(dryRun: boolean) {
+    setWriteLoading(dryRun ? 'dry-run' : 'write');
+    setWriteError(null);
+    try {
+      const response = await fetch('/api/agents/ledger-adapter/write', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'merged',
+          limit: 50,
+          cycle: activeCycle,
+          dry_run: dryRun,
+        }),
+      });
+      const payload = (await response.json()) as AdapterWriteResponse & { error?: string };
+      if (!response.ok || !payload.ok) throw new Error(payload.error ?? 'agent_ledger_write_failed');
+      setWriteResult(payload);
+    } catch (err) {
+      setWriteError(err instanceof Error ? err.message : 'agent_ledger_write_failed');
+    } finally {
+      setWriteLoading(null);
+    }
+  }
 
   const rows = useMemo(() => {
     const previews = data?.previews ?? [];
@@ -107,13 +170,14 @@ export default function AgentLedgerAdapterPanel({ activeCycle }: { activeCycle: 
   }
 
   const agents = Object.entries(data.summary.by_agent).sort(([a], [b]) => a.localeCompare(b));
+  const canWrite = data.summary.eligible > 0 && writeLoading === null;
 
   return (
     <div className="mb-3 rounded border border-violet-700/30 bg-violet-950/10 px-3 py-2 text-[11px] text-slate-400">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="font-mono uppercase tracking-[0.14em] text-violet-200">Multi-Agent Ledger Adapter</div>
-          <div className="mt-0.5 text-slate-500">Read-only preview · journal → eligible ledger candidates · no writes from UI</div>
+          <div className="mt-0.5 text-slate-500">Controlled write path · journal → eligible ledger candidates · receipts required</div>
         </div>
         <div className="flex flex-wrap gap-1 font-mono text-[10px] uppercase tracking-[0.08em]">
           <span className="rounded border border-slate-700 bg-slate-950/50 px-2 py-1">total {data.summary.total}</span>
@@ -121,6 +185,54 @@ export default function AgentLedgerAdapterPanel({ activeCycle }: { activeCycle: 
           <span className="rounded border border-slate-700 bg-slate-950/50 px-2 py-1">blocked {data.summary.blocked}</span>
         </div>
       </div>
+
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded border border-slate-800 bg-slate-950/50 px-2 py-2">
+        <div className="text-slate-500">Operator controls are gated by session/service auth. Dry run is recommended before write.</div>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => runControlledWrite(true)}
+            disabled={!canWrite}
+            className="rounded border border-cyan-700/50 px-2 py-1 font-mono text-[10px] text-cyan-200 hover:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {writeLoading === 'dry-run' ? 'running…' : 'dry run'}
+          </button>
+          <button
+            type="button"
+            onClick={() => runControlledWrite(false)}
+            disabled={!canWrite}
+            className="rounded border border-emerald-700/50 px-2 py-1 font-mono text-[10px] text-emerald-200 hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {writeLoading === 'write' ? 'writing…' : 'write eligible'}
+          </button>
+        </div>
+      </div>
+
+      {writeError ? (
+        <div className="mb-2 rounded border border-rose-700/40 bg-rose-950/20 px-2 py-1 text-rose-200">{writeError}</div>
+      ) : null}
+
+      {writeResult ? (
+        <div className="mb-2 rounded border border-slate-800 bg-slate-950/60 px-2 py-2">
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+            <span className="font-mono uppercase tracking-[0.12em] text-slate-300">
+              {writeResult.dry_run ? 'Dry Run Receipts' : 'Write Receipts'}
+            </span>
+            <span className="text-slate-500">
+              written {writeResult.summary.written} · duplicate {writeResult.summary.duplicate} · failed {writeResult.summary.failed} · skipped {writeResult.summary.skipped}
+            </span>
+          </div>
+          <div className="space-y-1">
+            {writeResult.receipts.slice(0, 6).map((receipt) => (
+              <div key={`${receipt.journal_id}-${receipt.status}`} className="grid gap-2 rounded border border-slate-800 bg-slate-950/50 px-2 py-1.5 md:grid-cols-[70px_90px_1fr]">
+                <span className={`font-mono text-[10px] ${agentText(receipt.agent)}`}>{receipt.agent}</span>
+                <span className={`w-fit rounded border px-1.5 py-0.5 font-mono text-[9px] ${receiptClass(receipt.status)}`}>{receipt.status}</span>
+                <span className="truncate text-slate-500" title={receipt.reason}>{receipt.reason}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {agents.length > 0 ? (
         <div className="mb-2 flex flex-wrap gap-1.5 font-mono text-[10px]">
