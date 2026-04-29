@@ -98,7 +98,6 @@ export function getLabLaunchUrl(labId: LabId): string {
   return `${base}${LAB_PATHS[labId]}`;
 }
 
-
 function normalizeLedgerBaseUrl(url: string): string {
   return url.trim().replace(/\/+$/, '');
 }
@@ -149,6 +148,7 @@ export interface SubstrateEntry {
   derivedFrom?: string[];
   tags?: string[];
   verified?: boolean;
+  attestation_signature?: unknown;
 }
 
 export type AttestToLedgerResult = { ok: boolean; entryId?: string; error?: string };
@@ -198,6 +198,7 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
           agent_origin: entry.agentOrigin,
           derived_from: entry.derivedFrom ?? [],
           verified: entry.verified ?? false,
+          attestation_signature: entry.attestation_signature ?? null,
         },
         timestamp: attestTimestamp,
       }),
