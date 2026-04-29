@@ -161,11 +161,18 @@ export async function POST(request: NextRequest) {
     .filter((preview: AgentLedgerAdapterPreview) => preview.decision.eligible)
     .filter((preview: AgentLedgerAdapterPreview) => (journalId ? preview.journal_id === journalId : true));
 
+  // C-296 OPT-5: batch all receipt lookups in parallel instead of sequential
+  // await-in-loop — reduces KV round-trips from N serial to 1 parallel fan-out.
+  const existingReceipts = await Promise.all(
+    previews.map((preview) => kvGet<AdapterWriteReceipt>(receiptKey(preview.journal_id))),
+  );
+
   const receipts: AdapterWriteReceipt[] = [];
 
-  for (const preview of previews) {
+  for (let i = 0; i < previews.length; i++) {
+    const preview = previews[i]!;
     const key = receiptKey(preview.journal_id);
-    const existing = await kvGet<AdapterWriteReceipt>(key);
+    const existing = existingReceipts[i];
     if (existing) {
       receipts.push({ ...existing, status: 'duplicate', reason: 'journal_already_written_to_ledger' });
       continue;

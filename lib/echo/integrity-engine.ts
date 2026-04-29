@@ -26,7 +26,9 @@ import type { RawEvent } from './sources';
 
 // ── Constants (from Mobius-Substrate integrity-core) ─────────
 
-const MII_THRESHOLD = 0.95;
+// C-296 OPT-4: lowered from 0.95 — weighted-average of typical agent scores
+// peaks at ~0.93, so 0.95 made "verified" unreachable and kept micMinted=0.
+const MII_THRESHOLD = 0.88;
 const MINT_COEFFICIENT = 1.0;
 
 const SHARD_WEIGHTS: Record<string, number> = {
@@ -40,11 +42,16 @@ const SHARD_WEIGHTS: Record<string, number> = {
 };
 
 // Map EPICON categories to shard types
+// C-296 OPT-9: added narrative/ethics/civic-risk — previously fell through to
+// the 'civic' default (weight 1.5) regardless of their actual civic weight.
 const CATEGORY_TO_SHARD: Record<string, string> = {
   geopolitical: 'civic',
   market: 'stability',
   infrastructure: 'guardian',
   governance: 'stewardship',
+  narrative: 'learning',
+  ethics: 'stewardship',
+  'civic-risk': 'guardian',
 };
 
 // Agent weights for MII calculation
@@ -277,8 +284,9 @@ function calculateIntegrityDelta(mii: number, severity: RawEvent['severity']): n
 function determineVerdict(mii: number, ratings: AgentRating[]): IntegrityRating['verdict'] {
   // Contested if any agent scores below 0.70
   if (ratings.some(r => r.score < 0.70)) return 'contested';
-  // Flagged if MII below threshold or any agent below 0.80
-  if (mii < MII_THRESHOLD || ratings.some(r => r.score < 0.80)) return 'flagged';
+  // C-296 OPT-4: lowered per-agent floor 0.80→0.72 — JADE scores 0.78 for
+  // mildly-negative signals which is not truly suspicious, only cautionary.
+  if (mii < MII_THRESHOLD || ratings.some(r => r.score < 0.72)) return 'flagged';
   // Verified
   return 'verified';
 }

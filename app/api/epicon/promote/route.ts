@@ -256,7 +256,12 @@ async function getLedgerRows(limit = 400): Promise<EpiconLedgerFeedEntry[]> {
 async function ensureEchoIngested(): Promise<void> {
   if (getEchoEpicon().length > 0) return;
   try {
-    const raw = await fetchAllSources();
+    // C-296 OPT-7: 4s cap — promotion cron must not stall indefinitely on a
+    // hung upstream source during its candidate-gather phase.
+    const raw = await Promise.race([
+      fetchAllSources(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('sources_timeout')), 4_000)),
+    ]);
     if (raw.length > 0) {
       pushIngestResult(transformBatch(raw));
     }

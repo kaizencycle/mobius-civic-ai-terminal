@@ -15,6 +15,7 @@ import { GET as getMicReadiness } from '@/app/api/mic/readiness/route';
 import { GET as getTripwire } from '@/app/api/tripwire/status/route';
 import { GET as getTrustTripwire } from '@/app/api/tripwire/trust/route';
 import { GET as getSnapshotLite } from '@/app/api/terminal/snapshot-lite/route';
+import { GET as getSignals } from '@/app/api/signals/micro/route';
 import { memoryModeFromIntegrityPayload, memoryModeFromSnapshotLiteBody } from '@/lib/terminal/memoryMode';
 import { loadSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
 import {
@@ -33,8 +34,10 @@ export const dynamic = 'force-dynamic';
 // C-293 OPT-1: echo + promotion lanes persistently hit the 5s budget.
 // timedHandlerWith() lets individual lanes get a longer window so they
 // don't time-block faster lanes on the same Promise.all.
+// C-296 OPT-1: capped at 3s — echo timing out at 7.5s was holding the full
+// Promise.all hostage and causing 7s+ page loads.
 const LANE_TIMEOUT_MS = 5_000;
-const SLOW_LANE_TIMEOUT_MS = 7_500; // for echo + promotion (Render cold-start tolerance)
+const SLOW_LANE_TIMEOUT_MS = 3_000;
 
 async function timedHandlerWith(
   timeoutMs: number,
@@ -137,7 +140,6 @@ export async function GET(request: NextRequest) {
     signals = { ok: true, status: 200, data: { ok: true, cached: true, kv: isRedisAvailable(), ...cached }, error: null };
     signalsDuration = Date.now() - signalsStart;
   } else {
-    const { GET: getSignals } = await import('@/app/api/signals/micro/route');
     const result = await timedHandler(makeRequest(baseUrl, '/api/signals/micro'), getSignals);
     signals = result.leaf;
     signalsDuration = Date.now() - signalsStart;
