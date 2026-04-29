@@ -416,8 +416,9 @@ export async function GET(request: NextRequest) {
   const limitRaw = Number(searchParams.get('limit') ?? '20');
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), MAX_READ) : 20;
   const windowHoursRaw = Number(searchParams.get('window_hours') ?? String(WINDOW_HOURS_DEFAULT));
-  const windowHours = Number.isFinite(windowHoursRaw) && windowHoursRaw > 0
-    ? Math.min(Math.floor(windowHoursRaw), WINDOW_HOURS_MAX)
+  const windowHoursFloored = Math.floor(windowHoursRaw);
+  const windowHours = Number.isFinite(windowHoursRaw) && windowHoursFloored >= 1
+    ? Math.min(windowHoursFloored, WINDOW_HOURS_MAX)
     : WINDOW_HOURS_DEFAULT;
   const windowCutoff = Date.now() - windowHours * 60 * 60 * 1000;
 

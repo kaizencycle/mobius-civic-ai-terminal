@@ -100,8 +100,13 @@ async function pruneStaleEntries(redis: Redis, key: string): Promise<number> {
 
   if (staleCount === 0) return 0;
 
-  // Keep head .. (len - staleCount - 1), drop stale tail entries atomically.
-  await redis.ltrim(key, 0, all.length - staleCount - 1);
+  if (staleCount === all.length) {
+    // Every entry is stale — DEL is required because ltrim(key, 0, -1) is a no-op.
+    await redis.del(key);
+  } else {
+    // Keep head .. (all.length - staleCount - 1), drop stale tail entries atomically.
+    await redis.ltrim(key, 0, all.length - staleCount - 1);
+  }
   console.warn(`[journalLane] pruned ${staleCount} stale entries from ${key}`);
   return staleCount;
 }
