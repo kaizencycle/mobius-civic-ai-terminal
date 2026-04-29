@@ -337,7 +337,8 @@ const LEDGER_CIRCUIT_TTL_SEC = 300;
 // KV cache key and TTL for Render ledger entries.
 // Prevents concurrent cache-miss requests from all hitting the Render cold-start simultaneously.
 const RENDER_LEDGER_CACHE_KEY = 'epicon:render-ledger-cache';
-const RENDER_LEDGER_CACHE_TTL_SEC = 60;
+// 90s > 60s polling interval so the cache is always warm on arrival
+const RENDER_LEDGER_CACHE_TTL_SEC = 90;
 
 type RenderLedgerCache = {
   entries: EpiconEntry[];

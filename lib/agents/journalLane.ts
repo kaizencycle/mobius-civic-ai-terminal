@@ -75,40 +75,40 @@ async function pruneStaleEntries(redis: Redis, key: string): Promise<number> {
   const len = await redis.llen(key);
   if (len < SOFT_CAP) return 0;
 
-  console.warn(`[journalLane] soft-cap reached on ${key}: ${len}/${MAX_LIST_ENTRIES} entries. Running time-based prune.`);
+  const label = len >= MAX_LIST_ENTRIES ? 'hard-cap' : 'soft-cap';
+  console.warn(`[journalLane] ${label} reached on ${key}: ${len}/${MAX_LIST_ENTRIES} entries. Running time-based prune.`);
+
+  // Fetch all entries in one round-trip, scan from the tail to count stale ones,
+  // then trim with a single LTRIM — O(2) Redis ops instead of O(3n).
+  const all = await redis.lrange(key, 0, -1);
+  if (all.length === 0) return 0;
 
   const cutoff = Date.now() - ROLLING_WINDOW_MS;
-  let pruned = 0;
-
-  // Atomically pop stale entries from the tail (oldest end) one at a time.
-  // RPOP is a single Redis command and therefore atomic — concurrent LPUSH writes
-  // at the head are never affected. We stop as soon as the tail is within the
-  // rolling window or the list drops below SOFT_CAP.
-  while (true) {
-    const currentLen = await redis.llen(key);
-    if (currentLen < SOFT_CAP) break;
-
-    const tail = await redis.lindex(key, -1);
-    if (tail === null || tail === undefined) break;
-
+  let staleCount = 0;
+  for (let i = all.length - 1; i >= 0; i--) {
     try {
-      const parsed = typeof tail === 'string'
-        ? (JSON.parse(tail) as { timestamp?: string })
-        : (tail as { timestamp?: string });
+      const parsed = typeof all[i] === 'string'
+        ? (JSON.parse(all[i] as string) as { timestamp?: string })
+        : (all[i] as { timestamp?: string });
       const ts = parsed?.timestamp ? new Date(parsed.timestamp).getTime() : 0;
-      if (ts > cutoff) break; // Oldest entry is within the window — stop pruning
-      await redis.rpop(key);
-      pruned += 1;
+      if (ts > cutoff) break; // reached a fresh entry — everything newer is clean
+      staleCount += 1;
     } catch {
-      break; // Unparseable tail — leave it, let the hard ltrim decide its fate
+      break; // unparseable tail — leave it for hard ltrim
     }
   }
 
-  if (pruned > 0) {
-    console.warn(`[journalLane] pruned ${pruned} stale entries from ${key}`);
-  }
+  if (staleCount === 0) return 0;
 
-  return pruned;
+  if (staleCount === all.length) {
+    // Every entry is stale — DEL is required because ltrim(key, 0, -1) is a no-op.
+    await redis.del(key);
+  } else {
+    // Keep head .. (all.length - staleCount - 1), drop stale tail entries atomically.
+    await redis.ltrim(key, 0, all.length - staleCount - 1);
+  }
+  console.warn(`[journalLane] pruned ${staleCount} stale entries from ${key}`);
+  return staleCount;
 }
 
 function toSubstrateJournalInput(entry: AgentJournalLaneEntry, giAtTime?: number): SubstrateJournalWriteInput {
@@ -177,8 +177,7 @@ export async function appendJournalLaneEntry(
   const agentKey = `journal:${agent.toLowerCase()}`;
 
   // Time-based rolling prune before hard count trim — prevents silent data loss
-  await pruneStaleEntries(redis, KEY_ALL);
-  await pruneStaleEntries(redis, agentKey);
+  await Promise.all([pruneStaleEntries(redis, KEY_ALL), pruneStaleEntries(redis, agentKey)]);
 
   await redis.lpush(KEY_ALL, packed);
   await redis.ltrim(KEY_ALL, 0, MAX_LIST_ENTRIES - 1);
