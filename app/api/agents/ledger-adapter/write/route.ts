@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOperatorSession } from '@/lib/auth/session';
+import { createAgentAttestationSignature } from '@/lib/agents/attestation-signature';
 import {
   adaptAgentJournalToLedger,
   type AgentLedgerAdapterPreview,
@@ -24,6 +25,8 @@ type AdapterWriteBody = {
   cycle?: string;
   journal_id?: string;
   dry_run?: boolean;
+  quorum_required?: boolean;
+  zeus_verified?: boolean;
 };
 
 type AdapterWriteReceipt = {
@@ -95,12 +98,16 @@ async function readJournalRows(request: NextRequest, args: { mode: string; limit
   return { ok: true as const, status: response.status, entries };
 }
 
-function previewToSubstrateInput(preview: AgentLedgerAdapterPreview): SubstrateEntry {
+function previewToSubstrateInput(preview: AgentLedgerAdapterPreview, options: { quorumRequired: boolean; zeusVerified: boolean }): SubstrateEntry {
   const entry = preview.ledger_entry;
   const tags = entry.tags ?? [];
   const severityTag = tags.find((tag) => tag === 'critical' || tag === 'elevated' || tag === 'nominal');
   const severity: SubstrateEntry['severity'] = severityTag === 'critical' || severityTag === 'elevated' ? severityTag : 'nominal';
   const category: SubstrateEntry['category'] = entry.category ?? 'infrastructure';
+  const signature = createAgentAttestationSignature(preview, {
+    quorumRequired: options.quorumRequired,
+    zeusVerified: options.zeusVerified,
+  });
 
   return {
     id: entry.id,
@@ -114,8 +121,9 @@ function previewToSubstrateInput(preview: AgentLedgerAdapterPreview): SubstrateE
     source: 'agent-journal',
     confidence: typeof entry.confidenceTier === 'number' ? entry.confidenceTier / 4 : undefined,
     derivedFrom: [preview.journal_id],
-    tags: Array.from(new Set([...tags, 'multi-agent-ledger-write', 'c295-phase4'])),
-    verified: preview.decision.canonState === 'attested',
+    tags: Array.from(new Set([...tags, 'multi-agent-ledger-write', 'c295-phase10', signature.payload_hash])),
+    verified: preview.decision.canonState === 'attested' || options.zeusVerified,
+    attestation_signature: signature,
   };
 }
 
@@ -137,6 +145,8 @@ export async function POST(request: NextRequest) {
   const cycle = optionalString(body.cycle);
   const journalId = optionalString(body.journal_id);
   const dryRun = body.dry_run === true;
+  const quorumRequired = body.quorum_required === true;
+  const zeusVerified = body.zeus_verified === true;
 
   const journal = await readJournalRows(request, { mode, limit, agent, cycle });
   if (!journal.ok) {
@@ -175,7 +185,7 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    const write = await writeToSubstrate(previewToSubstrateInput(preview));
+    const write = await writeToSubstrate(previewToSubstrateInput(preview, { quorumRequired, zeusVerified }));
     const receipt: AdapterWriteReceipt = {
       journal_id: preview.journal_id,
       ledger_entry_id: preview.ledger_entry.id,
@@ -194,7 +204,7 @@ export async function POST(request: NextRequest) {
     {
       ok: true,
       readonly: false,
-      version: 'C-295.phase4.controlled-agent-ledger-write.v1',
+      version: 'C-295.phase10.signed-agent-ledger-write.v1',
       dry_run: dryRun,
       filters: {
         mode,
@@ -202,6 +212,8 @@ export async function POST(request: NextRequest) {
         agent: agent ? agent.toUpperCase() : null,
         cycle,
         journal_id: journalId,
+        quorum_required: quorumRequired,
+        zeus_verified: zeusVerified,
       },
       summary: {
         journal_entries: journal.entries.length,
@@ -215,6 +227,7 @@ export async function POST(request: NextRequest) {
       canon: [
         'Controlled write endpoint only writes eligible adapter previews.',
         'Each successful write stores a dedupe receipt per journal id.',
+        'Phase 10 attaches deterministic attestation signatures to ledger payloads.',
         'This endpoint does not mutate Vault, MIC, Fountain, Canon, or replay state.',
       ],
       timestamp: new Date().toISOString(),
