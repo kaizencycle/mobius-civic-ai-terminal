@@ -76,7 +76,12 @@ export async function GET(request: NextRequest) {
   // Re-ingest if store is empty or data is older than 2 hours
   if (isStale()) {
     try {
-      const rawEvents = await fetchAllSources();
+      // C-296 OPT-6: cap upstream fetch at 4s — without this the feed hangs
+      // indefinitely on slow external sources (EONET, Perplexity, etc.).
+      const rawEvents = await Promise.race([
+        fetchAllSources(),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('sources_timeout')), 4_000)),
+      ]);
       if (rawEvents.length > 0) {
         const result = transformBatch(rawEvents);
         pushIngestResult(result);
