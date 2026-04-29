@@ -41,6 +41,12 @@ export async function GET() {
       },
       source: micRaw.source === 'none' ? 'fallback' : 'live',
       timestamp,
+    }, {
+      headers: {
+        // Allow Vercel edge to serve a single computed response to concurrent tab polls.
+        // GI/tripwire state changes on cron cadence (~60s), so 20s is safely fresh.
+        'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=40',
+      },
     });
   } catch {
     return NextResponse.json({
