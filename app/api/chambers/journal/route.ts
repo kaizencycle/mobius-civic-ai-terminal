@@ -30,7 +30,9 @@ type JournalChamberPayload = {
   [key: string]: unknown;
 };
 
-const MAX_READ = 100;
+const MAX_READ = 250;
+const WINDOW_HOURS_DEFAULT = 48;
+const WINDOW_HOURS_MAX = 72;
 
 const DVA_TIER_AGENTS: Record<Exclude<DvaTier, 'ALL'>, string[]> = {
   t1: ['ECHO'],
@@ -112,6 +114,12 @@ async function respondWithSavepoint(payload: JournalChamberPayload, scope: Recor
   });
 }
 
+function clampWindowHours(input: string | null): number {
+  const parsed = Number(input ?? String(WINDOW_HOURS_DEFAULT));
+  if (!Number.isFinite(parsed) || parsed <= 0) return WINDOW_HOURS_DEFAULT;
+  return Math.min(WINDOW_HOURS_MAX, Math.max(1, Math.floor(parsed)));
+}
+
 export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get('mode') ?? 'merged';
   const limit = clampLimit(request.nextUrl.searchParams.get('limit'));
@@ -119,7 +127,8 @@ export async function GET(request: NextRequest) {
   const requestedScope = resolveRequestedAgents(request, tier);
   const requestedAgents = requestedScope.agents;
   const cycle = request.nextUrl.searchParams.get('cycle');
-  const savepointScope = { mode, limit, tier, agents: requestedAgents.join(','), cycle: cycle ?? '' };
+  const windowHours = clampWindowHours(request.nextUrl.searchParams.get('window_hours'));
+  const savepointScope = { mode, limit, tier, agents: requestedAgents.join(','), cycle: cycle ?? '', windowHours };
 
   if (requestedScope.conflictingExplicitScope) {
     return respondWithSavepoint(
@@ -129,7 +138,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const q = new URLSearchParams({ mode, limit: String(limit) });
+  const q = new URLSearchParams({ mode, limit: String(limit), window_hours: String(windowHours) });
   for (const agent of requestedAgents) q.append('agent', agent);
   if (cycle) q.set('cycle', cycle);
 

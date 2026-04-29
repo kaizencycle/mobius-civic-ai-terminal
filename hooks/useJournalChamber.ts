@@ -126,19 +126,20 @@ function entryBelongsToTier(entry: unknown, tierAgents: Set<string>): boolean {
   return agent.length > 0 && tierAgents.has(agent);
 }
 
-export function useJournalChamber(enabled: boolean, mode: 'hot' | 'canon' | 'merged', limit = 100, tier: DvaTier = 'ALL') {
+export function useJournalChamber(enabled: boolean, mode: 'hot' | 'canon' | 'merged', limit = 250, tier: DvaTier = 'ALL', windowHours = 48) {
   const { snapshot } = useTerminalSnapshot();
   const { digest } = useEchoDigest(enabled);
   const stabilizationActive = digest?.predictive.risk_level === 'elevated' || digest?.predictive.risk_level === 'critical';
-  const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+  const safeLimit = Math.max(1, Math.min(250, Math.floor(limit)));
+  const safeWindowHours = Math.max(1, Math.min(72, Math.floor(windowHours)));
   const tierAgentsList = useMemo(() => resolveTierAgents(tier), [tier]);
   const getSavepointCount = useCallback((payload: JournalChamberPayload) => Array.isArray(payload.entries) ? payload.entries.length : 0, []);
   const url = useMemo(() => {
-    const params = new URLSearchParams({ mode, limit: String(safeLimit) });
+    const params = new URLSearchParams({ mode, limit: String(safeLimit), window_hours: String(safeWindowHours) });
     params.set('tier', tier);
     for (const agent of tierAgentsList) params.append('agent', agent);
     return `/api/chambers/journal?${params.toString()}`;
-  }, [mode, safeLimit, tier, tierAgentsList]);
+  }, [mode, safeLimit, safeWindowHours, tier, tierAgentsList]);
 
   const preview = useMemo(() => {
     const summary = snapshot?.journal_summary;
@@ -181,7 +182,7 @@ export function useJournalChamber(enabled: boolean, mode: 'hot' | 'canon' | 'mer
     previewData: preview,
     lockToPreview: stabilizationActive,
     pollMs: 90_000,
-    savepointKey: `journal:${mode}:${tier}:${safeLimit}:${tierAgentsList.join(',')}`,
+    savepointKey: `journal:${mode}:${tier}:${safeLimit}:${safeWindowHours}h:${tierAgentsList.join(',')}`,
     getSavepointCount,
   });
 }

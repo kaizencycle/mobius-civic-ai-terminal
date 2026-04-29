@@ -52,7 +52,9 @@ type AgentJournalCreateInput = Omit<AgentJournalEntry, 'id' | 'timestamp' | 'sta
   summary?: string;
 };
 
-const MAX_READ = 100;
+const MAX_READ = 250;
+const WINDOW_HOURS_DEFAULT = 48;
+const WINDOW_HOURS_MAX = 72; // aligned with the hot-store rolling window
 const KV_JOURNAL_PER_AGENT_CAP = 50;
 const KV_JOURNAL_FAIR_MERGE_MAX = 600;
 const KV_JOURNAL_LIST_READ_MAX = 200;
@@ -413,6 +415,11 @@ export async function GET(request: NextRequest) {
   const cycleFilter = asString(searchParams.get('cycle'));
   const limitRaw = Number(searchParams.get('limit') ?? '20');
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), MAX_READ) : 20;
+  const windowHoursRaw = Number(searchParams.get('window_hours') ?? String(WINDOW_HOURS_DEFAULT));
+  const windowHours = Number.isFinite(windowHoursRaw) && windowHoursRaw > 0
+    ? Math.min(Math.floor(windowHoursRaw), WINDOW_HOURS_MAX)
+    : WINDOW_HOURS_DEFAULT;
+  const windowCutoff = Date.now() - windowHours * 60 * 60 * 1000;
 
   const shouldReadKv = mode === 'hot' || mode === 'merged';
   const shouldReadSubstrate = mode === 'canon' || mode === 'merged';
@@ -448,6 +455,7 @@ export async function GET(request: NextRequest) {
   const filtered = merged
     .filter((entry) => (agentFilters.length > 0 ? agentFilterSet.has(entry.agentOrigin.toUpperCase()) : true))
     .filter((entry) => (cycleFilter ? entry.cycle === cycleFilter : true))
+    .filter((entry) => new Date(entry.timestamp).getTime() >= windowCutoff)
     .slice(0, limit);
 
   const agents = Array.from(new Set(filtered.map((entry) => entry.agent)));
@@ -467,6 +475,7 @@ export async function GET(request: NextRequest) {
       entries: filtered,
       agents,
       timestamp: new Date().toISOString(),
+      window_hours: windowHours,
       sources: {
         kv: kvForSources.length,
         substrate: substrateEntries.length,
