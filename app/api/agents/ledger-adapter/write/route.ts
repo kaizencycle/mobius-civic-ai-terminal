@@ -146,10 +146,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const previews = journal.entries
+  const previews: AgentLedgerAdapterPreview[] = journal.entries
     .map(adaptAgentJournalToLedger)
-    .filter((preview) => preview.decision.eligible)
-    .filter((preview) => (journalId ? preview.journal_id === journalId : true));
+    .filter((preview: AgentLedgerAdapterPreview) => preview.decision.eligible)
+    .filter((preview: AgentLedgerAdapterPreview) => (journalId ? preview.journal_id === journalId : true));
 
   const receipts: AdapterWriteReceipt[] = [];
 
