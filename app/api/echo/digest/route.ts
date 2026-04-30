@@ -44,7 +44,10 @@ export async function GET() {
 
     return NextResponse.json(digest, {
       headers: {
-        'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+        // OPT-05 (C-296): increased from s-maxage=15 → 30. Digest is rebuilt from
+        // KV/in-memory state on each compute; 30s edge cache cuts ~50% of invocations
+        // (~1,440/day saved) without meaningfully lagging the cron update cadence.
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
         'X-Mobius-Source': 'echo-digest',
       },
     });

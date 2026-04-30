@@ -21,40 +21,57 @@ export type RawEvent = {
   metadata: Record<string, unknown>;
 };
 
-// ── GDELT — Global Event Database ────────────────────────────
-// Docs: https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/
-// No auth required, returns global news events.
+// ── GovTrack — US Congress Legislative Activity ───────────────
+// OPT-02 (C-296): Replaced dead GDELT source (3+ days returning 0).
+// GovTrack RSS is free, no auth, returns real legislative activity.
 
-export async function fetchGDELT(): Promise<RawEvent[]> {
-  const url =
-    'https://api.gdeltproject.org/api/v2/doc/doc?query=conflict%20OR%20sanctions%20OR%20election%20OR%20diplomacy&mode=ArtList&maxrecords=10&format=json&sort=DateDesc';
+export async function fetchGovTrack(): Promise<RawEvent[]> {
+  const url = 'https://www.govtrack.us/events/govtrack.rss?feeds=misc:activebills';
 
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) return [];
 
-    const data = await res.json();
-    const articles: Array<{
-      title?: string;
-      seendate?: string;
-      url?: string;
-      domain?: string;
-      socialimage?: string;
-    }> = data?.articles ?? [];
+    const text = await res.text();
+    const items = text.match(/<item>([\s\S]*?)<\/item>/g) ?? [];
 
-    return articles.slice(0, 8).map((a, i) => ({
-      sourceId: `gdelt-${Date.now()}-${i}`,
-      source: 'GDELT',
-      title: a.title ?? 'Untitled event',
-      summary: `Global event detected via ${a.domain ?? 'unknown source'}. Tracked by GDELT real-time monitor.`,
-      url: a.url ?? '',
-      timestamp: a.seendate
-        ? new Date(a.seendate.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')).toISOString()
-        : new Date().toISOString(),
-      category: 'geopolitical' as const,
-      severity: 'medium' as const,
-      metadata: { domain: a.domain, image: a.socialimage },
-    }));
+    // 0.15 floor: if feed is empty, return a sentinel low-signal event rather than []
+    if (items.length === 0) {
+      return [{
+        sourceId: `govtrack-empty-${Date.now()}`,
+        source: 'GovTrack',
+        title: 'GovTrack feed: no active bills at this time',
+        summary: 'US legislative activity feed returned no active bills. Signal floored.',
+        url: 'https://www.govtrack.us',
+        timestamp: new Date().toISOString(),
+        category: 'governance' as const,
+        severity: 'low' as const,
+        metadata: { floor: true, signal_value: 0.15 },
+      }];
+    }
+
+    return items.slice(0, 8).map((item, i) => {
+      const title = item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1]
+        ?? item.match(/<title>(.*?)<\/title>/)?.[1]
+        ?? 'Legislative activity';
+      const link = item.match(/<link>(.*?)<\/link>/)?.[1] ?? '';
+      const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] ?? '';
+      const description = item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/)?.[1]
+        ?? item.match(/<description>(.*?)<\/description>/)?.[1]
+        ?? '';
+      const ts = pubDate ? new Date(pubDate).toISOString() : new Date().toISOString();
+      return {
+        sourceId: `govtrack-${Date.now()}-${i}`,
+        source: 'GovTrack',
+        title: title.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').slice(0, 200),
+        summary: description.replace(/<[^>]+>/g, '').slice(0, 300) || `US legislative event: ${title}`,
+        url: link,
+        timestamp: ts,
+        category: 'governance' as const,
+        severity: 'medium' as const,
+        metadata: { source: 'govtrack-rss' },
+      };
+    });
   } catch {
     return [];
   }
@@ -169,15 +186,15 @@ export async function fetchCoinGecko(): Promise<RawEvent[]> {
 // ── Aggregate all sources ────────────────────────────────────
 
 export async function fetchAllSources(): Promise<RawEvent[]> {
-  const [gdelt, usgs, coingecko, eveNews] = await Promise.allSettled([
-    fetchGDELT(),
+  const [govtrack, usgs, coingecko, eveNews] = await Promise.allSettled([
+    fetchGovTrack(),
     fetchUSGS(),
     fetchCoinGecko(),
     fetchEveGlobalNews().then((synthesis) => eveItemsToRawEvents(synthesis.items)),
   ]);
 
   const events: RawEvent[] = [
-    ...(gdelt.status === 'fulfilled' ? gdelt.value : []),
+    ...(govtrack.status === 'fulfilled' ? govtrack.value : []),
     ...(usgs.status === 'fulfilled' ? usgs.value : []),
     ...(coingecko.status === 'fulfilled' ? coingecko.value : []),
     ...(eveNews.status === 'fulfilled' ? eveNews.value : []),
