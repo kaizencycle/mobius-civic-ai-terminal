@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-04-30T02:03:51.861Z",
+  "agent": "AUREA",
+  "cycle": "C-296",
+  "gi_final": 0.692,
+  "gi_mode": "yellow",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": null,
+    "max": null
+  },
+  "overall_sentiment": 0.745,
+  "financial_score": 0.691,
+  "environ_score": 0.896,
+  "civic_score": 0.685,
+  "event_count_24h": 5,
+  "event_counts_by_type": {
+    "merge": 5,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "anthropic",
+  "model_name": "claude-sonnet-4-20250514",
+  "model_status": "fallback",
+  "model_error_class": "HTTP_400",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.692. The ledger registered 5 events over the last 24 hours, with the strongest visible signal in institutional. ZEUS verification status is unknown, and the heartbeat trend is unknown. Forward signal: watch narrative intake for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch narrative intake for confirmation or drift in the next cycle.",
+  "zeus_status": "unknown",
+  "heartbeat_gi_trend": "unknown",
+  "anomalies": [
+    "GDELT: 0 articles (governance+civic sample)",
+    "Reddit narrative: avg score 0 on 0 posts"
+  ]
+}
