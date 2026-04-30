@@ -49,6 +49,19 @@ async function readJournalRows(request: NextRequest, mode: string, limit: number
   if (cycle) url.searchParams.set('cycle', cycle);
 
   const response = await fetch(url, { cache: 'no-store' });
+  // C-296 OPT-8: guard Content-Type before JSON.parse — mirrors the substrate
+  // client fix; internal routes should always return JSON but this prevents a
+  // SyntaxError 500 if the upstream ever cold-starts with an HTML error page.
+  const ct = response.headers.get('content-type') ?? '';
+  if (!ct.includes('application/json')) {
+    return {
+      ok: false as const,
+      status: response.status,
+      error: `journal_non_json_response (content-type: ${ct})`,
+      entries: [] as AgentLedgerJournalEntry[],
+      source: null,
+    };
+  }
   const payload = await response.json();
   if (!response.ok || !payload?.ok) {
     return {

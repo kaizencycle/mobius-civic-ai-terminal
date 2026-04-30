@@ -173,9 +173,10 @@ export async function POST(request: NextRequest) {
   const ledgerEntries = quorumRequired ? await readLedgerRows(request) : [];
   const receipts: AdapterWriteReceipt[] = [];
 
-  for (const preview of previews) {
+  for (let i = 0; i < previews.length; i++) {
+    const preview = previews[i]!;
     const key = receiptKey(preview.journal_id);
-    const existing = await kvGet<AdapterWriteReceipt>(key);
+    const existing = existingReceipts[i];
     if (existing) {
       receipts.push({ ...existing, status: 'duplicate', reason: 'journal_already_written_to_ledger' });
       continue;

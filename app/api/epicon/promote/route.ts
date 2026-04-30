@@ -256,6 +256,9 @@ async function getLedgerRows(limit = 400): Promise<EpiconLedgerFeedEntry[]> {
 async function ensureEchoIngested(): Promise<void> {
   if (getEchoEpicon().length > 0) return;
   try {
+    // fetchAllSources uses Promise.allSettled over per-fetcher AbortSignal(10s)
+    // timeouts, so it always resolves with partial results rather than hanging
+    // forever. A caller-level race would throw before allSettled returns.
     const raw = await fetchAllSources();
     if (raw.length > 0) {
       pushIngestResult(transformBatch(raw));
@@ -375,8 +378,10 @@ async function getPromotablePending(
 
 // Stall threshold — 3 consecutive zero-promotion runs triggers a critical journal entry
 const STALL_THRESHOLD = 3;
-// Re-entry window — items promoted more than 6h ago may re-enter as a confirmation pass
-const RECHECK_WINDOW_MS = 6 * 60 * 60 * 1000;
+// OPT-07 (C-296): reduced from 6h → 2h. Live feeds (crypto prices, seismic events)
+// re-ingest the same IDs every ~45min. At 6h they permanently block new confirmation
+// passes within a cycle. 2h allows re-entry as confirmation while preventing true duplication.
+const RECHECK_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 async function writeStallJournalEntry(
   cycleId: string,

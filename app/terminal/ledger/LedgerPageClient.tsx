@@ -80,6 +80,10 @@ function sortRows(rows: LedgerEntry[], key: SortKey, dir: SortDir): LedgerEntry[
   });
 }
 
+function hasAlignedCycle(row: LedgerEntry): boolean {
+  return typeof row.cycleId === 'string' && row.cycleId.trim().length > 0 && row.cycleId !== 'C-—';
+}
+
 export default function LedgerPageClient() {
   const { data, preview, full, error, stabilizationActive } = useLedgerChamber(true);
   const [sortKey, setSortKey] = useState<SortKey>('timestamp');
@@ -92,8 +96,11 @@ export default function LedgerPageClient() {
   const deterministicCycle = currentCycleId();
   const freshness = data?.freshness;
   const activeCycle = freshness?.activeCycle ?? deterministicCycle;
-  const latestRowCycle = freshness?.latestRowCycle ?? feed?.status?.cycleId ?? rows[0]?.cycleId ?? 'C-—';
+  const latestRowCycle = freshness?.latestRowCycle ?? feed?.status?.cycleId ?? rows.find(hasAlignedCycle)?.cycleId ?? 'C-—';
   const cycleLag = freshness?.cycleLag ?? null;
+  const currentCycleRows = freshness?.currentCycleRows ?? rows.filter((row) => row.cycleId === activeCycle).length;
+  const unknownCycleRows = rows.filter((row) => !hasAlignedCycle(row)).length;
+  const staleRows = freshness?.staleRows ?? rows.filter((row) => hasAlignedCycle(row) && row.cycleId !== activeCycle).length;
   const sorted = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
   const pageCount = Math.max(1, Math.min(maxPages, Math.ceil(sorted.length / pageSize)));
   const safePage = Math.min(scrollPage, pageCount - 1);
@@ -127,7 +134,7 @@ export default function LedgerPageClient() {
             Active cycle <span className="text-cyan-200">{activeCycle}</span> · latest ledger row <span className={cycleLag && cycleLag > 0 ? 'text-rose-200' : 'text-emerald-200'}>{latestRowCycle}</span>
           </span>
           <span className="text-slate-500">
-            current rows {freshness?.currentCycleRows ?? rows.filter((row) => row.cycleId === activeCycle).length} · stale rows {freshness?.staleRows ?? rows.filter((row) => row.cycleId !== activeCycle).length}
+            current rows {currentCycleRows} · stale rows {staleRows} · unknown rows {unknownCycleRows}
           </span>
         </div>
         {cycleLag && cycleLag > 0 ? (
@@ -140,9 +147,9 @@ export default function LedgerPageClient() {
             ⚠ No entries yet for the active cycle. This is honest empty state, not a live-data failure.
           </div>
         ) : null}
-        {freshness?.warning === 'UNKNOWN_CYCLE_ROWS' ? (
+        {(freshness?.warning === 'UNKNOWN_CYCLE_ROWS' || unknownCycleRows > 0) ? (
           <div className="mt-2 rounded border border-amber-700/40 bg-amber-950/20 px-2 py-1 text-amber-200">
-            ⚠ Some ledger rows have unknown cycle metadata and cannot be aligned safely.
+            ⚠ {unknownCycleRows} ledger row{unknownCycleRows === 1 ? '' : 's'} have unknown cycle metadata and cannot be aligned safely.
           </div>
         ) : null}
       </div>

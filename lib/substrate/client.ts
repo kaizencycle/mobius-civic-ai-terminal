@@ -166,13 +166,8 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
   const attestTimestamp = new Date().toISOString();
 
   try {
-    const health = await fetch(`${LEDGER_BASE}/health`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(5000),
-      cache: 'no-store',
-    });
-    if (!health.ok) throw new Error(`ledger health ${health.status}`);
-
+    // C-296 OPT-3: removed pre-flight /health probe — it doubled the RTT to Render
+    // on every write with no recovery value (the attest call itself surfaces failures).
     const res = await fetch(`${LEDGER_BASE}/ledger/attest`, {
       method: 'POST',
       headers: {
@@ -207,6 +202,12 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
     });
 
     if (!res.ok) throw new Error(`ledger ${res.status}`);
+    // C-296 OPT-2: guard Content-Type before JSON.parse — Render cold-starts
+    // return HTML (<!doctype …>) which throws SyntaxError and causes a 500.
+    const contentType = res.headers.get('content-type') ?? '';
+    if (!contentType.includes('application/json')) {
+      throw new Error(`ledger response not JSON (content-type: ${contentType})`);
+    }
     const data = (await res.json()) as { id?: string; event_id?: string };
     const entryId = data.event_id ?? data.id ?? eventId;
 
