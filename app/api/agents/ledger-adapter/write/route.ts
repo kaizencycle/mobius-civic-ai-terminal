@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOperatorSession } from '@/lib/auth/session';
 import { createAgentAttestationSignature } from '@/lib/agents/attestation-signature';
+import { authorizeLedgerWriteByQuorum } from '@/lib/agents/quorum-trust';
 import {
   adaptAgentJournalToLedger,
   type AgentLedgerAdapterPreview,
@@ -9,6 +10,7 @@ import {
 import { kvGet, kvSet } from '@/lib/kv/store';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { writeToSubstrate, type SubstrateEntry } from '@/lib/substrate/client';
+import type { LedgerEntry } from '@/lib/terminal/types';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -98,6 +100,13 @@ async function readJournalRows(request: NextRequest, args: { mode: string; limit
   return { ok: true as const, status: response.status, entries };
 }
 
+async function readLedgerRows(request: NextRequest): Promise<LedgerEntry[]> {
+  const response = await fetch(new URL('/api/chambers/ledger', request.nextUrl.origin), { cache: 'no-store' });
+  if (!response.ok) return [];
+  const payload = await response.json();
+  return Array.isArray(payload?.events) ? payload.events : [];
+}
+
 function previewToSubstrateInput(preview: AgentLedgerAdapterPreview, options: { quorumRequired: boolean; zeusVerified: boolean }): SubstrateEntry {
   const entry = preview.ledger_entry;
   const tags = entry.tags ?? [];
@@ -161,12 +170,8 @@ export async function POST(request: NextRequest) {
     .filter((preview: AgentLedgerAdapterPreview) => preview.decision.eligible)
     .filter((preview: AgentLedgerAdapterPreview) => (journalId ? preview.journal_id === journalId : true));
 
-  // C-296 OPT-5: batch all receipt lookups in parallel instead of sequential
-  // await-in-loop — reduces KV round-trips from N serial to 1 parallel fan-out.
-  const existingReceipts = await Promise.all(
-    previews.map((preview) => kvGet<AdapterWriteReceipt>(receiptKey(preview.journal_id))),
-  );
-
+  const ledgerEntries = quorumRequired ? await readLedgerRows(request) : [];
+  const existingReceipts = await Promise.all(previews.map((preview) => kvGet<AdapterWriteReceipt>(receiptKey(preview.journal_id))));
   const receipts: AdapterWriteReceipt[] = [];
 
   for (let i = 0; i < previews.length; i++) {
@@ -176,6 +181,23 @@ export async function POST(request: NextRequest) {
     if (existing) {
       receipts.push({ ...existing, status: 'duplicate', reason: 'journal_already_written_to_ledger' });
       continue;
+    }
+
+    if (quorumRequired) {
+      const decision = authorizeLedgerWriteByQuorum(ledgerEntries, preview.agent, preview.cycle);
+      if (!decision.authorized) {
+        receipts.push({
+          journal_id: preview.journal_id,
+          ledger_entry_id: preview.ledger_entry.id,
+          external_entry_id: null,
+          agent: preview.agent,
+          cycle: preview.cycle,
+          status: 'skipped',
+          reason: `quorum_blocked:${decision.reason}`,
+          timestamp: new Date().toISOString(),
+        });
+        continue;
+      }
     }
 
     if (dryRun) {
@@ -211,7 +233,7 @@ export async function POST(request: NextRequest) {
     {
       ok: true,
       readonly: false,
-      version: 'C-295.phase10.signed-agent-ledger-write.v1',
+      version: 'C-296.phase7.quorum-gated-agent-ledger-write.v1',
       dry_run: dryRun,
       filters: {
         mode,
@@ -234,7 +256,8 @@ export async function POST(request: NextRequest) {
       canon: [
         'Controlled write endpoint only writes eligible adapter previews.',
         'Each successful write stores a dedupe receipt per journal id.',
-        'Phase 10 attaches deterministic attestation signatures to ledger payloads.',
+        'Attestation signatures are attached to ledger payloads.',
+        'When quorum_required=true, writes require quorum authority.',
         'This endpoint does not mutate Vault, MIC, Fountain, Canon, or replay state.',
       ],
       timestamp: new Date().toISOString(),

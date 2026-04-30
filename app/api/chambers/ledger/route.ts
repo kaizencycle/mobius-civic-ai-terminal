@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEchoLedger } from '@/lib/echo/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
-import type { LedgerEntry } from '@/lib/terminal/types';
+import type { LedgerCycleAlignment, LedgerEntry } from '@/lib/terminal/types';
 import { chamberSavepointKey, resolveChamberSavepoint } from '@/lib/chambers/savepoint-cache';
 
 export const dynamic = 'force-dynamic';
@@ -53,6 +53,12 @@ type LedgerPayload = {
 };
 
 type LedgerProofState = Pick<LedgerEntry, 'status' | 'statusReason' | 'proofSource' | 'canonState'>;
+
+type CycleResolution = {
+  cycleId: string;
+  cycleAlignment: LedgerCycleAlignment;
+  cycleAlignmentReason: string;
+};
 
 const CYCLE_PATTERN = /\bC-?(\d{1,5})\b/i;
 const UNKNOWN_CYCLE = 'C-—';
@@ -124,9 +130,83 @@ function buildFreshness(activeCycle: string, events: LedgerEntry[]): LedgerFresh
   };
 }
 
-function normalizeCycle(item: EpiconFeedItem): string {
-  const explicit = cleanText(item.cycle ?? item.cycleId);
-  return inferCycleFromText(explicit, item.id, item.title, item.body, item.summary, item.tags, item.source) ?? UNKNOWN_CYCLE;
+function cycleFromTimestamp(timestamp: unknown): string | null {
+  const text = cleanText(timestamp);
+  if (!text) return null;
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return null;
+  return currentCycleId(date);
+}
+
+function resolveCycleFromItem(item: EpiconFeedItem): CycleResolution {
+  const explicit = safeText(item.cycle ?? item.cycleId);
+  const explicitCycle = inferCycleFromText(explicit);
+  if (explicitCycle) {
+    return {
+      cycleId: explicitCycle,
+      cycleAlignment: 'attested',
+      cycleAlignmentReason: 'source_cycle_metadata',
+    };
+  }
+
+  const textCycle = inferCycleFromText(item.id, item.title, item.body, item.summary, item.tags, item.source);
+  if (textCycle) {
+    return {
+      cycleId: textCycle,
+      cycleAlignment: 'inferred',
+      cycleAlignmentReason: 'cycle_inferred_from_text',
+    };
+  }
+
+  const timestampCycle = cycleFromTimestamp(item.timestamp);
+  if (timestampCycle) {
+    return {
+      cycleId: timestampCycle,
+      cycleAlignment: 'inferred',
+      cycleAlignmentReason: 'cycle_inferred_from_timestamp',
+    };
+  }
+
+  return {
+    cycleId: UNKNOWN_CYCLE,
+    cycleAlignment: 'unknown',
+    cycleAlignmentReason: 'cycle_metadata_missing',
+  };
+}
+
+function resolveCycleFromEntry(entry: LedgerEntry): CycleResolution {
+  const explicitCycle = inferCycleFromText(entry.cycleId);
+  if (explicitCycle) {
+    return {
+      cycleId: explicitCycle,
+      cycleAlignment: entry.cycleAlignment ?? 'attested',
+      cycleAlignmentReason: entry.cycleAlignmentReason ?? 'echo_cycle_metadata',
+    };
+  }
+
+  const textCycle = inferCycleFromText(entry.id, entry.title, entry.summary, entry.tags, entry.source);
+  if (textCycle) {
+    return {
+      cycleId: textCycle,
+      cycleAlignment: 'inferred',
+      cycleAlignmentReason: 'cycle_inferred_from_echo_text',
+    };
+  }
+
+  const timestampCycle = cycleFromTimestamp(entry.timestamp);
+  if (timestampCycle) {
+    return {
+      cycleId: timestampCycle,
+      cycleAlignment: 'inferred',
+      cycleAlignmentReason: 'cycle_inferred_from_echo_timestamp',
+    };
+  }
+
+  return {
+    cycleId: UNKNOWN_CYCLE,
+    cycleAlignment: 'unknown',
+    cycleAlignmentReason: 'echo_cycle_metadata_missing',
+  };
 }
 
 function normalizeTimestamp(input: unknown): string {
@@ -181,9 +261,12 @@ function normalizeSource(input: unknown): LedgerEntry['source'] {
 function epiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry {
   const timestamp = normalizeTimestamp(item.timestamp);
   const proofState = normalizeProofState(item);
+  const cycle = resolveCycleFromItem(item);
   return {
     id: safeText(item.id) ?? `epicon-feed-${idx}-${timestamp}`,
-    cycleId: normalizeCycle(item),
+    cycleId: cycle.cycleId,
+    cycleAlignment: cycle.cycleAlignment,
+    cycleAlignmentReason: cycle.cycleAlignmentReason,
     type: 'epicon',
     agentOrigin: normalizeAgent(item),
     timestamp,
@@ -205,10 +288,12 @@ function safeEpiconToLedgerEntry(item: EpiconFeedItem, idx: number): LedgerEntry
 function annotateEchoEntry(entry: LedgerEntry): LedgerEntry {
   const committed = entry.status === 'committed';
   const reverted = entry.status === 'reverted';
-  const inferredCycle = inferCycleFromText(entry.cycleId, entry.id, entry.title, entry.summary, entry.tags, entry.source) ?? UNKNOWN_CYCLE;
+  const cycle = resolveCycleFromEntry(entry);
   return {
     ...entry,
-    cycleId: inferredCycle,
+    cycleId: cycle.cycleId,
+    cycleAlignment: cycle.cycleAlignment,
+    cycleAlignmentReason: cycle.cycleAlignmentReason,
     statusReason: entry.statusReason ?? (reverted ? 'echo_memory_reverted' : committed ? 'echo_memory_committed' : 'echo_memory_pending'),
     proofSource: entry.proofSource ?? 'echo_memory',
     canonState: entry.canonState ?? (reverted ? 'blocked' : committed ? 'candidate' : 'hot'),

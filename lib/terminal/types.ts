@@ -135,9 +135,15 @@ export type CommandResult = {
 
 // ── Mobius-Substrate types ────────────────────────────────────
 
+export type LedgerCycleAlignment = 'attested' | 'inferred' | 'unknown';
+
 export type LedgerEntry = {
   id: string;
   cycleId: string;
+  /** Whether cycleId came from source metadata, safe inference, or remains unknown. */
+  cycleAlignment?: LedgerCycleAlignment;
+  /** Human-readable source for cycle alignment decisions. */
+  cycleAlignmentReason?: string;
   type: 'epicon' | 'attestation' | 'shard' | 'ubi' | 'settlement';
   agentOrigin: string;
   timestamp: string;
