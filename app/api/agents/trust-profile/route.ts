@@ -1,33 +1,35 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import type { LedgerEntry } from '@/lib/terminal/types';
 import { computeLedgerTrustProfile, summarizeAgentTrust } from '@/lib/agents/trust-weight';
 
-async function fetchLedger(): Promise<LedgerEntry[]> {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || '';
-  const res = await fetch(`${base}/api/chambers/ledger`, { cache: 'no-store' });
+async function fetchLedger(request: NextRequest): Promise<LedgerEntry[]> {
+  const url = new URL('/api/chambers/ledger', request.nextUrl.origin);
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error('ledger fetch failed');
   const json = await res.json();
-  return json?.entries || [];
+  return Array.isArray(json?.events) ? json.events : [];
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const entries = await fetchLedger();
+    const entries = await fetchLedger(request);
 
-    const enriched = entries.map((e) => ({
-      ...e,
-      trust: computeLedgerTrustProfile(e),
+    const enriched = entries.map((entry) => ({
+      ...entry,
+      trust: computeLedgerTrustProfile(entry),
     }));
 
     const agents = summarizeAgentTrust(entries);
 
     return NextResponse.json({
       ok: true,
+      version: 'C-296.phase6.agent-trust-profile.v1',
       count: entries.length,
       agents,
       sample: enriched.slice(0, 25),
+      timestamp: new Date().toISOString(),
     });
-  } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || 'unknown' }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : 'unknown' }, { status: 500 });
   }
 }
