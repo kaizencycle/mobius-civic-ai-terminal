@@ -99,9 +99,10 @@ export default function LedgerPageClient() {
   const activeCycle = freshness?.activeCycle ?? deterministicCycle;
   const latestRowCycle = freshness?.latestRowCycle ?? feed?.status?.cycleId ?? rows.find(hasAlignedCycle)?.cycleId ?? 'C-—';
   const cycleLag = freshness?.cycleLag ?? null;
-  const currentCycleRows = freshness?.currentCycleRows ?? rows.filter((row) => row.cycleId === activeCycle).length;
+  const currentCycleRows = rows.filter((row) => hasAlignedCycle(row) && row.cycleId === activeCycle).length;
   const unknownCycleRows = rows.filter((row) => !hasAlignedCycle(row)).length;
-  const staleRows = freshness?.staleRows ?? rows.filter((row) => hasAlignedCycle(row) && row.cycleId !== activeCycle).length;
+  const staleRows = rows.filter((row) => hasAlignedCycle(row) && row.cycleId !== activeCycle).length;
+  const freshnessInvariantOk = currentCycleRows + staleRows + unknownCycleRows === rows.length;
   const sorted = useMemo(() => sortRows(rows, sortKey, sortDir), [rows, sortKey, sortDir]);
   const pageCount = Math.max(1, Math.min(maxPages, Math.ceil(sorted.length / pageSize)));
   const safePage = Math.min(scrollPage, pageCount - 1);
@@ -151,6 +152,11 @@ export default function LedgerPageClient() {
         {(freshness?.warning === 'UNKNOWN_CYCLE_ROWS' || unknownCycleRows > 0) ? (
           <div className="mt-2 rounded border border-amber-700/40 bg-amber-950/20 px-2 py-1 text-amber-200">
             ⚠ {unknownCycleRows} ledger row{unknownCycleRows === 1 ? '' : 's'} have unknown cycle metadata and cannot be aligned safely.
+          </div>
+        ) : null}
+        {!freshnessInvariantOk ? (
+          <div className="mt-2 rounded border border-rose-700/40 bg-rose-950/20 px-2 py-1 text-rose-200">
+            ⚠ Freshness invariant violated: current + stale + unknown does not equal total rows.
           </div>
         ) : null}
       </div>
