@@ -25,13 +25,19 @@ const KEY_TO_ROUTE: Record<string, string> = {
   '7': '/terminal/vault',
 };
 
+function shouldHandleShortcut(event: KeyboardEvent) {
+  const usesAlt = event.altKey;
+  const usesCommandOrCtrl = event.metaKey || event.ctrlKey;
+  return usesAlt || usesCommandOrCtrl;
+}
+
 export default function ChamberSwitcher() {
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.altKey) return;
+      if (!shouldHandleShortcut(event)) return;
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;

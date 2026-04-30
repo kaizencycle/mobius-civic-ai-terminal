@@ -11,6 +11,7 @@ import { useShellSnapshot } from '@/hooks/useShellSnapshot';
 import { useLaneDiagnosticsChamber } from '@/hooks/useLaneDiagnosticsChamber';
 import { cn } from '@/lib/utils';
 import type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
+import { usePathname } from 'next/navigation';
 
 const SHELL_URL = 'https://mobius-browser-shell.vercel.app';
 
@@ -21,6 +22,7 @@ function runtimeBadgeClass(runtime: 'online' | 'degraded' | 'offline') {
 }
 
 export default function TerminalShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [clock, setClock] = useState('—');
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
   const [showDataflowCommand, setShowDataflowCommand] = useState(true);
@@ -89,6 +91,12 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
     window.addEventListener('mobius:console-toggle', handler as EventListener);
     return () => window.removeEventListener('mobius:console-toggle', handler as EventListener);
   }, []);
+
+  useEffect(() => {
+    const section = pathname.split('/').filter(Boolean).at(-1) ?? 'terminal';
+    const chamberName = section.charAt(0).toUpperCase() + section.slice(1);
+    document.title = `Mobius Terminal · ${chamberName}`;
+  }, [pathname]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#020617] text-slate-100">
