@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import ChamberSwitcher from '@/components/terminal/ChamberSwitcher';
 import OnboardingOverlay from '@/components/terminal/OnboardingOverlay';
 import ShellBridgeBanner from '@/components/terminal/ShellBridgeBanner';
@@ -14,6 +15,19 @@ import type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
 
 const SHELL_URL = 'https://mobius-browser-shell.vercel.app';
 
+function pathnameToLabel(pathname: string): string | null {
+  if (pathname.startsWith('/terminal/globe')) return 'Globe';
+  if (pathname.startsWith('/terminal/pulse')) return 'Pulse';
+  if (pathname.startsWith('/terminal/signals')) return 'Signals';
+  if (pathname.startsWith('/terminal/sentinel')) return 'Sentinel';
+  if (pathname.startsWith('/terminal/ledger')) return 'Ledger';
+  if (pathname.startsWith('/terminal/journal')) return 'Journal';
+  if (pathname.startsWith('/terminal/vault')) return 'Vault';
+  if (pathname.startsWith('/terminal/canon')) return 'Vault Canon';
+  if (pathname.startsWith('/terminal/replay')) return 'Vault Replay';
+  return null;
+}
+
 function runtimeBadgeClass(runtime: 'online' | 'degraded' | 'offline') {
   if (runtime === 'online') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
   if (runtime === 'degraded') return 'border-amber-500/40 bg-amber-500/10 text-amber-200';
@@ -21,6 +35,7 @@ function runtimeBadgeClass(runtime: 'online' | 'degraded' | 'offline') {
 }
 
 export default function TerminalShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [clock, setClock] = useState('—');
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
   const [showDataflowCommand, setShowDataflowCommand] = useState(true);
@@ -76,6 +91,13 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
       } as unknown as SnapshotLaneState;
     });
   }, [laneDiagnostics.data]);
+
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const active = pathnameToLabel(pathname);
+    document.title = active ? `Mobius Terminal · ${active}` : 'Mobius Terminal';
+  }, [pathname]);
 
   useEffect(() => {
     const stored = localStorage.getItem('mobius_console_collapsed');
