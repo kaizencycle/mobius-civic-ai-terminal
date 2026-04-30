@@ -11,6 +11,7 @@ import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { defaultPromotionState, getPromotionState, savePromotionState } from '@/lib/epicon/promotion';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 import { getAgentBearerToken, writeToSubstrate } from '@/lib/substrate/client';
+import { kvDel, kvGet, kvSet } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,20 @@ type PromotionTrace = {
   promoter_eligible_count: number;
   promoter_excluded_reasons: Record<ExclusionReason, number>;
   promoted_ids_this_cycle: string[];
+  rechecked_ids_this_cycle?: string[];
 };
+
+type PromotionDedupEntry = {
+  promotedAt: string;
+  cycle: string;
+  confidenceTier: number;
+};
+
+type PromotionDedupMap = Record<string, PromotionDedupEntry>;
+
+const CYCLE_DEDUP_TTL_SECONDS = 60 * 60 * 72;
+const RECHECK_WINDOW_HOURS = 6;
+const PROMOTION_STALL_THRESHOLD = 3;
 
 const AGENT_ROUTING: Record<EpiconItem['category'], Agent[]> = {
   market: ['HERMES', 'ZEUS', 'AUREA'],
@@ -260,9 +274,10 @@ async function ensureEchoIngested(): Promise<void> {
 }
 
 async function getPromotablePending(
-  state: PromotionState,
   nowIso: string,
+  dedupMap: PromotionDedupMap,
   promotedIdsThisCycle: string[] = [],
+  recheckedIdsThisCycle: string[] = [],
 ): Promise<{ pending: EpiconItem[]; trace: PromotionTrace }> {
   await ensureEchoIngested();
   const fromLedger = await getLedgerPendingEpicon();
@@ -313,6 +328,7 @@ async function getPromotablePending(
     });
   }
   const allCandidates = [...mergedById.values()];
+  const nowMs = new Date(nowIso).getTime();
 
   console.info('[epicon/promote] promoter_input_candidates', {
     count: allCandidates.length,
@@ -332,9 +348,13 @@ async function getPromotablePending(
       excluded.category_not_promotable += 1;
       continue;
     }
-    if (state[item.id]?.promotion_state === 'promoted') {
-      excluded.already_promoted += 1;
-      continue;
+    const dedup = dedupMap[item.id];
+    if (dedup) {
+      const ageHours = (nowMs - new Date(dedup.promotedAt).getTime()) / 3_600_000;
+      if (Number.isFinite(ageHours) && ageHours < RECHECK_WINDOW_HOURS) {
+        excluded.already_promoted += 1;
+        continue;
+      }
     }
     pendingById.set(item.id, item);
   }
@@ -355,19 +375,25 @@ async function getPromotablePending(
       promoter_eligible_count: pending.length,
       promoter_excluded_reasons: excluded,
       promoted_ids_this_cycle: promotedIdsThisCycle,
+      rechecked_ids_this_cycle: recheckedIdsThisCycle,
     },
   };
 }
 
 async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: string, state: PromotionState) {
-  const promotable = await getPromotablePending(state, nowIso);
+  const dedupKey = `epicon:promotion:dedup:${cycleId}`;
+  const stallKey = `epicon:promotion:stall:${cycleId}`;
+  const dedupMap = (await kvGet<PromotionDedupMap>(dedupKey)) ?? {};
+  const promotable = await getPromotablePending(nowIso, dedupMap);
   const pending = promotable.pending.slice(0, maxItems);
   let promoted = 0;
+  let rechecked = 0;
   let committed = 0;
   let failed = 0;
   let failedCommits = 0;
   let seq = 1;
   const promotedIdsThisCycle: string[] = [];
+  const recheckedIdsThisCycle: string[] = [];
 
   const agentToken = getAgentBearerToken();
   const ledgerReady = agentToken.length > 0;
@@ -380,6 +406,11 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
   for (const epicon of pending) {
     const existing = state[epicon.id] ?? defaultPromotionState(nowIso);
     const assignedAgents = AGENT_ROUTING[epicon.category] ?? ['ZEUS'];
+    const existingDedup = dedupMap[epicon.id];
+    const dedupAgeHours = existingDedup
+      ? (new Date(nowIso).getTime() - new Date(existingDedup.promotedAt).getTime()) / 3_600_000
+      : Number.POSITIVE_INFINITY;
+    const isRecheck = Boolean(existingDedup) && Number.isFinite(dedupAgeHours) && dedupAgeHours >= RECHECK_WINDOW_HOURS;
 
     if (existing.promotion_state === 'promoted' && existing.assigned_agents.length > 0) {
       continue;
@@ -478,8 +509,18 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
 
       if (anyCommitSucceeded || allAgentsSatisfied) {
         existing.promotion_state = 'promoted';
-        promoted += 1;
-        promotedIdsThisCycle.push(epicon.id);
+        dedupMap[epicon.id] = {
+          promotedAt: nowIso,
+          cycle: cycleId,
+          confidenceTier: epicon.confidenceTier,
+        };
+        if (isRecheck) {
+          rechecked += 1;
+          recheckedIdsThisCycle.push(epicon.id);
+        } else {
+          promoted += 1;
+          promotedIdsThisCycle.push(epicon.id);
+        }
       } else {
         existing.promotion_state = ledgerReady ? 'failed' : 'pending';
         existing.failed_attempts += 1;
@@ -494,16 +535,33 @@ async function runPromotionCycle(maxItems: number, nowIso: string, cycleId: stri
     state[epicon.id] = existing;
   }
 
+  await kvSet(dedupKey, dedupMap, CYCLE_DEDUP_TTL_SECONDS);
+  if (promoted === 0 && rechecked === 0 && pending.length > 0) {
+    const stallCount = ((await kvGet<number>(stallKey)) ?? 0) + 1;
+    await kvSet(stallKey, stallCount, CYCLE_DEDUP_TTL_SECONDS);
+    if (stallCount >= PROMOTION_STALL_THRESHOLD) {
+      console.error('[epicon/promote] PROMOTION_LANE_STALL', {
+        cycleId,
+        stallCount,
+        pending: pending.length,
+        excluded: promotable.trace.promoter_excluded_reasons,
+      });
+    }
+  } else {
+    await kvDel(stallKey);
+  }
+
   await savePromotionState(state);
-  const postRun = await getPromotablePending(state, nowIso, promotedIdsThisCycle);
-  return { pending, promoted, committed, failed, failedCommits, trace: postRun.trace };
+  const postRun = await getPromotablePending(nowIso, dedupMap, promotedIdsThisCycle, recheckedIdsThisCycle);
+  return { pending, promoted, rechecked, committed, failed, failedCommits, trace: postRun.trace };
 }
 
 export async function GET() {
   const nowIso = new Date().toISOString();
   const cycleId = currentCycleId();
   const state = await getPromotionState();
-  const promotable = await getPromotablePending(state, nowIso);
+  const dedupMap = (await kvGet<PromotionDedupMap>(`epicon:promotion:dedup:${cycleId}`)) ?? {};
+  const promotable = await getPromotablePending(nowIso, dedupMap);
   const pending = promotable.pending;
 
   let promotedThisCycle = 0;
@@ -574,6 +632,7 @@ export async function POST(request: NextRequest) {
     cycleId,
     processed: run.pending.length,
     promoted: run.promoted,
+    rechecked: run.rechecked,
     committed: run.committed,
     failed: run.failed,
     failedCommits: run.failedCommits,

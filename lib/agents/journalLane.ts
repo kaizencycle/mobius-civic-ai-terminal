@@ -4,8 +4,9 @@ import { bumpTerminalWatermark } from '@/lib/terminal/watermark';
 import type { SubstrateJournalWriteInput } from '@/lib/substrate/github-journal';
 
 const KEY_ALL = 'journal:all';
-const MAX_LIST_ENTRIES = 200;
+const MAX_LIST_ENTRIES_DEFAULT = 1200;
 const IDEMPOTENCY_TTL_SECONDS = 60 * 60 * 24 * 14;
+const TRIM_EVENT_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 export type AgentJournalLaneEntry = {
   id: string;
@@ -44,6 +45,12 @@ export function getJournalRedisClient(): Redis | null {
   const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
   return new Redis({ url, token });
+}
+
+function journalListCap(): number {
+  const raw = Number(process.env.JOURNAL_LIVE_LIST_MAX ?? MAX_LIST_ENTRIES_DEFAULT);
+  if (!Number.isFinite(raw)) return MAX_LIST_ENTRIES_DEFAULT;
+  return Math.max(200, Math.min(Math.floor(raw), 10_000));
 }
 
 function normalizeDerivedFrom(derivedFrom: string[]): string[] {
@@ -128,11 +135,35 @@ export async function appendJournalLaneEntry(
 
   const packed = JSON.stringify(entry);
   const agentKey = `journal:${agent.toLowerCase()}`;
+  const maxListEntries = journalListCap();
+
+  const [allLen, agentLen] = await Promise.all([
+    redis.llen(KEY_ALL).catch(() => 0),
+    redis.llen(agentKey).catch(() => 0),
+  ]);
 
   await redis.lpush(KEY_ALL, packed);
-  await redis.ltrim(KEY_ALL, 0, MAX_LIST_ENTRIES - 1);
+  await redis.ltrim(KEY_ALL, 0, maxListEntries - 1);
   await redis.lpush(agentKey, packed);
-  await redis.ltrim(agentKey, 0, MAX_LIST_ENTRIES - 1);
+  await redis.ltrim(agentKey, 0, maxListEntries - 1);
+
+  if (allLen >= maxListEntries) {
+    const trimCountKey = 'journal:all:trim_count';
+    const trimLastAtKey = 'journal:all:trim_last_at';
+    await Promise.all([
+      redis.incr(trimCountKey),
+      redis.set(trimLastAtKey, new Date().toISOString(), { ex: TRIM_EVENT_TTL_SECONDS }),
+    ]);
+  }
+
+  if (agentLen >= maxListEntries) {
+    const trimCountKey = `${agentKey}:trim_count`;
+    const trimLastAtKey = `${agentKey}:trim_last_at`;
+    await Promise.all([
+      redis.incr(trimCountKey),
+      redis.set(trimLastAtKey, new Date().toISOString(), { ex: TRIM_EVENT_TTL_SECONDS }),
+    ]);
+  }
   await bumpTerminalWatermark(redis, 'journal', {
     cycle,
     status: canonEnabled ? 'pending' : 'hot',

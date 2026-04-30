@@ -458,6 +458,14 @@ export async function GET(request: NextRequest) {
   const subMax = maxTs(substrateEntries);
   const archiveStale =
     substrateEntries.length > 0 && kvMax > 0 && subMax > 0 && kvMax - subMax > 60 * 60 * 1000;
+  const journalListCapRaw = Number(process.env.JOURNAL_LIVE_LIST_MAX ?? 1200);
+  const journalListCap = Number.isFinite(journalListCapRaw) ? Math.max(200, Math.min(Math.floor(journalListCapRaw), 10_000)) : 1200;
+  const [trimCount, trimLastAt] = redis
+    ? await Promise.all([
+        redis.get<number>('journal:all:trim_count').catch(() => 0),
+        redis.get<string>('journal:all:trim_last_at').catch(() => null),
+      ])
+    : [0, null];
 
   return NextResponse.json(
     {
@@ -478,6 +486,11 @@ export async function GET(request: NextRequest) {
       archive_stale: archiveStale,
       hot_authoritative: mode === 'hot' || mode === 'merged',
       archive_enriching: mode === 'merged' && (substrateEntries.length > 0 || Boolean(substrateError)),
+      journal_window: {
+        list_cap: journalListCap,
+        trim_count: typeof trimCount === 'number' ? trimCount : 0,
+        trim_last_at: typeof trimLastAt === 'string' ? trimLastAt : null,
+      },
     },
     {
       headers: {
