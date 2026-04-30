@@ -43,6 +43,19 @@ export async function GET(req: NextRequest) {
       console.warn('[mic-readiness] local snapshot hydrate failed:', e instanceof Error ? e.message : e);
     }
   }
+  // OPT-08 (C-296): MIC_READINESS_FEED was dark for 3 cycles — the feed key is only
+  // written on POST (tokenomics-engine push). Write it on every GET so the feed key
+  // stays fresh even when no upstream POST arrives.
+  try {
+    const feedEntry = JSON.stringify({
+      snapshot: readiness,
+      received_at: new Date().toISOString(),
+      source: 'terminal-readiness-get',
+    });
+    await kvLpushCapped(KV_KEYS.MIC_READINESS_FEED, feedEntry, 100);
+  } catch (e) {
+    console.warn('[mic-readiness] MIC_READINESS_FEED write failed:', e instanceof Error ? e.message : e);
+  }
   try {
     await persistResolvedReplayPressureToKv(readiness.replay.replayPressure);
   } catch (e) {

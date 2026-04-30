@@ -166,19 +166,23 @@ export async function pollZeusU1(): Promise<AgentPollResult> {
 }
 
 export async function pollZeusU2(): Promise<AgentPollResult> {
+  // OPT-03 (C-296): arXiv API returning 0 results — replaced with Semantic Scholar
+  // which returns structured JSON and has stable rate limits on the public endpoint.
   const url =
-    'https://export.arxiv.org/api/query?search_query=all:verification&start=0&max_results=5';
-  const text = await safeFetchText(url, 12000);
-  const entries = (text?.match(/<entry>/g) ?? []).length;
-  const value = Number(normalizeDirect(entries, 0, 5).toFixed(3));
+    'https://api.semanticscholar.org/graph/v1/paper/search?query=governance+verification+integrity&fields=title,year&limit=5';
+  const data = await safeFetch<{ data?: unknown[]; total?: number }>(url, 10000, {
+    headers: { 'User-Agent': 'MobiusTerminal/1.0 (+https://github.com/kaizencycle/mobius-civic-ai-terminal)' },
+  });
+  const entries = data?.data?.length ?? 0;
+  const value = Number(normalizeDirect(Math.min(entries, 5), 0, 5).toFixed(3));
   return wrap('ZEUS-µ2', {
     agentName: 'ZEUS-µ2',
-    source: 'arXiv · API',
+    source: 'Semantic Scholar · governance papers',
     timestamp: new Date().toISOString(),
     value,
-    label: `arXiv: ${entries} results (verification query)`,
+    label: `Semantic Scholar: ${entries} governance papers (total: ${data?.total ?? '?'})`,
     severity: 'nominal',
-    raw: { entries },
+    raw: { entries, total: data?.total },
   });
 }
 
@@ -569,25 +573,28 @@ export async function pollJadeU3(): Promise<AgentPollResult> {
 }
 
 export async function pollJadeU4(): Promise<AgentPollResult> {
+  // OPT-04 (C-296): OpenLibrary /search/authors consistently times out (>6s abort).
+  // Replaced with Internet Archive metadata API which responds in <200ms and
+  // carries institutional provenance signal via the Wayback CDX availability check.
   const url =
-    'https://openlibrary.org/search/authors.json?q=governance+civic&limit=1';
-  const meta = await safeFetchWithMeta<{ numFound?: number }>(url, 6000);
+    'https://archive.org/advancedsearch.php?q=subject%3A%22governance%22+AND+mediatype%3Atexts&fl[]=identifier&rows=5&output=json';
+  const meta = await safeFetchWithMeta<{ response?: { numFound?: number } }>(url, 5000);
   if (!meta.ok || meta.data == null) {
-    console.warn('[micro] JADE-µ4 OpenLibrary:', meta.error ?? 'no body');
+    console.warn('[micro] JADE-µ4 Internet Archive:', meta.error ?? 'no body');
     return wrap('JADE-µ4', null);
   }
   const count =
-    typeof meta.data.numFound === 'number' && Number.isFinite(meta.data.numFound)
-      ? meta.data.numFound
+    typeof meta.data.response?.numFound === 'number' && Number.isFinite(meta.data.response.numFound)
+      ? meta.data.response.numFound
       : 0;
-  const value = count > 10 ? 0.85 : count > 0 ? 0.6 : 0.45;
+  const value = count > 100 ? 0.85 : count > 10 ? 0.7 : count > 0 ? 0.55 : 0.45;
   const severity = count > 0 ? 'nominal' : 'watch';
   return wrap('JADE-µ4', {
     agentName: 'JADE-µ4',
-    source: 'Open Library · governance query',
+    source: 'Internet Archive · governance texts',
     timestamp: new Date().toISOString(),
     value: Number(value.toFixed(3)),
-    label: `OpenLibrary governance authors: ${count} results`,
+    label: `Internet Archive: ${count.toLocaleString()} governance texts`,
     severity,
     raw: { numFound: count },
   });

@@ -3,6 +3,7 @@
  */
 
 import { computeGI } from '@/lib/gi/compute';
+import { getGiMode } from '@/lib/gi/mode';
 import type { GIMode } from '@/lib/gi/mode';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getEchoEpicon } from '@/lib/echo/store';
@@ -189,6 +190,10 @@ export async function getLiveIntegritySnapshot(): Promise<{ global_integrity: nu
 /**
  * Recompute GI from in-process heartbeat + ECHO store and persist to KV (C-280 cron).
  * Bypasses KV read cache so freshness signal updates on a schedule.
+ *
+ * OPT-06 (C-296): GI hysteresis — rise immediately, fall only after 3 consecutive
+ * below-threshold readings. Prevents single bad freshness polls from dropping GI
+ * from 0.71 to 0.61 in one tick (observed 00:45 UTC swing this cycle).
  */
 export async function recomputeAndSaveGIState(): Promise<GIState | null> {
   if (!isRedisAvailable()) return null;
@@ -213,16 +218,39 @@ export async function recomputeAndSaveGIState(): Promise<GIState | null> {
     ? 'GI computed from baseline signals (ECHO cold-start — awaiting fresh ingest)'
     : computed.primary_driver;
 
-  const giState: GIState = {
-    global_integrity: computed.global_integrity,
-    mode: computed.mode,
-    terminal_status: computed.terminal_status,
-    primary_driver: driver,
+  // Hysteresis: read previous GI from KV carry-forward. If the new value is lower,
+  // only accept it after 3 consecutive below-previous readings (tracked in GI_STATE).
+  const prev = await loadGIStateCarry();
+  let finalGi = computed.global_integrity;
+  let hysteresisDropCount = 0;
+  if (prev && typeof prev.global_integrity === 'number') {
+    const prevGi = prev.global_integrity;
+    if (computed.global_integrity < prevGi) {
+      const existingCount: number =
+        typeof (prev as GIState & { gi_drop_count?: number }).gi_drop_count === 'number'
+          ? ((prev as GIState & { gi_drop_count?: number }).gi_drop_count ?? 0)
+          : 0;
+      hysteresisDropCount = existingCount + 1;
+      if (hysteresisDropCount < 3) {
+        // Not enough consecutive drops — keep previous GI value
+        finalGi = prevGi;
+      }
+    }
+  }
+
+  const giState: GIState & { gi_drop_count?: number } = {
+    global_integrity: Number(finalGi.toFixed(4)),
+    mode: getGiMode(finalGi),
+    terminal_status: finalGi >= 0.7 ? 'nominal' : finalGi >= 0.5 ? 'stressed' : 'critical',
+    primary_driver: hysteresisDropCount > 0 && hysteresisDropCount < 3
+      ? `${driver} (hysteresis: drop ${hysteresisDropCount}/3)`
+      : driver,
     source,
     gi_write_source: 'integrity',
     signals: computed.signals,
     timestamp: computed.timestamp,
+    ...(hysteresisDropCount > 0 ? { gi_drop_count: hysteresisDropCount } : {}),
   };
-  await saveGIState(giState);
-  return giState;
+  await saveGIState(giState as GIState);
+  return giState as GIState;
 }
