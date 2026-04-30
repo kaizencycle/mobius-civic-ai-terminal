@@ -218,9 +218,10 @@ export async function recomputeAndSaveGIState(): Promise<GIState | null> {
     ? 'GI computed from baseline signals (ECHO cold-start — awaiting fresh ingest)'
     : computed.primary_driver;
 
-  // Hysteresis: read previous GI from KV carry-forward. If the new value is lower,
-  // only accept it after 3 consecutive below-previous readings (tracked in GI_STATE).
-  const prev = await loadGIStateCarry();
+  // Hysteresis: read previous GI from the primary gi:latest key (not carry-forward which
+  // only refreshes hourly). P1 fix: using the carry key caused stale reads that reset
+  // gi_drop_count on consecutive runs, preventing drops from ever accumulating to 3.
+  const prev = await loadGIState();
   let finalGi = computed.global_integrity;
   let hysteresisDropCount = 0;
   if (prev && typeof prev.global_integrity === 'number') {
@@ -238,10 +239,16 @@ export async function recomputeAndSaveGIState(): Promise<GIState | null> {
     }
   }
 
+  const finalMode = getGiMode(finalGi);
+  // P1 fix: align terminal_status thresholds with getGiMode (0.8/0.6) not 0.7/0.5
+  // to avoid contradictory states (e.g. GI 0.75 = mode:yellow but status:nominal).
+  const finalTerminalStatus: GIState['terminal_status'] =
+    finalMode === 'green' ? 'nominal' : finalMode === 'yellow' ? 'stressed' : 'critical';
+
   const giState: GIState & { gi_drop_count?: number } = {
     global_integrity: Number(finalGi.toFixed(4)),
-    mode: getGiMode(finalGi),
-    terminal_status: finalGi >= 0.7 ? 'nominal' : finalGi >= 0.5 ? 'stressed' : 'critical',
+    mode: finalMode,
+    terminal_status: finalTerminalStatus,
     primary_driver: hysteresisDropCount > 0 && hysteresisDropCount < 3
       ? `${driver} (hysteresis: drop ${hysteresisDropCount}/3)`
       : driver,

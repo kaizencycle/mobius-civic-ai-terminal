@@ -39,6 +39,7 @@ import { VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
 import { bearerMatchesToken } from '@/lib/vault-v2/auth';
 import { backAttestSeal, buildBackAttestRationale } from '@/lib/vault-v2/back-attest';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
+import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
 
 export const dynamic = 'force-dynamic';
 
@@ -254,7 +255,11 @@ export async function GET(req: NextRequest) {
                 rationale: buildBackAttestRationale(agent, sealDigest.seal_id),
                 posture: agent === 'AUREA' ? 'cautionary' : undefined,
               });
-              if (r.ok && r.transition === 'attested') break;
+              if (r.ok && r.transition === 'attested') {
+                // P2 fix: back-attest path bypasses finalizeSeal, so relief must fire here too
+                void releaseReplayPressureForAttestedSeal().catch(() => {});
+                break;
+              }
             } catch (e) {
               errors.push(`back-attest ${sealDigest.seal_id}/${agent}: ${e instanceof Error ? e.message : String(e)}`);
             }
