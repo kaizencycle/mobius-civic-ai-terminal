@@ -171,6 +171,7 @@ export async function POST(request: NextRequest) {
     .filter((preview: AgentLedgerAdapterPreview) => (journalId ? preview.journal_id === journalId : true));
 
   const ledgerEntries = quorumRequired ? await readLedgerRows(request) : [];
+  const existingReceipts = await Promise.all(previews.map((preview) => kvGet<AdapterWriteReceipt>(receiptKey(preview.journal_id))));
   const receipts: AdapterWriteReceipt[] = [];
 
   for (let i = 0; i < previews.length; i++) {
