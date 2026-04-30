@@ -157,13 +157,22 @@ export default function VaultPage() {
   const [contrib, setContrib] = useState<ContributionsPayload | null>(null);
   const [contribErr, setContribErr] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const focusCycle = currentCycleId();
 
   useEffect(() => {
     void fetch('/api/vault/status', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((j: VaultPayload) => setData(j))
-      .catch(() => setErr('Unable to load vault status'));
+      .then(async (r) => {
+        const j = (await r.json()) as VaultPayload & { error?: string };
+        if (!r.ok || !j.ok) {
+          setErr(j.error ?? `Vault status unavailable (HTTP ${r.status})`);
+          setData(j);
+          return;
+        }
+        setData(j);
+      })
+      .catch(() => setErr('Unable to load vault status'))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -185,8 +194,9 @@ export default function VaultPage() {
       });
   }, [focusCycle]);
 
+  if (loading) return <div className="p-4 text-sm text-slate-400">Loading vault…</div>;
   if (err) return <div className="p-4 text-sm text-rose-300">{err}</div>;
-  if (!data?.ok) return <div className="p-4 text-sm text-slate-400">Loading vault…</div>;
+  if (!data?.ok) return <div className="p-4 text-sm text-amber-300">Vault status endpoint returned no usable payload. Check /api/vault/status and upstream vault lane health.</div>;
 
   const v1Bal = data.balance_reserve ?? 0;
   const block = data.reserve_block ?? fallbackReserveBlock(data);
