@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { routeTask, type RouterRoute } from '@/lib/router/decision';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -20,6 +21,15 @@ type AgentDecision = {
   confidence: number;
   reasoning: string;
   inputs: string[];
+};
+
+type RoutedAgentDecision = AgentDecision & {
+  router: {
+    route: RouterRoute;
+    reason: string;
+    verified_required: boolean;
+    enforced: false;
+  };
 };
 
 async function getJson<T extends JsonObject>(request: NextRequest, path: string): Promise<FetchResult<T>> {
@@ -50,6 +60,36 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
 
+function routerTaskForDecision(decision: AgentDecision) {
+  const affectsLedger = decision.action === 'verify' || decision.action === 'attest' || decision.action === 'replay_check';
+  const highImpact = decision.priority === 'critical' || decision.priority === 'high' || decision.action === 'stabilize' || decision.action === 'escalate';
+  const repetitive = decision.action === 'observe';
+  const privateTask = decision.inputs.some((input) => input.includes('vault') || input.includes('canon') || input.includes('replay'));
+  return {
+    type: `agent:${decision.agent}:${decision.action}`,
+    agent: decision.agent,
+    affectsLedger,
+    highImpact,
+    repetitive,
+    private: privateTask,
+  };
+}
+
+function annotateWithRouter(decisions: AgentDecision[]): RoutedAgentDecision[] {
+  return decisions.map((decision) => {
+    const routed = routeTask(routerTaskForDecision(decision));
+    return {
+      ...decision,
+      router: {
+        route: routed.route,
+        reason: routed.reason,
+        verified_required: routed.verified_required,
+        enforced: false,
+      },
+    };
+  });
+}
+
 function decideAgents(signalExplain: JsonObject | null, vaultContext: JsonObject | null): AgentDecision[] {
   const signalSnapshot = signalExplain?.signal_snapshot as JsonObject | null | undefined;
   const giState = signalExplain?.gi_state as JsonObject | null | undefined;
@@ -70,7 +110,7 @@ function decideAgents(signalExplain: JsonObject | null, vaultContext: JsonObject
   const signalRisk = criticalCount > 0 ? 'critical' : anomalyCount > 5 ? 'high' : anomalyCount > 0 ? 'medium' : 'low';
   const baseConfidence = Math.max(0.35, Math.min(0.95, gi || 0.5));
 
-  const decisions: AgentDecision[] = [
+  return [
     {
       agent: 'ATLAS',
       role: 'anomaly sentinel',
@@ -119,10 +159,10 @@ function decideAgents(signalExplain: JsonObject | null, vaultContext: JsonObject
     {
       agent: 'ECHO',
       role: 'event pulse recorder',
-      action: agentTasks.length > 0 ? 'observe' : 'observe',
+      action: 'observe',
       priority: agentTasks.some((task) => task.includes('MISSING')) ? 'high' : 'medium',
       confidence: baseConfidence,
-      reasoning: `ECHO should pulse agent tasks into operator awareness without writing new truth automatically.`,
+      reasoning: 'ECHO should pulse agent tasks into operator awareness without writing new truth automatically.',
       inputs: ['agents.vault-context.agent_tasks', 'signals.gi-explain.alignment'],
     },
     {
@@ -144,8 +184,6 @@ function decideAgents(signalExplain: JsonObject | null, vaultContext: JsonObject
       inputs: ['terminal.snapshot-health', 'vercel.build'],
     },
   ];
-
-  return decisions;
 }
 
 export async function GET(request: NextRequest) {
@@ -154,17 +192,21 @@ export async function GET(request: NextRequest) {
     getJson<JsonObject>(request, '/api/agents/vault-context'),
   ]);
 
-  const decisions = decideAgents(signalExplain.data, vaultContext.data);
+  const decisions = annotateWithRouter(decideAgents(signalExplain.data, vaultContext.data));
 
   return NextResponse.json(
     {
       ok: signalExplain.ok || vaultContext.ok,
       readonly: true,
-      version: 'C-297.phase5.agent-reasoning.v1',
-      source: 'signals-plus-vault-canon-replay',
+      version: 'C-298.phase3.agent-reasoning-router-annotated.v1',
+      source: 'signals-plus-vault-canon-replay-router-annotated',
       endpoints: {
         signal_gi_explain: { ok: signalExplain.ok, status: signalExplain.status, error: signalExplain.error },
         vault_context: { ok: vaultContext.ok, status: vaultContext.status, error: vaultContext.error },
+      },
+      router: {
+        enforced: false,
+        note: 'Router recommendations are metadata only in C-298 Phase 3.',
       },
       decisions,
       summary: {
@@ -172,18 +214,25 @@ export async function GET(request: NextRequest) {
         critical: decisions.filter((d) => d.priority === 'critical').length,
         high: decisions.filter((d) => d.priority === 'high').length,
         active_actions: decisions.filter((d) => d.action !== 'observe').length,
+        routes: decisions.reduce<Record<RouterRoute, number>>(
+          (acc, d) => {
+            acc[d.router.route] += 1;
+            return acc;
+          },
+          { local: 0, cloud: 0, 'cloud+zeus': 0, hybrid: 0 },
+        ),
       },
       canon_law: [
         'Agent reasoning must be grounded in canonical signals and Vault/Canon/Replay context.',
-        'This endpoint recommends agent actions but does not mutate Ledger, Vault, Canon, Replay, MIC, or Fountain.',
-        'Future write phases must require receipts, quorum, and preserved history.',
+        'Router annotations recommend compute route only; they do not execute models or enforce routes yet.',
+        'Future write phases must require receipts, quorum, preserved history, and verified cloud/ZEUS path when truth layers are affected.',
       ],
       timestamp: new Date().toISOString(),
     },
     {
       headers: {
         'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
-        'X-Mobius-Source': 'agent-reasoning',
+        'X-Mobius-Source': 'agent-reasoning-router-annotated',
       },
     },
   );
