@@ -13,7 +13,9 @@ export type RouterDecisionRecord = {
   id: string;
   route: RouterRoute;
   task: RouterTask;
-  cis_estimate: number | null;
+  cis_estimate: number;
+  cost_estimate: number;
+  latency_class: 'low' | 'medium' | 'high';
   reason: string;
   verified_required: boolean;
   timestamp: string;
@@ -35,14 +37,36 @@ export function routeTask(task: RouterTask): { route: RouterRoute; reason: strin
   return { route: 'hybrid', reason: 'ambiguous_task_requires_local_first_cloud_verify', verified_required: true };
 }
 
+export function estimateComputeIntegrity(route: RouterRoute, verifiedRequired: boolean): {
+  cis_estimate: number;
+  cost_estimate: number;
+  latency_class: RouterDecisionRecord['latency_class'];
+} {
+  if (route === 'cloud+zeus') {
+    return { cis_estimate: 0.96, cost_estimate: 0.85, latency_class: 'high' };
+  }
+  if (route === 'cloud') {
+    return { cis_estimate: 0.9, cost_estimate: 0.7, latency_class: 'medium' };
+  }
+  if (route === 'hybrid') {
+    return { cis_estimate: 0.86, cost_estimate: 0.55, latency_class: 'medium' };
+  }
+  return {
+    cis_estimate: verifiedRequired ? 0.62 : 0.72,
+    cost_estimate: 0.1,
+    latency_class: 'low',
+  };
+}
+
 export function createRouterDecisionRecord(task: RouterTask): RouterDecisionRecord {
   const decision = routeTask(task);
+  const estimate = estimateComputeIntegrity(decision.route, decision.verified_required);
   const now = new Date().toISOString();
   return {
     id: `router-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     route: decision.route,
     task,
-    cis_estimate: null,
+    ...estimate,
     reason: decision.reason,
     verified_required: decision.verified_required,
     timestamp: now,
@@ -61,6 +85,8 @@ export function summarizeRouterDecisions(records: RouterDecisionRecord[]) {
   const verifiedRequired = records.filter((record) => record.verified_required).length;
   const localShare = total > 0 ? Number((byRoute.local / total).toFixed(3)) : 0;
   const cloudVerifiedShare = total > 0 ? Number(((byRoute.cloud + byRoute['cloud+zeus'] + byRoute.hybrid) / total).toFixed(3)) : 0;
+  const estimatedCis = total > 0 ? Number((records.reduce((sum, record) => sum + record.cis_estimate, 0) / total).toFixed(3)) : null;
+  const estimatedCost = total > 0 ? Number((records.reduce((sum, record) => sum + record.cost_estimate, 0) / total).toFixed(3)) : null;
 
   return {
     total,
@@ -68,6 +94,8 @@ export function summarizeRouterDecisions(records: RouterDecisionRecord[]) {
     verifiedRequired,
     localShare,
     cloudVerifiedShare,
-    cis_placeholder: null,
+    estimatedCis,
+    estimatedCost,
+    cis_mode: 'policy_estimate',
   };
 }
