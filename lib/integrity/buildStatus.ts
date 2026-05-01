@@ -13,7 +13,7 @@ import { getStalenessStatus } from '@/lib/runtime/staleness';
 import { scoreBatch } from '@/lib/echo/signal-engine';
 import { mockAgents, mockEpicon } from '@/lib/terminal/mock';
 import { getTripwireState } from '@/lib/tripwire/store';
-import { saveGIState, loadGIState, loadGIStateCarry, isRedisAvailable, type GIState } from '@/lib/kv/store';
+import { saveGIState, loadGIState, loadGIStateCarry, isRedisAvailable, appendGiTrend, type GIState } from '@/lib/kv/store';
 
 function resolveSignalQuality() {
   const epicon = getEchoEpicon();
@@ -155,9 +155,12 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
       source,
       gi_write_source: 'integrity',
       signals: computed.signals,
+      gi_verified: computed.gi_verified,
+      gi_verification_method: computed.gi_verification_method,
       timestamp: computed.timestamp,
     };
     saveGIState(giState).catch(() => {});
+    void appendGiTrend({ gi: computed.global_integrity, mode: computed.mode, gi_verified: computed.gi_verified, timestamp: computed.timestamp }).catch(() => {});
   }
 
   return {
@@ -255,9 +258,12 @@ export async function recomputeAndSaveGIState(): Promise<GIState | null> {
     source,
     gi_write_source: 'integrity',
     signals: computed.signals,
+    gi_verified: computed.gi_verified,
+    gi_verification_method: computed.gi_verification_method,
     timestamp: computed.timestamp,
     ...(hysteresisDropCount > 0 ? { gi_drop_count: hysteresisDropCount } : {}),
   };
   await saveGIState(giState as GIState);
+  void appendGiTrend({ gi: Number(finalGi.toFixed(4)), mode: finalMode, gi_verified: computed.gi_verified, timestamp: computed.timestamp }).catch(() => {});
   return giState as GIState;
 }
