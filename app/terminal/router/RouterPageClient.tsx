@@ -5,11 +5,15 @@ import { useEffect, useState } from 'react';
 type RouterMetrics = {
   summary?: {
     byRoute?: Record<string, number>;
+    estimatedCis?: number | null;
+    estimatedCost?: number | null;
+    cis_mode?: string;
   };
   recent?: Array<{
     id: string;
     route: string;
     reason: string;
+    cis_estimate?: number;
   }>;
 };
 
@@ -65,7 +69,20 @@ export default function RouterPageClient() {
     <div className="h-full overflow-y-auto p-4 space-y-4">
       <section className="rounded border border-slate-700 bg-slate-950/70 p-3">
         <h1 className="text-lg font-semibold">Mobius Router</h1>
-        <p className="text-xs text-slate-400 mt-1">Read-only compute routing intelligence (Phase 4)</p>
+        <p className="text-xs text-slate-400 mt-1">Compute integrity layer (Phase 5)</p>
+      </section>
+
+      <section className="rounded border border-slate-800 bg-slate-900/60 p-3">
+        <div className="text-xs text-slate-400 mb-2">Compute Integrity Score (CIS)</div>
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-200">Estimated CIS</span>
+          <span className="font-mono text-emerald-400">{metrics?.summary?.estimatedCis ?? '—'}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-200">Estimated Cost</span>
+          <span className="font-mono text-amber-400">{metrics?.summary?.estimatedCost ?? '—'}</span>
+        </div>
+        <div className="text-xs text-slate-500 mt-1">Mode: {metrics?.summary?.cis_mode ?? '—'}</div>
       </section>
 
       <section className="rounded border border-slate-800 bg-slate-900/60 p-3">
@@ -85,11 +102,13 @@ export default function RouterPageClient() {
         <div className="space-y-2 text-xs">
           {(metrics?.recent ?? []).map((record) => (
             <div key={record.id} className="rounded border border-slate-800 p-2">
-              <div className="text-slate-200 font-mono">{record.route}</div>
+              <div className="flex justify-between">
+                <span className="text-slate-200 font-mono">{record.route}</span>
+                <span className="text-emerald-400">{record.cis_estimate?.toFixed?.(2) ?? '—'}</span>
+              </div>
               <div className="text-slate-400">{record.reason}</div>
             </div>
           ))}
-          {(metrics?.recent ?? []).length === 0 ? <div className="text-slate-500">No router decisions recorded yet.</div> : null}
         </div>
       </section>
 
@@ -105,7 +124,6 @@ export default function RouterPageClient() {
               <div className="text-slate-400">{decision.router?.reason ?? 'router metadata unavailable'}</div>
             </div>
           ))}
-          {(reasoning?.decisions ?? []).length === 0 ? <div className="text-slate-500">Agent reasoning unavailable.</div> : null}
         </div>
       </section>
     </div>
