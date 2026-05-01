@@ -444,6 +444,8 @@ export const KV_KEYS = {
   MIC_SUSTAIN_STATE: 'mic:sustain:state',
   /** MIC replay pressure envelope — ingest duplicate bumps, time-decayed (C-287) */
   MIC_REPLAY_PRESSURE: 'mic:replay:pressure',
+  /** Substrate attestation retry queue — seal_ids whose substrate write failed at finalization */
+  SUBSTRATE_RETRY_QUEUE: 'vault:substrate:retry_queue',
 } as const;
 
 // ── Signal snapshot persistence ──────────────────────────────

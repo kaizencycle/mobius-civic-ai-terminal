@@ -14,7 +14,7 @@
  */
 
 import { appendSealToChain, getSeal, writeSeal } from '@/lib/vault-v2/store';
-import { attestReserveBlockToSubstrate } from '@/lib/vault-v2/substrate-attestation';
+import { attestReserveBlockToSubstrate, enqueueSubstrateRetry } from '@/lib/vault-v2/substrate-attestation';
 import type { Seal, SealAttestation, SentinelAgent, Verdict } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { VAULT_QUORUM_MIN_PASSES } from '@/lib/vault-v2/constants';
@@ -111,17 +111,24 @@ export async function backAttestSeal(input: BackAttestInput): Promise<BackAttest
 
   if (decision === 'attested') {
     const substrate = await attestReserveBlockToSubstrate(updatedSeal);
+    const substrateError = substrate.ok ? null : (substrate.error ?? 'substrate_attestation_failed');
     updatedSeal = {
       ...updatedSeal,
       status: 'attested',
       substrate_attestation_id: substrate.entryId ?? null,
       substrate_event_hash: substrate.eventHash ?? substrate.entryId ?? null,
       substrate_attested_at: substrate.ok ? (substrate.attestedAt ?? now) : null,
-      substrate_attestation_error: substrate.ok
-        ? null
-        : (substrate.error ?? 'substrate_attestation_failed'),
+      substrate_attestation_error: substrateError,
     };
     await appendSealToChain(updatedSeal);
+    if (!substrate.ok) {
+      // Substrate write failed — seal is attested in KV (authoritative); queue for retry.
+      void enqueueSubstrateRetry(updatedSeal, substrateError ?? 'substrate_attestation_failed').catch(() => {});
+      console.warn('[back-attest] substrate write failed; queued for retry', {
+        seal_id: input.seal_id,
+        error: substrateError,
+      });
+    }
     return { ok: true, seal_id: input.seal_id, status: 'attested', quorum, transition: 'attested' };
   }
 

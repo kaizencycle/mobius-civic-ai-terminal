@@ -14,8 +14,14 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { bearerMatchesToken } from '@/lib/vault-v2/auth';
 import { backAttestSeal, buildBackAttestRationale } from '@/lib/vault-v2/back-attest';
-import { listAllSeals } from '@/lib/vault-v2/store';
+import { listAllSeals, getSeal } from '@/lib/vault-v2/store';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
+import {
+  attestReserveBlockToSubstrate,
+  dequeueSubstrateRetry,
+  loadSubstrateRetryQueue,
+} from '@/lib/vault-v2/substrate-attestation';
+import { writeSeal } from '@/lib/vault-v2/store';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -92,12 +98,59 @@ export async function GET(req: NextRequest) {
   const errorCount = results.filter((r) => Boolean(r.error)).length;
   const totalVotes = results.reduce((s, r) => s + r.votes_submitted, 0);
 
+  // Drain substrate retry queue — retry substrate writes for seals that attested
+  // in KV but whose substrate write failed at finalization time.
+  const retryQueue = await loadSubstrateRetryQueue();
+  const retryResults: Array<{ seal_id: string; ok: boolean; error?: string }> = [];
+  for (const entry of retryQueue) {
+    try {
+      const seal = await getSeal(entry.seal_id);
+      if (!seal || seal.status !== 'attested') {
+        await dequeueSubstrateRetry(entry.seal_id);
+        continue;
+      }
+      if (seal.substrate_attestation_id) {
+        // Already has a substrate ID from a previous retry
+        await dequeueSubstrateRetry(entry.seal_id);
+        retryResults.push({ seal_id: entry.seal_id, ok: true });
+        continue;
+      }
+      const substrate = await attestReserveBlockToSubstrate(seal);
+      if (substrate.ok) {
+        await writeSeal({
+          ...seal,
+          substrate_attestation_id: substrate.entryId ?? null,
+          substrate_event_hash: substrate.eventHash ?? substrate.entryId ?? null,
+          substrate_attested_at: substrate.attestedAt ?? new Date().toISOString(),
+          substrate_attestation_error: null,
+        });
+        await dequeueSubstrateRetry(entry.seal_id);
+        retryResults.push({ seal_id: entry.seal_id, ok: true });
+      } else {
+        retryResults.push({ seal_id: entry.seal_id, ok: false, error: substrate.error });
+      }
+    } catch (err) {
+      retryResults.push({
+        seal_id: entry.seal_id,
+        ok: false,
+        error: err instanceof Error ? err.message : 'unknown',
+      });
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     timestamp: new Date().toISOString(),
     duration_ms: Date.now() - started,
     seals_swept: candidates.length,
     results,
+    substrate_retries: {
+      queued: retryQueue.length,
+      retried: retryResults.length,
+      resolved: retryResults.filter((r) => r.ok).length,
+      still_failing: retryResults.filter((r) => !r.ok).length,
+      results: retryResults,
+    },
     summary: {
       attested: attestedCount,
       still_quarantined: results.filter((r) => r.final_status === 'quarantined').length,

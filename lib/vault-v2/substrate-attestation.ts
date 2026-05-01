@@ -1,4 +1,5 @@
 import { writeToSubstrate } from '@/lib/substrate/client';
+import { kvGet, kvSet, KV_KEYS, KV_TTL_SECONDS } from '@/lib/kv/store';
 import type { Seal } from '@/lib/vault-v2/types';
 
 export type ReserveBlockSubstrateResult = {
@@ -81,5 +82,58 @@ export async function attestReserveBlockToSubstrate(seal: Seal): Promise<Reserve
       attestedAt,
       error: error instanceof Error ? error.message : 'reserve_block_substrate_attestation_failed',
     };
+  }
+}
+
+export type SubstrateRetryEntry = {
+  seal_id: string;
+  sequence: number;
+  cycle: string;
+  failed_at: string;
+  error: string;
+};
+
+// 7-day TTL — long enough to survive multiple cron attempts
+const SUBSTRATE_RETRY_TTL_SECONDS = 604800;
+
+/** Enqueue a seal_id for substrate retry after a failed attestation write. */
+export async function enqueueSubstrateRetry(
+  seal: Pick<Seal, 'seal_id' | 'sequence' | 'cycle_at_seal'>,
+  error: string,
+): Promise<void> {
+  try {
+    const queue = (await kvGet<SubstrateRetryEntry[]>(KV_KEYS.SUBSTRATE_RETRY_QUEUE)) ?? [];
+    if (queue.some((e) => e.seal_id === seal.seal_id)) return; // already queued
+    queue.unshift({
+      seal_id: seal.seal_id,
+      sequence: seal.sequence,
+      cycle: seal.cycle_at_seal,
+      failed_at: new Date().toISOString(),
+      error,
+    });
+    await kvSet(KV_KEYS.SUBSTRATE_RETRY_QUEUE, queue.slice(0, 50), SUBSTRATE_RETRY_TTL_SECONDS);
+  } catch {
+    // non-fatal — seal already persisted as attested, substrate retry is best-effort
+  }
+}
+
+/** Dequeue a seal after successful substrate retry. */
+export async function dequeueSubstrateRetry(seal_id: string): Promise<void> {
+  try {
+    const queue = (await kvGet<SubstrateRetryEntry[]>(KV_KEYS.SUBSTRATE_RETRY_QUEUE)) ?? [];
+    const updated = queue.filter((e) => e.seal_id !== seal_id);
+    if (updated.length === queue.length) return;
+    await kvSet(KV_KEYS.SUBSTRATE_RETRY_QUEUE, updated, SUBSTRATE_RETRY_TTL_SECONDS);
+  } catch {
+    // non-fatal
+  }
+}
+
+/** Load the current substrate retry queue. Returns [] on failure. */
+export async function loadSubstrateRetryQueue(): Promise<SubstrateRetryEntry[]> {
+  try {
+    return (await kvGet<SubstrateRetryEntry[]>(KV_KEYS.SUBSTRATE_RETRY_QUEUE)) ?? [];
+  } catch {
+    return [];
   }
 }
