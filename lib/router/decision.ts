@@ -21,6 +21,16 @@ export type RouterDecisionRecord = {
   timestamp: string;
 };
 
+export type RouterFeedbackRecord = {
+  id: string;
+  decision_id: string;
+  outcome: 'confirmed' | 'corrected' | 'rejected' | 'unknown';
+  operator_note?: string;
+  actual_cis?: number;
+  actual_cost?: number;
+  timestamp: string;
+};
+
 export function routeTask(task: RouterTask): { route: RouterRoute; reason: string; verified_required: boolean } {
   if (task.affectsLedger) {
     return { route: 'cloud+zeus', reason: 'task_affects_ledger_or_truth_layer', verified_required: true };
@@ -73,7 +83,44 @@ export function createRouterDecisionRecord(task: RouterTask): RouterDecisionReco
   };
 }
 
-export function summarizeRouterDecisions(records: RouterDecisionRecord[]) {
+export function createRouterFeedbackRecord(args: {
+  decision_id: string;
+  outcome: RouterFeedbackRecord['outcome'];
+  operator_note?: string;
+  actual_cis?: number;
+  actual_cost?: number;
+}): RouterFeedbackRecord {
+  return {
+    id: `router-feedback-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    decision_id: args.decision_id,
+    outcome: args.outcome,
+    operator_note: args.operator_note,
+    actual_cis: typeof args.actual_cis === 'number' ? Math.max(0, Math.min(1, args.actual_cis)) : undefined,
+    actual_cost: typeof args.actual_cost === 'number' ? Math.max(0, args.actual_cost) : undefined,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export function summarizeRouterFeedback(records: RouterFeedbackRecord[]) {
+  const total = records.length;
+  const confirmed = records.filter((record) => record.outcome === 'confirmed').length;
+  const corrected = records.filter((record) => record.outcome === 'corrected').length;
+  const rejected = records.filter((record) => record.outcome === 'rejected').length;
+  const actualCisRows = records.filter((record) => typeof record.actual_cis === 'number');
+  const actualCostRows = records.filter((record) => typeof record.actual_cost === 'number');
+  return {
+    total,
+    confirmed,
+    corrected,
+    rejected,
+    confirmationRate: total > 0 ? Number((confirmed / total).toFixed(3)) : null,
+    correctionRate: total > 0 ? Number(((corrected + rejected) / total).toFixed(3)) : null,
+    actualCis: actualCisRows.length > 0 ? Number((actualCisRows.reduce((sum, record) => sum + (record.actual_cis ?? 0), 0) / actualCisRows.length).toFixed(3)) : null,
+    actualCost: actualCostRows.length > 0 ? Number((actualCostRows.reduce((sum, record) => sum + (record.actual_cost ?? 0), 0) / actualCostRows.length).toFixed(3)) : null,
+  };
+}
+
+export function summarizeRouterDecisions(records: RouterDecisionRecord[], feedback: RouterFeedbackRecord[] = []) {
   const total = records.length;
   const byRoute = records.reduce<Record<RouterRoute, number>>(
     (acc, record) => {
@@ -87,6 +134,7 @@ export function summarizeRouterDecisions(records: RouterDecisionRecord[]) {
   const cloudVerifiedShare = total > 0 ? Number(((byRoute.cloud + byRoute['cloud+zeus'] + byRoute.hybrid) / total).toFixed(3)) : 0;
   const estimatedCis = total > 0 ? Number((records.reduce((sum, record) => sum + record.cis_estimate, 0) / total).toFixed(3)) : null;
   const estimatedCost = total > 0 ? Number((records.reduce((sum, record) => sum + record.cost_estimate, 0) / total).toFixed(3)) : null;
+  const feedbackSummary = summarizeRouterFeedback(feedback);
 
   return {
     total,
@@ -96,6 +144,7 @@ export function summarizeRouterDecisions(records: RouterDecisionRecord[]) {
     cloudVerifiedShare,
     estimatedCis,
     estimatedCost,
-    cis_mode: 'policy_estimate',
+    cis_mode: feedbackSummary.actualCis == null ? 'policy_estimate' : 'policy_plus_feedback',
+    feedback: feedbackSummary,
   };
 }
