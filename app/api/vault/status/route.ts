@@ -29,6 +29,8 @@ import {
   listAllSeals,
 } from '@/lib/vault-v2/store';
 import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
+import { loadQuorumState } from '@/lib/mic/quorumTracker';
+import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,7 +69,14 @@ export async function GET(req: NextRequest) {
 
   const v1 = await getVaultStatusPayload(gi);
 
-  const [inProgressBalance, sealsCount, sealsAuditCount, latestSeal, candidate, allRecentSeals] =
+  let currentCycleForQuorum = 'unknown';
+  try {
+    currentCycleForQuorum = await resolveOperatorCycleId();
+  } catch {
+    // non-fatal — quorum state will show as pending
+  }
+
+  const [inProgressBalance, sealsCount, sealsAuditCount, latestSeal, candidate, allRecentSeals, quorumState] =
     await Promise.all([
       getInProgressBalance(),
       countSeals(),
@@ -75,6 +84,7 @@ export async function GET(req: NextRequest) {
       getLatestSeal(),
       getCandidate(),
       listAllSeals(50),
+      loadQuorumState(currentCycleForQuorum),
     ]);
 
   const sealsQuarantinedCount = allRecentSeals.filter((s) => s.status === 'quarantined').length;
@@ -158,6 +168,20 @@ export async function GET(req: NextRequest) {
           attestations_received: 0,
           timeout_at: null,
         },
+    sentinel_quorum: {
+      cycle: quorumState.cycle,
+      status: quorumState.status,
+      attestations_received: quorumState.attestations_received,
+      attestations_needed: quorumState.attestations_needed,
+      attested_agents: Object.values(quorumState.entries)
+        .filter((e) => e?.attested)
+        .map((e) => e!.agent),
+      pending_agents: quorumState.required.filter(
+        (a) => !quorumState.entries[a]?.attested,
+      ),
+      initiated_at: quorumState.initiated_at,
+      completed_at: quorumState.completed_at,
+    },
     vault_version: 2,
     canonical: 'in_progress_balance',
     hashed_deposits_count: hashCoverage.hashed_deposits_count,
