@@ -3,6 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+type ShadowQuorumRow = {
+  agent: string;
+  present: boolean;
+  confidence: number;
+  passed: boolean;
+  action: string;
+  route: string;
+};
+
 type ShadowQuorumPayload = {
   ok?: boolean;
   shadow_mode?: boolean;
@@ -12,14 +21,7 @@ type ShadowQuorumPayload = {
     present?: number;
     passed?: number;
     quorum_met_shadow?: boolean;
-    rows?: Array<{
-      agent: string;
-      present: boolean;
-      confidence: number;
-      passed: boolean;
-      action: string;
-      route: string;
-    }>;
+    rows?: ShadowQuorumRow[];
   };
   readiness?: {
     status?: string;
@@ -38,7 +40,7 @@ async function getShadow(request: NextRequest): Promise<ShadowQuorumPayload | nu
   }
 }
 
-function scoreRow(row: NonNullable<ShadowQuorumPayload['quorum']>['rows'][number]) {
+function scoreRow(row: ShadowQuorumRow) {
   const missingPenalty = row.present ? 0 : 0.25;
   const confidencePenalty = Math.max(0, 0.85 - row.confidence);
   const routePenalty = row.route === 'cloud+zeus' || row.route === 'cloud' ? 0 : 0.08;
@@ -48,7 +50,7 @@ function scoreRow(row: NonNullable<ShadowQuorumPayload['quorum']>['rows'][number
 
 export async function GET(request: NextRequest) {
   const shadow = await getShadow(request);
-  const rows = shadow?.quorum?.rows ?? [];
+  const rows: ShadowQuorumRow[] = shadow?.quorum?.rows ?? [];
   const required = shadow?.quorum?.required_agents ?? ['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA'];
   const timeoutWindowSeconds = 45;
 
