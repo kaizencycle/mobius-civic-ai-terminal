@@ -28,6 +28,8 @@ export type AgentHeartbeatFleetPayload = {
     status: 'active';
     last_action: string;
     heartbeat_ok: true;
+    /** Current operator cycle when heartbeat was written */
+    cycle?: string;
   }>;
 };
 
@@ -54,6 +56,7 @@ export async function writeFleetHeartbeatKV(source: AgentHeartbeatFleetPayload['
       status: 'active',
       last_action: 'heartbeat-refresh',
       heartbeat_ok: true,
+      cycle: cycle || 'unknown',
     })),
   };
   const prevCycle = await kvGet<string>(KV_KEYS.CURRENT_CYCLE);
