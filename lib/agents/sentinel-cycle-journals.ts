@@ -6,6 +6,12 @@ import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { loadEchoState, loadGIState, loadSignalSnapshot } from '@/lib/kv/store';
 import { writeMiiState } from '@/lib/kv/mii';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
+import {
+  markAgentJournaled,
+  type SentinelQuorumAgent,
+} from '@/lib/mic/quorumTracker';
+
+const QUORUM_AGENTS = new Set<string>(['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA']);
 
 export type CronSentinelSource = 'cron' | 'post-eve-synthesis';
 
@@ -149,6 +155,15 @@ async function writeMiiForEntry(entry: AgentJournalEntry, gi: number): Promise<v
   }
 }
 
+async function markQuorumIfSentinel(entry: AgentJournalEntry): Promise<void> {
+  if (!QUORUM_AGENTS.has(entry.agent)) return;
+  try {
+    await markAgentJournaled(entry.cycle, entry.agent as SentinelQuorumAgent, entry.confidence);
+  } catch (err) {
+    console.warn(`[sentinel-journals] quorum mark failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
+  }
+}
+
 export async function appendEveCronJournal(input: {
   cycle: string;
   gi: number;
@@ -203,6 +218,7 @@ export async function appendFullCouncilJournalPulse(input: {
     try {
       const entry = await fn();
       await writeMiiForEntry(entry, gi);
+      await markQuorumIfSentinel(entry);
       entries.push(entry);
     } catch (err) {
       failedAgents.push(agent);
@@ -254,6 +270,7 @@ export async function appendStewardCronJournals(input: {
     try {
       const entry = await fn();
       await writeMiiForEntry(entry, gi);
+      await markQuorumIfSentinel(entry);
       written.push(entry);
     } catch (err) {
       failedAgents.push(agent);

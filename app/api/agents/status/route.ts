@@ -74,6 +74,10 @@ async function loadLatestKvJournalTimestamp(agentName: string): Promise<string |
 const HEARTBEAT_FRESH_MS = Number(process.env.AGENT_HEARTBEAT_FRESH_MS ?? 300000);
 const ACTION_FRESH_MS = Number(process.env.AGENT_ACTION_FRESH_MS ?? 900000);
 const JOURNAL_FRESH_MS = Number(process.env.AGENT_JOURNAL_FRESH_MS ?? 3600000);
+// KV lane entries are written by cron/sweep every 10 minutes and are considered
+// fresh for up to 30 minutes — longer than GitHub substrate entries because they
+// may not be promoted to substrate until the next cycle synthesis.
+const KV_JOURNAL_FRESH_MS = Number(process.env.AGENT_KV_JOURNAL_FRESH_MS ?? 1800000);
 const OFFLINE_AFTER_MS = Number(process.env.AGENT_OFFLINE_AFTER_MS ?? 7200000);
 
 function parseHeartbeat(rawHeartbeat: HeartbeatPayload | string | null): HeartbeatPayload | null {
@@ -104,6 +108,7 @@ function deriveLiveness(input: {
   lastJournalAt?: string;
   confidence: number;
   contested?: boolean;
+  isKvFallback?: boolean;
 }): LivenessState {
   if (input.contested) return 'CONTESTED';
 
@@ -113,7 +118,10 @@ function deriveLiveness(input: {
 
   const hbFresh = isWithin(hbAge, HEARTBEAT_FRESH_MS);
   const actionFresh = isWithin(actionAge, ACTION_FRESH_MS);
-  const journalFresh = isWithin(journalAge, JOURNAL_FRESH_MS);
+  // C-298: KV fallback entries use a 30-minute window (cron/sweep cadence × 3).
+  // GitHub substrate entries use the standard 1-hour JOURNAL_FRESH_MS.
+  const journalFreshMs = input.isKvFallback ? KV_JOURNAL_FRESH_MS : JOURNAL_FRESH_MS;
+  const journalFresh = isWithin(journalAge, journalFreshMs);
 
   // C-290: ACTIVE should reflect runtime liveness first.
   // Canon/journal freshness degrades health but should not freeze agents in BOOTING.
@@ -143,26 +151,30 @@ async function loadLatestJournalByAgent(): Promise<
         const rows = await readAgentJournals(agent.id, 1);
         ghEntry = rows[0] ?? null;
       } catch {
-        // GitHub fetch failed — fall through to KV fallback
+        // GitHub fetch failed — fall through to KV
       }
 
-      if (ghEntry) return [agent.name, ghEntry] as const;
-
-      // KV fallback: read the latest journal:lane entry written by the sweep cron.
-      // This ensures agents that write via appendJournalLaneEntry (not GitHub)
-      // still show as live rather than DEGRADED.
+      // Always check KV lane — it reflects the most recent sweep cron write.
+      // C-298: GitHub substrate entries can be 10+ days stale (last sync C-287/C-288)
+      // while the KV lane is written every 10 minutes by cron/sweep. Prefer whichever
+      // has the more recent timestamp so stale GitHub entries do not lock agents in DEGRADED.
       const kvTs = await loadLatestKvJournalTimestamp(agent.name);
-      if (kvTs) {
+
+      const ghTs = ghEntry?.timestamp ? new Date(ghEntry.timestamp).getTime() : 0;
+      const kvTsMs = kvTs ? new Date(kvTs).getTime() : 0;
+
+      // Use KV entry when it is fresher than the GitHub entry (or when GitHub failed).
+      if (kvTsMs > ghTs) {
         const synthetic: SubstrateJournalEntry & { _kv_fallback: boolean } = {
           id: `kv-fallback-${agent.name.toLowerCase()}`,
           agent: agent.name,
-          timestamp: kvTs,
+          timestamp: kvTs!,
           cycle: 'kv-live',
           scope: 'kv-journal-lane',
           category: 'observation',
           severity: 'nominal',
-          observation: 'KV journal lane entry (fallback for GitHub latency).',
-          inference: 'Agent has recent KV journal writes; substrate sync may be pending.',
+          observation: 'KV journal lane entry — most recent activity.',
+          inference: 'Agent active via cron sweep; substrate sync may lag.',
           recommendation: 'No action required.',
           confidence: 0.75,
           derivedFrom: [`journal:${agent.name.toLowerCase()}`],
@@ -174,6 +186,7 @@ async function loadLatestJournalByAgent(): Promise<
         return [agent.name, synthetic] as const;
       }
 
+      if (ghEntry) return [agent.name, ghEntry] as const;
       return [agent.name, null] as const;
     }),
   );
@@ -210,6 +223,7 @@ export async function GET() {
         lastActionAt: lastActionAt ?? undefined,
         lastJournalAt: lastJournalAt ?? undefined,
         confidence,
+        isKvFallback: Boolean((journal as { _kv_fallback?: boolean } | null)?._kv_fallback),
       });
       const trustStatus = applyTrustTripwiresToAgentStatus(agent.name, trustTripwire);
       const liveness: LivenessState =

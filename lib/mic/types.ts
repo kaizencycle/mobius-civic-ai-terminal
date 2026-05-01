@@ -49,6 +49,10 @@ export interface MicReadinessResponse {
     sustain_tracking_placeholder: boolean;
     lastEligibleCycle?: string | null;
     lastCheckedCycle?: string | null;
+    /** GI threshold required for a cycle to count as eligible (0.95) */
+    gi_threshold?: number;
+    /** Whether the most recently checked cycle met the GI threshold */
+    last_cycle_eligible?: boolean | null;
   };
 
   replay: {

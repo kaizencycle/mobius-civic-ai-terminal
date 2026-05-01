@@ -14,6 +14,7 @@ import type {
   MicSustainStatus,
 } from '@/lib/mic/types';
 import type { MicSustainStateV1 } from '@/lib/mic/sustainTracker';
+import { SUSTAIN_GI_THRESHOLD } from '@/lib/mic/sustainTracker';
 
 export type VaultStatusJson = {
   balance_reserve?: number;
@@ -175,6 +176,8 @@ export function buildMicReadinessV1(args: {
     sustain_tracking_placeholder: sustainPlaceholder,
     lastEligibleCycle: st?.lastEligibleCycle ?? null,
     lastCheckedCycle: st?.lastCheckedCycle ?? null,
+    gi_threshold: SUSTAIN_GI_THRESHOLD,
+    last_cycle_eligible: gi !== null ? gi >= SUSTAIN_GI_THRESHOLD : null,
   };
 
   const depositReplay = replayFromDeposits(args.depositsSample);

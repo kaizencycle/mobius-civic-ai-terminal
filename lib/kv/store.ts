@@ -330,6 +330,59 @@ export async function kvExists(key: string): Promise<boolean> {
   }
 }
 
+/**
+ * Returns the Redis type of a raw key ('string', 'list', 'hash', 'none', etc.)
+ * Returns 'unavailable' if Redis is not configured.
+ */
+export async function kvTypeRaw(rawKey: string): Promise<string> {
+  const redis = getRedis();
+  if (!redis) return 'unavailable';
+  try {
+    return await redis.type(rawKey);
+  } catch {
+    return 'error';
+  }
+}
+
+/**
+ * Returns the Redis type of a prefixed Mobius key.
+ */
+export async function kvType(key: string): Promise<string> {
+  return kvTypeRaw(prefixKey(key));
+}
+
+/**
+ * Safe GET that catches WRONGTYPE errors (key stored as list but read as string).
+ * Returns null instead of throwing. Use for keys that may have been written as
+ * different types across cycle boundaries.
+ */
+export async function safeGet<T>(key: string): Promise<T | null> {
+  try {
+    return await kvGet<T>(key);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('WRONGTYPE')) {
+      console.warn(`[mobius-kv] safeGet: key ${key} has wrong type, returning null`);
+      return null;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Safe raw GET with WRONGTYPE guard.
+ */
+export async function safeGetRaw<T>(rawKey: string): Promise<T | null> {
+  try {
+    return await kvGetRaw<T>(rawKey);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('WRONGTYPE')) {
+      console.warn(`[mobius-kv] safeGetRaw: key ${rawKey} has wrong type, returning null`);
+      return null;
+    }
+    throw err;
+  }
+}
+
 /** LPUSH + LTRIM on a prefixed list (e.g. readiness feed). Returns false if Redis unavailable. */
 export async function kvLpushCapped(key: string, value: string, maxLen: number): Promise<boolean> {
   const redis = getRedis();
@@ -391,6 +444,10 @@ export const KV_KEYS = {
   MIC_SUSTAIN_STATE: 'mic:sustain:state',
   /** MIC replay pressure envelope — ingest duplicate bumps, time-decayed (C-287) */
   MIC_REPLAY_PRESSURE: 'mic:replay:pressure',
+  /** Substrate attestation retry queue — seal_ids whose substrate write failed at finalization */
+  SUBSTRATE_RETRY_QUEUE: 'vault:substrate:retry_queue',
+  /** Rolling list of last 48 GI readings for trend analysis (newest-first, capped at 48) */
+  GI_TREND: 'gi:trend',
 } as const;
 
 // ── Signal snapshot persistence ──────────────────────────────
@@ -482,6 +539,17 @@ export type GIState = {
     stability: number;
     system: number;
   };
+  /** True when ≥3 independent signal values agree within ±0.1 band (C-298). */
+  gi_verified?: boolean;
+  /** Describes how gi_verified was determined (e.g. "multi-source-consensus(3/4)"). */
+  gi_verification_method?: string;
+  timestamp: string;
+};
+
+export type GITrendEntry = {
+  gi: number;
+  mode: string;
+  gi_verified: boolean;
   timestamp: string;
 };
 
@@ -510,6 +578,9 @@ export async function saveGiStateFromMicroSweep(args: {
   signalQuality: number;
   /** When caller already loaded `gi:latest` (e.g. MGET bundle), avoids an extra GET. */
   preloadedGi?: GIState | null;
+  /** gi_verified from computeGI — carried through so sweep writes retain verification status. */
+  gi_verified?: boolean;
+  gi_verification_method?: string;
 }): Promise<void> {
   const gi = Math.max(0, Math.min(1, args.composite));
   const mode = getGiMode(gi);
@@ -517,6 +588,7 @@ export async function saveGiStateFromMicroSweep(args: {
     mode === 'green' ? 'nominal' : mode === 'yellow' ? 'stressed' : 'critical';
   const prev = args.preloadedGi !== undefined ? args.preloadedGi : await loadGIState();
   const q = Math.max(0, Math.min(1, args.signalQuality));
+  const timestamp = new Date().toISOString();
   const state: GIState = {
     global_integrity: Number(gi.toFixed(3)),
     mode,
@@ -531,9 +603,12 @@ export async function saveGiStateFromMicroSweep(args: {
       stability: prev?.signals.stability ?? 0.5,
       system: prev?.signals.system ?? 0.5,
     },
-    timestamp: new Date().toISOString(),
+    gi_verified: args.gi_verified,
+    gi_verification_method: args.gi_verification_method,
+    timestamp,
   };
   await saveGIState(state);
+  void appendGiTrend({ gi: Number(gi.toFixed(3)), mode, gi_verified: args.gi_verified ?? false, timestamp }).catch(() => {});
 }
 
 /**
@@ -546,6 +621,31 @@ export async function loadGIState(): Promise<GIState | null> {
 /** Long-TTL duplicate of last `saveGIState` write — for cycle-open / KV primary expiry. */
 export async function loadGIStateCarry(): Promise<GIState | null> {
   return kvGet<GIState>(KV_KEYS.GI_STATE_CARRY);
+}
+
+/**
+ * Append a GI reading to the rolling trend list (newest-first, capped at 48 entries ≈ 8h at 10-min cadence).
+ * Skips write if Redis is unavailable. Non-blocking — callers should fire-and-forget.
+ */
+export async function appendGiTrend(entry: GITrendEntry): Promise<void> {
+  if (!isRedisAvailable()) return;
+  try {
+    const prev = (await kvGet<GITrendEntry[]>(KV_KEYS.GI_TREND)) ?? [];
+    const updated = [entry, ...prev].slice(0, 48);
+    // 24h TTL — trend is diagnostic; can regenerate on next sweep
+    await kvSet(KV_KEYS.GI_TREND, updated, 86400);
+  } catch {
+    // non-fatal
+  }
+}
+
+/** Load the GI trend list. Returns [] on failure or when unavailable. */
+export async function loadGiTrend(): Promise<GITrendEntry[]> {
+  try {
+    return (await kvGet<GITrendEntry[]>(KV_KEYS.GI_TREND)) ?? [];
+  } catch {
+    return [];
+  }
 }
 
 // ── ECHO state persistence ───────────────────────────────────

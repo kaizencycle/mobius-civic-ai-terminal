@@ -200,10 +200,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── Step 3: fountain pending count (informational) ─────────────
-  // Skip the 4× KV reads when the vault is idle: no candidate in flight and
-  // balance below the formation threshold. This fires every 2 minutes, so
-  // skipping here saves ~8,600 unnecessary KV reads/month when nothing is queued.
+  // ── Step 3: fountain pending count + quarantined reattestation ────
+  // C-298 FIX: vaultIdle previously skipped back-attestation entirely when balance
+  // was below the 50-MIC threshold. Quarantined seals must be retried regardless
+  // of current balance — they are historical seals, not new candidates.
+  // The idle fast-path now only skips the fountain/attested count reads; the
+  // quarantined-seal scan always runs so back-attestation can clear the backlog.
   let fountain_pending_count = 0;
   let seals_total = 0;
   let seals_attested_total = 0;
@@ -216,22 +218,14 @@ export async function GET(req: NextRequest) {
     next_candidate_formed === null &&
     inProgressBalanceStart < VAULT_RESERVE_PARCEL_UNITS;
 
-  if (!vaultIdle) {
+  // Always scan for quarantined seals — back-attestation must run even when idle.
+  const shouldScanAll = !vaultIdle;
+  {
     const SENTINEL_NAMES = ['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA'] as const;
 
     try {
-      const [seals, allSeals, attestedCount, auditCount] = await Promise.all([
-        listSeals(200),
-        listAllSeals(200),
-        countSeals(),
-        countAllSeals(),
-      ]);
-      seals_total = seals.length;
-      seals_attested_total = attestedCount;
-      seals_audit_total = auditCount;
-      fountain_pending_count = seals.filter(
-        (s: Seal) => s.status === 'attested' && s.fountain_status === 'pending',
-      ).length;
+      // allSeals always fetched so quarantined back-attestation runs even when idle.
+      const allSeals = await listAllSeals(200);
       const quarantined = allSeals.filter((s: Seal) => s.status === 'quarantined');
       seals_quarantined_total = quarantined.length;
       quarantined_needing_reattestation = quarantined.map((s: Seal) => ({
@@ -240,8 +234,23 @@ export async function GET(req: NextRequest) {
         missing_agents: SENTINEL_NAMES.filter((a) => !s.attestations[a]),
       }));
 
-      // OPT-01 (C-296): wire sweep — if quarantined seals exist and no candidate is in
-      // flight, call back-attest directly instead of leaving them unresolved indefinitely.
+      // Full attested/fountain counts only when not idle (KV read budget).
+      if (shouldScanAll) {
+        const [seals, attestedCount, auditCount] = await Promise.all([
+          listSeals(200),
+          countSeals(),
+          countAllSeals(),
+        ]);
+        seals_total = seals.length;
+        seals_attested_total = attestedCount;
+        seals_audit_total = auditCount;
+        fountain_pending_count = seals.filter(
+          (s: Seal) => s.status === 'attested' && s.fountain_status === 'pending',
+        ).length;
+      }
+
+      // Back-attest quarantined seals whenever no candidate is forming.
+      // C-298: runs regardless of vaultIdle so historical seals can clear.
       if (quarantined_needing_reattestation.length > 0 && candidate_state !== 'forming-waiting') {
         for (const sealDigest of quarantined_needing_reattestation) {
           for (const agent of SENTINEL_AGENTS) {
@@ -256,8 +265,11 @@ export async function GET(req: NextRequest) {
                 posture: agent === 'AUREA' ? 'cautionary' : undefined,
               });
               if (r.ok && r.transition === 'attested') {
-                // P2 fix: back-attest path bypasses finalizeSeal, so relief must fire here too
                 void releaseReplayPressureForAttestedSeal().catch(() => {});
+                console.info('[vault-v2:cron] back-attest transition → attested', {
+                  seal_id: sealDigest.seal_id,
+                  agent,
+                });
                 break;
               }
             } catch (e) {

@@ -9,6 +9,7 @@ import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
 import { runMicroSweepPipeline } from '@/lib/signals/runMicroSweep';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { appendFullCouncilJournalPulse } from '@/lib/agents/sentinel-cycle-journals';
+import { updateSustainTrackingFromGi } from '@/lib/mic/sustainTracker';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,8 +21,19 @@ async function run(req: NextRequest) {
     const gi = typeof data.composite === 'number' && Number.isFinite(data.composite)
       ? data.composite
       : null;
+    const cycle = currentCycleId();
+
+    // C-298: advance sustain counter on every sweep — was never called before this fix.
+    // updateSustainTrackingFromGi is idempotent per cycle (same cycle returns stored state).
+    let sustainResult: { status?: string; consecutiveEligibleCycles?: number } | null = null;
+    try {
+      sustainResult = await updateSustainTrackingFromGi(gi, cycle);
+    } catch (e) {
+      console.warn('[cron/sweep] sustain update failed:', e instanceof Error ? e.message : e);
+    }
+
     const council = await appendFullCouncilJournalPulse({
-      cycle: currentCycleId(),
+      cycle,
       gi,
       source: 'cron',
     });
@@ -31,6 +43,12 @@ async function run(req: NextRequest) {
       timestamp: new Date().toISOString(),
       composite: data.composite,
       instrumentCount: data.instrumentCount ?? null,
+      sustain: sustainResult
+        ? {
+            status: sustainResult.status,
+            consecutiveEligibleCycles: sustainResult.consecutiveEligibleCycles,
+          }
+        : null,
       councilJournalPulse: {
         ok: council.ok,
         gi: council.gi,

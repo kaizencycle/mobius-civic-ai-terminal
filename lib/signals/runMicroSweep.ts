@@ -33,7 +33,20 @@ export async function runMicroSweepPipeline(now = Date.now()): Promise<MicroSwee
       : result.composite;
 
   const preGi = isRedisAvailable() ? await loadGIState() : null;
-  await saveGiStateFromMicroSweep({ composite: result.composite, signalQuality, preloadedGi: preGi });
+  // Derive gi_verified: ≥3 high-confidence signals (≥0.75) agree within ±0.1 band
+  const signalValues = result.allSignals.map((s) => s.value);
+  const highConf = signalValues.filter((v) => v >= 0.75);
+  let gi_verified = false;
+  let gi_verification_method: string | undefined;
+  if (highConf.length >= 3) {
+    const mean = highConf.reduce((a, b) => a + b, 0) / highConf.length;
+    const withinBand = highConf.filter((v) => Math.abs(v - mean) <= 0.1);
+    if (withinBand.length >= 3) {
+      gi_verified = true;
+      gi_verification_method = `multi-source-consensus(${withinBand.length}/${highConf.length})`;
+    }
+  }
+  await saveGiStateFromMicroSweep({ composite: result.composite, signalQuality, preloadedGi: preGi, gi_verified, gi_verification_method });
   await updateSustainTrackingFromGi(result.composite);
 
   if (isRedisAvailable()) {
