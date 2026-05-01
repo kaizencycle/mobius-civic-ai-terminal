@@ -194,6 +194,36 @@ async function pollGDELT(): Promise<MicroSignal | null> {
   };
 }
 
+// ── Federal Register: civic/governance document velocity ──────────────────────
+type FederalRegisterResponse = {
+  count?: number;
+  results?: Array<{ type?: string; title?: string }>;
+};
+
+async function pollFederalRegister(): Promise<MicroSignal | null> {
+  // Free public API — no key required. Returns today's published documents count.
+  const today = new Date().toISOString().split('T')[0];
+  const url = `https://www.federalregister.gov/api/v1/documents.json?per_page=20&order=newest&conditions[publication_date][gte]=${today}`;
+  const data = await safeFetch<FederalRegisterResponse>(url, 6000);
+  if (!data) return null;
+
+  const count = data.count ?? (data.results?.length ?? 0);
+  // 0 documents = weekend/holiday (score 0.5 neutral), 100+ = high civic activity
+  const value = count === 0
+    ? 0.5
+    : Number(Math.min(0.5 + (count / 200) * 0.5, 1.0).toFixed(3));
+
+  return {
+    agentName: 'HERMES-µ',
+    source: 'Federal Register',
+    timestamp: new Date().toISOString(),
+    value,
+    label: `Federal Register: ${count} documents published today`,
+    severity: classifySeverity(value, { watch: 0.35, elevated: 0.2, critical: 0.1 }),
+    raw: { count, topTitle: data.results?.[0]?.title ?? null },
+  };
+}
+
 // ── Poll all HERMES-µ sources ─────────────────────────────────────────────
 export async function pollHermes(): Promise<AgentPollResult> {
   const errors: string[] = [];
@@ -215,8 +245,7 @@ export async function pollHermes(): Promise<AgentPollResult> {
   if (gdelt) {
     signals.push(gdelt);
   } else {
-    // Graceful fallback: GDELT is persistently unreachable. Push a neutral
-    // mid-range signal so the HERMES-µ composite is not penalized by the outage.
+    // GDELT persistently unreachable — push neutral so composite is not penalized.
     signals.push({
       agentName: 'HERMES-µ',
       source: 'GDELT',
@@ -227,6 +256,15 @@ export async function pollHermes(): Promise<AgentPollResult> {
       raw: { fallback: true },
     });
     errors.push('GDELT API fetch failed (neutral fallback applied)');
+  }
+
+  // Federal Register: free civic/governance narrative signal (no auth required).
+  // Boosts narrative domain when US civic documents are publishing at healthy rate.
+  const fedReg = await pollFederalRegister();
+  if (fedReg) {
+    signals.push(fedReg);
+  } else {
+    errors.push('Federal Register API fetch failed');
   }
 
   return {
