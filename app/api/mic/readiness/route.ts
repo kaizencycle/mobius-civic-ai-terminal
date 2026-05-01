@@ -11,7 +11,7 @@ import { assembleLocalMicReadiness, getMergedMicReadiness, resolveReadinessCycle
 import { mergeMicReadinessFromUpstream } from '@/lib/mic/readinessMerge';
 import type { MicReadinessResponse } from '@/lib/mic/types';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
-import { kvSet, kvLpushCapped, KV_KEYS, kvGet, KV_TTL_SECONDS } from '@/lib/kv/store';
+import { kvSet, kvLpushCapped, kvDel, kvType, KV_KEYS, kvGet, KV_TTL_SECONDS } from '@/lib/kv/store';
 import { scheduleKvBridgeDualWrite } from '@/lib/kv/kvBridgeClient';
 import { persistLocalMicReadinessSnapshot } from '@/lib/mic/persistReadinessKv';
 import { persistResolvedReplayPressureToKv } from '@/lib/mic/replayPressure';
@@ -43,15 +43,20 @@ export async function GET(req: NextRequest) {
       console.warn('[mic-readiness] local snapshot hydrate failed:', e instanceof Error ? e.message : e);
     }
   }
-  // OPT-08 (C-296): MIC_READINESS_FEED was dark for 3 cycles — the feed key is only
-  // written on POST (tokenomics-engine push). Write it on every GET so the feed key
-  // stays fresh even when no upstream POST arrives.
+  // OPT-08 (C-296): MIC_READINESS_FEED stays fresh on every GET.
+  // C-298: guard against WRONGTYPE — if an old string-typed key exists at this slot,
+  // delete it before writing the list so kvLpushCapped does not throw.
   try {
     const feedEntry = JSON.stringify({
       snapshot: readiness,
       received_at: new Date().toISOString(),
       source: 'terminal-readiness-get',
     });
+    const feedTypeCheck = await kvType(KV_KEYS.MIC_READINESS_FEED);
+    if (feedTypeCheck !== 'list' && feedTypeCheck !== 'none' && feedTypeCheck !== 'unavailable') {
+      console.warn('[mic-readiness] MIC_READINESS_FEED wrong type:', feedTypeCheck, '— deleting before re-write');
+      await kvDel(KV_KEYS.MIC_READINESS_FEED);
+    }
     await kvLpushCapped(KV_KEYS.MIC_READINESS_FEED, feedEntry, 100);
   } catch (e) {
     console.warn('[mic-readiness] MIC_READINESS_FEED write failed:', e instanceof Error ? e.message : e);

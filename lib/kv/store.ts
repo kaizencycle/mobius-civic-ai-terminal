@@ -330,6 +330,59 @@ export async function kvExists(key: string): Promise<boolean> {
   }
 }
 
+/**
+ * Returns the Redis type of a raw key ('string', 'list', 'hash', 'none', etc.)
+ * Returns 'unavailable' if Redis is not configured.
+ */
+export async function kvTypeRaw(rawKey: string): Promise<string> {
+  const redis = getRedis();
+  if (!redis) return 'unavailable';
+  try {
+    return await redis.type(rawKey);
+  } catch {
+    return 'error';
+  }
+}
+
+/**
+ * Returns the Redis type of a prefixed Mobius key.
+ */
+export async function kvType(key: string): Promise<string> {
+  return kvTypeRaw(prefixKey(key));
+}
+
+/**
+ * Safe GET that catches WRONGTYPE errors (key stored as list but read as string).
+ * Returns null instead of throwing. Use for keys that may have been written as
+ * different types across cycle boundaries.
+ */
+export async function safeGet<T>(key: string): Promise<T | null> {
+  try {
+    return await kvGet<T>(key);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('WRONGTYPE')) {
+      console.warn(`[mobius-kv] safeGet: key ${key} has wrong type, returning null`);
+      return null;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Safe raw GET with WRONGTYPE guard.
+ */
+export async function safeGetRaw<T>(rawKey: string): Promise<T | null> {
+  try {
+    return await kvGetRaw<T>(rawKey);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('WRONGTYPE')) {
+      console.warn(`[mobius-kv] safeGetRaw: key ${rawKey} has wrong type, returning null`);
+      return null;
+    }
+    throw err;
+  }
+}
+
 /** LPUSH + LTRIM on a prefixed list (e.g. readiness feed). Returns false if Redis unavailable. */
 export async function kvLpushCapped(key: string, value: string, maxLen: number): Promise<boolean> {
   const redis = getRedis();
