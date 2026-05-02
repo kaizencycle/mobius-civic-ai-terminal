@@ -31,6 +31,12 @@ type GiStatePayload = {
 
 type LivenessState = 'DECLARED' | 'BOOTING' | 'ACTIVE' | 'DEGRADED' | 'OFFLINE' | 'CONTESTED';
 
+// Phase 5: agent:meta hash shape written by journalLane on each real journal write
+type AgentMeta = {
+  last_journal_cycle?: string;
+  last_journal_at?: string;
+};
+
 const AGENT_BASE = [
   { id: 'atlas', name: 'ATLAS', role: 'System Integrity Sentinel', tier: 'Sentinel', color: 'cerulean', lane: 'integrity', scope: 'Anomaly and integrity scans' },
   { id: 'zeus', name: 'ZEUS', role: 'Verification Authority', tier: 'Sentinel', color: 'gold', lane: 'integrity', scope: 'Verification and contested claims' },
@@ -55,22 +61,24 @@ function getKvRedis(): Redis | null {
   }
 }
 
-async function loadLatestKvJournalTimestamp(agentName: string): Promise<string | null> {
+// Optimization 3: O(1) liveness lookup from agent:meta hash — no list parsing required
+async function loadAgentMeta(redis: Redis, agentName: string): Promise<AgentMeta> {
   try {
-    const redis = getKvRedis();
-    if (!redis) return null;
-    // agent:meta is updated on every appendJournalLaneEntry attempt (before idempotency gate),
-    // so it reflects the actual sweep cadence rather than the dedup window.
-    const meta = await redis.hgetall<Record<string, string>>(`agent:meta:${agentName.toLowerCase()}`);
-    if (meta?.last_journal_at) return meta.last_journal_at;
-    // Fallback: read most recent entry from the per-agent journal list.
+    const meta = await redis.hgetall<AgentMeta>(`agent:meta:${agentName.toLowerCase()}`);
+    return meta ?? {};
+  } catch {
+    return {};
+  }
+}
+
+async function loadLatestKvJournalEntry(redis: Redis, agentName: string): Promise<SubstrateJournalEntry | null> {
+  try {
     const key = `journal:${agentName.toLowerCase()}`;
     const rows = await redis.lrange<string>(key, 0, 0);
     if (!rows?.length) return null;
     const raw = rows[0];
-    const parsed = typeof raw === 'string' ? (JSON.parse(raw) as Record<string, unknown>) : raw;
-    const ts = (parsed as Record<string, unknown>)?.timestamp;
-    return typeof ts === 'string' ? ts : null;
+    const parsed = typeof raw === 'string' ? (JSON.parse(raw) as SubstrateJournalEntry) : (raw as SubstrateJournalEntry);
+    return parsed;
   } catch {
     return null;
   }
@@ -78,17 +86,13 @@ async function loadLatestKvJournalTimestamp(agentName: string): Promise<string |
 
 const HEARTBEAT_FRESH_MS = Number(process.env.AGENT_HEARTBEAT_FRESH_MS ?? 300000);
 const ACTION_FRESH_MS = Number(process.env.AGENT_ACTION_FRESH_MS ?? 900000);
+// Optimization 4: single uniform freshness window — no KV vs substrate distinction
 const JOURNAL_FRESH_MS = Number(process.env.AGENT_JOURNAL_FRESH_MS ?? 3600000);
-// KV lane entries are written by cron/sweep every 10 minutes and are considered
-// fresh for up to 30 minutes — longer than GitHub substrate entries because they
-// may not be promoted to substrate until the next cycle synthesis.
-const KV_JOURNAL_FRESH_MS = Number(process.env.AGENT_KV_JOURNAL_FRESH_MS ?? 1800000);
 const OFFLINE_AFTER_MS = Number(process.env.AGENT_OFFLINE_AFTER_MS ?? 7200000);
 
 function parseHeartbeat(rawHeartbeat: HeartbeatPayload | string | null): HeartbeatPayload | null {
   if (!rawHeartbeat) return null;
   if (typeof rawHeartbeat !== 'string') return rawHeartbeat;
-
   try {
     return JSON.parse(rawHeartbeat) as HeartbeatPayload;
   } catch {
@@ -113,7 +117,6 @@ function deriveLiveness(input: {
   lastJournalAt?: string;
   confidence: number;
   contested?: boolean;
-  isKvFallback?: boolean;
 }): LivenessState {
   if (input.contested) return 'CONTESTED';
 
@@ -123,16 +126,15 @@ function deriveLiveness(input: {
 
   const hbFresh = isWithin(hbAge, HEARTBEAT_FRESH_MS);
   const actionFresh = isWithin(actionAge, ACTION_FRESH_MS);
-  // C-298: KV fallback entries use a 30-minute window (cron/sweep cadence × 3).
-  // GitHub substrate entries use the standard 1-hour JOURNAL_FRESH_MS.
-  const journalFreshMs = input.isKvFallback ? KV_JOURNAL_FRESH_MS : JOURNAL_FRESH_MS;
-  const journalFresh = isWithin(journalAge, journalFreshMs);
+  const journalFresh = isWithin(journalAge, JOURNAL_FRESH_MS);
 
   // C-290: ACTIVE should reflect runtime liveness first.
-  // Canon/journal freshness degrades health but should not freeze agents in BOOTING.
   if (hbFresh && actionFresh && input.confidence >= 0.6) {
     return journalFresh ? 'ACTIVE' : 'DEGRADED';
   }
+
+  // Optimization 5: promote to ACTIVE on real journal evidence even without heartbeat
+  if (journalFresh && input.confidence >= 0.6) return 'ACTIVE';
 
   const noHeartbeat = !Number.isFinite(hbAge) || hbAge > OFFLINE_AFTER_MS;
   const noAction = !Number.isFinite(actionAge) || actionAge > OFFLINE_AFTER_MS;
@@ -146,9 +148,10 @@ function deriveLiveness(input: {
   return 'DEGRADED';
 }
 
-async function loadLatestJournalByAgent(): Promise<
-  Record<string, (SubstrateJournalEntry & { _kv_fallback?: boolean }) | null>
-> {
+// Optimization 7: batch agent:meta + KV journal reads in parallel per agent
+async function loadLatestJournalByAgent(
+  redis: Redis | null,
+): Promise<Record<string, { entry: SubstrateJournalEntry | null; meta: AgentMeta }>> {
   const pairs = await Promise.all(
     AGENT_BASE.map(async (agent) => {
       let ghEntry: SubstrateJournalEntry | null = null;
@@ -159,51 +162,35 @@ async function loadLatestJournalByAgent(): Promise<
         // GitHub fetch failed — fall through to KV
       }
 
-      // Always check KV lane — it reflects the most recent sweep cron write.
-      // C-298: GitHub substrate entries can be 10+ days stale (last sync C-287/C-288)
-      // while the KV lane is written every 10 minutes by cron/sweep. Prefer whichever
-      // has the more recent timestamp so stale GitHub entries do not lock agents in DEGRADED.
-      const kvTs = await loadLatestKvJournalTimestamp(agent.name);
+      let kvEntry: SubstrateJournalEntry | null = null;
+      let meta: AgentMeta = {};
 
-      const ghTs = ghEntry?.timestamp ? new Date(ghEntry.timestamp).getTime() : 0;
-      const kvTsMs = kvTs ? new Date(kvTs).getTime() : 0;
-
-      // Use KV entry when it is fresher than the GitHub entry (or when GitHub failed).
-      if (kvTsMs > ghTs) {
-        const synthetic: SubstrateJournalEntry & { _kv_fallback: boolean } = {
-          id: `kv-fallback-${agent.name.toLowerCase()}`,
-          agent: agent.name,
-          timestamp: kvTs!,
-          cycle: 'kv-live',
-          scope: 'kv-journal-lane',
-          category: 'observation',
-          severity: 'nominal',
-          observation: 'KV journal lane entry — most recent activity.',
-          inference: 'Agent active via cron sweep; substrate sync may lag.',
-          recommendation: 'No action required.',
-          confidence: 0.75,
-          derivedFrom: [`journal:${agent.name.toLowerCase()}`],
-          source: 'kv-fallback',
-          tags: ['kv-fallback'],
-          agentOrigin: agent.name,
-          _kv_fallback: true,
-        };
-        return [agent.name, synthetic] as const;
+      if (redis) {
+        // Parallel fetch: KV journal list head + agent:meta hash
+        [kvEntry, meta] = await Promise.all([
+          loadLatestKvJournalEntry(redis, agent.name),
+          loadAgentMeta(redis, agent.name),
+        ]);
       }
 
-      if (ghEntry) return [agent.name, ghEntry] as const;
-      return [agent.name, null] as const;
+      // Prefer whichever source has the fresher timestamp
+      const ghTs = ghEntry?.timestamp ? new Date(ghEntry.timestamp).getTime() : 0;
+      const kvTs = kvEntry?.timestamp ? new Date(kvEntry.timestamp).getTime() : 0;
+      const entry = kvTs > ghTs ? kvEntry : ghEntry;
+
+      return [agent.name, { entry, meta }] as const;
     }),
   );
   return Object.fromEntries(pairs);
 }
 
 export async function GET() {
+  const redis = getKvRedis();
   try {
     const [rawHeartbeat, giState, journalByAgent, trustTripwire] = await Promise.all([
       kvGet<HeartbeatPayload | string>(KV_KEYS.HEARTBEAT),
       kvGet<GiStatePayload>(KV_KEYS.GI_STATE),
-      loadLatestJournalByAgent(),
+      loadLatestJournalByAgent(redis),
       kvGet<TrustTripwireSnapshot>(KV_KEYS.TRIPWIRE_STATE_KV),
     ]);
 
@@ -220,15 +207,15 @@ export async function GET() {
       const lastSeen = heartbeat?.timestamp ?? null;
       const lastActionAt = heartbeat?.timestamp ?? null;
       const lastAction = hb?.last_action ?? (isFresh(timestamp, HEARTBEAT_FRESH_MS) ? 'heartbeat-refresh' : 'awaiting-runtime-proof');
-      const journal = journalByAgent[agent.name] ?? null;
-      const lastJournalAt = journal?.timestamp ?? null;
+      const { entry: journal, meta } = journalByAgent[agent.name] ?? { entry: null, meta: {} };
+      // Optimization 3/6: agent:meta.last_journal_at is the authoritative liveness signal
+      const lastJournalAt = meta.last_journal_at ?? journal?.timestamp ?? null;
       const confidence = journal?.confidence ?? (isFresh(timestamp, HEARTBEAT_FRESH_MS) ? 0.75 : 0.5);
       const baseLiveness = deriveLiveness({
         lastSeen: lastSeen ?? undefined,
         lastActionAt: lastActionAt ?? undefined,
         lastJournalAt: lastJournalAt ?? undefined,
         confidence,
-        isKvFallback: Boolean((journal as { _kv_fallback?: boolean } | null)?._kv_fallback),
       });
       const trustStatus = applyTrustTripwiresToAgentStatus(agent.name, trustTripwire);
       const liveness: LivenessState =
@@ -241,10 +228,12 @@ export async function GET() {
               : baseLiveness;
 
       const health = liveness === 'ACTIVE' ? 'nominal' : liveness === 'OFFLINE' || liveness === 'CONTESTED' ? 'critical' : 'degraded';
+
+      // Optimization 8: JRN-META badge when liveness is driven by agent:meta (real journal write)
       const sourceBadges = [
         ...(lastSeen ? ['HB'] : []),
         ...(lastAction ? ['ACT'] : []),
-        ...(lastJournalAt ? ['JRN'] : []),
+        ...(meta.last_journal_at ? ['JRN-META'] : lastJournalAt ? ['JRN'] : []),
       ];
 
       return {
@@ -264,6 +253,8 @@ export async function GET() {
         last_action_at: lastActionAt,
         last_journal: journal?.id ?? null,
         last_journal_at: lastJournalAt,
+        // Optimization 6: surface the cycle from agent:meta for real journal tracking
+        last_journal_cycle: meta.last_journal_cycle ?? journal?.cycle ?? null,
         confidence,
         health,
         source_badges: sourceBadges,
@@ -303,6 +294,7 @@ export async function GET() {
           last_action_at: null,
           last_journal: null,
           last_journal_at: null,
+          last_journal_cycle: null,
           confidence: 0,
           health: 'critical',
           source_badges: [],

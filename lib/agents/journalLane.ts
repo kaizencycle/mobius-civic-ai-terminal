@@ -197,6 +197,12 @@ export async function appendJournalLaneEntry(
     hotCount: 1,
   });
 
+  // Phase 5: update agent:meta hash so liveness reflects real journal writes immediately
+  await redis.hset(`agent:meta:${agent.toLowerCase()}`, {
+    last_journal_cycle: cycle,
+    last_journal_at: entry.timestamp,
+  });
+
   const outboxItem = canonEnabled
     ? await enqueueJournalCanonWrite(redis, toSubstrateJournalInput(entry, input.gi_at_time))
     : null;
