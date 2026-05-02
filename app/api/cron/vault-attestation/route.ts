@@ -40,6 +40,12 @@ import { bearerMatchesToken } from '@/lib/vault-v2/auth';
 import { backAttestSeal, buildBackAttestRationale } from '@/lib/vault-v2/back-attest';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
+import {
+  registerSentinelAttestation,
+  SENTINEL_QUORUM_AGENTS,
+  type SentinelQuorumAgent,
+  type SentinelQuorumState,
+} from '@/lib/mic/quorumTracker';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +72,10 @@ type Report = {
   candidate_state: CandidateState;
   candidate_seal_id: string | null;
   attestations_received: number;
+  /** C-299: Sentinel quorum state written from vault-attestation cron. */
+  sentinel_quorum_received: number;
+  sentinel_quorum_status: SentinelQuorumState['status'] | null;
+  sentinel_quorum_agents: SentinelQuorumAgent[];
   next_candidate_formed: string | null;
   in_progress_balance: number;
   threshold: typeof VAULT_RESERVE_PARCEL_UNITS;
@@ -78,6 +88,16 @@ type Report = {
   fountain_pending_count: number;
   errors: string[];
 };
+
+function isSentinelQuorumAgent(agent: string): agent is SentinelQuorumAgent {
+  return (SENTINEL_QUORUM_AGENTS as readonly string[]).includes(agent);
+}
+
+function readAttestationConfidence(attestation: unknown): number {
+  const maybe = attestation as { confidence?: unknown } | null;
+  const confidence = typeof maybe?.confidence === 'number' ? maybe.confidence : 0.75;
+  return Math.max(0, Math.min(1, confidence));
+}
 
 export async function GET(req: NextRequest) {
   const cronHeader = req.headers.get('x-vercel-cron');
@@ -108,6 +128,26 @@ export async function GET(req: NextRequest) {
   let candidate_seal_id: string | null = null;
   let attestations_received = 0;
   let next_candidate_formed: string | null = null;
+  let sentinelQuorumState: SentinelQuorumState | null = null;
+  const sentinelQuorumAgents = new Set<SentinelQuorumAgent>();
+
+  async function recordSentinelQuorum(agent: string, confidence: number, source: string): Promise<void> {
+    if (!isSentinelQuorumAgent(agent)) return;
+    try {
+      sentinelQuorumState = await registerSentinelAttestation(currentCycle, agent, confidence, source);
+      sentinelQuorumAgents.add(agent);
+      console.info('[vault-v2:cron] sentinel quorum registered', {
+        cycle: currentCycle,
+        agent,
+        confidence,
+        source,
+        received: sentinelQuorumState.attestations_received,
+        status: sentinelQuorumState.status,
+      });
+    } catch (e) {
+      errors.push(`sentinel-quorum ${agent}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   // ── Step 1: process existing candidate ─────────────────────────
   const candidate = await getCandidate();
@@ -115,6 +155,15 @@ export async function GET(req: NextRequest) {
     candidate_seal_id = candidate.seal_id;
     attestations_received = Object.keys(candidate.attestations).length;
     autoSealReason = 'candidate_in_flight_waiting_for_quorum_or_timeout';
+
+    // C-299 P0: mirror seal attestations into the Sentinel quorum tracker.
+    // This keeps `/api/cron/vault-attestation` from returning 200 OK while
+    // `mic:quorum:<cycle>` remains empty.
+    await Promise.all(
+      Object.entries(candidate.attestations).map(([agent, attestation]) =>
+        recordSentinelQuorum(agent, readAttestationConfidence(attestation), 'vault-candidate-attestation'),
+      ),
+    );
 
     const quorum1 = evaluateQuorum(candidate);
     if (quorum1.decision !== 'waiting') {
@@ -147,6 +196,11 @@ export async function GET(req: NextRequest) {
       if (timedOut) {
         const injected = await injectTimeouts();
         if (injected) {
+          await Promise.all(
+            Object.entries(injected.attestations).map(([agent, attestation]) =>
+              recordSentinelQuorum(agent, readAttestationConfidence(attestation), 'vault-timeout-injection'),
+            ),
+          );
           const quorum2 = evaluateQuorum(injected);
           if (quorum2.decision !== 'waiting') {
             const sealed = await finalizeSeal(quorum2);
@@ -264,6 +318,9 @@ export async function GET(req: NextRequest) {
                 rationale: buildBackAttestRationale(agent, sealDigest.seal_id),
                 posture: agent === 'AUREA' ? 'cautionary' : undefined,
               });
+              if (r.ok) {
+                await recordSentinelQuorum(agent, 0.75, 'vault-back-attestation');
+              }
               if (r.ok && r.transition === 'attested') {
                 void releaseReplayPressureForAttestedSeal().catch(() => {});
                 console.info('[vault-v2:cron] back-attest transition → attested', {
@@ -291,6 +348,9 @@ export async function GET(req: NextRequest) {
     candidate_state,
     candidate_seal_id,
     attestations_received,
+    sentinel_quorum_received: sentinelQuorumState?.attestations_received ?? 0,
+    sentinel_quorum_status: sentinelQuorumState?.status ?? null,
+    sentinel_quorum_agents: [...sentinelQuorumAgents],
     next_candidate_formed,
     in_progress_balance: await getInProgressBalance(),
     threshold: VAULT_RESERVE_PARCEL_UNITS,
