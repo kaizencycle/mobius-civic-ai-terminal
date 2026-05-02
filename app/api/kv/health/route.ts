@@ -8,7 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { kvHealth, isRedisAvailable, KV_KEYS, kvGet, kvGetRaw } from '@/lib/kv/store';
+import { kvHealth, isRedisAvailable, KV_KEYS, kvGet, kvGetRaw, kvExists } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,8 +18,13 @@ export async function GET() {
   const keys: Record<string, boolean> = {};
   if (health.available) {
     for (const [name, key] of Object.entries(KV_KEYS)) {
-      const val = await kvGet(key);
-      keys[name] = val !== null;
+      if (key === KV_KEYS.MIC_READINESS_FEED) {
+        // Stored as a Redis list — kvGet throws WRONGTYPE; use exists check instead.
+        keys[name] = await kvExists(key);
+      } else {
+        const val = await kvGet(key);
+        keys[name] = val !== null;
+      }
     }
     const legacyTripwire = await kvGetRaw<string>('TRIPWIRE_STATE');
     keys.TRIPWIRE_STATE_REDIS = legacyTripwire !== null && legacyTripwire !== undefined;
