@@ -141,6 +141,14 @@ export async function appendJournalLaneEntry(
   const derivedFrom = normalizeDerivedFrom(input.derivedFrom);
   const token = idempotencyToken(agent, cycle, derivedFrom);
   const markerKey = `journal:idempotency:${token}`;
+
+  // Always refresh agent:meta so liveness checks reflect the current sweep cadence,
+  // even when the full journal entry is deduplicated by the idempotency gate below.
+  await redis.hset(`agent:meta:${agent.toLowerCase()}`, {
+    last_journal_at: new Date().toISOString(),
+    last_journal_cycle: cycle,
+  });
+
   const inserted = await redis.set(markerKey, '1', { nx: true, ex: IDEMPOTENCY_TTL_SECONDS });
 
   if (inserted !== 'OK') {
