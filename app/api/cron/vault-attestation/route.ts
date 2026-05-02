@@ -43,6 +43,7 @@ import type { SealAttestation } from '@/lib/vault-v2/types';
 import { recordAttestation } from '@/lib/vault-v2/store';
 import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
 import {
+  markAgentJournaled,
   registerSentinelAttestation,
   SENTINEL_QUORUM_AGENTS,
   type SentinelQuorumAgent,
@@ -130,21 +131,24 @@ export async function GET(req: NextRequest) {
   let candidate_seal_id: string | null = null;
   let attestations_received = 0;
   let next_candidate_formed: string | null = null;
-  let sentinelQuorumState: SentinelQuorumState | null = null;
+  let sentinelQuorumReceived = 0;
+  let sentinelQuorumStatus: SentinelQuorumState['status'] | null = null;
   const sentinelQuorumAgents = new Set<SentinelQuorumAgent>();
 
   async function recordSentinelQuorum(agent: string, confidence: number, source: string): Promise<void> {
     if (!isSentinelQuorumAgent(agent)) return;
     try {
-      sentinelQuorumState = await registerSentinelAttestation(currentCycle, agent, confidence, source);
+      const state = await registerSentinelAttestation(currentCycle, agent, confidence, source);
+      sentinelQuorumReceived = state.attestations_received;
+      sentinelQuorumStatus = state.status;
       sentinelQuorumAgents.add(agent);
       console.info('[vault-v2:cron] sentinel quorum registered', {
         cycle: currentCycle,
         agent,
         confidence,
         source,
-        received: sentinelQuorumState.attestations_received,
-        status: sentinelQuorumState.status,
+        received: sentinelQuorumReceived,
+        status: sentinelQuorumStatus,
       });
     } catch (e) {
       errors.push(`sentinel-quorum ${agent}: ${e instanceof Error ? e.message : String(e)}`);
@@ -371,8 +375,8 @@ export async function GET(req: NextRequest) {
     candidate_state,
     candidate_seal_id,
     attestations_received,
-    sentinel_quorum_received: sentinelQuorumState?.attestations_received ?? 0,
-    sentinel_quorum_status: sentinelQuorumState?.status ?? null,
+    sentinel_quorum_received: sentinelQuorumReceived,
+    sentinel_quorum_status: sentinelQuorumStatus,
     sentinel_quorum_agents: [...sentinelQuorumAgents],
     next_candidate_formed,
     in_progress_balance: await getInProgressBalance(),
