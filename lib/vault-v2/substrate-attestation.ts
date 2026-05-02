@@ -1,5 +1,5 @@
 import { writeToSubstrate } from '@/lib/substrate/client';
-import { kvGet, kvSet, KV_KEYS, KV_TTL_SECONDS } from '@/lib/kv/store';
+import { kvGet, kvSet, KV_KEYS } from '@/lib/kv/store';
 import type { Seal } from '@/lib/vault-v2/types';
 
 export type ReserveBlockSubstrateResult = {
@@ -29,8 +29,11 @@ function summarizeSeal(seal: Seal): string {
 /**
  * Immortalize a finalized Reserve Block in the Civic Protocol / Substrate lane.
  *
- * The Vault remains the formation lane and KV remains the fast operational lane.
- * This write is the canonical civic proof pointer operators can audit later.
+ * C-299 Phase 6: the ledger 400 was caused by the Reserve Block path sending
+ * Terminal-only enum values (`category: verification`, `source: zeus-verify`)
+ * into the Render ledger schema. The canonical payload is now carried in tags,
+ * derivedFrom, summary, and attestation_signature while the outer envelope uses
+ * the known ledger-compatible agent-journal/infrastructure lane.
  */
 export async function attestReserveBlockToSubstrate(seal: Seal): Promise<ReserveBlockSubstrateResult> {
   const attestedAt = new Date().toISOString();
@@ -45,9 +48,9 @@ export async function attestReserveBlockToSubstrate(seal: Seal): Promise<Reserve
       cycle: seal.cycle_at_seal,
       title: `Reserve Block ${seal.sequence} ${seal.status}`,
       summary: summarizeSeal(seal),
-      category: 'verification',
+      category: 'infrastructure',
       severity: seal.status === 'attested' ? 'nominal' : seal.status === 'quarantined' ? 'elevated' : 'critical',
-      source: 'zeus-verify',
+      source: 'agent-journal',
       gi_at_time: seal.gi_at_seal,
       confidence: passed.length / 5,
       verified: seal.status === 'attested',
@@ -56,17 +59,25 @@ export async function attestReserveBlockToSubstrate(seal: Seal): Promise<Reserve
         `seal_hash:${seal.seal_hash}`,
         ...(seal.prev_seal_hash ? [`prev_seal_hash:${seal.prev_seal_hash}`] : []),
       ],
-      // OPT-7 (C-293): include cycle tag so substrate queries can filter by cycle
       tags: [
         'vault',
         'reserve-block',
         'substrate-attestation',
+        'seal-immortalization',
         `block-${seal.sequence}`,
         seal.status,
         `fountain-${seal.fountain_status}`,
         `cycle-${seal.cycle_at_seal}`,
         seal.prev_seal_hash ? `prev-${seal.prev_seal_hash.slice(0, 8)}` : 'genesis',
       ],
+      attestation_signature: {
+        type: 'reserve_block_seal_v1',
+        seal_id: seal.seal_id,
+        seal_hash: seal.seal_hash,
+        sequence: seal.sequence,
+        quorum_passes: passed,
+        attested_at: attestedAt,
+      },
     });
 
     return {
@@ -93,17 +104,15 @@ export type SubstrateRetryEntry = {
   error: string;
 };
 
-// 7-day TTL — long enough to survive multiple cron attempts
 const SUBSTRATE_RETRY_TTL_SECONDS = 604800;
 
-/** Enqueue a seal_id for substrate retry after a failed attestation write. */
 export async function enqueueSubstrateRetry(
   seal: Pick<Seal, 'seal_id' | 'sequence' | 'cycle_at_seal'>,
   error: string,
 ): Promise<void> {
   try {
     const queue = (await kvGet<SubstrateRetryEntry[]>(KV_KEYS.SUBSTRATE_RETRY_QUEUE)) ?? [];
-    if (queue.some((e) => e.seal_id === seal.seal_id)) return; // already queued
+    if (queue.some((e) => e.seal_id === seal.seal_id)) return;
     queue.unshift({
       seal_id: seal.seal_id,
       sequence: seal.sequence,
@@ -117,7 +126,6 @@ export async function enqueueSubstrateRetry(
   }
 }
 
-/** Dequeue a seal after successful substrate retry. */
 export async function dequeueSubstrateRetry(seal_id: string): Promise<void> {
   try {
     const queue = (await kvGet<SubstrateRetryEntry[]>(KV_KEYS.SUBSTRATE_RETRY_QUEUE)) ?? [];
@@ -129,7 +137,6 @@ export async function dequeueSubstrateRetry(seal_id: string): Promise<void> {
   }
 }
 
-/** Load the current substrate retry queue. Returns [] on failure. */
 export async function loadSubstrateRetryQueue(): Promise<SubstrateRetryEntry[]> {
   try {
     return (await kvGet<SubstrateRetryEntry[]>(KV_KEYS.SUBSTRATE_RETRY_QUEUE)) ?? [];
