@@ -135,6 +135,10 @@ export async function POST(req: NextRequest) {
     KV_TTL_SECONDS.MIC_READINESS_SNAPSHOT,
     'mic-readiness-dual-write',
   );
+  const postFeedType = await kvType(KV_KEYS.MIC_READINESS_FEED);
+  if (postFeedType !== 'list' && postFeedType !== 'none' && postFeedType !== 'unavailable') {
+    await kvDel(KV_KEYS.MIC_READINESS_FEED);
+  }
   await kvLpushCapped(KV_KEYS.MIC_READINESS_FEED, snapStr, 100);
 
   return NextResponse.json({ ok: true, received_at: snapshot.received_at });

@@ -59,6 +59,11 @@ async function loadLatestKvJournalTimestamp(agentName: string): Promise<string |
   try {
     const redis = getKvRedis();
     if (!redis) return null;
+    // agent:meta is updated on every appendJournalLaneEntry attempt (before idempotency gate),
+    // so it reflects the actual sweep cadence rather than the dedup window.
+    const meta = await redis.hgetall<Record<string, string>>(`agent:meta:${agentName.toLowerCase()}`);
+    if (meta?.last_journal_at) return meta.last_journal_at;
+    // Fallback: read most recent entry from the per-agent journal list.
     const key = `journal:${agentName.toLowerCase()}`;
     const rows = await redis.lrange<string>(key, 0, 0);
     if (!rows?.length) return null;
