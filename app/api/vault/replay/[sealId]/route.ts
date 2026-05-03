@@ -16,9 +16,9 @@ type EpiconItem = {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { sealId: string } },
+  { params }: { params: Promise<{ sealId: string }> },
 ) {
-  const { sealId } = params;
+  const { sealId } = await params;
 
   if (!sealId || typeof sealId !== 'string') {
     return NextResponse.json({ ok: false, error: 'missing_seal_id' }, { status: 400 });
