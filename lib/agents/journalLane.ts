@@ -2,6 +2,7 @@ import { Redis } from '@upstash/redis';
 import { enqueueJournalCanonWrite } from '@/lib/agents/journalCanonOutbox';
 import { bumpTerminalWatermark } from '@/lib/terminal/watermark';
 import type { SubstrateJournalWriteInput } from '@/lib/substrate/github-journal';
+import { kvLpushCapped } from '@/lib/kv/store';
 
 const KEY_ALL = 'journal:all';
 // Hard cap — entries beyond this are dropped by ltrim. At ~15/hr this covers ~33h.
@@ -191,6 +192,10 @@ export async function appendJournalLaneEntry(
   await redis.ltrim(KEY_ALL, 0, MAX_LIST_ENTRIES - 1);
   await redis.lpush(agentKey, packed);
   await redis.ltrim(agentKey, 0, MAX_LIST_ENTRIES - 1);
+  // Bridge copy into prefixed KV namespace so the journal lane can find entries
+  // even when the KEYS scan path fails (ACL restrictions, scan timeout, etc.).
+  void kvLpushCapped(`journal:${agent.toLowerCase()}`, packed, MAX_LIST_ENTRIES).catch(() => {});
+  void kvLpushCapped('journal:all', packed, MAX_LIST_ENTRIES).catch(() => {});
   await bumpTerminalWatermark(redis, 'journal', {
     cycle,
     status: canonEnabled ? 'pending' : 'hot',

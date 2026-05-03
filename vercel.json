@@ -5,6 +5,9 @@
     }
   },
   "ignoreCommand": "bash scripts/ignore-build.sh",
+  "env": {
+    "NODE_OPTIONS": "--no-deprecation"
+  },
   "crons": [
     {
       "path": "/api/cron/watchdog",
@@ -17,6 +20,10 @@
     {
       "path": "/api/cron/promote",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/promote",
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/cron/gi-refresh",

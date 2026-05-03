@@ -9,7 +9,7 @@
 
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { attestReserveBlockToSubstrate } from '@/lib/vault-v2/substrate-attestation';
-import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
+import { releaseReplayPressureForAttestedSeal, drainReplayPressure } from '@/lib/mic/replayPressure';
 import {
   appendSealToAuditChain,
   appendSealToChain,
@@ -278,9 +278,10 @@ export async function finalizeSeal(decision: QuorumResult): Promise<Seal | null>
       substrate_attestation_error: substrate.ok ? null : (substrate.error ?? 'substrate_attestation_failed'),
     };
     await appendSealToChain(finalized);
-    // OPT-10 (C-296): relieve replay pressure for each attested seal. Six quarantined
-    // seals pushed replay_pressure to 0.345; each successful attestation subtracts ~0.057.
+    // OPT-10 (C-296): relieve replay pressure for each attested seal.
     void releaseReplayPressureForAttestedSeal().catch(() => {});
+    // Named drain for observability — provides the 'seal' reason tag in pressure history.
+    void drainReplayPressure('seal', 0.10).catch(() => {});
   } else {
     await writeSeal(finalized);
     await appendSealToAuditChain(finalized);

@@ -26,7 +26,32 @@ import {
   getEchoIntegrity,
 } from '@/lib/echo/store';
 import { writeSnapshot } from '@/lib/echo/snapshot-writer';
-import { saveEchoState } from '@/lib/kv/store';
+import { saveEchoState, kvGet, kvSet } from '@/lib/kv/store';
+
+const ECHO_SEEN_IDS_KEY = 'echo:seen_source_ids';
+const ECHO_SEEN_IDS_TTL = 60 * 60 * 48; // 48h
+
+async function filterAlreadySeen(events: RawEvent[]): Promise<{ novel: RawEvent[]; suppressedCount: number }> {
+  const seen = await kvGet<Record<string, number>>(ECHO_SEEN_IDS_KEY).catch(() => null) ?? {};
+  const nowMs = Date.now();
+  const cutoffMs = nowMs - ECHO_SEEN_IDS_TTL * 1000;
+  // Purge entries older than TTL from the seen map
+  for (const id of Object.keys(seen)) {
+    if ((seen[id] ?? 0) < cutoffMs) delete seen[id];
+  }
+  const novel: RawEvent[] = [];
+  let suppressedCount = 0;
+  for (const event of events) {
+    if (event.sourceId in seen) {
+      suppressedCount++;
+    } else {
+      novel.push(event);
+      seen[event.sourceId] = nowMs;
+    }
+  }
+  void kvSet(ECHO_SEEN_IDS_KEY, seen, ECHO_SEEN_IDS_TTL).catch(() => {});
+  return { novel, suppressedCount };
+}
 import { querySonarForLane } from '@/lib/signals/perplexity-sonar';
 import { persistEchoIngestSideEffects, writeEchoKvHeartbeatToMobius } from '@/lib/echo/kv-persist-ingest';
 import { requireWriteAuth } from '@/lib/auth/agent-write-auth';
@@ -126,8 +151,13 @@ export async function runEchoIngest() {
       });
     }
 
-    // 2. Transform to EPICON events + ledger entries
-    const result = transformBatch(rawEvents);
+    // 2. Cross-run dedup: remove source IDs already seen in prior ingest cycles.
+    const { novel: deduped, suppressedCount: crossRunSuppressed } = await filterAlreadySeen(rawEvents);
+    const eventsForTransform = deduped.length > 0 ? deduped : rawEvents;
+
+    // 3. Transform to EPICON events + ledger entries
+    const result = transformBatch(eventsForTransform);
+    result.duplicateSuppressedCount += crossRunSuppressed;
 
     // 3. Push to store
     pushIngestResult(result);

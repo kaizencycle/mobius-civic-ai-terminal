@@ -21,6 +21,7 @@ import {
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { drainReplayPressure } from '@/lib/mic/replayPressure';
 
 type VerifyRequest = {
   epiconId: string;
@@ -189,6 +190,9 @@ export async function POST(request: NextRequest) {
     }
 
     const confirmed = body.outcome === 'hit' && body.finalStatus === 'verified';
+    if (confirmed) {
+      void drainReplayPressure('verified', 0.02).catch(() => {});
+    }
     const reportRef = body.epiconId;
 
     writeEpiconEntry({

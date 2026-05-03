@@ -71,12 +71,16 @@ export async function attestReserveBlockToSubstrate(seal: Seal): Promise<Reserve
         seal.prev_seal_hash ? `prev-${seal.prev_seal_hash.slice(0, 8)}` : 'genesis',
       ],
       attestation_signature: {
-        type: 'reserve_block_seal_v1',
+        type: 'seal_attestation',
         seal_id: seal.seal_id,
         seal_hash: seal.seal_hash,
+        cycle_id: seal.cycle_at_seal,
+        sealed_at: seal.sealed_at,
         sequence: seal.sequence,
-        quorum_passes: passed,
+        quorum_agents: passed,
+        gi_at_seal: seal.gi_at_seal ?? 0,
         attested_at: attestedAt,
+        node: 'vercel-cron',
       },
     });
 
@@ -88,11 +92,10 @@ export async function attestReserveBlockToSubstrate(seal: Seal): Promise<Reserve
       error: result.error,
     };
   } catch (error) {
-    return {
-      ok: false,
-      attestedAt,
-      error: error instanceof Error ? error.message : 'reserve_block_substrate_attestation_failed',
-    };
+    const errMsg = error instanceof Error ? error.message : 'reserve_block_substrate_attestation_failed';
+    // Enqueue for reattest-seals cron retry on any write failure.
+    void enqueueSubstrateRetry(seal, errMsg).catch(() => {});
+    return { ok: false, attestedAt, error: errMsg };
   }
 }
 

@@ -399,6 +399,18 @@ export async function kvLpushCapped(key: string, value: string, maxLen: number):
   }
 }
 
+/** Read up to `count` elements from a list key (prefixed with `mobius:`). */
+export async function kvLrange<T = unknown>(key: string, start: number, stop: number): Promise<T[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  try {
+    const result = await redis.lrange<T>(prefixKey(key), start, stop);
+    return Array.isArray(result) ? result : [];
+  } catch {
+    return [];
+  }
+}
+
 // ── Mobius-specific compound operations ──────────────────────
 
 /**

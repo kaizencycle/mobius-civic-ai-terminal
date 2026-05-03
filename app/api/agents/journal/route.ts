@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 import { writeToSubstrate } from '@/lib/substrate/client';
+import { kvLrange } from '@/lib/kv/store';
 import { getOperatorSession } from '@/lib/auth/session';
 import {
   writeJournalToSubstrate,
@@ -329,6 +330,32 @@ async function loadEntries(
     const seen = new Set<string>();
     const out: AgentJournalEntry[] = [];
 
+    // If KEYS scan found nothing, fall back to reading well-known per-agent list keys
+    // from the prefixed KV namespace (bridge copy written by appendJournalLaneEntry).
+    // This handles environments where KEYS is restricted by Redis ACL.
+    if (keysUnprefixed.length === 0 && keysPrefixed.length === 0) {
+      const fallbackAgents = normalized.size > 0
+        ? Array.from(normalized).map((a: string) => a.toLowerCase())
+        : [...GENESIS_AGENTS].map((a: string) => a.toLowerCase());
+      const fallbackRows = await Promise.all(
+        fallbackAgents.map((a: string) => kvLrange<unknown>(`journal:${a}`, 0, KV_JOURNAL_LIST_READ_MAX - 1).catch(() => [])),
+      );
+      const allFallback = await kvLrange<unknown>('journal:all', 0, KV_JOURNAL_LIST_READ_MAX - 1).catch(() => []);
+      for (const row of [...allFallback, ...fallbackRows.flat()]) {
+        const candidate = parseMaybeJson(row);
+        if (!candidate) continue;
+        const parsed = parseEntry(candidate);
+        if (!parsed) continue;
+        if (parsed.source !== 'agent-journal') continue;
+        if (!asString(parsed.agentOrigin)) continue;
+        if (normalized.size > 0 && !normalized.has(parsed.agentOrigin.toUpperCase())) continue;
+        if (seen.has(parsed.id)) continue;
+        seen.add(parsed.id);
+        out.push(parsed);
+      }
+      return out.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    }
+
     for (const key of keys) {
       const parsedKey = parseJournalStorageKey(key);
       if (!parsedKey) continue;
@@ -403,12 +430,11 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl;
   const mode = normalizeMode(searchParams.get('mode'));
-  const agentFilters = Array.from(
+  const agentFilters: string[] = Array.from(
     new Set(
-      searchParams
-        .getAll('agent')
-        .map((agent) => asString(agent).toUpperCase())
-        .filter(Boolean),
+      (searchParams.getAll('agent') as string[])
+        .map((agent: string) => asString(agent).toUpperCase())
+        .filter((v): v is string => Boolean(v)),
     ),
   );
   const agentFilterSet = new Set(agentFilters);
