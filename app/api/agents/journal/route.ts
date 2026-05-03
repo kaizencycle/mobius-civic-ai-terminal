@@ -146,6 +146,12 @@ function substrateRecordToAgentEntry(row: SubstrateJournalEntry): AgentJournalEn
   };
 }
 
+const JOURNAL_VALID_CATEGORIES_SET = new Set(['observation', 'inference', 'alert', 'recommendation', 'close']);
+
+function normalizeJournalCategory(raw: string): AgentJournalCategory {
+  return (JOURNAL_VALID_CATEGORIES_SET.has(raw) ? raw : 'observation') as AgentJournalCategory;
+}
+
 function parseEntry(input: unknown, fallbackAgent?: string, fallbackCycle?: string): AgentJournalEntry | null {
   const row = asRecord(input);
   if (!row) return null;
@@ -159,7 +165,7 @@ function parseEntry(input: unknown, fallbackAgent?: string, fallbackCycle?: stri
   const inference = asString(row.inference);
   const recommendation = asString(row.recommendation);
   const status = (asString(row.status) || 'committed') as AgentJournalStatus;
-  const category = (asString(row.category) || 'observation') as AgentJournalCategory;
+  const category = normalizeJournalCategory(asString(row.category) || 'observation');
   const severity = (asString(row.severity) || 'nominal') as AgentJournalSeverity;
   const agentOrigin = asString(row.agentOrigin).toUpperCase();
   const source = row.source;
@@ -169,7 +175,6 @@ function parseEntry(input: unknown, fallbackAgent?: string, fallbackCycle?: stri
     return null;
   }
   if (!['draft', 'committed', 'contested', 'verified'].includes(status)) return null;
-  if (!['observation', 'inference', 'alert', 'recommendation', 'close'].includes(category)) return null;
   if (!['nominal', 'elevated', 'critical'].includes(severity)) return null;
   if (source !== 'agent-journal') return null;
 
@@ -508,7 +513,7 @@ export async function GET(request: NextRequest) {
         substrate: substrateEntries.length,
       },
       merged_from_archive: mode === 'merged' && substrateEntries.length > 0,
-      canonical_source: 'substrate',
+      canonical_source: substrateEntries.length === 0 && kvForSources.length > 0 ? 'kv-fallback' : 'substrate',
       archive_error: substrateError,
       archive_fetched_count: substrateEntries.length,
       archive_stale: archiveStale,
