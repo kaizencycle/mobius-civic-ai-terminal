@@ -25,6 +25,18 @@ type EpiconCheckResponse = {
   }>;
 };
 
+type EpiconCheckError = { error?: string };
+
+function isEpiconCheckResponse(payload: EpiconCheckResponse | EpiconCheckError): payload is EpiconCheckResponse {
+  return (
+    typeof (payload as EpiconCheckResponse).status === 'string' &&
+    typeof (payload as EpiconCheckResponse).ecs === 'number' &&
+    Boolean((payload as EpiconCheckResponse).vote) &&
+    Boolean((payload as EpiconCheckResponse).quorum) &&
+    Array.isArray((payload as EpiconCheckResponse).dissent)
+  );
+}
+
 const SAMPLE_REPORTS = ['ATLAS', 'ZEUS', 'EVE', 'AUREA', 'JADE'].map((agent) => ({
   agent,
   stance: 'support' as const,
@@ -65,8 +77,10 @@ export default function EpiconPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reports: SAMPLE_REPORTS }),
       });
-      const payload = (await response.json()) as EpiconCheckResponse | { error?: string };
-      if (!response.ok || 'error' in payload) throw new Error('error' in payload ? payload.error ?? 'epicon_check_failed' : 'epicon_check_failed');
+      const payload = (await response.json()) as EpiconCheckResponse | EpiconCheckError;
+      if (!response.ok || !isEpiconCheckResponse(payload)) {
+        throw new Error('error' in payload ? payload.error ?? 'epicon_check_failed' : 'epicon_check_failed');
+      }
       setResult(payload);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'epicon_check_failed');
