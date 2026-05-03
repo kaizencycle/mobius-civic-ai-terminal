@@ -12,6 +12,7 @@ import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
 import { getVaultStatusPayload, listVaultDeposits } from '@/lib/vault/vault';
 import { countSeals, getCandidate, getInProgressBalance, getLatestSeal } from '@/lib/vault-v2/store';
 import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
+import { loadQuorumState } from '@/lib/mic/quorumTracker';
 
 type UpstreamSnapshot = {
   snapshot?: Partial<MicReadinessResponse> & Record<string, unknown>;
@@ -97,7 +98,7 @@ export async function assembleLocalMicReadiness(cycleParam?: string | null): Pro
   const resolvedGi = await resolveGiForTerminal({ micReadinessSnapshotRaw: micSnapRaw });
   const vaultStatus = await getVaultStatusShape(resolvedGi.gi);
   const deposits = await listVaultDeposits(120);
-  const [sustainState, replayResolved] = await Promise.all([
+  const [sustainState, replayResolved, liveQuorum] = await Promise.all([
     loadSustainState(),
     (async () => {
       const seen = new Set<string>();
@@ -109,6 +110,7 @@ export async function assembleLocalMicReadiness(cycleParam?: string | null): Pro
       const ratio = deposits.length > 0 ? repeats / deposits.length : 0;
       return resolveReplayPressureWithDecay(ratio);
     })(),
+    loadQuorumState(cycle || '').catch(() => null),
   ]);
   const base = buildMicReadinessV1({
     vaultStatus,
@@ -118,6 +120,7 @@ export async function assembleLocalMicReadiness(cycleParam?: string | null): Pro
     replayPressure: replayResolved.replayPressure,
     replayStatus: replayResolved.status,
     replay_decay_half_life_hours: replayResolved.replay_decay_half_life_hours,
+    liveQuorum,
   });
   return {
     ...base,

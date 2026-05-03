@@ -15,6 +15,7 @@ import type {
 } from '@/lib/mic/types';
 import type { MicSustainStateV1 } from '@/lib/mic/sustainTracker';
 import { SUSTAIN_GI_THRESHOLD } from '@/lib/mic/sustainTracker';
+import type { SentinelQuorumState } from '@/lib/mic/quorumTracker';
 
 export type VaultStatusJson = {
   balance_reserve?: number;
@@ -95,27 +96,45 @@ function noveltyFromDeposits(deposits: { journal_score?: number }[]): { score: n
   return { score, status: 'weak' };
 }
 
-function quorumFromVault(v: VaultStatusJson): MicReadinessResponse['quorum'] {
+function quorumFromVault(v: VaultStatusJson, liveQuorum?: SentinelQuorumState | null): MicReadinessResponse['quorum'] {
   const required = [...SENTINEL_AGENTS];
   const cand = v.candidate_attestation_state;
   const inFlight = Boolean(cand?.in_flight);
+
+  // Prefer live quorum tracker state which carries per-agent attested list.
+  if (liveQuorum) {
+    const attested = Object.entries(liveQuorum.entries)
+      .filter(([, e]) => e?.attested)
+      .map(([agent]) => agent);
+    const received = liveQuorum.attestations_received;
+    const needed = Math.max(0, liveQuorum.attestations_needed - received);
+    const status: MicQuorumStatus = liveQuorum.status === 'achieved'
+      ? 'satisfied'
+      : liveQuorum.status === 'in_progress'
+        ? 'partial'
+        : 'pending';
+    return {
+      required,
+      attested,
+      status,
+      attestations_received: received,
+      attestations_needed: needed,
+      seal_candidate_in_flight: inFlight,
+    };
+  }
+
   const received = typeof cand?.attestations_received === 'number' ? cand.attestations_received : 0;
   const needed = typeof cand?.attestations_needed === 'number' ? cand.attestations_needed : required.length;
-
   let status: MicQuorumStatus = 'pending';
   if (inFlight) {
     if (received >= required.length) status = 'satisfied';
     else if (received > 0) status = 'partial';
     else status = 'pending';
-  } else {
-    status = 'pending';
   }
 
-  const attested: string[] = [];
-  // We only have counts from status payload, not per-agent list, until seal detail is wired.
   return {
     required,
-    attested,
+    attested: [],
     status,
     attestations_received: received,
     attestations_needed: Math.max(0, needed),
@@ -142,6 +161,7 @@ export function buildMicReadinessV1(args: {
   replayPressure?: number;
   replayStatus?: MicReplayStatus;
   replay_decay_half_life_hours?: number;
+  liveQuorum?: SentinelQuorumState | null;
 }): MicReadinessResponse {
   const v = args.vaultStatus;
   const cycle = args.cycle?.trim() || currentCycleId();
@@ -193,7 +213,7 @@ export function buildMicReadinessV1(args: {
   const { score: noveltyScore, status: noveltyStatus } = noveltyFromDeposits(args.depositsSample);
   const fountainLane = v.fountain_status ?? 'locked';
   const fountain = { ...fountainTriplet(fountainLane), lane: fountainLane };
-  const quorum = quorumFromVault(v);
+  const quorum = quorumFromVault(v, args.liveQuorum);
   const mintReadiness = deriveMintReadiness(v, fountain, quorum);
 
   return {

@@ -38,7 +38,7 @@ export async function fetchGovTrack(): Promise<RawEvent[]> {
     // 0.15 floor: if feed is empty, return a sentinel low-signal event rather than []
     if (items.length === 0) {
       return [{
-        sourceId: `govtrack-empty-${Date.now()}`,
+        sourceId: `govtrack-empty-${new Date().toISOString().slice(0, 13)}`,
         source: 'GovTrack',
         title: 'GovTrack feed: no active bills at this time',
         summary: 'US legislative activity feed returned no active bills. Signal floored.',
@@ -50,7 +50,7 @@ export async function fetchGovTrack(): Promise<RawEvent[]> {
       }];
     }
 
-    return items.slice(0, 8).map((item, i) => {
+    return items.slice(0, 8).map((item) => {
       const title = item.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1]
         ?? item.match(/<title>(.*?)<\/title>/)?.[1]
         ?? 'Legislative activity';
@@ -60,8 +60,10 @@ export async function fetchGovTrack(): Promise<RawEvent[]> {
         ?? item.match(/<description>(.*?)<\/description>/)?.[1]
         ?? '';
       const ts = pubDate ? new Date(pubDate).toISOString() : new Date().toISOString();
+      // Stable ID from URL path or title so the same bill isn't re-ingested across crons.
+      const stableSlug = (link || title).replace(/[^a-zA-Z0-9]/g, '').slice(0, 40) || ts.slice(0, 13);
       return {
-        sourceId: `govtrack-${Date.now()}-${i}`,
+        sourceId: `govtrack-${stableSlug}`,
         source: 'GovTrack',
         title: title.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').slice(0, 200),
         summary: description.replace(/<[^>]+>/g, '').slice(0, 300) || `US legislative event: ${title}`,
@@ -165,7 +167,7 @@ export async function fetchCoinGecko(): Promise<RawEvent[]> {
         Math.abs(change) > 8 ? 'high' : Math.abs(change) > 3 ? 'medium' : 'low';
 
       return {
-        sourceId: `coingecko-${coin}-${Date.now()}`,
+        sourceId: `coingecko-${coin}-${new Date().toISOString().slice(0, 13)}`,
         source: 'CoinGecko',
         title: `${coin.toUpperCase()} ${change >= 0 ? '▲' : '▼'} $${(info.usd ?? 0).toLocaleString()} (${change >= 0 ? '+' : ''}${change.toFixed(1)}%)`,
         summary: `${coin.charAt(0).toUpperCase() + coin.slice(1)} trading at $${(info.usd ?? 0).toLocaleString()} USD with a ${Math.abs(change).toFixed(1)}% ${change >= 0 ? 'gain' : 'loss'} in the last 24 hours.`,

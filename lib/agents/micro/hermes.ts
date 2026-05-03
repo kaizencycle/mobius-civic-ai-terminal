@@ -144,6 +144,35 @@ async function pollSonar(): Promise<MicroSignal | null> {
   };
 }
 
+// ── HN Algolia: governance/civic story velocity (GDELT fallback) ───────────────
+type HNAlgoliaResponse = {
+  hits?: Array<{ title?: string; url?: string }>;
+  nbHits?: number;
+};
+
+async function pollHNAlgoliaNarrative(): Promise<MicroSignal | null> {
+  const url =
+    'https://hn.algolia.com/api/v1/search?query=governance+civic+policy+democracy&tags=story&hitsPerPage=10';
+  try {
+    const data = await safeFetch<HNAlgoliaResponse>(url, 5000);
+    const hits = data?.hits;
+    if (!hits || hits.length === 0) return null;
+    const count = hits.length;
+    const value = Number(Math.min(count / 10, 1.0).toFixed(3));
+    return {
+      agentName: 'HERMES-µ',
+      source: 'HN Algolia',
+      timestamp: new Date().toISOString(),
+      value,
+      label: `HN Algolia: ${count} governance/civic stories`,
+      severity: classifySeverity(value, { watch: 0.4, elevated: 0.25, critical: 0.1 }),
+      raw: { count, topTitle: hits[0]?.title ?? null },
+    };
+  } catch {
+    return null;
+  }
+}
+
 type GDELTResponse = {
   articles?: Array<{
     title?: string;
@@ -245,17 +274,23 @@ export async function pollHermes(): Promise<AgentPollResult> {
   if (gdelt) {
     signals.push(gdelt);
   } else {
-    // GDELT persistently unreachable — push neutral so composite is not penalized.
-    signals.push({
-      agentName: 'HERMES-µ',
-      source: 'GDELT',
-      timestamp: new Date().toISOString(),
-      value: 0.5,
-      label: 'GDELT unavailable — neutral baseline',
-      severity: 'nominal',
-      raw: { fallback: true },
-    });
-    errors.push('GDELT API fetch failed (neutral fallback applied)');
+    // GDELT persistently unreachable — try HN Algolia governance search before neutral.
+    const hnNarrative = await pollHNAlgoliaNarrative();
+    if (hnNarrative) {
+      signals.push(hnNarrative);
+      errors.push('GDELT API fetch failed (HN Algolia fallback applied)');
+    } else {
+      signals.push({
+        agentName: 'HERMES-µ',
+        source: 'GDELT',
+        timestamp: new Date().toISOString(),
+        value: 0.5,
+        label: 'GDELT unavailable — neutral baseline',
+        severity: 'nominal',
+        raw: { fallback: true },
+      });
+      errors.push('GDELT API fetch failed (neutral fallback applied)');
+    }
   }
 
   // Federal Register: free civic/governance narrative signal (no auth required).

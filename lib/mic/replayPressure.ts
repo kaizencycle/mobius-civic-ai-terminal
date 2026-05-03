@@ -126,6 +126,33 @@ export async function resolveReplayPressureWithDecay(
 }
 
 /**
+ * Drain replay pressure by an explicit amount for a named reason.
+ * Covers: EPICON verification events (0.02 each) and seal completion (0.10).
+ */
+export async function drainReplayPressure(
+  reason: 'verified' | 'seal',
+  amount: number,
+): Promise<void> {
+  const drain = Math.max(0, Number.isFinite(amount) ? amount : 0);
+  if (drain === 0) return;
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  const env = await loadEnvelope();
+  const decayed = decayValue(env.ingestPressure, env.lastUpdatedAt, nowMs);
+  const relieved = Number(Math.max(0, decayed - drain).toFixed(4));
+  const next: ReplayPressureKvV1 = {
+    schema: 'MIC_REPLAY_PRESSURE_V1',
+    ingestPressure: relieved,
+    lastUpdatedAt: nowIso,
+    ...(env.snapshotTotal !== null && env.snapshotAt !== null
+      ? { snapshot_total: env.snapshotTotal, snapshot_at: env.snapshotAt }
+      : {}),
+  };
+  await kvSet(KV_KEYS.MIC_REPLAY_PRESSURE, next, KV_TTL_SECONDS.MIC_REPLAY_PRESSURE);
+  console.info(`[replay-pressure] drain reason=${reason} amount=${drain} new=${relieved}`);
+}
+
+/**
  * OPT-09/OPT-10 (C-296): Reduce ingest pressure when a seal is successfully attested.
  * Each attested seal subtracts ~1/6 of max pressure (0.057) to unwind the accumulated
  * pressure from the 6 quarantined seals (replay_pressure was at 0.345 = ~6 × 0.057).
