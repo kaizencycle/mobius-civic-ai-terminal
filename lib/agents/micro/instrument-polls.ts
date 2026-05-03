@@ -305,6 +305,31 @@ export async function pollHermesU2(): Promise<AgentPollResult> {
   });
 }
 
+async function pollHermesU3GithubFallback(): Promise<MicroSignal | null> {
+  try {
+    const data = await safeFetch<{ items?: Array<{ full_name?: string; stargazers_count?: number }> }>(
+      'https://api.github.com/search/repositories?q=stars:>1000&sort=stars&order=desc&per_page=1',
+      8000,
+      { headers: { Accept: 'application/vnd.github.v3+json', ...UA_HEADERS } },
+    );
+    const topRepo = data?.items?.[0];
+    if (!topRepo) return null;
+    const stars = topRepo.stargazers_count ?? 0;
+    const value = Number(Math.min(1, stars / 200000).toFixed(3));
+    return {
+      agentName: 'HERMES-µ3',
+      source: 'GitHub · trending repos',
+      timestamp: new Date().toISOString(),
+      value,
+      label: `GitHub trending: ${topRepo.full_name ?? 'n/a'} ★${stars.toLocaleString()}`,
+      severity: classifySeverity(value, { watch: 0.45, elevated: 0.3, critical: 0.15 }),
+      raw: { stars, repo: topRepo.full_name },
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function pollHermesU3(): Promise<AgentPollResult> {
   const queries = ['governance OR democracy OR civic', 'transparency OR regulation OR policy'];
   const timespans = ['7d', '3d', '1d'];
@@ -328,6 +353,13 @@ export async function pollHermesU3(): Promise<AgentPollResult> {
   const httpOk = Boolean(lastMeta?.ok);
   const quietContext = httpOk && n === 0 && (weekend || quietHour);
   const structuralEmpty = httpOk && n === 0 && !quietContext;
+
+  // When GDELT is unreachable (httpOk=false, n=0), try GitHub trending as live fallback.
+  if (!httpOk && n === 0) {
+    const ghSignal = await pollHermesU3GithubFallback();
+    if (ghSignal) return wrap('HERMES-µ3', ghSignal);
+  }
+
   const value = Number(
     (quietContext || structuralEmpty ? 0.5 : normalizeDirect(Math.min(n, 16), 0, 16)).toFixed(3),
   );
@@ -347,6 +379,30 @@ export async function pollHermesU3(): Promise<AgentPollResult> {
     severity,
     raw: { count: n, httpOk, quietContext, structuralEmpty, timespansTried: timespans },
   });
+}
+
+async function pollHermesU4AqiFallback(): Promise<MicroSignal | null> {
+  try {
+    const data = await safeFetch<{ current?: { us_aqi?: number } }>(
+      'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=40.71&longitude=-74.01&current=us_aqi&timezone=America/New_York',
+      8000,
+    );
+    const aqi = data?.current?.us_aqi;
+    if (typeof aqi !== 'number') return null;
+    const value = Number(Math.max(0, 1 - aqi / 300).toFixed(3));
+    const label = aqi < 50 ? 'good' : aqi < 100 ? 'moderate' : 'unhealthy';
+    return {
+      agentName: 'HERMES-µ4',
+      source: 'Open-Meteo · NYC air quality',
+      timestamp: new Date().toISOString(),
+      value,
+      label: `NYC AQI: ${aqi} (${label})`,
+      severity: aqi > 150 ? 'watch' : 'nominal',
+      raw: { aqi },
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function pollHermesU4(): Promise<AgentPollResult> {
@@ -375,6 +431,13 @@ export async function pollHermesU4(): Promise<AgentPollResult> {
   const quietHour = d.getUTCHours() >= 0 && d.getUTCHours() <= 8;
   const quietContext = lastOk && kids.length === 0 && (weekend || quietHour);
   const structuralEmpty = lastOk && kids.length === 0 && !quietContext;
+
+  // When Reddit is unreachable (!lastOk, no posts), try Open-Meteo NYC AQI as live fallback.
+  if (!lastOk && kids.length === 0) {
+    const aqiSignal = await pollHermesU4AqiFallback();
+    if (aqiSignal) return wrap('HERMES-µ4', aqiSignal);
+  }
+
   const value = Number((quietContext || structuralEmpty ? 0.5 : normalizeDirect(avg, 0, 2000)).toFixed(3));
   const severity =
     quietContext || structuralEmpty ? 'nominal' : classifySeverity(value, { watch: 0.4, elevated: 0.22, critical: 0.08 });

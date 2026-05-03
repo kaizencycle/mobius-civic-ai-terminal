@@ -49,7 +49,7 @@ export default function ChamberSwitcher() {
   return (
     <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5 md:mx-0 md:gap-2 md:px-0 md:pb-1" aria-label="Terminal chambers">
       {CHAMBERS.map((tab) => {
-        const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+        const active = pathname === tab.href || (pathname?.startsWith(`${tab.href}/`) ?? false);
         return (
           <Link
             key={tab.href}

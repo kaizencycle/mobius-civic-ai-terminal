@@ -19,11 +19,11 @@ export default function ShellBridgeBanner() {
   const [fromLab, setFromLab] = useState<string | null>(null);
 
   useEffect(() => {
-    const from = searchParams.get('from');
+    const from = searchParams?.get('from');
     if (from !== 'shell') return;
 
     setVisible(true);
-    setFromLab(searchParams.get('lab'));
+    setFromLab(searchParams?.get('lab') ?? null);
 
     const url = new URL(window.location.href);
     url.searchParams.delete('from');
