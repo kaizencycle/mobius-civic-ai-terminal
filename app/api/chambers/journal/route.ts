@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GET as getJournal } from '@/app/api/agents/journal/route';
 import { chamberSavepointKey, resolveChamberSavepoint } from '@/lib/chambers/savepoint-cache';
+import { kvLrange } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
 type DvaTier = 'ALL' | 't1' | 't2' | 't3' | 'sentinel' | 'architects';
-type AgentJournalEntry = { agent?: string; agentOrigin?: string };
+type AgentJournalEntry = { agent?: string; agentOrigin?: string; cycle?: string; timestamp?: string };
 
 type RequestedAgentScope = {
   agents: string[];
@@ -33,6 +34,8 @@ type JournalChamberPayload = {
 const MAX_READ = 250;
 const WINDOW_HOURS_DEFAULT = 48;
 const WINDOW_HOURS_MAX = 72;
+const KV_JOURNAL_LIST_READ_MAX = 200;
+const GENESIS_AGENTS = ['ATLAS', 'ZEUS', 'EVE', 'HERMES', 'AUREA', 'JADE', 'DAEDALUS', 'ECHO'] as const;
 
 const DVA_TIER_AGENTS: Record<Exclude<DvaTier, 'ALL'>, string[]> = {
   t1: ['ECHO'],
@@ -78,6 +81,63 @@ function entryIsInAgents(entry: unknown, agents: Set<string>): boolean {
   const row = entry as AgentJournalEntry;
   const agent = normalizeAgent(row.agentOrigin ?? row.agent ?? '');
   return agent.length > 0 && agents.has(agent);
+}
+
+function entryCycle(entry: unknown): string {
+  const row = entry as AgentJournalEntry;
+  return typeof row.cycle === 'string' ? row.cycle.trim() : '';
+}
+
+function entryTimestamp(entry: unknown): number {
+  const row = entry as AgentJournalEntry;
+  const ts = typeof row.timestamp === 'string' ? new Date(row.timestamp).getTime() : 0;
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function parseMaybeJson(input: unknown): unknown | null {
+  if (typeof input !== 'string') return input ?? null;
+  try {
+    return JSON.parse(input) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+async function loadKvHotJournalEntries(args: {
+  requestedAgents: string[];
+  cycle: string | null;
+  windowHours: number;
+  limit: number;
+}): Promise<unknown[]> {
+  const agents = args.requestedAgents.length > 0 ? args.requestedAgents : [...GENESIS_AGENTS];
+  const cutoff = Date.now() - args.windowHours * 60 * 60 * 1000;
+  const rows = await Promise.all([
+    kvLrange<unknown>('journal:all', 0, KV_JOURNAL_LIST_READ_MAX - 1).catch(() => []),
+    ...agents.map((agent) => kvLrange<unknown>(`journal:${agent.toLowerCase()}`, 0, KV_JOURNAL_LIST_READ_MAX - 1).catch(() => [])),
+    ...agents.map((agent) => kvLrange<unknown>(`agent:${agent.toLowerCase()}:journal`, 0, KV_JOURNAL_LIST_READ_MAX - 1).catch(() => [])),
+  ]);
+
+  const seen = new Set<string>();
+  const agentSet = new Set(args.requestedAgents);
+  return rows
+    .flat()
+    .map(parseMaybeJson)
+    .filter(Boolean)
+    .filter((entry) => entryIsInAgents(entry, agentSet))
+    .filter((entry) => (args.cycle ? entryCycle(entry) === args.cycle || entryCycle(entry) === '' : true))
+    .filter((entry) => {
+      const ts = entryTimestamp(entry);
+      return ts === 0 || ts >= cutoff;
+    })
+    .filter((entry) => {
+      const row = entry as { id?: unknown };
+      const id = typeof row.id === 'string' ? row.id : JSON.stringify(row).slice(0, 120);
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    })
+    .sort((a, b) => entryTimestamp(b) - entryTimestamp(a))
+    .slice(0, args.limit);
 }
 
 function emptyScopedPayload(mode: string, tier: DvaTier, requestedScope: RequestedAgentScope, reason: string): JournalChamberPayload {
@@ -152,21 +212,31 @@ export async function GET(request: NextRequest) {
       mode?: 'hot' | 'canon' | 'merged';
       archive_error?: string | null;
       archive_fetched_count?: number;
+      sources?: { kv?: number; substrate?: number };
       [key: string]: unknown;
     };
     const agentSet = new Set(requestedAgents);
-    const entries = (json.entries ?? []).filter((entry) => entryIsInAgents(entry, agentSet)).slice(0, limit);
+    let entries = (json.entries ?? []).filter((entry) => entryIsInAgents(entry, agentSet)).slice(0, limit);
+    let usedKvFallback = false;
+
+    if (entries.length === 0 && mode !== 'canon') {
+      entries = await loadKvHotJournalEntries({ requestedAgents, cycle, windowHours, limit });
+      usedKvFallback = entries.length > 0;
+    }
+
     const archiveFetchedCount = typeof json.archive_fetched_count === 'number' ? json.archive_fetched_count : 0;
     const canonicalAvailable = mode === 'hot' ? false : !json.archive_error && archiveFetchedCount > 0;
     const degraded = json.ok === false || !res.ok || Boolean(json.archive_error);
-    const fallbackReason = tier !== 'ALL' && entries.length === 0 && !degraded
-      ? `No ${tier.toUpperCase()} entries in current window — current cycle cron may not have written yet`
-      : null;
+    const fallbackReason = usedKvFallback
+      ? 'substrate_empty_or_nested_reader_empty_using_kv_hot'
+      : tier !== 'ALL' && entries.length === 0 && !degraded
+        ? `No ${tier.toUpperCase()} entries in current window — current cycle cron may not have written yet`
+        : null;
 
     const payload: JournalChamberPayload = {
       ...json,
       ok: json.ok === false ? false : true,
-      mode: json.mode ?? (mode as 'hot' | 'canon' | 'merged'),
+      mode: (usedKvFallback ? 'hot' : json.mode ?? mode) as 'hot' | 'canon' | 'merged',
       entries,
       count: entries.length,
       tier,
@@ -175,26 +245,36 @@ export async function GET(request: NextRequest) {
       scoped: tier !== 'ALL',
       fallback_reason: fallbackReason,
       canonical_available: canonicalAvailable,
-      fallback: degraded,
+      fallback: degraded || usedKvFallback,
       degraded,
       timestamp: new Date().toISOString(),
+      canonical_source: usedKvFallback ? 'kv-hot' : json.canonical_source,
+      sources: {
+        kv: usedKvFallback ? entries.length : json.sources?.kv ?? 0,
+        substrate: json.sources?.substrate ?? archiveFetchedCount,
+      },
     };
     return respondWithSavepoint(payload, savepointScope);
   } catch (error) {
+    const fallbackEntries = mode !== 'canon'
+      ? await loadKvHotJournalEntries({ requestedAgents, cycle, windowHours, limit })
+      : [];
     return respondWithSavepoint(
       {
         ok: true,
         degraded: true,
         fallback: true,
         error: error instanceof Error ? error.message : 'journal_chamber_route_failed',
-        mode: mode as 'hot' | 'canon' | 'merged',
-        entries: [],
-        count: 0,
+        mode: fallbackEntries.length > 0 ? 'hot' : (mode as 'hot' | 'canon' | 'merged'),
+        entries: fallbackEntries,
+        count: fallbackEntries.length,
         tier,
         tier_agents: requestedAgents,
         requested_agents: requestedScope.explicitAgents,
         scoped: tier !== 'ALL',
         canonical_available: false,
+        canonical_source: fallbackEntries.length > 0 ? 'kv-hot' : 'substrate',
+        sources: { kv: fallbackEntries.length, substrate: 0 },
         timestamp: new Date().toISOString(),
       },
       savepointScope,
