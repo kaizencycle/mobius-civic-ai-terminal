@@ -5,7 +5,7 @@
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { kvGet, kvSet, KV_KEYS, KV_TTL_SECONDS } from '@/lib/kv/store';
 
-export const SUSTAIN_GI_THRESHOLD = 0.95;
+export const SUSTAIN_GI_THRESHOLD = 0.75;
 export const SUSTAIN_REQUIRED_CYCLES = 5;
 
 import type { MicSustainStatus } from '@/lib/mic/types';
