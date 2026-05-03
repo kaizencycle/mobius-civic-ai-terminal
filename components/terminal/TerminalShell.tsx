@@ -25,6 +25,7 @@ function pathnameToLabel(pathname: string): string | null {
   if (pathname.startsWith('/terminal/vault')) return 'Vault';
   if (pathname.startsWith('/terminal/canon')) return 'Vault Canon';
   if (pathname.startsWith('/terminal/replay')) return 'Vault Replay';
+  if (pathname.startsWith('/terminal/epicon')) return 'EPICON';
   return null;
 }
 
@@ -36,6 +37,7 @@ function runtimeBadgeClass(runtime: 'online' | 'degraded' | 'offline') {
 
 export default function TerminalShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const currentPath = pathname ?? '';
   const [clock, setClock] = useState('—');
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
   const [showDataflowCommand, setShowDataflowCommand] = useState(true);
@@ -95,9 +97,9 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    const active = pathnameToLabel(pathname);
+    const active = pathnameToLabel(currentPath);
     document.title = active ? `Mobius Terminal · ${active}` : 'Mobius Terminal';
-  }, [pathname]);
+  }, [currentPath]);
 
   useEffect(() => {
     const stored = localStorage.getItem('mobius_console_collapsed');

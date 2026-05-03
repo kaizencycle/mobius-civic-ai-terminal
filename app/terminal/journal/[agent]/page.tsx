@@ -4,11 +4,18 @@ import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 type Entry = { id: string; agent: string; category?: string; timestamp: string; observation?: string };
+type AgentRouteParams = { agent?: string | string[] };
+
+function firstParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? '';
+  return value ?? '';
+}
 
 export default function AgentJournalPage() {
-  const params = useParams<{ agent: string }>();
+  const params = useParams<AgentRouteParams>();
   const [entries, setEntries] = useState<Entry[]>([]);
-  const agent = useMemo(() => decodeURIComponent(params.agent ?? ''), [params.agent]);
+  const agentParam = firstParam(params?.agent);
+  const agent = useMemo(() => decodeURIComponent(agentParam), [agentParam]);
 
   useEffect(() => {
     if (!agent) return;
