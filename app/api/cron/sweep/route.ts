@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
 import { runMicroSweepPipeline } from '@/lib/signals/runMicroSweep';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import { appendFullCouncilJournalPulse } from '@/lib/agents/sentinel-cycle-journals';
 import { updateSustainTrackingFromGi } from '@/lib/mic/sustainTracker';
 
@@ -21,7 +22,13 @@ async function run(req: NextRequest) {
     const gi = typeof data.composite === 'number' && Number.isFinite(data.composite)
       ? data.composite
       : null;
-    const cycle = currentCycleId();
+
+    let cycle: string;
+    try {
+      cycle = await resolveOperatorCycleId();
+    } catch {
+      cycle = currentCycleId();
+    }
 
     // C-298: advance sustain counter on every sweep — was never called before this fix.
     // updateSustainTrackingFromGi is idempotent per cycle (same cycle returns stored state).
@@ -37,12 +44,16 @@ async function run(req: NextRequest) {
       gi,
       source: 'cron',
     });
+
+    console.info('[cron/sweep] cycle write', { cycle, written: council.entries.length });
+
     return NextResponse.json({
       ok: true,
       source: 'cron-sweep',
       timestamp: new Date().toISOString(),
       composite: data.composite,
       instrumentCount: data.instrumentCount ?? null,
+      cycle,
       sustain: sustainResult
         ? {
             status: sustainResult.status,
