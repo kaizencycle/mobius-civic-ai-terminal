@@ -16,11 +16,7 @@
     },
     {
       "path": "/api/cron/promote",
-      "schedule": "30 0 * * *"
-    },
-    {
-      "path": "/api/cron/promote",
-      "schedule": "30 12 * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/gi-refresh",
