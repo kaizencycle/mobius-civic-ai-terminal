@@ -95,7 +95,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    const active = pathnameToLabel(pathname);
+    const active = pathname ? pathnameToLabel(pathname) : null;
     document.title = active ? `Mobius Terminal · ${active}` : 'Mobius Terminal';
   }, [pathname]);
 
