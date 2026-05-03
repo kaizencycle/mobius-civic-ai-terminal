@@ -113,6 +113,31 @@ function compactLedgerBody(text: string): string {
   return text.replace(/\s+/g, ' ').trim().slice(0, 900);
 }
 
+type LedgerLabSource = 'oaa' | 'reflections' | 'shield' | 'hive' | 'jade';
+
+function toLedgerLabSource(source: SubstrateEntry['source']): LedgerLabSource {
+  switch (source) {
+    case 'agent-journal':
+    case 'eve-synthesis':
+    case 'atlas-heartbeat':
+    case 'zeus-verify':
+    case 'aurea-close':
+    case 'echo-ingest':
+    case 'epicon-promotion':
+    case 'seed-backfill':
+      return 'oaa';
+  }
+}
+
+async function persistLastLedgerRejection(debug: Record<string, unknown>): Promise<void> {
+  try {
+    const { kvSet } = await import('@/lib/kv/store');
+    await kvSet('substrate:last_rejection', JSON.stringify({ ...debug, ts: new Date().toISOString() }), 86400);
+  } catch {
+    // diagnostic-only; never fail the write path because debug persistence failed
+  }
+}
+
 export interface SubstrateEntry {
   id?: string;
   timestamp?: string;
@@ -168,11 +193,14 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
   const authorization = AGENT_TOKEN.length > 0 ? `Bearer ${AGENT_TOKEN}` : '';
   const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
   const attestTimestamp = new Date().toISOString();
+  const ledgerLabSource = toLedgerLabSource(entry.source);
   const requestBody = {
     agent_id: entry.agentOrigin.toLowerCase(),
     event_type: entry.category,
     civic_id: `mobius-${entry.agentOrigin.toLowerCase()}`,
-    lab_source: entry.source,
+    // C-300 Phase 6.6: Render ledger accepts Lab IDs here, not Terminal source lanes.
+    // Preserve the Terminal source inside payload.source and tags instead.
+    lab_source: ledgerLabSource,
     payload: {
       event_id: eventId,
       title: entry.title,
@@ -182,7 +210,9 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
       mii: entry.confidence,
       severity: entry.severity,
       source: entry.source,
-      tags: entry.tags ?? [],
+      terminal_source: entry.source,
+      ledger_lab_source: ledgerLabSource,
+      tags: Array.from(new Set([...(entry.tags ?? []), `source:${entry.source}`])),
       agent: entry.agent,
       agent_origin: entry.agentOrigin,
       derived_from: entry.derivedFrom ?? [],
@@ -216,11 +246,13 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
         agent_id: requestBody.agent_id,
         event_type: requestBody.event_type,
         lab_source: requestBody.lab_source,
+        terminal_source: entry.source,
         payload_keys: Object.keys(requestBody.payload),
         tags: requestBody.payload.tags,
         response: detail,
       };
       console.warn('[substrate] ledger attest rejected', safeDebug);
+      await persistLastLedgerRejection(safeDebug);
       throw new Error(`ledger ${res.status}${detail ? `: ${detail}` : ''}`);
     }
     // C-296 OPT-2: guard Content-Type before JSON.parse — Render cold-starts
