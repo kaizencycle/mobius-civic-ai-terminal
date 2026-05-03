@@ -8,7 +8,7 @@ type Entry = { id: string; agent: string; category?: string; timestamp: string; 
 export default function AgentJournalPage() {
   const params = useParams<{ agent: string }>();
   const [entries, setEntries] = useState<Entry[]>([]);
-  const agent = useMemo(() => decodeURIComponent(params.agent ?? ''), [params.agent]);
+  const agent = useMemo(() => decodeURIComponent(params?.agent ?? ''), [params?.agent]);
 
   useEffect(() => {
     if (!agent) return;
