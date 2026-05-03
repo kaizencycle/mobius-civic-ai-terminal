@@ -109,6 +109,10 @@ export function getAgentBearerToken(): string {
   return process.env.RENDER_API_KEY?.trim() ?? '';
 }
 
+function compactLedgerBody(text: string): string {
+  return text.replace(/\s+/g, ' ').trim().slice(0, 900);
+}
+
 export interface SubstrateEntry {
   id?: string;
   timestamp?: string;
@@ -164,6 +168,29 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
   const authorization = AGENT_TOKEN.length > 0 ? `Bearer ${AGENT_TOKEN}` : '';
   const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
   const attestTimestamp = new Date().toISOString();
+  const requestBody = {
+    agent_id: entry.agentOrigin.toLowerCase(),
+    event_type: entry.category,
+    civic_id: `mobius-${entry.agentOrigin.toLowerCase()}`,
+    lab_source: entry.source,
+    payload: {
+      event_id: eventId,
+      title: entry.title,
+      summary: entry.summary,
+      cycle: entry.cycle,
+      gi_at_time: entry.gi_at_time,
+      mii: entry.confidence,
+      severity: entry.severity,
+      source: entry.source,
+      tags: entry.tags ?? [],
+      agent: entry.agent,
+      agent_origin: entry.agentOrigin,
+      derived_from: entry.derivedFrom ?? [],
+      verified: entry.verified ?? false,
+      attestation_signature: entry.attestation_signature ?? null,
+    },
+    timestamp: attestTimestamp,
+  };
 
   try {
     // C-296 OPT-3: removed pre-flight /health probe — it doubled the RTT to Render
@@ -174,37 +201,30 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
         'Content-Type': 'application/json',
         ...(authorization ? { Authorization: authorization } : {}),
       },
-      body: JSON.stringify({
-        agent_id: entry.agentOrigin.toLowerCase(),
-        event_type: entry.category,
-        civic_id: `mobius-${entry.agentOrigin.toLowerCase()}`,
-        lab_source: entry.source,
-        payload: {
-          event_id: eventId,
-          title: entry.title,
-          summary: entry.summary,
-          cycle: entry.cycle,
-          gi_at_time: entry.gi_at_time,
-          mii: entry.confidence,
-          severity: entry.severity,
-          source: entry.source,
-          tags: entry.tags ?? [],
-          agent: entry.agent,
-          agent_origin: entry.agentOrigin,
-          derived_from: entry.derivedFrom ?? [],
-          verified: entry.verified ?? false,
-          attestation_signature: entry.attestation_signature ?? null,
-        },
-        timestamp: attestTimestamp,
-      }),
+      body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(8000),
       cache: 'no-store',
     });
 
-    if (!res.ok) throw new Error(`ledger ${res.status}`);
+    const contentType = res.headers.get('content-type') ?? '';
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      const detail = compactLedgerBody(body);
+      const safeDebug = {
+        status: res.status,
+        contentType,
+        agent_id: requestBody.agent_id,
+        event_type: requestBody.event_type,
+        lab_source: requestBody.lab_source,
+        payload_keys: Object.keys(requestBody.payload),
+        tags: requestBody.payload.tags,
+        response: detail,
+      };
+      console.warn('[substrate] ledger attest rejected', safeDebug);
+      throw new Error(`ledger ${res.status}${detail ? `: ${detail}` : ''}`);
+    }
     // C-296 OPT-2: guard Content-Type before JSON.parse — Render cold-starts
     // return HTML (<!doctype …>) which throws SyntaxError and causes a 500.
-    const contentType = res.headers.get('content-type') ?? '';
     if (!contentType.includes('application/json')) {
       throw new Error(`ledger response not JSON (content-type: ${contentType})`);
     }
