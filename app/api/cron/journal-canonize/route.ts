@@ -37,8 +37,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Cron-only endpoint' }, { status: 403 });
   }
 
-  const repoUrl = process.env.SUBSTRATE_GITHUB_REPO ?? process.env.GITHUB_REPO_URL ?? '(not configured)';
-  console.log('[journal-canonize] running, substrate target:', repoUrl);
+  const repoUrl = process.env.JOURNAL_CANON_SUBSTRATE_TARGET ?? process.env.SUBSTRATE_GITHUB_REPO ?? process.env.GITHUB_REPO_URL ?? '(not configured)';
+  console.log('[journal-canonize] running', {
+    substrate_target: repoUrl
+  });
 
   // Ensure SUBSTRATE_RETRY_QUEUE key exists in KV (resolves D1 key-missing snapshot flag).
   void ensureRetryQueueExists();
