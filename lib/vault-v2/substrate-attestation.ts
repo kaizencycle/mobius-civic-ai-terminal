@@ -84,6 +84,15 @@ export async function attestReserveBlockToSubstrate(seal: Seal): Promise<Reserve
       },
     });
 
+    if (result.ok) {
+      // Clear any persisted error from previous failed attempts.
+      void kvSet('vault:substrate:last_error', null).catch(() => {});
+    } else {
+      const errDetail = result.error ?? 'substrate_write_failed';
+      console.error('[vault-attestation] substrate write failed:', errDetail);
+      void kvSet('vault:substrate:last_error', { error: errDetail, at: attestedAt }).catch(() => {});
+      void enqueueSubstrateRetry(seal, errDetail).catch(() => {});
+    }
     return {
       ok: result.ok,
       entryId: result.entryId,
@@ -93,6 +102,8 @@ export async function attestReserveBlockToSubstrate(seal: Seal): Promise<Reserve
     };
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : 'reserve_block_substrate_attestation_failed';
+    console.error('[vault-attestation] substrate write exception:', errMsg);
+    void kvSet('vault:substrate:last_error', { error: errMsg, at: attestedAt }).catch(() => {});
     // Enqueue for reattest-seals cron retry on any write failure.
     void enqueueSubstrateRetry(seal, errMsg).catch(() => {});
     return { ok: false, attestedAt, error: errMsg };

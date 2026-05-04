@@ -182,15 +182,21 @@ function normalizeEpiconLane(leaf: SnapshotLeaf): SnapshotLaneState {
     };
   }
   const items = row.items;
-  const count = Array.isArray(items) ? items.length : typeof row.count === 'number' ? row.count : 0;
-  const committed =
-    Array.isArray(items)
-      ? items.filter((item) => {
-          const r = asRecord(item);
-          return String(r?.status ?? '').toLowerCase() === 'committed';
-        }).length
-      : 0;
-  if (count === 0) {
+  const allItems = Array.isArray(items) ? items : [];
+  // Filter out non-promotable merge/github-commit events before counting.
+  // These events are never promoted and should not drive the "promotable" state.
+  const promotableItems = allItems.filter((item) => {
+    const r = asRecord(item);
+    return String(r?.type ?? '').toLowerCase() !== 'merge';
+  });
+  const count = promotableItems.length;
+  const totalCount = allItems.length;
+  const committed = promotableItems.filter((item) => {
+    const r = asRecord(item);
+    return String(r?.status ?? '').toLowerCase() === 'committed';
+  }).length;
+
+  if (totalCount === 0) {
     return {
       key: 'epicon',
       ok: true,
@@ -201,9 +207,20 @@ function normalizeEpiconLane(leaf: SnapshotLeaf): SnapshotLaneState {
       fallbackMode: 'empty',
     };
   }
+  if (count === 0) {
+    // Only merge/github-commit events remain — all actual candidates promoted.
+    return {
+      key: 'epicon',
+      ok: true,
+      state: 'healthy',
+      statusCode: leaf.status,
+      message: `${totalCount} EPICON item(s) in feed · all promoted`,
+      lastUpdated,
+      fallbackMode: 'live',
+    };
+  }
   if (committed === 0) {
-    // Candidates exist in the pipeline but none have been promoted yet — this
-    // is not "empty"; it is an active promotable queue awaiting commit.
+    // Promotable candidates exist but none committed yet.
     return {
       key: 'epicon',
       ok: true,

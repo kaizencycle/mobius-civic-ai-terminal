@@ -601,6 +601,9 @@ export async function saveGiStateFromMicroSweep(args: {
   const prev = args.preloadedGi !== undefined ? args.preloadedGi : await loadGIState();
   const q = Math.max(0, Math.min(1, args.signalQuality));
   const timestamp = new Date().toISOString();
+  // Sweep just ran — freshness resets to 1.0. This prevents stale carry-forward values
+  // from locking freshness/information signals at 0.3 indefinitely after a stale period.
+  // Decay from 1.0 is handled by the score window in buildStatus; a running sweep is fresh.
   const state: GIState = {
     global_integrity: Number(gi.toFixed(3)),
     mode,
@@ -611,7 +614,7 @@ export async function saveGiStateFromMicroSweep(args: {
     gi_write_source: 'micro_sweep',
     signals: {
       quality: Number(q.toFixed(3)),
-      freshness: prev?.signals.freshness ?? 0.5,
+      freshness: 1.0,
       stability: prev?.signals.stability ?? 0.5,
       system: prev?.signals.system ?? 0.5,
     },

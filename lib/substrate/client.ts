@@ -113,7 +113,7 @@ function compactLedgerBody(text: string): string {
   return text.replace(/\s+/g, ' ').trim().slice(0, 900);
 }
 
-type LedgerLabSource = 'oaa' | 'reflections' | 'shield' | 'hive' | 'jade';
+type LedgerLabSource = 'oaa' | 'reflections' | 'shield' | 'hive' | 'jade' | 'terminal';
 
 function toLedgerLabSource(source: SubstrateEntry['source']): LedgerLabSource {
   switch (source) {
@@ -125,7 +125,7 @@ function toLedgerLabSource(source: SubstrateEntry['source']): LedgerLabSource {
     case 'echo-ingest':
     case 'epicon-promotion':
     case 'seed-backfill':
-      return 'oaa';
+      return 'terminal';
   }
 }
 
@@ -135,6 +135,32 @@ async function persistLastLedgerRejection(debug: Record<string, unknown>): Promi
     await kvSet('substrate:last_rejection', JSON.stringify({ ...debug, ts: new Date().toISOString() }), 86400);
   } catch {
     // diagnostic-only; never fail the write path because debug persistence failed
+  }
+}
+
+const SUBMITTED_IDS_KEY = 'substrate:submitted_ids';
+const SUBMITTED_IDS_CAP = 500;
+
+async function isAlreadySubmitted(eventId: string): Promise<boolean> {
+  try {
+    const { kvGet } = await import('@/lib/kv/store');
+    const submitted = await kvGet<string[]>(SUBMITTED_IDS_KEY) ?? [];
+    return submitted.includes(eventId);
+  } catch {
+    return false;
+  }
+}
+
+async function markSubmitted(eventId: string): Promise<void> {
+  try {
+    const { kvGet, kvSet } = await import('@/lib/kv/store');
+    const submitted = await kvGet<string[]>(SUBMITTED_IDS_KEY) ?? [];
+    if (!submitted.includes(eventId)) {
+      const updated = [eventId, ...submitted].slice(0, SUBMITTED_IDS_CAP);
+      await kvSet(SUBMITTED_IDS_KEY, updated, 86400);
+    }
+  } catch {
+    // diagnostic-only
   }
 }
 
@@ -222,6 +248,12 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
     timestamp: attestTimestamp,
   };
 
+  // Deduplication guard: skip re-attestation for entries already successfully submitted.
+  if (await isAlreadySubmitted(eventId)) {
+    console.log('[sweep] journal entry already attested, skipping:', eventId);
+    return { ok: true, entryId: eventId };
+  }
+
   try {
     // C-296 OPT-3: removed pre-flight /health probe — it doubled the RTT to Render
     // on every write with no recovery value (the attest call itself surfaces failures).
@@ -262,6 +294,7 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
     }
     const data = (await res.json()) as { id?: string; event_id?: string };
     const entryId = data.event_id ?? data.id ?? eventId;
+    void markSubmitted(entryId);
 
     const MIC_URL = (process.env.MIC_WALLET_URL ?? process.env.RENDER_MIC_URL ?? '').trim();
     if (MIC_URL.length > 0 && AGENT_TOKEN.length > 0) {
@@ -293,6 +326,12 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
   }
 }
 
+const JOURNAL_VALID_CATEGORIES = new Set(['observation', 'inference', 'alert', 'recommendation', 'close']);
+
+function toJournalCategory(cat: string): string {
+  return JOURNAL_VALID_CATEGORIES.has(cat) ? cat : 'observation';
+}
+
 async function writeJournalToKV(entry: SubstrateEntry): Promise<void> {
   const { getJournalRedisClient } = await import('@/lib/agents/journalLane');
   const redis = getJournalRedisClient();
@@ -301,19 +340,20 @@ async function writeJournalToKV(entry: SubstrateEntry): Promise<void> {
   const now = new Date().toISOString();
   const cycle = entry.cycle;
   const agentUpper = entry.agentOrigin.toUpperCase();
+  const safeCategory = toJournalCategory(entry.category);
   const record = {
     id: `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`,
     agent: entry.agent,
     cycle,
     timestamp: now,
-    scope: entry.category,
+    scope: safeCategory,
     observation: entry.summary,
     inference: entry.title,
     recommendation: entry.title,
     confidence: entry.confidence ?? 0.5,
     derivedFrom: entry.derivedFrom ?? [],
     status: 'committed',
-    category: entry.category,
+    category: safeCategory,
     severity: entry.severity,
     source: 'agent-journal',
     agentOrigin: entry.agentOrigin,

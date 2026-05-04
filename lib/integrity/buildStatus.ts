@@ -117,7 +117,11 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
           geopolitics: row.signals.quality,
           economy: row.signals.system,
           sentiment: row.signals.stability,
-          information: row.signals.freshness,
+          // Weekend floor: low-activity periods (Federal Register dark, reduced news volume)
+          // should not drag information below 0.6 — signal absence is nominal on weekends.
+          information: [0, 6].includes(new Date().getDay())
+            ? Math.max(0.6, row.signals.freshness)
+            : row.signals.freshness,
         },
       };
     }
