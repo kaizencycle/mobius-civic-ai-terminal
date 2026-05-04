@@ -1,134 +1,87 @@
 # CURRENT_CYCLE.md
 
 ## Cycle
-C-276
+C-301
 
 ## Active focus
 
-Mobius Terminal is moving from monolithic dashboard behavior into true chamber architecture.
+Mobius Terminal is now transitioning from observation → enforcement readiness.
 
-Current priority is not adding random features.
-Current priority is preserving chamber identity, runtime truth, and clean responsive behavior.
+This cycle is about aligning truth, consensus, and execution layers before enabling hard gates.
 
 ---
 
 ## Current strategic direction
 
-### 1. World State chamber
-- Mobile default = Map
-- Desktop default = Globe
-- Shared signal model
-- Shared dark/green visual language
-- Command console collapsed on mobile
+### 1. EPICON → Enforcement readiness
+- Dry-run gate complete
+- Consensus visible in UI
+- Next: safe enforcement (no false FAIL states)
 
-### 2. Route-based chambers
-Terminal must remain route-based:
+### 2. Runtime truth (non-negotiable)
+- degraded states visible
+- no silent failures
+- substrate + ledger state must match UI
 
-- `/terminal/globe`
-- `/terminal/pulse`
-- `/terminal/signals`
-- `/terminal/sentinel`
-- `/terminal/ledger`
-
-Do not regress to single-page tab-state architecture.
-
-### 3. Runtime truth
-- lane diagnostics visible
-- freshness visible
-- degraded states explicit
-- no fake values
-- partial degradation preferred over full-shell collapse
+### 3. Chamber integrity
+- route-based chambers preserved
+- no regression to dashboard abstraction
 
 ---
 
 ## Immediate priorities
 
-### Priority A
-Polish World State chamber:
-- desktop globe presence
-- mobile map clarity
-- inspection behavior appropriate by device
-- map/globe share one signal model
+### Priority A — EPICON alignment
+- decision/status normalization
+- eliminate false NEEDS_CLARIFICATION
+- ensure server-safe execution
 
-### Priority B
-Polish Pulse chamber:
-- explicit event typing
-- cleaner mobile card density
-- preserve operator readability
+### Priority B — Substrate write path
+- environment variables configured
+- eliminate "(not configured)" state
+- restore full canon → ledger flow
 
-### Priority C
-Keep shared shell compact and correct:
-- no duplicate chamber chrome
-- no buried chamber content
-- no giant dashboard wrapper above Globe
+### Priority C — Enforcement prep
+- attach epicon_hash to mutation pipeline
+- prepare FAIL → block logic (Phase 13)
 
 ---
 
 ## Do not break
 
-- route-based chambers
-- lane diagnostics
-- snapshot health visibility
-- freshness indicators
-- mobile map / desktop globe split
-- collapsed mobile command console
-- events / journals / runtime separation
-- World State chamber identity
+- EPICON runtime endpoint
+- journal KV schema
+- ledger write integrity
+- chamber routing
+- snapshot truth signals
 
 ---
 
-## Current product doctrine
+## Product doctrine
 
-### World State
-Map is for clarity.
-Globe is for presence.
+Truth must be:
+1. Observable
+2. Agreed upon
+3. Then enforced
 
-### Mobius
-This is not content fill.
-This is live integrity keeping.
-
-### UI
-Chambers are pages, not widgets.
-
-### System
-Reasoning belongs in Substrate.
-Facts belong in the Ledger.
-The view belongs in the Terminal.
-Entry belongs in the Shell.
+Never skip steps.
 
 ---
 
-## Current acceptance bar
+## Acceptance bar
 
-A good change this cycle should improve at least one of:
+A good change this cycle:
+- reduces ambiguity in consensus
+- improves operator visibility
+- aligns system truth across layers
 
-- chamber clarity
-- runtime truth
-- mobile usability
-- desktop presence
-- signal legibility
-- operator trust
-
-A bad change this cycle usually:
-- adds surface area without architecture
-- hides degraded state
-- regresses route-based chambers
-- confuses map and globe responsibilities
+A bad change:
+- hides disagreement
+- fakes stability
+- blocks actions incorrectly
 
 ---
 
-## Current preferred commit style
+## Final rule
 
-Examples:
-- `fix(world-state): restore globe renderer on desktop`
-- `fix(mobile): improve map zoom and bottom-sheet inspection`
-- `fix(pulse): map event types explicitly instead of unknown`
-- `polish(shell): tighten mobile top chrome and preserve chamber focus`
-
----
-
-## Final rule for this cycle
-
-Preserve the chamber.
-Preserve the truth.
-Do not let convenience collapse the architecture.
+Do not enforce what you do not fully understand yet.
