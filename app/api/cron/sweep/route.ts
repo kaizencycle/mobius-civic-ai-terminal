@@ -19,6 +19,14 @@ export const dynamic = 'force-dynamic';
 async function run(req: NextRequest) {
   const authErr = getEveSynthesisAuthError(req);
   if (authErr) return authErr;
+  
+  // C-300 FIX: Validate required config before proceeding with substrate attestation
+  const substrateBase = process.env.NEXT_PUBLIC_SUBSTRATE_API_BASE;
+  if (!substrateBase) {
+    console.warn('[cron/sweep] substrate attestation disabled: missing NEXT_PUBLIC_SUBSTRATE_API_BASE');
+    // Continue with sweep but note that attestation will be skipped gracefully
+  }
+  
   try {
     const data = await runMicroSweepPipeline();
     const gi = typeof data.composite === 'number' && Number.isFinite(data.composite)
