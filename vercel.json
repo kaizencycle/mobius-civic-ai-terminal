@@ -22,10 +22,6 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/promote",
-      "schedule": "*/10 * * * *"
-    },
-    {
       "path": "/api/cron/gi-refresh",
       "schedule": "45 0 * * *"
     },
@@ -51,7 +47,7 @@
     },
     {
       "path": "/api/cron/echo-ingest",
-      "schedule": "0 */2 * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/vault/block/attest-sweep",
@@ -59,7 +55,7 @@
     },
     {
       "path": "/api/cron/reattest-seals",
-      "schedule": "0 * * * *"
+      "schedule": "*/30 * * * *"
     }
   ],
   "installCommand": "pnpm install --no-frozen-lockfile"

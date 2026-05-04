@@ -513,7 +513,12 @@ export async function GET(request: NextRequest) {
         substrate: substrateEntries.length,
       },
       merged_from_archive: mode === 'merged' && substrateEntries.length > 0,
-      canonical_source: substrateEntries.length === 0 && kvForSources.length > 0 ? 'kv-fallback' : 'substrate',
+      canonical_source:
+        substrateEntries.length > 0
+          ? 'substrate'
+          : kvForSources.length > 0
+          ? 'kv-fallback'
+          : 'kv-empty',
       archive_error: substrateError,
       archive_fetched_count: substrateEntries.length,
       archive_stale: archiveStale,

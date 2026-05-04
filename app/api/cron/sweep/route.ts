@@ -20,11 +20,22 @@ async function run(req: NextRequest) {
   const authErr = getEveSynthesisAuthError(req);
   if (authErr) return authErr;
   
-  // C-300 FIX: Validate required config before proceeding with substrate attestation
-  const substrateBase = process.env.NEXT_PUBLIC_SUBSTRATE_API_BASE;
-  if (!substrateBase) {
-    console.warn('[cron/sweep] substrate attestation disabled: missing NEXT_PUBLIC_SUBSTRATE_API_BASE');
-    // Continue with sweep but note that attestation will be skipped gracefully
+  // C-301 FIX: Check the *write-path* substrate vars, not the public UI base URL.
+  // NEXT_PUBLIC_SUBSTRATE_API_BASE is a browser-facing env used by the UI only.
+  // Journal canonize and substrate writes use JOURNAL_CANON_SUBSTRATE_TARGET
+  // (or SUBSTRATE_GITHUB_REPO / GITHUB_REPO_URL as fallbacks).
+  const substrateWriteTarget =
+    process.env.JOURNAL_CANON_SUBSTRATE_TARGET ??
+    process.env.SUBSTRATE_GITHUB_REPO ??
+    process.env.GITHUB_REPO_URL ??
+    null;
+  const substrateConfigured = Boolean(substrateWriteTarget);
+  if (!substrateConfigured) {
+    console.warn(
+      '[cron/sweep] substrate write-path not configured: ' +
+      'set JOURNAL_CANON_SUBSTRATE_TARGET (or SUBSTRATE_GITHUB_REPO / GITHUB_REPO_URL) ' +
+      'to enable journal canonize and substrate attestation.',
+    );
   }
   
   try {
@@ -87,6 +98,7 @@ async function run(req: NextRequest) {
         agents: council.entries.map((entry) => entry.agent),
         failedAgents: council.failedAgents,
       },
+      substrate_configured: substrateConfigured,
     });
   } catch (err) {
     console.error('[cron/sweep] failed:', err);
