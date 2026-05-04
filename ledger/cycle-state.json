@@ -3,11 +3,11 @@
   "node_id": "mobius-terminal",
   "source": "snapshot-lite",
   "cycle": "C-301",
-  "fetched_at": "2026-05-04T15:17:41.480Z",
-  "gi": 0.731,
+  "fetched_at": "2026-05-04T17:04:03.548Z",
+  "gi": 0.725,
   "mode": "yellow",
   "degraded": false,
-  "gi_provenance": "live-compute",
+  "gi_provenance": "kv-live",
   "gi_verified": false,
   "memory_mode": null,
   "deployment": {
@@ -15,7 +15,7 @@
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 29,
+    "total_ms": 1,
     "lane_ms": null
   }
 }
