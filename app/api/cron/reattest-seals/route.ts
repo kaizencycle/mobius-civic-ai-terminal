@@ -53,11 +53,18 @@ export async function GET(req: NextRequest) {
   }
 
   const quarantined = allSeals.filter((s) => s.status === 'quarantined');
+  // Track seals where all agents already attested in prior runs but the seal is still
+  // quarantined — the inner loop's `continue` guard skips them all, leaving them stuck.
+  const fullyAttestedButStuck: string[] = [];
 
   for (const seal of quarantined) {
-    for (const agent of SENTINEL_AGENTS) {
-      if (seal.attestations[agent]) continue; // already attested
+    const agentsPending = SENTINEL_AGENTS.filter((a) => !seal.attestations[a]);
+    if (agentsPending.length === 0) {
+      fullyAttestedButStuck.push(seal.seal_id);
+      continue;
+    }
 
+    for (const agent of agentsPending) {
       try {
         const r = await backAttestSeal({
           seal_id: seal.seal_id,
@@ -88,6 +95,35 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Force re-evaluation for seals where all agents attested in prior runs but the seal
+  // never transitioned out of quarantine. Re-attest via ATLAS (idempotent) to trigger
+  // quorum re-check inside backAttestSeal.
+  for (const seal_id of fullyAttestedButStuck) {
+    try {
+      console.warn('[reattest-seals] fully-attested-but-stuck seal — forcing re-evaluation', { seal_id });
+      const r = await backAttestSeal({
+        seal_id,
+        agent: 'ATLAS',
+        verdict: 'pass',
+        rationale: buildBackAttestRationale('ATLAS', seal_id) + ' [forced-re-eval: all agents already attested]',
+      });
+      results.push({
+        seal_id,
+        agent: 'ATLAS',
+        ok: r.ok,
+        transition: r.ok ? r.transition : undefined,
+        error: !r.ok ? r.reason : undefined,
+      });
+      if (r.ok && r.transition === 'attested') {
+        void releaseReplayPressureForAttestedSeal().catch(() => {});
+        console.info('[reattest-seals] stuck seal cleared → attested', { seal_id });
+      }
+    } catch (e) {
+      const msg = `[forced-re-eval] ${seal_id}: ${e instanceof Error ? e.message : String(e)}`;
+      errors.push(msg);
+    }
+  }
+
   const attested = results.filter((r) => r.transition === 'attested').length;
   const recorded = results.filter((r) => r.transition === 'recorded').length;
 
@@ -96,6 +132,7 @@ export async function GET(req: NextRequest) {
     at: new Date().toISOString(),
     duration_ms: Date.now() - started,
     quarantined_found: quarantined.length,
+    stuck_fully_attested: fullyAttestedButStuck.length,
     attestations_attempted: results.length,
     attested_transitions: attested,
     recorded_transitions: recorded,

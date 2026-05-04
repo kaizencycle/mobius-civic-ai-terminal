@@ -304,12 +304,21 @@ export async function GET(request: NextRequest) {
 
   const tripwireLaneState = laneByKey.get('tripwire');
   const tripwireElevated = tripwireLaneState?.state === 'degraded';
+  const integrityMode = typeof integrityData?.mode === 'string' ? integrityData.mode : null;
+  // C-301 FIX: 'yellow' is stressed/watchful (GI 0.5–0.75), NOT degraded.
+  // Only 'red' mode or actual memory/KV degradation should set degraded:true.
   const topDegraded =
     memoryMode?.degraded === true ||
     tripwireElevated ||
     Boolean(trustSnapshot?.elevated) ||
-    Boolean(integrityData?.gi_degraded ?? integrityData?.degraded) ||
-    (typeof integrityData?.mode === 'string' && (integrityData.mode === 'red' || integrityData.mode === 'yellow'));
+    Boolean(integrityData?.gi_degraded) ||
+    integrityMode === 'red';
+
+  const terminalStatus: 'healthy' | 'stressed' | 'degraded' | 'critical' =
+    integrityMode === 'red' || (trustSnapshot?.critical ?? false) ? 'critical'
+    : topDegraded ? 'degraded'
+    : integrityMode === 'yellow' ? 'stressed'
+    : 'healthy';
 
   const trustSummary = trustSnapshot
     ? {
@@ -344,6 +353,7 @@ export async function GET(request: NextRequest) {
       gi: topGi,
       effective_gi: effectiveGi,
       degraded: topDegraded,
+      terminal_status: terminalStatus,
       include_catalog: includeCatalog === 'true',
       journal_mode: journalMode === 'hot' || journalMode === 'canon' || journalMode === 'merged' ? journalMode : 'merged',
       timestamp: new Date().toISOString(),
