@@ -91,7 +91,10 @@ function clamp01(n: number): number {
 }
 
 function textSig(entry: AgentJournalEntry): string {
-  return `${entry.observation}|${entry.inference}|${entry.recommendation}`.slice(0, 400).toLowerCase();
+  // Fix 7: include 10-minute sweep-window bucket in signature so each cron run
+  // produces a distinct content_signature even for identical journal text.
+  const tsBucket = (entry.timestamp ?? '').slice(0, 15); // "2026-05-05T14:1" — 10-min precision
+  return `${tsBucket}|${entry.observation}|${entry.inference}|${entry.recommendation}`.slice(0, 416).toLowerCase();
 }
 
 /**

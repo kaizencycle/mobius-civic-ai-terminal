@@ -108,8 +108,13 @@ export async function fetchUSGS(): Promise<RawEvent[]> {
 
     return features.slice(0, 6).map((f) => {
       const mag = f.properties.mag ?? 0;
+      const alert = f.properties.alert ?? null;
+      // Fix 9: T2 (medium) only for M5+ with a USGS-issued alert — M4 events with alert:null
+      // are background seismicity and should mint as T1 (low/nominal).
       const severity: RawEvent['severity'] =
-        mag >= 6 ? 'high' : mag >= 4 ? 'medium' : 'low';
+        mag >= 6 ? 'high'
+        : (mag >= 5 && alert !== null) ? 'medium'
+        : 'low';
 
       const coords = f.geometry?.coordinates;
       let lat: number | undefined;
@@ -163,8 +168,9 @@ export async function fetchCoinGecko(): Promise<RawEvent[]> {
 
     return Object.entries(data).map(([coin, info]) => {
       const change = info.usd_24h_change ?? 0;
+      // Fix 9: T2 (medium) for >5% crypto moves — 3% is routine volatility, not a civic signal
       const severity: RawEvent['severity'] =
-        Math.abs(change) > 8 ? 'high' : Math.abs(change) > 3 ? 'medium' : 'low';
+        Math.abs(change) > 8 ? 'high' : Math.abs(change) > 5 ? 'medium' : 'low';
 
       return {
         sourceId: `coingecko-${coin}-${new Date().toISOString().slice(0, 13)}`,

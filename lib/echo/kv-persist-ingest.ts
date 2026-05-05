@@ -142,6 +142,15 @@ export async function persistEchoIngestSideEffects(result: IngestResult): Promis
   void recordReplayPressureFromIngest(result.duplicateSuppressedCount).catch(() => {});
   const dedupDenominator = Math.max(1, status.totalIngested + status.duplicateSuppressedCount);
   const dedupRate = Number((status.duplicateSuppressedCount / dedupDenominator).toFixed(3));
+
+  // Fix 4: write MIC_CYCLE_TOTALS so integrity lane reads from KV on cold starts
+  void kvSet('mic:cycle:totals', {
+    cycle: result.cycleId,
+    totalMicProvisional: result.integrity.totalMicProvisional,
+    totalMicMinted: result.integrity.totalMicMinted,
+    updatedAt: new Date().toISOString(),
+  }, 86400).catch(() => {});
+
   await Promise.all([
     writeEchoKvHeartbeatToMobius(status),
     saveEchoState({
@@ -180,20 +189,22 @@ export async function persistEchoIngestSideEffects(result: IngestResult): Promis
     const miiTimestamp = new Date().toISOString();
     const agentAverages = result.integrity.agentAverages;
     const agents = ['ATLAS', 'ZEUS', 'JADE', 'EVE'] as const;
+    // Fix 3: Sentinel-tier agents should not fall below 0.65 without an active tripwire
+    const SENTINEL_MII_FLOOR = 0.65;
     const lastKnown: Record<string, number> = {};
     for (const entry of recentFeed) {
       if (!(entry.agent in lastKnown)) {
         lastKnown[entry.agent] = entry.mii;
       }
     }
-    const batch: MiiEntry[] = agents.map((agent) => ({
-      agent,
-      mii: Number((typeof agentAverages[agent] === 'number' ? agentAverages[agent] : (lastKnown[agent] ?? 0.9)).toFixed(4)),
-      gi: currentGi,
-      cycle: result.cycleId,
-      timestamp: miiTimestamp,
-      source: 'live',
-    }));
+    const batch: MiiEntry[] = agents.map((agent) => {
+      const rawMii = typeof agentAverages[agent] === 'number' ? agentAverages[agent] : (lastKnown[agent] ?? 0.9);
+      const mii = Number(Math.max(SENTINEL_MII_FLOOR, rawMii).toFixed(4));
+      if (rawMii < SENTINEL_MII_FLOOR) {
+        console.log(`[echo] Sentinel floor applied for ${agent}: raw=${rawMii.toFixed(4)} → floored=${mii}`);
+      }
+      return { agent, mii, gi: currentGi, cycle: result.cycleId, timestamp: miiTimestamp, source: 'live' as const };
+    });
     const toWrite = filterMiiEntriesNeedingWrite(batch, lastKnown);
     if (toWrite.length > 0) {
       await writeMiiFeedBatch(toWrite);

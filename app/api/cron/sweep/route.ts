@@ -13,6 +13,7 @@ import { appendFullCouncilJournalPulse } from '@/lib/agents/sentinel-cycle-journ
 import { updateSustainTrackingFromGi } from '@/lib/mic/sustainTracker';
 import { getMergedMicReadiness } from '@/lib/mic/assembleMicReadiness';
 import { persistLocalMicReadinessSnapshot } from '@/lib/mic/persistReadinessKv';
+import { kvGet, kvSet, KV_KEYS } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +52,17 @@ async function run(req: NextRequest) {
       cycle = currentCycleId();
     }
 
+    // Fix 2: restore missing CURRENT_CYCLE KV key so kvHealth shows it as present
+    try {
+      const currentCycleKv = await kvGet<string>(KV_KEYS.CURRENT_CYCLE);
+      if (!currentCycleKv) {
+        await kvSet(KV_KEYS.CURRENT_CYCLE, cycle, 604800);
+        console.log('[sweep] restored missing CURRENT_CYCLE:', cycle);
+      }
+    } catch (e) {
+      console.warn('[sweep] CURRENT_CYCLE guard failed:', e instanceof Error ? e.message : e);
+    }
+
     // C-298: advance sustain counter on every sweep — was never called before this fix.
     // updateSustainTrackingFromGi is idempotent per cycle (same cycle returns stored state).
     let sustainResult: { status?: string; consecutiveEligibleCycles?: number } | null = null;
@@ -68,12 +80,25 @@ async function run(req: NextRequest) {
 
     console.info('[cron/sweep] cycle write', { cycle, written: council.entries.length });
 
+    // Fix 5: write rolling AGENT_JOURNAL_INDEX so the journal route's KV fallback has data
+    try {
+      const currentIndex = await kvGet<unknown[]>('agent:journal:index') ?? [];
+      const newEntries = council.entries.map((e) => ({ ...e, _indexedAt: new Date().toISOString() }));
+      const updated = [...newEntries, ...currentIndex].slice(0, 500);
+      await kvSet('agent:journal:index', updated, 604800);
+      console.log('[sweep] AGENT_JOURNAL_INDEX updated, total entries:', updated.length);
+    } catch (e) {
+      console.warn('[sweep] AGENT_JOURNAL_INDEX write failed:', e instanceof Error ? e.message : e);
+    }
+
     // Refresh micReadiness snapshot on every sweep so updatedAt stays current.
-    // Awaited (not fire-and-forget) so the snapshot always reflects the current cycle
-    // before the cron response is returned — fire-and-forget caused C-300 stale cycle.
+    // Fix 6: explicitly override cycle on the merged result before persisting — prevents
+    // upstream snapshot from overriding with a stale cycle.
     try {
       const mic = await getMergedMicReadiness(cycle);
-      await persistLocalMicReadinessSnapshot(mic);
+      const micWithCycle = { ...mic, cycle, updatedAt: new Date().toISOString() };
+      await persistLocalMicReadinessSnapshot(micWithCycle as typeof mic);
+      console.log('[sweep] micReadiness snapshot written:', cycle, new Date().toISOString());
     } catch (e) {
       console.warn('[cron/sweep] micReadiness refresh failed:', e instanceof Error ? e.message : e);
     }

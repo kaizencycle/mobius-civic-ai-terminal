@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 import { writeToSubstrate } from '@/lib/substrate/client';
-import { kvLrange } from '@/lib/kv/store';
+import { kvLrange, kvGet } from '@/lib/kv/store';
 import { getOperatorSession } from '@/lib/auth/session';
 import {
   writeJournalToSubstrate,
@@ -312,13 +312,16 @@ async function loadEntriesFromKvFallback(agentFilters?: string[]): Promise<Agent
   const agents = normalized.size > 0
     ? Array.from(normalized).map((a) => a.toLowerCase())
     : [...GENESIS_AGENTS].map((a) => a.toLowerCase());
+
+  // Fix 5b: read from AGENT_JOURNAL_INDEX written by the sweep cron (primary KV fallback)
+  const indexRows = await kvGet<unknown[]>('agent:journal:index').catch(() => null) ?? [];
   const [allRows, ...agentRowsList] = await Promise.all([
     kvLrange<unknown>('journal:all', 0, KV_JOURNAL_LIST_READ_MAX - 1).catch(() => [] as unknown[]),
     ...agents.map((a) => kvLrange<unknown>(`journal:${a}`, 0, KV_JOURNAL_LIST_READ_MAX - 1).catch(() => [] as unknown[])),
   ]);
   const seen = new Set<string>();
   const out: AgentJournalEntry[] = [];
-  for (const row of [...allRows, ...agentRowsList.flat()]) {
+  for (const row of [...indexRows, ...allRows, ...agentRowsList.flat()]) {
     const candidate = parseMaybeJson(row);
     if (!candidate) continue;
     const parsed = parseEntry(candidate);

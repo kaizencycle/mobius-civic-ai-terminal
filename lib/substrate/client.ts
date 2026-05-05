@@ -103,22 +103,43 @@ function normalizeLedgerBaseUrl(url: string): string {
 }
 
 /**
- * Guard against NEXT_PUBLIC_SUBSTRATE_API_BASE being accidentally set to a GitHub
- * web URL (e.g. github.com/kaizencycle/Mobius-Substrate).  The web UI returns a
- * 422 with an HTML "Oh no" page — not JSON — which masks the real misconfiguration.
- * Returns the corrected api.github.com form when safe to do so; logs a critical
- * warning so operators know the env is wrong.
+ * Resolve the substrate ledger base URL.
+ * Priority:
+ *   1. RENDER_LEDGER_URL (direct Render endpoint — correct flow)
+ *   2. CIVIC_LEDGER_URL (alias)
+ *   3. NEXT_PUBLIC_SUBSTRATE_API_BASE if it looks like a Render/civic-protocol URL
+ *   4. Hardcoded Render fallback
+ *
+ * GitHub URLs (github.com or api.github.com) are intentionally skipped — the terminal
+ * POSTs to the Civic Protocol Core Ledger on Render, which then writes to the Substrate
+ * GitHub repo. Direct writes to GitHub always 404.
  */
-function toGitHubApiBase(url: string): string {
-  if (/^https?:\/\/github\.com\//.test(url)) {
-    const apiUrl = url.replace('https://github.com/', 'https://api.github.com/repos/').replace('http://github.com/', 'https://api.github.com/repos/');
-    console.error(
-      '[substrate] CRITICAL: NEXT_PUBLIC_SUBSTRATE_API_BASE is a GitHub web URL, not a Civic Protocol ledger URL.',
-      { configured: url, corrected_to: apiUrl },
-    );
-    return apiUrl;
+function resolveSubstrateLedgerUrl(): string {
+  const candidates = [
+    process.env.RENDER_LEDGER_URL,
+    process.env.CIVIC_LEDGER_URL,
+    process.env.NEXT_PUBLIC_SUBSTRATE_API_BASE,
+  ].filter(Boolean) as string[];
+
+  for (const url of candidates) {
+    const normalized = normalizeLedgerBaseUrl(url);
+    if (normalized.includes('github.com') || normalized.includes('api.github.com')) {
+      console.error(
+        '[substrate] CRITICAL: env var points to GitHub, not the Civic Protocol Ledger.',
+        'Set RENDER_LEDGER_URL=https://civic-protocol-core-ledger.onrender.com',
+        'Skipping:', normalized,
+      );
+      continue;
+    }
+    if (normalized.includes('onrender.com') || normalized.includes('civic-protocol') || normalized.startsWith('http')) {
+      console.log('[substrate] using ledger URL:', normalized);
+      return normalized;
+    }
   }
-  return url;
+
+  const fallback = 'https://civic-protocol-core-ledger.onrender.com';
+  console.warn('[substrate] no valid ledger URL in env, using hardcoded fallback:', fallback);
+  return fallback;
 }
 
 /** JWT for Civic Protocol ledger + MIC (identity login). Falls back to legacy RENDER_API_KEY. */
@@ -232,33 +253,7 @@ export type AttestToLedgerResult = { ok: boolean; entryId?: string; error?: stri
  * C-300: Added graceful degradation when SUBSTRATE_API_BASE is not configured.
  */
 export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLedgerResult> {
-  const LEDGER_BASE = toGitHubApiBase(normalizeLedgerBaseUrl(
-    process.env.NEXT_PUBLIC_SUBSTRATE_API_BASE ??
-    process.env.RENDER_LEDGER_URL ??
-    'https://civic-protocol-core-ledger.onrender.com'
-  ));
-  
-  // C-300 FIX: Guard + graceful degradation when substrate API base is missing
-  const apiBase = process.env.NEXT_PUBLIC_SUBSTRATE_API_BASE;
-  if (!apiBase) {
-    console.warn('[substrate] ledger attest skipped: NEXT_PUBLIC_SUBSTRATE_API_BASE not configured');
-    // Return early with audit log instead of failing hard
-    void (async () => {
-      try {
-        const { kvSet } = await import('@/lib/kv/store');
-        await kvSet('substrate:last_skipped', JSON.stringify({ 
-          ts: new Date().toISOString(), 
-          reason: 'missing_substrate_config',
-          agent: entry.agentOrigin,
-          cycle: entry.cycle
-        }), 86400);
-      } catch {
-        // diagnostic-only; never fail because audit persistence failed
-      }
-    })();
-    return { ok: true, entryId: entry.id ?? `${entry.agentOrigin}-${entry.cycle}-skipped` };
-  }
-  
+  const LEDGER_BASE = resolveSubstrateLedgerUrl();
   const AGENT_TOKEN = getAgentBearerToken();
   const authorization = AGENT_TOKEN.length > 0 ? `Bearer ${AGENT_TOKEN}` : '';
   const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
