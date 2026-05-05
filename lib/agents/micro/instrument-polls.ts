@@ -994,12 +994,14 @@ export async function pollEveU1(): Promise<AgentPollResult> {
 }
 
 export async function pollEveU2(): Promise<AgentPollResult> {
-  // Congress.gov — active governance/oversight bills (public, no auth required)
+  // Congress.gov — active governance/oversight bills.
+  // Supports optional CONGRESS_GOV_API_KEY env var (raises rate limit from 5k/h to 40k/h).
+  // Auth failures (401/403) return a degraded signal rather than nominal fallback so source
+  // failures are visible in composites instead of being silently masked.
+  const apiKey = process.env.CONGRESS_GOV_API_KEY?.trim();
+  const url = `https://api.congress.gov/v3/bill?format=json&limit=5&subject=Government+Operations+and+Politics${apiKey ? `&api_key=${apiKey}` : ''}`;
   try {
-    const res = await fetch(
-      'https://api.congress.gov/v3/bill?format=json&limit=5&subject=Government+Operations+and+Politics',
-      { signal: AbortSignal.timeout(3000), headers: UA_HEADERS },
-    );
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000), headers: UA_HEADERS });
     if (res.ok) {
       const data = await res.json() as { bills?: unknown[] };
       const count = data.bills?.length ?? 0;
@@ -1013,7 +1015,19 @@ export async function pollEveU2(): Promise<AgentPollResult> {
         raw: { count },
       });
     }
-  } catch { /* fall through to nominal fallback */ }
+    // Auth failure — return degraded signal rather than nominal fallback
+    if (res.status === 401 || res.status === 403) {
+      return wrap('EVE-µ2', {
+        agentName: 'EVE-µ2',
+        source: 'Congress.gov · active bills',
+        timestamp: new Date().toISOString(),
+        value: 0.3,
+        label: `Congress.gov: auth error ${res.status} (set CONGRESS_GOV_API_KEY)`,
+        severity: 'watch',
+        raw: { status: res.status, auth_error: true },
+      });
+    }
+  } catch { /* fall through to unavailable fallback */ }
   return wrap('EVE-µ2', {
     agentName: 'EVE-µ2',
     source: 'Congress.gov · active bills',

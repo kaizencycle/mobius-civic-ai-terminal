@@ -219,8 +219,15 @@ export async function GET() {
       const { entry: journal, meta } = journalByAgent[agent.name] ?? { entry: null, meta: {} };
       // Optimization 3/6: agent:meta.last_journal_at is the authoritative liveness signal
       const lastJournalAt = meta.last_journal_at ?? journal?.timestamp ?? null;
-      const rawConfidence = journal?.confidence ?? (isFresh(timestamp, HEARTBEAT_FRESH_MS) ? 0.75 : 0.5);
-      const confidence = applyConfidenceFloor(agent.name, rawConfidence);
+      // Apply confidence floor only when a real journal confidence was observed.
+      // Synthetic fallback values (0.75 fresh / 0.5 stale) must not be floored —
+      // raising 0.5 to 0.65 would satisfy the deriveLiveness gate with no actual evidence.
+      const journalConfidence = journal?.confidence ?? null;
+      const fallbackConfidence = isFresh(timestamp, HEARTBEAT_FRESH_MS) ? 0.75 : 0.5;
+      const confidence =
+        journalConfidence !== null
+          ? applyConfidenceFloor(agent.name, journalConfidence)
+          : fallbackConfidence;
       const baseLiveness = deriveLiveness({
         lastSeen: lastSeen ?? undefined,
         lastActionAt: lastActionAt ?? undefined,
