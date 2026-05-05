@@ -219,27 +219,6 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
     'https://civic-protocol-core-ledger.onrender.com'
   );
   
-  // C-300 FIX: Guard + graceful degradation when substrate API base is missing
-  const apiBase = process.env.NEXT_PUBLIC_SUBSTRATE_API_BASE;
-  if (!apiBase) {
-    console.warn('[substrate] ledger attest skipped: NEXT_PUBLIC_SUBSTRATE_API_BASE not configured');
-    // Return early with audit log instead of failing hard
-    void (async () => {
-      try {
-        const { kvSet } = await import('@/lib/kv/store');
-        await kvSet('substrate:last_skipped', JSON.stringify({ 
-          ts: new Date().toISOString(), 
-          reason: 'missing_substrate_config',
-          agent: entry.agentOrigin,
-          cycle: entry.cycle
-        }), 86400);
-      } catch {
-        // diagnostic-only; never fail because audit persistence failed
-      }
-    })();
-    return { ok: true, entryId: entry.id ?? `${entry.agentOrigin}-${entry.cycle}-skipped` };
-  }
-  
   const AGENT_TOKEN = getAgentBearerToken();
   const authorization = AGENT_TOKEN.length > 0 ? `Bearer ${AGENT_TOKEN}` : '';
   const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
