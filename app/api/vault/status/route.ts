@@ -87,16 +87,24 @@ export async function GET(req: NextRequest) {
       loadQuorumState(currentCycleForQuorum),
     ]);
 
-  const sealsQuarantinedCount = allRecentSeals.filter((s) => s.status === 'quarantined').length;
-  const sealsNeedingReattestation = allRecentSeals
-    .filter((s) => s.status === 'quarantined')
-    .map((s) => ({
-      seal_id: s.seal_id,
-      sequence: s.sequence,
-      missing_agents: (['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA'] as const).filter(
-        (a) => !s.attestations[a],
-      ),
-    }));
+  const quarantinedSeals = allRecentSeals.filter((s) => s.status === 'quarantined');
+  const sealsQuarantinedCount = quarantinedSeals.length;
+  const sealsNeedingReattestation = quarantinedSeals.map((s) => ({
+    seal_id: s.seal_id,
+    sequence: s.sequence,
+    missing_agents: (['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA'] as const).filter(
+      (a) => !s.attestations[a],
+    ),
+  }));
+
+  // Compact quarantine cycle summary — extracts C-NNN from seal_id pattern for operator UI
+  const quarantineCycles = quarantinedSeals
+    .map((s) => s.seal_id.match(/C-(\d+)/)?.[0])
+    .filter((c): c is string => Boolean(c));
+  const quarantineCycleRange =
+    quarantineCycles.length > 0
+      ? `${quarantineCycles[quarantineCycles.length - 1]}–${quarantineCycles[0]}`
+      : null;
 
   const seal_lane = computeVaultSealLaneSemantics({
     v1BalanceReserve: v1.balance_reserve,
@@ -143,6 +151,8 @@ export async function GET(req: NextRequest) {
     seals_count: sealsCount,
     seals_audit_count: sealsAuditCount,
     seals_quarantined_count: sealsQuarantinedCount,
+    quarantine_cycle_range: quarantineCycleRange,
+    quarantine_cycle_list: quarantineCycles,
     seals_needing_reattestation: sealsNeedingReattestation,
     latest_seal_id: latestSeal?.seal_id ?? null,
     latest_seal_at: latestSeal?.sealed_at ?? null,

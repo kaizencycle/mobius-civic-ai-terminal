@@ -12,7 +12,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
 import { writeFleetHeartbeatKV } from '@/lib/runtime/agent-heartbeat-kv';
-import { loadGIState, loadGIStateCarry } from '@/lib/kv/store';
+import { loadGIState, loadGIStateCarry, appendGiTrend } from '@/lib/kv/store';
 import { updateSustainTrackingFromGi, seedSustainStateIfMissing } from '@/lib/mic/sustainTracker';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 
@@ -58,6 +58,13 @@ async function run(req: NextRequest) {
     }
   } catch (e) {
     console.warn('[cron/heartbeat] sustain update failed:', e instanceof Error ? e.message : e);
+  }
+
+  // Append to the rolling GI trend (24-entry window, one per heartbeat cycle).
+  // appendGiTrend already guards against KV unavailability — fire-and-forget.
+  if (gi !== null) {
+    const giMode = gi >= 0.8 ? 'green' : gi >= 0.6 ? 'yellow' : 'red';
+    void appendGiTrend({ gi, mode: giMode, gi_verified: false, timestamp }).catch(() => {});
   }
 
   return NextResponse.json({
