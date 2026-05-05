@@ -34,12 +34,12 @@ async function run(req: NextRequest) {
   // C-298: advance sustain counter. Use live GI if fresh, else carry-forward.
   let sustainStatus: string | null = null;
   let sustainCycles: number | null = null;
+  let gi: number | null = null;
   try {
     const cycle = await resolveOperatorCycleId().catch(() => '');
     await seedSustainStateIfMissing(cycle || undefined);
 
     const giState = await loadGIState();
-    let gi: number | null = null;
     if (giState && typeof giState.global_integrity === 'number') {
       const ageMs = Date.now() - new Date(giState.timestamp).getTime();
       if (ageMs < 15 * 60 * 1000) gi = giState.global_integrity;
