@@ -307,11 +307,38 @@ async function readJournalRows(redis: ReturnType<typeof getJournalRedisClient>, 
   }
 }
 
+async function loadEntriesFromKvFallback(agentFilters?: string[]): Promise<AgentJournalEntry[]> {
+  const normalized = new Set((agentFilters ?? []).map((a) => a.trim().toUpperCase()).filter(Boolean));
+  const agents = normalized.size > 0
+    ? Array.from(normalized).map((a) => a.toLowerCase())
+    : [...GENESIS_AGENTS].map((a) => a.toLowerCase());
+  const [allRows, ...agentRowsList] = await Promise.all([
+    kvLrange<unknown>('journal:all', 0, KV_JOURNAL_LIST_READ_MAX - 1).catch(() => [] as unknown[]),
+    ...agents.map((a) => kvLrange<unknown>(`journal:${a}`, 0, KV_JOURNAL_LIST_READ_MAX - 1).catch(() => [] as unknown[])),
+  ]);
+  const seen = new Set<string>();
+  const out: AgentJournalEntry[] = [];
+  for (const row of [...allRows, ...agentRowsList.flat()]) {
+    const candidate = parseMaybeJson(row);
+    if (!candidate) continue;
+    const parsed = parseEntry(candidate);
+    if (!parsed) continue;
+    if (parsed.source !== 'agent-journal') continue;
+    if (!asString(parsed.agentOrigin)) continue;
+    if (normalized.size > 0 && !normalized.has(parsed.agentOrigin.toUpperCase())) continue;
+    if (seen.has(parsed.id)) continue;
+    seen.add(parsed.id);
+    out.push(parsed);
+  }
+  return out.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
 async function loadEntries(
   redis: ReturnType<typeof getJournalRedisClient>,
   agentFilters?: string[],
 ): Promise<AgentJournalEntry[]> {
-  if (!redis) return [];
+  // When Upstash REST client is unavailable, fall through to prefixed KV bridge.
+  if (!redis) return loadEntriesFromKvFallback(agentFilters);
 
   try {
     const normalized = new Set((agentFilters ?? []).map((agent) => agent.trim().toUpperCase()).filter(Boolean));

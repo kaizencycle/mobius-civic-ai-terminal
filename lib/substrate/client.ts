@@ -102,6 +102,25 @@ function normalizeLedgerBaseUrl(url: string): string {
   return url.trim().replace(/\/+$/, '');
 }
 
+/**
+ * Guard against NEXT_PUBLIC_SUBSTRATE_API_BASE being accidentally set to a GitHub
+ * web URL (e.g. github.com/kaizencycle/Mobius-Substrate).  The web UI returns a
+ * 422 with an HTML "Oh no" page — not JSON — which masks the real misconfiguration.
+ * Returns the corrected api.github.com form when safe to do so; logs a critical
+ * warning so operators know the env is wrong.
+ */
+function toGitHubApiBase(url: string): string {
+  if (/^https?:\/\/github\.com\//.test(url)) {
+    const apiUrl = url.replace('https://github.com/', 'https://api.github.com/repos/').replace('http://github.com/', 'https://api.github.com/repos/');
+    console.error(
+      '[substrate] CRITICAL: NEXT_PUBLIC_SUBSTRATE_API_BASE is a GitHub web URL, not a Civic Protocol ledger URL.',
+      { configured: url, corrected_to: apiUrl },
+    );
+    return apiUrl;
+  }
+  return url;
+}
+
 /** JWT for Civic Protocol ledger + MIC (identity login). Falls back to legacy RENDER_API_KEY. */
 export function getAgentBearerToken(): string {
   const primary = process.env.AGENT_SERVICE_TOKEN?.trim() ?? '';
@@ -213,11 +232,11 @@ export type AttestToLedgerResult = { ok: boolean; entryId?: string; error?: stri
  * C-300: Added graceful degradation when SUBSTRATE_API_BASE is not configured.
  */
 export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLedgerResult> {
-  const LEDGER_BASE = normalizeLedgerBaseUrl(
-    process.env.NEXT_PUBLIC_SUBSTRATE_API_BASE ?? 
-    process.env.RENDER_LEDGER_URL ?? 
+  const LEDGER_BASE = toGitHubApiBase(normalizeLedgerBaseUrl(
+    process.env.NEXT_PUBLIC_SUBSTRATE_API_BASE ??
+    process.env.RENDER_LEDGER_URL ??
     'https://civic-protocol-core-ledger.onrender.com'
-  );
+  ));
   
   // C-300 FIX: Guard + graceful degradation when substrate API base is missing
   const apiBase = process.env.NEXT_PUBLIC_SUBSTRATE_API_BASE;

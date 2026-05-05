@@ -127,12 +127,28 @@ export async function GET(req: NextRequest) {
   const attested = results.filter((r) => r.transition === 'attested').length;
   const recorded = results.filter((r) => r.transition === 'recorded').length;
 
+  // Surface substrate error details for seals that are fully attested but stuck in quarantine.
+  // These seals have all agent signatures but the substrate write is failing — operators need
+  // the actual error (not just "seal still quarantined") to diagnose the P0 substrate issue.
+  const stuckSubstrateErrors: Record<string, string | null> = {};
+  for (const seal_id of fullyAttestedButStuck) {
+    const seal = allSeals.find((s) => s.seal_id === seal_id);
+    if (seal) {
+      stuckSubstrateErrors[seal_id] = seal.substrate_attestation_error ?? null;
+    }
+  }
+
+  if (fullyAttestedButStuck.length > 0) {
+    console.warn('[reattest-seals] fully-attested quarantined seals — substrate errors:', stuckSubstrateErrors);
+  }
+
   return NextResponse.json({
     ok: errors.length === 0,
     at: new Date().toISOString(),
     duration_ms: Date.now() - started,
     quarantined_found: quarantined.length,
     stuck_fully_attested: fullyAttestedButStuck.length,
+    stuck_substrate_errors: stuckSubstrateErrors,
     attestations_attempted: results.length,
     attested_transitions: attested,
     recorded_transitions: recorded,

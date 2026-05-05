@@ -199,7 +199,6 @@ export async function GET(req: NextRequest) {
       ...(cors ?? {}),
       'Cache-Control': 'no-store',
       'X-Mobius-Source': 'vault-status-v2',
-      Deprecation: 'true',
     },
   });
 }

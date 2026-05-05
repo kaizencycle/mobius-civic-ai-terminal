@@ -41,7 +41,7 @@ export type SnapshotLeaf = {
   error: string | null;
 };
 
-const STALE_MS_SIGNALS = 5 * 60 * 1000;
+const STALE_MS_SIGNALS = 15 * 60 * 1000;
 const STALE_MS_SENTIMENT = 10 * 60 * 1000;
 const STALE_MS_ECHO_INGEST = 2 * 60 * 60 * 1000;
 
