@@ -166,23 +166,45 @@ export async function pollZeusU1(): Promise<AgentPollResult> {
 }
 
 export async function pollZeusU2(): Promise<AgentPollResult> {
-  // OPT-03 (C-296): arXiv API returning 0 results — replaced with Semantic Scholar
-  // which returns structured JSON and has stable rate limits on the public endpoint.
-  const url =
+  // OPT-03 (C-296): arXiv returning 0 — replaced with Semantic Scholar.
+  // C-301: add CORE API fallback when Semantic Scholar returns 0 (rate-limited or empty).
+  const ssUrl =
     'https://api.semanticscholar.org/graph/v1/paper/search?query=governance+verification+integrity&fields=title,year&limit=5';
-  const data = await safeFetch<{ data?: unknown[]; total?: number }>(url, 10000, {
+  const ssData = await safeFetch<{ data?: unknown[]; total?: number }>(ssUrl, 10000, {
     headers: { 'User-Agent': 'MobiusTerminal/1.0 (+https://github.com/kaizencycle/mobius-civic-ai-terminal)' },
   });
-  const entries = data?.data?.length ?? 0;
-  const value = Number(normalizeDirect(Math.min(entries, 5), 0, 5).toFixed(3));
+  const ssEntries = ssData?.data?.length ?? 0;
+
+  if (ssEntries > 0) {
+    const value = Number(normalizeDirect(Math.min(ssEntries, 5), 0, 5).toFixed(3));
+    return wrap('ZEUS-µ2', {
+      agentName: 'ZEUS-µ2',
+      source: 'Semantic Scholar · governance papers',
+      timestamp: new Date().toISOString(),
+      value,
+      label: `Semantic Scholar: ${ssEntries} governance papers (total: ${ssData?.total ?? '?'})`,
+      severity: 'nominal',
+      raw: { entries: ssEntries, total: ssData?.total },
+    });
+  }
+
+  // CORE API fallback — open access research aggregator, no API key required for basic queries.
+  const coreUrl = 'https://api.core.ac.uk/v3/search/works?q=governance+integrity+verification&limit=5';
+  const coreData = await safeFetch<{ results?: unknown[]; totalHits?: number }>(coreUrl, 10000, {
+    headers: { 'User-Agent': 'MobiusTerminal/1.0 (+https://github.com/kaizencycle/mobius-civic-ai-terminal)' },
+  });
+  const coreEntries = coreData?.results?.length ?? 0;
+  const value = Number(normalizeDirect(Math.min(coreEntries, 5), 0, 5).toFixed(3));
   return wrap('ZEUS-µ2', {
     agentName: 'ZEUS-µ2',
-    source: 'Semantic Scholar · governance papers',
+    source: coreEntries > 0 ? 'CORE API · governance papers (fallback)' : 'Semantic Scholar · governance papers',
     timestamp: new Date().toISOString(),
     value,
-    label: `Semantic Scholar: ${entries} governance papers (total: ${data?.total ?? '?'})`,
+    label: coreEntries > 0
+      ? `CORE: ${coreEntries} governance papers (SS returned 0)`
+      : `Semantic Scholar: 0 governance papers (total: ${ssData?.total ?? '?'})`,
     severity: 'nominal',
-    raw: { entries, total: data?.total },
+    raw: { ss_entries: ssEntries, core_entries: coreEntries },
   });
 }
 
@@ -591,18 +613,39 @@ export async function pollAureaU5(): Promise<AgentPollResult> {
 
 export async function pollJadeU1(): Promise<AgentPollResult> {
   const url = 'https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q42&format=json&origin=*';
-  const data = await safeFetch<{ entities?: Record<string, { labels?: { en?: { value?: string } } }> }>(url);
-  const label = data?.entities?.Q42?.labels?.en?.value;
-  if (!label) return wrap('JADE-µ1', null);
-  return wrap('JADE-µ1', {
-    agentName: 'JADE-µ1',
-    source: 'Wikidata · entity probe',
-    timestamp: new Date().toISOString(),
-    value: 0.88,
-    label: `Wikidata Q42 label: ${label}`,
-    severity: 'nominal',
-    raw: { id: 'Q42', label },
-  });
+  const meta = await safeFetchWithMeta<{ entities?: Record<string, { labels?: { en?: { value?: string } } }> }>(url, 8000);
+  const label = meta.data?.entities?.Q42?.labels?.en?.value;
+
+  if (label) {
+    return wrap('JADE-µ1', {
+      agentName: 'JADE-µ1',
+      source: 'Wikidata · entity probe',
+      timestamp: new Date().toISOString(),
+      value: 0.88,
+      label: `Wikidata Q42 label: ${label}`,
+      severity: 'nominal',
+      raw: { id: 'Q42', label },
+    });
+  }
+
+  // Fallback: REST Countries probe — stable public API for constitutional data verification.
+  const countryUrl = 'https://restcountries.com/v3.1/alpha/US?fields=name,cca2';
+  const countryMeta = await safeFetchWithMeta<Array<{ name?: { common?: string }; cca2?: string }>>(countryUrl, 6000);
+  const countryName = countryMeta.data?.[0]?.name?.common;
+
+  if (countryName) {
+    return wrap('JADE-µ1', {
+      agentName: 'JADE-µ1',
+      source: 'REST Countries · fallback (Wikidata unavailable)',
+      timestamp: new Date().toISOString(),
+      value: 0.72,
+      label: `REST Countries probe: ${countryName} (Wikidata: ${meta.error ?? 'no label'})`,
+      severity: 'nominal',
+      raw: { fallback: true, country: countryName, wikidata_error: meta.error },
+    });
+  }
+
+  return wrap('JADE-µ1', null, `JADE-µ1: no signal — Wikidata ${meta.status ?? 'n/a'} ${meta.error ?? ''}, fallback also failed`);
 }
 
 export async function pollJadeU2(): Promise<AgentPollResult> {

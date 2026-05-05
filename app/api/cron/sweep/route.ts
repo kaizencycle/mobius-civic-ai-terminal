@@ -69,14 +69,14 @@ async function run(req: NextRequest) {
     console.info('[cron/sweep] cycle write', { cycle, written: council.entries.length });
 
     // Refresh micReadiness snapshot on every sweep so updatedAt stays current.
-    void (async () => {
-      try {
-        const mic = await getMergedMicReadiness(cycle);
-        await persistLocalMicReadinessSnapshot(mic);
-      } catch (e) {
-        console.warn('[cron/sweep] micReadiness refresh failed:', e instanceof Error ? e.message : e);
-      }
-    })();
+    // Awaited (not fire-and-forget) so the snapshot always reflects the current cycle
+    // before the cron response is returned — fire-and-forget caused C-300 stale cycle.
+    try {
+      const mic = await getMergedMicReadiness(cycle);
+      await persistLocalMicReadinessSnapshot(mic);
+    } catch (e) {
+      console.warn('[cron/sweep] micReadiness refresh failed:', e instanceof Error ? e.message : e);
+    }
 
     return NextResponse.json({
       ok: true,

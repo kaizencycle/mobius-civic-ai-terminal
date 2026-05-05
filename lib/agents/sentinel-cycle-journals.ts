@@ -65,14 +65,14 @@ export async function appendAtlasCronJournal(input: AtlasObserveInput): Promise<
   const entry = await appendAgentJournalEntry({
     agent: 'ATLAS',
     cycle: input.cycle,
-    observation: `ATLAS cycle observation (${input.source}) for ${input.cycle}. Micro snapshot anomalies: ${count}.`,
+    observation: `ATLAS cycle observation (${input.source}) for ${input.cycle}. GI=${gi.toFixed(2)}. Micro snapshot anomalies: ${count}.`,
     inference: `Signal surface review complete. ${labelText}`,
     recommendation:
       count > 0
         ? 'Prioritize corroboration on flagged micro-agent lanes and ensure ZEUS verification queue stays current.'
         : 'Maintain standard verification cadence; continue monitoring governance synthesis outputs.',
     confidence: Number((0.88 + gi * 0.08).toFixed(4)),
-    derivedFrom: ['signal-snapshot:kv', `eve-synthesis:${input.cycle}`, `source:${input.source}`],
+    derivedFrom: ['signal-snapshot:kv', `eve-synthesis:${input.cycle}`, `source:${input.source}`, `gi:${gi.toFixed(2)}`],
     relatedAgents: ['EVE', 'ZEUS'],
     status: 'committed',
     category: 'observation',
@@ -98,7 +98,7 @@ export async function appendZeusCronJournal(input: ZeusVerifyCronInput): Promise
   return appendAgentJournalEntry({
     agent: 'ZEUS',
     cycle: input.cycle,
-    observation: `ZEUS verification pass (${input.source}) after EVE cycle synthesis for ${input.cycle}. ATLAS journal reference: ${atlasRef}.`,
+    observation: `ZEUS verification pass (${input.source}) after EVE cycle synthesis for ${input.cycle}. GI=${gi.toFixed(2)}. ATLAS journal reference: ${atlasRef}.`,
     inference:
       gi >= 0.72
         ? 'Global integrity within operational band; governance synthesis and ledger commits may proceed under standard gates.'
@@ -106,7 +106,7 @@ export async function appendZeusCronJournal(input: ZeusVerifyCronInput): Promise
     recommendation:
       'Continue ledger attestation with AGENT_SERVICE_TOKEN present; escalate contested rows before broad promotion.',
     confidence: Number((0.85 + gi * 0.06).toFixed(4)),
-    derivedFrom: ['eve-synthesis:verify', `atlas-journal:${atlasRef}`, `source:${input.source}`],
+    derivedFrom: ['eve-synthesis:verify', `atlas-journal:${atlasRef}`, `source:${input.source}`, `gi:${gi.toFixed(2)}`],
     relatedAgents: ['EVE', 'ATLAS'],
     status: 'committed',
     category: 'inference',

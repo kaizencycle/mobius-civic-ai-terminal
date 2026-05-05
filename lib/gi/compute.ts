@@ -42,7 +42,7 @@ export function computeGI(input: GIInput): {
   const tripwireMap = {
     none: 1,
     watch: 0.6,
-    elevated: 0.3,
+    elevated: 0.45,
   } as const;
 
   const system =
