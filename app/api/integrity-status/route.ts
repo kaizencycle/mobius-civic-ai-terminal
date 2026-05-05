@@ -3,18 +3,29 @@ import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
 import { getEchoIntegrity } from '@/lib/echo/store';
 import { resolveGiChain } from '@/lib/gi/resolveGiChain';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
+import { kvGet } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
-function echoMicProvisional(): { totalMicProvisional: number; totalMicMinted: number } {
+// Fix 4: read MIC totals from KV when in-memory ECHO store is empty (cold start)
+async function echoMicProvisional(): Promise<{ totalMicProvisional: number; totalMicMinted: number }> {
   const i = getEchoIntegrity();
-  const v =
-    i && typeof i.totalMicProvisional === 'number'
+  const inMemory =
+    i && typeof i.totalMicProvisional === 'number' && i.totalMicProvisional > 0
       ? i.totalMicProvisional
-      : i && typeof i.totalMicMinted === 'number'
+      : i && typeof i.totalMicMinted === 'number' && i.totalMicMinted > 0
         ? i.totalMicMinted
         : 0;
-  return { totalMicProvisional: v, totalMicMinted: v };
+
+  if (inMemory > 0) return { totalMicProvisional: inMemory, totalMicMinted: inMemory };
+
+  try {
+    const kv = await kvGet<{ totalMicProvisional?: number; totalMicMinted?: number }>('mic:cycle:totals');
+    const v = kv?.totalMicProvisional ?? kv?.totalMicMinted ?? 0;
+    return { totalMicProvisional: v, totalMicMinted: v };
+  } catch {
+    return { totalMicProvisional: 0, totalMicMinted: 0 };
+  }
 }
 
 function buildAuthority(payload: Awaited<ReturnType<typeof computeIntegrityPayload>>, renderEnabled: boolean, renderUsed: boolean) {
@@ -67,8 +78,10 @@ export async function GET() {
   };
   const renderGicUrl = process.env.RENDER_GIC_URL;
 
+  // Resolve MIC totals once for all branches (Fix 4: async KV fallback)
+  const mic = await echoMicProvisional();
+
   if (!renderGicUrl) {
-    const mic = echoMicProvisional();
     return NextResponse.json({
       ok: true as const,
       degraded: true,
@@ -95,7 +108,6 @@ export async function GET() {
 
     if (!response.ok) {
       console.error(`[render:gic] ${response.status} ${response.statusText}`);
-      const mic = echoMicProvisional();
       return NextResponse.json({
         ok: true as const,
         degraded: true,
@@ -119,7 +131,6 @@ export async function GET() {
           ? remote.gi
           : mergedPayload.global_integrity;
 
-    const mic = echoMicProvisional();
     return NextResponse.json({
       ok: true as const,
       ...mergedPayload,
@@ -133,7 +144,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error('[render:gic] request failed', error);
-    const mic = echoMicProvisional();
     return NextResponse.json({
       ok: true as const,
       degraded: true,
