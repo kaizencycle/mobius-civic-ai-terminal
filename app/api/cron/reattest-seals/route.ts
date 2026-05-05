@@ -18,9 +18,28 @@ import { listAllSeals } from '@/lib/vault-v2/store';
 import { backAttestSeal, buildBackAttestRationale } from '@/lib/vault-v2/back-attest';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
+import { kvGet, kvSet } from '@/lib/kv/store';
 import type { Seal } from '@/lib/vault-v2/types';
 
 export const dynamic = 'force-dynamic';
+
+// ── Exponential backoff helpers ────────────────────────────────────────────
+
+async function shouldSkipRetry(sealId: string): Promise<boolean> {
+  const attempts = (await kvGet<number>(`seal:${sealId}:reattest_attempts`)) ?? 0;
+  const lastAttempt = await kvGet<string>(`seal:${sealId}:reattest_last_attempt`);
+  if (!lastAttempt || attempts === 0) return false;
+  // Exponential backoff: 5m, 10m, 20m, 40m, cap at 2h
+  const backoffMs = Math.min(5 * 60 * 1000 * Math.pow(2, attempts - 1), 2 * 60 * 60 * 1000);
+  const elapsed = Date.now() - new Date(lastAttempt).getTime();
+  return elapsed < backoffMs;
+}
+
+async function recordReattestAttempt(sealId: string): Promise<void> {
+  const attempts = (await kvGet<number>(`seal:${sealId}:reattest_attempts`)) ?? 0;
+  await kvSet(`seal:${sealId}:reattest_attempts`, attempts + 1);
+  await kvSet(`seal:${sealId}:reattest_last_attempt`, new Date().toISOString());
+}
 
 export async function GET(req: NextRequest) {
   const cronHeader = req.headers.get('x-vercel-cron');
@@ -64,6 +83,12 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
+    // Exponential backoff: skip seals retried too recently to avoid hammering
+    if (await shouldSkipRetry(seal.seal_id)) {
+      results.push({ seal_id: seal.seal_id, agent: 'backoff', ok: true, transition: 'skipped-backoff' });
+      continue;
+    }
+
     for (const agent of agentsPending) {
       try {
         const r = await backAttestSeal({
@@ -93,12 +118,17 @@ export async function GET(req: NextRequest) {
         results.push({ seal_id: seal.seal_id, agent, ok: false, error: msg });
       }
     }
+    await recordReattestAttempt(seal.seal_id);
   }
 
-  // Force re-evaluation for seals where all agents attested in prior runs but the seal
-  // never transitioned out of quarantine. Re-attest via ATLAS (idempotent) to trigger
-  // quorum re-check inside backAttestSeal.
+  // For fully-attested seals still in quarantine, apply backoff before re-evaluating.
+  // These seals have all agent signatures — the blocker is typically a substrate write
+  // failure. Repeated re-evaluation without backoff hammers the ledger endpoint.
   for (const seal_id of fullyAttestedButStuck) {
+    if (await shouldSkipRetry(seal_id)) {
+      results.push({ seal_id, agent: 'backoff', ok: true, transition: 'skipped-backoff' });
+      continue;
+    }
     try {
       console.warn('[reattest-seals] fully-attested-but-stuck seal — forcing re-evaluation', { seal_id });
       const r = await backAttestSeal({
@@ -122,6 +152,7 @@ export async function GET(req: NextRequest) {
       const msg = `[forced-re-eval] ${seal_id}: ${e instanceof Error ? e.message : String(e)}`;
       errors.push(msg);
     }
+    await recordReattestAttempt(seal_id);
   }
 
   const attested = results.filter((r) => r.transition === 'attested').length;

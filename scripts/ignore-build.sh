@@ -5,8 +5,8 @@ subject="$(git log -1 --format=%s)"
 author_email="$(git log -1 --format=%ae)"
 author_name="$(git log -1 --format=%an)"
 
-if [[ "$subject" == *"[skip ci]"* ]]; then
-  echo "Skipping: [skip ci] in commit message"
+if [[ "$subject" == *"[skip ci]"* ]] || [[ "$subject" == *"[skip deploy]"* ]]; then
+  echo "Skipping: skip directive in commit message"
   exit 0
 fi
 
@@ -14,7 +14,7 @@ fi
 # Fix 10: expanded to catch github-actions bot and any noreply.github.com identity.
 if [[ "$author_name" == "mobius-bot" ]] \
   || [[ "$author_name" == "github-actions[bot]" ]] \
-  || [[ "$author_email" =~ ^(bot@mobius\.substrate|cursoragent@cursor\.com)$ ]] \
+  || [[ "$author_email" =~ ^(bot@mobius\.systems|bot@mobius\.substrate|bot@mobius\.internal|cursoragent@cursor\.com)$ ]] \
   || [[ "$author_email" =~ \.noreply\.github\.com$ ]]; then
   echo "Skipping: bot commit by $author_name <$author_email>"
   exit 0
@@ -22,7 +22,7 @@ fi
 
 # Skip ATLAS/ZEUS watch/heartbeat/catalog/mesh commits that don't change app code.
 # Fix 10: added chore(mesh): pattern — mesh refresh commits were triggering canceled builds.
-if [[ "$subject" =~ ^(heartbeat:|chore\(catalog\)|chore\(mesh\):|zeus:.*verification|ATLAS.*watch) ]]; then
+if [[ "$subject" =~ ^(heartbeat:|chore\(catalog\)|chore\(mesh\):|chore\(sweep\):|zeus:.*verification|ATLAS.*watch) ]]; then
   echo "Skipping: agent watch commit — $subject"
   exit 0
 fi

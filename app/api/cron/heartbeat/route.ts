@@ -12,7 +12,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
 import { writeFleetHeartbeatKV } from '@/lib/runtime/agent-heartbeat-kv';
-import { loadGIState, loadGIStateCarry } from '@/lib/kv/store';
+import { loadGIState, loadGIStateCarry, appendGiTrend } from '@/lib/kv/store';
 import { updateSustainTrackingFromGi, seedSustainStateIfMissing } from '@/lib/mic/sustainTracker';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 
@@ -34,12 +34,12 @@ async function run(req: NextRequest) {
   // C-298: advance sustain counter. Use live GI if fresh, else carry-forward.
   let sustainStatus: string | null = null;
   let sustainCycles: number | null = null;
+  let gi: number | null = null;
   try {
     const cycle = await resolveOperatorCycleId().catch(() => '');
     await seedSustainStateIfMissing(cycle || undefined);
 
     const giState = await loadGIState();
-    let gi: number | null = null;
     if (giState && typeof giState.global_integrity === 'number') {
       const ageMs = Date.now() - new Date(giState.timestamp).getTime();
       if (ageMs < 15 * 60 * 1000) gi = giState.global_integrity;
@@ -58,6 +58,13 @@ async function run(req: NextRequest) {
     }
   } catch (e) {
     console.warn('[cron/heartbeat] sustain update failed:', e instanceof Error ? e.message : e);
+  }
+
+  // Append to the rolling GI trend (24-entry window, one per heartbeat cycle).
+  // appendGiTrend already guards against KV unavailability — fire-and-forget.
+  if (gi !== null) {
+    const giMode = gi >= 0.8 ? 'green' : gi >= 0.6 ? 'yellow' : 'red';
+    void appendGiTrend({ gi, mode: giMode, gi_verified: false, timestamp }).catch(() => {});
   }
 
   return NextResponse.json({

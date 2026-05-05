@@ -84,6 +84,15 @@ async function loadLatestKvJournalEntry(redis: Redis, agentName: string): Promis
   }
 }
 
+// Phase 15 Fix 4: confidence floor for sentinel agents — guards against pre-Phase14
+// KV values and drift that kept ATLAS at 0.62 (below the 0.65 floor).
+const SENTINEL_AGENT_NAMES = new Set(['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA']);
+const SENTINEL_MII_FLOOR = 0.65;
+
+function applyConfidenceFloor(agentName: string, confidence: number): number {
+  return SENTINEL_AGENT_NAMES.has(agentName) ? Math.max(confidence, SENTINEL_MII_FLOOR) : confidence;
+}
+
 const HEARTBEAT_FRESH_MS = Number(process.env.AGENT_HEARTBEAT_FRESH_MS ?? 300000);
 const ACTION_FRESH_MS = Number(process.env.AGENT_ACTION_FRESH_MS ?? 900000);
 // Optimization 4: single uniform freshness window — no KV vs substrate distinction
@@ -210,7 +219,15 @@ export async function GET() {
       const { entry: journal, meta } = journalByAgent[agent.name] ?? { entry: null, meta: {} };
       // Optimization 3/6: agent:meta.last_journal_at is the authoritative liveness signal
       const lastJournalAt = meta.last_journal_at ?? journal?.timestamp ?? null;
-      const confidence = journal?.confidence ?? (isFresh(timestamp, HEARTBEAT_FRESH_MS) ? 0.75 : 0.5);
+      // Apply confidence floor only when a real journal confidence was observed.
+      // Synthetic fallback values (0.75 fresh / 0.5 stale) must not be floored —
+      // raising 0.5 to 0.65 would satisfy the deriveLiveness gate with no actual evidence.
+      const journalConfidence = journal?.confidence ?? null;
+      const fallbackConfidence = isFresh(timestamp, HEARTBEAT_FRESH_MS) ? 0.75 : 0.5;
+      const confidence =
+        journalConfidence !== null
+          ? applyConfidenceFloor(agent.name, journalConfidence)
+          : fallbackConfidence;
       const baseLiveness = deriveLiveness({
         lastSeen: lastSeen ?? undefined,
         lastActionAt: lastActionAt ?? undefined,

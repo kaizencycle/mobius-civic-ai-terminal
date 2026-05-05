@@ -10,6 +10,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getEveSynthesisAuthError, serviceAuthorizationHeaderValue } from '@/lib/security/serviceAuth';
+import { kvSet } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,12 @@ export async function GET(request: NextRequest) {
     });
 
     const body = await res.json().catch(() => null);
+
+    if (res.ok) {
+      // Write timestamp AFTER promotion confirms success so last_promotion_run_at reflects
+      // actual successful runs, not just cron invocations that may time-out or fail.
+      await kvSet('LAST_PROMOTION_RUN_AT', new Date().toISOString(), 7 * 24 * 3600).catch(() => {});
+    }
 
     return NextResponse.json({
       ok: res.ok,

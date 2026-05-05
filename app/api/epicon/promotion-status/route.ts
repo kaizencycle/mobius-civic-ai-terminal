@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPromotionState, defaultPromotionState, type PromotionStateValue } from '@/lib/epicon/promotion';
 import { getEchoEpicon } from '@/lib/echo/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { kvGet } from '@/lib/kv/store';
 import type { EpiconItem } from '@/lib/terminal/types';
+
+// Promote cron fires every 5 min; warn in diagnostics if last successful run > 2h ago
+const PROMOTION_STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000;
 
 export const dynamic = 'force-dynamic';
 
@@ -60,6 +64,19 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
     const nowIso = new Date().toISOString();
     const values = Object.values(state);
 
+    // Read authoritative last-run timestamp from KV (written by cron/promote after success)
+    const kvLastRunAt = await kvGet<string>('LAST_PROMOTION_RUN_AT').catch(() => null);
+    const entryLastRunAt = values.map((v) => v.last_attempt_at).filter(Boolean).sort().at(-1) ?? null;
+    const lastPromotionRunAt = kvLastRunAt ?? entryLastRunAt;
+    const promotionStale =
+      lastPromotionRunAt
+        ? Date.now() - new Date(lastPromotionRunAt).getTime() > PROMOTION_STALE_THRESHOLD_MS
+        : false;
+    if (promotionStale) {
+      const ageMin = Math.round((Date.now() - new Date(lastPromotionRunAt!).getTime()) / 60000);
+      console.warn(`[promotion-status] stale — last run was ${ageMin}m ago`);
+    }
+
     return NextResponse.json({
       ok: true,
       cycleId,
@@ -69,11 +86,8 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
         ...counters,
       },
       diagnostics: {
-        last_promotion_run_at: values
-          .map((v) => v.last_attempt_at)
-          .filter(Boolean)
-          .sort()
-          .at(-1) ?? null,
+        last_promotion_run_at: lastPromotionRunAt,
+        promotion_stale: promotionStale,
         promoter_input_count: items.length,
         promoter_eligible_count: promotable.length,
         promoter_excluded_reasons: {
