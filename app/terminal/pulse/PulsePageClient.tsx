@@ -22,6 +22,20 @@ type PulseItem = {
   gi?: number | null;
 };
 
+type EchoLedgerEntry = {
+  id: string;
+  timestamp: string;
+  source?: string;
+  agentOrigin?: string;
+  title?: string;
+  summary?: string;
+};
+
+type EchoIntegrity = {
+  totalMicProvisional?: number;
+  totalMicMinted?: number;
+};
+
 const EVENT_TYPES = ['HEARTBEAT', 'WATCH', 'CATALOG', 'EPICON', 'JOURNAL', 'VERIFY', 'ROUTING', 'PROMOTION', 'SIGNAL'] as const;
 type JournalEntry = {
   id: string;
@@ -253,6 +267,24 @@ export default function PulsePageClient() {
   }, [snapshot]);
 
   const memoryMode = snapshot?.memory_mode;
+
+  const echoData = useMemo(() => {
+    const raw = ((snapshot as Record<string, unknown> | null)?.echo as { data?: Record<string, unknown> } | undefined)?.data;
+    return raw ?? null;
+  }, [snapshot]);
+
+  const micIntegrity = useMemo(() => {
+    const integ = echoData?.integrity as EchoIntegrity | undefined;
+    return integ ?? null;
+  }, [echoData]);
+
+  const echoAttestations = useMemo(() => {
+    const ledger = (echoData?.ledger ?? []) as EchoLedgerEntry[];
+    return ledger
+      .filter((e) => e.source === 'agent_commit')
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 10);
+  }, [echoData]);
 
   const resolvedState = useMemo((): ResolvedPulseState => {
     const synthTags = ((latestSynthesis as unknown as { tags?: string[] })?.tags ?? []).join(' ').toLowerCase();
@@ -494,7 +526,14 @@ export default function PulsePageClient() {
           </section>
 
           <section id="vault" className="rounded border border-slate-800 bg-slate-900/60 p-3 text-xs">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Vault + MIC resource</div>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Vault + MIC resource</div>
+              {micIntegrity?.totalMicProvisional != null && (
+                <div className="rounded border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 font-mono text-[10px] text-violet-200">
+                  MIC {micIntegrity.totalMicProvisional.toFixed(4)} prov · {micIntegrity.totalMicMinted?.toFixed(4) ?? '—'} minted
+                </div>
+              )}
+            </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded border border-slate-800 bg-slate-950/70 p-2.5 text-slate-300">
                 <div>Reserve: {resolvedState.vaultBalance != null ? resolvedState.vaultBalance.toFixed(2) : 'unknown'}</div>
@@ -520,6 +559,25 @@ export default function PulsePageClient() {
               Entries below are event records from the snapshot stream. Journal inference remains inference until ledger attested.
             </p>
             <div className="space-y-2">
+              {echoAttestations.length > 0 && (
+                <details className="rounded border border-cyan-800/40 bg-cyan-950/15 p-2.5">
+                  <summary className="cursor-pointer list-none text-[11px] text-cyan-200">
+                    <span className="rounded border border-cyan-600/50 bg-cyan-500/15 px-1.5 py-0.5 font-mono text-[10px] uppercase">ATTEST ×{echoAttestations.length}</span>
+                    <span className="ml-2 text-slate-400">Agent attestations from ECHO_STATE</span>
+                  </summary>
+                  <div className="mt-2 space-y-1.5">
+                    {echoAttestations.map((e) => (
+                      <div key={e.id} className="flex items-start justify-between gap-2 border-t border-slate-800/60 pt-1.5">
+                        <div className="min-w-0">
+                          <span className="font-mono text-[10px] text-cyan-300">{e.agentOrigin ?? 'AGENT'}</span>
+                          <span className="ml-2 truncate text-[11px] text-slate-300">{e.title ?? e.summary ?? e.id}</span>
+                        </div>
+                        <span className="shrink-0 font-mono text-[9px] text-slate-500">{relTime(e.timestamp)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
               {rolledEventRows.map((row, idx) =>
                 row.kind === 'verify_rollup' ? (
                   <details key={`verify-rollup-${idx}`} className="rounded border border-amber-700/40 bg-amber-950/20 p-2.5">

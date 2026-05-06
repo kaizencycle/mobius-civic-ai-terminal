@@ -1,5 +1,20 @@
 import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import { WalletProvider } from '@/contexts/WalletContext';
+
+const BASE_URL = 'https://mobius-civic-ai-terminal.vercel.app';
+
+export function chamberMeta(chamber: string, description: string, path: string): Metadata {
+  const title = `${chamber} · Mobius Terminal`;
+  const url = `${BASE_URL}/terminal/${path}`;
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url },
+    twitter: { title, description },
+  };
+}
 import CommandSurface from '@/components/terminal/CommandSurface';
 import FooterStatusBar from '@/components/terminal/FooterStatusBar';
 import TerminalShell from '@/components/terminal/TerminalShell';

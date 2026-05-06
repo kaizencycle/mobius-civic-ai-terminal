@@ -8,6 +8,27 @@ import { currentCycleId } from '@/lib/eve/cycle-engine';
 type Agent = { id: string; name: string; role: string; status: string; liveness?: string; lastAction?: string; last_action?: string; last_seen?: string | null; last_journal_at?: string | null; confidence?: number; source_badges?: string[]; tier?: string; mii_avg?: number };
 type JournalEntry = { id: string; observation?: string; cycle?: string };
 type MiiEntry = { agent: string; mii: number; timestamp: string };
+type SentinelQuorum = {
+  status: string;
+  attestations_received: number;
+  attestations_needed: number;
+  attested_agents: string[];
+  pending_agents: string[];
+  cycle: string;
+};
+
+const CONFIDENCE_FLOOR = 0.65;
+const SENTINEL_TIERS = ['Sentinel', 'Architect'];
+
+function journalRelTime(ts: string | null | undefined): string {
+  if (!ts) return '—';
+  const ms = Date.now() - new Date(ts).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return '—';
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  return `${Math.floor(m / 60)}h ago`;
+}
 
 /** Inline SVG sparkline — zero bundle impact, no recharts needed */
 function MiiSparkline({ values, color, dashed = false }: { values: number[]; color: string; dashed?: boolean }) {
@@ -144,6 +165,7 @@ export default function SentinelPageClient() {
 
   const agents = (snapshot?.agents?.data ?? {}) as { agents?: Agent[] };
   const eveData = (snapshot?.eve?.data ?? {}) as Record<string, unknown>;
+  const sentinelQuorum = ((snapshot as Record<string, unknown> | null)?.vault as { data?: Record<string, unknown> } | undefined)?.data?.sentinel_quorum as SentinelQuorum | undefined;
   const currentCycle =
     typeof eveData.currentCycle === 'string'
       ? eveData.currentCycle
@@ -304,10 +326,33 @@ export default function SentinelPageClient() {
             </div>
             <div className="mt-1 text-xs text-slate-400">{agent.role} · {agent.tier ?? '—'}</div>
             <div className="mt-2 text-xs text-slate-500">{agent.lastAction ?? agent.last_action ?? 'Awaiting first action this cycle.'}</div>
-            <div className="mt-1 text-[10px] text-slate-500">
-              {(agent.source_badges ?? []).map((b) => `[${b}]`).join(' ') || '[HB][ACT][JRN] pending'}
-              {agent.confidence != null ? ` · conf ${agent.confidence.toFixed(2)}` : ''}
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+              <span>{(agent.source_badges ?? []).map((b) => `[${b}]`).join(' ') || '[HB][ACT][JRN] pending'}</span>
+              {agent.confidence != null && (
+                <span className="flex items-center gap-1">
+                  conf{' '}
+                  <span className={agent.confidence < CONFIDENCE_FLOOR ? 'text-amber-300' : 'text-slate-400'}>
+                    {agent.confidence.toFixed(2)}
+                  </span>
+                  {SENTINEL_TIERS.includes(agent.tier ?? '') && agent.confidence < CONFIDENCE_FLOOR && (
+                    <span className="rounded border border-amber-500/50 bg-amber-500/10 px-1 py-0.5 text-[8px] font-mono text-amber-300">
+                      ↓ FLOOR
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
+            {agent.last_journal_at && (
+              <div className="mt-1 text-[9px] text-slate-600">
+                last journal{' '}
+                <span className={(() => {
+                  const ms = Date.now() - new Date(agent.last_journal_at!).getTime();
+                  return ms > 900_000 ? 'text-amber-400/80' : 'text-slate-500';
+                })()}>
+                  {journalRelTime(agent.last_journal_at)}
+                </span>
+              </div>
+            )}
             <div className="mt-2 flex items-center gap-2">
               <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-slate-500">MII trend</span>
               {miiData[agent.name]?.length ? (
@@ -338,6 +383,36 @@ export default function SentinelPageClient() {
           ))}
         </div>
       ) : null}
+      {sentinelQuorum && (
+        <div className={`mt-4 rounded border px-3 py-2 ${
+          sentinelQuorum.status === 'achieved'
+            ? 'border-emerald-500/30 bg-emerald-500/10'
+            : 'border-amber-500/30 bg-amber-500/10'
+        }`}>
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-300">
+              Sentinel Quorum · {sentinelQuorum.cycle}
+            </span>
+            <span className={`rounded px-1.5 py-0.5 font-mono text-[9px] ${
+              sentinelQuorum.status === 'achieved'
+                ? 'bg-emerald-500/20 text-emerald-300'
+                : 'bg-amber-500/20 text-amber-300'
+            }`}>
+              {sentinelQuorum.status === 'achieved'
+                ? '✓ ACHIEVED'
+                : `${sentinelQuorum.attestations_received}/${sentinelQuorum.attestations_received + sentinelQuorum.attestations_needed} pending`}
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2 text-[9px] font-mono">
+            {sentinelQuorum.attested_agents.map((a) => (
+              <span key={a} className="text-emerald-400">✓ {a}</span>
+            ))}
+            {sentinelQuorum.pending_agents.map((a) => (
+              <span key={a} className="text-amber-400/70">○ {a}</span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
