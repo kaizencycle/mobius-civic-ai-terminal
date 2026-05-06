@@ -3,6 +3,7 @@ import { GET as getLegacySnapshot } from '@/app/api/terminal/snapshot/route';
 import { buildTerminalDalSnapshot } from '@/lib/dal/snapshot';
 import { readIntegrityDalSnapshot } from '@/lib/dal/integrity';
 import { readTripwireDalSnapshot } from '@/lib/dal/tripwire';
+import type { DalResult } from '@/lib/dal/types';
 
 type CompareStatus = 'match' | 'mismatch' | 'missing' | 'unknown';
 
@@ -11,6 +12,11 @@ type CompareField = {
   status: CompareStatus;
   legacy: unknown;
   dal: unknown;
+};
+
+type ConfidenceInput = {
+  comparisons: CompareField[];
+  dalResults: Array<DalResult<unknown>>;
 };
 
 export const dynamic = 'force-dynamic';
@@ -65,8 +71,44 @@ function findLegacyTripwire(legacy: Record<string, unknown>): Record<string, unk
   return safeRecord(sentinel.tripwire);
 }
 
+function buildConfidenceMetrics({ comparisons, dalResults }: ConfidenceInput) {
+  const fieldsChecked = comparisons.length;
+  const matches = comparisons.filter((item) => item.status === 'match').length;
+  const mismatches = comparisons.filter((item) => item.status === 'mismatch').length;
+  const missing = comparisons.filter((item) => item.status === 'missing').length;
+  const unknown = comparisons.filter((item) => item.status === 'unknown').length;
+  const degradedSources = dalResults
+    .filter((result) => result.degraded || !result.ok)
+    .map((result) => result.provenance.source);
+  const fallbackCount = dalResults.filter((result) => result.provenance.source === 'fallback').length;
+  const staleCount = dalResults.filter((result) => result.provenance.freshness !== 'live').length;
+
+  const parityRatio = fieldsChecked > 0 ? matches / fieldsChecked : 0;
+  const penalty = (mismatches * 0.2) + (missing * 0.15) + (unknown * 0.05) + (fallbackCount * 0.05) + (staleCount * 0.03);
+  const confidenceScore = Math.max(0, Math.min(1, parityRatio - penalty));
+
+  return {
+    fields_checked: fieldsChecked,
+    matches,
+    mismatches,
+    missing,
+    unknown,
+    parity_ratio: Number(parityRatio.toFixed(4)),
+    confidence_score: Number(confidenceScore.toFixed(4)),
+    degraded_sources: [...new Set(degradedSources)],
+    fallback_count: fallbackCount,
+    stale_count: staleCount,
+    cutover_recommendation:
+      confidenceScore >= 0.98 && mismatches === 0 && missing === 0 && fallbackCount === 0
+        ? 'eligible_for_limited_shadow_cutover'
+        : confidenceScore >= 0.85 && mismatches === 0
+          ? 'continue_shadow_observation'
+          : 'not_ready_for_cutover',
+  };
+}
+
 /**
- * C-303 Phase 1F — legacy snapshot vs DAL snapshot comparison.
+ * C-303 Phase 1G — legacy snapshot vs DAL snapshot comparison.
  *
  * Diagnostic only. Does not replace either path.
  */
@@ -119,9 +161,10 @@ export async function GET(request: NextRequest) {
     compareField('tripwire_triggered_by', legacyTripwire.triggered_by ?? legacyTripwire.triggeredBy, tripwireDal?.triggered_by),
   ];
 
-  const mismatchCount = comparisons.filter((item) => item.status === 'mismatch').length;
-  const missingCount = comparisons.filter((item) => item.status === 'missing').length;
-  const unknownCount = comparisons.filter((item) => item.status === 'unknown').length;
+  const confidence = buildConfidenceMetrics({
+    comparisons,
+    dalResults: [dalResult, integrityDalResult, tripwireDalResult] as Array<DalResult<unknown>>,
+  });
 
   return NextResponse.json(
     {
@@ -129,13 +172,12 @@ export async function GET(request: NextRequest) {
       mode: 'snapshot-compare',
       migration_state: 'diagnostic_not_authoritative',
       summary: {
-        fields_checked: comparisons.length,
-        mismatches: mismatchCount,
-        missing: missingCount,
-        unknown: unknownCount,
+        ...confidence,
         safe_to_cutover:
-          mismatchCount === 0 &&
-          missingCount === 0 &&
+          confidence.mismatches === 0 &&
+          confidence.missing === 0 &&
+          confidence.fallback_count === 0 &&
+          confidence.confidence_score >= 0.98 &&
           dalResult.ok &&
           integrityDalResult.ok &&
           tripwireDalResult.ok,
