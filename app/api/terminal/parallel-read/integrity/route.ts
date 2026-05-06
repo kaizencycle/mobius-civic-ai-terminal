@@ -6,8 +6,13 @@ export const dynamic = 'force-dynamic';
 
 type ParallelReadStatus = 'matched' | 'mismatch' | 'legacy_only' | 'dal_degraded';
 
-function getStatus(legacyGi: number, dalGi: number | null, dalOk: boolean): ParallelReadStatus {
-  if (!dalOk) return 'dal_degraded';
+function getStatus(
+  legacyGi: number,
+  dalGi: number | null,
+  dalOk: boolean,
+  dalDegraded: boolean,
+): ParallelReadStatus {
+  if (!dalOk || dalDegraded) return 'dal_degraded';
   if (dalGi === null) return 'legacy_only';
   return Math.abs(legacyGi - dalGi) <= 0.001 ? 'matched' : 'mismatch';
 }
@@ -25,7 +30,13 @@ export async function GET() {
     readIntegrityDalSnapshot(),
   ]);
   const dal = dalResult.data ?? null;
-  const status = getStatus(legacy.global_integrity, dal?.global_integrity ?? null, dalResult.ok);
+  const dalDegraded = dalResult.degraded ?? !dalResult.ok;
+  const status = getStatus(
+    legacy.global_integrity,
+    dal?.global_integrity ?? null,
+    dalResult.ok,
+    dalDegraded,
+  );
 
   return NextResponse.json(
     {
@@ -48,7 +59,7 @@ export async function GET() {
       },
       dal: {
         ok: dalResult.ok,
-        degraded: dalResult.degraded ?? !dalResult.ok,
+        degraded: dalDegraded,
         cycle: dal?.cycle ?? null,
         global_integrity: dal?.global_integrity ?? null,
         mode: dal?.mode ?? null,
