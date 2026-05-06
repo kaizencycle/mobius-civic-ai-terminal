@@ -19,6 +19,21 @@ type ConfidenceInput = {
   dalResults: Array<DalResult<unknown>>;
 };
 
+type CompareHistoryFrame = {
+  id: string;
+  ts: string;
+  mode: 'snapshot-compare';
+  migration_state: 'diagnostic_not_authoritative';
+  confidence_score: number;
+  parity_ratio: number;
+  mismatches: number;
+  missing: number;
+  unknown: number;
+  fallback_count: number;
+  stale_count: number;
+  cutover_recommendation: string;
+};
+
 export const dynamic = 'force-dynamic';
 
 function compareField(field: string, legacy: unknown, dal: unknown): CompareField {
@@ -107,8 +122,26 @@ function buildConfidenceMetrics({ comparisons, dalResults }: ConfidenceInput) {
   };
 }
 
+function buildHistoryFrame(confidence: ReturnType<typeof buildConfidenceMetrics>): CompareHistoryFrame {
+  const ts = new Date().toISOString();
+  return {
+    id: `snapshot-compare-${ts}`,
+    ts,
+    mode: 'snapshot-compare',
+    migration_state: 'diagnostic_not_authoritative',
+    confidence_score: confidence.confidence_score,
+    parity_ratio: confidence.parity_ratio,
+    mismatches: confidence.mismatches,
+    missing: confidence.missing,
+    unknown: confidence.unknown,
+    fallback_count: confidence.fallback_count,
+    stale_count: confidence.stale_count,
+    cutover_recommendation: confidence.cutover_recommendation,
+  };
+}
+
 /**
- * C-303 Phase 1G — legacy snapshot vs DAL snapshot comparison.
+ * C-303 Phase 1H — legacy snapshot vs DAL snapshot comparison.
  *
  * Diagnostic only. Does not replace either path.
  */
@@ -165,6 +198,7 @@ export async function GET(request: NextRequest) {
     comparisons,
     dalResults: [dalResult, integrityDalResult, tripwireDalResult] as Array<DalResult<unknown>>,
   });
+  const historyFrame = buildHistoryFrame(confidence);
 
   return NextResponse.json(
     {
@@ -181,6 +215,11 @@ export async function GET(request: NextRequest) {
           dalResult.ok &&
           integrityDalResult.ok &&
           tripwireDalResult.ok,
+      },
+      history: {
+        frame: historyFrame,
+        persistence: 'not_enabled',
+        note: 'Phase 1H exposes a stable history frame. Persistence should be added after KV wrapper selection.',
       },
       comparisons,
       legacy: {
