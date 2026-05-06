@@ -336,7 +336,20 @@ export default function SignalsPageClient() {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
-          {payload.timestamp ? <span>sweep {relTime(payload.timestamp)}</span> : null}
+          {payload.timestamp ? (() => {
+            const ageSeconds = Math.round((Date.now() - new Date(payload.timestamp).getTime()) / 1000);
+            const stale = ageSeconds > 600;
+            return (
+              <span className={`rounded border px-1.5 py-0.5 font-mono text-[9px] ${
+                stale
+                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                  : 'border-slate-700 text-slate-500'
+              }`}>
+                sweep {ageSeconds < 60 ? `${ageSeconds}s ago` : `${Math.round(ageSeconds / 60)}m ago`}
+                {stale ? ' · stale' : ''}
+              </span>
+            );
+          })() : null}
           {payload.cached ? <span className="text-slate-600">· cached sweep</span> : null}
           {payload.source === 'kv-fallback' ? <span className="text-amber-500/90">· KV fallback</span> : null}
         </div>
@@ -409,9 +422,18 @@ export default function SignalsPageClient() {
                     const sig = agent.signals[0];
                     const score = sig?.value ?? (agent.healthy ? 0.85 : 0);
                     const pct = Math.max(5, Math.round(score * 100));
+                    const sev = sig?.severity?.toLowerCase() ?? 'nominal';
+                    const severityBorder =
+                      sev === 'watch' ? 'border-l-2 border-l-amber-400/60' :
+                      sev === 'elevated' || sev === 'critical' ? 'border-l-2 border-l-red-400/60' :
+                      '';
+                    const valueColor =
+                      sev === 'watch' ? 'text-amber-300' :
+                      sev === 'elevated' || sev === 'critical' ? 'text-red-300' :
+                      'text-slate-400';
 
                     return (
-                      <div key={agent.agentName} className="rounded border border-slate-800 bg-slate-950/60 p-2.5">
+                      <div key={agent.agentName} className={`rounded border border-slate-800 bg-slate-950/60 p-2.5 ${severityBorder}`}>
                         <div className="flex items-center justify-between">
                           <span className="font-mono text-[11px] font-semibold text-slate-200">{agent.agentName}</span>
                           <span className={`h-2 w-2 rounded-full ${agent.healthy ? 'bg-emerald-400' : 'bg-rose-400'}`} />
@@ -425,7 +447,7 @@ export default function SignalsPageClient() {
                                   style={{ width: `${pct}%` }}
                                 />
                               </div>
-                              <span className="font-mono text-[10px] text-slate-400">{pct}%</span>
+                              <span className={`font-mono text-[10px] ${valueColor}`}>{pct}%</span>
                             </div>
                             <div className="mt-1 text-[10px] leading-snug text-slate-400 line-clamp-2" title={sig.label}>
                               {sig.source}

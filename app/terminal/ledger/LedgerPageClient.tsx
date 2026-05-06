@@ -18,6 +18,17 @@ type EchoFeedResponse = {
 
 type SortKey = 'timestamp' | 'agent' | 'category' | 'tier' | 'delta' | 'status';
 type SortDir = 'asc' | 'desc';
+type SourceFilter = 'all' | 'github' | 'echo' | 'agent_commit' | 'backfill' | 'other';
+
+function classifySource(row: LedgerEntry): SourceFilter {
+  const ps = (row.proofSource ?? '').toLowerCase();
+  const src = (row.source ?? '').toLowerCase();
+  if (ps.includes('github') || ps === 'github_merge') return 'github';
+  if (src === 'agent_commit') return 'agent_commit';
+  if (src === 'echo' || ps.includes('echo')) return 'echo';
+  if (src === 'backfill') return 'backfill';
+  return 'other';
+}
 
 const DEFAULT_LEDGER_PAGE_SIZE = 100;
 const DEFAULT_LEDGER_PAGES = 3;
@@ -90,8 +101,18 @@ export default function LedgerPageClient() {
   const [sortKey, setSortKey] = useState<SortKey>('timestamp');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [scrollPage, setScrollPage] = useState(0);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const feed = useMemo(() => (data ? ({ events: data.events, status: { cycleId: data.cycleId ?? data.events[0]?.cycleId ?? 'C-—' } } as EchoFeedResponse) : null), [data]);
-  const rows = useMemo(() => feed?.events ?? [], [feed]);
+  const allRows = useMemo(() => feed?.events ?? [], [feed]);
+  const sourceCounts = useMemo(() => {
+    const counts: Record<SourceFilter, number> = { all: allRows.length, github: 0, echo: 0, agent_commit: 0, backfill: 0, other: 0 };
+    for (const row of allRows) counts[classifySource(row)] += 1;
+    return counts;
+  }, [allRows]);
+  const rows = useMemo(
+    () => sourceFilter === 'all' ? allRows : allRows.filter((r: LedgerEntry) => classifySource(r) === sourceFilter),
+    [allRows, sourceFilter],
+  );
   const pageSize = data?.pagination?.pageSize ?? DEFAULT_LEDGER_PAGE_SIZE;
   const maxPages = data?.pagination?.pages ?? DEFAULT_LEDGER_PAGES;
   const deterministicCycle = currentCycleId();
@@ -163,9 +184,29 @@ export default function LedgerPageClient() {
 
       <AgentLedgerAdapterPanel activeCycle={activeCycle} />
 
+      {/* L-3: Source provenance filter */}
+      <div className="mb-3 flex flex-wrap gap-1">
+        {(['all', 'github', 'echo', 'agent_commit', 'backfill'] as SourceFilter[])
+          .filter((s) => s === 'all' || sourceCounts[s] > 0)
+          .map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => { setSourceFilter(s); setScrollPage(0); }}
+              className={`rounded px-2 py-1 font-mono text-[9px] uppercase tracking-[0.1em] transition ${
+                sourceFilter === s
+                  ? 'bg-cyan-500/20 text-cyan-200'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              {s === 'all' ? `All (${sourceCounts.all})` : `${s} (${sourceCounts[s]})`}
+            </button>
+          ))}
+      </div>
+
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span className="text-slate-400">
-          {activeCycle} · {rows.length} ledger rows
+          {activeCycle} · {rows.length} ledger rows{sourceFilter !== 'all' ? ` · ${sourceFilter}` : ''}
         </span>
         {preview && !full ? (
           <span className="rounded border border-cyan-700/40 bg-cyan-950/20 px-2 py-1 text-[10px] text-cyan-200">preview</span>
