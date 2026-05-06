@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GET as getLegacySnapshot } from '@/app/api/terminal/snapshot/route';
 import { buildTerminalDalSnapshot } from '@/lib/dal/snapshot';
 import { readIntegrityDalSnapshot } from '@/lib/dal/integrity';
+import { readTripwireDalSnapshot } from '@/lib/dal/tripwire';
 
 type CompareStatus = 'match' | 'mismatch' | 'missing' | 'unknown';
 
@@ -49,8 +50,23 @@ function safeRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function findLegacyTripwire(legacy: Record<string, unknown>): Record<string, unknown> {
+  const direct = safeRecord(legacy.tripwire);
+  if (Object.keys(direct).length > 0) return direct;
+
+  const tripwires = safeRecord(legacy.tripwires);
+  if (Object.keys(tripwires).length > 0) return tripwires;
+
+  const runtime = safeRecord(legacy.runtime);
+  const runtimeTripwire = safeRecord(runtime.tripwire);
+  if (Object.keys(runtimeTripwire).length > 0) return runtimeTripwire;
+
+  const sentinel = safeRecord(legacy.sentinel);
+  return safeRecord(sentinel.tripwire);
+}
+
 /**
- * C-303 Phase 1E — legacy snapshot vs DAL snapshot comparison.
+ * C-303 Phase 1F — legacy snapshot vs DAL snapshot comparison.
  *
  * Diagnostic only. Does not replace either path.
  */
@@ -59,18 +75,21 @@ export async function GET(request: NextRequest) {
   const baseUrl = request.nextUrl.origin;
   const legacyRequest = new NextRequest(new URL('/api/terminal/snapshot', baseUrl));
 
-  const [legacyResponse, dalResult, integrityDalResult] = await Promise.all([
+  const [legacyResponse, dalResult, integrityDalResult, tripwireDalResult] = await Promise.all([
     getLegacySnapshot(legacyRequest),
     buildTerminalDalSnapshot('C-303'),
     readIntegrityDalSnapshot(),
+    readTripwireDalSnapshot(),
   ]);
 
   const legacyPayload = await legacyResponse.json().catch(() => null);
   const legacy = safeRecord(legacyPayload);
   const legacyGi = safeRecord(legacy.gi);
   const legacyIntegrity = safeRecord(legacy.integrity);
+  const legacyTripwire = findLegacyTripwire(legacy);
   const dal = dalResult.data;
   const integrityDal = integrityDalResult.data;
+  const tripwireDal = tripwireDalResult.data;
 
   const legacyGlobalIntegrity =
     typeof legacy.global_integrity === 'number'
@@ -81,6 +100,13 @@ export async function GET(request: NextRequest) {
           ? legacyIntegrity.global_integrity
           : undefined;
 
+  const legacyTripwireActive =
+    typeof legacyTripwire.active === 'boolean'
+      ? legacyTripwire.active
+      : typeof legacyTripwire.triggered === 'boolean'
+        ? legacyTripwire.triggered
+        : undefined;
+
   const comparisons: CompareField[] = [
     compareField('cycle', legacy.cycle, dal?.cycle),
     compareField('degraded', legacy.degraded, dal?.degraded),
@@ -88,6 +114,9 @@ export async function GET(request: NextRequest) {
     compareField('integrity_cycle', legacy.cycle, integrityDal?.cycle),
     compareNumberField('global_integrity', legacyGlobalIntegrity, integrityDal?.global_integrity),
     compareField('terminal_status', legacy.terminal_status, integrityDal?.terminal_status),
+    compareField('tripwire_active', legacyTripwireActive, tripwireDal?.active),
+    compareField('tripwire_level', legacyTripwire.level, tripwireDal?.level),
+    compareField('tripwire_triggered_by', legacyTripwire.triggered_by ?? legacyTripwire.triggeredBy, tripwireDal?.triggered_by),
   ];
 
   const mismatchCount = comparisons.filter((item) => item.status === 'mismatch').length;
@@ -96,7 +125,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(
     {
-      ok: legacyResponse.ok && dalResult.ok && integrityDalResult.ok,
+      ok: legacyResponse.ok && dalResult.ok && integrityDalResult.ok && tripwireDalResult.ok,
       mode: 'snapshot-compare',
       migration_state: 'diagnostic_not_authoritative',
       summary: {
@@ -104,7 +133,12 @@ export async function GET(request: NextRequest) {
         mismatches: mismatchCount,
         missing: missingCount,
         unknown: unknownCount,
-        safe_to_cutover: mismatchCount === 0 && missingCount === 0 && dalResult.ok && integrityDalResult.ok,
+        safe_to_cutover:
+          mismatchCount === 0 &&
+          missingCount === 0 &&
+          dalResult.ok &&
+          integrityDalResult.ok &&
+          tripwireDalResult.ok,
       },
       comparisons,
       legacy: {
@@ -113,6 +147,11 @@ export async function GET(request: NextRequest) {
         cycle: legacy.cycle ?? null,
         terminal_status: legacy.terminal_status ?? null,
         global_integrity: legacyGlobalIntegrity ?? null,
+        tripwire: {
+          active: legacyTripwireActive ?? null,
+          level: legacyTripwire.level ?? null,
+          triggered_by: legacyTripwire.triggered_by ?? legacyTripwire.triggeredBy ?? null,
+        },
       },
       dal: {
         ok: dalResult.ok,
@@ -127,6 +166,14 @@ export async function GET(request: NextRequest) {
           terminal_status: integrityDal?.terminal_status ?? null,
           provenance: integrityDalResult.provenance,
           error: integrityDalResult.error ?? null,
+        },
+        tripwire: {
+          ok: tripwireDalResult.ok,
+          active: tripwireDal?.active ?? null,
+          level: tripwireDal?.level ?? null,
+          triggered_by: tripwireDal?.triggered_by ?? null,
+          provenance: tripwireDalResult.provenance,
+          error: tripwireDalResult.error ?? null,
         },
       },
       meta: {
