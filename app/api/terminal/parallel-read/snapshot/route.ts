@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
   const legacyResponse = await getLegacySnapshot(legacyRequest);
   const legacyPayload = await legacyResponse.json().catch(() => null);
   const legacy = safeRecord(legacyPayload);
+  const legacyPayloadOk = typeof legacy.ok === 'boolean' ? legacy.ok : legacyResponse.ok;
   const legacyCycle = typeof legacy.cycle === 'string' ? legacy.cycle : cycle ?? 'C-303';
   const legacyVaultOk = getLegacyVaultOk(legacy);
 
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(
     {
-      ok: legacyResponse.ok && status !== 'mismatch' && status !== 'dal_degraded',
+      ok: legacyPayloadOk && status !== 'mismatch' && status !== 'dal_degraded',
       mode: 'parallel_read_snapshot',
       phase: 'C-303 Phase 2C',
       authority: {
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
       },
       status,
       legacy: {
-        ok: legacy.ok ?? legacyResponse.ok,
+        ok: legacyPayloadOk,
         cycle: legacyCycle,
         gi: typeof legacy.gi === 'number' ? legacy.gi : null,
         effective_gi: typeof legacy.effective_gi === 'number' ? legacy.effective_gi : null,
