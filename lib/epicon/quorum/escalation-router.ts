@@ -17,19 +17,25 @@ function determineReasons(
     reasons.push('quarantine_recommended');
   }
 
-  const hasReplayRisk = receipt.policyHits?.some(
-    (hit) => hit.id === 'replay-risk',
+  const hasReplayReason = receipt.reasons.some((reason) =>
+    reason.toLowerCase().includes('replay'),
   );
 
-  if (hasReplayRisk) {
+  if (hasReplayReason) {
     reasons.push('replay_risk');
   }
 
-  const hasSensitivePolicyHit = receipt.policyHits?.some(
-    (hit) => hit.id === 'sensitive-paths',
-  );
+  const hasSensitiveReason = receipt.reasons.some((reason) => {
+    const normalizedReason = reason.toLowerCase();
+    return (
+      normalizedReason.includes('sensitive') ||
+      normalizedReason.includes('auth') ||
+      normalizedReason.includes('secret') ||
+      normalizedReason.includes('middleware')
+    );
+  });
 
-  if (hasSensitivePolicyHit) {
+  if (hasSensitiveReason) {
     reasons.push('sensitive_policy_hit');
   }
 
