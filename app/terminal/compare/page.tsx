@@ -11,6 +11,15 @@ type CompareField = {
   dal: unknown;
 };
 
+type DalProvenanceView = {
+  source: string;
+  freshness: string;
+  timestamp: string | null;
+  note?: string;
+};
+
+type ProvenanceRow = [string, DalProvenanceView];
+
 type SnapshotCompareResponse = {
   ok: boolean;
   mode: string;
@@ -47,27 +56,12 @@ type SnapshotCompareResponse = {
   };
   comparisons: CompareField[];
   dal: {
-    provenance?: {
-      source: string;
-      freshness: string;
-      timestamp: string | null;
-      note?: string;
-    };
+    provenance?: DalProvenanceView;
     integrity?: {
-      provenance?: {
-        source: string;
-        freshness: string;
-        timestamp: string | null;
-        note?: string;
-      };
+      provenance?: DalProvenanceView;
     };
     tripwire?: {
-      provenance?: {
-        source: string;
-        freshness: string;
-        timestamp: string | null;
-        note?: string;
-      };
+      provenance?: DalProvenanceView;
     };
   };
   meta: {
@@ -101,6 +95,15 @@ function displayValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function toProvenanceRows(data: SnapshotCompareResponse | null): ProvenanceRow[] {
+  if (!data) return [];
+  const rows: ProvenanceRow[] = [];
+  if (data.dal.provenance) rows.push(['snapshot', data.dal.provenance]);
+  if (data.dal.integrity?.provenance) rows.push(['integrity', data.dal.integrity.provenance]);
+  if (data.dal.tripwire?.provenance) rows.push(['tripwire', data.dal.tripwire.provenance]);
+  return rows;
+}
+
 export default function ComparePage() {
   const [data, setData] = useState<SnapshotCompareResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,11 +135,7 @@ export default function ComparePage() {
     return `${Math.round(data.summary.confidence_score * 100)}% confidence`;
   }, [data]);
 
-  const provenanceRows = [
-    ['snapshot', data?.dal.provenance],
-    ['integrity', data?.dal.integrity?.provenance],
-    ['tripwire', data?.dal.tripwire?.provenance],
-  ].filter((row): row is [string, NonNullable<typeof data>['dal']['provenance']] => Boolean(row[1]));
+  const provenanceRows = useMemo(() => toProvenanceRows(data), [data]);
 
   return (
     <div className="h-full overflow-y-auto p-4 font-mono text-xs text-slate-200">
