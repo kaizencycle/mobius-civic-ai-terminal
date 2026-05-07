@@ -260,11 +260,8 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
   const attestTimestamp = new Date().toISOString();
   const ledgerLabSource = toLedgerLabSource(entry.source);
   const requestBody = {
-    agent_id: entry.agentOrigin.toLowerCase(),
     event_type: entry.category,
-    civic_id: `mobius-${entry.agentOrigin.toLowerCase()}`,
-    // C-300 Phase 6.6: Render ledger accepts Lab IDs here, not Terminal source lanes.
-    // Preserve the Terminal source inside payload.source and tags instead.
+    civic_id: eventId,
     lab_source: ledgerLabSource,
     payload: {
       event_id: eventId,
@@ -279,12 +276,13 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
       ledger_lab_source: ledgerLabSource,
       tags: Array.from(new Set([...(entry.tags ?? []), `source:${entry.source}`])),
       agent: entry.agent,
+      agent_id: entry.agentOrigin.toLowerCase(),
       agent_origin: entry.agentOrigin,
       derived_from: entry.derivedFrom ?? [],
       verified: entry.verified ?? false,
       attestation_signature: entry.attestation_signature ?? null,
+      attested_at: attestTimestamp,
     },
-    timestamp: attestTimestamp,
   };
 
   // Deduplication guard: skip re-attestation for entries already successfully submitted.
@@ -314,8 +312,8 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
       const safeDebug = {
         status: res.status,
         contentType,
-        agent_id: requestBody.agent_id,
         event_type: requestBody.event_type,
+        civic_id: requestBody.civic_id,
         lab_source: requestBody.lab_source,
         terminal_source: entry.source,
         payload_keys: Object.keys(requestBody.payload),
