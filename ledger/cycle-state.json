@@ -2,9 +2,9 @@
   "schema": "MOBIUS_CYCLE_STATE_V1",
   "node_id": "mobius-terminal",
   "source": "snapshot-lite",
-  "cycle": "C-303",
-  "fetched_at": "2026-05-07T01:20:52.555Z",
-  "gi": 0.737,
+  "cycle": "C-304",
+  "fetched_at": "2026-05-07T04:53:52.154Z",
+  "gi": 0.726,
   "mode": "yellow",
   "degraded": false,
   "gi_provenance": "live-compute",
@@ -15,7 +15,7 @@
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 9,
+    "total_ms": 28,
     "lane_ms": null
   }
 }
