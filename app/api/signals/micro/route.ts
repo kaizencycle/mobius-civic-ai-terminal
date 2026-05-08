@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import { pollAllMicroAgents } from '@/lib/agents/micro';
 import { loadSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
 import { runMicroSweepPipeline } from '@/lib/signals/runMicroSweep';
+import { computeHermesNarrative } from '@/lib/terminal/signals';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,12 +44,16 @@ export async function GET() {
       .filter((s) => s.severity === 'elevated' || s.severity === 'critical')
       .map((s) => ({ agentName: s.agentName, source: s.source, severity: s.severity, label: s.label }));
 
+    const hermesSignals = result.allSignals.filter((s) => s.agentName.startsWith('HERMES-µ'));
+    const hermesNarrative = computeHermesNarrative(hermesSignals);
+
     return NextResponse.json(
       {
         ok: true,
         cached: false,
         kv: isRedisAvailable(),
         degraded_instruments: degradedInstruments,
+        hermes_narrative: hermesNarrative,
         ...result,
       },
       {

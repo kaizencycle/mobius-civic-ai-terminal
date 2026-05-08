@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# C-305 OPT-01: dual-email + name + chore pattern gate — verified complete
 set -euo pipefail
 
 subject="$(git log -1 --format=%s)"

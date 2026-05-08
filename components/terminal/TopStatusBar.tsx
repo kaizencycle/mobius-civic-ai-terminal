@@ -43,8 +43,16 @@ const TONE_DOT: Record<IntegrityTone, string> = {
   degraded: 'bg-red-400',
 };
 
-function giToneFrom(gi: number): IntegrityTone {
+const GI_FLOOR = 0.70;
+
+function giToneFrom(gi: number | null): IntegrityTone {
+  if (gi === null) return 'watch';
   return gi >= 0.9 ? 'stable' : gi >= 0.78 ? 'watch' : 'degraded';
+}
+
+function fmtGI(gi: number | null): string {
+  if (gi === null) return `~${GI_FLOOR.toFixed(2)}`;
+  return gi.toFixed(2);
 }
 
 function toneColor(tone: IntegrityTone) {
@@ -112,16 +120,18 @@ export default function TopStatusBar({
   micSupply,
   terminalStatus,
   primaryDriver,
-  cycleId = 'C-253',
+  cycleId = 'C-305',
   streamStatus = 'offline',
   onNavigate,
   // Integrity ribbon props (merged)
-  gi = 0,
+  gi = null,
   micDelta = 0,
   tripwireState = 'stable' as IntegrityTone,
   lastLedgerSyncLabel = '--',
   lastIngestLabel = '--',
   lastCycleAdvanceLabel = '--',
+  watchdogTripwireActive = false,
+  watchdogTripwireKind,
 }: {
   alertCount: number;
   mii: number;
@@ -132,12 +142,14 @@ export default function TopStatusBar({
   streamStatus?: StreamStatus;
   onNavigate: (key: NavKey) => void;
   // Integrity ribbon props
-  gi?: number;
+  gi?: number | null;
   micDelta?: number;
   tripwireState?: IntegrityTone;
   lastLedgerSyncLabel?: string;
   lastIngestLabel?: string;
   lastCycleAdvanceLabel?: string;
+  watchdogTripwireActive?: boolean;
+  watchdogTripwireKind?: string;
 }) {
   const [clock, setClock] = useState('');
   const [expanded, setExpanded] = useState(false);
@@ -150,6 +162,7 @@ export default function TopStatusBar({
   }, []);
 
   const giTone = giToneFrom(gi);
+  const giIsStale = gi === null;
   const statusTone = terminalStatus === 'nominal'
     ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
     : terminalStatus === 'stressed'
@@ -180,7 +193,7 @@ export default function TopStatusBar({
           {/* Inline key metrics */}
           <div className="flex items-center gap-1.5 text-[10px] font-mono min-w-0 overflow-hidden">
             <span className={cn('shrink-0 font-semibold', toneColor(giTone))}>
-              GI {gi.toFixed(2)}
+              GI {fmtGI(gi)}{giIsStale && <span className="ml-0.5 text-[9px] opacity-60">STALE</span>}
             </span>
             <span className="text-slate-600 shrink-0 max-sm:hidden">·</span>
             <span className={cn('shrink-0 max-sm:hidden', toneColor(tripwireState))}>
@@ -199,6 +212,18 @@ export default function TopStatusBar({
             tone={STREAM_TONE[streamStatus]}
             className="max-sm:px-1.5"
           />
+
+          {/* OPT-09: Watchdog tripwire badge — surfaces AUREA unified state */}
+          {watchdogTripwireActive && (
+            <button
+              onClick={() => onNavigate('infrastructure')}
+              className="flex items-center gap-1 rounded-md border border-red-700/70 bg-red-950/40 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.1em] text-red-300 transition hover:brightness-125"
+              title={`Watchdog tripwire active${watchdogTripwireKind ? `: ${watchdogTripwireKind}` : ''}`}
+            >
+              <span className="animate-pulse">⚠</span>
+              TRIPWIRE{watchdogTripwireKind && <span className="ml-0.5 text-red-400/70">:{watchdogTripwireKind.toUpperCase()}</span>}
+            </button>
+          )}
 
           {/* Desktop-only chips */}
           <div className="hidden md:flex items-center gap-1.5">
@@ -257,7 +282,7 @@ export default function TopStatusBar({
           {/* Metric chips grid */}
           <div className="flex flex-wrap items-center gap-1.5">
             <Chip label={`Cycle ${cycleId}`} onClick={() => onNavigate('pulse')} />
-            <Chip label={`GI ${gi.toFixed(2)}`} tone={toneBorder(giTone)} onClick={() => onNavigate('governance')} />
+            <Chip label={`GI ${fmtGI(gi)}${giIsStale ? ' STALE' : ''}`} tone={toneBorder(giTone)} onClick={() => onNavigate('governance')} />
             <Chip
               label={`MII ${mii.toFixed(2)}`}
               tone={toneBorder(mii >= 0.9 ? 'stable' : mii >= 0.78 ? 'watch' : 'degraded')}
