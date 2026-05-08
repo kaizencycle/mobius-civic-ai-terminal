@@ -40,22 +40,24 @@ export async function GET(req: NextRequest) {
   if (!q) return NextResponse.json({ ok: false, error: 'q required' }, { status: 400 });
 
   const isCycle = /^C-\d+$/.test(q);
-  const isAgent = /^(ATLAS|ZEUS|EVE|JADE|AUREA|HERMES|ECHO|DAEDALUS)/.test(q);
+  const isAgent = /^(ATLAS|ZEUS|EVE|JADE|AUREA|HERMES|ECHO|DAEDALUS)\b/.test(q);
   const isSeal  = /^SEAL-/.test(q);
 
   const results: SearchResult[] = [];
   const redis = getRedis();
 
-  // ── 1. KV journal entries (raw keys: journal:{agent}:{timestamp}) ─────────
-  // Written via kvSetRawKey — no mobius: prefix.
+  // ── 1. KV journal entries ────────────────────────────────────────────────
+  // Two namespaces: kvSetRawKey writes unprefixed `journal:*`; kvSet writes `mobius:journal:*`.
+  // Scan both and deduplicate so both write paths are covered.
   if (redis) {
     try {
-      const keys = await redis.keys('journal:*');
-      const filteredKeys = isCycle
-        ? keys // cycle match is by content, not key name — load all, filter below
-        : keys;
+      const [rawKeys, prefixedKeys] = await Promise.all([
+        redis.keys('journal:*'),
+        redis.keys('mobius:journal:*'),
+      ]);
+      const allKeys = [...new Set([...rawKeys, ...prefixedKeys])];
       const entries = await Promise.all(
-        filteredKeys.slice(0, 100).map(k => redis.get<Record<string, unknown>>(k))
+        allKeys.slice(0, 100).map(k => redis.get<Record<string, unknown>>(k))
       );
       for (const entry of entries) {
         if (!entry) continue;
