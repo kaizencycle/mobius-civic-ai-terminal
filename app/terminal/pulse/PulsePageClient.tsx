@@ -53,13 +53,13 @@ export default function PulsePageClient() {
   const vaultRaw = pulse?.vaultStatus as Record<string, unknown> | null;
   const vaultSeals   = (vaultRaw?.seals as unknown[] | null) ?? [];
   const vaultSustain = vaultRaw?.sustain as number | null ?? null;
-  const lanesRaw = pulse?.laneDiagnostics as Record<string, unknown> | null;
   // /api/chambers/lane-diagnostics returns lanes as an object map { name: state }
-  // Convert to array for rendering
+  // Convert to array for rendering; handle both object and legacy array shapes.
+  const lanesRaw = pulse?.laneDiagnostics as Record<string, unknown> | null;
   const lanesObj = lanesRaw?.lanes;
-  const lanes: Array<{ name: string; state: unknown; ok?: unknown }> =
+  const lanes: Array<{ name: string; state?: unknown; ok?: unknown }> =
     Array.isArray(lanesObj)
-      ? (lanesObj as Array<{ name: string; state: unknown }>)
+      ? (lanesObj as Array<{ name: string; state?: unknown }>)
       : lanesObj && typeof lanesObj === 'object'
         ? Object.entries(lanesObj as Record<string, unknown>).map(([name, val]) =>
             val && typeof val === 'object'
