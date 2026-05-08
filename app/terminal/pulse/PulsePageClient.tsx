@@ -113,7 +113,7 @@ export default function PulsePageClient() {
                   : lane.state === 'stale' ? 'text-amber-400'
                   : 'text-red-400'
                 }`}>
-                  {String(lane.state ?? (lane.ok ? 'ok' : 'err') ?? '—')}
+                  {String(lane.state ?? (lane.ok ? 'ok' : 'err'))}
                 </span>
               </div>
             ))
