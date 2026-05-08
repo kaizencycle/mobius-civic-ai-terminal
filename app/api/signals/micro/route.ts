@@ -44,7 +44,7 @@ export async function GET() {
       .filter((s) => s.severity === 'elevated' || s.severity === 'critical')
       .map((s) => ({ agentName: s.agentName, source: s.source, severity: s.severity, label: s.label }));
 
-    const hermesSignals = result.allSignals.filter((s) => s.agentName === 'HERMES-µ');
+    const hermesSignals = result.allSignals.filter((s) => s.agentName.startsWith('HERMES-µ'));
     const hermesNarrative = computeHermesNarrative(hermesSignals);
 
     return NextResponse.json(

@@ -26,11 +26,12 @@ export function computeHermesNarrative(hermesSignals: MicroSignal[]): HermesNarr
   const mu4 = +(highConf.length / total).toFixed(3);
 
   // µ3: fraction of high-confidence signals that agree within consensus band of their mean
+  // denominator is highConf.length so low-confidence signals don't depress the score
   let mu3 = 0;
   if (highConf.length >= 2) {
     const mean = highConf.reduce((sum, s) => sum + s.value, 0) / highConf.length;
     const consensual = highConf.filter((s) => Math.abs(s.value - mean) <= CONSENSUS_BAND);
-    mu3 = +(consensual.length / total).toFixed(3);
+    mu3 = +(consensual.length / highConf.length).toFixed(3);
   }
 
   return {

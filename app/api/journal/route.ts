@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GET as getJournal } from '@/app/api/chambers/journal/route';
-import { kvSet, kvSetRawKey } from '@/lib/kv/store';
+import { kvSetRawKey } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +18,11 @@ export async function POST(request: NextRequest) {
   const agent = ((entry.agent ?? entry.agentOrigin) as string | undefined) ?? 'unknown';
   const kvKey = `journal:${agent.toLowerCase()}:${ts}`;
 
-  await kvSetRawKey(kvKey, { ...entry, writtenAt: ts, source: 'terminal-bridge' });
+  const wrote = await kvSetRawKey(kvKey, { ...entry, writtenAt: ts, source: 'terminal-bridge' });
+  if (!wrote) {
+    console.error('[HERMES] Journal KV write failed — Redis unavailable and no bridge fallback.');
+    return NextResponse.json({ ok: false, error: 'kv_write_failed', key: kvKey }, { status: 503 });
+  }
   await kvSetRawKey('journal:heartbeat', { lastWrite: ts, lastCycle: cycle, lastKey: kvKey });
 
   const ledgerUrl = process.env.CIVIC_LEDGER_URL;
