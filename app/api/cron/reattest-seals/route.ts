@@ -14,7 +14,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { bearerMatchesToken } from '@/lib/vault-v2/auth';
-import { listAllSeals, writeSeal } from '@/lib/vault-v2/store';
+import { listAllSeals, writeSeal, appendSealToChain } from '@/lib/vault-v2/store';
 import { backAttestSeal, buildBackAttestRationale } from '@/lib/vault-v2/back-attest';
 import { attestReserveBlockToSubstrate } from '@/lib/vault-v2/substrate-attestation';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
@@ -141,24 +141,32 @@ export async function GET(req: NextRequest) {
 
       const updatedSeal: Seal = {
         ...seal,
+        // P1 fix: promote to attested so fountain/quorum/attested-count flows resolve
+        status: substrate.ok ? 'attested' : seal.status,
         substrate_attestation_id: substrate.ok ? (substrate.entryId ?? null) : seal.substrate_attestation_id,
         substrate_event_hash: substrate.ok ? (substrate.eventHash ?? substrate.entryId ?? null) : seal.substrate_event_hash,
         substrate_attested_at: substrate.ok ? (substrate.attestedAt ?? new Date().toISOString()) : seal.substrate_attested_at,
         substrate_attestation_error: substrateError,
       };
       await writeSeal(updatedSeal);
+      if (substrate.ok) {
+        // Append to attested chain so downstream indexes (fountain, quorum, attested counts) pick it up
+        await appendSealToChain(updatedSeal).catch((err: unknown) => {
+          console.warn('[reattest-seals] appendSealToChain failed (non-fatal):', (err as Error)?.message);
+        });
+      }
 
       results.push({
         seal_id,
         agent: 'substrate-write',
         ok: substrate.ok,
-        transition: substrate.ok ? 'substrate-written' : undefined,
+        transition: substrate.ok ? 'attested' : undefined,
         error: substrateError ?? undefined,
       });
 
       if (substrate.ok) {
         void releaseReplayPressureForAttestedSeal().catch(() => {});
-        console.info('[reattest-seals] stuck seal substrate write ok — seal updated', { seal_id });
+        console.info('[reattest-seals] stuck seal promoted → attested + appended to chain', { seal_id });
       } else {
         console.error('[reattest-seals] stuck seal substrate write failed', { seal_id, error: substrateError });
       }

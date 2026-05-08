@@ -91,8 +91,10 @@ export async function processJournalCanonOutbox(redis: Redis | null, limit = 5) 
       processed += 1;
       // FIX-506-01: try GitHub first; on failure fall back to Render Civic Ledger.
       // GitHub 403 was silently re-queuing forever — Render is the authoritative write target.
+      // P2 fix: no CIVIC_LEDGER_URL gate — attestToLedger() resolves URL itself via
+      // RENDER_LEDGER_URL > CIVIC_LEDGER_URL > hardcoded fallback, so the fallback always runs.
       let result = await writeJournalToSubstrate(item.entry);
-      if (!result.ok && process.env.CIVIC_LEDGER_URL) {
+      if (!result.ok) {
         console.warn('[journal/canon-outbox] GitHub write failed, trying Render fallback:', result.error);
         try {
           const renderResult = await attestToLedger({
