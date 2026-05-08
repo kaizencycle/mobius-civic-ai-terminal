@@ -1,49 +1,65 @@
 # CURRENT_CYCLE.md
 
 ## Cycle
-C-301
+C-305
 
 ## Active focus
 
-Mobius Terminal is now transitioning from observation → enforcement readiness.
+Mobius Terminal is transitioning from observation → enforcement coordination.
 
-This cycle is about aligning truth, consensus, and execution layers before enabling hard gates.
+C-305 focuses on:
+- runtime truth alignment
+- vault / ledger attestation visibility
+- consensus durability
+- operator-visible degradation
+- parallel snapshot stability
 
 ---
 
 ## Current strategic direction
 
-### 1. EPICON → Enforcement readiness
-- Dry-run gate complete
-- Consensus visible in UI
-- Next: safe enforcement (no false FAIL states)
+### 1. Runtime truth alignment
+- snapshot truth must match ledger truth
+- no hidden degraded substrate states
+- no silent attestation failures
+- freshness and provenance remain operator-visible
 
-### 2. Runtime truth (non-negotiable)
-- degraded states visible
-- no silent failures
-- substrate + ledger state must match UI
+### 2. EPICON → enforcement coordination
+- quorum visible in UI
+- deterministic evaluator active
+- escalation runtime active
+- next phase = safe operator-reviewed enforcement
 
 ### 3. Chamber integrity
 - route-based chambers preserved
-- no regression to dashboard abstraction
+- world state split preserved:
+  - mobile = map
+  - desktop = globe
+- ledger remains separate from journals and runtime
 
 ---
 
 ## Immediate priorities
 
-### Priority A — EPICON alignment
-- decision/status normalization
-- eliminate false NEEDS_CLARIFICATION
-- ensure server-safe execution
+### Priority A — Vault attestation recovery
+- eliminate substrate attestation configuration drift
+- surface ledger attestation failures explicitly
+- restore seal → substrate continuity
 
-### Priority B — Substrate write path
-- environment variables configured
-- eliminate "(not configured)" state
-- restore full canon → ledger flow
+### Priority B — Snapshot performance
+- reduce slow lane fanout
+- stabilize epicon + micReadiness latency
+- preserve degraded-state transparency during fallback
 
-### Priority C — Enforcement prep
-- attach epicon_hash to mutation pipeline
-- prepare FAIL → block logic (Phase 13)
+### Priority C — Consensus durability
+- preserve quorum integrity
+- reduce duplicate ingestion noise
+- maintain canonical promotion semantics
+
+### Priority D — Operator clarity
+- align reserve totals across lanes
+- expose watchdog failures clearly
+- prevent hidden stale truth conditions
 
 ---
 
@@ -54,6 +70,8 @@ This cycle is about aligning truth, consensus, and execution layers before enabl
 - ledger write integrity
 - chamber routing
 - snapshot truth signals
+- reserve block canon
+- agent ownership domains
 
 ---
 
@@ -61,8 +79,9 @@ This cycle is about aligning truth, consensus, and execution layers before enabl
 
 Truth must be:
 1. Observable
-2. Agreed upon
-3. Then enforced
+2. Attributed
+3. Agreed upon
+4. Then enforced
 
 Never skip steps.
 
@@ -70,18 +89,22 @@ Never skip steps.
 
 ## Acceptance bar
 
-A good change this cycle:
+A good C-305 change:
+- improves runtime truth visibility
 - reduces ambiguity in consensus
-- improves operator visibility
-- aligns system truth across layers
+- preserves provenance
+- reduces operator confusion
+- improves snapshot stability
 
 A bad change:
-- hides disagreement
-- fakes stability
-- blocks actions incorrectly
+- hides degradation
+- invents health
+- masks ledger failures
+- silently changes semantics
+- collapses chambers or truth layers
 
 ---
 
 ## Final rule
 
-Do not enforce what you do not fully understand yet.
+Do not enforce what you cannot audit.
