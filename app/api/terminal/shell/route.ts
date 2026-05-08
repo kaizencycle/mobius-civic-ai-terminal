@@ -43,9 +43,10 @@ export async function GET() {
       timestamp,
     }, {
       headers: {
-        // Allow Vercel edge to serve a single computed response to concurrent tab polls.
-        // GI/tripwire state changes on cron cadence (~60s), so 20s is safely fresh.
-        'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=40',
+        // FIX-507-07: extended stale-while-revalidate so CDN doesn't flood background
+        // revalidation calls on every STALE hit. Serve cached for 30s, allow background
+        // revalidate for 2min. GI/tripwire state changes on cron cadence (~60-300s).
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
       },
     });
   } catch {

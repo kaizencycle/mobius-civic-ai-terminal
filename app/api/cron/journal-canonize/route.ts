@@ -37,21 +37,33 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Cron-only endpoint' }, { status: 403 });
   }
 
-  const repoUrl =
+  // FIX-507-01: Hard-block GitHub write path. The terminal POSTs to the Civic Protocol
+  // Core Ledger (Render), which writes to Substrate. Direct GitHub writes always 403.
+  const githubTarget =
     process.env.JOURNAL_CANON_SUBSTRATE_TARGET ??
     process.env.SUBSTRATE_GITHUB_REPO ??
     process.env.GITHUB_REPO_URL ??
     null;
-  const substrateConfigured = Boolean(repoUrl);
-  if (!substrateConfigured) {
-    console.warn(
-      '[journal-canonize] substrate write target not configured — journal entries will not canonize to Substrate. ' +
-      'Set JOURNAL_CANON_SUBSTRATE_TARGET=<github-repo-url> (or SUBSTRATE_GITHUB_REPO / GITHUB_REPO_URL) in Vercel environment variables.',
+  if (githubTarget?.includes('github.com')) {
+    console.error(
+      '[journal-canonize] BLOCKED — env var points to GitHub, not the Civic Protocol Ledger.',
+      'Set CIVIC_LEDGER_URL=https://civic-protocol-core-ledger.onrender.com in Vercel env vars.',
+      'Misconfigured target:', githubTarget,
+    );
+    return NextResponse.json(
+      { ok: false, error: 'SUBSTRATE_TARGET_MISCONFIGURED', blocked: true, target: githubTarget },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
     );
   }
+
+  const ledgerBase =
+    process.env.CIVIC_LEDGER_URL ??
+    process.env.RENDER_LEDGER_URL ??
+    'https://civic-protocol-core-ledger.onrender.com';
+
   console.log('[journal-canonize] running', {
-    substrate_target: repoUrl ?? '(not configured)',
-    substrate_configured: substrateConfigured,
+    substrate_target: ledgerBase,
+    substrate_configured: true,
   });
 
   // Ensure SUBSTRATE_RETRY_QUEUE key exists in KV (resolves D1 key-missing snapshot flag).

@@ -663,13 +663,14 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     },
     {
+      // FIX-507-03: allow CDN to serve a single response to concurrent callers.
+      // Render KV cache (90s) handles dedup for internal invocations; s-maxage=30
+      // handles concurrent browser/component requests that bypassed KV.
       headers: {
-        'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
-        Pragma: 'no-cache',
-        Expires: '0',
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=90',
         'X-Mobius-Source': ledgerEntries.length > 0 ? 'epicon-ledger-api' : 'epicon-github-bridge',
         'X-Mobius-KV': getRedisClient() ? 'active' : 'unconfigured',
-        'X-Mobius-Freshness': 'live-required',
+        'X-Mobius-Freshness': 'kv-cached',
       },
     },
   );

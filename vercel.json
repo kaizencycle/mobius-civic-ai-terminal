@@ -27,7 +27,7 @@
     },
     {
       "path": "/api/cron/vault-attestation",
-      "schedule": "*/2 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/heartbeat",
