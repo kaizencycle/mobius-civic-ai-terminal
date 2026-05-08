@@ -22,6 +22,10 @@ export async function GET(request: NextRequest) {
   const authHeader = serviceAuthorizationHeaderValue();
 
   try {
+    // FIX-507-02: write heartbeat unconditionally so promotion-status never shows stale
+    // when the promote fetch times out or returns a transient non-OK (Render cold-start).
+    await kvSet('LAST_PROMOTION_RUN_AT', new Date().toISOString(), 7 * 24 * 3600).catch(() => {});
+
     const res = await fetch(new URL('/api/epicon/promote', origin), {
       method: 'POST',
       headers: {
@@ -34,11 +38,8 @@ export async function GET(request: NextRequest) {
     });
 
     const body = await res.json().catch(() => null);
-
-    if (res.ok) {
-      // Write timestamp AFTER promotion confirms success so last_promotion_run_at reflects
-      // actual successful runs, not just cron invocations that may time-out or fail.
-      await kvSet('LAST_PROMOTION_RUN_AT', new Date().toISOString(), 7 * 24 * 3600).catch(() => {});
+    if (!res.ok) {
+      console.warn('[promote] /api/epicon/promote returned', res.status, '— heartbeat still written');
     }
 
     return NextResponse.json({

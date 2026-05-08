@@ -47,7 +47,8 @@ export async function GET() {
         : null,
       reason: lite.degraded ? 'one or more lanes degraded' : null,
       timestamp: now,
-    });
+    // FIX-507-04: lane-diagnostics was always CACHE MISS — no revalidate header.
+    }, { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=180' } });
   } catch {
     return NextResponse.json({
       ok: true,

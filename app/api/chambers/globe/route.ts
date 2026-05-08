@@ -35,6 +35,7 @@ export async function GET() {
       }
     }
 
+    const headers = { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' };
     return NextResponse.json({
       ok: true,
       fallback: false,
@@ -49,7 +50,7 @@ export async function GET() {
       echo: { epicon: getEchoEpicon() },
       sentiment,
       timestamp,
-    });
+    }, { headers });
   } catch {
     return NextResponse.json({
       ok: true,

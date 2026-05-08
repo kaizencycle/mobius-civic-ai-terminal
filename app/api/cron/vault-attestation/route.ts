@@ -49,8 +49,14 @@ import {
   type SentinelQuorumAgent,
   type SentinelQuorumState,
 } from '@/lib/mic/quorumTracker';
+import { kvGet, kvSet } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
+
+// FIX-507-06: idempotency gate — skip if last run was < 4 minutes ago so a
+// double-trigger (sweeper + cron) doesn't cause redundant Render round-trips.
+const MIN_RUN_INTERVAL_MS = 4 * 60 * 1000;
+const VAULT_ATTEST_LAST_RUN_KEY = 'vault-attestation:lastRun';
 
 type CandidateState =
   | 'none'
@@ -111,6 +117,15 @@ export async function GET(req: NextRequest) {
   if (!cronHeader && !manuallyAuthed) {
     return NextResponse.json({ error: 'Cron-only endpoint' }, { status: 403 });
   }
+
+  // FIX-507-06: skip if a run completed < 4 minutes ago (double-trigger guard)
+  const lastRun = await kvGet<number>(VAULT_ATTEST_LAST_RUN_KEY).catch(() => null);
+  if (lastRun && Date.now() - lastRun < MIN_RUN_INTERVAL_MS) {
+    const agoSec = Math.floor((Date.now() - lastRun) / 1000);
+    console.log(`[vault-attestation] skipping — ran ${agoSec}s ago`);
+    return NextResponse.json({ ok: true, skipped: true, reason: 'too_soon', last_run_s_ago: agoSec });
+  }
+  await kvSet(VAULT_ATTEST_LAST_RUN_KEY, Date.now()).catch(() => {});
 
   const started = Date.now();
   const errors: string[] = [];
