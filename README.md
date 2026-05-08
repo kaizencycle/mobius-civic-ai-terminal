@@ -366,4 +366,12 @@ The runtime cycle is derived from the terminal's deterministic cycle engine rath
 
 ## License
 
-MIT
+**CC0 1.0 Universal — Public Domain Dedication**
+
+This work is released to the public domain by Mobius Substrate and the kaizencycle organization under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/).
+
+No copyright or related rights are reserved. You may copy, modify, distribute, and use the work — even for commercial purposes — without asking permission.
+
+This is a deliberate architectural choice: civic infrastructure must outlast any individual or institution.
+
+[![CC0](https://licensebuttons.net/p/zero/1.0/88x31.png)](https://creativecommons.org/publicdomain/zero/1.0/)
