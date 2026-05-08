@@ -259,10 +259,20 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
   const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
   const attestTimestamp = new Date().toISOString();
   const ledgerLabSource = toLedgerLabSource(entry.source);
+  // FIX-506-02: Render Civic Ledger requires terminal_base_url/api_base for routing.
+  // Without these fields Render rejects with {"detail":"No API base configured for terminal"}.
+  const terminalBase = (
+    process.env.NEXT_PUBLIC_TERMINAL_URL ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    'https://mobius-civic-ai-terminal.vercel.app'
+  ).replace(/\/+$/, '');
+
   const requestBody = {
     event_type: entry.category,
     civic_id: eventId,
     lab_source: ledgerLabSource,
+    terminal_base_url: terminalBase,
+    api_base: terminalBase,
     payload: {
       event_id: eventId,
       title: entry.title,

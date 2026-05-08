@@ -14,8 +14,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { bearerMatchesToken } from '@/lib/vault-v2/auth';
-import { listAllSeals } from '@/lib/vault-v2/store';
+import { listAllSeals, writeSeal, appendSealToChain } from '@/lib/vault-v2/store';
 import { backAttestSeal, buildBackAttestRationale } from '@/lib/vault-v2/back-attest';
+import { attestReserveBlockToSubstrate } from '@/lib/vault-v2/substrate-attestation';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
 import { kvGet, kvSet } from '@/lib/kv/store';
@@ -121,36 +122,58 @@ export async function GET(req: NextRequest) {
     await recordReattestAttempt(seal.seal_id);
   }
 
-  // For fully-attested seals still in quarantine, apply backoff before re-evaluating.
-  // These seals have all agent signatures — the blocker is typically a substrate write
-  // failure. Repeated re-evaluation without backoff hammers the ledger endpoint.
+  // FIX-506-03: fully-attested seals stuck in quarantine have all 5 agent signatures
+  // but substrate_attestation_error is null — meaning a prior write appeared to succeed
+  // (or was never attempted) yet the seal was never promoted. Force a direct substrate
+  // write rather than re-running attestation (which the dedup guard would skip anyway).
   for (const seal_id of fullyAttestedButStuck) {
     if (await shouldSkipRetry(seal_id)) {
-      results.push({ seal_id, agent: 'backoff', ok: true, transition: 'skipped-backoff' });
+      results.push({ seal_id, agent: 'substrate-write', ok: true, transition: 'skipped-backoff' });
       continue;
     }
+    const seal = allSeals.find((s) => s.seal_id === seal_id);
+    if (!seal) { errors.push(`[stuck] ${seal_id}: seal not found in listAllSeals`); continue; }
+
     try {
-      console.warn('[reattest-seals] fully-attested-but-stuck seal — forcing re-evaluation', { seal_id });
-      const r = await backAttestSeal({
-        seal_id,
-        agent: 'ATLAS',
-        verdict: 'pass',
-        rationale: buildBackAttestRationale('ATLAS', seal_id) + ' [forced-re-eval: all agents already attested]',
-      });
+      console.warn('[reattest-seals] fully-attested-but-stuck — forcing substrate write', { seal_id });
+      const substrate = await attestReserveBlockToSubstrate(seal);
+      const substrateError = substrate.ok ? null : (substrate.error ?? 'substrate_write_failed');
+
+      const updatedSeal: Seal = {
+        ...seal,
+        // P1 fix: promote to attested so fountain/quorum/attested-count flows resolve
+        status: substrate.ok ? 'attested' : seal.status,
+        substrate_attestation_id: substrate.ok ? (substrate.entryId ?? null) : seal.substrate_attestation_id,
+        substrate_event_hash: substrate.ok ? (substrate.eventHash ?? substrate.entryId ?? null) : seal.substrate_event_hash,
+        substrate_attested_at: substrate.ok ? (substrate.attestedAt ?? new Date().toISOString()) : seal.substrate_attested_at,
+        substrate_attestation_error: substrateError,
+      };
+      await writeSeal(updatedSeal);
+      if (substrate.ok) {
+        // Append to attested chain so downstream indexes (fountain, quorum, attested counts) pick it up
+        await appendSealToChain(updatedSeal).catch((err: unknown) => {
+          console.warn('[reattest-seals] appendSealToChain failed (non-fatal):', (err as Error)?.message);
+        });
+      }
+
       results.push({
         seal_id,
-        agent: 'ATLAS',
-        ok: r.ok,
-        transition: r.ok ? r.transition : undefined,
-        error: !r.ok ? r.reason : undefined,
+        agent: 'substrate-write',
+        ok: substrate.ok,
+        transition: substrate.ok ? 'attested' : undefined,
+        error: substrateError ?? undefined,
       });
-      if (r.ok && r.transition === 'attested') {
+
+      if (substrate.ok) {
         void releaseReplayPressureForAttestedSeal().catch(() => {});
-        console.info('[reattest-seals] stuck seal cleared → attested', { seal_id });
+        console.info('[reattest-seals] stuck seal promoted → attested + appended to chain', { seal_id });
+      } else {
+        console.error('[reattest-seals] stuck seal substrate write failed', { seal_id, error: substrateError });
       }
     } catch (e) {
-      const msg = `[forced-re-eval] ${seal_id}: ${e instanceof Error ? e.message : String(e)}`;
+      const msg = `[stuck-substrate] ${seal_id}: ${e instanceof Error ? e.message : String(e)}`;
       errors.push(msg);
+      results.push({ seal_id, agent: 'substrate-write', ok: false, error: msg });
     }
     await recordReattestAttempt(seal_id);
   }
