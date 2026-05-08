@@ -9,17 +9,22 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const [journalRaw, runtimeRaw, vaultTs, promoteTs] = await Promise.allSettled([
     kvGetRaw<{ lastWrite?: string; lastCycle?: string }>('journal:heartbeat'),
-    kvGet<string>(KV_KEYS.HEARTBEAT),
+    kvGet<string | { timestamp?: string }>(KV_KEYS.HEARTBEAT),
     kvGet<number>('vault-attestation:lastRun'),
     kvGet<string>('LAST_PROMOTION_RUN_AT'),
   ]);
 
   const journal = journalRaw.status === 'fulfilled' ? (journalRaw.value?.lastWrite ?? null) : null;
 
+  // kvGet(KV_KEYS.HEARTBEAT) returns the stored JSON string under primary Redis,
+  // but backup Redis and the OAA bridge may return an already-parsed object.
+  // Handle both shapes so runtime heartbeat is never falsely null during KV failover.
   let runtime: string | null = null;
-  if (runtimeRaw.status === 'fulfilled' && runtimeRaw.value) {
+  if (runtimeRaw.status === 'fulfilled' && runtimeRaw.value != null) {
     try {
-      const parsed = JSON.parse(runtimeRaw.value) as { timestamp?: string };
+      const val = runtimeRaw.value;
+      const parsed: { timestamp?: string } =
+        typeof val === 'string' ? (JSON.parse(val) as { timestamp?: string }) : val;
       runtime = parsed.timestamp ?? null;
     } catch {
       runtime = null;
