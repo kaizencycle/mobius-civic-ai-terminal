@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPromotionState, defaultPromotionState, type PromotionStateValue } from '@/lib/epicon/promotion';
 import { getEchoEpicon } from '@/lib/echo/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
-import { kvGet } from '@/lib/kv/store';
+import { kvGet, kvSet } from '@/lib/kv/store';
 import type { EpiconItem } from '@/lib/terminal/types';
 
-// Promote cron fires every 5 min; warn in diagnostics if last successful run > 2h ago
+// FIX-506-04: promotion-status stale warning was firing on every snapshot hit (~2m).
+// Debounce to log at most once per 10 min so logs are actionable, not flooded.
 const PROMOTION_STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000;
+const PROMOTION_STALE_WARN_DEBOUNCE_MS = 10 * 60 * 1000;
+const PROMOTION_STALE_WARN_KEY = 'promotion:stale-warn-ts';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +77,12 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
         : false;
     if (promotionStale) {
       const ageMin = Math.round((Date.now() - new Date(lastPromotionRunAt!).getTime()) / 60000);
-      console.warn(`[promotion-status] stale — last run was ${ageMin}m ago`);
+      // Debounce: emit at most once per 10 min to avoid flooding logs on every snapshot poll
+      const lastWarn = await kvGet<number>(PROMOTION_STALE_WARN_KEY).catch(() => null);
+      if (!lastWarn || Date.now() - lastWarn > PROMOTION_STALE_WARN_DEBOUNCE_MS) {
+        console.warn(`[promotion-status] stale — last run was ${ageMin}m ago`);
+        await kvSet(PROMOTION_STALE_WARN_KEY, Date.now(), 600).catch(() => {});
+      }
     }
 
     return NextResponse.json({
