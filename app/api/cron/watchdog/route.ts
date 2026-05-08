@@ -242,6 +242,48 @@ export async function GET(request: NextRequest) {
     agentOrigin: 'ATLAS',
   }).catch(() => {});
 
+  void appendAgentJournalEntry({
+    agent: 'ATLAS',
+    cycle: currentCycleId(),
+    observation: `Sentinel watchdog ran checks: ${actions.join(', ')}.`,
+    inference: failed === 0
+      ? 'System integrity checks passed in this cycle.'
+      : `${failed} watchdog checks failed and require operator review.`,
+    recommendation: failed === 0
+      ? 'Continue scheduled watch cadence.'
+      : 'Inspect failed watchdog actions and confirm CRON_SECRET / KV health before next run.',
+    confidence: failed === 0 ? 0.9 : 0.62,
+    derivedFrom: ['watchdog:kv-health', 'watchdog:seed-kv', 'watchdog:integrity-status', `watchdog:run:${timestamp}`],
+    relatedAgents: ['DAEDALUS', 'ZEUS'],
+    status: 'committed',
+    category: failed === 0 ? 'observation' : 'alert',
+    severity: failed === 0 ? 'nominal' : 'elevated',
+  }).catch((err) => {
+    console.error('[watchdog] ATLAS journal append failed:', err instanceof Error ? err.message : err);
+  });
+
+  if (trustSnapshot.elevated) {
+    void appendAgentJournalEntry({
+      agent: 'ATLAS',
+      cycle: currentCycleId(),
+      observation: `Trust tripwires triggered: ${trustSnapshot.results.filter((result) => result.triggered).map((result) => result.kind).join(', ')}.`,
+      inference: trustSnapshot.critical
+        ? 'Trust posture is critically degraded and requires immediate operator attention.'
+        : 'Trust posture is elevated; monitor affected agents and verification quality.',
+      recommendation: trustSnapshot.critical
+        ? 'Pause high-risk promotion decisions and inspect provenance/timeline violations before continuing.'
+        : 'Review trust tripwire panel and increase verification rigor on upcoming promotions.',
+      confidence: trustSnapshot.critical ? 0.52 : 0.68,
+      derivedFrom: ['watchdog:trust-tripwire', `watchdog:run:${timestamp}`],
+      relatedAgents: ['ZEUS', 'EVE'],
+      status: 'committed',
+      category: 'alert',
+      severity: trustSnapshot.critical ? 'critical' : 'elevated',
+    }).catch((err) => {
+      console.error('[watchdog] trust journal append failed:', err instanceof Error ? err.message : err);
+    });
+  }
+
   return NextResponse.json({
     ok: failed === 0,
     actions,
