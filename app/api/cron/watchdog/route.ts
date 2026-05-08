@@ -6,7 +6,7 @@ import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { kvSet, kvSetRawKey, KV_KEYS, isRedisAvailable, KV_TTL_SECONDS } from '@/lib/kv/store';
 import { readAllSubstrateJournals } from '@/lib/substrate/github-reader';
 import { evaluateTrustTripwires } from '@/lib/tripwire/trustTripwires';
-import type { TrustTripwireSnapshot } from '@/lib/tripwire/types';
+import type { TrustTripwireResult, TrustTripwireSnapshot } from '@/lib/tripwire/types';
 
 import { GET as getKvHealth } from '@/app/api/kv/health/route';
 import { POST as postSeedKv } from '@/app/api/admin/seed-kv/route';
@@ -15,32 +15,6 @@ import { GET as getTripwireStatus } from '@/app/api/tripwire/status/route';
 import { runEchoIngest } from '@/app/api/echo/ingest/route';
 import { POST as postEpiconPromote } from '@/app/api/epicon/promote/route';
 
-/**
- * C-274: Runtime maintenance is currently once-daily (Vercel cron). If heartbeat,
- * journal/archive merge, or promotion normalization need tighter cadence, extend
- * this handler (or add schedules) in one place — avoid per-lane commit spam.
- *
- * C-283 (ATLAS synthesis): previously this handler called each downstream route
- * via `fetch(new URL(path, request.nextUrl.origin))`, which round-trips through
- * the Vercel edge. On production deployments with Deployment Protection
- * enabled, the edge returned 401 *before* our route handlers ran — producing
- * the ATLAS synthesis log:
- *
- *   kv-health:fail:401, seed-kv:fail:401, integrity-status:fail:401,
- *   tripwire-state:fail:401, echo-ingest:fail:401, promote:fail:401
- *
- * Several of those routes (kv/health, integrity-status, echo/ingest, promote)
- * have no internal auth guard at all — the 401s could only have come from the
- * edge. Adding `Authorization: Bearer $secret` to the outbound fetch does not
- * help, because Deployment Protection checks its own cookie / bypass header,
- * not service secrets.
- *
- * Fix: invoke the route handlers directly in-process (same pattern as
- * /api/terminal/snapshot). This keeps the call chain entirely inside Node.js,
- * bypasses the edge, and preserves internal auth semantics because we pass
- * the original incoming NextRequest (which already carries the cron secret
- * verified by `getServiceAuthError` at the top of this handler).
- */
 export const dynamic = 'force-dynamic';
 
 function emptyTrustSnapshot(timestamp: string): TrustTripwireSnapshot {
@@ -90,8 +64,6 @@ function makeInternalRequest(
   });
 }
 
-// Unified handler runner — accepts a zero-arg lambda so both parameterless
-// GET handlers and request-bound POST handlers can be wrapped identically.
 async function runAction(
   fn: () => Promise<NextResponse>,
   timeoutMs = 15_000,
@@ -192,7 +164,45 @@ export async function GET(request: NextRequest) {
         : Array.isArray(giBody?.entries)
           ? (giBody.entries as Array<Record<string, unknown>>)
           : [];
-      return evaluateTrustTripwires({ journals, epiconRows });
+
+      const baseSnapshot = evaluateTrustTripwires({ journals, epiconRows });
+
+      const failedActions = actions.filter((action) => action.includes('fail'));
+
+      if (failedActions.length === 0) {
+        return baseSnapshot;
+      }
+
+      const watchdogResult: TrustTripwireResult = {
+        kind: 'watchdog_failed_checks',
+        ok: false,
+        triggered: true,
+        severity: failedActions.length >= 3 ? 'critical' : 'elevated',
+        score: failedActions.length >= 3 ? 0.2 : 0.55,
+        message:
+          failedActions.length >= 3
+            ? 'WATCHDOG CRITICAL — multiple runtime checks failing'
+            : 'WATCHDOG DEGRADED — runtime checks failing',
+        evidence: {
+          failed_checks: failedActions,
+          failed_count: failedActions.length,
+        },
+        affectedAgents: ['ATLAS'],
+        timestamp,
+      };
+
+      const results = [...baseSnapshot.results, watchdogResult];
+      const critical = results.some((result) => result.triggered && result.severity === 'critical');
+      const tripwireCount = results.filter((result) => result.triggered).length;
+
+      return {
+        ok: tripwireCount === 0,
+        elevated: tripwireCount > 0,
+        critical,
+        tripwireCount,
+        results,
+        timestamp,
+      };
     } catch (error) {
       console.error('[watchdog] trust tripwire evaluation failed:', error instanceof Error ? error.message : error);
       return emptyTrustSnapshot(new Date().toISOString());
@@ -269,14 +279,16 @@ export async function GET(request: NextRequest) {
       status: 'committed',
       category: 'alert',
       severity: trustSnapshot.critical ? 'critical' : 'elevated',
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error('[watchdog] trust journal append failed:', err instanceof Error ? err.message : err);
+    });
   }
 
-  const allOk = kvHealth.ok && seedResult.ok && giResult.ok && tripwireResult.ok && echoResult.ok && promoteResult.ok;
-
   return NextResponse.json({
-    ok: allOk,
+    ok: failed === 0,
     actions,
     timestamp,
+    trust_tripwire_elevated: trustSnapshot.elevated,
+    trust_tripwire_critical: trustSnapshot.critical,
   });
 }

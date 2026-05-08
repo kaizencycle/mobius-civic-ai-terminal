@@ -3,7 +3,8 @@ export type TrustTripwireKind =
   | 'journal_quality_drift'
   | 'verification_dilution'
   | 'temporal_coherence'
-  | 'trust_concentration';
+  | 'trust_concentration'
+  | 'watchdog_failed_checks';
 
 export type TripwireSeverity = 'nominal' | 'elevated' | 'critical';
 
