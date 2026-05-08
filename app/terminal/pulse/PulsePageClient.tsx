@@ -43,14 +43,30 @@ export default function PulsePageClient() {
   const cycle    = pulse?._meta?.cycle ?? (snap?.cycle as string | null) ?? '—';
   const epiconRaw = pulse?.epicon as Record<string, unknown> | null;
   const epicon   = ((epiconRaw?.items ?? epiconRaw) as unknown[] | null) ?? [];
-  const agents   = (pulse?.agentJournal as unknown[] | null) ?? [];
+  // /api/agents/journal returns { entries: [...] } — unwrap the envelope
+  const agentJournalRaw = pulse?.agentJournal as { entries?: unknown[] } | unknown[] | null;
+  const agents   = (Array.isArray(agentJournalRaw)
+    ? agentJournalRaw
+    : (agentJournalRaw as { entries?: unknown[] } | null)?.entries ?? []);
   const miiRaw   = pulse?.mii as Record<string, unknown> | null;
   const miiScore = (miiRaw?.composite ?? miiRaw?.score) as number | null ?? null;
   const vaultRaw = pulse?.vaultStatus as Record<string, unknown> | null;
   const vaultSeals   = (vaultRaw?.seals as unknown[] | null) ?? [];
   const vaultSustain = vaultRaw?.sustain as number | null ?? null;
   const lanesRaw = pulse?.laneDiagnostics as Record<string, unknown> | null;
-  const lanes    = (lanesRaw?.lanes as unknown[] | null) ?? [];
+  // /api/chambers/lane-diagnostics returns lanes as an object map { name: state }
+  // Convert to array for rendering
+  const lanesObj = lanesRaw?.lanes;
+  const lanes: Array<{ name: string; state: unknown; ok?: unknown }> =
+    Array.isArray(lanesObj)
+      ? (lanesObj as Array<{ name: string; state: unknown }>)
+      : lanesObj && typeof lanesObj === 'object'
+        ? Object.entries(lanesObj as Record<string, unknown>).map(([name, val]) =>
+            val && typeof val === 'object'
+              ? { name, ...(val as Record<string, unknown>) }
+              : { name, state: val }
+          )
+        : [];
   const echoRaw  = pulse?.echoDigest as Record<string, unknown> | null;
   const canon    = pulse?.substrateCanon as Record<string, unknown> | null;
   const freshMs  = lastFetch ? Date.now() - lastFetch : null;
