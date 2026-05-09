@@ -421,6 +421,7 @@ export default function CanonPage() {
         </div>
         <aside className="space-y-4">
           <Timeline events={data.timeline} />
+          <CanonOperatorPanel />
           <div className="rounded border border-slate-800 bg-slate-950/70 p-3 text-[10px] text-slate-500">
             <div className="mb-2 uppercase tracking-[0.2em] text-violet-300/80">Endpoint</div>
             <div>GET /api/substrate/canon</div>
@@ -433,5 +434,197 @@ export default function CanonPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+// FIX-510-07: Quarantine audit panel with operator reattest and v1 migration controls
+type QuarantineAudit = {
+  quarantinedCount: number;
+  v1Count: number;
+  quarantined: { sealId: string; schema_version: string; cycle: string; status: string; age_hours: number | null }[];
+  v1Seals: string[];
+};
+
+function CanonOperatorPanel() {
+  const [audit, setAudit] = useState<QuarantineAudit | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
+  const [lastOp, setLastOp] = useState<string | null>(null);
+
+  async function loadAudit() {
+    setLoading(true);
+    try {
+      const r = await fetch('/api/vault/reattest-bulk', { cache: 'no-store' });
+      if (r.ok) setAudit((await r.json()) as QuarantineAudit);
+    } catch {
+      // non-fatal
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void loadAudit(); }, []);
+
+  async function bulkReattest() {
+    setWorking(true);
+    try {
+      const r = await fetch('/api/vault/reattest-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operatorNote: 'canon chamber bulk reattest' }),
+      });
+      const d = (await r.json()) as { queued?: string[] };
+      setLastOp(`Queued ${d.queued?.length ?? 0} seals for reattest`);
+      await loadAudit();
+    } catch (err) {
+      setLastOp(`Error: ${String(err)}`);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function migrateV1(sealId: string) {
+    setWorking(true);
+    try {
+      const r = await fetch('/api/vault/migrate-v1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sealId, operatorNote: 'canon v1 migration' }),
+      });
+      const d = (await r.json()) as { ok: boolean; error?: string };
+      setLastOp(d.ok ? `Migrated ${sealId} → v2` : `Failed: ${d.error ?? 'unknown'}`);
+      await loadAudit();
+    } catch (err) {
+      setLastOp(`Error: ${String(err)}`);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function migrateAllV1() {
+    if (!audit?.v1Seals.length) return;
+    setWorking(true);
+    const results: string[] = [];
+    for (const sealId of audit.v1Seals) {
+      try {
+        const r = await fetch('/api/vault/migrate-v1', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sealId, operatorNote: 'bulk v1 migration' }),
+        });
+        const d = (await r.json()) as { ok: boolean; error?: string };
+        results.push(d.ok ? `✓ ${sealId}` : `✗ ${sealId}: ${d.error ?? 'unknown'}`);
+      } catch (err) {
+        results.push(`✗ ${sealId}: ${String(err)}`);
+      }
+    }
+    setLastOp(`Migrated: ${results.join(' · ')}`);
+    await loadAudit();
+    setWorking(false);
+  }
+
+  return (
+    <section className="rounded border border-slate-800 bg-slate-950/60 px-3 py-2">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
+          Quarantine audit
+        </span>
+        <button
+          onClick={() => void loadAudit()}
+          disabled={loading || working}
+          className="font-mono text-[9px] text-slate-600 hover:text-slate-400"
+        >
+          ↻ refresh
+        </button>
+      </div>
+
+      {loading && <p className="font-mono text-[10px] text-slate-600">scanning…</p>}
+
+      {audit && (
+        <>
+          <div className="mb-2 flex gap-4 font-mono text-[10px]">
+            <span>
+              <span className="text-slate-500">Quarantined </span>
+              <span className={audit.quarantinedCount > 0 ? 'text-red-400' : 'text-emerald-400'}>
+                {audit.quarantinedCount}
+              </span>
+            </span>
+            <span>
+              <span className="text-slate-500">Legacy v1 </span>
+              <span className={audit.v1Count > 0 ? 'text-amber-400' : 'text-emerald-400'}>
+                {audit.v1Count}
+              </span>
+            </span>
+          </div>
+
+          {audit.quarantined.length > 0 && (
+            <div className="mb-2 space-y-1">
+              {audit.quarantined.map((s) => (
+                <div
+                  key={s.sealId}
+                  className="flex items-center justify-between rounded bg-slate-900/60 px-2 py-1"
+                >
+                  <div>
+                    <span className="font-mono text-[10px] text-slate-300">{s.sealId}</span>
+                    <span className="ml-2 font-mono text-[9px] text-slate-600">
+                      {s.cycle} · {s.schema_version} · {s.age_hours != null ? `${s.age_hours}h ago` : '—'}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[9px] uppercase text-red-400">{s.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {audit.v1Seals.length > 0 && (
+            <div className="mb-2 space-y-1">
+              <div className="mb-1 font-mono text-[9px] uppercase tracking-wide text-amber-500/70">
+                Legacy v1 parcels
+              </div>
+              {audit.v1Seals.map((id) => (
+                <div
+                  key={id}
+                  className="flex items-center justify-between rounded border border-amber-900/30 bg-amber-950/20 px-2 py-1"
+                >
+                  <span className="font-mono text-[10px] text-amber-300">{id}</span>
+                  <button
+                    onClick={() => void migrateV1(id)}
+                    disabled={working}
+                    className="rounded border border-amber-700/50 px-1.5 py-0.5 font-mono text-[8px] uppercase text-amber-400 hover:bg-amber-900/30 disabled:opacity-40"
+                  >
+                    migrate v1→v2
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            {audit.quarantinedCount > 0 && (
+              <button
+                onClick={() => void bulkReattest()}
+                disabled={working}
+                className="rounded border border-cyan-700/60 bg-cyan-900/20 px-2 py-1 font-mono text-[9px] uppercase tracking-wide text-cyan-300 hover:bg-cyan-900/40 disabled:opacity-40"
+              >
+                {working ? 'working…' : `↺ reattest all (${audit.quarantinedCount})`}
+              </button>
+            )}
+            {audit.v1Count > 0 && (
+              <button
+                onClick={() => void migrateAllV1()}
+                disabled={working}
+                className="rounded border border-amber-700/60 bg-amber-900/20 px-2 py-1 font-mono text-[9px] uppercase tracking-wide text-amber-300 hover:bg-amber-900/40 disabled:opacity-40"
+              >
+                {working ? 'working…' : `⇡ migrate all v1 (${audit.v1Count})`}
+              </button>
+            )}
+          </div>
+
+          {lastOp && (
+            <p className="mt-1.5 font-mono text-[9px] text-slate-500">{lastOp}</p>
+          )}
+        </>
+      )}
+    </section>
   );
 }

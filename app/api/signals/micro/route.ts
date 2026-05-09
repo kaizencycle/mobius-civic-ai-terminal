@@ -1,99 +1,109 @@
-// ============================================================================
-// GET /api/signals/micro
-// Runs all micro-instruments (sensor federation sweep) and returns aggregated signal data.
-// C-261 · KV persistence for cold-start recovery
-// C-287 · Shared pipeline with /api/cron/sweep (10m) — in-memory cache 60s
-// CC0 Public Domain
-// ============================================================================
+// C-306 FIX-511-03: Registry-driven signal sweep — 40 instruments, 6 agents, 60s KV cache.
+// Replaces hardcoded 9-API sweep with fallback-aware registry (lib/signals).
 
 import { NextResponse } from 'next/server';
-import { pollAllMicroAgents } from '@/lib/agents/micro';
-import { loadSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
-import { runMicroSweepPipeline } from '@/lib/signals/runMicroSweep';
-import { computeHermesNarrative } from '@/lib/terminal/signals';
+import { SIGNAL_REGISTRY, AGENT_WEIGHTS } from '@/lib/signals/registry';
+import { fetchAllInstruments, type InstrumentResult } from '@/lib/signals/fetcher';
+import { kvGet, kvSet } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
-let cached: { data: Awaited<ReturnType<typeof pollAllMicroAgents>>; timestamp: number } | null = null;
+const CACHE_KEY = 'signals:micro:cache';
 const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_SEC = 90;
+
+type CacheEntry = { data: SignalMicroPayload; cachedAt: number };
+
+export type SignalMicroPayload = {
+  ok: boolean;
+  cached: boolean;
+  gi: number;
+  instrumentCount: number;
+  agentCount: number;
+  agents: AgentComposite[];
+  instruments: InstrumentResult[];
+  fallbacksUsed: number;
+  errors: number;
+  generatedAt: number;
+  cycle: string;
+};
+
+type AgentComposite = {
+  agent: string;
+  score: number;
+  errorCount: number;
+  weight: number;
+};
 
 export async function GET() {
-  const now = Date.now();
-
-  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+  // Serve from KV cache if fresh
+  const cached = await kvGet<CacheEntry>(CACHE_KEY);
+  if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
     return NextResponse.json(
-      {
-        ok: true,
-        cached: true,
-        ...cached.data,
-      },
+      { ...cached.data, cached: true },
       {
         headers: {
           'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
-          'X-Mobius-Source': 'micro-agents-cached',
+          'X-Signal-Cache': 'HIT',
+          'X-Instrument-Count': String(cached.data.instrumentCount),
+          'X-Mobius-Source': 'micro-registry-cached',
         },
       },
     );
   }
 
-  try {
-    const result = await runMicroSweepPipeline(now);
-    cached = { data: result, timestamp: now };
+  // Fetch all 40 instruments with fallback chains, 8 concurrent
+  const instruments = await fetchAllInstruments(SIGNAL_REGISTRY, 8);
 
-    const degradedInstruments = result.allSignals
-      .filter((s) => s.severity === 'elevated' || s.severity === 'critical')
-      .map((s) => ({ agentName: s.agentName, source: s.source, severity: s.severity, label: s.label }));
-
-    const hermesSignals = result.allSignals.filter((s) => s.agentName.startsWith('HERMES-µ'));
-    const hermesNarrative = computeHermesNarrative(hermesSignals);
-
-    return NextResponse.json(
-      {
-        ok: true,
-        cached: false,
-        kv: isRedisAvailable(),
-        degraded_instruments: degradedInstruments,
-        hermes_narrative: hermesNarrative,
-        ...result,
-      },
-      {
-        headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
-          'X-Mobius-Source': 'micro-agents-live',
-        },
-      },
-    );
-  } catch (err) {
-    if (isRedisAvailable()) {
-      const snapshot = await loadSignalSnapshot();
-      if (snapshot) {
-        const degradedInstruments = snapshot.allSignals
-          .filter((s) => s.severity === 'elevated' || s.severity === 'critical')
-          .map((s) => ({ agentName: s.agentName, source: s.source, severity: s.severity, label: s.label }));
-        return NextResponse.json(
-          {
-            ok: true,
-            cached: true,
-            source: 'kv-fallback',
-            composite: snapshot.composite,
-            anomalies: snapshot.allSignals.filter((s) => s.severity === 'elevated' || s.severity === 'critical'),
-            allSignals: snapshot.allSignals,
-            timestamp: snapshot.timestamp,
-            healthy: snapshot.healthy,
-            degraded_instruments: degradedInstruments,
-          },
-          {
-            headers: {
-              'X-Mobius-Source': 'micro-agents-kv-fallback',
-            },
-          },
-        );
-      }
+  // Compute per-agent weighted composites
+  const agentAccum: Record<string, { score: number; weightSum: number; errorCount: number }> = {};
+  for (const result of instruments) {
+    const inst = SIGNAL_REGISTRY.find((i) => i.id === result.id);
+    const w = inst?.weight ?? 1;
+    if (!agentAccum[result.agent]) {
+      agentAccum[result.agent] = { score: 0, weightSum: 0, errorCount: 0 };
     }
-
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : 'Unknown error' },
-      { status: 500 },
-    );
+    agentAccum[result.agent].score += result.score * w;
+    agentAccum[result.agent].weightSum += w;
+    if (result.source === 'error') agentAccum[result.agent].errorCount++;
   }
+
+  const agents: AgentComposite[] = Object.entries(agentAccum).map(
+    ([agent, { score, weightSum, errorCount }]) => ({
+      agent,
+      score: parseFloat((weightSum > 0 ? score / weightSum : 0).toFixed(3)),
+      errorCount,
+      weight: AGENT_WEIGHTS[agent] ?? 0.1,
+    }),
+  );
+
+  // Global integrity composite
+  const gi = parseFloat(
+    agents.reduce((acc, a) => acc + a.score * a.weight, 0).toFixed(3),
+  );
+
+  const data: SignalMicroPayload = {
+    ok: true,
+    cached: false,
+    gi,
+    instrumentCount: instruments.length,
+    agentCount: agents.length,
+    agents,
+    instruments,
+    fallbacksUsed: instruments.filter((i) => i.source === 'fallback').length,
+    errors: instruments.filter((i) => i.source === 'error').length,
+    generatedAt: Date.now(),
+    cycle: process.env.CURRENT_CYCLE ?? 'C-306',
+  };
+
+  kvSet<CacheEntry>(CACHE_KEY, { data, cachedAt: Date.now() }, CACHE_TTL_SEC).catch(() => {});
+
+  return NextResponse.json(data, {
+    headers: {
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      'X-Signal-Cache': 'MISS',
+      'X-Instrument-Count': String(instruments.length),
+      'X-Mobius-Source': 'micro-registry-live',
+    },
+  });
 }

@@ -50,20 +50,28 @@ export async function GET(request: NextRequest) {
   try {
     const micro = await fetchCanonicalSignals(request);
 
-    return NextResponse.json({
-      ok: true,
-      fallback: micro.source === 'kv-fallback',
-      canonical: true,
-      source: micro.cached ? (micro.source ?? 'signals-micro-cached') : 'signals-micro-live',
-      families: buildFamilies(micro.agents),
-      anomalies: Array.isArray(micro.anomalies) ? micro.anomalies : [],
-      composite: typeof micro.composite === 'number' ? micro.composite : null,
-      last_sweep: micro.timestamp ?? null,
-      raw: micro,
-      instrumentCount: micro.instrumentCount ?? (Array.isArray(micro.allSignals) ? micro.allSignals.length : null),
-      degraded_instruments: Array.isArray(micro.degraded_instruments) ? micro.degraded_instruments : [],
-      timestamp,
-    });
+    // FIX-511-04: add s-maxage header — was causing CACHE MISS on every 30s poll
+    return NextResponse.json(
+      {
+        ok: true,
+        fallback: micro.source === 'kv-fallback',
+        canonical: true,
+        source: micro.cached ? (micro.source ?? 'signals-micro-cached') : 'signals-micro-live',
+        families: buildFamilies(micro.agents),
+        anomalies: Array.isArray(micro.anomalies) ? micro.anomalies : [],
+        composite: typeof micro.composite === 'number' ? micro.composite : null,
+        last_sweep: micro.timestamp ?? null,
+        raw: micro,
+        instrumentCount: micro.instrumentCount ?? (Array.isArray(micro.allSignals) ? micro.allSignals.length : null),
+        degraded_instruments: Array.isArray(micro.degraded_instruments) ? micro.degraded_instruments : [],
+        timestamp,
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+        },
+      },
+    );
   } catch (error) {
     return NextResponse.json({
       ok: true,

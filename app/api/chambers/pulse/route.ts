@@ -107,7 +107,12 @@ export async function GET(): Promise<NextResponse> {
     substrateCanon:  resolve(substrateCanon),
   };
 
-  kvSet<PulseCache>(PULSE_CACHE_KEY, { data, cachedAt: Date.now() }, PULSE_CACHE_TTL_SEC).catch(() => {});
+  // FIX-510-03: guard against null/empty payload before KV write to avoid silent errors
+  if (data && data._meta) {
+    kvSet<PulseCache>(PULSE_CACHE_KEY, { data, cachedAt: Date.now() }, 30).catch(
+      (err: unknown) => console.warn('[pulse] KV cache write failed:', (err as Error)?.message),
+    );
+  }
 
   return NextResponse.json(data, {
     headers: {

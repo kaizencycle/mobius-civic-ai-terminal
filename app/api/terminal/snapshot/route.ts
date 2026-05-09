@@ -17,7 +17,7 @@ import { GET as getTrustTripwire } from '@/app/api/tripwire/trust/route';
 import { GET as getSnapshotLite } from '@/app/api/terminal/snapshot-lite/route';
 import { GET as getSignals } from '@/app/api/signals/micro/route';
 import { memoryModeFromIntegrityPayload, memoryModeFromSnapshotLiteBody } from '@/lib/terminal/memoryMode';
-import { loadSignalSnapshot, isRedisAvailable } from '@/lib/kv/store';
+import { loadSignalSnapshot, isRedisAvailable, kvGet, kvSet } from '@/lib/kv/store';
 import {
   normalizeAllSnapshotLanes,
   type SnapshotLaneKey,
@@ -30,6 +30,12 @@ import { trustMultiplier } from '@/lib/tripwire/trustTripwires';
 import type { TrustTripwireSnapshot } from '@/lib/tripwire/types';
 
 export const dynamic = 'force-dynamic';
+
+// FIX-510-05: coalesce parallel snapshot requests — only one Render fan-out per 20s window.
+const SNAPSHOT_COALESCE_KEY = 'snapshot:coalesce';
+const SNAPSHOT_COALESCE_MS = 20_000;
+let snapshotInFlight: Promise<NextResponse> | null = null;
+let snapshotInFlightStarted = 0;
 
 // C-293 OPT-1: echo + promotion lanes persistently hit the 5s budget.
 // timedHandlerWith() lets individual lanes get a longer window so they
@@ -90,7 +96,7 @@ function makeRequest(baseUrl: string, path: string): NextRequest {
   return new NextRequest(new URL(path, baseUrl));
 }
 
-export async function GET(request: NextRequest) {
+async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse> {
   const totalStart = Date.now();
   const cycle = request.nextUrl.searchParams.get('cycle')?.trim();
   const includeCatalog = request.nextUrl.searchParams.get('include_catalog')?.trim();
@@ -424,4 +430,56 @@ export async function GET(request: NextRequest) {
       headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'terminal-snapshot-fallback' },
     });
   }
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const now = Date.now();
+
+  // Only coalesce plain snapshot requests (no special query params that change output)
+  const hasSpecialParams =
+    request.nextUrl.searchParams.has('include_catalog') ||
+    request.nextUrl.searchParams.has('include_substrate') ||
+    request.nextUrl.searchParams.has('cycle');
+
+  if (!hasSpecialParams) {
+    // Serve from KV coalesce cache if within window
+    const coalesced = await kvGet<{ builtAt: number; body: string }>(SNAPSHOT_COALESCE_KEY);
+    if (coalesced && now - coalesced.builtAt < SNAPSHOT_COALESCE_MS) {
+      try {
+        return new NextResponse(coalesced.body, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=60',
+            'X-Mobius-Source': 'terminal-snapshot',
+            'X-Cache': 'HIT',
+          },
+        });
+      } catch {
+        // fall through to build fresh
+      }
+    }
+
+    // Coalesce: if a build is already in flight, share it
+    if (snapshotInFlight && now - snapshotInFlightStarted < SNAPSHOT_COALESCE_MS) {
+      return snapshotInFlight;
+    }
+
+    snapshotInFlightStarted = now;
+    snapshotInFlight = buildSnapshotResponse(request).then(async (res) => {
+      try {
+        const clone = res.clone();
+        const body = await clone.text();
+        kvSet(SNAPSHOT_COALESCE_KEY, { builtAt: now, body }, 25).catch(() => {});
+      } catch {
+        // non-fatal
+      }
+      snapshotInFlight = null;
+      return res;
+    });
+
+    return snapshotInFlight;
+  }
+
+  return buildSnapshotResponse(request);
 }

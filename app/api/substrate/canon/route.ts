@@ -60,7 +60,8 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(canon, {
     headers: {
-      'Cache-Control': 'no-store',
+      // FIX-510-04: was no-store — caused CACHE MISS on every ~60s Canon chamber poll
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=180',
       'X-Mobius-Source': 'substrate-canon',
     },
   });
