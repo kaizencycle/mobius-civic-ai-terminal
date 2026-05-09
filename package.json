@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.1",
     "@modelcontextprotocol/sdk": "1.26.0",
     "@upstash/redis": "^1.37.0",
     "@vercel/kv": "^1.0.0",

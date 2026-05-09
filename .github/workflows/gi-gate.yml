@@ -23,8 +23,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm ci
-      - run: npm test --if-present
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm test --if-present
 
   gi-gate:
     runs-on: ubuntu-latest
@@ -37,8 +40,13 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Install deps
-        run: npm ci
+        run: pnpm install --no-frozen-lockfile
 
       - name: Compute GI from local source
         id: gi

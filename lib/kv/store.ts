@@ -824,6 +824,41 @@ export async function kvInspectSamples(pattern: string, limit: number): Promise<
   }
 }
 
+/** Atomically increment a raw key's float value via INCRBYFLOAT. Returns new value or null. */
+export async function kvIncrByFloatRaw(rawKey: string, delta: number): Promise<number | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  try {
+    return await redis.incrbyfloat(rawKey, delta);
+  } catch (err) {
+    console.warn(`[mobius-kv] INCRBYFLOAT ${rawKey} failed:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+/** Atomically increment a raw key's integer value via INCRBY. Returns new value or null. */
+export async function kvIncrByRaw(rawKey: string, delta: number): Promise<number | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  try {
+    return await redis.incrby(rawKey, delta);
+  } catch (err) {
+    console.warn(`[mobius-kv] INCRBY ${rawKey} failed:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+/** Set TTL on a raw key without changing its value. */
+export async function kvExpireRaw(rawKey: string, ttlSeconds: number): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  try {
+    await redis.expire(rawKey, ttlSeconds);
+  } catch {
+    /* non-fatal */
+  }
+}
+
 export async function kvHealth(): Promise<{
   available: boolean;
   configured: boolean;
