@@ -10,31 +10,23 @@
   },
   "crons": [
     {
-      "path": "/api/cron/watchdog",
-      "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/eve/cycle-synthesize",
-      "schedule": "15 0 * * *"
+      "path": "/api/cron/heartbeat",
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/promote",
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/gi-refresh",
-      "schedule": "45 0 * * *"
-    },
-    {
       "path": "/api/cron/vault-attestation",
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/heartbeat",
-      "schedule": "*/5 * * * *"
+      "path": "/api/cron/sweep",
+      "schedule": "*/10 * * * *"
     },
     {
-      "path": "/api/cron/sweep",
+      "path": "/api/cron/swarm",
       "schedule": "*/10 * * * *"
     },
     {
@@ -46,16 +38,28 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/reattest-seals",
+      "schedule": "*/30 * * * *"
+    },
+    {
       "path": "/api/cron/echo-ingest",
       "schedule": "0 * * * *"
     },
     {
-      "path": "/api/vault/block/attest-sweep",
+      "path": "/api/cron/gi-refresh",
+      "schedule": "45 0 * * *"
+    },
+    {
+      "path": "/api/eve/cycle-synthesize",
+      "schedule": "15 0 * * *"
+    },
+    {
+      "path": "/api/cron/watchdog",
       "schedule": "0 */6 * * *"
     },
     {
-      "path": "/api/cron/reattest-seals",
-      "schedule": "*/30 * * * *"
+      "path": "/api/vault/block/attest-sweep",
+      "schedule": "0 */6 * * *"
     }
   ],
   "installCommand": "pnpm install --no-frozen-lockfile"
