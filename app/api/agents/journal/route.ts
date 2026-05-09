@@ -3,6 +3,7 @@ import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 import { writeToSubstrate } from '@/lib/substrate/client';
 import { kvLrange, kvGet } from '@/lib/kv/store';
+import { scanKeys } from '@/lib/kv/scan';
 import { getOperatorSession } from '@/lib/auth/session';
 import {
   writeJournalToSubstrate,
@@ -359,8 +360,8 @@ async function loadEntries(
     // doubles round-trips without adding entries the 'journal:*' scan doesn't already catch
     // once parseJournalStorageKey strips the prefix. For envs that write ONLY under mobius:
     // prefix, include it only when the unprefixed scan returns nothing.
-    const keysUnprefixed = await redis.keys('journal:*');
-    const keysPrefixed = keysUnprefixed.length === 0 ? await redis.keys('mobius:journal:*') : [];
+    const keysUnprefixed = await scanKeys('journal:*', 200);
+    const keysPrefixed = keysUnprefixed.length === 0 ? await scanKeys('mobius:journal:*', 200) : [];
     const keys = [...new Set([allEntriesKey, ...agentListKeys, ...keysUnprefixed, ...keysPrefixed])];
     const seen = new Set<string>();
     const out: AgentJournalEntry[] = [];

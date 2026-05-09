@@ -778,7 +778,15 @@ export async function kvInspectSamples(pattern: string, limit: number): Promise<
   const safePattern = pattern.trim() || '*';
 
   try {
-    const matched = await redis.keys(safePattern);
+    // Use SCAN instead of KEYS — Upstash rejects KEYS on large namespaces
+    const matched: string[] = [];
+    let cursor = 0;
+    do {
+      const [nextCursor, batch] = await redis.scan(cursor, { match: safePattern, count: 100 });
+      matched.push(...batch);
+      cursor = Number(nextCursor);
+      if (matched.length >= safeLimit * 4) break; // guard: stop early, we only need safeLimit rows
+    } while (cursor !== 0);
     const totalMatched = matched.length;
     const slice = matched.slice(0, safeLimit);
     const keys: KvInspectKeyRow[] = [];
