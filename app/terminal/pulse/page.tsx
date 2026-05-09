@@ -21,7 +21,7 @@ interface VaultStatus {
   reserve?: number; unlockCondition?: string; treasuryLane?: string;
 }
 interface LaneDiag {
-  lanes?: { name: string; status: string }[];
+  lanes?: Record<string, { status?: string; [key: string]: unknown }>;
   degradedCount?: number;
 }
 interface AgentJournalEntry {
@@ -84,10 +84,11 @@ export default function PulsePage() {
           fetch('/api/chambers/lane-diagnostics').then(r => r.json()),
           fetch('/api/agents/journal').then(r => r.json()),
         ]);
-        if (epiRes.status === 'fulfilled') setEpicon(Array.isArray(epiRes.value) ? epiRes.value : (epiRes.value.events ?? []));
+        if (epiRes.status === 'fulfilled') setEpicon(Array.isArray(epiRes.value) ? epiRes.value : (epiRes.value.items ?? []));
         if (hbRes.status === 'fulfilled') {
           const d = hbRes.value;
-          setHeartbeats({ journal: d.journal?.lastWrite ?? null, runtime: d.runtime?.lastWrite ?? null, vault: d.vault?.lastReattest ?? null, sweep: d.sweep?.lastRun ?? null });
+          const toMs = (v: string | null | undefined): number | null => v ? new Date(v).getTime() : null;
+          setHeartbeats({ journal: toMs(d.journal), runtime: toMs(d.runtime), vault: toMs(d.vault), sweep: toMs(d.promote) });
         }
         if (snapRes.status === 'fulfilled') setSnapshot(snapRes.value);
         if (vaultRes.status === 'fulfilled') setVault(vaultRes.value);
@@ -125,7 +126,8 @@ export default function PulsePage() {
   const cycle   = snapshot.cycle ?? '—';
   const giClass = gi == null ? 'text-slate-500' : gi >= 0.85 ? 'text-emerald-400' : gi >= 0.70 ? 'text-amber-400' : 'text-red-400';
   const statusColor = snapshot.systemStatus === 'nominal' ? 'text-emerald-400 border-emerald-700/50' : snapshot.systemStatus === 'degraded' ? 'text-amber-400 border-amber-700/50' : 'text-slate-500 border-slate-700';
-  const degradedLanes = (laneDiag.lanes ?? []).filter(l => l.status !== 'ok');
+  const laneDiagArr = Object.entries(laneDiag.lanes ?? {}).map(([name, val]) => ({ name, status: val.status }));
+  const degradedLanes = laneDiagArr.filter(l => l.status !== 'ok');
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* ── Heartbeat rail ────────────────────────────── */}
@@ -300,13 +302,13 @@ export default function PulsePage() {
             <div className="rounded border border-slate-800 bg-slate-950/60 px-3 py-2">
               <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">Lane diagnostics</p>
               <div className="space-y-1">
-                {(laneDiag.lanes ?? []).map(lane => (
+                {laneDiagArr.map(lane => (
                   <div key={lane.name} className="flex items-center justify-between rounded bg-slate-900/60 px-2 py-1">
                     <span className="font-mono text-[10px] text-slate-300">{lane.name}</span>
-                    <span className={`font-mono text-[9px] uppercase ${lane.status === 'ok' ? 'text-emerald-400' : lane.status === 'stale' ? 'text-amber-400' : 'text-red-400'}`}>{lane.status}</span>
+                    <span className={`font-mono text-[9px] uppercase ${lane.status === 'ok' ? 'text-emerald-400' : lane.status === 'stale' ? 'text-amber-400' : 'text-red-400'}`}>{lane.status ?? '—'}</span>
                   </div>
                 ))}
-                {!laneDiag.lanes?.length && <p className="font-mono text-[10px] text-slate-600">No lane data</p>}
+                {laneDiagArr.length === 0 && <p className="font-mono text-[10px] text-slate-600">No lane data</p>}
               </div>
             </div>
             {/* Posture recommendations */}
