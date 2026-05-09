@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-internal-cron': '1',
         ...(authHeader ? { Authorization: authHeader } : {}),
       },
       body: JSON.stringify({ maxItems: 35 }),
@@ -39,7 +40,9 @@ export async function GET(request: NextRequest) {
 
     const body = await res.json().catch(() => null);
     if (!res.ok) {
-      console.warn('[promote] /api/epicon/promote returned', res.status, '— heartbeat still written');
+      console.error(`[promote] /api/epicon/promote returned ${res.status} — check SUBSTRATE_TOKEN env var`);
+    } else {
+      console.log(`[promote] epicon promote ok @ ${process.env.CURRENT_CYCLE ?? 'C-305'}`);
     }
 
     return NextResponse.json({

@@ -22,6 +22,16 @@ type AgentResult = {
   mode?: string;
 };
 
+type InstrumentResult = {
+  id: string;
+  agent: string;
+  label: string;
+  score: number;
+  source: 'primary' | 'fallback' | 'error';
+  latencyMs: number;
+  error?: string;
+};
+
 type MicroSweepPayload = {
   agents?: AgentResult[];
   allSignals?: SignalEntry[];
@@ -31,6 +41,11 @@ type MicroSweepPayload = {
   ok?: boolean;
   cached?: boolean;
   source?: string;
+  // FIX-511-05: registry-based fields (C-306)
+  instruments?: InstrumentResult[];
+  gi?: number;
+  fallbacksUsed?: number;
+  errors?: number;
 };
 
 type AgentPosture = 'live' | 'degraded' | 'standby';
@@ -397,7 +412,72 @@ export default function SignalsPageClient() {
             </div>
           </div>
         ) : (
-          FAMILIES.map((family) => {
+          <>
+            {/* FIX-511-05: instrument health grid (registry-based, C-306) */}
+            {Array.isArray(payload.instruments) && payload.instruments.length > 0 && (
+              <section className="rounded border border-slate-800 bg-slate-950/60 px-3 py-2">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
+                    Instrument grid · {payload.instruments.length}/40
+                  </span>
+                  <div className="flex gap-3 font-mono text-[9px] text-slate-600">
+                    <span><span className="text-emerald-400">●</span> primary</span>
+                    <span><span className="text-amber-400">●</span> fallback</span>
+                    <span><span className="text-red-500">●</span> error</span>
+                    {typeof payload.fallbacksUsed === 'number' && (
+                      <span className="text-amber-400/70">{payload.fallbacksUsed} fallback</span>
+                    )}
+                    {typeof payload.errors === 'number' && payload.errors > 0 && (
+                      <span className="text-red-400/70">{payload.errors} error</span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-1 md:grid-cols-4">
+                  {payload.instruments.map((inst) => (
+                    <div
+                      key={inst.id}
+                      className="flex items-center gap-1.5 rounded bg-slate-900/50 px-2 py-1"
+                      title={inst.error ?? inst.label}
+                    >
+                      <span
+                        className={`shrink-0 text-[8px] ${
+                          inst.source === 'primary'
+                            ? 'text-emerald-400'
+                            : inst.source === 'fallback'
+                            ? 'text-amber-400'
+                            : 'text-red-500'
+                        }`}
+                      >
+                        ●
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-mono text-[9px] text-slate-300">{inst.label}</p>
+                        <div className="mt-0.5 flex items-center gap-1">
+                          <div className="h-1 flex-1 overflow-hidden rounded bg-slate-800">
+                            <div
+                              className="h-full rounded transition-all"
+                              style={{
+                                width: `${inst.score * 100}%`,
+                                backgroundColor:
+                                  inst.score >= 0.8
+                                    ? '#34d399'
+                                    : inst.score >= 0.5
+                                    ? '#fbbf24'
+                                    : '#f87171',
+                              }}
+                            />
+                          </div>
+                          <span className="shrink-0 font-mono text-[8px] text-slate-500">
+                            {inst.score.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+            {FAMILIES.map((family) => {
             const members = grouped.get(family.id) ?? [];
             if (members.length === 0) return null;
             const comp = familyComposites[family.id];
@@ -472,6 +552,8 @@ export default function SignalsPageClient() {
               </section>
             );
           })
+          }
+          </>
         )}
       </div>
     </div>
