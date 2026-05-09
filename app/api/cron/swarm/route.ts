@@ -235,10 +235,13 @@ export async function GET(request: NextRequest) {
   const successCount = results.filter((r) => !r.error).length;
 
   // 4. Write swarm heartbeat
+  // activatedCount = agents that actually ran (excludes budget_depleted_mid_run skips)
+  // eligibleCount  = agents that passed activation conditions before the run
   await kvSetRawKey(SWARM_HEARTBEAT_KEY, {
     lastRun: Date.now(),
     cycle,
-    activatedCount: activated.length,
+    eligibleCount: activated.length,
+    activatedCount: results.length,
     successCount,
     totalMs,
     gi: signals.gi,
@@ -246,7 +249,7 @@ export async function GET(request: NextRequest) {
   }, 3600);
 
   console.log(
-    `[swarm] run complete @ ${cycle}: ${successCount}/${activated.length} agents ok, ` +
+    `[swarm] run complete @ ${cycle}: ${successCount}/${results.length} agents ok, ` +
     `$${currentBudget.spentUsd.toFixed(4)} spent, ${totalMs}ms total`,
   );
 
