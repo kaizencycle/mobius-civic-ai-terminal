@@ -1,5 +1,7 @@
 // C-306 FIX-511-03: Registry-driven signal sweep — 40 instruments, 6 agents, 60s KV cache.
 // Replaces hardcoded 9-API sweep with fallback-aware registry (lib/signals).
+// Backward-compat: emits `agents` as AgentResult[] + `allSignals` so existing consumers
+// (chambers/signals buildFamilies, SignalsPageClient familyFromAgent) continue to work.
 
 import { NextResponse } from 'next/server';
 import { SIGNAL_REGISTRY, AGENT_WEIGHTS } from '@/lib/signals/registry';
@@ -14,18 +16,42 @@ const CACHE_TTL_SEC = 90;
 
 type CacheEntry = { data: SignalMicroPayload; cachedAt: number };
 
+// Legacy shape — kept so chambers/signals buildFamilies and SignalsPageClient don't break
+type LegacySignalEntry = {
+  agentName: string;
+  source: string;
+  value: number;
+  label: string;
+  severity: string;
+  timestamp: string;
+};
+
+type LegacyAgentResult = {
+  agentName: string;
+  signals: LegacySignalEntry[];
+  healthy: boolean;
+  mode: string;
+};
+
 export type SignalMicroPayload = {
   ok: boolean;
   cached: boolean;
+  // New registry-based fields
   gi: number;
   instrumentCount: number;
   agentCount: number;
-  agents: AgentComposite[];
+  agentComposites: AgentComposite[];
   instruments: InstrumentResult[];
   fallbacksUsed: number;
   errors: number;
   generatedAt: number;
   cycle: string;
+  // Legacy fields — preserved for backward compat with chambers/signals and SignalsPageClient
+  composite: number;         // same as gi
+  agents: LegacyAgentResult[];
+  allSignals: LegacySignalEntry[];
+  healthy: boolean;
+  timestamp: string;
 };
 
 type AgentComposite = {
@@ -34,6 +60,47 @@ type AgentComposite = {
   errorCount: number;
   weight: number;
 };
+
+function scoreToSeverity(score: number): string {
+  if (score >= 0.75) return 'nominal';
+  if (score >= 0.5) return 'watch';
+  return 'elevated';
+}
+
+function buildLegacyAgents(
+  instruments: InstrumentResult[],
+): { agents: LegacyAgentResult[]; allSignals: LegacySignalEntry[] } {
+  const byAgent = new Map<string, InstrumentResult[]>();
+  for (const inst of instruments) {
+    const group = byAgent.get(inst.agent) ?? [];
+    group.push(inst);
+    byAgent.set(inst.agent, group);
+  }
+
+  const now = new Date().toISOString();
+  const allSignals: LegacySignalEntry[] = [];
+  const agents: LegacyAgentResult[] = [];
+
+  for (const [agentKey, insts] of byAgent) {
+    const signals: LegacySignalEntry[] = insts.map((inst) => {
+      const entry: LegacySignalEntry = {
+        agentName: agentKey,
+        source: inst.id,
+        value: inst.score,
+        label: inst.label,
+        severity: scoreToSeverity(inst.score),
+        timestamp: now,
+      };
+      allSignals.push(entry);
+      return entry;
+    });
+
+    const healthy = signals.some((s) => s.severity === 'nominal');
+    agents.push({ agentName: agentKey, signals, healthy, mode: 'registry' });
+  }
+
+  return { agents, allSignals };
+}
 
 export async function GET() {
   // Serve from KV cache if fresh
@@ -68,7 +135,7 @@ export async function GET() {
     if (result.source === 'error') agentAccum[result.agent].errorCount++;
   }
 
-  const agents: AgentComposite[] = Object.entries(agentAccum).map(
+  const agentComposites: AgentComposite[] = Object.entries(agentAccum).map(
     ([agent, { score, weightSum, errorCount }]) => ({
       agent,
       score: parseFloat((weightSum > 0 ? score / weightSum : 0).toFixed(3)),
@@ -79,21 +146,30 @@ export async function GET() {
 
   // Global integrity composite
   const gi = parseFloat(
-    agents.reduce((acc, a) => acc + a.score * a.weight, 0).toFixed(3),
+    agentComposites.reduce((acc, a) => acc + a.score * a.weight, 0).toFixed(3),
   );
+
+  // Build legacy-compatible agents + allSignals for existing consumers
+  const { agents, allSignals } = buildLegacyAgents(instruments);
 
   const data: SignalMicroPayload = {
     ok: true,
     cached: false,
     gi,
     instrumentCount: instruments.length,
-    agentCount: agents.length,
-    agents,
+    agentCount: agentComposites.length,
+    agentComposites,
     instruments,
     fallbacksUsed: instruments.filter((i) => i.source === 'fallback').length,
     errors: instruments.filter((i) => i.source === 'error').length,
     generatedAt: Date.now(),
     cycle: process.env.CURRENT_CYCLE ?? 'C-306',
+    // Legacy compat
+    composite: gi,
+    agents,
+    allSignals,
+    healthy: agents.some((a) => a.healthy),
+    timestamp: new Date().toISOString(),
   };
 
   kvSet<CacheEntry>(CACHE_KEY, { data, cachedAt: Date.now() }, CACHE_TTL_SEC).catch(() => {});

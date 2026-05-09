@@ -435,11 +435,13 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const now = Date.now();
 
-  // Only coalesce plain snapshot requests (no special query params that change output)
+  // Only coalesce plain snapshot requests — any param that changes response content bypasses cache
   const hasSpecialParams =
     request.nextUrl.searchParams.has('include_catalog') ||
     request.nextUrl.searchParams.has('include_substrate') ||
-    request.nextUrl.searchParams.has('cycle');
+    request.nextUrl.searchParams.has('cycle') ||
+    request.nextUrl.searchParams.has('journal_mode') ||
+    request.nextUrl.searchParams.has('journal_limit');
 
   if (!hasSpecialParams) {
     // Serve from KV coalesce cache if within window
