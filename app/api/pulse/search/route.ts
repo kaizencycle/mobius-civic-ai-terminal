@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 import { kvGet } from '@/lib/kv/store';
+import { scanKeys } from '@/lib/kv/scan';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,8 +53,8 @@ export async function GET(req: NextRequest) {
   if (redis) {
     try {
       const [rawKeys, prefixedKeys] = await Promise.all([
-        redis.keys('journal:*'),
-        redis.keys('mobius:journal:*'),
+        scanKeys('journal:*', 200),
+        scanKeys('mobius:journal:*', 200),
       ]);
       const allKeys = [...new Set([...rawKeys, ...prefixedKeys])];
       const entries = await Promise.all(
