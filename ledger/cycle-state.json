@@ -3,8 +3,8 @@
   "node_id": "mobius-terminal",
   "source": "snapshot-lite",
   "cycle": "C-308",
-  "fetched_at": "2026-05-11T20:18:45.588Z",
-  "gi": 0.745,
+  "fetched_at": "2026-05-11T21:45:16.318Z",
+  "gi": 0.737,
   "mode": "yellow",
   "degraded": false,
   "gi_provenance": "live-compute",
@@ -15,7 +15,7 @@
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 87,
+    "total_ms": 18,
     "lane_ms": null
   }
 }
