@@ -35,6 +35,9 @@ function resolveJournalCanonLedgerTarget(): { ok: true; ledgerBase: string } | {
     ['NEXT_PUBLIC_CIVIC_LEDGER_URL', process.env.NEXT_PUBLIC_CIVIC_LEDGER_URL],
     ['JOURNAL_CANON_SUBSTRATE_TARGET', process.env.JOURNAL_CANON_SUBSTRATE_TARGET],
     ['NEXT_PUBLIC_SUBSTRATE_API_BASE', process.env.NEXT_PUBLIC_SUBSTRATE_API_BASE],
+    // Legacy aliases still referenced by older sweep/runtime paths.
+    ['SUBSTRATE_GITHUB_REPO', process.env.SUBSTRATE_GITHUB_REPO],
+    ['GITHUB_REPO_URL', process.env.GITHUB_REPO_URL],
   ] as const;
 
   for (const [name, value] of candidates) {
@@ -91,7 +94,6 @@ export async function GET(request: NextRequest) {
     github_direct_write_configured: Boolean(process.env.SUBSTRATE_GITHUB_TOKEN),
   });
 
-  // Ensure SUBSTRATE_RETRY_QUEUE key exists in KV (resolves D1 key-missing snapshot flag).
   void ensureRetryQueueExists();
 
   const redis = getJournalRedisClient();
@@ -101,7 +103,6 @@ export async function GET(request: NextRequest) {
     const result = await processJournalCanonOutbox(redis, limit);
 
     if (result.failed > 0) {
-      // Persist failed item count to retry queue for operator visibility.
       try {
         const existing = await kvGet<string[]>(KV_KEYS.SUBSTRATE_RETRY_QUEUE) ?? [];
         const marker = `failed-${new Date().toISOString()}`;
