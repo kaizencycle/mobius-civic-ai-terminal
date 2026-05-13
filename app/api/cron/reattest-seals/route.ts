@@ -8,15 +8,20 @@
  * Safe to run multiple times — backAttestSeal is idempotent per agent per seal.
  * Logs a full digest per run for observability.
  *
+ * C-310: also repairs attested seals whose Substrate pointer is stale/missing.
+ * This closes the live failure mode where quorum completed but an older ledger
+ * 400 ("No API base configured for terminal") remained attached forever after
+ * env was fixed.
+ *
  * Schedule: 0 * * * * (hourly)
  */
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { bearerMatchesToken } from '@/lib/vault-v2/auth';
-import { listAllSeals, writeSeal, appendSealToChain } from '@/lib/vault-v2/store';
+import { listAllSeals, writeSeal, appendSealToChain, getLatestSealId } from '@/lib/vault-v2/store';
 import { backAttestSeal, buildBackAttestRationale } from '@/lib/vault-v2/back-attest';
-import { attestReserveBlockToSubstrate } from '@/lib/vault-v2/substrate-attestation';
+import { attestReserveBlockToSubstrate, dequeueSubstrateRetry } from '@/lib/vault-v2/substrate-attestation';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
 import { kvGet, kvSet } from '@/lib/kv/store';
@@ -40,6 +45,87 @@ async function recordReattestAttempt(sealId: string): Promise<void> {
   const attempts = (await kvGet<number>(`seal:${sealId}:reattest_attempts`)) ?? 0;
   await kvSet(`seal:${sealId}:reattest_attempts`, attempts + 1);
   await kvSet(`seal:${sealId}:reattest_last_attempt`, new Date().toISOString());
+}
+
+function hasCompleteSentinelQuorum(seal: Seal): boolean {
+  return SENTINEL_AGENTS.every((agent) => Boolean(seal.attestations[agent]));
+}
+
+function needsSubstratePointerRepair(seal: Seal): boolean {
+  return (
+    seal.status === 'attested'
+    && hasCompleteSentinelQuorum(seal)
+    && (
+      !seal.substrate_attestation_id
+      || !seal.substrate_event_hash
+      || Boolean(seal.substrate_attestation_error)
+    )
+  );
+}
+
+async function retrySubstratePointer(
+  seal: Seal,
+  results: Array<{ seal_id: string; agent: string; ok: boolean; transition?: string; error?: string }>,
+  errors: string[],
+  reason: 'stuck-quarantined' | 'stale-substrate-pointer',
+): Promise<void> {
+  if (await shouldSkipRetry(seal.seal_id)) {
+    results.push({ seal_id: seal.seal_id, agent: 'substrate-write', ok: true, transition: 'skipped-backoff' });
+    return;
+  }
+
+  try {
+    console.warn('[reattest-seals] forcing substrate write', { seal_id: seal.seal_id, reason });
+    const substrate = await attestReserveBlockToSubstrate(seal);
+    const substrateError = substrate.ok ? null : (substrate.error ?? 'substrate_write_failed');
+
+    const updatedSeal: Seal = {
+      ...seal,
+      status: substrate.ok ? 'attested' : seal.status,
+      substrate_attestation_id: substrate.ok ? (substrate.entryId ?? null) : seal.substrate_attestation_id,
+      substrate_event_hash: substrate.ok ? (substrate.eventHash ?? substrate.entryId ?? null) : seal.substrate_event_hash,
+      substrate_attested_at: substrate.ok ? (substrate.attestedAt ?? new Date().toISOString()) : seal.substrate_attested_at,
+      substrate_attestation_error: substrateError,
+    };
+
+    await writeSeal(updatedSeal);
+
+    if (substrate.ok) {
+      const latestSealId = await getLatestSealId().catch(() => null);
+      const repairedCurrentHead = latestSealId === updatedSeal.seal_id;
+
+      if (reason === 'stuck-quarantined' || repairedCurrentHead) {
+        await appendSealToChain(updatedSeal).catch((err: unknown) => {
+          console.warn('[reattest-seals] appendSealToChain failed (non-fatal):', (err as Error)?.message);
+        });
+      } else {
+        console.info('[reattest-seals] historical substrate pointer repaired without moving chain head', {
+          seal_id: updatedSeal.seal_id,
+          latest_seal_id: latestSealId,
+        });
+      }
+
+      await dequeueSubstrateRetry(updatedSeal.seal_id).catch(() => {});
+      void releaseReplayPressureForAttestedSeal().catch(() => {});
+      console.info('[reattest-seals] substrate pointer repaired', { seal_id: seal.seal_id, reason });
+    } else {
+      console.error('[reattest-seals] substrate pointer repair failed', { seal_id: seal.seal_id, reason, error: substrateError });
+    }
+
+    results.push({
+      seal_id: seal.seal_id,
+      agent: 'substrate-write',
+      ok: substrate.ok,
+      transition: substrate.ok ? 'substrate-pointer-repaired' : undefined,
+      error: substrateError ?? undefined,
+    });
+  } catch (e) {
+    const msg = `[substrate-retry:${reason}] ${seal.seal_id}: ${e instanceof Error ? e.message : String(e)}`;
+    errors.push(msg);
+    results.push({ seal_id: seal.seal_id, agent: 'substrate-write', ok: false, error: msg });
+  }
+
+  await recordReattestAttempt(seal.seal_id);
 }
 
 export async function GET(req: NextRequest) {
@@ -73,6 +159,7 @@ export async function GET(req: NextRequest) {
   }
 
   const quarantined = allSeals.filter((s) => s.status === 'quarantined');
+  const staleSubstratePointers = allSeals.filter(needsSubstratePointerRepair);
   // Track seals where all agents already attested in prior runs but the seal is still
   // quarantined — the inner loop's `continue` guard skips them all, leaving them stuck.
   const fullyAttestedButStuck: string[] = [];
@@ -127,59 +214,24 @@ export async function GET(req: NextRequest) {
   // (or was never attempted) yet the seal was never promoted. Force a direct substrate
   // write rather than re-running attestation (which the dedup guard would skip anyway).
   for (const seal_id of fullyAttestedButStuck) {
-    if (await shouldSkipRetry(seal_id)) {
-      results.push({ seal_id, agent: 'substrate-write', ok: true, transition: 'skipped-backoff' });
+    const seal = allSeals.find((s) => s.seal_id === seal_id);
+    if (!seal) {
+      errors.push(`[stuck] ${seal_id}: seal not found in listAllSeals`);
       continue;
     }
-    const seal = allSeals.find((s) => s.seal_id === seal_id);
-    if (!seal) { errors.push(`[stuck] ${seal_id}: seal not found in listAllSeals`); continue; }
+    await retrySubstratePointer(seal, results, errors, 'stuck-quarantined');
+  }
 
-    try {
-      console.warn('[reattest-seals] fully-attested-but-stuck — forcing substrate write', { seal_id });
-      const substrate = await attestReserveBlockToSubstrate(seal);
-      const substrateError = substrate.ok ? null : (substrate.error ?? 'substrate_write_failed');
-
-      const updatedSeal: Seal = {
-        ...seal,
-        // P1 fix: promote to attested so fountain/quorum/attested-count flows resolve
-        status: substrate.ok ? 'attested' : seal.status,
-        substrate_attestation_id: substrate.ok ? (substrate.entryId ?? null) : seal.substrate_attestation_id,
-        substrate_event_hash: substrate.ok ? (substrate.eventHash ?? substrate.entryId ?? null) : seal.substrate_event_hash,
-        substrate_attested_at: substrate.ok ? (substrate.attestedAt ?? new Date().toISOString()) : seal.substrate_attested_at,
-        substrate_attestation_error: substrateError,
-      };
-      await writeSeal(updatedSeal);
-      if (substrate.ok) {
-        // Append to attested chain so downstream indexes (fountain, quorum, attested counts) pick it up
-        await appendSealToChain(updatedSeal).catch((err: unknown) => {
-          console.warn('[reattest-seals] appendSealToChain failed (non-fatal):', (err as Error)?.message);
-        });
-      }
-
-      results.push({
-        seal_id,
-        agent: 'substrate-write',
-        ok: substrate.ok,
-        transition: substrate.ok ? 'attested' : undefined,
-        error: substrateError ?? undefined,
-      });
-
-      if (substrate.ok) {
-        void releaseReplayPressureForAttestedSeal().catch(() => {});
-        console.info('[reattest-seals] stuck seal promoted → attested + appended to chain', { seal_id });
-      } else {
-        console.error('[reattest-seals] stuck seal substrate write failed', { seal_id, error: substrateError });
-      }
-    } catch (e) {
-      const msg = `[stuck-substrate] ${seal_id}: ${e instanceof Error ? e.message : String(e)}`;
-      errors.push(msg);
-      results.push({ seal_id, agent: 'substrate-write', ok: false, error: msg });
-    }
-    await recordReattestAttempt(seal_id);
+  // C-310: attested seals can also carry stale/missing Substrate pointers after a
+  // transient Render ledger 400. They are not quarantined, so the historical retry
+  // path never saw them. Repair them here without rewriting the seal history.
+  for (const seal of staleSubstratePointers) {
+    await retrySubstratePointer(seal, results, errors, 'stale-substrate-pointer');
   }
 
   const attested = results.filter((r) => r.transition === 'attested').length;
   const recorded = results.filter((r) => r.transition === 'recorded').length;
+  const substrateRepaired = results.filter((r) => r.transition === 'substrate-pointer-repaired').length;
 
   // Surface substrate error details for seals that are fully attested but stuck in quarantine.
   // These seals have all agent signatures but the substrate write is failing — operators need
@@ -192,8 +244,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const staleSubstratePointerErrors: Record<string, string | null> = {};
+  for (const seal of staleSubstratePointers) {
+    staleSubstratePointerErrors[seal.seal_id] = seal.substrate_attestation_error ?? null;
+  }
+
   if (fullyAttestedButStuck.length > 0) {
     console.warn('[reattest-seals] fully-attested quarantined seals — substrate errors:', stuckSubstrateErrors);
+  }
+  if (staleSubstratePointers.length > 0) {
+    console.warn('[reattest-seals] stale attested substrate pointers:', staleSubstratePointerErrors);
   }
 
   return NextResponse.json({
@@ -202,10 +262,13 @@ export async function GET(req: NextRequest) {
     duration_ms: Date.now() - started,
     quarantined_found: quarantined.length,
     stuck_fully_attested: fullyAttestedButStuck.length,
+    stale_substrate_pointers: staleSubstratePointers.length,
     stuck_substrate_errors: stuckSubstrateErrors,
+    stale_substrate_pointer_errors: staleSubstratePointerErrors,
     attestations_attempted: results.length,
     attested_transitions: attested,
     recorded_transitions: recorded,
+    substrate_pointer_repairs: substrateRepaired,
     errors,
     results,
   });
