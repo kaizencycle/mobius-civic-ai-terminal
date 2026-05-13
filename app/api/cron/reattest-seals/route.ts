@@ -19,7 +19,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { bearerMatchesToken } from '@/lib/vault-v2/auth';
-import { listAllSeals, writeSeal, appendSealToChain } from '@/lib/vault-v2/store';
+import { listAllSeals, writeSeal, appendSealToChain, getLatestSealId } from '@/lib/vault-v2/store';
 import { backAttestSeal, buildBackAttestRationale } from '@/lib/vault-v2/back-attest';
 import { attestReserveBlockToSubstrate, dequeueSubstrateRetry } from '@/lib/vault-v2/substrate-attestation';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
@@ -91,9 +91,20 @@ async function retrySubstratePointer(
     await writeSeal(updatedSeal);
 
     if (substrate.ok) {
-      await appendSealToChain(updatedSeal).catch((err: unknown) => {
-        console.warn('[reattest-seals] appendSealToChain failed (non-fatal):', (err as Error)?.message);
-      });
+      const latestSealId = await getLatestSealId().catch(() => null);
+      const repairedCurrentHead = latestSealId === updatedSeal.seal_id;
+
+      if (reason === 'stuck-quarantined' || repairedCurrentHead) {
+        await appendSealToChain(updatedSeal).catch((err: unknown) => {
+          console.warn('[reattest-seals] appendSealToChain failed (non-fatal):', (err as Error)?.message);
+        });
+      } else {
+        console.info('[reattest-seals] historical substrate pointer repaired without moving chain head', {
+          seal_id: updatedSeal.seal_id,
+          latest_seal_id: latestSealId,
+        });
+      }
+
       await dequeueSubstrateRetry(updatedSeal.seal_id).catch(() => {});
       void releaseReplayPressureForAttestedSeal().catch(() => {});
       console.info('[reattest-seals] substrate pointer repaired', { seal_id: seal.seal_id, reason });
