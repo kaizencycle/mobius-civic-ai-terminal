@@ -43,10 +43,10 @@ export async function GET() {
       timestamp,
     }, {
       headers: {
-        // FIX-507-07: extended stale-while-revalidate so CDN doesn't flood background
-        // revalidation calls on every STALE hit. Serve cached for 30s, allow background
-        // revalidate for 2min. GI/tripwire state changes on cron cadence (~60-300s).
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+        // OPT-01 (C-312): shell is polled every ~60s by the browser for live terminal
+        // state. s-maxage=30 was causing STALE CDN responses on every other poll cycle.
+        // no-store forces origin on every request; all data is KV-backed so latency is low.
+        'Cache-Control': 'no-store',
       },
     });
   } catch {
