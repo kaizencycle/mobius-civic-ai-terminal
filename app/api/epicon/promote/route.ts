@@ -610,14 +610,22 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  // FIX-02: validate SUBSTRATE_TOKEN when configured; emit diagnostic hint on mismatch.
-  const expectedToken = process.env.SUBSTRATE_TOKEN?.trim();
-  if (expectedToken) {
+  // FIX-02: validate bearer token when SUBSTRATE_TOKEN is configured.
+  // Accepts SUBSTRATE_TOKEN OR CRON_SECRET so existing internal callers
+  // (cron/promote, watchdog) that use serviceAuthorizationHeaderValue() continue
+  // to work without requiring all callers to be updated simultaneously.
+  const substrateToken = process.env.SUBSTRATE_TOKEN?.trim();
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  if (substrateToken || cronSecret) {
     const authHeader = request.headers.get('authorization') ?? '';
-    if (authHeader !== `Bearer ${expectedToken}`) {
-      const hint = !authHeader
-        ? 'caller sent no Authorization header — set SUBSTRATE_TOKEN in cron caller env'
-        : 'token mismatch — verify SUBSTRATE_TOKEN matches across all callers';
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    const isValid =
+      (substrateToken && bearer === substrateToken) ||
+      (cronSecret && bearer === cronSecret);
+    if (!isValid) {
+      const hint = !bearer
+        ? 'caller sent no Authorization header — set SUBSTRATE_TOKEN or CRON_SECRET in caller env'
+        : 'token mismatch — verify SUBSTRATE_TOKEN/CRON_SECRET matches across all callers';
       console.error('[epicon/promote] auth failed', { hint });
       return NextResponse.json(
         { error: 'invalid_token', hint },
