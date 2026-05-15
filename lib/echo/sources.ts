@@ -7,7 +7,9 @@
 
 // ── Types ────────────────────────────────────────────────────
 
+import { auditPublicSource, auditToRawEvent, configuredAuditTargets } from '@/lib/crawler/sourceAuditor';
 import { eveItemsToRawEvents, fetchEveGlobalNews } from '@/lib/eve/global-news';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 export type RawEvent = {
   sourceId: string;
@@ -191,14 +193,37 @@ export async function fetchCoinGecko(): Promise<RawEvent[]> {
   }
 }
 
+// ── Mobius Integrity Source Auditor ──────────────────────────
+// C-312: configured, bounded public-source observations only.
+// The auditor emits observation events. It does not declare truth.
+
+export async function fetchIntegritySourceAudits(): Promise<RawEvent[]> {
+  const targets = configuredAuditTargets();
+  if (targets.length === 0) return [];
+
+  const cycle = currentCycleId();
+  const audits = await Promise.allSettled(
+    targets.map(async (target) => {
+      const audit = await auditPublicSource(target, 'public_source_check');
+      return auditToRawEvent(audit, cycle);
+    }),
+  );
+
+  return audits
+    .filter((result): result is PromiseFulfilledResult<RawEvent | null> => result.status === 'fulfilled')
+    .map((result) => result.value)
+    .filter((event): event is RawEvent => event !== null);
+}
+
 // ── Aggregate all sources ────────────────────────────────────
 
 export async function fetchAllSources(): Promise<RawEvent[]> {
-  const [govtrack, usgs, coingecko, eveNews] = await Promise.allSettled([
+  const [govtrack, usgs, coingecko, eveNews, integrityAudits] = await Promise.allSettled([
     fetchGovTrack(),
     fetchUSGS(),
     fetchCoinGecko(),
     fetchEveGlobalNews().then((synthesis) => eveItemsToRawEvents(synthesis.items)),
+    fetchIntegritySourceAudits(),
   ]);
 
   const events: RawEvent[] = [
@@ -206,6 +231,7 @@ export async function fetchAllSources(): Promise<RawEvent[]> {
     ...(usgs.status === 'fulfilled' ? usgs.value : []),
     ...(coingecko.status === 'fulfilled' ? coingecko.value : []),
     ...(eveNews.status === 'fulfilled' ? eveNews.value : []),
+    ...(integrityAudits.status === 'fulfilled' ? integrityAudits.value : []),
   ];
 
   // Sort by timestamp descending (most recent first)
