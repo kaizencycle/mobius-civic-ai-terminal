@@ -19,6 +19,8 @@ export type SourceAuditResult = {
 };
 
 const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
+const MAX_AUDIT_BYTES = 120_000;
+const MAX_REDIRECTS = 3;
 
 function normalizeAllowedUrl(raw: string): URL | null {
   try {
@@ -61,6 +63,85 @@ function scoreAudit(args: { ok: boolean; contentType: string | null; freshness: 
   return Number(Math.max(0, Math.min(1, score)).toFixed(3));
 }
 
+async function fetchPublicUrlWithRedirectValidation(url: URL): Promise<{ response: Response; finalUrl: URL; redirects: string[] }> {
+  let current = url;
+  const redirects: string[] = [];
+
+  for (let i = 0; i <= MAX_REDIRECTS; i += 1) {
+    const response = await fetch(current.toString(), {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10_000),
+      headers: { 'user-agent': 'Mobius-Integrity-Source-Auditor/0.1' },
+    });
+
+    if (response.status < 300 || response.status >= 400) {
+      return { response, finalUrl: current, redirects };
+    }
+
+    const location = response.headers.get('location');
+    if (!location) {
+      return { response, finalUrl: current, redirects };
+    }
+
+    const next = normalizeAllowedUrl(new URL(location, current).toString());
+    if (!next) {
+      throw new Error('blocked_redirect_target');
+    }
+
+    redirects.push(next.toString());
+    current = next;
+  }
+
+  throw new Error('redirect_limit_exceeded');
+}
+
+async function readLimitedText(response: Response, maxBytes = MAX_AUDIT_BYTES): Promise<{ text: string; truncated: boolean }> {
+  if (!response.body) {
+    return { text: '', truncated: false };
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  let truncated = false;
+
+  try {
+    while (received < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+
+      const remaining = maxBytes - received;
+      if (value.byteLength > remaining) {
+        chunks.push(value.slice(0, remaining));
+        received += remaining;
+        truncated = true;
+        await reader.cancel().catch(() => {});
+        break;
+      }
+
+      chunks.push(value);
+      received += value.byteLength;
+    }
+
+    if (received >= maxBytes && !truncated) {
+      truncated = true;
+      await reader.cancel().catch(() => {});
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const merged = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return { text: new TextDecoder().decode(merged), truncated };
+}
+
 export async function auditPublicSource(rawUrl: string, purpose: SourceAuditPurpose = 'public_source_check'): Promise<SourceAuditResult> {
   const fetchedAt = new Date().toISOString();
   const url = normalizeAllowedUrl(rawUrl);
@@ -83,13 +164,10 @@ export async function auditPublicSource(rawUrl: string, purpose: SourceAuditPurp
   }
 
   try {
-    const response = await fetch(url.toString(), {
-      redirect: 'follow',
-      signal: AbortSignal.timeout(10_000),
-      headers: { 'user-agent': 'Mobius-Integrity-Source-Auditor/0.1' },
-    });
+    const { response, finalUrl, redirects } = await fetchPublicUrlWithRedirectValidation(url);
     const contentType = response.headers.get('content-type');
-    const body = (await response.text()).slice(0, 120_000);
+    const limited = await readLimitedText(response);
+    const body = limited.text;
     const title = contentType?.includes('text/html') ? titleFromHtml(body) : null;
     const freshness = freshnessFrom(response.headers, body);
     const signals: string[] = [];
@@ -101,12 +179,14 @@ export async function auditPublicSource(rawUrl: string, purpose: SourceAuditPurp
     if (freshness === 'fresh') signals.push('freshness_hint_present');
     if (freshness === 'stale') warnings.push('source_appears_stale');
     if (contentType) signals.push(`content_type:${contentType.split(';')[0]}`);
+    if (redirects.length > 0) signals.push(`redirects_validated:${redirects.length}`);
+    if (limited.truncated) warnings.push('response_body_truncated');
 
     const integrityScore = scoreAudit({ ok: response.ok, contentType, freshness, warnings });
 
     return {
       ok: response.ok,
-      url: url.toString(),
+      url: finalUrl.toString(),
       purpose,
       fetched_at: fetchedAt,
       status_code: response.status,
