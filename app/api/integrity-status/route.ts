@@ -3,7 +3,13 @@ import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
 import { getEchoIntegrity } from '@/lib/echo/store';
 import { resolveGiChain } from '@/lib/gi/resolveGiChain';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
-import { kvGet } from '@/lib/kv/store';
+import { kvGet, kvSet } from '@/lib/kv/store';
+
+// OPT-07 (C-312): integrity-status is called on every page init and hits Render GIC
+// on every request. GI changes only on cron ticks (5-10min). 60s KV cache reduces
+// Render GIC load by ~95% at typical page-load rates.
+const INTEGRITY_CACHE_KEY = 'cache:integrity-status';
+const INTEGRITY_CACHE_TTL = 60;
 
 export const dynamic = 'force-dynamic';
 
@@ -56,7 +62,22 @@ function buildAuthority(payload: Awaited<ReturnType<typeof computeIntegrityPaylo
   };
 }
 
+const CACHE_HEADERS = {
+  'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+  'X-Mobius-Source': 'integrity-status',
+};
+
 export async function GET() {
+  // Serve from KV cache when available — avoids Render GIC call on every page init.
+  try {
+    const cached = await kvGet<Record<string, unknown>>(INTEGRITY_CACHE_KEY);
+    if (cached) {
+      return NextResponse.json({ ...cached, _cache: 'hit' }, { headers: { ...CACHE_HEADERS, 'X-Cache': 'HIT' } });
+    }
+  } catch {
+    // non-fatal — fall through to live compute
+  }
+
   const payload = await computeIntegrityPayload();
   const micRaw = await loadMicReadinessSnapshotRaw();
   const chain = await resolveGiChain({ micReadinessSnapshotRaw: micRaw.raw });
@@ -81,8 +102,13 @@ export async function GET() {
   // Resolve MIC totals once for all branches (Fix 4: async KV fallback)
   const mic = await echoMicProvisional();
 
+  async function cacheAndReturn(result: Record<string, unknown>): Promise<NextResponse> {
+    kvSet(INTEGRITY_CACHE_KEY, result, INTEGRITY_CACHE_TTL).catch(() => {});
+    return NextResponse.json(result, { headers: { ...CACHE_HEADERS, 'X-Cache': 'MISS' } });
+  }
+
   if (!renderGicUrl) {
-    return NextResponse.json({
+    return cacheAndReturn({
       ok: true as const,
       degraded: true,
       ...mergedPayload,
@@ -108,7 +134,7 @@ export async function GET() {
 
     if (!response.ok) {
       console.error(`[render:gic] ${response.status} ${response.statusText}`);
-      return NextResponse.json({
+      return cacheAndReturn({
         ok: true as const,
         degraded: true,
         ...mergedPayload,
@@ -131,7 +157,7 @@ export async function GET() {
           ? remote.gi
           : mergedPayload.global_integrity;
 
-    return NextResponse.json({
+    return cacheAndReturn({
       ok: true as const,
       ...mergedPayload,
       ...mic,
@@ -144,7 +170,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error('[render:gic] request failed', error);
-    return NextResponse.json({
+    return cacheAndReturn({
       ok: true as const,
       degraded: true,
       ...mergedPayload,

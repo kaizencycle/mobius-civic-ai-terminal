@@ -207,7 +207,10 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(body, {
     headers: {
       ...(cors ?? {}),
-      'Cache-Control': 'no-store',
+      // OPT-09 (C-312): vault status changes on cron ticks (vault-attestation, heartbeat).
+      // 30s edge cache with 120s SWR eliminates the MISS-on-every-load pattern while
+      // keeping data fresh enough for operator review.
+      'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
       'X-Mobius-Source': 'vault-status-v2',
     },
   });

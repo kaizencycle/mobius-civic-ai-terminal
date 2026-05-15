@@ -13,7 +13,7 @@ import { appendFullCouncilJournalPulse } from '@/lib/agents/sentinel-cycle-journ
 import { updateSustainTrackingFromGi } from '@/lib/mic/sustainTracker';
 import { getMergedMicReadiness } from '@/lib/mic/assembleMicReadiness';
 import { persistLocalMicReadinessSnapshot } from '@/lib/mic/persistReadinessKv';
-import { kvGet, kvSet, KV_KEYS } from '@/lib/kv/store';
+import { kvGet, kvSet, kvDel, KV_KEYS } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,6 +102,12 @@ async function run(req: NextRequest) {
     } catch (e) {
       console.warn('[cron/sweep] micReadiness refresh failed:', e instanceof Error ? e.message : e);
     }
+
+    // OPT-07 (C-312): bust integrity-status KV cache after sweep writes new GI.
+    void Promise.all([
+      kvDel('cache:integrity-status'),
+      kvDel('cache:lane-diagnostics'),
+    ]).catch(() => {});
 
     return NextResponse.json({
       ok: true,
