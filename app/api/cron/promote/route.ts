@@ -10,7 +10,9 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getEveSynthesisAuthError, serviceAuthorizationHeaderValue } from '@/lib/security/serviceAuth';
-import { kvSet } from '@/lib/kv/store';
+import { kvSet, kvGet } from '@/lib/kv/store';
+
+const PROMOTE_FAIL_KEY = 'watchdog:promote-fail-count';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,8 +43,16 @@ export async function GET(request: NextRequest) {
     const body = await res.json().catch(() => null);
     if (!res.ok) {
       console.error(`[promote] /api/epicon/promote returned ${res.status} — check SUBSTRATE_TOKEN env var`);
+      if (res.status === 401) {
+        const token = authHeader ?? '';
+        const prefix = token.replace(/^Bearer /, '').slice(0, 6);
+        console.error(`[promote] 401 received — auth token prefix: ${prefix || '(none)'}***`);
+        const failCount = ((await kvGet<number>(PROMOTE_FAIL_KEY)) ?? 0) + 1;
+        await kvSet(PROMOTE_FAIL_KEY, failCount, 86400).catch(() => {});
+      }
     } else {
       console.log(`[promote] epicon promote ok @ ${process.env.CURRENT_CYCLE ?? 'C-305'}`);
+      await kvSet(PROMOTE_FAIL_KEY, 0, 86400).catch(() => {});
     }
 
     return NextResponse.json({

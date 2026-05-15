@@ -37,6 +37,19 @@ import {
   dailyLimitUsd,
 } from '@/lib/swarm/budget';
 
+const CREDIT_EXHAUSTED_KEY = 'swarm:credit-exhausted:ts';
+const CREDIT_EXHAUSTED_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+async function isAtlasCreditExhausted(): Promise<boolean> {
+  const ts = await kvGetRaw<number>(CREDIT_EXHAUSTED_KEY);
+  if (!ts) return false;
+  return Date.now() - Number(ts) < CREDIT_EXHAUSTED_COOLDOWN_MS;
+}
+
+async function markCreditExhausted(): Promise<void> {
+  await kvSetRawKey(CREDIT_EXHAUSTED_KEY, Date.now(), 3600);
+}
+
 export const dynamic = 'force-dynamic';
 // Swarm calls can take up to 90s total across all agents
 export const maxDuration = 90;
@@ -94,9 +107,17 @@ async function callAgent(
     timestamp: new Date().toISOString(),
   });
 
+  const isCreditExhausted = await isAtlasCreditExhausted();
+  const effectiveModel = isCreditExhausted && tier > 1
+    ? TIER_MODEL[1] // fall back to Haiku when ATLAS credits are exhausted
+    : model;
+  if (isCreditExhausted && tier > 1) {
+    console.warn(`[swarm] ${agentId} credit-exhausted fallback: ${model} → ${effectiveModel}`);
+  }
+
   try {
     const msg = await client.messages.create({
-      model,
+      model: effectiveModel,
       max_tokens: 512,
       messages: [
         {
@@ -118,10 +139,15 @@ async function callAgent(
 
     return { result, durationMs: Date.now() - start, error: null };
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.toLowerCase().includes('credit balance')) {
+      console.error(`[swarm] ${agentId} ATLAS credit exhausted — cooldown 1h`);
+      await markCreditExhausted();
+    }
     return {
       result: null,
       durationMs: Date.now() - start,
-      error: err instanceof Error ? err.message : String(err),
+      error: msg,
     };
   }
 }

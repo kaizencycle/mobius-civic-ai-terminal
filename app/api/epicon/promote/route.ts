@@ -610,6 +610,22 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // FIX-02: validate SUBSTRATE_TOKEN when configured; emit diagnostic hint on mismatch.
+  const expectedToken = process.env.SUBSTRATE_TOKEN?.trim();
+  if (expectedToken) {
+    const authHeader = request.headers.get('authorization') ?? '';
+    if (authHeader !== `Bearer ${expectedToken}`) {
+      const hint = !authHeader
+        ? 'caller sent no Authorization header — set SUBSTRATE_TOKEN in cron caller env'
+        : 'token mismatch — verify SUBSTRATE_TOKEN matches across all callers';
+      console.error('[epicon/promote] auth failed', { hint });
+      return NextResponse.json(
+        { error: 'invalid_token', hint },
+        { status: 401 },
+      );
+    }
+  }
+
   const body = (await request.json().catch(() => ({}))) as { maxItems?: number };
   const maxItems = typeof body.maxItems === 'number' ? Math.min(Math.max(body.maxItems, 1), 50) : 25;
   const nowIso = new Date().toISOString();
