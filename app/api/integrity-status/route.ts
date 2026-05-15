@@ -103,7 +103,11 @@ export async function GET() {
   const mic = await echoMicProvisional();
 
   async function cacheAndReturn(result: Record<string, unknown>): Promise<NextResponse> {
-    kvSet(INTEGRITY_CACHE_KEY, result, INTEGRITY_CACHE_TTL).catch(() => {});
+    // Only cache non-degraded results — a transient Render GIC 5xx/timeout should not
+    // be served as a 60s cache HIT to all clients after the upstream recovers.
+    if (!result.degraded) {
+      kvSet(INTEGRITY_CACHE_KEY, result, INTEGRITY_CACHE_TTL).catch(() => {});
+    }
     return NextResponse.json(result, { headers: { ...CACHE_HEADERS, 'X-Cache': 'MISS' } });
   }
 

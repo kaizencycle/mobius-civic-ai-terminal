@@ -210,7 +210,10 @@ export async function GET(req: NextRequest) {
       // OPT-09 (C-312): vault status changes on cron ticks (vault-attestation, heartbeat).
       // 30s edge cache with 120s SWR eliminates the MISS-on-every-load pattern while
       // keeping data fresh enough for operator review.
+      // Vary: Origin ensures CDN caches separate variants for CORS vs non-CORS requests
+      // so handbook/browser callers always receive the correct Access-Control-Allow-Origin.
       'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120',
+      'Vary': 'Origin',
       'X-Mobius-Source': 'vault-status-v2',
     },
   });
