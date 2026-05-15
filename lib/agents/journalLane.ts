@@ -5,8 +5,9 @@ import type { SubstrateJournalWriteInput } from '@/lib/substrate/github-journal'
 import { kvLpushCapped } from '@/lib/kv/store';
 
 const KEY_ALL = 'journal:all';
-// Hard cap — entries beyond this are dropped by ltrim. At ~15/hr this covers ~33h.
-const MAX_LIST_ENTRIES = 500;
+// Hard cap — env-configurable (JOURNAL_HARD_CAP). Default 1000; at ~15/hr this covers ~66h.
+const _parsedCap = parseInt(process.env.JOURNAL_HARD_CAP ?? '1000', 10);
+const MAX_LIST_ENTRIES = Number.isFinite(_parsedCap) && _parsedCap > 0 ? _parsedCap : 1000;
 // Soft cap — warn and begin time-pruning when the list is 80% full.
 const SOFT_CAP = Math.floor(MAX_LIST_ENTRIES * 0.8);
 // Rolling window — entries older than this are pruned before the hard ltrim.

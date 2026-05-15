@@ -3,7 +3,7 @@ import { getServiceAuthError, serviceAuthorizationHeaderValue } from '@/lib/secu
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
-import { kvSet, kvSetRawKey, KV_KEYS, isRedisAvailable, KV_TTL_SECONDS } from '@/lib/kv/store';
+import { kvGet, kvSet, kvSetRawKey, KV_KEYS, isRedisAvailable, KV_TTL_SECONDS } from '@/lib/kv/store';
 import { readAllSubstrateJournals } from '@/lib/substrate/github-reader';
 import { evaluateTrustTripwires } from '@/lib/tripwire/trustTripwires';
 import type { TrustTripwireResult, TrustTripwireSnapshot } from '@/lib/tripwire/types';
@@ -142,6 +142,18 @@ export async function GET(request: NextRequest) {
 
   const echoResult = await runAction(() => runEchoIngest(), 30_000);
   actions.push(`echo-ingest:${echoResult.ok ? 'ok' : `fail:${echoResult.status}`}`);
+
+  // FIX-14: alert when promote failures accumulate (threshold = 10 consecutive failures).
+  const PROMOTE_FAIL_KEY = 'watchdog:promote-fail-count';
+  const PROMOTE_FAIL_THRESHOLD = 10;
+  const promoteFailCount = (await kvGet<number>(PROMOTE_FAIL_KEY)) ?? 0;
+  if (promoteFailCount >= PROMOTE_FAIL_THRESHOLD) {
+    console.error(
+      `[watchdog] promote failure threshold breached: ${promoteFailCount} consecutive failures. ` +
+      'Check SUBSTRATE_TOKEN and /api/epicon/promote auth. EPICON promotion lane may be stuck.',
+    );
+    actions.push(`promote-fail-alert:${promoteFailCount}`);
+  }
 
   const promoteRequest = makeInternalRequest(origin, '/api/epicon/promote', {
     method: 'POST',

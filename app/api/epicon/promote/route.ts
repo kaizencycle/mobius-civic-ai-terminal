@@ -610,6 +610,30 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // FIX-02: validate bearer token when SUBSTRATE_TOKEN is configured.
+  // Accepts SUBSTRATE_TOKEN OR CRON_SECRET so existing internal callers
+  // (cron/promote, watchdog) that use serviceAuthorizationHeaderValue() continue
+  // to work without requiring all callers to be updated simultaneously.
+  const substrateToken = process.env.SUBSTRATE_TOKEN?.trim();
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  if (substrateToken || cronSecret) {
+    const authHeader = request.headers.get('authorization') ?? '';
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    const isValid =
+      (substrateToken && bearer === substrateToken) ||
+      (cronSecret && bearer === cronSecret);
+    if (!isValid) {
+      const hint = !bearer
+        ? 'caller sent no Authorization header — set SUBSTRATE_TOKEN or CRON_SECRET in caller env'
+        : 'token mismatch — verify SUBSTRATE_TOKEN/CRON_SECRET matches across all callers';
+      console.error('[epicon/promote] auth failed', { hint });
+      return NextResponse.json(
+        { error: 'invalid_token', hint },
+        { status: 401 },
+      );
+    }
+  }
+
   const body = (await request.json().catch(() => ({}))) as { maxItems?: number };
   const maxItems = typeof body.maxItems === 'number' ? Math.min(Math.max(body.maxItems, 1), 50) : 25;
   const nowIso = new Date().toISOString();

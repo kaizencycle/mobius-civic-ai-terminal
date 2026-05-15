@@ -21,7 +21,8 @@ export type SealStatus =
   | 'forming' // candidate created, awaiting attestations
   | 'attested' // quorum passed, Seal minted
   | 'quarantined' // quorum failed (non-ZEUS), awaiting operator review
-  | 'rejected'; // ZEUS rejected, auto-dissolve in 24h
+  | 'rejected' // ZEUS rejected, auto-dissolve in 24h
+  | 'permanently-failed'; // exceeded MAX_REATTEST_ATTEMPTS with no recovery
 
 export type FountainStatus =
   | 'pending' // attested, GI conditions not yet met

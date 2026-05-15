@@ -29,6 +29,10 @@ import type { Seal } from '@/lib/vault-v2/types';
 
 export const dynamic = 'force-dynamic';
 
+// Max reattest attempts before a seal is marked permanently-failed (prevents infinite loops).
+// At 1h cron cadence, 12 attempts ≈ 12 hours of retries before giving up.
+const MAX_REATTEST_ATTEMPTS = 12;
+
 // ── Exponential backoff helpers ────────────────────────────────────────────
 
 async function shouldSkipRetry(sealId: string): Promise<boolean> {
@@ -168,6 +172,17 @@ export async function GET(req: NextRequest) {
     const agentsPending = SENTINEL_AGENTS.filter((a) => !seal.attestations[a]);
     if (agentsPending.length === 0) {
       fullyAttestedButStuck.push(seal.seal_id);
+      continue;
+    }
+
+    // FIX-07: cap total attempts to prevent seals from looping forever.
+    const attempts = (await kvGet<number>(`seal:${seal.seal_id}:reattest_attempts`)) ?? 0;
+    if (attempts >= MAX_REATTEST_ATTEMPTS) {
+      console.error(
+        `[reattest-seals] ${seal.seal_id} exceeded ${MAX_REATTEST_ATTEMPTS} attempts — marking permanently-failed`,
+      );
+      await writeSeal({ ...seal, status: 'permanently-failed' }).catch(() => {});
+      results.push({ seal_id: seal.seal_id, agent: 'cap', ok: false, transition: 'permanently-failed', error: `exceeded_${MAX_REATTEST_ATTEMPTS}_attempts` });
       continue;
     }
 

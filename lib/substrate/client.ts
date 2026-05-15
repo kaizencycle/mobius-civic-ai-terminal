@@ -142,6 +142,23 @@ function resolveSubstrateLedgerUrl(): string {
   return fallback;
 }
 
+/**
+ * FIX-19: Single source of truth for terminal identity fields required by the Render ledger.
+ * Import and spread into any payload builder that writes to the Civic Protocol Ledger.
+ * Resolves at call-time so env vars set after module load are picked up.
+ */
+export function getTerminalRegistration(): { terminal_id: string; api_base: string } {
+  return {
+    terminal_id: process.env.TERMINAL_ID ?? 'mobius-civic-ai-terminal',
+    api_base: (
+      process.env.TERMINAL_API_BASE ??
+      process.env.NEXT_PUBLIC_TERMINAL_URL ??
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      'https://mobius-civic-ai-terminal.vercel.app'
+    ).replace(/\/+$/, ''),
+  };
+}
+
 /** JWT for Civic Protocol ledger + MIC (identity login). Falls back to legacy RENDER_API_KEY. */
 export function getAgentBearerToken(): string {
   const primary = process.env.AGENT_SERVICE_TOKEN?.trim() ?? '';
@@ -259,13 +276,16 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
   const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
   const attestTimestamp = new Date().toISOString();
   const ledgerLabSource = toLedgerLabSource(entry.source);
-  // FIX-506-02: Render Civic Ledger requires terminal_base_url/api_base for routing.
+  // FIX-506-02 / FIX-03: Render Civic Ledger requires terminal_base_url/api_base/terminal_id for routing.
   // Without these fields Render rejects with {"detail":"No API base configured for terminal"}.
+  // Priority: TERMINAL_API_BASE > NEXT_PUBLIC_TERMINAL_URL > NEXT_PUBLIC_SITE_URL > hardcoded fallback.
   const terminalBase = (
+    process.env.TERMINAL_API_BASE ??
     process.env.NEXT_PUBLIC_TERMINAL_URL ??
     process.env.NEXT_PUBLIC_SITE_URL ??
     'https://mobius-civic-ai-terminal.vercel.app'
   ).replace(/\/+$/, '');
+  const terminalId = process.env.TERMINAL_ID ?? 'mobius-civic-ai-terminal';
 
   const requestBody = {
     event_type: entry.category,
@@ -273,6 +293,7 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
     lab_source: ledgerLabSource,
     terminal_base_url: terminalBase,
     api_base: terminalBase,
+    terminal_id: terminalId,
     payload: {
       event_id: eventId,
       title: entry.title,
@@ -330,7 +351,10 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
         tags: requestBody.payload.tags,
         response: detail,
       };
-      console.warn('[substrate] ledger attest rejected', safeDebug);
+      const hint = detail.includes('No API base configured for terminal')
+        ? 'Add TERMINAL_ID + TERMINAL_API_BASE to Vercel env vars (FIX-20)'
+        : undefined;
+      console.warn('[substrate] ledger attest rejected', { ...safeDebug, hint });
       await persistLastLedgerRejection(safeDebug);
       throw new Error(`ledger ${res.status}${detail ? `: ${detail}` : ''}`);
     }
