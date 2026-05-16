@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-05-16T03:04:59Z",
+  "agent": "AUREA",
+  "cycle": "C-312",
+  "gi_final": 0.71,
+  "gi_mode": "yellow",
+  "gi_source": "live",
+  "gi_source_detail": "kv",
+  "gi_range_24h": {
+    "min": 0.71,
+    "max": 0.82
+  },
+  "overall_sentiment": 0.811,
+  "financial_score": 0.629,
+  "environ_score": 0.863,
+  "civic_score": 0.783,
+  "event_count_24h": 5,
+  "event_counts_by_type": {
+    "merge": 3,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 2,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed C-312 in yellow posture with GI at 0.71. Heartbeat GI was volatile across the latest catalog band (0.71-0.82), while narrative remained the strongest visible domain signal at 0.974. ZEUS verification is inconclusive, and the micro lane still shows 9 error-state instruments with financial as the soft edge. Forward signal: watch financial conditions and the vault attestation path for confirmation or further drift in the next cycle.",
+  "forward_signal": "Watch financial conditions and the vault attestation path for confirmation or further drift in the next cycle.",
+  "zeus_status": "inconclusive",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "OpenAQ air quality",
+    "NWS API health",
+    "data.gov dataset freshness",
+    "UN Data API availability",
+    "OECD stats API health",
+    "Cloudflare Radar BGP health",
+    "Fastly CDN status",
+    "FRED economic data health",
+    "NASA APIs health"
+  ],
+  "quorum_attested": false
+}
