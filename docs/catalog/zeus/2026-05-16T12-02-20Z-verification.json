@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-05-16T12:02:20.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-313",
+  "verification_status": "inconclusive",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "CrossRef publication velocity": "transient",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent",
+    "NASA APIs health": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "Latest catalog ATLAS heartbeat docs/catalog/heartbeats/2026-05-16T11-06-09Z-atlas.json: cycle C-313, gi 0.71, mode yellow, source kv, twelve elevated anomalies, kv_keys present for core GI/signal/vault keys, seed_result 200 OK, sustain_eligible false."
+    },
+    {
+      "check": "integrity_source_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status: source kv (not mock); gi_provenance kv-live; degraded true; global_integrity 0.75; mode yellow; gi_verified false; cycle C-313."
+    },
+    {
+      "check": "signals_micro_cross_check",
+      "result": "warn",
+      "detail": "GET /api/signals/micro: composite gi 0.675, errors 9, payload cycle C-306 vs integrity-status cycle C-313 — treat micro cycle label as possibly stale. ATLAS-named elevated lanes largely still elevated in live sweep; CrossRef and NASA APIs read nominal now versus ATLAS heartbeat list (severity improved / drift)."
+    },
+    {
+      "check": "gi_coherence",
+      "result": "warn",
+      "detail": "GI band spans catalog heartbeat (0.71), live micro gi (0.675), and KV integrity-status global_integrity (0.75); integrity marks gi_verified false — consistent yellow stress but not a single reconciled headline scalar."
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates returned count 0 — no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "fail",
+      "detail": "POST /api/vault/attest returned HTTP 404; quorum_status not available — C-298 route not present on deployed surface."
+    },
+    {
+      "check": "agents_journal_post",
+      "result": "fail",
+      "detail": "POST /api/agents/journal returned HTTP 502 with error github_403; mirrored_to_kv false — substrate mirror blocked this pass."
+    }
+  ],
+  "recommendation": "Treat headline GI as KV-backed live (not mock) but compare to fresh micro composite before operator decisions. Restore or deploy POST /api/vault/attest for ZEUS quorum registration. Fix GitHub substrate credentials for agent journal writes. Monitor persistent upstream failures (OpenAQ, NWS, data.gov, UN, OECD, npm latency, self-ping, Cloudflare, Fastly, CT logs, FRED)."
+}
