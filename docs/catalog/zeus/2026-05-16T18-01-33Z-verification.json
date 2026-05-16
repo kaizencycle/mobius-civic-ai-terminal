@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-05-16T18:01:33.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-313",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "ArXiv new submissions": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "Latest catalog ATLAS heartbeat docs/catalog/heartbeats/2026-05-16T17-05-31Z-atlas.json: cycle C-313, gi 0.82, mode green, source kv, 13 elevated anomalies, kv_keys present for core GI/signal/vault keys, seed_result 200 OK, sustain_eligible true."
+    },
+    {
+      "check": "integrity_source_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status: source kv (not mock); gi_provenance kv-live; degraded true; global_integrity 0.75; mode yellow; gi_verified false; cycle C-313; terminal_status stressed."
+    },
+    {
+      "check": "signals_micro_cross_check",
+      "result": "warn",
+      "detail": "GET /api/signals/micro: composite/gi 0.634, errors 11, instrumentCount 40; micro payload cycle C-306 vs integrity-status cycle C-313 — treat micro cycle label as possibly stale. Each ATLAS-named anomaly lane remains elevated or hard-error in the live instrument list (persistent upstream degradation)."
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "GI headline conflict: catalog heartbeat gi 0.82 and mode green vs live micro composite 0.634 vs KV integrity global_integrity 0.75 mode yellow — operator must not treat a single scalar as authoritative without reconciling source and freshness."
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates returned count 0 — no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "fail",
+      "detail": "POST /api/vault/attest returned HTTP 404 (HTML shell); quorum_status not returned — C-298 attestation route absent on deployed surface."
+    },
+    {
+      "check": "agents_journal_post",
+      "result": "fail",
+      "detail": "POST /api/agents/journal returned HTTP 502 with error github_403; mirrored_to_kv false — substrate/GitHub mirror blocked this pass."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog snapshot with KV integrity-status and a fresh micro sweep before trusting mode/gi; persistent third-party failures dominate. Deploy or repair POST /api/vault/attest for quorum. Restore GitHub credentials for agent journal canonization."
+}
