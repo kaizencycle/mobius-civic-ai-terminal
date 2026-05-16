@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-05-16T00:04:26Z",
+  "agent": "ZEUS",
+  "cycle": "C-312",
+  "verification_status": "inconclusive",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "ArXiv new submissions": "resolved",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "findings": [
+    {
+      "check": "atlas_heartbeat_source",
+      "result": "pass",
+      "detail": "Latest catalog ATLAS heartbeat docs/catalog/heartbeats/2026-05-15T23-07-02Z-atlas.json: source live, seed_result 200 OK, sustain_eligible false."
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "integrity-status source='kv' (not mock); gi_provenance kv-live; global_integrity 0.81 vs catalog ATLAS GI 0.75 — timing/aggregation delta."
+    },
+    {
+      "check": "signals_micro_cross_check",
+      "result": "pass",
+      "detail": "Live micro confirms elevated severities for ATLAS-flagged instruments; ArXiv nominal in micro vs elevated in catalog sweep — transient catalog drift."
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "No pending-verification candidates; no candidates, verification skipped."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "fail",
+      "detail": "POST /api/vault/attest returned HTTP 404; quorum_status not recorded."
+    },
+    {
+      "check": "agents_journal_post",
+      "result": "fail",
+      "detail": "POST /api/agents/journal returned HTTP 502 github_403; mirrored_to_kv false."
+    }
+  ],
+  "recommendation": "Data-plane errors remain structural; treat GI as KV-backed but compare sweeps. Restore vault attest route and GitHub substrate mirror for ZEUS journal and quorum seal path."
+}
