@@ -4,7 +4,7 @@
   "cycle": "C-313",
   "gi": 0.745,
   "mode": "yellow",
-  "source": "live",
+  "source": "kv",
   "anomalies": [
     { "label": "OpenAQ air quality", "severity": "elevated" },
     { "label": "NWS API health", "severity": "elevated" },
