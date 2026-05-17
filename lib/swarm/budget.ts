@@ -85,8 +85,10 @@ export async function recordSpend(tierCosts: number[]): Promise<BudgetState> {
 }
 
 export function dailyLimitUsd(): number {
-  const raw = parseFloat(process.env.DAILY_LLM_BUDGET_USD ?? '0.50');
-  return Number.isFinite(raw) && raw > 0 ? raw : 0.5;
+  const raw = parseFloat(
+    process.env.SWARM_DAILY_BUDGET_USD ?? process.env.DAILY_LLM_BUDGET_USD ?? '1.0',
+  );
+  return Number.isFinite(raw) && raw > 0 ? raw : 1.0;
 }
 
 export function tierCostUsd(tier: number): number {

@@ -383,7 +383,7 @@ export async function pollHermesU3(): Promise<AgentPollResult> {
     for (const q of queries) {
       const url =
         `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(q)}&mode=artlist&maxrecords=8&format=json&timespan=${span}`;
-      const meta = await safeFetchWithMeta<{ articles?: unknown[] }>(url, 12000);
+      const meta = await safeFetchWithMeta<{ articles?: unknown[] }>(url, 6000);
       lastMeta = meta;
       if (meta.ok && meta.data) {
         n += meta.data.articles?.length ?? 0;
@@ -458,7 +458,7 @@ export async function pollHermesU4(): Promise<AgentPollResult> {
     const url = `https://www.reddit.com/r/${sub}/hot.json?limit=8`;
     const meta = await safeFetchWithMeta<{ data?: { children?: Array<{ data?: { score?: number; title?: string } }> } }>(
       url,
-      12000,
+      6000,
       { headers: { ...UA_HEADERS, Accept: 'application/json' } },
     );
     lastStatus = meta.status;

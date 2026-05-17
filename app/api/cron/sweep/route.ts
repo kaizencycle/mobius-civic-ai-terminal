@@ -17,6 +17,35 @@ import { kvGet, kvSet, kvDel, KV_KEYS } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
+const ZEUS_LAST_RESOLVED_KEY = 'zeus:last-resolved-status';
+type ZeusSweepResult = 'pass' | 'fail' | 'inconclusive';
+
+async function runZeusVerificationSweep(origin: string): Promise<ZeusSweepResult> {
+  try {
+    const res = await fetch(`${origin}/api/agents/ledger-zeus?limit=50`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!res.ok) {
+      console.warn('[cron/sweep] ZEUS verification probe non-OK:', res.status);
+      return 'inconclusive';
+    }
+    const body = (await res.json()) as {
+      evaluated?: Array<{ zeus?: { zeus_verified?: boolean } }>;
+    };
+    const ev = body.evaluated;
+    if (!Array.isArray(ev) || ev.length === 0) {
+      return 'inconclusive';
+    }
+    const allPass = ev.every((row) => row.zeus?.zeus_verified === true);
+    if (allPass) return 'pass';
+    return 'fail';
+  } catch (err) {
+    console.warn('[cron/sweep] ZEUS verification error — inconclusive', err);
+    return 'inconclusive';
+  }
+}
+
 async function run(req: NextRequest) {
   const authErr = getEveSynthesisAuthError(req);
   if (authErr) return authErr;
@@ -44,6 +73,15 @@ async function run(req: NextRequest) {
     const gi = typeof data.composite === 'number' && Number.isFinite(data.composite)
       ? data.composite
       : null;
+
+    const zeusRaw = await runZeusVerificationSweep(req.nextUrl.origin);
+    let zeusResolved: ZeusSweepResult = zeusRaw;
+    if (zeusRaw === 'inconclusive') {
+      const prior = await kvGet<ZeusSweepResult>(ZEUS_LAST_RESOLVED_KEY);
+      zeusResolved = prior ?? 'inconclusive';
+    } else {
+      await kvSet(ZEUS_LAST_RESOLVED_KEY, zeusRaw, 14 * 24 * 3600).catch(() => {});
+    }
 
     let cycle: string;
     try {
@@ -114,6 +152,8 @@ async function run(req: NextRequest) {
       source: 'cron-sweep',
       timestamp: new Date().toISOString(),
       composite: data.composite,
+      zeus_verification: zeusRaw,
+      zeus_verification_resolved: zeusResolved,
       instrumentCount: data.instrumentCount ?? null,
       cycle,
       sustain: sustainResult
