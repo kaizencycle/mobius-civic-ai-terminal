@@ -1,5 +1,6 @@
 'use client';
 
+import { ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { JournalFeed } from '@/components/journal/JournalFeed';
 import { JournalHeader } from '@/components/journal/JournalHeader';
@@ -437,8 +438,12 @@ export default function JournalPageClient() {
         </>
       )}
 
-      <details className="mt-6 rounded-xl border border-slate-800 bg-slate-950/40 dark:border-slate-700">
-        <summary className="cursor-pointer select-none px-4 py-3 text-xs text-slate-500 hover:text-slate-400">
+      <details className="group mt-6 rounded-xl border border-slate-800 bg-slate-950/40 dark:border-slate-700">
+        <summary className="flex cursor-pointer list-none select-none items-center gap-2 px-4 py-3 text-xs text-slate-500 hover:text-slate-400 [&::-webkit-details-marker]:hidden">
+          <ChevronRight
+            aria-hidden
+            className="h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform duration-200 ease-out group-open:rotate-90"
+          />
           Pipeline & operator controls
         </summary>
         <div className="space-y-4 border-t border-slate-800 px-4 pb-4 pt-3 dark:border-slate-800">
