@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-05-17T03:09:56Z",
+  "agent": "AUREA",
+  "cycle": "C-313",
+  "gi_final": 0.83,
+  "gi_mode": "green",
+  "gi_source": "mock",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.766,
+  "financial_score": 0.663,
+  "environ_score": 0.853,
+  "civic_score": 0.783,
+  "event_count_24h": 4,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 4,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed C-313 in green posture at GI 0.83, but the integrity headline is still sourced from mock while the 24-hour heartbeat band ranged from 0.63 to 0.92. The ledger registered 4 events, all in ZEUS verification, while institutional remained the strongest visible domain signal at 0.866 and the micro lane carried 11 error-state instruments. ZEUS remains inconclusive and the vault quorum path is still unregistered for this cycle. Forward signal: watch infrastructure resilience and quorum registration for confirmation or further drift in the next cycle.",
+  "forward_signal": "Watch infrastructure resilience and quorum registration for confirmation or further drift in the next cycle.",
+  "zeus_status": "inconclusive",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "NASA EONET natural events",
+    "OpenAQ air quality",
+    "NWS API health",
+    "ArXiv new submissions",
+    "data.gov dataset freshness",
+    "UN Data API availability",
+    "OECD stats API health",
+    "Cloudflare Radar BGP health",
+    "Fastly CDN status",
+    "Certificate transparency log health",
+    "FRED economic data health"
+  ],
+  "quorum_attested": false
+}
