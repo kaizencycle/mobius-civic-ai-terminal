@@ -37,6 +37,8 @@ export interface MicroAgentSweepResult {
   agents: AgentPollResult[];
   allSignals: MicroSignal[];
   composite: number;
+  /** Agents that contributed a numeric slice to `composite` (C-314: excludes failed / empty polls). */
+  compositeContributorCount: number;
   anomalies: MicroSignal[];
   healthy: boolean;
   instrumentCount: number;
@@ -76,6 +78,10 @@ export async function pollAllMicroAgents(): Promise<MicroAgentSweepResult> {
       }
       continue;
     }
+    // C-314 FIX-7: do not average in "0" scores from failed / unhealthy polls — exclude them.
+    if (!agent.healthy || agent.errors.length > 0) {
+      continue;
+    }
     if (agent.signals.length === 0) {
       compositeParts.push(0.5);
       continue;
@@ -88,7 +94,7 @@ export async function pollAllMicroAgents(): Promise<MicroAgentSweepResult> {
   const composite =
     compositeParts.length > 0
       ? Number((compositeParts.reduce((sum, value) => sum + value, 0) / compositeParts.length).toFixed(3))
-      : 0.5;
+      : 0.75;
 
   const anomalies = allSignals.filter((s) => s.severity === 'elevated' || s.severity === 'critical');
 
@@ -97,6 +103,7 @@ export async function pollAllMicroAgents(): Promise<MicroAgentSweepResult> {
     agents,
     allSignals,
     composite,
+    compositeContributorCount: compositeParts.length,
     anomalies,
     healthy: agents.some((a) => a.healthy),
     instrumentCount: ALL_INSTRUMENT_POLLS.length,

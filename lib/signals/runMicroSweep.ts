@@ -6,6 +6,7 @@ import { pollAllMicroAgents } from '@/lib/agents/micro';
 import {
   saveSignalSnapshot,
   isRedisAvailable,
+  kvGet,
   kvSet,
   KV_KEYS,
   KV_TTL_SECONDS,
@@ -18,6 +19,8 @@ import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 
 let lastLedgerPushMs = 0;
 const LEDGER_PUSH_INTERVAL_MS = 10 * 60 * 1000;
+/** C-314 FIX-7: when no micro agents contribute, carry forward last valid GI instead of a synthetic floor. */
+const GI_LAST_VALID_KEY = 'gi:last-valid';
 
 export type MicroSweepResult = Awaited<ReturnType<typeof pollAllMicroAgents>>;
 
@@ -25,7 +28,17 @@ export type MicroSweepResult = Awaited<ReturnType<typeof pollAllMicroAgents>>;
  * Runs full instrument poll and persists GI, signals, heartbeat, system pulse, sustain.
  */
 export async function runMicroSweepPipeline(now = Date.now()): Promise<MicroSweepResult> {
-  const result = await pollAllMicroAgents();
+  const polled = await pollAllMicroAgents();
+
+  let composite = polled.composite;
+  if (isRedisAvailable() && polled.compositeContributorCount === 0) {
+    const last = await kvGet<number>(GI_LAST_VALID_KEY);
+    if (typeof last === 'number' && Number.isFinite(last)) {
+      composite = Math.max(0, Math.min(1, last));
+    }
+  }
+
+  const result: MicroSweepResult = { ...polled, composite };
 
   const signalQuality =
     result.allSignals.length > 0
@@ -46,10 +59,19 @@ export async function runMicroSweepPipeline(now = Date.now()): Promise<MicroSwee
       gi_verification_method = `multi-source-consensus(${withinBand.length}/${highConf.length})`;
     }
   }
-  await saveGiStateFromMicroSweep({ composite: result.composite, signalQuality, preloadedGi: preGi, gi_verified, gi_verification_method });
+  await saveGiStateFromMicroSweep({
+    composite: result.composite,
+    signalQuality,
+    preloadedGi: preGi,
+    gi_verified,
+    gi_verification_method,
+  });
   await updateSustainTrackingFromGi(result.composite);
 
   if (isRedisAvailable()) {
+    if (result.compositeContributorCount > 0) {
+      void kvSet(GI_LAST_VALID_KEY, result.composite, 7 * 24 * 3600).catch(() => {});
+    }
     await saveSignalSnapshot({
       composite: result.composite,
       anomalies: result.anomalies?.length ?? 0,
