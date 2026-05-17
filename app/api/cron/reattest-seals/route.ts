@@ -24,10 +24,46 @@ import { backAttestSeal, buildBackAttestRationale } from '@/lib/vault-v2/back-at
 import { attestReserveBlockToSubstrate, dequeueSubstrateRetry } from '@/lib/vault-v2/substrate-attestation';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
-import { kvGet, kvSet } from '@/lib/kv/store';
+import { kvGet, kvSet, kvDel } from '@/lib/kv/store';
 import type { Seal } from '@/lib/vault-v2/types';
 
 export const dynamic = 'force-dynamic';
+
+// C-314 T-07: one-time KV reset for seals that looped before TERMINAL_REGISTRATION was fixed.
+const LEGACY_STUCK_SEALS = [
+  'seal-C-288-001',
+  'seal-C-292-001',
+  'seal-C-293-001',
+  'seal-C-294-001',
+  'seal-C-295-001',
+  'seal-C-296-001',
+  'seal-C-297-001',
+  'seal-C-298-001',
+] as const;
+const C314_REATTEST_MIGRATION_KEY = 'reattest:c314-migration-done';
+
+async function runLegacySealMigration(allSeals: Seal[]): Promise<void> {
+  const done = await kvGet<boolean>(C314_REATTEST_MIGRATION_KEY);
+  if (done) return;
+
+  console.info('[reattest-seals] C-314 migration: clearing stuck quarantine / reattest KV for legacy seal IDs');
+  for (const sealId of LEGACY_STUCK_SEALS) {
+    await kvDel(`seal:${sealId}:reattest_attempts`).catch(() => {});
+    await kvDel(`seal:${sealId}:reattest_last_attempt`).catch(() => {});
+    const seal = allSeals.find((s) => s.seal_id === sealId);
+    if (seal && seal.status === 'permanently-failed') {
+      await writeSeal({
+        ...seal,
+        status: 'quarantined',
+        substrate_attestation_error: null,
+      }).catch((e) => {
+        console.warn(`[reattest-seals] migration: could not reset seal ${sealId}`, e);
+      });
+    }
+    console.info(`[reattest-seals] migration reset keys for ${sealId}`);
+  }
+  await kvSet(C314_REATTEST_MIGRATION_KEY, true, 365 * 24 * 3600).catch(() => {});
+}
 
 // Max reattest attempts before a seal is marked permanently-failed (prevents infinite loops).
 // At 1h cron cadence, 12 attempts ≈ 12 hours of retries before giving up.
@@ -160,6 +196,13 @@ export async function GET(req: NextRequest) {
       ok: false,
       error: `listAllSeals failed: ${e instanceof Error ? e.message : String(e)}`,
     }, { status: 500 });
+  }
+
+  await runLegacySealMigration(allSeals);
+  try {
+    allSeals = await listAllSeals(200);
+  } catch {
+    // keep prior list if refresh fails
   }
 
   const quarantined = allSeals.filter((s) => s.status === 'quarantined');

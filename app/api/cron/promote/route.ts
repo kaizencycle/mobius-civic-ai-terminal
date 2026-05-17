@@ -21,7 +21,24 @@ export async function GET(request: NextRequest) {
   if (authError) return authError;
 
   const origin = request.nextUrl.origin;
-  const authHeader = serviceAuthorizationHeaderValue();
+  // C-314 T-03: /api/epicon/promote validates SUBSTRATE_TOKEN (or CRON_SECRET) when configured.
+  // Prefer SUBSTRATE_TOKEN for this internal hop so we never send MOBIUS_SERVICE_SECRET and get 401.
+  const substrate = process.env.SUBSTRATE_TOKEN?.trim();
+  const cronOnly = process.env.CRON_SECRET?.trim();
+  const bearerMaterial = (() => {
+    if (substrate) {
+      const m = /^Bearer\s+(.+)$/i.exec(substrate);
+      return (m ? m[1] : substrate).trim();
+    }
+    if (cronOnly) {
+      const m = /^Bearer\s+(.+)$/i.exec(cronOnly);
+      return (m ? m[1] : cronOnly).trim();
+    }
+    return null;
+  })();
+  const authHeader = bearerMaterial
+    ? `Bearer ${bearerMaterial}`
+    : serviceAuthorizationHeaderValue();
 
   try {
     // FIX-507-02: write heartbeat unconditionally so promotion-status never shows stale

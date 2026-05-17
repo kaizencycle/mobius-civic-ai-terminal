@@ -88,10 +88,19 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const substrateWriteTarget =
+    process.env.JOURNAL_CANON_SUBSTRATE_TARGET ??
+    process.env.SUBSTRATE_GITHUB_REPO ??
+    process.env.GITHUB_REPO_URL ??
+    null;
+  const substrateConfigured = Boolean(substrateWriteTarget);
+  const githubToken = Boolean(process.env.SUBSTRATE_GITHUB_TOKEN?.trim() || process.env.GITHUB_TOKEN?.trim());
+  const github_direct_write_configured = !substrateConfigured && githubToken;
+
   console.log('[journal-canonize] running', {
     substrate_target: target.ledgerBase,
-    substrate_configured: true,
-    github_direct_write_configured: Boolean(process.env.SUBSTRATE_GITHUB_TOKEN),
+    substrate_configured: substrateConfigured,
+    github_direct_write_configured,
   });
 
   void ensureRetryQueueExists();

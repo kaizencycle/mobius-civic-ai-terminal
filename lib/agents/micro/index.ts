@@ -10,25 +10,26 @@ export { pollDaedalus, DAEDALUS_CONFIG } from './daedalus';
 export { ALL_INSTRUMENT_POLLS } from './instrument-polls';
 
 import { type AgentPollResult, type MicroSignal } from './core';
-import { pollGaia } from './gaia';
-import { pollHermes } from './hermes';
-import { pollThemis } from './themis';
-import { pollDaedalus } from './daedalus';
 import { ALL_INSTRUMENT_POLLS } from './instrument-polls';
 
-function normalizeHermesFallback(signal: MicroSignal | undefined, agentName: string): MicroSignal {
-  if (!signal || signal.value === 0) {
-    return {
-      agentName,
-      source: 'fallback · narrative neutral',
-      timestamp: new Date().toISOString(),
-      value: 0.5,
-      label: `${agentName}: fallback neutral (no live signal)`,
-      severity: 'nominal',
-      raw: { fallback: true },
-    };
+function computeHermesU34Gi(agent: AgentPollResult): number | null {
+  if (!agent.healthy || agent.errors.length > 0) {
+    return null;
   }
-  return signal;
+  if (agent.signals.length === 0) {
+    return null;
+  }
+  const s = agent.signals[0]!;
+  const raw = s.raw as { httpOk?: boolean; quietContext?: boolean; structuralEmpty?: boolean } | undefined;
+  if (raw && raw.httpOk === false && s.value === 0) {
+    return null;
+  }
+  if (raw && raw.structuralEmpty === true && s.value === 0) {
+    return null;
+  }
+  return Number(
+    (agent.signals.reduce((sum, signal) => sum + signal.value, 0) / agent.signals.length).toFixed(3),
+  );
 }
 
 export interface MicroAgentSweepResult {
@@ -61,26 +62,32 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
 export async function pollAllMicroAgents(): Promise<MicroAgentSweepResult> {
   const results = await mapLimit(ALL_INSTRUMENT_POLLS, CONCURRENCY, (poll) => poll());
 
-  const agents: AgentPollResult[] = results.map((agent) => {
-    if (agent.agentName.startsWith('HERMES-µ3') || agent.agentName.startsWith('HERMES-µ4')) {
-      return {
-        ...agent,
-        signals: [normalizeHermesFallback(agent.signals[0], agent.agentName)],
-      };
-    }
-    return agent;
-  });
+  const agents: AgentPollResult[] = results;
 
   const allSignals = agents.flatMap((a) => a.signals);
 
-  const compositeByAgent = agents.map((agent) => {
-    if (agent.signals.length === 0) return 0.5;
-    return Number((agent.signals.reduce((sum, signal) => sum + signal.value, 0) / agent.signals.length).toFixed(3));
-  });
+  const compositeParts: number[] = [];
+  for (const agent of agents) {
+    const isHermesU34 = agent.agentName.startsWith('HERMES-µ3') || agent.agentName.startsWith('HERMES-µ4');
+    if (isHermesU34) {
+      const h = computeHermesU34Gi(agent);
+      if (h !== null) {
+        compositeParts.push(h);
+      }
+      continue;
+    }
+    if (agent.signals.length === 0) {
+      compositeParts.push(0.5);
+      continue;
+    }
+    compositeParts.push(
+      Number((agent.signals.reduce((sum, signal) => sum + signal.value, 0) / agent.signals.length).toFixed(3)),
+    );
+  }
 
   const composite =
-    compositeByAgent.length > 0
-      ? Number((compositeByAgent.reduce((sum, value) => sum + value, 0) / compositeByAgent.length).toFixed(3))
+    compositeParts.length > 0
+      ? Number((compositeParts.reduce((sum, value) => sum + value, 0) / compositeParts.length).toFixed(3))
       : 0.5;
 
   const anomalies = allSignals.filter((s) => s.severity === 'elevated' || s.severity === 'critical');

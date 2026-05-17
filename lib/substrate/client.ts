@@ -1,3 +1,5 @@
+import { TERMINAL_REGISTRATION } from '@/lib/ledger';
+
 export type SubstrateServiceKey = 'ledger' | 'gi' | 'mic' | 'broker' | 'oaa';
 
 export type SubstrateServiceStatus = {
@@ -149,13 +151,8 @@ function resolveSubstrateLedgerUrl(): string {
  */
 export function getTerminalRegistration(): { terminal_id: string; api_base: string } {
   return {
-    terminal_id: process.env.TERMINAL_ID ?? 'mobius-civic-ai-terminal',
-    api_base: (
-      process.env.TERMINAL_API_BASE ??
-      process.env.NEXT_PUBLIC_TERMINAL_URL ??
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      'https://mobius-civic-ai-terminal.vercel.app'
-    ).replace(/\/+$/, ''),
+    terminal_id: TERMINAL_REGISTRATION.terminal_id,
+    api_base: TERMINAL_REGISTRATION.api_base,
   };
 }
 
@@ -276,24 +273,16 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
   const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
   const attestTimestamp = new Date().toISOString();
   const ledgerLabSource = toLedgerLabSource(entry.source);
-  // FIX-506-02 / FIX-03: Render Civic Ledger requires terminal_base_url/api_base/terminal_id for routing.
-  // Without these fields Render rejects with {"detail":"No API base configured for terminal"}.
-  // Priority: TERMINAL_API_BASE > NEXT_PUBLIC_TERMINAL_URL > NEXT_PUBLIC_SITE_URL > hardcoded fallback.
-  const terminalBase = (
-    process.env.TERMINAL_API_BASE ??
-    process.env.NEXT_PUBLIC_TERMINAL_URL ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    'https://mobius-civic-ai-terminal.vercel.app'
-  ).replace(/\/+$/, '');
-  const terminalId = process.env.TERMINAL_ID ?? 'mobius-civic-ai-terminal';
+  // FIX-506-02 / C-314 T-04: terminal identity via TERMINAL_REGISTRATION (lib/ledger.ts).
+  const { terminal_id, api_base } = TERMINAL_REGISTRATION;
 
   const requestBody = {
     event_type: entry.category,
     civic_id: eventId,
     lab_source: ledgerLabSource,
-    terminal_base_url: terminalBase,
-    api_base: terminalBase,
-    terminal_id: terminalId,
+    terminal_base_url: api_base,
+    api_base,
+    terminal_id,
     payload: {
       event_id: eventId,
       title: entry.title,
