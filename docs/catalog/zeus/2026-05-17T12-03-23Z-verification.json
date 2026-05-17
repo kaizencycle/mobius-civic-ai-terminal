@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-05-17T12:03:23.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-314",
+  "verification_status": "inconclusive",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "NASA EONET natural events": "resolved",
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "ArXiv new submissions": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "FRED economic data health": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "findings": [
+    {
+      "check": "atlas_heartbeat_latest",
+      "result": "pass",
+      "detail": "Read docs/catalog/heartbeats/2026-05-17T11-09-14Z-atlas.json — gi=0.64 mode=yellow source=kv; 12 elevated anomaly labels; seed_result=200 OK; sustain_eligible=false; core kv_keys present (LEDGER_CIRCUIT_OPEN false)."
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "GET https://mobius-civic-ai-terminal.vercel.app/api/signals/micro 200 — gi=0.628 instrumentCount=40; 11 instruments source=error plus npm and Terminal self-ping at 0.3 stress. Micro payload cycle C-306 vs integrity/quorum C-314 (metadata drift)."
+    },
+    {
+      "check": "integrity_status",
+      "result": "warn",
+      "detail": "GET /api/integrity-status 200 — source kv (not mock); global_integrity 0.746 mode yellow degraded true terminal_status stressed; gi_verified false. Headline GI differs from ATLAS catalog gi 0.64 and from micro composite 0.628 — reconcile before treating any single scalar as authoritative."
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates 200 — count 0; no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "quorum_state_read",
+      "result": "pass",
+      "detail": "GET /api/quorum/state 200 — state_machine.quorum_state substrate_pending; integrity.source kv-live; supplemental read for operator context."
+    },
+    {
+      "check": "vault_attest_c298",
+      "result": "fail",
+      "detail": "POST /api/vault/attest returned HTTP 404 (HTML not-found); quorum_status not returned — route not present on deployed surface."
+    },
+    {
+      "check": "agent_journal",
+      "result": "fail",
+      "detail": "POST /api/agents/journal returned HTTP 502 with github_403 — substrate canon write blocked; mirrored_to_kv false."
+    }
+  ],
+  "recommendation": "Treat external instrument failures as persistent until upstream recovery; NASA EONET recovered versus the prior ATLAS snapshot. Reconcile ATLAS catalog gi, KV integrity-status, and live micro composite; fix micro sweep cycle field drift (C-306 vs C-314). Deploy or alias POST /api/vault/attest for C-298 quorum registration. Restore GitHub credentials/permissions for agent journal substrate writes."
+}
