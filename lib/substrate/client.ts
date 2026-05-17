@@ -354,6 +354,12 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
     }
     const data = (await res.json()) as { id?: string; event_id?: string };
     const entryId = data.event_id ?? data.id ?? eventId;
+    console.info('[substrate] ledger attest confirmed', {
+      civic_id: requestBody.civic_id,
+      entry_id: entryId,
+      terminal_id,
+      api_base: api_base,
+    });
     void markSubmitted(entryId);
 
     const MIC_URL = (process.env.MIC_WALLET_URL ?? process.env.RENDER_MIC_URL ?? '').trim();

@@ -30,6 +30,7 @@ import {
   getInProgressBalance,
   listAllSeals,
   listSeals,
+  writeSeal,
 } from '@/lib/vault-v2/store';
 import { evaluateQuorum, finalizeSeal, injectTimeouts } from '@/lib/vault-v2/seal';
 import { tryFormNextCandidate } from '@/lib/vault-v2/deposit';
@@ -57,6 +58,8 @@ export const dynamic = 'force-dynamic';
 // double-trigger (sweeper + cron) doesn't cause redundant Render round-trips.
 const MIN_RUN_INTERVAL_MS = 4 * 60 * 1000;
 const VAULT_ATTEST_LAST_RUN_KEY = 'vault-attestation:lastRun';
+const SUBSTRATE_FIX_C314_KEY = 'reattest:substrate-fix-c314-done';
+const FOUNTAIN_SWEEP_C314_KEY = 'vault:fountain-sweep-c314-done';
 
 type CandidateState =
   | 'none'
@@ -95,6 +98,8 @@ type Report = {
   seals_quarantined_total: number;
   quarantined_needing_reattestation: QuarantinedSealDigest[];
   fountain_pending_count: number;
+  /** C-314: one-time sweep pending → activating after substrate repair. */
+  fountain_c314_sweep: { transitioned: number; skipped: string | null } | null;
   errors: string[];
 };
 
@@ -106,6 +111,51 @@ function readAttestationConfidence(attestation: unknown): number {
   const maybe = attestation as { confidence?: unknown } | null;
   const confidence = typeof maybe?.confidence === 'number' ? maybe.confidence : 0.75;
   return Math.max(0, Math.min(1, confidence));
+}
+
+function sealHasCompleteQuorum(seal: Seal): boolean {
+  return SENTINEL_AGENTS.every((agent) => Boolean(seal.attestations[agent]));
+}
+
+/**
+ * C-314 FIX-5: after substrate burst marks complete, advance fountain from `pending`
+ * to `activating` for attested seals that now have a valid substrate pointer.
+ */
+async function runFountainSweepC314(): Promise<{ transitioned: number; skipped: string | null }> {
+  const done = await kvGet<boolean>(FOUNTAIN_SWEEP_C314_KEY);
+  if (done) {
+    return { transitioned: 0, skipped: 'already_done' };
+  }
+
+  const substrateDone = await kvGet<boolean>(SUBSTRATE_FIX_C314_KEY);
+  if (!substrateDone) {
+    console.info('[vault-attestation] C-314 fountain sweep deferred — substrate burst not complete');
+    return { transitioned: 0, skipped: 'substrate_incomplete' };
+  }
+
+  const seals = await listAllSeals(500);
+  let transitioned = 0;
+
+  for (const seal of seals) {
+    if (seal.status !== 'attested') continue;
+    if (seal.fountain_status !== 'pending') continue;
+    if (!seal.substrate_attestation_id || !seal.substrate_event_hash) continue;
+    if (seal.substrate_attestation_error) continue;
+    if (!sealHasCompleteQuorum(seal)) continue;
+
+    await writeSeal({
+      ...seal,
+      fountain_status: 'activating',
+    });
+    transitioned += 1;
+  }
+
+  const setOk = await kvSet(FOUNTAIN_SWEEP_C314_KEY, true, 365 * 24 * 3600);
+  if (!setOk) {
+    console.error('[vault-attestation] C-314 fountain sweep: could not persist completion key');
+  }
+  console.info('[vault-attestation] C-314 fountain sweep complete', { transitioned });
+  return { transitioned, skipped: null };
 }
 
 export async function GET(req: NextRequest) {
@@ -303,6 +353,7 @@ export async function GET(req: NextRequest) {
   // The idle fast-path now only skips the fountain/attested count reads; the
   // quarantined-seal scan always runs so back-attestation can clear the backlog.
   let fountain_pending_count = 0;
+  let fountain_c314_sweep: Report['fountain_c314_sweep'] = null;
   let seals_total = 0;
   let seals_attested_total = 0;
   let seals_audit_total = 0;
@@ -321,7 +372,7 @@ export async function GET(req: NextRequest) {
 
     try {
       // allSeals always fetched so quarantined back-attestation runs even when idle.
-      const allSeals = await listAllSeals(200);
+      const allSeals = await listAllSeals(500);
       const quarantined = allSeals.filter((s: Seal) => s.status === 'quarantined');
       seals_quarantined_total = quarantined.length;
       quarantined_needing_reattestation = quarantined.map((s: Seal) => ({
@@ -333,7 +384,7 @@ export async function GET(req: NextRequest) {
       // Full attested/fountain counts only when not idle (KV read budget).
       if (shouldScanAll) {
         const [seals, attestedCount, auditCount] = await Promise.all([
-          listSeals(200),
+          listSeals(500),
           countSeals(),
           countAllSeals(),
         ]);
@@ -382,6 +433,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  try {
+    fountain_c314_sweep = await runFountainSweepC314();
+  } catch (e) {
+    errors.push(`fountain-sweep-c314: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
   const report: Report = {
     ok: errors.length === 0,
     at: new Date().toISOString(),
@@ -403,6 +460,7 @@ export async function GET(req: NextRequest) {
     seals_quarantined_total,
     quarantined_needing_reattestation,
     fountain_pending_count,
+    fountain_c314_sweep,
     errors,
   };
 
