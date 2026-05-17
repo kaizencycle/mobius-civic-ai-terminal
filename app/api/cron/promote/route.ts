@@ -9,7 +9,7 @@
  * to bypass Bearer check (same pattern as /api/eve/cycle-synthesize).
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { getEveSynthesisAuthError, serviceAuthorizationHeaderValue } from '@/lib/security/serviceAuth';
+import { getEveSynthesisAuthError, serviceAuthorizationHeaderValue, normalizeServiceSecretMaterial } from '@/lib/security/serviceAuth';
 import { kvSet, kvGet } from '@/lib/kv/store';
 
 const PROMOTE_FAIL_KEY = 'watchdog:promote-fail-count';
@@ -21,24 +21,16 @@ export async function GET(request: NextRequest) {
   if (authError) return authError;
 
   const origin = request.nextUrl.origin;
-  // C-314 T-03: /api/epicon/promote validates SUBSTRATE_TOKEN (or CRON_SECRET) when configured.
-  // Prefer SUBSTRATE_TOKEN for this internal hop so we never send MOBIUS_SERVICE_SECRET and get 401.
-  const substrate = process.env.SUBSTRATE_TOKEN?.trim();
-  const cronOnly = process.env.CRON_SECRET?.trim();
-  const bearerMaterial = (() => {
-    if (substrate) {
-      const m = /^Bearer\s+(.+)$/i.exec(substrate);
-      return (m ? m[1] : substrate).trim();
-    }
-    if (cronOnly) {
-      const m = /^Bearer\s+(.+)$/i.exec(cronOnly);
-      return (m ? m[1] : cronOnly).trim();
-    }
-    return null;
-  })();
-  const authHeader = bearerMaterial
-    ? `Bearer ${bearerMaterial}`
-    : serviceAuthorizationHeaderValue();
+  // C-314 T-03: /api/epicon/promote compares normalized SUBSTRATE_TOKEN / CRON_SECRET material
+  // (see normalizeServiceSecretMaterial) so env may include optional Bearer prefix or quotes.
+  const substrateMat = normalizeServiceSecretMaterial(process.env.SUBSTRATE_TOKEN);
+  const cronMat = normalizeServiceSecretMaterial(process.env.CRON_SECRET);
+  const authHeader =
+    substrateMat !== null
+      ? `Bearer ${substrateMat}`
+      : cronMat !== null
+        ? `Bearer ${cronMat}`
+        : serviceAuthorizationHeaderValue();
 
   try {
     // FIX-507-02: write heartbeat unconditionally so promotion-status never shows stale
