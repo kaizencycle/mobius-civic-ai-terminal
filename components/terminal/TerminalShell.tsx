@@ -38,6 +38,7 @@ function runtimeBadgeClass(runtime: 'online' | 'degraded' | 'offline') {
 export default function TerminalShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const currentPath = pathname ?? '';
+  const flowSpineSuppressed = currentPath.startsWith('/terminal/journal');
   const [clock, setClock] = useState('—');
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
   const [showDataflowCommand, setShowDataflowCommand] = useState(true);
@@ -138,9 +139,18 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
         <div className="flex items-center justify-between gap-1.5 md:gap-2">
           <ChamberSwitcher />
           <div className="flex shrink-0 items-center gap-1.5">
-            <button type="button" onClick={() => setShowDataflowCommand((current) => !current)} className={cn('rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.12em] md:px-2 md:py-1 md:text-[10px]', showDataflowCommand ? 'border-violet-500/60 text-violet-200' : 'border-slate-700 text-slate-400')}>
-              Flow
-            </button>
+            {!flowSpineSuppressed ? (
+              <button
+                type="button"
+                onClick={() => setShowDataflowCommand((current) => !current)}
+                className={cn(
+                  'rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.12em] md:px-2 md:py-1 md:text-[10px]',
+                  showDataflowCommand ? 'border-violet-500/60 text-violet-200' : 'border-slate-700 text-slate-400',
+                )}
+              >
+                Flow
+              </button>
+            ) : null}
             <button type="button" onClick={() => setShowLaneDiagnostics((current) => !current)} className={cn('rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.12em] md:px-2 md:py-1 md:text-[10px]', showLaneDiagnostics ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-700 text-slate-400')}>
               Lane diag
             </button>
@@ -150,7 +160,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
 
       <DegradedBanner memoryMode={null} />
 
-      <DataflowCommandSpine shell={shell} diagnostics={laneDiagnostics.data} visible={showDataflowCommand} />
+      <DataflowCommandSpine shell={shell} diagnostics={laneDiagnostics.data} visible={showDataflowCommand && !flowSpineSuppressed} />
 
       {showLaneDiagnostics ? (
         <div className="border-b border-slate-800 bg-slate-950/80 px-3 py-2 md:px-4">

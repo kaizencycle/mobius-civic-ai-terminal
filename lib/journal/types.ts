@@ -10,6 +10,8 @@ export type JournalDisplaySeverity = 'nominal' | 'elevated' | 'critical';
 export type JournalDisplayEntry = {
   id: string;
   agent: string;
+  /** Reader-facing headline; may be set by API from summary (C-314). */
+  title?: string;
   cycle?: string;
   category?: string;
   observation?: string;

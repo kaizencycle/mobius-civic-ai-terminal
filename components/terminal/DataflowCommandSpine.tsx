@@ -115,10 +115,12 @@ export default function DataflowCommandSpine({
   shell,
   diagnostics,
   visible,
+  compact = false,
 }: {
   shell: ShellSnapshot | null;
   diagnostics: LaneDiagnosticsPayload | null | undefined;
   visible: boolean;
+  compact?: boolean;
 }) {
   if (!visible) return null;
 
@@ -213,6 +215,32 @@ export default function DataflowCommandSpine({
   ];
 
   const packetMode = shell?.source === 'fallback' || diagnostics?.fallback ? 'preview/fallback' : shell ? 'live packet' : 'awaiting shell';
+
+  if (compact) {
+    return (
+      <section className="rounded-lg border border-slate-800/80 bg-slate-950/90 px-3 py-2.5" aria-label="Dataflow command compact">
+        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-slate-400">
+          <span className="text-slate-300">{shell?.cycle ?? 'C-—'}</span>
+          <span className="text-violet-300/90">{packetMode}</span>
+          <span>
+            journal {journalState === 'unknown' ? '—' : badgeLabel(journalState)}
+          </span>
+          <span>ledger {ledgerState === 'unknown' ? '—' : badgeLabel(ledgerState)}</span>
+          <span>tripwires {shell?.tripwire?.count ?? 0}</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {budgets.map((budget) => (
+            <div
+              key={`${budget.label}-${budget.agent}`}
+              className={cn('rounded border px-2 py-1 text-[9px] font-mono uppercase tracking-[0.1em]', flowBudgetClass(budget.state))}
+            >
+              {budget.label} · {budget.metric}
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="border-b border-cyan-950/60 bg-slate-950/85 px-3 py-2 md:px-4" aria-label="Dataflow command spine">
