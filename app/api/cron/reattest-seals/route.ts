@@ -24,7 +24,7 @@ import { backAttestSeal, buildBackAttestRationale } from '@/lib/vault-v2/back-at
 import { attestReserveBlockToSubstrate, dequeueSubstrateRetry } from '@/lib/vault-v2/substrate-attestation';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
-import { kvGet, kvSet, kvDel } from '@/lib/kv/store';
+import { kvGet, kvSet, kvDel, isRedisAvailable } from '@/lib/kv/store';
 import type { Seal } from '@/lib/vault-v2/types';
 
 export const dynamic = 'force-dynamic';
@@ -46,23 +46,49 @@ async function runLegacySealMigration(allSeals: Seal[]): Promise<void> {
   const done = await kvGet<boolean>(C314_REATTEST_MIGRATION_KEY);
   if (done) return;
 
+  if (!isRedisAvailable()) {
+    console.warn('[reattest-seals] C-314 migration deferred: KV not available');
+    return;
+  }
+
   console.info('[reattest-seals] C-314 migration: clearing stuck quarantine / reattest KV for legacy seal IDs');
+  let migrationOk = true;
+
   for (const sealId of LEGACY_STUCK_SEALS) {
-    await kvDel(`seal:${sealId}:reattest_attempts`).catch(() => {});
-    await kvDel(`seal:${sealId}:reattest_last_attempt`).catch(() => {});
+    const delAttempts = await kvDel(`seal:${sealId}:reattest_attempts`);
+    const delLast = await kvDel(`seal:${sealId}:reattest_last_attempt`);
+    if (!delAttempts || !delLast) {
+      migrationOk = false;
+      console.warn(`[reattest-seals] migration: KV delete incomplete for ${sealId} (reattest counters)`);
+    }
+
     const seal = allSeals.find((s) => s.seal_id === sealId);
     if (seal && seal.status === 'permanently-failed') {
-      await writeSeal({
-        ...seal,
-        status: 'quarantined',
-        substrate_attestation_error: null,
-      }).catch((e) => {
+      try {
+        await writeSeal({
+          ...seal,
+          status: 'quarantined',
+          substrate_attestation_error: null,
+        });
+      } catch (e) {
+        migrationOk = false;
         console.warn(`[reattest-seals] migration: could not reset seal ${sealId}`, e);
-      });
+      }
     }
+
     console.info(`[reattest-seals] migration reset keys for ${sealId}`);
   }
-  await kvSet(C314_REATTEST_MIGRATION_KEY, true, 365 * 24 * 3600).catch(() => {});
+
+  if (!migrationOk) {
+    console.warn('[reattest-seals] migration: not marking c314-migration-done — will retry on a future cron');
+    return;
+  }
+
+  const marked = await kvSet(C314_REATTEST_MIGRATION_KEY, true, 365 * 24 * 3600);
+  if (!marked) {
+    console.warn('[reattest-seals] migration: failed to persist c314-migration-done flag');
+    return;
+  }
 }
 
 // Max reattest attempts before a seal is marked permanently-failed (prevents infinite loops).

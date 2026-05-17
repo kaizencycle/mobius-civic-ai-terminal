@@ -14,7 +14,7 @@ type ServiceSecretName =
  * `serviceAuthorizationHeaderValue()` stay consistent when ops paste
  * `Bearer …` or quoted values into Vercel.
  */
-function normalizeServiceSecretMaterial(raw: string | undefined): string | null {
+export function normalizeServiceSecretMaterial(raw: string | undefined): string | null {
   if (typeof raw !== 'string') return null;
   let s = raw.trim();
   if (s.length === 0) return null;
