@@ -32,6 +32,18 @@ export async function GET(request: NextRequest) {
         ? `Bearer ${cronMat}`
         : serviceAuthorizationHeaderValue();
 
+  if (!authHeader) {
+    console.warn(
+      '[promote] skipped: no SUBSTRATE_TOKEN, CRON_SECRET, or outbound service bearer — configure env to run scheduled promotion',
+    );
+    return NextResponse.json({
+      ok: false,
+      skipped: true,
+      reason: 'no_promote_auth_material',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   try {
     // FIX-507-02: write heartbeat unconditionally so promotion-status never shows stale
     // when the promote fetch times out or returns a transient non-OK (Render cold-start).

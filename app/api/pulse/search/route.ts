@@ -58,7 +58,16 @@ export async function GET(req: NextRequest) {
       ]);
       const allKeys = [...new Set([...rawKeys, ...prefixedKeys])];
       const entries = await Promise.all(
-        allKeys.slice(0, 100).map(k => redis.get<Record<string, unknown>>(k))
+        allKeys.slice(0, 100).map(async (k) => {
+          try {
+            return await redis.get<Record<string, unknown>>(k);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes('WRONGTYPE')) return null;
+            console.warn('[pulse/search] KV journal key read failed:', k, err);
+            return null;
+          }
+        }),
       );
       for (const entry of entries) {
         if (!entry) continue;
