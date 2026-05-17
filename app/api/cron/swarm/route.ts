@@ -69,7 +69,7 @@ async function loadSwarmSignals(): Promise<SwarmSignals> {
     errors?: number;
     instrumentCount?: number;
     fallbacksUsed?: number;
-  }>('signals:micro:cache');
+  }>('signals:micro:cache:v2');
 
   const microData = (micro as { data?: { errors?: number; instrumentCount?: number; fallbacksUsed?: number } } | null)?.data ?? micro;
 

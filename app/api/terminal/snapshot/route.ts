@@ -34,7 +34,8 @@ export const dynamic = 'force-dynamic';
 // FIX-510-05: coalesce parallel snapshot requests — only one Render fan-out per 20s window.
 const SNAPSHOT_COALESCE_KEY = 'snapshot:coalesce';
 const SNAPSHOT_COALESCE_MS = 20_000;
-let snapshotInFlight: Promise<NextResponse> | null = null;
+/** Serialized snapshot bytes — each waiter builds its own `NextResponse` so body streams are never shared (fixes ERR_INVALID_STATE / locked stream). */
+let snapshotInFlight: Promise<{ status: number; body: string }> | null = null;
 let snapshotInFlightStarted = 0;
 
 // C-293 OPT-1: echo + promotion lanes persistently hit the 5s budget.
@@ -462,25 +463,45 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // Coalesce: if a build is already in flight, share it
+    // Coalesce: if a build is already in flight, await the same serialized payload (each caller gets a fresh Response)
     if (snapshotInFlight && now - snapshotInFlightStarted < SNAPSHOT_COALESCE_MS) {
-      return snapshotInFlight;
+      const { status, body } = await snapshotInFlight;
+      return new NextResponse(body, {
+        status,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=60',
+          'X-Mobius-Source': 'terminal-snapshot',
+          'X-Cache': 'COALESCE',
+        },
+      });
     }
 
     snapshotInFlightStarted = now;
-    snapshotInFlight = buildSnapshotResponse(request).then(async (res) => {
+    const work = (async (): Promise<{ status: number; body: string }> => {
       try {
-        const clone = res.clone();
-        const body = await clone.text();
-        kvSet(SNAPSHOT_COALESCE_KEY, { builtAt: now, body }, 25).catch(() => {});
-      } catch {
-        // non-fatal
+        const res = await buildSnapshotResponse(request);
+        const status = res.status;
+        const body = await res.text();
+        const builtAt = snapshotInFlightStarted;
+        void kvSet(SNAPSHOT_COALESCE_KEY, { builtAt, body }, 25).catch(() => {});
+        return { status, body };
+      } finally {
+        snapshotInFlight = null;
       }
-      snapshotInFlight = null;
-      return res;
-    });
+    })();
+    snapshotInFlight = work;
 
-    return snapshotInFlight;
+    const { status, body } = await work;
+    return new NextResponse(body, {
+      status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=60',
+        'X-Mobius-Source': 'terminal-snapshot',
+        'X-Cache': 'MISS',
+      },
+    });
   }
 
   return buildSnapshotResponse(request);

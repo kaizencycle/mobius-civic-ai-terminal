@@ -33,10 +33,16 @@ async function tryUrl(
     clearTimeout(timer);
     if (!res.ok) return null;
 
-    const ct = res.headers.get('content-type') ?? '';
-    const data = ct.includes('xml')
-      ? await res.text()
-      : await res.json().catch(() => res.text());
+    const ct = (res.headers.get('content-type') ?? '').toLowerCase();
+    const text = await res.text();
+    let data: unknown = text;
+    if (!ct.includes('xml') && !text.trimStart().startsWith('<')) {
+      try {
+        data = JSON.parse(text) as unknown;
+      } catch {
+        data = text;
+      }
+    }
 
     const raw = inst.normalize(data);
     const score = parseFloat(Math.min(Math.max(raw, 0), 1).toFixed(3));

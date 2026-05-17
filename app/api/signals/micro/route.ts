@@ -10,7 +10,7 @@ import { kvGet, kvSet } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
-const CACHE_KEY = 'signals:micro:cache';
+const CACHE_KEY = 'signals:micro:cache:v2';
 const CACHE_TTL_MS = 60_000;
 const CACHE_TTL_SEC = 90;
 

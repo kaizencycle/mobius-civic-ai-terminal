@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { useSignalsChamber } from '@/hooks/useSignalsChamber';
+import { INSTRUMENT_COUNT } from '@/lib/signals/registry';
 
 type SignalEntry = {
   agentName: string;
@@ -328,7 +329,14 @@ export default function SignalsPageClient() {
 
   if (loading && !data) return <ChamberSkeleton blocks={4} />;
 
-  const expected = payload.instrumentCount ?? agents.length;
+  const instrumentSlotsFilled =
+    Array.isArray(payload.instruments) && payload.instruments.length > 0
+      ? payload.instruments.length
+      : typeof payload.instrumentCount === 'number'
+        ? payload.instrumentCount
+        : 0;
+  const agentLanes = agents.length;
+  const sweepPartial = instrumentSlotsFilled > 0 && instrumentSlotsFilled < INSTRUMENT_COUNT;
   const sweepOk = payload.ok !== false && signalsLeaf?.ok !== false;
 
   return (
@@ -340,11 +348,22 @@ export default function SignalsPageClient() {
       ) : null}
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <div className="text-[11px] text-slate-400">
-          <span className="font-mono text-slate-200">{agents.length}</span>
-          {expected && agents.length !== expected ? (
-            <span className="text-amber-400/90"> / {expected} instruments</span>
-          ) : expected ? (
-            <span> micro instruments</span>
+          <span className="font-mono text-slate-200">{instrumentSlotsFilled}</span>
+          <span className="text-slate-500"> / {INSTRUMENT_COUNT}</span>
+          <span> instruments</span>
+          {agentLanes > 0 ? (
+            <span className="text-slate-600">
+              {' '}
+              · <span className="font-mono text-slate-400">{agentLanes}</span> agent lanes
+            </span>
+          ) : null}
+          {sweepPartial ? (
+            <span
+              className="ml-2 text-amber-400/90"
+              title="Fewer instruments than registry size — upstream timeouts, blocks, or KV cache from an older sweep shape"
+            >
+              · partial registry sweep
+            </span>
           ) : null}
           {typeof payload.composite === 'number' && sweepOk ? (
             <span className="ml-2 text-slate-500">· sweep composite {payload.composite.toFixed(3)}</span>
@@ -418,7 +437,7 @@ export default function SignalsPageClient() {
               <section className="rounded border border-slate-800 bg-slate-950/60 px-3 py-2">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
-                    Instrument grid · {payload.instruments.length}/40
+                    Instrument grid · {(payload.instruments?.length ?? instrumentSlotsFilled)} / {INSTRUMENT_COUNT}
                   </span>
                   <div className="flex gap-3 font-mono text-[9px] text-slate-600">
                     <span><span className="text-emerald-400">●</span> primary</span>
