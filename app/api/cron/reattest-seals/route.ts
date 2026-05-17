@@ -96,6 +96,11 @@ async function runLegacySealMigration(allSeals: Seal[]): Promise<void> {
   const done = await kvGet<boolean>(C314_REATTEST_MIGRATION_KEY);
   if (done) return;
 
+  if (!isRedisAvailable()) {
+    console.warn('[reattest-seals] C-314 migration deferred: KV not available');
+    return;
+  }
+
   console.info('[reattest-seals] C-314 migration: clearing stuck quarantine / reattest KV for legacy seal IDs');
   let migrationOk = true;
 
@@ -119,6 +124,7 @@ async function runLegacySealMigration(allSeals: Seal[]): Promise<void> {
         console.warn(`[reattest-seals] migration: could not reset seal ${sealId}`, e);
       }
     }
+
     console.info(`[reattest-seals] migration reset keys for ${sealId}`);
   }
 
