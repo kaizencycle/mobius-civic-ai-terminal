@@ -4,9 +4,9 @@
   "source": "snapshot-lite",
   "snapshot_schema_version": null,
   "cycle": "C-315",
-  "fetched_at": "2026-05-18T16:41:40.528Z",
-  "gi": 0.812,
-  "mode": "green",
+  "fetched_at": "2026-05-18T18:25:00.215Z",
+  "gi": 0.796,
+  "mode": "yellow",
   "degraded": false,
   "gi_provenance": "live-compute",
   "gi_verified": false,
@@ -16,7 +16,7 @@
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 34,
+    "total_ms": 68,
     "lane_ms": null
   }
 }
