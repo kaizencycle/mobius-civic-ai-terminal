@@ -44,10 +44,14 @@ const memoryMode =
       }
     : null;
 
+const snapshotSchemaVersion =
+  typeof snap.schema_version === 'string' && snap.schema_version.trim() ? snap.schema_version.trim() : null;
+
 const out = {
   schema: 'MOBIUS_CYCLE_STATE_V1',
   node_id: 'mobius-terminal',
   source: snap.lite === true ? 'snapshot-lite' : 'snapshot',
+  snapshot_schema_version: snapshotSchemaVersion,
   cycle,
   fetched_at: new Date().toISOString(),
   gi: typeof snap.gi === 'number' && Number.isFinite(snap.gi) ? snap.gi : null,
