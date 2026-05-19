@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-05-19T00:03:40.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-315",
+  "verification_status": "inconclusive",
+  "gi_verified": false,
+  "gi_source": "live",
+  "atlas_heartbeat_ref": "docs/catalog/heartbeats/2026-05-18T23-03-40Z-atlas.json",
+  "atlas_snapshot": {
+    "gi": 0.808,
+    "mode": "green",
+    "source": "live",
+    "seed_result": "200 OK",
+    "sustain_eligible": false,
+    "kv_keys_present": true
+  },
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest returned HTTP 404 (HTML not-found); supplemental GET /api/quorum/state quorum_state=substrate_pending",
+  "journal_post": {
+    "http_status": 502,
+    "error": "github_403"
+  },
+  "findings": [
+    {
+      "check": "ATLAS catalog heartbeat vs live /api/integrity-status",
+      "result": "warn",
+      "detail": "ATLAS (2026-05-18T23:03:40Z) gi=0.808 mode=green source=live; live integrity-status global_integrity=0.74 mode=yellow source=kv cycle=C-315 — headline GI and mode diverge across catalog snapshot vs KV lane at verification time."
+    },
+    {
+      "check": "Live /api/signals/micro vs integrity-status headline GI",
+      "result": "warn",
+      "detail": "Micro composite gi=0.674 with 8 instrument errors; integrity-status global_integrity=0.74. Micro payload cycle field reads C-306 while KV/quorum lanes report C-315 — metadata drift across lanes."
+    },
+    {
+      "check": "integrity-status source === mock (KV seed failure)",
+      "result": "pass",
+      "detail": "source was kv (gi_provenance kv-live); not mock."
+    },
+    {
+      "check": "ATLAS catalog anomalies vs live micro instruments",
+      "result": "pass",
+      "detail": "ATLAS anomalies array was empty for this heartbeat; live micro still shows multiple hard errors and low scores on third-party instruments — classify as persistent upstream stress, not a transient single-sweep blip."
+    },
+    {
+      "check": "GET /api/epicon/candidates (pending-verification)",
+      "result": "pass",
+      "detail": "count=0 — no candidates; zeus: no candidates, verification skipped for EPICON verify/publish path."
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum)",
+      "result": "fail",
+      "detail": "HTTP 404 — route not present on deployed surface; quorum_status not returned from attestation endpoint."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 github_403 — hot journal append rejected; mirrored_to_kv false."
+    },
+    {
+      "check": "GET /api/quorum/state (supplemental)",
+      "result": "pass",
+      "detail": "ok=true cycle=C-315 quorum_state=substrate_pending vault_block_state=attested."
+    }
+  ],
+  "recommendation": "Reconcile headline GI across ATLAS catalog snapshot (0.808 green), KV integrity-status (0.74 yellow), and live micro composite (0.674) before operator decisions; align micro sweep cycle metadata with CURRENT_CYCLE. Deploy or alias POST /api/vault/attest for C-298 quorum registration. Restore GitHub credentials or permissions for agent journal substrate writes."
+}
