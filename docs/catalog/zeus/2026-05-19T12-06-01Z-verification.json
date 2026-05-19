@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-05-19T12:06:01.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-316",
+  "verification_status": "inconclusive",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "findings": [
+    {
+      "check": "atlas_heartbeat_latest",
+      "result": "pass",
+      "detail": "Read docs/catalog/heartbeats/2026-05-19T11-11-32Z-atlas.json — gi=0.64 mode=yellow source=kv; 11 elevated anomaly labels; seed_result=200 OK; sustain_eligible=false; seed_attempted=true; kv_keys show ECHO lanes false, LEDGER_CIRCUIT_OPEN false."
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "GET https://mobius-civic-ai-terminal.vercel.app/api/signals/micro 200 — gi=0.664 instrumentCount=40; each ATLAS-flagged label still shows source=error or score=0.3 (elevated stress). Micro payload cycle field remains C-306 while integrity-status reports C-316 (metadata drift)."
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "GET /api/integrity-status 200 — source kv (not mock); global_integrity 0.64 matches ATLAS catalog gi; cycle C-316 aligned; gi_verified false in payload; terminal_status stressed degraded true."
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates 200 — count 0; no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_attest_c298",
+      "result": "fail",
+      "detail": "POST /api/vault/attest HTTP 404 (Next not-found HTML); quorum_status not returned — route absent on deployed surface."
+    },
+    {
+      "check": "agent_journal",
+      "result": "fail",
+      "detail": "POST /api/agents/journal HTTP 502 — body ok=false error=github_403 mirrored_to_kv=false; substrate canon write blocked."
+    }
+  ],
+  "recommendation": "External instrument failures matching ATLAS elevated set remain persistent at live micro poll. Treat KV GI 0.64 as aligned with ATLAS for this pass; micro composite 0.664 is slightly higher due to live weighting. Reconcile micro sweep cycle field (C-306) with integrity cycle (C-316). Deploy POST /api/vault/attest for C-298 quorum. Restore GitHub permissions for agent journal writes."
+}
