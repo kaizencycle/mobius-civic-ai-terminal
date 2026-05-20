@@ -281,7 +281,7 @@ async function runSubstrateFixBurstC314(
     return { ranBurst: true, targets: 0, remainingAfter: 0 };
   }
 
-  console.info(`[reattest-seals] C-314 substrate burst migration: ${targets.length} seals (no backoff)`);
+  console.info(`[reattest-seals] C-314 substrate burst migration: ${targets.length} seals — running without backoff`);
 
   for (const seal of targets) {
     await kvDel(`seal:${seal.seal_id}:reattest_attempts`);

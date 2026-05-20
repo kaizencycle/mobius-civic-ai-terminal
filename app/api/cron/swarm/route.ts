@@ -141,7 +141,7 @@ async function callAgent(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.toLowerCase().includes('credit balance')) {
-      console.error(`[swarm] ${agentId} ATLAS credit exhausted — cooldown 1h`);
+      console.warn(`[swarm] ${agentId} credit exhausted — setting 1h cooldown`);
       await markCreditExhausted();
     }
     return {

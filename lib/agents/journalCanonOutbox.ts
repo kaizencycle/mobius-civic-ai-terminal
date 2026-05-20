@@ -1,5 +1,5 @@
 import type { Redis } from '@upstash/redis';
-import { writeJournalToSubstrate, type SubstrateJournalWriteInput } from '@/lib/substrate/github-journal';
+import type { SubstrateJournalWriteInput } from '@/lib/substrate/github-journal';
 import { attestToLedger } from '@/lib/substrate/client';
 import { bumpTerminalWatermark } from '@/lib/terminal/watermark';
 
@@ -89,41 +89,38 @@ export async function processJournalCanonOutbox(redis: Redis | null, limit = 5) 
       const item = asOutboxItem(await redis.get<unknown>(itemKey(id)));
       if (!item || item.status === 'canon_written') continue;
       processed += 1;
-      // FIX-506-01: try GitHub first; on failure fall back to Render Civic Ledger.
-      // GitHub 403 was silently re-queuing forever — Render is the authoritative write target.
-      // P2 fix: no CIVIC_LEDGER_URL gate — attestToLedger() resolves URL itself via
-      // RENDER_LEDGER_URL > CIVIC_LEDGER_URL > hardcoded fallback, so the fallback always runs.
-      let result = await writeJournalToSubstrate(item.entry);
-      if (!result.ok) {
-        console.warn('[journal/canon-outbox] GitHub write failed, trying Render fallback:', result.error);
-        try {
-          const renderResult = await attestToLedger({
-            id: item.entry.id,
-            agent: item.entry.agent,
-            agentOrigin: item.entry.agentOrigin,
-            cycle: item.entry.cycle,
-            title: `Journal: ${item.entry.scope ?? item.entry.category} — ${item.entry.agent}`,
-            summary: [item.entry.observation, item.entry.inference, item.entry.recommendation]
-              .filter(Boolean).join(' ').slice(0, 500),
-            category: (['market','geopolitical','infrastructure','narrative','governance'] as const)
-              .includes(item.entry.category as never) ? (item.entry.category as 'market'|'geopolitical'|'infrastructure'|'narrative') : 'infrastructure',
-            severity: item.entry.severity as 'nominal' | 'degraded' | 'elevated' | 'critical',
-            source: 'agent-journal',
-            gi_at_time: item.entry.gi_at_time,
-            confidence: item.entry.confidence,
-            verified: false,
-            derivedFrom: item.entry.derivedFrom ?? [],
-            tags: [...(item.entry.tags ?? []), 'journal-canon', `cycle:${item.entry.cycle}`],
-          });
-          if (renderResult.ok) {
-            result = { ok: true, path: `render:${renderResult.entryId ?? 'submitted'}` };
-            console.log('[journal/canon-outbox] Render fallback write ok:', item.entry.id);
-          } else {
-            console.error('[journal/canon-outbox] Render fallback also failed:', renderResult.error);
-          }
-        } catch (renderErr) {
-          console.error('[journal/canon-outbox] Render fallback threw:', renderErr instanceof Error ? renderErr.message : renderErr);
+      // C-317: GitHub PAT write path removed. Civic Protocol Core Ledger is the only write target.
+      // attestToLedger resolves the URL via RENDER_LEDGER_URL > CIVIC_LEDGER_URL > hardcoded fallback.
+      let result: { ok: boolean; path?: string; error?: string } = { ok: false };
+      try {
+        const ledgerResult = await attestToLedger({
+          id: item.entry.id,
+          agent: item.entry.agent,
+          agentOrigin: item.entry.agentOrigin,
+          cycle: item.entry.cycle,
+          title: `Journal: ${item.entry.scope ?? item.entry.category} — ${item.entry.agent}`,
+          summary: [item.entry.observation, item.entry.inference, item.entry.recommendation]
+            .filter(Boolean).join(' ').slice(0, 500),
+          category: (['market','geopolitical','infrastructure','narrative','governance'] as const)
+            .includes(item.entry.category as never) ? (item.entry.category as 'market'|'geopolitical'|'infrastructure'|'narrative') : 'infrastructure',
+          severity: item.entry.severity as 'nominal' | 'degraded' | 'elevated' | 'critical',
+          source: 'agent-journal',
+          gi_at_time: item.entry.gi_at_time,
+          confidence: item.entry.confidence,
+          verified: false,
+          derivedFrom: item.entry.derivedFrom ?? [],
+          tags: [...(item.entry.tags ?? []), 'journal-canon', `cycle:${item.entry.cycle}`],
+        });
+        if (ledgerResult.ok) {
+          result = { ok: true, path: `ledger:${ledgerResult.entryId ?? 'submitted'}` };
+          console.log('[journal/canon-outbox] ledger write ok:', item.entry.id);
+        } else {
+          result = { ok: false, error: ledgerResult.error ?? 'ledger_write_failed' };
+          console.error('[journal/canon-outbox] ledger write failed:', result.error);
         }
+      } catch (ledgerErr) {
+        result = { ok: false, error: ledgerErr instanceof Error ? ledgerErr.message : String(ledgerErr) };
+        console.error('[journal/canon-outbox] ledger write threw:', result.error);
       }
       const next: JournalCanonOutboxItem = {
         ...item,
