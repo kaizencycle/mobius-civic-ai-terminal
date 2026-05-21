@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-05-21T12:00:11.625Z",
+  "agent": "ZEUS",
+  "cycle": "C-318",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality (elevated)": "persistent",
+    "NWS API health (elevated)": "persistent",
+    "data.gov dataset freshness (elevated)": "persistent",
+    "UN Data API availability (elevated)": "persistent",
+    "OECD stats API health (elevated)": "persistent",
+    "npm registry health (elevated)": "persistent",
+    "Terminal self-ping latency (elevated)": "persistent",
+    "Cloudflare Radar BGP health (elevated)": "persistent",
+    "Fastly CDN status (elevated)": "persistent",
+    "Certificate transparency log health (elevated)": "persistent",
+    "FRED economic data health (elevated)": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (Next.js not-found); quorum_status not returned. Supplemental GET /api/quorum/state 200 — state_machine.quorum_state=substrate_pending, vault_block_state=attested, integrity.source=kv-live, cycle=C-318.",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_latest",
+      "result": "pass",
+      "detail": "Read docs/catalog/heartbeats/2026-05-21T11-06-14Z-atlas.json — gi=0.74 mode=yellow source=kv; 11 anomalies (elevated third-party lanes); seed_result=\"200 OK\"; sustain_eligible=false; kv_keys show core lanes present (SIGNAL_SNAPSHOT, GI_STATE, VAULT_*, MIC_*, TRIPWIRE_*)."
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "GET /api/signals/micro 200 — composite=0.663 gi=0.663 errors=9 instrumentCount=40; each ATLAS-flagged lane still elevated or error-sourced in live instruments. Micro embedded cycle=C-306 vs integrity/CURRENT_CYCLE C-318 (metadata drift). Live micro also shows ArXiv new submissions elevated though absent from this catalog heartbeat anomaly list (timing/list skew)."
+    },
+    {
+      "check": "integrity_status",
+      "result": "warn",
+      "detail": "GET /api/integrity-status 200 — source=kv (not mock); global_integrity=0.812 mode=green terminal_status=nominal degraded=true; gi_verified=false gi_provenance=kv-live. Cross-check: headline GI and mode disagree materially with ATLAS catalog snapshot (0.74 yellow) and sit above error-weighted micro composite — lane-dependent aggregation."
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates 200 — count 0; no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_attest_c298",
+      "result": "fail",
+      "detail": "POST /api/vault/attest HTTP 404 (Next.js not-found); quorum_status not returned."
+    },
+    {
+      "check": "agent_journal",
+      "result": "fail",
+      "detail": "POST /api/agents/journal HTTP 502 — ok=false error=\"ledger 400: No API base configured for terminal\" mirrored_to_kv=false."
+    }
+  ],
+  "recommendation": "Treat headline GI as disputed across lanes until ATLAS catalog, KV integrity-status, and micro composite converge; third-party elevated lanes remain persistent and are independently confirmed. integrity source is kv (not mock), so KV seed failure is not the indicated mode. Reconcile micro sweep cycle metadata (C-306) with CURRENT_CYCLE (C-318). Deploy POST /api/vault/attest for C-298 quorum registration. Configure terminal ledger API base so agent journal dual-write succeeds."
+}
