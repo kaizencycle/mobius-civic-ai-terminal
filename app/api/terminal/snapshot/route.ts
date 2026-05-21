@@ -178,9 +178,8 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
   };
 
   type SubstrateAgentRow = { agent: string; lastEntry: SubstrateJournalEntry | null; entryCount: number };
-  const SUBSTRATE_JOURNALS_TREE = 'https://github.com/kaizencycle/Mobius-Substrate/tree/main/journals';
 
-  let substrate: { ok: boolean; totalEntries: number; agents: SubstrateAgentRow[]; repoUrl: string; latest: { agent: string; lastEntry: SubstrateJournalEntry }[] };
+  let substrate: { ok: boolean; totalEntries: number; agents: SubstrateAgentRow[]; latest: { agent: string; lastEntry: SubstrateJournalEntry }[] };
 
   if (includeSubstrate === 'true') {
     const subStart = Date.now();
@@ -195,15 +194,15 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
       }));
       const withEntries = agentRows.filter((x) => x.lastEntry !== null);
       substrate = {
-        ok: true, totalEntries, agents: withEntries, repoUrl: SUBSTRATE_JOURNALS_TREE,
+        ok: true, totalEntries, agents: withEntries,
         latest: withEntries.map(({ agent, lastEntry }) => ({ agent, lastEntry: lastEntry as SubstrateJournalEntry })),
       };
     } catch {
-      substrate = { ok: false, totalEntries: 0, agents: [], repoUrl: SUBSTRATE_JOURNALS_TREE, latest: [] };
+      substrate = { ok: false, totalEntries: 0, agents: [], latest: [] };
     }
     timings.substrate = Date.now() - subStart;
   } else {
-    substrate = { ok: true, totalEntries: 0, agents: [], repoUrl: SUBSTRATE_JOURNALS_TREE, latest: [] };
+    substrate = { ok: true, totalEntries: 0, agents: [], latest: [] };
   }
 
   const leaves: Record<SnapshotLaneKey, SnapshotLeaf> = {
@@ -365,8 +364,8 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
       journal_mode: journalMode === 'hot' || journalMode === 'canon' || journalMode === 'merged' ? journalMode : 'merged',
       timestamp: new Date().toISOString(),
       deployment: {
-        commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
-        environment: process.env.VERCEL_ENV ?? null,
+        // commit_sha omitted — production hash not disclosed on public endpoint
+        environment: process.env.VERCEL_ENV ?? 'production',
       },
       meta: { total_ms: totalMs, lane_ms: timings },
       memory_mode: memoryMode,
@@ -400,8 +399,7 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
       journal_mode: 'merged',
       timestamp: new Date().toISOString(),
       deployment: {
-        commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
-        environment: process.env.VERCEL_ENV ?? null,
+        environment: process.env.VERCEL_ENV ?? 'production',
       },
       meta: { total_ms: 0, lane_ms: {} },
       memory_mode: null,
@@ -425,7 +423,7 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
       micReadiness: fallbackLeaf,
       tripwire: fallbackLeaf,
       trustTripwire: fallbackLeaf,
-      substrate: { ok: false, totalEntries: 0, agents: [], repoUrl: null, latest: [] },
+      substrate: { ok: false, totalEntries: 0, agents: [], latest: [] },
     }, {
       status: 200,
       headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'terminal-snapshot-fallback' },
