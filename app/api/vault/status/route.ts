@@ -161,6 +161,7 @@ export async function GET(req: NextRequest) {
     substrate_event_hash: latestSeal?.substrate_event_hash ?? null,
     substrate_attested_at: latestSeal?.substrate_attested_at ?? null,
     substrate_attestation_error: latestSeal?.substrate_attestation_error ?? null,
+    substrate_ok: !latestSeal?.substrate_attestation_error,
     latest_block_immortalized: latestImmortalized,
     candidate_attestation_state: candidate
       ? {

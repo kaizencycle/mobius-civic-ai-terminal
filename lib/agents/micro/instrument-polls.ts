@@ -1022,7 +1022,7 @@ export async function pollEveU2(): Promise<AgentPollResult> {
         source: 'Congress.gov · active bills',
         timestamp: new Date().toISOString(),
         value: 0.3,
-        label: `Congress.gov: auth error ${res.status} (set CONGRESS_GOV_API_KEY)`,
+        label: `Congress.gov: auth error ${res.status} (API unavailable)`,
         severity: 'watch',
         raw: { status: res.status, auth_error: true },
       });
