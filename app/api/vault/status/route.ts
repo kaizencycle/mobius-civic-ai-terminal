@@ -160,7 +160,7 @@ export async function GET(req: NextRequest) {
     substrate_attestation_id: latestSeal?.substrate_attestation_id ?? null,
     substrate_event_hash: latestSeal?.substrate_event_hash ?? null,
     substrate_attested_at: latestSeal?.substrate_attested_at ?? null,
-    // C-318: raw error string removed — internal ledger messages not disclosed publicly
+    substrate_attestation_error: latestSeal?.substrate_attestation_error ?? null,
     substrate_ok: !latestSeal?.substrate_attestation_error,
     latest_block_immortalized: latestImmortalized,
     candidate_attestation_state: candidate

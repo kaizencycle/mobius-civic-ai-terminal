@@ -365,7 +365,7 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
       timestamp: new Date().toISOString(),
       deployment: {
         // commit_sha omitted — production hash not disclosed on public endpoint
-        environment: process.env.VERCEL_ENV ?? 'production',
+        environment: process.env.VERCEL_ENV ?? null,
       },
       meta: { total_ms: totalMs, lane_ms: timings },
       memory_mode: memoryMode,
@@ -399,7 +399,7 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
       journal_mode: 'merged',
       timestamp: new Date().toISOString(),
       deployment: {
-        environment: process.env.VERCEL_ENV ?? 'production',
+        environment: process.env.VERCEL_ENV ?? null,
       },
       meta: { total_ms: 0, lane_ms: {} },
       memory_mode: null,
