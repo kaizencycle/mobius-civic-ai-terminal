@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-05-22T16:03:56.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-319",
+  "gi": 0.748,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    "OpenAQ air quality — elevated",
+    "NWS API health — elevated",
+    "ArXiv new submissions — elevated",
+    "OpenLibrary API health — elevated",
+    "data.gov dataset freshness — elevated",
+    "UN Data API availability — elevated",
+    "OECD stats API health — elevated",
+    "npm registry health — elevated",
+    "Terminal self-ping latency — elevated",
+    "Cloudflare Radar BGP health — elevated",
+    "Fastly CDN status — elevated",
+    "Certificate transparency log health — elevated",
+    "FRED economic data health — elevated"
+  ],
+  "kv_keys": {
+    "kv_keys_ok": false,
+    "redis_ok": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false
+}
