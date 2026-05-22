@@ -319,6 +319,8 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
       headers: {
         'Content-Type': 'application/json',
         ...(authorization ? { Authorization: authorization } : {}),
+        ...(terminal_id ? { 'X-Terminal-ID': terminal_id } : {}),
+        ...(api_base ? { 'X-Terminal-API-Base': api_base } : {}),
       },
       body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(8000),

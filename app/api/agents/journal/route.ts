@@ -637,6 +637,12 @@ export async function POST(request: NextRequest) {
       ? input.gi_snapshot
       : undefined;
 
+  // FIX-20: warn when explicit env vars are absent (TERMINAL_REGISTRATION has fallbacks,
+  // but the Civic Protocol Ledger may reject if fallback values don't match its registry).
+  if (!process.env.TERMINAL_ID || !process.env.TERMINAL_API_BASE) {
+    console.error('[journal] TERMINAL_ID or TERMINAL_API_BASE not set in env (FIX-20) — ledger write may be rejected with "No API base configured for terminal"');
+  }
+
   // GitHub PAT write path removed in C-317 (PAT lacks contents:write scope → 403 → 502).
   // All journal writes route through Civic Protocol Core Ledger exclusively.
   const ledgerResult = await writeToSubstrate({

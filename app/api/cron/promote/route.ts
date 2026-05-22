@@ -20,10 +20,24 @@ export async function GET(request: NextRequest) {
   const authError = getEveSynthesisAuthError(request);
   if (authError) return authError;
 
+  // C-319: fast-fail when SUBSTRATE_TOKEN is absent. Falling back to CRON_SECRET causes
+  // 401s on every run (the promote endpoint requires SUBSTRATE_TOKEN specifically), which
+  // silently increments the watchdog counter without surfacing a clear root cause.
+  const substrateTokenRaw = normalizeServiceSecretMaterial(process.env.SUBSTRATE_TOKEN);
+  if (substrateTokenRaw === null) {
+    console.error('[cron/promote] SUBSTRATE_TOKEN not configured — skipping promote run. Set in Vercel env vars.');
+    return NextResponse.json({
+      ok: false,
+      error: 'SUBSTRATE_TOKEN_MISSING',
+      hint: 'Set SUBSTRATE_TOKEN in Vercel environment variables and redeploy',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   const origin = request.nextUrl.origin;
   // C-314 T-03: /api/epicon/promote compares normalized SUBSTRATE_TOKEN / CRON_SECRET material
   // (see normalizeServiceSecretMaterial) so env may include optional Bearer prefix or quotes.
-  const substrateMat = normalizeServiceSecretMaterial(process.env.SUBSTRATE_TOKEN);
+  const substrateMat = substrateTokenRaw;
   const cronMat = normalizeServiceSecretMaterial(process.env.CRON_SECRET);
   const authHeader =
     substrateMat !== null
