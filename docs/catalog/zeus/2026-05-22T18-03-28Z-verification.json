@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-05-22T18:03:28.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-319",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality — error": "persistent",
+    "NWS API health — elevated": "persistent",
+    "ArXiv new submissions — error": "resolved",
+    "OpenLibrary API health — error": "resolved",
+    "data.gov dataset freshness — error": "persistent",
+    "UN Data API availability — error": "persistent",
+    "OECD stats API health — error": "persistent",
+    "npm registry health — elevated": "persistent",
+    "Terminal self-ping latency — elevated": "persistent",
+    "Cloudflare Radar BGP health — error": "persistent",
+    "Fastly CDN status — error": "persistent",
+    "Certificate transparency log health — error": "persistent",
+    "FRED economic data health — error": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-05-22T17-04-45Z-atlas.json",
+      "result": "pass",
+      "detail": "Extracted gi=0.71 mode=yellow source=kv seed_result=200 OK sustain_eligible=false kv_keys_ok=false redis_ok=true anomalies=13"
+    },
+    {
+      "check": "GET /api/signals/micro",
+      "result": "warn",
+      "detail": "HTTP 200 composite=0.679 gi=0.679 errors=8; embedded cycle C-306 vs operator cycle C-319"
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 source=kv (not mock) global_integrity=0.81 mode=green degraded=true vs ATLAS gi=0.71 yellow"
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; quorum_status not returned. Supplemental GET /api/quorum/state HTTP 200 — state_machine.quorum_state=substrate_pending vault_block_state=attested integrity.gi=0.71 attestations received=0 needed=5 all pending"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 mirrored_to_kv=false — ledger 400 No API base configured for terminal (not 401; ZEUS STOP not triggered)"
+    }
+  ],
+  "recommendation": "Treat headline GI as lane-dependent until ATLAS catalog, KV integrity-status, and micro composite converge; third-party instrument stress remains mostly persistent. integrity source is live KV (not mock). Reconcile micro sweep cycle metadata (C-306) with CURRENT_CYCLE (C-319). Deploy POST /api/vault/attest or an alias so C-298 quorum registration succeeds. Configure Civic Protocol ledger API base for terminal so agent journal dual-write can complete."
+}
