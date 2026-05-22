@@ -10,6 +10,7 @@ import {
   markAgentJournaled,
   type SentinelQuorumAgent,
 } from '@/lib/mic/quorumTracker';
+import { redactSignalLabel } from '@/lib/security/redact-labels';
 
 const QUORUM_AGENTS = new Set<string>(['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA']);
 
@@ -258,7 +259,7 @@ export async function appendStewardCronJournals(input: {
 }): Promise<StewardJournalResult> {
   const gi = clampGi(input.gi);
   const { count, labels } = input.anomalies ?? (await summarizeMicroAnomalies());
-  const labelShort = labels.slice(0, 5).join('; ') || 'No elevated micro-agent lines in snapshot.';
+  const labelShort = labels.slice(0, 5).map(redactSignalLabel).join('; ') || 'No elevated micro-agent lines in snapshot.';
   const has401 = labels.some((l) => /401|self-ping/i.test(l));
   const echo = await loadEchoState().catch(() => null);
   const zeusRef = input.zeusJournalId?.trim() || 'pending';
