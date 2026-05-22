@@ -272,13 +272,6 @@ async function runSubstrateFixBurstC314(
     return { ranBurst: false, targets: 0, remainingAfter: 0 };
   }
 
-  // C-319: skip burst entirely when SUBSTRATE_TOKEN is absent — writes will 401 every time
-  // and the sentinel will never be written, causing the loop to re-run on every cron.
-  if (!process.env.SUBSTRATE_TOKEN) {
-    console.error('[reattest-seals] C-314 substrate burst skipped — SUBSTRATE_TOKEN not configured. Set in Vercel env vars to allow the burst to complete and the sentinel to be written.');
-    return { ranBurst: false, targets: 0, remainingAfter: -1 };
-  }
-
   const targets = seals.filter(needsSubstratePointerRepair);
   if (targets.length === 0) {
     const setOk = await kvSet(SUBSTRATE_FIX_C314_KEY, true, 365 * 24 * 3600);
