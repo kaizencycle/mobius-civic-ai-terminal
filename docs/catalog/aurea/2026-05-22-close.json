@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-05-22T03:07:40Z",
+  "agent": "AUREA",
+  "cycle": "C-318",
+  "gi_final": 0.64,
+  "gi_mode": "yellow",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.803,
+  "financial_score": 0.69,
+  "environ_score": 0.855,
+  "civic_score": 0.7,
+  "event_count_24h": 12,
+  "event_counts_by_type": {
+    "merge": 1,
+    "heartbeat": 0,
+    "catalog": 7,
+    "epicon": 0,
+    "zeus_verify": 4,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.64. The ledger registered 12 events over the last 24 hours, with narrative the strongest visible domain signal at 0.958 while 13 micro anomalies persisted across civic-data and infrastructure lanes. ZEUS verification status is disputed, and the latest heartbeat trend is volatile across a 0.63-0.90 GI band. Forward signal: watch financial conditions and quorum registration for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch financial conditions and quorum registration for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "OpenAQ air quality",
+    "NWS API health",
+    "ArXiv new submissions",
+    "data.gov dataset freshness",
+    "UN Data API availability",
+    "OECD stats API health",
+    "npm registry health",
+    "Terminal self-ping latency",
+    "Cloudflare Radar BGP health",
+    "Fastly CDN status",
+    "Certificate transparency log health",
+    "FRED economic data health",
+    "NASA APIs health"
+  ],
+  "quorum_attested": false
+}
