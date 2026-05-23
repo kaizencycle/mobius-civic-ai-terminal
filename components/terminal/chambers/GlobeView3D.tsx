@@ -20,26 +20,6 @@ type SentimentDomain = {
   score: number | null;
   status: 'nominal' | 'stressed' | 'critical' | 'unknown';
 };
-const THREE_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-function loadThreeScript(): Promise<void> {
-  if (typeof window === 'undefined') return Promise.resolve();
-  const w = window as unknown as { THREE?: any };
-  if (w.THREE) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${THREE_CDN}"]`);
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true });
-      existing.addEventListener('error', () => reject(new Error('Three.js load failed')), { once: true });
-      return;
-    }
-    const s = document.createElement('script');
-    s.src = THREE_CDN;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Three.js load failed'));
-    document.head.appendChild(s);
-  });
-}
 function latLngToXYZ(THREE: any, lat: number, lng: number, r = 1.015) {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lng + 180) * (Math.PI / 180);
@@ -126,8 +106,9 @@ export default function GlobeView3D({
     if (!host) return;
     let disposed = false;
     async function boot() {
+      let THREE: any;
       try {
-        await loadThreeScript();
+        THREE = await import('three');
       } catch {
         if (!disposed) setLoadError('Globe requires WebGL and Three.js');
         return;
@@ -135,12 +116,6 @@ export default function GlobeView3D({
       if (disposed) return;
       const el = containerRef.current;
       if (!el) return;
-      const w = window as unknown as { THREE: any };
-      const THREE = w.THREE;
-      if (!THREE) {
-        setLoadError('Three.js unavailable');
-        return;
-      }
       const width = el.clientWidth || 800;
       const height = el.clientHeight || 420;
       const scene = new THREE.Scene();
