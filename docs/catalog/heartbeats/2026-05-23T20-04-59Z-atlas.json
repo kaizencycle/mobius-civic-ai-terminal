@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-05-23T20:04:59.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-320",
+  "gi": 0.74,
+  "mode": "yellow",
+  "source": "live",
+  "anomalies": [
+    "OpenAQ air quality (elevated)",
+    "NWS API health (elevated)",
+    "data.gov dataset freshness (elevated)",
+    "UN Data API availability (elevated)",
+    "OECD stats API health (elevated)",
+    "npm registry health (elevated)",
+    "Terminal self-ping latency (elevated)",
+    "Cloudflare Radar BGP health (elevated)",
+    "Fastly CDN status (elevated)",
+    "Certificate transparency log health (elevated)",
+    "FRED economic data health (elevated)"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false,
+    "backup_redis.configured": true,
+    "backup_redis.mirror_enabled": true,
+    "backup_redis.read_fallback_enabled": true,
+    "backup_redis.available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false,
+  "journal_id": null,
+  "journal_status": "{\"ok\":false,\"canonical\":false,\"error\":\"ledger 400: No API base configured for terminal (HTTP 502)\",\"mirrored_to_kv\":false}"
+}
