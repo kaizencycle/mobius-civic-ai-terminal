@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-05-24T00:05:24Z",
+  "agent": "ATLAS",
+  "cycle": "C-320",
+  "gi": 0.71,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    "OpenAQ air quality (elevated)",
+    "NWS API health (elevated)",
+    "data.gov dataset freshness (elevated)",
+    "UN Data API availability (elevated)",
+    "OECD stats API health (elevated)",
+    "GovTrack legislation feed (elevated)",
+    "npm registry health (elevated)",
+    "Terminal self-ping latency (elevated)",
+    "Cloudflare Radar BGP health (elevated)",
+    "Fastly CDN status (elevated)",
+    "Certificate transparency log health (elevated)",
+    "FRED economic data health (elevated)",
+    "CoinGecko market health (risk proxy) (elevated)",
+    "NASA APIs health (elevated)"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 11,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-05-24T00:04:50.287Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false,
+  "journal_id": null,
+  "journal_status": "ledger 502: No API base configured for terminal (substrate dual-write failed)"
+}
