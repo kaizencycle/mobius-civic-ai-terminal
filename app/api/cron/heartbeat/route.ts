@@ -12,7 +12,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
 import { writeFleetHeartbeatKV } from '@/lib/runtime/agent-heartbeat-kv';
-import { loadGIState, loadGIStateCarry, appendGiTrend, kvDel } from '@/lib/kv/store';
+import { loadGIState, loadGIStateCarry, appendGiTrend, kvDel, kvSet } from '@/lib/kv/store';
 import { updateSustainTrackingFromGi, seedSustainStateIfMissing } from '@/lib/mic/sustainTracker';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 
@@ -73,6 +73,18 @@ async function run(req: NextRequest) {
     kvDel('cache:integrity-status'),
     kvDel('cache:lane-diagnostics'),
   ]).catch(() => {});
+
+  // OPT-9 (C-321): persist last-known snapshot so the shell endpoint can serve
+  // real values on cold start instead of all-dashes.
+  if (gi !== null) {
+    const cycle = await resolveOperatorCycleId().catch(() => '');
+    void kvSet('terminal:last-known-snapshot', {
+      gi,
+      cycle: cycle || undefined,
+      runtime: 'ok',
+      ts: Date.now(),
+    }, 86400).catch(() => {});
+  }
 
   return NextResponse.json({
     ok: true,

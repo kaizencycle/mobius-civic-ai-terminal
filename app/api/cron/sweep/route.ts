@@ -90,6 +90,18 @@ async function run(req: NextRequest) {
       cycle = currentCycleId();
     }
 
+    // OPT-8 (C-321): surface ZEUS probe failures as a formal dispute in KV so
+    // Sentinel can render an orange banner with cycle, message, and age.
+    if (zeusRaw === 'fail') {
+      await kvSet('zeus:dispute:latest', {
+        cycle,
+        message: 'ZEUS verification probe returned fail. EPICON queue may be blocked; check vault/journal surface health.',
+        ts:      Date.now(),
+      }, 7200).catch(() => {});
+    } else if (zeusRaw === 'pass') {
+      await kvDel('zeus:dispute:latest').catch(() => {});
+    }
+
     // Fix 2: restore missing CURRENT_CYCLE KV key so kvHealth shows it as present
     try {
       const currentCycleKv = await kvGet<string>(KV_KEYS.CURRENT_CYCLE);

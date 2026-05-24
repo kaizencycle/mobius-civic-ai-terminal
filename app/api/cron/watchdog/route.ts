@@ -3,7 +3,7 @@ import { getServiceAuthError, serviceAuthorizationHeaderValue } from '@/lib/secu
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
-import { kvGet, kvSet, kvSetRawKey, KV_KEYS, isRedisAvailable, KV_TTL_SECONDS } from '@/lib/kv/store';
+import { kvGet, kvSet, kvDel, kvSetRawKey, KV_KEYS, isRedisAvailable, KV_TTL_SECONDS } from '@/lib/kv/store';
 import { readAllSubstrateJournals } from '@/lib/substrate/github-reader';
 import { evaluateTrustTripwires } from '@/lib/tripwire/trustTripwires';
 import type { TrustTripwireResult, TrustTripwireSnapshot } from '@/lib/tripwire/types';
@@ -16,6 +16,19 @@ import { runEchoIngest } from '@/app/api/echo/ingest/route';
 import { POST as postEpiconPromote } from '@/app/api/epicon/promote/route';
 
 export const dynamic = 'force-dynamic';
+
+// OPT-10 (C-321): tiered escalation — at 2,276+ failures the watchdog was logging
+// the same flat "threshold breached" message since failure #10. Now escalates proportionally.
+const ESCALATION_TIERS = [
+  { threshold:   50, severity: 'warn'     as const, label: 'EPICON promote degraded'  },
+  { threshold:  300, severity: 'error'    as const, label: 'EPICON promote stuck'     },
+  { threshold:  900, severity: 'critical' as const, label: 'EPICON lane blocked'      },
+  { threshold: 2000, severity: 'alert'    as const, label: 'EPICON multi-day outage'  },
+] as const;
+
+function getEscalationTier(failures: number) {
+  return [...ESCALATION_TIERS].reverse().find((t) => failures >= t.threshold) ?? null;
+}
 
 function emptyTrustSnapshot(timestamp: string): TrustTripwireSnapshot {
   return {
@@ -143,16 +156,27 @@ export async function GET(request: NextRequest) {
   const echoResult = await runAction(() => runEchoIngest(), 30_000);
   actions.push(`echo-ingest:${echoResult.ok ? 'ok' : `fail:${echoResult.status}`}`);
 
-  // FIX-14: alert when promote failures accumulate (threshold = 10 consecutive failures).
+  // OPT-10 (C-321): tiered escalation replaces flat FIX-14 threshold alert.
   const PROMOTE_FAIL_KEY = 'watchdog:promote-fail-count';
-  const PROMOTE_FAIL_THRESHOLD = 10;
   const promoteFailCount = (await kvGet<number>(PROMOTE_FAIL_KEY)) ?? 0;
-  if (promoteFailCount >= PROMOTE_FAIL_THRESHOLD) {
-    console.error(
-      `[watchdog] promote failure threshold breached: ${promoteFailCount} consecutive failures. ` +
-      'Check SUBSTRATE_TOKEN and /api/epicon/promote auth. EPICON promotion lane may be stuck.',
-    );
-    actions.push(`promote-fail-alert:${promoteFailCount}`);
+  const escalationTier = getEscalationTier(promoteFailCount);
+  if (escalationTier) {
+    const logFn = escalationTier.severity === 'warn' ? console.warn : console.error;
+    logFn(`[watchdog] ${escalationTier.label}: ${promoteFailCount} consecutive failures (tier: ${escalationTier.severity})`, {
+      failures: promoteFailCount,
+      severity: escalationTier.severity,
+      threshold: escalationTier.threshold,
+      hint: 'Set SUBSTRATE_TOKEN in Vercel env vars to unblock EPICON promotion.',
+    });
+    actions.push(`promote-fail-alert:${promoteFailCount}:${escalationTier.severity}`);
+    await kvSet('watchdog:epicon:escalation', {
+      failures:  promoteFailCount,
+      severity:  escalationTier.severity,
+      label:     escalationTier.label,
+      ts:        Date.now(),
+    }, 3600).catch(() => {});
+  } else if (promoteFailCount === 0) {
+    await kvDel('watchdog:epicon:escalation').catch(() => {});
   }
 
   const promoteRequest = makeInternalRequest(origin, '/api/epicon/promote', {

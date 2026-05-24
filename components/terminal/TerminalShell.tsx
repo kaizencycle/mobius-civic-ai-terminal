@@ -60,8 +60,21 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
     return typeof seed?.gi === 'number' && Number.isFinite(seed.gi) ? seed.gi : null;
   }, []);
 
-  const gi = shell?.gi ?? seededGi;
-  const cycle = shell?.cycle ?? 'C-—';
+  // OPT-7 (C-321): read last-known from sessionStorage so cold-boot shows GI 63~
+  // instead of GI — when the live fetch is still in flight or failed.
+  const lastKnown = useMemo(() => {
+    try {
+      const raw = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('mobius:shell:last-known') : null;
+      return raw ? (JSON.parse(raw) as { gi?: number | null; cycle?: string | null }) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const giRaw = shell?.gi ?? seededGi ?? lastKnown?.gi ?? null;
+  const isStale = !shell && (seededGi === null) && lastKnown?.gi != null;
+  const gi = giRaw;
+  const cycle = shell?.cycle ?? lastKnown?.cycle ?? 'C-—';
   const mode = shell?.mode?.toLowerCase() ?? null;
 
   const runtime = useMemo<'online' | 'degraded' | 'offline'>(() => {
@@ -125,8 +138,8 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
             <a href={SHELL_URL} target="_blank" rel="noopener noreferrer" className="hidden rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-violet-300 md:inline-block">Shell</a>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] font-mono md:gap-2 md:text-[11px]">
-            <span className={cn('flex items-center gap-1 rounded border px-1.5 py-0.5 md:px-2 md:py-1', loading ? 'border-slate-700 text-slate-500' : giTone)}>
-              GI {gi === null ? '—' : gi.toFixed(2)}
+            <span className={cn('flex items-center gap-1 rounded border px-1.5 py-0.5 md:px-2 md:py-1', loading && gi === null ? 'border-slate-700 text-slate-500' : giTone)}>
+              GI {gi === null ? '—' : `${gi.toFixed(2)}${isStale ? '~' : ''}`}
             </span>
             <span className={cn('rounded border px-1.5 py-0.5 uppercase md:px-2 md:py-1', loading ? 'border-slate-700 bg-slate-800/40 text-slate-500' : runtimeBadgeClass(runtime))}>
               {loading ? 'boot' : runtime}
