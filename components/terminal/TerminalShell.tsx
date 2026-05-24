@@ -43,7 +43,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
   const [showDataflowCommand, setShowDataflowCommand] = useState(true);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
-  const { shell, loading } = useShellSnapshot();
+  const { shell, loading, stale } = useShellSnapshot();
   const flowTelemetryEnabled = showDataflowCommand || showLaneDiagnostics;
   const laneDiagnostics = useLaneDiagnosticsChamber(flowTelemetryEnabled);
 
@@ -60,7 +60,11 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
     return typeof seed?.gi === 'number' && Number.isFinite(seed.gi) ? seed.gi : null;
   }, []);
 
-  const gi = shell?.gi ?? seededGi;
+  // OPT-7 (C-321): isStale comes from the hook — true when shell has a GI value
+  // but no live fetch has confirmed it yet (cached from sessionStorage or SSR seed
+  // that predates the current client session). Shows ~ tilde in the GI badge.
+  const isStale = stale;
+  const gi = shell?.gi ?? seededGi ?? null;
   const cycle = shell?.cycle ?? 'C-—';
   const mode = shell?.mode?.toLowerCase() ?? null;
 
@@ -125,8 +129,8 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
             <a href={SHELL_URL} target="_blank" rel="noopener noreferrer" className="hidden rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-violet-300 md:inline-block">Shell</a>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] font-mono md:gap-2 md:text-[11px]">
-            <span className={cn('flex items-center gap-1 rounded border px-1.5 py-0.5 md:px-2 md:py-1', loading ? 'border-slate-700 text-slate-500' : giTone)}>
-              GI {gi === null ? '—' : gi.toFixed(2)}
+            <span className={cn('flex items-center gap-1 rounded border px-1.5 py-0.5 md:px-2 md:py-1', loading && gi === null ? 'border-slate-700 text-slate-500' : giTone)}>
+              GI {gi === null ? '—' : `${gi.toFixed(2)}${isStale ? '~' : ''}`}
             </span>
             <span className={cn('rounded border px-1.5 py-0.5 uppercase md:px-2 md:py-1', loading ? 'border-slate-700 bg-slate-800/40 text-slate-500' : runtimeBadgeClass(runtime))}>
               {loading ? 'boot' : runtime}

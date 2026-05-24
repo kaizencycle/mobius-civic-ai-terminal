@@ -8,6 +8,22 @@ import { currentCycleId } from '@/lib/eve/cycle-engine';
 type Agent = { id: string; name: string; role: string; status: string; liveness?: string; lastAction?: string; last_action?: string; last_seen?: string | null; last_journal_at?: string | null; confidence?: number; source_badges?: string[]; tier?: string; mii_avg?: number };
 type JournalEntry = { id: string; observation?: string; cycle?: string };
 type MiiEntry = { agent: string; mii: number; timestamp: string };
+
+// OPT-8 (C-321): ZEUS dispute signal surfaced from sweep cron KV write.
+type ZeusDispute = {
+  cycle: string;
+  message: string;
+  ts: number;
+};
+
+// OPT-10 (C-321): EPICON tiered escalation from watchdog cron KV write.
+type EpiconEscalation = {
+  failures: number;
+  severity: 'warn' | 'error' | 'critical' | 'alert';
+  label: string;
+  ts: number;
+};
+
 type SentinelQuorum = {
   status: string;
   attestations_received: number;
@@ -19,6 +35,7 @@ type SentinelQuorum = {
 
 const CONFIDENCE_FLOOR = 0.65;
 const SENTINEL_TIERS = ['Sentinel', 'Architect'];
+const ALL_AGENTS = ['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA', 'HERMES', 'ECHO', 'DAEDALUS'] as const;
 
 function journalRelTime(ts: string | null | undefined): string {
   if (!ts) return '—';
@@ -87,7 +104,73 @@ const SENTINEL_LAYOUT: Array<{ name: string; x: number; y: number }> = [
   { name: 'DAEDALUS', x: 38, y: 16 },
 ];
 
-export default function SentinelPageClient() {
+// OPT-8 (C-321): orange banner for active ZEUS disputes (< 90 min old).
+function ZeusDisputeBanner({ dispute }: { dispute?: ZeusDispute | null }) {
+  if (!dispute) return null;
+  const ageMs = Date.now() - dispute.ts;
+  if (ageMs > 90 * 60 * 1000) return null;
+  return (
+    <div className="mb-3 rounded border border-orange-500/30 bg-orange-950/20 px-3 py-2 font-mono text-xs">
+      <div className="flex items-center gap-2 text-orange-400">
+        <span>⚡</span>
+        <span>ZEUS dispute · {dispute.cycle}</span>
+        <span className="ml-auto opacity-50">{Math.round(ageMs / 60000)}m ago</span>
+      </div>
+      <p className="mt-1 opacity-60 leading-relaxed">{dispute.message}</p>
+    </div>
+  );
+}
+
+// OPT-10 (C-321): escalation banner matching severity tier from watchdog cron.
+function EpiconEscalationBanner({ escalation }: { escalation?: EpiconEscalation | null }) {
+  if (!escalation) return null;
+  const colorMap: Record<EpiconEscalation['severity'], string> = {
+    warn: 'border-amber-500/30 bg-amber-950/20 text-amber-400',
+    error: 'border-rose-500/30 bg-rose-950/20 text-rose-400',
+    critical: 'border-rose-600/40 bg-rose-950/30 text-rose-300',
+    alert: 'border-red-600/50 bg-red-950/40 text-red-300',
+  };
+  const cls = colorMap[escalation.severity] ?? colorMap.warn;
+  return (
+    <div className={`mb-3 rounded border px-3 py-2 font-mono text-xs ${cls}`}>
+      <div className="flex items-center gap-2">
+        <span>⚠</span>
+        <span>{escalation.label}</span>
+        <span className="ml-auto opacity-50">{escalation.failures.toLocaleString()} failures</span>
+      </div>
+      <p className="mt-1 opacity-60">EPICON promotion lane blocked. Set SUBSTRATE_TOKEN in Vercel env vars to unblock.</p>
+    </div>
+  );
+}
+
+// OPT-6 (C-321): shown when an agent has no KV heartbeat data.
+function AgentFallbackCard({ name }: { name: string }) {
+  return (
+    <div className="group rounded border border-slate-800/60 bg-slate-900/30 p-4 text-left opacity-40">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <span style={{ color: AGENT_COLORS[name] ?? '#94a3b8' }}>{name}</span>
+          <span className="font-mono text-xs text-slate-500">0.000</span>
+        </div>
+        <div className="flex flex-col items-end gap-0.5 text-[9px] font-mono text-slate-600">
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-600" />
+            offline
+          </span>
+        </div>
+      </div>
+      <div className="mt-1 text-xs text-slate-600">Awaiting first cycle heartbeat</div>
+    </div>
+  );
+}
+
+export default function SentinelPageClient({
+  zeusDispute,
+  epiconEscalation,
+}: {
+  zeusDispute?: ZeusDispute | null;
+  epiconEscalation?: EpiconEscalation | null;
+}) {
   const { snapshot, loading } = useTerminalSnapshot();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [journalByAgent, setJournalByAgent] = useState<Record<string, JournalEntry[]>>({});
@@ -204,6 +287,8 @@ export default function SentinelPageClient() {
 
   return (
     <div className="h-full overflow-y-auto p-4">
+      <ZeusDisputeBanner dispute={zeusDispute} />
+      <EpiconEscalationBanner escalation={epiconEscalation} />
       <div className="mb-3 rounded border border-slate-800/80 bg-slate-950/50 px-3 py-2 text-[10px] font-mono leading-relaxed text-slate-400">
         <span className="text-slate-500">Cycle {currentCycle}</span>
         {' · '}
@@ -284,6 +369,12 @@ export default function SentinelPageClient() {
           ))}
         </div>
       </section>
+      {/* OPT-6 (C-321): no-agents state shows fallback cards for all 8 agents */}
+      {(agents.agents ?? []).length === 0 ? (
+        <div className="mb-3 rounded border border-slate-800/50 bg-slate-950/30 px-3 py-2 text-[10px] font-mono text-slate-500">
+          No agent heartbeats — awaiting first cycle. Cards below show offline state.
+        </div>
+      ) : null}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {(agents.agents ?? []).map((agent) => {
           const rows = journalByAgent[agent.name] ?? [];
@@ -374,6 +465,13 @@ export default function SentinelPageClient() {
           </button>
           );
         })}
+        {/* OPT-6 (C-321): fallback cards for agents absent from the snapshot */}
+        {(() => {
+          const activeNames = new Set((agents.agents ?? []).map((a) => a.name));
+          return ALL_AGENTS
+            .filter((n) => !activeNames.has(n))
+            .map((n) => <AgentFallbackCard key={n} name={n} />);
+        })()}
       </div>
       {expanded ? (
         <div className="mt-4 rounded border border-slate-800 bg-slate-900/60 p-3">

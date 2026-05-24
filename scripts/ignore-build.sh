@@ -64,6 +64,39 @@ if [[ "$subject" =~ ^(heartbeat:|chore\(catalog\)|chore\(mesh\):|chore\(sweep\):
   exit 0
 fi
 
+# OPT-1 (C-321): lockfile-only commits — only skip when no app code actually changed.
+# Guard: check git diff to prevent message-match from swallowing real code changes.
+if [[ "$subject" =~ ^chore(\([^\)]*\))?:?[[:space:]]*(sync pnpm.lock|update lockfile|pnpm-lock) ]]; then
+  changed_non_lock="$(git diff --name-only HEAD~1 HEAD 2>/dev/null \
+    | grep -vE '^(pnpm-lock\.yaml|package-lock\.json|yarn\.lock|docs/)' | head -1 || true)"
+  if [[ -z "$changed_non_lock" ]]; then
+    echo "Skipping: lockfile-only commit (verified via diff) — $subject"
+    exit 0
+  fi
+fi
+
+# OPT-1 (C-321): catalog / mesh refresh commits.
+if [[ "$subject" =~ ^chore(\([^\)]*\))?:?[[:space:]]*(update Mobius Catalog|refresh cycle state) ]]; then
+  echo "Skipping: catalog/mesh refresh commit — $subject"
+  exit 0
+fi
+
+# OPT-2 (C-321): cursor/* branches never deploy — agent branches are noise.
+branch="${VERCEL_GIT_COMMIT_REF:-}"
+if [[ -z "$branch" ]]; then
+  branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+fi
+if [[ "$branch" =~ ^cursor/ ]]; then
+  echo "Skipping: cursor/* branch ($branch)"
+  exit 0
+fi
+
+# OPT-2 (C-321): claude/* agent branches don't deploy unless explicitly tagged.
+if [[ "$branch" =~ ^claude/ ]] && [[ "$subject" != *"[deploy]"* ]]; then
+  echo "Skipping: claude/* agent branch ($branch) without [deploy] tag"
+  exit 0
+fi
+
 # Skip commits that only modify docs/catalog/ (no app code changes)
 changed_outside_docs="$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -v '^docs/' | head -1 || true)"
 if [[ -z "$changed_outside_docs" ]]; then

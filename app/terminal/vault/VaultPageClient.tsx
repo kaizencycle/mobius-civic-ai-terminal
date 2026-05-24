@@ -193,8 +193,14 @@ export default function VaultPageClient() {
   const focusCycle = currentCycleId();
 
   useEffect(() => {
-    void fetch('/api/vault/status', { cache: 'no-store' })
+    // OPT-4 (C-321): 10s AbortController guard — substrate 404/502 can hold the
+    // lambda open up to 30s, leaving the chamber stuck on "Loading vault…".
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+
+    void fetch('/api/vault/status', { cache: 'no-store', signal: controller.signal })
       .then(async (r) => {
+        clearTimeout(timeout);
         const j = (await r.json()) as VaultPayload & { error?: string };
         if (!r.ok || !j.ok) {
           setErr(j.error ?? `Vault status unavailable (HTTP ${r.status})`);
@@ -203,8 +209,20 @@ export default function VaultPageClient() {
         }
         setData(j);
       })
-      .catch(() => setErr('Unable to load vault status'))
+      .catch((e: unknown) => {
+        clearTimeout(timeout);
+        if (e instanceof DOMException && e.name === 'AbortError') {
+          setErr('Vault status timed out — substrate may be unreachable. Set SUBSTRATE_TOKEN, TERMINAL_ID, TERMINAL_API_BASE in Vercel env vars to restore vault writes.');
+        } else {
+          setErr('Unable to load vault status');
+        }
+      })
       .finally(() => setLoading(false));
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
 
   useEffect(() => {

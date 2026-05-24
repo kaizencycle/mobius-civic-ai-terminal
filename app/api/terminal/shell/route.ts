@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
-import { loadTripwireState } from '@/lib/kv/store';
+import { loadTripwireState, kvGet } from '@/lib/kv/store';
 import { getHeartbeat, getJournalHeartbeat } from '@/lib/runtime/heartbeat';
 
 export const dynamic = 'force-dynamic';
@@ -50,11 +50,16 @@ export async function GET() {
       },
     });
   } catch {
+    // OPT-9 (C-321): serve last-known snapshot from KV so cold-start console
+    // shows real values (GI, cycle) instead of all-dashes.
+    type LastKnown = { gi?: number; cycle?: string; runtime?: string; ts?: number };
+    const lastKnown = await kvGet<LastKnown>('terminal:last-known-snapshot').catch(() => null);
+    const staleAgeS = lastKnown?.ts ? Math.round((Date.now() - lastKnown.ts) / 1000) : null;
     return NextResponse.json({
       ok: true,
       fallback: true,
-      cycle: currentCycleId(),
-      gi: null,
+      cycle: lastKnown?.cycle ?? currentCycleId(),
+      gi: lastKnown?.gi ?? null,
       mode: 'yellow',
       degraded: true,
       tripwire: { count: 0, elevated: false },
@@ -62,7 +67,9 @@ export async function GET() {
         runtime: getHeartbeat(),
         journal: getJournalHeartbeat(),
       },
-      source: 'fallback',
+      source: lastKnown?.gi != null ? 'last-known' : 'fallback',
+      _stale: lastKnown?.gi != null,
+      _stale_age_s: staleAgeS,
       timestamp,
     });
   }
