@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-05-24T04:04:34.903Z",
+  "agent": "ATLAS",
+  "cycle": "C-321",
+  "gi": 0.74,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    "OpenAQ air quality (critical)",
+    "NWS API health (elevated)",
+    "data.gov dataset freshness (critical)",
+    "UN Data API availability (critical)",
+    "OECD stats API health (critical)",
+    "npm registry health (elevated)",
+    "Terminal self-ping latency (elevated)",
+    "Cloudflare Radar BGP health (critical)",
+    "Fastly CDN status (critical)",
+    "Certificate transparency log health (critical)",
+    "FRED economic data health (critical)"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "kv_keys_ok": false,
+    "heartbeat_lane_ok": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false,
+  "journal_id": null,
+  "journal_status": "502 {\"ok\":false,\"canonical\":false,\"error\":\"Error: ledger 400: {\\\"detail\\\":\\\"No API base configured for terminal\\\"}\",\"mirrored_to_kv\":false}"
+}
