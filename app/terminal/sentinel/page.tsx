@@ -9,7 +9,7 @@ export const metadata = chamberMeta(
 );
 
 type ZeusDispute = { cycle: string; message: string; ts: number };
-type EpiconEscalation = { failures: number; severity: string; label: string; ts: number };
+type EpiconEscalation = { failures: number; severity: 'warn' | 'error' | 'critical' | 'alert'; label: string; ts: number };
 
 export default async function SentinelPage() {
   // OPT-8 + OPT-10 (C-321): fetch dispute and escalation state from KV on the
