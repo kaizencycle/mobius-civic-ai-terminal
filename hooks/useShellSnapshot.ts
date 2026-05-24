@@ -41,9 +41,17 @@ function saveLastKnown(snapshot: ShellSnapshot) {
 }
 
 export function useShellSnapshot() {
+  // P2 fix (C-321): distinguish live-fresh from cached init. readSeed() is SSR-injected
+  // (live at render time); readLastKnown() is sessionStorage (stale from prior load).
   const [shell, setShell] = useState<ShellSnapshot | null>(() => readSeed() ?? readLastKnown());
   const [loading, setLoading] = useState(shell === null);
   const [error, setError] = useState<string | null>(null);
+  // liveLoaded becomes true after the first successful fetch from the server.
+  // Until then, any value we're showing came from SSR seed or sessionStorage cache.
+  const [liveLoaded, setLiveLoaded] = useState(() => {
+    // SSR seed is live — mark as already-loaded so header doesn't show ~ on first paint.
+    return readSeed() !== null;
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -65,6 +73,7 @@ export function useShellSnapshot() {
           saveLastKnown(json);
         }
         setShell(json);
+        setLiveLoaded(true);
         setError(null);
       } catch (err) {
         if (!mounted) return;
@@ -88,5 +97,8 @@ export function useShellSnapshot() {
     };
   }, []);
 
-  return { shell, loading, error };
+  // stale = we have a GI value but it hasn't been confirmed by a live fetch yet.
+  const stale = !liveLoaded && shell?.gi != null;
+
+  return { shell, loading, error, stale };
 }

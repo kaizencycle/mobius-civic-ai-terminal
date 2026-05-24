@@ -64,10 +64,15 @@ if [[ "$subject" =~ ^(heartbeat:|chore\(catalog\)|chore\(mesh\):|chore\(sweep\):
   exit 0
 fi
 
-# OPT-1 (C-321): lockfile-only commits from any author — never trigger deploys.
+# OPT-1 (C-321): lockfile-only commits — only skip when no app code actually changed.
+# Guard: check git diff to prevent message-match from swallowing real code changes.
 if [[ "$subject" =~ ^chore(\([^\)]*\))?:?[[:space:]]*(sync pnpm.lock|update lockfile|pnpm-lock) ]]; then
-  echo "Skipping: lockfile-only commit — $subject"
-  exit 0
+  changed_non_lock="$(git diff --name-only HEAD~1 HEAD 2>/dev/null \
+    | grep -vE '^(pnpm-lock\.yaml|package-lock\.json|yarn\.lock|docs/)' | head -1 || true)"
+  if [[ -z "$changed_non_lock" ]]; then
+    echo "Skipping: lockfile-only commit (verified via diff) — $subject"
+    exit 0
+  fi
 fi
 
 # OPT-1 (C-321): catalog / mesh refresh commits.

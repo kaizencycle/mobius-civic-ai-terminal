@@ -43,7 +43,7 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
   const [showDataflowCommand, setShowDataflowCommand] = useState(true);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
-  const { shell, loading } = useShellSnapshot();
+  const { shell, loading, stale } = useShellSnapshot();
   const flowTelemetryEnabled = showDataflowCommand || showLaneDiagnostics;
   const laneDiagnostics = useLaneDiagnosticsChamber(flowTelemetryEnabled);
 
@@ -60,21 +60,12 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
     return typeof seed?.gi === 'number' && Number.isFinite(seed.gi) ? seed.gi : null;
   }, []);
 
-  // OPT-7 (C-321): read last-known from sessionStorage so cold-boot shows GI 63~
-  // instead of GI — when the live fetch is still in flight or failed.
-  const lastKnown = useMemo(() => {
-    try {
-      const raw = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('mobius:shell:last-known') : null;
-      return raw ? (JSON.parse(raw) as { gi?: number | null; cycle?: string | null }) : null;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  const giRaw = shell?.gi ?? seededGi ?? lastKnown?.gi ?? null;
-  const isStale = !shell && (seededGi === null) && lastKnown?.gi != null;
-  const gi = giRaw;
-  const cycle = shell?.cycle ?? lastKnown?.cycle ?? 'C-—';
+  // OPT-7 (C-321): isStale comes from the hook — true when shell has a GI value
+  // but no live fetch has confirmed it yet (cached from sessionStorage or SSR seed
+  // that predates the current client session). Shows ~ tilde in the GI badge.
+  const isStale = stale;
+  const gi = shell?.gi ?? seededGi ?? null;
+  const cycle = shell?.cycle ?? 'C-—';
   const mode = shell?.mode?.toLowerCase() ?? null;
 
   const runtime = useMemo<'online' | 'degraded' | 'offline'>(() => {
