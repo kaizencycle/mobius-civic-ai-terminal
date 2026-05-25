@@ -63,8 +63,10 @@ export default function GIMonitorBadge() {
 
   useEffect(() => {
     let mounted = true;
+    let intervalId: number | null = null;
 
     async function load() {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       try {
         const res = await fetch('/api/integrity-status', { cache: 'no-store' });
         const json = await res.json();
@@ -74,12 +76,28 @@ export default function GIMonitorBadge() {
       }
     }
 
-    load();
-    const interval = window.setInterval(load, 15000);
+    const arm = () => {
+      if (intervalId !== null) window.clearInterval(intervalId);
+      intervalId = null;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void load();
+      intervalId = window.setInterval(() => void load(), 15000);
+    };
+
+    arm();
+    const onVis = () => {
+      if (document.visibilityState === 'visible') arm();
+      else if (intervalId !== null) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
 
     return () => {
       mounted = false;
-      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+      if (intervalId !== null) window.clearInterval(intervalId);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
