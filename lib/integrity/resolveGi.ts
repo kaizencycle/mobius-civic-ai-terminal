@@ -11,6 +11,7 @@ export type GiResolutionSource =
   | 'kv_carry_forward'
   | 'live_compute'
   | 'readiness_snapshot'
+  | 'github_state_mirror'
   | 'oaa_verified'
   | 'null';
 
@@ -42,6 +43,8 @@ function mapProvenanceToLegacy(p: GISourceDisplay): GiResolutionSource {
       return 'oaa_verified';
     case 'readiness-fallback':
       return 'readiness_snapshot';
+    case 'github-state-mirror':
+      return 'github_state_mirror';
     default:
       return 'null';
   }

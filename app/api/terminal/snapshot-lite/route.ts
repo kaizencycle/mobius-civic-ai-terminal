@@ -193,11 +193,13 @@ export async function GET(req: NextRequest) {
         giResolved.source === 'kv_carry_forward' ||
         giResolved.source === 'oaa_verified'
           ? 'kv'
-          : giResolved.source === 'live_compute'
-            ? 'live'
-            : giResolved.source === 'readiness_snapshot'
-              ? 'readiness_fallback'
-              : 'null',
+          : giResolved.source === 'github_state_mirror'
+            ? 'github_state_mirror'
+            : giResolved.source === 'live_compute'
+              ? 'live'
+              : giResolved.source === 'readiness_snapshot'
+                ? 'readiness_fallback'
+                : 'null',
       provenance: giResolved.gi_provenance,
       verified: giResolved.verified,
       mic_readiness_snapshot_source: micSnapSource,
@@ -261,11 +263,13 @@ export async function GET(req: NextRequest) {
           giResolved.source === 'kv_carry_forward' ||
           giResolved.source === 'oaa_verified'
             ? 'kv'
-            : giResolved.source === 'live_compute'
-              ? 'live'
-              : giResolved.source === 'readiness_snapshot'
-                ? 'readiness_fallback'
-                : 'null',
+            : giResolved.source === 'github_state_mirror'
+              ? 'github_state_mirror'
+              : giResolved.source === 'live_compute'
+                ? 'live'
+                : giResolved.source === 'readiness_snapshot'
+                  ? 'readiness_fallback'
+                  : 'null',
         gi_provenance: giResolved.gi_provenance,
         gi_verified: giResolved.verified,
         degraded,

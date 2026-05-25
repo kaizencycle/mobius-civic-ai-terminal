@@ -38,6 +38,9 @@ function message(m: MemoryModePayload): string {
   if (prov === 'kv-carry') {
     return 'GI from KV carry-forward row · primary gi:latest stale';
   }
+  if (prov === 'github-state-mirror') {
+    return 'GI from GitHub STATE mirror · not live KV (Upstash miss or outage)';
+  }
   if (prov === 'unknown') {
     return 'GI unavailable from all recorded tiers · operator truth: no estimate';
   }

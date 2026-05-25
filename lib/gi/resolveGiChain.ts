@@ -1,6 +1,7 @@
 /**
  * C-287 — Verified Memory Mode: GI read chain (no estimation; real recorded tiers only).
  * Order: KV live → live compute → KV carry → OAA bridge → MIC readiness snapshot → unknown.
+ * C-322: a fresh `GIState` row with `source: 'cached'` is GitHub federation, not KV live — surfaced as `github-state-mirror`.
  */
 
 import type { GIMode } from '@/lib/gi/mode';
@@ -14,6 +15,7 @@ export type GISourceDisplay =
   | 'kv-live'
   | 'live-compute'
   | 'kv-carry'
+  | 'github-state-mirror'
   | 'oaa-verified'
   | 'readiness-fallback'
   | 'unknown';
@@ -28,7 +30,13 @@ export type GiChainResolution = {
   /** C-287 display tier */
   source: GISourceDisplay;
   /** Legacy bucket for snapshot-lite / APIs */
-  source_legacy: 'kv' | 'kv_carry_forward' | 'live_compute' | 'readiness_snapshot' | 'null';
+  source_legacy:
+    | 'kv'
+    | 'kv_carry_forward'
+    | 'live_compute'
+    | 'readiness_snapshot'
+    | 'github_state_mirror'
+    | 'null';
   timestamp: string | null;
   age_seconds: number | null;
   /** OAA bridge row includes server `written_at`; we treat bridge-backed GI as verified for UI. */
@@ -96,6 +104,26 @@ export async function resolveGiChain(opts?: {
       st.gi_write_source === 'micro_sweep' ? 2 * 60 * 1000 : KV_LIVE_MAX_AGE_MS;
     if (ageMs < maxAgeMs) {
       const gi = Math.max(0, Math.min(1, st.global_integrity));
+      // C-322: `loadGIState` may return GitHub `STATE/gi/latest.json` with `source: 'cached'`.
+      // That is not live KV authority — do not emit kv-live / degraded:false.
+      if (st.source === 'cached') {
+        return {
+          gi,
+          mode: st.mode ?? null,
+          terminal_status: st.terminal_status ?? null,
+          primary_driver:
+            st.primary_driver && st.primary_driver.length > 0
+              ? `${st.primary_driver} · GitHub STATE cold tier (KV miss or outage; not live authority)`
+              : 'GI from GitHub STATE/gi/latest.json (federated read; not live KV)',
+          source: 'github-state-mirror',
+          source_legacy: 'github_state_mirror',
+          timestamp: st.timestamp,
+          age_seconds: ageSeconds(st.timestamp),
+          verified: false,
+          degraded: true,
+          kv: st,
+        };
+      }
       return {
         gi,
         mode: st.mode ?? null,

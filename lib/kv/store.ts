@@ -58,6 +58,7 @@ import {
   rawRedisKeyToBridgeSymbol,
   VAULT_BRIDGE_SYMBOL,
 } from '@/lib/kv/kvBridgeKeys';
+import { githubStateReadJson } from '@/lib/github-state-cache';
 
 export { KV_TTL_SECONDS };
 
@@ -565,6 +566,58 @@ export type GITrendEntry = {
   timestamp: string;
 };
 
+/** Validate JSON from `STATE/gi/latest.json` (GitHub CDN tier). Returns null if unusable. */
+function giStateFromGithubFederation(raw: unknown): GIState | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const gi = o.global_integrity;
+  if (typeof gi !== 'number' || !Number.isFinite(gi)) return null;
+  const ts = o.timestamp;
+  if (typeof ts !== 'string') return null;
+  const mode = typeof o.mode === 'string' ? o.mode : 'yellow';
+  const terminal_status = typeof o.terminal_status === 'string' ? o.terminal_status : 'stressed';
+  const primary_driver = typeof o.primary_driver === 'string' ? o.primary_driver : '';
+  const sig = o.signals && typeof o.signals === 'object' ? (o.signals as Record<string, unknown>) : null;
+  const signals: GIState['signals'] = {
+    quality: typeof sig?.quality === 'number' ? sig.quality : 0.5,
+    freshness: typeof sig?.freshness === 'number' ? sig.freshness : 0.5,
+    stability: typeof sig?.stability === 'number' ? sig.stability : 0.5,
+    system: typeof sig?.system === 'number' ? sig.system : 0.5,
+  };
+  const gws = o.gi_write_source;
+  return {
+    global_integrity: gi,
+    mode,
+    terminal_status,
+    primary_driver,
+    source: 'cached',
+    gi_write_source: gws === 'micro_sweep' || gws === 'integrity' ? gws : undefined,
+    signals,
+    gi_verified: typeof o.gi_verified === 'boolean' ? o.gi_verified : undefined,
+    gi_verification_method:
+      typeof o.gi_verification_method === 'string' ? o.gi_verification_method : undefined,
+    timestamp: ts,
+  };
+}
+
+function giTrendFromGithubFederation(raw: unknown): GITrendEntry[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: GITrendEntry[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const e = row as Record<string, unknown>;
+    const gi = e.gi;
+    if (typeof gi !== 'number' || !Number.isFinite(gi)) continue;
+    out.push({
+      gi,
+      mode: typeof e.mode === 'string' ? e.mode : 'yellow',
+      gi_verified: Boolean(e.gi_verified),
+      timestamp: typeof e.timestamp === 'string' ? e.timestamp : new Date().toISOString(),
+    });
+  }
+  return out.length > 0 ? out : null;
+}
+
 /**
  * Save the latest GI state. TTL: see `KV_TTL_SECONDS.GI_STATE` (C-286 extended for cycle-open).
  */
@@ -628,9 +681,18 @@ export async function saveGiStateFromMicroSweep(args: {
 
 /**
  * Load the last-known GI state from Redis.
+ * C-322: when KV misses (suspension / cold key), fall back to public `STATE/gi/latest.json`
+ * on the configured GitHub repo (`GH_CACHE_*` env). Federated reads use `source: 'cached'`.
  */
 export async function loadGIState(): Promise<GIState | null> {
-  return kvGet<GIState>(KV_KEYS.GI_STATE);
+  try {
+    const row = await kvGet<GIState>(KV_KEYS.GI_STATE);
+    if (row) return row;
+  } catch {
+    // KV transport / capacity — try federation tier
+  }
+  const gh = await githubStateReadJson<unknown>('gi/latest.json');
+  return giStateFromGithubFederation(gh);
 }
 
 /** Long-TTL duplicate of last `saveGIState` write — for cycle-open / KV primary expiry. */
@@ -657,10 +719,13 @@ export async function appendGiTrend(entry: GITrendEntry): Promise<void> {
 /** Load the GI trend list. Returns [] on failure or when unavailable. */
 export async function loadGiTrend(): Promise<GITrendEntry[]> {
   try {
-    return (await kvGet<GITrendEntry[]>(KV_KEYS.GI_TREND)) ?? [];
+    const row = await kvGet<GITrendEntry[]>(KV_KEYS.GI_TREND);
+    if (row !== null) return row;
   } catch {
-    return [];
+    // fall through
   }
+  const gh = await githubStateReadJson<unknown>('gi/trend.json');
+  return giTrendFromGithubFederation(gh) ?? [];
 }
 
 // ── ECHO state persistence ───────────────────────────────────

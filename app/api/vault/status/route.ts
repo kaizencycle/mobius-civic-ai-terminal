@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
       const maxAgeMs = st.gi_write_source === 'micro_sweep' ? 12 * 60 * 1000 : 15 * 60 * 1000;
       if (age < maxAgeMs) {
         gi = Math.max(0, Math.min(1, st.global_integrity));
-        gi_provenance = 'kv-live';
+        gi_provenance = st.source === 'cached' ? 'github-state-mirror' : 'kv-live';
       }
     }
     if (gi === null) {

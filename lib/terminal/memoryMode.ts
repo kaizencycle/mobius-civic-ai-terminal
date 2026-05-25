@@ -23,6 +23,7 @@ export function provenanceShortLabel(p: string | null | undefined): string {
   const v = p ?? '';
   if (v === 'kv-live' || v === 'live-compute') return 'LIVE';
   if (v === 'kv-carry') return 'CARRY';
+  if (v === 'github-state-mirror') return 'STATE';
   if (v === 'oaa-verified') return 'MEMORY';
   if (v === 'readiness-fallback') return 'CACHED';
   return '—';
@@ -33,6 +34,9 @@ export function provenanceDescription(p: string | null | undefined): string {
   if (v === 'kv-live') return 'GI from fresh KV row (gi:latest).';
   if (v === 'live-compute') return 'GI from live in-process compute (not stale KV).';
   if (v === 'kv-carry') return 'GI from KV carry-forward (primary row stale or missing).';
+  if (v === 'github-state-mirror') {
+    return 'GI from GitHub STATE cold tier (public mirror; not live Upstash authority).';
+  }
   if (v === 'oaa-verified') return 'GI from OAA warm-tier mirror (last recorded write).';
   if (v === 'readiness-fallback') return 'GI from MIC readiness snapshot cache.';
   return 'GI unavailable from recorded tiers — no estimate shown.';
