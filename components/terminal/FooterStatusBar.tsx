@@ -1,6 +1,6 @@
 'use client';
 
-import { useShellSnapshot } from '@/hooks/useShellSnapshot';
+import { useShellSnapshot } from '@/components/terminal/ShellSnapshotProvider';
 
 // C-305 OPT-07: age label with "ago" suffix + color-coded staleness thresholds
 function ageLabelFromIso(timestamp: string | null | undefined): string {

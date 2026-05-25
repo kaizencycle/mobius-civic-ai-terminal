@@ -40,7 +40,8 @@ function saveLastKnown(snapshot: ShellSnapshot) {
   } catch {}
 }
 
-export function useShellSnapshot() {
+/** Core shell polling + SSR seed merge; mount once via `ShellSnapshotProvider`. */
+export function useShellSnapshotState() {
   // P2 fix (C-321): distinguish live-fresh from cached init. readSeed() is SSR-injected
   // (live at render time); readLastKnown() is sessionStorage (stale from prior load).
   const [shell, setShell] = useState<ShellSnapshot | null>(() => readSeed() ?? readLastKnown());
@@ -59,6 +60,7 @@ export function useShellSnapshot() {
     // OPT-3 (C-321): retry with backoff on cold-start failure so a 5s serverless
     // wake-up doesn't strand the header at "—boot—" for the full session.
     async function load(attempt = 0): Promise<void> {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       const RETRY_DELAYS = [0, 600, 1400, 3000];
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), 6_000);
@@ -90,10 +92,20 @@ export function useShellSnapshot() {
     }
 
     void load();
-    const id = window.setInterval(() => void load(), POLL_MS);
+    const id = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void load();
+    }, POLL_MS);
+
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+    document.addEventListener('visibilitychange', onVis);
+
     return () => {
       mounted = false;
       window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
     };
   }, []);
 

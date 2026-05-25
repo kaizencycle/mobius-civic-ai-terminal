@@ -17,6 +17,7 @@ export function chamberMeta(chamber: string, description: string, path: string):
 }
 import CommandSurface from '@/components/terminal/CommandSurface';
 import FooterStatusBar from '@/components/terminal/FooterStatusBar';
+import { ShellSnapshotProvider } from '@/components/terminal/ShellSnapshotProvider';
 import TerminalShell from '@/components/terminal/TerminalShell';
 import { EchoDigestProvider } from '@/components/terminal/EchoDigestProvider';
 
@@ -59,18 +60,20 @@ export default async function TerminalLayout({ children }: { children: ReactNode
   const seed = await loadSeed();
   return (
     <WalletProvider>
-      {seed ? (
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.__MOBIUS_SHELL_SEED__=${JSON.stringify(seed)};`,
-          }}
-        />
-      ) : null}
-      <EchoDigestProvider>
-        <TerminalShell>{children}</TerminalShell>
-      </EchoDigestProvider>
-      <CommandSurface />
-      <FooterStatusBar />
+      <ShellSnapshotProvider>
+        {seed ? (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `window.__MOBIUS_SHELL_SEED__=${JSON.stringify(seed)};`,
+            }}
+          />
+        ) : null}
+        <EchoDigestProvider>
+          <TerminalShell>{children}</TerminalShell>
+        </EchoDigestProvider>
+        <CommandSurface />
+        <FooterStatusBar />
+      </ShellSnapshotProvider>
     </WalletProvider>
   );
 }
