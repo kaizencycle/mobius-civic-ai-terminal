@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-05-25T18:03:19.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-322",
+  "verification_status": "inconclusive",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality (elevated)": "persistent",
+    "NWS API health (elevated)": "persistent",
+    "data.gov dataset freshness (elevated)": "persistent",
+    "UN Data API availability (elevated)": "persistent",
+    "OECD stats API health (elevated)": "persistent",
+    "npm registry health (elevated)": "persistent",
+    "Terminal self-ping latency (elevated)": "persistent",
+    "Cloudflare Radar BGP health (elevated)": "persistent",
+    "Fastly CDN status (elevated)": "persistent",
+    "Certificate transparency log health (elevated)": "resolved",
+    "FRED economic data health (elevated)": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (route not present on deployed surface). Supplemental GET /api/quorum/state HTTP 200 — cycle=C-322 quorum_state=substrate_pending vault_block_state=attested reserve latest_status=attested integrity.gi=0.75 integrity.source=kv-live.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-05-25T17-03-05Z-atlas.json (latest *-atlas*.json lexicographic)",
+      "result": "pass",
+      "detail": "gi=0.81 mode=green source=kv gi_provenance=kv-live; anomalies=11; kv_keys.configured=true kv_keys_ok=false; seed_result=200 OK; sustain_eligible=false; journal_status=502; classification=STRESSED; micro_composite=0.684; flags.integrity_source_mock=false."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 composite=0.679 gi=0.679 instrumentCount=40 errors=8; ATLAS-named lanes remain error or sub-nominal except certificate transparency (nominal 0.9 vs ATLAS elevated). Hermes ArXiv elevated on micro but absent from ATLAS anomaly list for this heartbeat."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.807 mode=green source=kv (not mock); gi_age_seconds≈109; cycle=C-322. Cross-lane: micro composite ~0.68 vs integrity headline ~0.81 — operator-visible spread."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; not 401 — ZEUS STOP not triggered"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"ledger 400: No API base configured for terminal\""
+    }
+  ],
+  "recommendation": "External civic/API lanes in the ATLAS stress set remain mostly persistent on micro; CT improved to nominal vs prior ATLAS sweep. Integrity is KV-backed (not mock). No EPICON pending-verification work this pass. Add or deploy POST /api/vault/attest (or document replacement path) for explicit ZEUS quorum pings. Fix terminal ledger API base so journal canon writes succeed."
+}
