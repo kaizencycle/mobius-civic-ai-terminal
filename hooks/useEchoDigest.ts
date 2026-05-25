@@ -17,6 +17,7 @@ export function useEchoDigest(enabled = true) {
     let mounted = true;
 
     async function load() {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       try {
         const res = await fetch('/api/echo/digest', { cache: 'no-store' });
         const json = (await res.json()) as EchoDigestPayload;
@@ -32,10 +33,28 @@ export function useEchoDigest(enabled = true) {
     }
 
     void load();
-    const id = window.setInterval(load, POLL_MS);
+    let intervalId: number | null = null;
+    const arm = () => {
+      if (intervalId !== null) window.clearInterval(intervalId);
+      intervalId = null;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void load();
+      intervalId = window.setInterval(() => void load(), POLL_MS);
+    };
+    arm();
+    const onVis = () => {
+      if (document.visibilityState === 'visible') arm();
+      else if (intervalId !== null) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+
     return () => {
       mounted = false;
-      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+      if (intervalId !== null) window.clearInterval(intervalId);
     };
   }, [enabled, context]);
 
