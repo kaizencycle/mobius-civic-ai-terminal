@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-05-25T12:03:29.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-322",
+  "verification_status": "inconclusive",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality (elevated)": "persistent",
+    "NWS API health (elevated)": "persistent",
+    "data.gov dataset freshness (elevated)": "persistent",
+    "UN Data API availability (elevated)": "persistent",
+    "OECD stats API health (elevated)": "persistent",
+    "npm registry health (elevated)": "persistent",
+    "Terminal self-ping latency (elevated)": "persistent",
+    "Cloudflare Radar BGP health (elevated)": "persistent",
+    "Fastly CDN status (elevated)": "persistent",
+    "Certificate transparency log health (elevated)": "persistent",
+    "FRED economic data health (elevated)": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (Next.js not-found); quorum_status not returned. Supplemental GET /api/quorum/state HTTP 200 — attestations.received=0 needed=5 quorum_state=none vault_block_state=accumulating integrity.gi=0.92 integrity.source=live-compute cycle=C-322.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-05-25T11-06-34Z-atlas.json (latest *-atlas*.json by embedded timestamp for 2026-05-25)",
+      "result": "pass",
+      "detail": "Extracted gi=0.74 mode=yellow source=live; anomalies=11; kv_keys.available=false kv_keys.ok=false; seed_result=200 OK; sustain_eligible=false; journal_status=500; classification=STRESSED; micro_composite=0.685."
+    },
+    {
+      "check": "GET /api/signals/micro (https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.612 instrumentCount=40; each ATLAS-named stress maps to error (score 0) or sub-nominal primary (0.3) on the matched instrument row — all persistent or worsened vs catalog. Hermes ArXiv instrument shows error but was outside the ATLAS anomaly list for this heartbeat (coverage drift vs catalog scope)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.92 mode=green degraded=true source=live gi_provenance=live-compute (not mock; KV seed failure mode not indicated). Tri-lane GI spread at verification: ATLAS catalog 0.74 vs micro 0.612 vs integrity-status 0.92."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; attestation body not accepted on deployed surface (not 401; ZEUS STOP not triggered)"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 500 with empty response body from this runner (not 401; ZEUS STOP not triggered). Prior passes observed 502/ledger misconfiguration; treat as journal lane unhealthy until server logs confirm root cause."
+    }
+  ],
+  "recommendation": "Headline GI is lane-dependent: reconcile ATLAS catalog gi=0.74 (yellow STRESSED), live micro composite gi=0.612, and integrity-status global_integrity=0.92 (green) before operator seal decisions. Third-party degradation in the ATLAS anomaly set remains fully persistent or worsened on micro. integrity source is live (not mock). No EPICON pending-verification candidates this pass. Deploy or route POST /api/vault/attest for C-298 quorum registration. Restore terminal ledger or journal substrate path so POST /api/agents/journal succeeds with evidence in response body."
+}

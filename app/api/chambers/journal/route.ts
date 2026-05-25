@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GET as getJournal } from '@/app/api/agents/journal/route';
 import { chamberSavepointKey, resolveChamberSavepoint } from '@/lib/chambers/savepoint-cache';
+import { deriveTitleFromSummary } from '@/lib/journal/deriveTitle';
 import { kvLrange } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
@@ -174,6 +175,16 @@ async function respondWithSavepoint(payload: JournalChamberPayload, scope: Recor
   });
 }
 
+function enrichJournalEntryForDisplay(entry: unknown): unknown {
+  const row = entry as Record<string, unknown>;
+  const obs = typeof row.observation === 'string' ? row.observation : '';
+  const inf = typeof row.inference === 'string' ? row.inference : '';
+  const summarySource = [obs, inf].filter((s) => s.trim().length > 0).join('\n\n');
+  const existing = typeof row.title === 'string' ? row.title.trim() : '';
+  const title = existing.length > 0 ? existing : deriveTitleFromSummary(summarySource);
+  return { ...row, title };
+}
+
 function clampWindowHours(input: string | null): number {
   const parsed = Number(input ?? String(WINDOW_HOURS_DEFAULT));
   if (!Number.isFinite(parsed) || parsed <= 0) return WINDOW_HOURS_DEFAULT;
@@ -216,11 +227,16 @@ export async function GET(request: NextRequest) {
       [key: string]: unknown;
     };
     const agentSet = new Set(requestedAgents);
-    let entries = (json.entries ?? []).filter((entry) => entryIsInAgents(entry, agentSet)).slice(0, limit);
+    let entries = (json.entries ?? [])
+      .filter((entry) => entryIsInAgents(entry, agentSet))
+      .slice(0, limit)
+      .map(enrichJournalEntryForDisplay);
     let usedKvFallback = false;
 
     if (entries.length === 0 && mode !== 'canon') {
-      entries = await loadKvHotJournalEntries({ requestedAgents, cycle, windowHours, limit });
+      entries = (await loadKvHotJournalEntries({ requestedAgents, cycle, windowHours, limit })).map(
+        enrichJournalEntryForDisplay,
+      );
       usedKvFallback = entries.length > 0;
     }
 
@@ -256,9 +272,10 @@ export async function GET(request: NextRequest) {
     };
     return respondWithSavepoint(payload, savepointScope);
   } catch (error) {
-    const fallbackEntries = mode !== 'canon'
+    const rawFallback = mode !== 'canon'
       ? await loadKvHotJournalEntries({ requestedAgents, cycle, windowHours, limit })
       : [];
+    const fallbackEntries = rawFallback.map(enrichJournalEntryForDisplay);
     return respondWithSavepoint(
       {
         ok: true,

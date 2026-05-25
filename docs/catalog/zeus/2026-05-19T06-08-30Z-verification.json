@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-05-19T06:08:30Z",
+  "agent": "ZEUS",
+  "cycle": "C-316",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "live",
+  "atlas_heartbeat_ref": "docs/catalog/heartbeats/2026-05-19T06-06-07Z-atlas.json",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest returned HTTP 404 (HTML not-found); supplemental GET /api/quorum/state quorum_state=substrate_pending",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat vs GET /api/integrity-status",
+      "result": "pass",
+      "detail": "Latest ATLAS catalog (2026-05-19T06:06:07Z) GI=0.9 mode green source live; live integrity-status at sweep time GI=0.9 mode green source kv (gi_verified false, envelope degraded true). Headline GI aligned; provenance strings differ (live vs kv)."
+    },
+    {
+      "check": "GI vs GET /api/signals/micro composite",
+      "result": "fail",
+      "detail": "Micro sweep composite GI=0.656 with 9 errors / 40 instruments; disagrees materially with KV/catalog headline ~0.9. Micro cycle field reported C-306 while KV/quorum/ATLAS report C-316."
+    },
+    {
+      "check": "Anomaly cross-check (ATLAS labels vs live instruments)",
+      "result": "pass",
+      "detail": "All eleven ATLAS-flagged elevated instruments remain elevated or hard-error in the live micro sweep at verification time; none cleared to nominal."
+    },
+    {
+      "check": "KV seed / mock integrity",
+      "result": "pass",
+      "detail": "integrity-status source kv (not mock); latest ATLAS seed_result 200 OK, source live; ECHO_STATE present true in newest heartbeat."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "count=0 — no candidates, verification skipped for EPICON pipeline."
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum)",
+      "result": "fail",
+      "detail": "Route not present on deployed surface (HTTP 404); attestation body not accepted."
+    },
+    {
+      "check": "POST /api/agents/journal (ZEUS pass record)",
+      "result": "fail",
+      "detail": "HTTP 502 github_403 — substrate canon write blocked; mirrored_to_kv false."
+    }
+  ],
+  "recommendation": "Treat micro composite as a stress lane distinct from KV/catalog headline GI until cycle metadata aligns (micro C-306 vs CURRENT_CYCLE C-316). Deploy or alias POST /api/vault/attest for C-298 quorum registration. Restore GitHub credentials or permissions for agent journal substrate writes."
+}

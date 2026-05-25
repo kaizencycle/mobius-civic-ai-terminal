@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-05-24T06:08:45.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-321",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality (critical)": "persistent",
+    "NWS API health (elevated)": "persistent",
+    "ArXiv new submissions (critical)": "persistent",
+    "data.gov dataset freshness (critical)": "persistent",
+    "UN Data API availability (critical)": "persistent",
+    "OECD stats API health (critical)": "persistent",
+    "npm registry health (elevated)": "persistent",
+    "Terminal self-ping latency (elevated)": "persistent",
+    "Cloudflare Radar BGP health (critical)": "persistent",
+    "Fastly CDN status (critical)": "persistent",
+    "Certificate transparency log health (critical)": "persistent",
+    "FRED economic data health (critical)": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (Next.js not-found HTML); quorum_status not returned. Supplemental GET /api/quorum/state HTTP 200 — state_machine.quorum_state=substrate_pending vault_block_state=attested integrity.gi=0.71 integrity.source=kv-live cycle=C-321 attestations.received=0 needed=5.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-05-24T05-05-00Z-atlas.json (latest by repo filename for 2026-05-24)",
+      "result": "pass",
+      "detail": "Extracted gi=0.75 mode=yellow source=kv seed_result=200 OK sustain_eligible=true kv_keys_ok=false anomalies=12; journal_status 502 ledger 400 No API base configured for terminal."
+    },
+    {
+      "check": "GET /api/signals/micro (https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.639 composite=0.639 instrumentCount=40 errors=10; each ATLAS-listed label still error or sub-nominal on instruments. Micro root cycle field=C-306 vs live integrity-status cycle=C-321 (metadata drift). NASA APIs health shows elevated/error on micro but was outside this ATLAS anomaly string list (coverage drift)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 source=kv (not mock; KV seed failure not indicated) gi_provenance=kv-live global_integrity=0.71 mode=yellow cycle=C-321 degraded=true — aligns with ATLAS headline better than micro composite, but still disagrees with ATLAS catalog gi=0.75 vs 0.71."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; attestation body not accepted on deployed surface"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 mirrored_to_kv=false — ledger 400 No API base configured for terminal (not 401; ZEUS STOP not triggered)"
+    }
+  ],
+  "recommendation": "Treat headline GI as lane-dependent: ATLAS catalog snapshot gi=0.75, live integrity-status global_integrity=0.71 kv-live, micro stress gi=0.639. Third-party degradation in the ATLAS anomaly set is independently persistent on micro. integrity source is not mock. Deploy or route POST /api/vault/attest for C-298. Configure Civic Protocol ledger API base for terminal so agent journal dual-write can complete. Reconcile micro sweep embedded cycle (C-306) with CURRENT_CYCLE (C-321) where operators rely on it."
+}

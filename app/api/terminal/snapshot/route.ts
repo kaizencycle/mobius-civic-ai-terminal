@@ -34,7 +34,8 @@ export const dynamic = 'force-dynamic';
 // FIX-510-05: coalesce parallel snapshot requests — only one Render fan-out per 20s window.
 const SNAPSHOT_COALESCE_KEY = 'snapshot:coalesce';
 const SNAPSHOT_COALESCE_MS = 20_000;
-let snapshotInFlight: Promise<NextResponse> | null = null;
+/** Serialized snapshot bytes — each waiter builds its own `NextResponse` so body streams are never shared (fixes ERR_INVALID_STATE / locked stream). */
+let snapshotInFlight: Promise<{ status: number; body: string }> | null = null;
 let snapshotInFlightStarted = 0;
 
 // C-293 OPT-1: echo + promotion lanes persistently hit the 5s budget.
@@ -177,9 +178,8 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
   };
 
   type SubstrateAgentRow = { agent: string; lastEntry: SubstrateJournalEntry | null; entryCount: number };
-  const SUBSTRATE_JOURNALS_TREE = 'https://github.com/kaizencycle/Mobius-Substrate/tree/main/journals';
 
-  let substrate: { ok: boolean; totalEntries: number; agents: SubstrateAgentRow[]; repoUrl: string; latest: { agent: string; lastEntry: SubstrateJournalEntry }[] };
+  let substrate: { ok: boolean; totalEntries: number; agents: SubstrateAgentRow[]; latest: { agent: string; lastEntry: SubstrateJournalEntry }[] };
 
   if (includeSubstrate === 'true') {
     const subStart = Date.now();
@@ -194,15 +194,15 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
       }));
       const withEntries = agentRows.filter((x) => x.lastEntry !== null);
       substrate = {
-        ok: true, totalEntries, agents: withEntries, repoUrl: SUBSTRATE_JOURNALS_TREE,
+        ok: true, totalEntries, agents: withEntries,
         latest: withEntries.map(({ agent, lastEntry }) => ({ agent, lastEntry: lastEntry as SubstrateJournalEntry })),
       };
     } catch {
-      substrate = { ok: false, totalEntries: 0, agents: [], repoUrl: SUBSTRATE_JOURNALS_TREE, latest: [] };
+      substrate = { ok: false, totalEntries: 0, agents: [], latest: [] };
     }
     timings.substrate = Date.now() - subStart;
   } else {
-    substrate = { ok: true, totalEntries: 0, agents: [], repoUrl: SUBSTRATE_JOURNALS_TREE, latest: [] };
+    substrate = { ok: true, totalEntries: 0, agents: [], latest: [] };
   }
 
   const leaves: Record<SnapshotLaneKey, SnapshotLeaf> = {
@@ -364,7 +364,7 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
       journal_mode: journalMode === 'hot' || journalMode === 'canon' || journalMode === 'merged' ? journalMode : 'merged',
       timestamp: new Date().toISOString(),
       deployment: {
-        commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+        // commit_sha omitted — production hash not disclosed on public endpoint
         environment: process.env.VERCEL_ENV ?? null,
       },
       meta: { total_ms: totalMs, lane_ms: timings },
@@ -399,7 +399,6 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
       journal_mode: 'merged',
       timestamp: new Date().toISOString(),
       deployment: {
-        commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
         environment: process.env.VERCEL_ENV ?? null,
       },
       meta: { total_ms: 0, lane_ms: {} },
@@ -424,7 +423,7 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
       micReadiness: fallbackLeaf,
       tripwire: fallbackLeaf,
       trustTripwire: fallbackLeaf,
-      substrate: { ok: false, totalEntries: 0, agents: [], repoUrl: null, latest: [] },
+      substrate: { ok: false, totalEntries: 0, agents: [], latest: [] },
     }, {
       status: 200,
       headers: { 'Cache-Control': 'no-store', 'X-Mobius-Source': 'terminal-snapshot-fallback' },
@@ -462,25 +461,45 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // Coalesce: if a build is already in flight, share it
+    // Coalesce: if a build is already in flight, await the same serialized payload (each caller gets a fresh Response)
     if (snapshotInFlight && now - snapshotInFlightStarted < SNAPSHOT_COALESCE_MS) {
-      return snapshotInFlight;
+      const { status, body } = await snapshotInFlight;
+      return new NextResponse(body, {
+        status,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=60',
+          'X-Mobius-Source': 'terminal-snapshot',
+          'X-Cache': 'COALESCE',
+        },
+      });
     }
 
     snapshotInFlightStarted = now;
-    snapshotInFlight = buildSnapshotResponse(request).then(async (res) => {
+    const work = (async (): Promise<{ status: number; body: string }> => {
       try {
-        const clone = res.clone();
-        const body = await clone.text();
-        kvSet(SNAPSHOT_COALESCE_KEY, { builtAt: now, body }, 25).catch(() => {});
-      } catch {
-        // non-fatal
+        const res = await buildSnapshotResponse(request);
+        const status = res.status;
+        const body = await res.text();
+        const builtAt = snapshotInFlightStarted;
+        void kvSet(SNAPSHOT_COALESCE_KEY, { builtAt, body }, 25).catch(() => {});
+        return { status, body };
+      } finally {
+        snapshotInFlight = null;
       }
-      snapshotInFlight = null;
-      return res;
-    });
+    })();
+    snapshotInFlight = work;
 
-    return snapshotInFlight;
+    const { status, body } = await work;
+    return new NextResponse(body, {
+      status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=60',
+        'X-Mobius-Source': 'terminal-snapshot',
+        'X-Cache': 'MISS',
+      },
+    });
   }
 
   return buildSnapshotResponse(request);

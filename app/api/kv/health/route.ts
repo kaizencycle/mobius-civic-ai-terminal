@@ -33,14 +33,21 @@ export async function GET() {
     keys.VAULT_STATE = bal !== null || meta !== null;
   }
 
+  // C-318: replace key name enumeration with a single presence boolean.
+  // Enumerating every KV key name leaks internal implementation surface.
+  // Remove perplexity flag — third-party API presence not disclosed publicly.
+  const kv_keys_ok = health.available
+    ? Object.values(keys).every(Boolean)
+    : null;
+
   return NextResponse.json({
     ok: health.available,
     ...health,
-    keys,
-    perplexity: Boolean(process.env.PERPLEXITY_API_KEY),
+    kv_keys_ok,
     timestamp: new Date().toISOString(),
   }, {
     headers: {
+      'Cache-Control': 'private, no-store',
       'X-Mobius-Source': 'kv-health',
     },
   });

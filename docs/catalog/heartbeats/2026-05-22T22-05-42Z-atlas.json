@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-05-22T22:05:42.995Z",
+  "agent": "ATLAS",
+  "cycle": "C-319",
+  "gi": 0.74,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    "ArXiv new submissions — elevated",
+    "ArXiv new submissions — error",
+    "Certificate transparency log health — elevated",
+    "Certificate transparency log health — error",
+    "Cloudflare Radar BGP health — elevated",
+    "Cloudflare Radar BGP health — error",
+    "FRED economic data health — elevated",
+    "FRED economic data health — error",
+    "Fastly CDN status — elevated",
+    "Fastly CDN status — error",
+    "NASA APIs health — elevated",
+    "NASA APIs health — error",
+    "NWS API health — elevated",
+    "OECD stats API health — elevated",
+    "OECD stats API health — error",
+    "OpenAQ air quality — elevated",
+    "OpenAQ air quality — error",
+    "Terminal self-ping latency — elevated",
+    "UN Data API availability — elevated",
+    "UN Data API availability — error",
+    "data.gov dataset freshness — elevated",
+    "data.gov dataset freshness — error",
+    "npm registry health — elevated"
+  ],
+  "kv_keys": {
+    "kv_keys_ok": false,
+    "ok": true,
+    "available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false
+}

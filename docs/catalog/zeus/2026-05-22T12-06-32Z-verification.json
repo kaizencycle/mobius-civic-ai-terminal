@@ -1,0 +1,71 @@
+{
+  "timestamp": "2026-05-22T12:06:32.373Z",
+  "agent": "ZEUS",
+  "cycle": "C-319",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "ArXiv new submissions": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent",
+    "NASA APIs health": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (Next.js not-found HTML); quorum_status not returned. Supplemental GET /api/quorum/state HTTP 200 — {\"ok\":true,\"timestamp\":\"2026-05-22T12:06:14.990Z\",\"cycle\":\"C-319\",\"phase\":\"C-293-phase2-canonical-state-machine\",\"state_machine\":{\"version\":\"C-293.phase2.v1\",\"quorum_state\":\"substrate_pending\",\"vault_block_state\":\"attested\"},\"integrity\":{\"gi\":0.71,\"mode\":\"yellow\",\"terminal_status\":\"stressed\",\"source\":\"kv-live\",\"verified\":false,\"degraded\":false,\"age_seconds\":119},\"reserve_block\":{\"block_size\":50,\"s",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat (docs/catalog/heartbeats/2026-05-22T11-04-06Z-atlas.json)",
+      "result": "pass",
+      "detail": "gi=0.92, mode=green, source=live, anomalies=13, kv_keys={\"kv_keys_ok\":false,\"ok\":true}, seed_result=200 OK, sustain_eligible=false"
+    },
+    {
+      "check": "GET /api/signals/micro (live)",
+      "result": "pass",
+      "detail": "composite=0.61, gi=0.61, errors=11, instruments=40, sweep_cycle=C-306"
+    },
+    {
+      "check": "GET /api/integrity-status (live)",
+      "result": "pass",
+      "detail": "source=kv, global_integrity=0.71, mode=yellow, degraded=true, gi_provenance=kv-live"
+    },
+    {
+      "check": "GI cross-reference",
+      "result": "warn",
+      "detail": "ATLAS catalog gi=0.92; live integrity GI=0.71; micro composite=0.61; mock_seed=false"
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "POST /api/vault/attest HTTP 404 (Next.js not-found HTML); quorum_status not returned. Supplemental GET /api/quorum/state HTTP 200 — {\"ok\":true,\"timestamp\":\"2026-05-22T12:06:14.990Z\",\"cycle\":\"C-319\",\"phase\":\"C-293-phase2-canonical-state-machine\",\"state_machine\":{\"version\":\"C-293.phase2.v1\",\"quorum_state\":\"substrate_pending\",\"vault_block_state\":\"attested\"},\"integrity\":{\"gi\":0.71,\"mode\":\"yellow\",\"terminal_status\":\"stressed\",\"source\":\"kv-live\",\"verified\":false,\"degraded\":false,\"age_seconds\":119},\"reserve_block\":{\"block_size\":50,\"s"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 502 {\"ok\":false,\"canonical\":false,\"error\":\"Error: ledger 400: {\\\"detail\\\":\\\"No API base configured for terminal\\\"}\",\"mirrored_to_kv\":false}"
+    },
+    {
+      "check": "GET /api/quorum/state (supplemental)",
+      "result": "pass",
+      "detail": "{\"ok\":true,\"timestamp\":\"2026-05-22T12:06:14.990Z\",\"cycle\":\"C-319\",\"phase\":\"C-293-phase2-canonical-state-machine\",\"state_machine\":{\"version\":\"C-293.phase2.v1\",\"quorum_state\":\"substrate_pending\",\"vault_block_state\":\"attested\"},\"integrity\":{\"gi\":0.71,\"mode\":\"yellow\",\"terminal_status\":\"stressed\",\"source\":\"kv-live\",\"verified\":false,\"degraded\":false,\"age_seconds\":119},\"reserve_block\":{\"block_size\":50,\"state\":\"attested\",\"in_progress_block\":120,\"in_progress_balance\":28.586418,\"in_progress_pct\":57,\"remai"
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog snapshot timing with live integrity-status and micro sweep before operator seal decisions; deploy /api/vault/attest alias for quorum."
+}

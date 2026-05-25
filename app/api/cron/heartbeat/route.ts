@@ -18,6 +18,7 @@ import {
   appendGiTrend,
   kvDel,
   kvGet,
+  kvSet,
   KV_KEYS,
   type GIState,
   type GITrendEntry,
@@ -84,32 +85,47 @@ async function run(req: NextRequest) {
     kvDel('cache:lane-diagnostics'),
   ]).catch(() => {});
 
+  // OPT-9 (C-321): persist last-known snapshot so the shell endpoint can serve
+  // real values on cold start instead of all-dashes.
+  if (gi !== null) {
+    const cycle = await resolveOperatorCycleId().catch(() => '');
+    void kvSet(
+      'terminal:last-known-snapshot',
+      {
+        gi,
+        cycle: cycle || undefined,
+        runtime: 'ok',
+        ts: Date.now(),
+      },
+      86400,
+    ).catch(() => {});
+  }
+
   // C-322: low-frequency mirror of hot KV rows to GitHub `STATE/` (Contents API).
+  // Awaited so serverless invocations do not return before Contents API writes complete.
   // Uses raw KV reads so we never recurse into federation read path. Bounded to ~12 writes/hr
   // by the heartbeat schedule; keeps a public cold tier when Upstash is throttled.
   if (isGithubStateWriteConfigured()) {
-    void (async () => {
-      try {
-        const [gi, trend] = await Promise.all([
-          kvGet<GIState>(KV_KEYS.GI_STATE),
-          kvGet<GITrendEntry[]>(KV_KEYS.GI_TREND),
-        ]);
-        await Promise.all([
-          gi
-            ? githubStateWriteJson(
-                'gi/latest.json',
-                gi,
-                `state(gi): mirror heartbeat · GI ${Number(gi.global_integrity).toFixed(3)}`,
-              )
-            : Promise.resolve(false),
-          trend && trend.length > 0
-            ? githubStateWriteJson('gi/trend.json', trend, 'state(gi): mirror heartbeat trend')
-            : Promise.resolve(false),
-        ]);
-      } catch (e) {
-        console.warn('[cron/heartbeat] github STATE mirror failed:', e instanceof Error ? e.message : e);
-      }
-    })();
+    try {
+      const [giRow, trend] = await Promise.all([
+        kvGet<GIState>(KV_KEYS.GI_STATE),
+        kvGet<GITrendEntry[]>(KV_KEYS.GI_TREND),
+      ]);
+      await Promise.all([
+        giRow
+          ? githubStateWriteJson(
+              'gi/latest.json',
+              giRow,
+              `state(gi): mirror heartbeat · GI ${Number(giRow.global_integrity).toFixed(3)}`,
+            )
+          : Promise.resolve(false),
+        trend && trend.length > 0
+          ? githubStateWriteJson('gi/trend.json', trend, 'state(gi): mirror heartbeat trend')
+          : Promise.resolve(false),
+      ]);
+    } catch (e) {
+      console.warn('[cron/heartbeat] github STATE mirror failed:', e instanceof Error ? e.message : e);
+    }
   }
 
   return NextResponse.json({

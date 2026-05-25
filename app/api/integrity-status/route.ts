@@ -34,16 +34,7 @@ async function echoMicProvisional(): Promise<{ totalMicProvisional: number; tota
   }
 }
 
-function buildAuthority(payload: Awaited<ReturnType<typeof computeIntegrityPayload>>, renderEnabled: boolean, renderUsed: boolean) {
-  const signalAuthority =
-    payload.source === 'kv'
-      ? 'kv-state'
-      : payload.source === 'live'
-        ? 'local-live-compute'
-        : payload.source === 'cached'
-          ? 'cached-fallback'
-          : 'mock-fallback';
-
+function buildAuthority(payload: Awaited<ReturnType<typeof computeIntegrityPayload>>, _renderEnabled: boolean, renderUsed: boolean) {
   const note =
     payload.source === 'kv'
       ? 'Primary GI is being served from KV-backed state.'
@@ -52,18 +43,15 @@ function buildAuthority(payload: Awaited<ReturnType<typeof computeIntegrityPaylo
         : 'GI is operating under degraded signal authority.';
 
   return {
-    payload_source: payload.source,
-    signal_authority: signalAuthority,
     kv_backed: Boolean(payload.kv),
-    render_enabled: renderEnabled,
-    render_used: renderUsed,
     gi_origin: renderUsed ? 'gic-indexer' : payload.source,
     note,
   };
 }
 
 const CACHE_HEADERS = {
-  'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+  // C-318: private — integrity payload contains operational state not suitable for public CDN cache
+  'Cache-Control': 'private, no-store',
   'X-Mobius-Source': 'integrity-status',
 };
 
@@ -92,7 +80,7 @@ export async function GET() {
         }
       : {}),
     gi_provenance: chain.source,
-    gi_verified: chain.verified,
+    // gi_verified omitted from public surface — verification state is operator-only
     gi_degraded: chain.degraded,
     gi_age_seconds: chain.age_seconds,
     mic_readiness_snapshot_source: micRaw.source,

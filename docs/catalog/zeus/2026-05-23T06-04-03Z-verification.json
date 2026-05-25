@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-05-23T06:04:03.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-320",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality (critical)": "persistent",
+    "NWS API health (elevated)": "persistent",
+    "data.gov dataset freshness (critical)": "persistent",
+    "UN Data API availability (critical)": "persistent",
+    "OECD stats API health (critical)": "persistent",
+    "npm registry health (elevated)": "persistent",
+    "Terminal self-ping latency (elevated)": "persistent",
+    "Cloudflare Radar BGP health (critical)": "persistent",
+    "Fastly CDN status (critical)": "persistent",
+    "Certificate transparency log health (critical)": "persistent",
+    "FRED economic data health (critical)": "persistent",
+    "NASA APIs health (critical)": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (Next.js not-found HTML); quorum_status not returned. Supplemental GET /api/quorum/state HTTP 200 — state_machine.quorum_state=substrate_pending vault_block_state=attested integrity.gi=0.75 integrity.source=kv-live cycle=C-320.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-05-23T05-05-02Z-atlas.json",
+      "result": "pass",
+      "detail": "Extracted gi=0.792 mode=yellow source=kv seed_result=200 OK sustain_eligible=false kv_keys_ok=false anomalies=12; journal_status failed (substrate ledger 400)."
+    },
+    {
+      "check": "GET /api/signals/micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.608 instrumentCount=40; ATLAS-listed third-party lanes still error or low-score on live micro; additional live errors include ArXiv and GovTrack not present in ATLAS anomaly list for this heartbeat."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 source=kv (not mock) global_integrity=0.75 mode=yellow terminal_status=stressed degraded=true gi_provenance=kv-live — KV seed not indicated as mock; GI below ATLAS catalog headline 0.792."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; quorum attestation body not accepted on deployed surface"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 mirrored_to_kv=false — ledger 400 No API base configured for terminal (not 401; ZEUS STOP not triggered)"
+    }
+  ],
+  "recommendation": "Treat headline GI as lane-dependent: ATLAS catalog snapshot (0.792 yellow) sits above KV integrity-status (0.75 yellow) and live micro composite (~0.608). Source is KV-backed live (not mock), so mock KV seed failure is not the indicated mode. Third-party outage cluster remains largely persistent on micro. Deploy or alias POST /api/vault/attest for C-298 quorum registration. Configure Civic Protocol ledger API base for terminal so agent journal dual-write can complete."
+}

@@ -30,7 +30,9 @@ Commits can use `[skip ci]` in the mirror message (already appended by `githubSt
 
 ## Operator truth
 
-- Federated GI is explicitly `source: 'cached'` (not live KV).
+- Federated GI is explicitly `source: 'cached'` on the `GIState` row (not live KV).
+- `resolveGiChain` maps that tier to provenance `github-state-mirror` with `degraded: true` so APIs and snapshot-lite do not claim `kv-live` authority.
+- Heartbeat mirror writes are **awaited** before the cron handler returns so serverless runs are less likely to drop Contents API commits mid-flight.
 - Do not point `GH_CACHE_REPO` at private data unless you accept auth/CORS tradeoffs on reads.
 
 ## Next phases (not in phase-1 code)

@@ -1,0 +1,70 @@
+{
+  "timestamp": "2026-05-17T18:03:15.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-314",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "live",
+  "atlas_heartbeat_ref": "docs/catalog/heartbeats/2026-05-17T17-04-44Z-atlas.json",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "ArXiv new submissions": "resolved",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent"
+  },
+  "gi_cross_check": {
+    "atlas_catalog_gi": 0.75,
+    "atlas_catalog_mode": "yellow",
+    "integrity_status_gi": 0.82,
+    "integrity_status_mode": "green",
+    "micro_sweep_gi": 0.679,
+    "integrity_source": "kv",
+    "integrity_mock_flag": false
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest returned HTTP 404 (no JSON body); supplemental GET /api/quorum/state quorum_state=substrate_pending",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat (latest catalog file by name)",
+      "result": "pass",
+      "detail": "Read docs/catalog/heartbeats/2026-05-17T17-04-44Z-atlas.json — gi=0.75 mode=yellow source=kv seed_result=200 OK sustain_eligible=true anomalies=12."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "200 OK composite gi=0.679; hard errors persist on OpenAQ, NWS, data.gov, UN, OECD, Cloudflare, Fastly, CT logs, FRED; npm and self-ping scored 0.3. ArXiv returned 0.9 primary (healthier than ATLAS elevated flag)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "200 OK source=kv (not mock); global_integrity=0.82 mode=green degraded=true freshness=0.30 — diverges from ATLAS snapshot (0.75 yellow) and from micro composite (0.679)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "200 OK count=0; no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum)",
+      "result": "fail",
+      "detail": "HTTP 404 HTML shell — route not present on deployed surface; quorum_status not returned in API body."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 body {\"ok\":false,\"canonical\":false,\"error\":\"github_403\",\"mirrored_to_kv\":false} — substrate/GitHub write path blocked; observation not canonized remotely."
+    }
+  ],
+  "recommendation": "Treat headline GI as disputed across lanes: reconcile KV integrity-status (0.82 green), live micro composite (0.679), and ATLAS catalog snapshot (0.75 yellow) before operator decisions; freshness 0.30 remains a primary stressor. External instrument failures are mostly persistent hard errors. Deploy or alias POST /api/vault/attest for quorum registration. Restore GitHub credentials/permissions for agent journal substrate writes."
+}

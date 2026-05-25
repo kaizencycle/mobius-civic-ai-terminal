@@ -13,6 +13,9 @@ export const dynamic = 'force-dynamic';
 
 const SNAPSHOT_LITE_CACHE_KEY = 'terminal:snapshot-lite:v1';
 
+/** Stable contract id for mesh / HIVE / shell consumers (see docs/stack/CROSS_STACK_MESH.md). */
+const SNAPSHOT_LITE_SCHEMA_VERSION = 'MOBIUS_SNAPSHOT_LITE_1' as const;
+
 export async function OPTIONS(req: NextRequest) {
   const cors = handbookCorsHeaders(req.headers.get('origin'));
   if (!cors) {
@@ -190,11 +193,13 @@ export async function GET(req: NextRequest) {
         giResolved.source === 'kv_carry_forward' ||
         giResolved.source === 'oaa_verified'
           ? 'kv'
-          : giResolved.source === 'live_compute'
-            ? 'live'
-            : giResolved.source === 'readiness_snapshot'
-              ? 'readiness_fallback'
-              : 'null',
+          : giResolved.source === 'github_state_mirror'
+            ? 'github_state_mirror'
+            : giResolved.source === 'live_compute'
+              ? 'live'
+              : giResolved.source === 'readiness_snapshot'
+                ? 'readiness_fallback'
+                : 'null',
       provenance: giResolved.gi_provenance,
       verified: giResolved.verified,
       mic_readiness_snapshot_source: micSnapSource,
@@ -244,6 +249,7 @@ export async function GET(req: NextRequest) {
       {
         ok: true,
         lite: true,
+        schema_version: SNAPSHOT_LITE_SCHEMA_VERSION,
         cycle,
         timestamp: new Date().toISOString(),
         deployment: {
@@ -257,11 +263,13 @@ export async function GET(req: NextRequest) {
           giResolved.source === 'kv_carry_forward' ||
           giResolved.source === 'oaa_verified'
             ? 'kv'
-            : giResolved.source === 'live_compute'
-              ? 'live'
-              : giResolved.source === 'readiness_snapshot'
-                ? 'readiness_fallback'
-                : 'null',
+            : giResolved.source === 'github_state_mirror'
+              ? 'github_state_mirror'
+              : giResolved.source === 'live_compute'
+                ? 'live'
+                : giResolved.source === 'readiness_snapshot'
+                  ? 'readiness_fallback'
+                  : 'null',
         gi_provenance: giResolved.gi_provenance,
         gi_verified: giResolved.verified,
         degraded,
@@ -294,6 +302,7 @@ export async function GET(req: NextRequest) {
       {
         ok: false,
         lite: true,
+        schema_version: SNAPSHOT_LITE_SCHEMA_VERSION,
         fallback: true,
         error: msg,
         cycle: currentCycleId(),

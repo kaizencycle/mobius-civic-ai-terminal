@@ -5,11 +5,7 @@ import { writeToSubstrate } from '@/lib/substrate/client';
 import { kvLrange, kvGet } from '@/lib/kv/store';
 import { scanKeys } from '@/lib/kv/scan';
 import { getOperatorSession } from '@/lib/auth/session';
-import {
-  writeJournalToSubstrate,
-  type SubstrateJournalEntry,
-  type SubstrateJournalWriteInput,
-} from '@/lib/substrate/github-journal';
+import type { SubstrateJournalEntry } from '@/lib/substrate/github-journal';
 import { readAgentJournals } from '@/lib/substrate/github-reader';
 import { checkProvenanceBreak, checkTemporalCoherence } from '@/lib/tripwire/archiveChecks';
 import { checkJournalQualityDrift } from '@/lib/tripwire/journalQuality';
@@ -641,32 +637,36 @@ export async function POST(request: NextRequest) {
       ? input.gi_snapshot
       : undefined;
 
-  const substratePayload: SubstrateJournalWriteInput = {
+  // FIX-20: warn when explicit env vars are absent (TERMINAL_REGISTRATION has fallbacks,
+  // but the Civic Protocol Ledger may reject if fallback values don't match its registry).
+  if (!process.env.TERMINAL_ID || !process.env.TERMINAL_API_BASE) {
+    console.error('[journal] TERMINAL_ID or TERMINAL_API_BASE not set in env (FIX-20) — ledger write may be rejected with "No API base configured for terminal"');
+  }
+
+  // GitHub PAT write path removed in C-317 (PAT lacks contents:write scope → 403 → 502).
+  // All journal writes route through Civic Protocol Core Ledger exclusively.
+  const ledgerResult = await writeToSubstrate({
     id: entry.id,
     agent: entry.agent,
     agentOrigin: entry.agentOrigin,
     cycle: entry.cycle,
-    scope: entry.scope,
+    title: entry.inference,
+    summary: entry.observation,
     category: entry.category,
     severity: entry.severity,
-    observation: entry.observation,
-    inference: entry.inference,
-    recommendation: entry.recommendation,
+    source: 'agent-journal',
     confidence: entry.confidence,
     derivedFrom: entry.derivedFrom,
-    source: entry.source,
-    tags: entry.tags ?? [],
+    tags: entry.tags,
     ...(giAt !== undefined ? { gi_at_time: giAt } : {}),
-    status: entry.status,
-  };
+  });
 
-  const substrateResult = await writeJournalToSubstrate(substratePayload);
-  if (!substrateResult.ok) {
+  if (!ledgerResult.ok) {
     return NextResponse.json(
       {
         ok: false,
         canonical: false,
-        error: substrateResult.error ?? 'substrate_write_failed',
+        error: ledgerResult.error ?? 'ledger_write_failed',
         mirrored_to_kv: false,
       },
       { status: 502 },
@@ -686,26 +686,10 @@ export async function POST(request: NextRequest) {
     mirroredToKv = writeResult.written || writeResult.token === 'already_exists';
   }
 
-  void writeToSubstrate({
-    agent: entry.agent,
-    agentOrigin: entry.agentOrigin,
-    cycle: entry.cycle,
-    title: entry.inference,
-    summary: entry.observation,
-    category: entry.category,
-    severity: entry.severity,
-    source: 'agent-journal',
-    confidence: entry.confidence,
-    derivedFrom: entry.derivedFrom,
-    tags: entry.tags,
-  }).catch((error) => {
-    console.error('[ledger] journal attest error', error);
-  });
-
   return NextResponse.json({
     ok: true,
     canonical: true,
-    path: substrateResult.path,
+    path: ledgerResult.entryId,
     mirrored_to_kv: mirroredToKv,
     entryId: entry.id,
     timestamp: entry.timestamp,

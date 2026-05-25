@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
       const maxAgeMs = st.gi_write_source === 'micro_sweep' ? 12 * 60 * 1000 : 15 * 60 * 1000;
       if (age < maxAgeMs) {
         gi = Math.max(0, Math.min(1, st.global_integrity));
-        gi_provenance = 'kv-live';
+        gi_provenance = st.source === 'cached' ? 'github-state-mirror' : 'kv-live';
       }
     }
     if (gi === null) {
@@ -161,6 +161,7 @@ export async function GET(req: NextRequest) {
     substrate_event_hash: latestSeal?.substrate_event_hash ?? null,
     substrate_attested_at: latestSeal?.substrate_attested_at ?? null,
     substrate_attestation_error: latestSeal?.substrate_attestation_error ?? null,
+    substrate_ok: !latestSeal?.substrate_attestation_error,
     latest_block_immortalized: latestImmortalized,
     candidate_attestation_state: candidate
       ? {

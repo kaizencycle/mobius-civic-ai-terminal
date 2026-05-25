@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { kvGetRaw, kvSetRawKey, kvDel, kvInspectSamples } from '@/lib/kv/store';
+import { TERMINAL_REGISTRATION } from '@/lib/ledger';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,8 +68,9 @@ export async function POST(req: Request) {
     migration_cycle: cycle,
     operatorNote: operatorNote ?? null,
     source: 'terminal-migrate-v1',
-    terminal_base_url:
-      process.env.NEXT_PUBLIC_TERMINAL_URL ?? 'https://mobius-civic-ai-terminal.vercel.app',
+    terminal_base_url: TERMINAL_REGISTRATION.api_base,
+    terminal_id: TERMINAL_REGISTRATION.terminal_id,
+    api_base: TERMINAL_REGISTRATION.api_base,
   };
 
   await kvSetRawKey(v1Key, v2Seal);

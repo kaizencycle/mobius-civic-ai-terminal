@@ -23,14 +23,37 @@ export async function GET(request: NextRequest) {
   const origin = request.nextUrl.origin;
   // C-314 T-03: /api/epicon/promote compares normalized SUBSTRATE_TOKEN / CRON_SECRET material
   // (see normalizeServiceSecretMaterial) so env may include optional Bearer prefix or quotes.
+  // /api/epicon/promote accepts either SUBSTRATE_TOKEN or CRON_SECRET — fast-fail only when
+  // neither is present, since both are valid auth paths for the promote endpoint (C-319).
   const substrateMat = normalizeServiceSecretMaterial(process.env.SUBSTRATE_TOKEN);
   const cronMat = normalizeServiceSecretMaterial(process.env.CRON_SECRET);
+  if (substrateMat === null && cronMat === null) {
+    console.error('[cron/promote] Neither SUBSTRATE_TOKEN nor CRON_SECRET configured — skipping promote run. Set at least one in Vercel env vars.');
+    return NextResponse.json({
+      ok: false,
+      error: 'NO_PROMOTE_AUTH_TOKEN',
+      hint: 'Set SUBSTRATE_TOKEN or CRON_SECRET in Vercel environment variables and redeploy',
+      timestamp: new Date().toISOString(),
+    });
+  }
   const authHeader =
     substrateMat !== null
       ? `Bearer ${substrateMat}`
       : cronMat !== null
         ? `Bearer ${cronMat}`
         : serviceAuthorizationHeaderValue();
+
+  if (!authHeader) {
+    console.warn(
+      '[promote] skipped: no SUBSTRATE_TOKEN, CRON_SECRET, or outbound service bearer — configure env to run scheduled promotion',
+    );
+    return NextResponse.json({
+      ok: false,
+      skipped: true,
+      reason: 'no_promote_auth_material',
+      timestamp: new Date().toISOString(),
+    });
+  }
 
   try {
     // FIX-507-02: write heartbeat unconditionally so promotion-status never shows stale
