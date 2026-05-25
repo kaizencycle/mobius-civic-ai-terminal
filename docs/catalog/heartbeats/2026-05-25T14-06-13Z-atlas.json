@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-05-25T14:06:13.956Z",
+  "agent": "ATLAS",
+  "cycle": "C-322",
+  "gi": 0.63,
+  "mode": "yellow",
+  "source": "live",
+  "gi_provenance": "kv-live",
+  "anomalies": [
+    "OpenAQ air quality (elevated)",
+    "data.gov dataset freshness (elevated)",
+    "UN Data API availability (elevated)",
+    "OECD stats API health (elevated)",
+    "GovTrack legislation feed (elevated)",
+    "Cloudflare Radar BGP health (elevated)",
+    "Fastly CDN status (elevated)",
+    "Certificate transparency log health (elevated)",
+    "FRED economic data health (elevated)"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false,
+    "backup_available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false,
+  "journal_status": "502",
+  "classification": "CRITICAL",
+  "micro_composite": 0.665,
+  "degraded_agents": 2,
+  "last_journal_cycle": "C-322",
+  "force_journal_cycle_mismatch": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_all_ok": false
+  }
+}
