@@ -8,7 +8,7 @@ import ShellBridgeBanner from '@/components/terminal/ShellBridgeBanner';
 import { DegradedBanner } from '@/components/terminal/DegradedBanner';
 import SnapshotDiagnostics from '@/components/terminal/SnapshotDiagnostics';
 import DataflowCommandSpine from '@/components/terminal/DataflowCommandSpine';
-import { useShellSnapshot } from '@/hooks/useShellSnapshot';
+import { useShellSnapshot } from '@/components/terminal/ShellSnapshotProvider';
 import { useLaneDiagnosticsChamber } from '@/hooks/useLaneDiagnosticsChamber';
 import { cn } from '@/lib/utils';
 import type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
