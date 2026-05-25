@@ -55,6 +55,7 @@ export default function ChamberSwitcher() {
           <Link
             key={tab.href}
             href={tab.href}
+            scroll={false}
             title={tab.shortcut}
             aria-current={active ? 'page' : undefined}
             className={cn(
