@@ -4,7 +4,7 @@
   "cycle": "C-322",
   "gi": 0.74,
   "mode": "yellow",
-  "source": "live",
+  "source": "kv",
   "gi_provenance": "kv-live",
   "anomalies": [
     "OpenAQ air quality (elevated)",
