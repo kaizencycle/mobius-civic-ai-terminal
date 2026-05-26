@@ -72,12 +72,62 @@ export const MOCK_EPICON_EVENTS: EpiconEvent[] = [
   },
 ];
 
+function normalizeFeedItem(raw: Record<string, unknown>): EpiconEvent | null {
+  const id = typeof raw.id === 'string' ? raw.id : null;
+  const timestamp = typeof raw.timestamp === 'string' ? raw.timestamp : null;
+  const title = typeof raw.title === 'string' ? raw.title : null;
+  if (!id || !timestamp || !title) return null;
+
+  const ts = new Date(timestamp).getTime();
+  if (!Number.isFinite(ts)) return null;
+
+  const verified = Boolean(raw.verified);
+  const status = raw.status;
+  const tier: ConfidenceTier =
+    verified || status === 'committed' ? 'VERIFIED' :
+    status === 'failed' ? 'CONTRADICTED' :
+    'PENDING';
+
+  const confRaw = raw.confidenceTier;
+  const confidence =
+    typeof confRaw === 'number' && confRaw >= 0 && confRaw <= 4
+      ? confRaw / 4
+      : verified ? 0.8 : 0.5;
+
+  const summary =
+    typeof raw.body === 'string' && raw.body.trim() ? raw.body :
+    typeof raw.summary === 'string' && raw.summary.trim() ? raw.summary :
+    title;
+
+  const agent =
+    typeof raw.agentOrigin === 'string' && raw.agentOrigin.trim()
+      ? raw.agentOrigin.toUpperCase()
+      : typeof raw.author === 'string' && raw.author.trim()
+        ? raw.author.toUpperCase()
+        : 'SYSTEM';
+
+  const cycle =
+    typeof raw.cycleId === 'string' && raw.cycleId ? raw.cycleId :
+    typeof raw.cycle === 'string' && raw.cycle ? raw.cycle :
+    'C-—';
+
+  const sourcesRaw = raw.sources ?? raw.tags;
+  const sources: string[] = Array.isArray(sourcesRaw)
+    ? (sourcesRaw as unknown[]).filter((s): s is string => typeof s === 'string')
+    : [];
+
+  return { id, cycle, ts, tier, label: title, summary, agent, confidence, sources };
+}
+
 export async function fetchEpiconEvents(): Promise<EpiconEvent[]> {
   const raw = await fetchInternal('/api/epicon/feed');
   if (raw && typeof raw === 'object') {
     const items = (raw as { items?: unknown }).items;
     if (Array.isArray(items) && items.length > 0) {
-      return items as EpiconEvent[];
+      const normalized = (items as Record<string, unknown>[])
+        .map(normalizeFeedItem)
+        .filter((e): e is EpiconEvent => e !== null);
+      if (normalized.length > 0) return normalized;
     }
   }
   return MOCK_EPICON_EVENTS;

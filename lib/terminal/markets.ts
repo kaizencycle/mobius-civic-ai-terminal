@@ -82,13 +82,59 @@ export const MOCK_MARKET_SIGNALS: MarketSignal[] = [
   },
 ];
 
+function finvizRowToSignal(row: Record<string, unknown>, index: number): MarketSignal | null {
+  const ticker =
+    (typeof row.Ticker === 'string' && row.Ticker) ||
+    (typeof row.ticker === 'string' && row.ticker);
+  if (!ticker) return null;
+
+  const price =
+    typeof row.Price === 'string' ? row.Price :
+    typeof row.price === 'string' ? row.price : '';
+  const change =
+    typeof row.Change === 'string' ? row.Change :
+    typeof row.change === 'string' ? row.change : '0.00%';
+  const deltaDir: 'up' | 'down' | 'flat' =
+    change.startsWith('+') ? 'up' :
+    change.startsWith('-') ? 'down' : 'flat';
+
+  return {
+    id: `finviz-${ticker}-${index}`,
+    label: ticker,
+    category: 'MACRO',
+    value: price ? `$${price}` : '—',
+    delta: change,
+    deltaDir,
+    integrityWeight: 0.50,
+    confidence: 0.75,
+    status: 'LIVE',
+    source: 'Finviz screener',
+    cycle: 'current',
+    ts: Date.now(),
+  };
+}
+
 export async function fetchMarketSignals(): Promise<MarketSignal[]> {
-  const raw = await fetchInternal('/api/markets/signals');
+  const raw = await fetchInternal('/api/markets/finviz/signals');
   if (raw && typeof raw === 'object') {
-    const items = (raw as { signals?: unknown; items?: unknown }).signals ??
-      (raw as { items?: unknown }).items;
-    if (Array.isArray(items) && items.length > 0) {
-      return items as MarketSignal[];
+    const rec = raw as Record<string, unknown>;
+    if (rec.ok && !rec.degraded) {
+      const items = rec.items as {
+        momentum?: Record<string, unknown>[];
+        volatility?: Record<string, unknown>[];
+        breadth?: Record<string, unknown>[];
+      } | undefined;
+      if (items) {
+        const all = [
+          ...(items.momentum ?? []),
+          ...(items.volatility ?? []),
+          ...(items.breadth ?? []),
+        ].slice(0, 6);
+        const signals = all
+          .map((row, i) => finvizRowToSignal(row, i))
+          .filter((s): s is MarketSignal => s !== null);
+        if (signals.length > 0) return signals;
+      }
     }
   }
   return MOCK_MARKET_SIGNALS;

@@ -62,12 +62,38 @@ const MOCK_CHAMBER_ENTRIES: TripwireEntry[] = [
   },
 ];
 
+function levelToSeverity(level: unknown): TripwireSeverity {
+  if (level === 'high')   return 'CRITICAL';
+  if (level === 'medium') return 'WARN';
+  return 'INFO';
+}
+
 export async function fetchTripwires(): Promise<TripwireEntry[]> {
   const raw = await fetchInternal('/api/tripwire/status');
   if (raw && typeof raw === 'object') {
-    const tw = raw as { tripwires?: unknown };
-    if (Array.isArray(tw.tripwires) && tw.tripwires.length > 0) {
-      return (tw.tripwires as TripwireEntry[]).filter((t) => t && typeof t.id === 'string');
+    const payload = raw as { tripwire?: unknown; tripwires?: unknown };
+
+    // Primary live shape: singular tripwire object from GET /api/tripwire/status
+    if (payload.tripwire && typeof payload.tripwire === 'object') {
+      const t = payload.tripwire as Record<string, unknown>;
+      if (!t.active) return [];
+      return [{
+        id: 'runtime-tripwire',
+        severity: levelToSeverity(t.level),
+        label: typeof t.reason === 'string' && t.reason ? t.reason : 'Runtime tripwire active',
+        agent: typeof t.triggeredBy === 'string' && t.triggeredBy
+          ? t.triggeredBy.toUpperCase()
+          : 'OPERATOR',
+        ts: typeof t.last_updated === 'string'
+          ? (new Date(t.last_updated).getTime() || Date.now())
+          : Date.now(),
+        resolved: false,
+      }];
+    }
+
+    // Array form
+    if (Array.isArray(payload.tripwires) && payload.tripwires.length > 0) {
+      return (payload.tripwires as TripwireEntry[]).filter((t) => t && typeof t.id === 'string');
     }
   }
   return MOCK_CHAMBER_ENTRIES;
