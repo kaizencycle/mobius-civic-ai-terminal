@@ -69,6 +69,7 @@ const FULL_TIMEOUT_MS = 15_000;
 type Subscriber = (snapshot: TerminalSnapshot | null, error: string | null) => void;
 const _subscribers = new Set<Subscriber>();
 let _pollerTimer: ReturnType<typeof setInterval> | null = null;
+let _visibilityRefreshBound = false;
 
 function notify(snapshot: TerminalSnapshot | null, error: string | null) {
   for (const sub of _subscribers) {
@@ -139,8 +140,16 @@ async function loadSnapshot(): Promise<TerminalSnapshot> {
 function ensurePoller() {
   if (_pollerTimer !== null) return;
   if (typeof window === 'undefined') return;
+  if (!_visibilityRefreshBound) {
+    _visibilityRefreshBound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || _subscribers.size === 0) return;
+      void loadSnapshot().catch(() => {});
+    });
+  }
   _pollerTimer = setInterval(() => {
     if (_subscribers.size === 0) return;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     void loadSnapshot().catch(() => {});
   }, STALE_MS);
 }
