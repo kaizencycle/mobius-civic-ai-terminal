@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
   bundlePagesRouterDependencies: true,
   serverExternalPackages: ['@mobius/integrity-core'],
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts'],
+    optimizePackageImports: ['lucide-react', 'recharts', 'motion'],
   },
   async headers() {
     return [
