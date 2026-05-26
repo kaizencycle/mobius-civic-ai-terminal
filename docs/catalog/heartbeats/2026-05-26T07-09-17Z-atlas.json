@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-05-26T07:09:17.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-323",
+  "gi": 0.64,
+  "mode": "yellow",
+  "source": "live",
+  "gi_provenance": "kv-live",
+  "anomalies": [
+    "Certificate transparency log health (elevated)",
+    "Cloudflare Radar BGP health (elevated)",
+    "FRED economic data health (elevated)",
+    "Fastly CDN status (elevated)",
+    "NWS API health (elevated)",
+    "OECD stats API health (elevated)",
+    "OpenAQ air quality (elevated)",
+    "OpenLibrary API health (elevated)",
+    "Terminal self-ping latency (elevated)",
+    "UN Data API availability (elevated)",
+    "data.gov dataset freshness (elevated)",
+    "npm registry health (elevated)"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false,
+  "journal_status": "502",
+  "journal_id": null,
+  "classification": "CRITICAL",
+  "micro_composite": 0.668,
+  "degraded_agents": 5,
+  "last_journal_cycle": "C-323",
+  "force_journal_cycle_mismatch": true,
+  "flags": {
+    "integrity_source_mock": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false
+  }
+}
