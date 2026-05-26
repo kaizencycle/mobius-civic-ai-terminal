@@ -2,7 +2,10 @@ import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { WalletProvider } from '@/contexts/WalletContext';
 
-const BASE_URL = 'https://mobius-civic-ai-terminal.vercel.app';
+const BASE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
+  'https://mobius-civic-ai-terminal.vercel.app';
 
 export function chamberMeta(chamber: string, description: string, path: string): Metadata {
   const title = `${chamber} · Mobius Terminal`;
