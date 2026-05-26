@@ -50,8 +50,27 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     const tick = () => setClock(new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC');
     tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
+    let id: number | null = null;
+    const arm = () => {
+      if (id !== null) window.clearInterval(id);
+      id = null;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      tick();
+      id = window.setInterval(tick, 1000);
+    };
+    arm();
+    const onVis = () => {
+      if (document.visibilityState === 'visible') arm();
+      else if (id !== null) {
+        window.clearInterval(id);
+        id = null;
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      if (id !== null) window.clearInterval(id);
+    };
   }, []);
 
   const seededGi = useMemo(() => {
