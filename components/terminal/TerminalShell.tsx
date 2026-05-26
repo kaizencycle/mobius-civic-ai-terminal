@@ -10,6 +10,7 @@ import SnapshotDiagnostics from '@/components/terminal/SnapshotDiagnostics';
 import DataflowCommandSpine from '@/components/terminal/DataflowCommandSpine';
 import { useShellSnapshot } from '@/components/terminal/ShellSnapshotProvider';
 import { useLaneDiagnosticsChamber } from '@/hooks/useLaneDiagnosticsChamber';
+import { computeCurrentCycleId } from '@/lib/terminal/cycle';
 import { cn } from '@/lib/utils';
 import type { SnapshotLaneState } from '@/lib/terminal/snapshotLanes';
 
@@ -26,6 +27,8 @@ function pathnameToLabel(pathname: string): string | null {
   if (pathname.startsWith('/terminal/canon')) return 'Vault Canon';
   if (pathname.startsWith('/terminal/replay')) return 'Vault Replay';
   if (pathname.startsWith('/terminal/epicon')) return 'EPICON';
+  if (pathname.startsWith('/terminal/tripwire')) return 'Tripwire';
+  if (pathname.startsWith('/terminal/markets')) return 'Markets';
   return null;
 }
 
@@ -84,7 +87,8 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   // that predates the current client session). Shows ~ tilde in the GI badge.
   const isStale = stale;
   const gi = shell?.gi ?? seededGi ?? null;
-  const cycle = shell?.cycle ?? 'C-—';
+  // OPT-08 (C-323): fall back to epoch-derived cycle ID so header never shows C-—.
+  const cycle = shell?.cycle ?? computeCurrentCycleId();
   const mode = shell?.mode?.toLowerCase() ?? null;
 
   const runtime = useMemo<'online' | 'degraded' | 'offline'>(() => {

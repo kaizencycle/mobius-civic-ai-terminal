@@ -49,12 +49,21 @@ export const metadata: Metadata = {
     title: 'Mobius Civic AI Terminal — Civic Intelligence Dashboard',
     description:
       'Bloomberg-style civic command console for monitoring Global Integrity, EPICON ledger events, AI agent status, and real-time signals from 9 public APIs.',
+    images: [
+      {
+        url: '/api/og',
+        width: 1200,
+        height: 630,
+        alt: 'Mobius Civic AI Terminal — Civic Intelligence Dashboard',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Mobius Civic AI Terminal',
     description:
       'Civic AI governance dashboard with real-time integrity monitoring, multi-agent consensus, and public API signal feeds.',
+    images: ['/api/og'],
   },
   robots: {
     index: true,
