@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-05-26T06:07:55.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-323",
+  "gi": 0.71,
+  "mode": "yellow",
+  "source": "kv",
+  "gi_provenance": "live-compute",
+  "anomalies": [
+    "Certificate transparency log health (elevated)",
+    "Cloudflare Radar BGP health (elevated)",
+    "FRED economic data health (elevated)",
+    "Fastly CDN status (elevated)",
+    "NWS API health (elevated)",
+    "OECD stats API health (elevated)",
+    "OpenAQ air quality (elevated)",
+    "OpenLibrary API health (elevated)",
+    "Terminal self-ping latency (elevated)",
+    "UN Data API availability (elevated)",
+    "data.gov dataset freshness (elevated)",
+    "npm registry health (elevated)"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false,
+    "backup_redis_available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "seed_notes": "Initial POST /api/admin/seed-kv timed out at 30s; single retry at 90s returned 200 with GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT.",
+  "sustain_eligible": false,
+  "journal_status": "502",
+  "journal_id": null,
+  "classification": "STRESSED",
+  "micro_composite": 0.669,
+  "degraded_agents": 5,
+  "last_journal_cycle": "C-323",
+  "force_journal_cycle_mismatch": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false
+  }
+}
