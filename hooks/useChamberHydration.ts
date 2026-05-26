@@ -222,16 +222,31 @@ export function useChamberHydration<T>(url: string, enabled: boolean, options: U
         window.clearTimeout(timeoutId);
         if (mounted) setLoading(false);
         if (mounted) {
-          timerId = window.setTimeout(() => { void load(); }, currentPollMs);
+          const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+          const delay = hidden ? Math.min(Math.max(currentPollMs * 4, pollMs), 300_000) : currentPollMs;
+          timerId = window.setTimeout(() => {
+            void load();
+          }, delay);
         }
       }
     }
+
+    const onVisibility = () => {
+      if (!mounted || document.visibilityState !== 'visible') return;
+      if (timerId !== null) {
+        window.clearTimeout(timerId);
+        timerId = null;
+      }
+      void load();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
 
     setLoading(true);
     void load();
     return () => {
       mounted = false;
       if (timerId !== null) window.clearTimeout(timerId);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [enabled, url, pollMs, requestTimeoutMs, savepointKey, savepointMinCount, getSavepointCount]);
 
