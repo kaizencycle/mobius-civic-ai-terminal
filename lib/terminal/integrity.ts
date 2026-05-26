@@ -54,3 +54,6 @@ export async function getCachedIntegrity(): Promise<IntegrityCacheEntry> {
 export function clearIntegrityCache(): void {
   _cache = null;
 }
+
+/** Alias used by chamber components. */
+export const fetchIntegrity = getCachedIntegrity;

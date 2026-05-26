@@ -1,12 +1,77 @@
 /**
  * OPT-09 (C-323): Tripwire fetch with MOCK_TRIPWIRES that include mock-safe
  * entries for DAEDALUS (401 auth sentinel) and HERMES (µ3/µ4 signal lanes).
+ * Phase 02: added TripwireEntry (UI chamber type), fetchTripwires(), resolved entries.
  */
 
 import type { Tripwire } from './types';
 import { mockTripwires } from './mock';
 import { fetchInternal, fetchExternal, isLiveAPI } from './api-client';
 import { transformTripwire } from './transforms';
+
+// ── Phase 02 chamber types ───────────────────────────────────
+export type TripwireSeverity = 'INFO' | 'WARN' | 'CRITICAL';
+
+export interface TripwireEntry {
+  id: string;
+  severity: TripwireSeverity;
+  label: string;
+  agent: string;
+  ts: number;
+  resolved: boolean;
+  resolvedAt?: number;
+  resolvedBy?: string;
+}
+
+const MOCK_CHAMBER_ENTRIES: TripwireEntry[] = [
+  {
+    id: 'tw-001',
+    severity: 'CRITICAL',
+    label: 'DAEDALUS Auth Sentinel — 401 upstream',
+    agent: 'DAEDALUS',
+    ts: Date.now() - 7_200_000,
+    resolved: false,
+  },
+  {
+    id: 'tw-002',
+    severity: 'WARN',
+    label: 'HERMES µ3 / µ4 signal lanes — structural zero',
+    agent: 'HERMES',
+    ts: Date.now() - 14_400_000,
+    resolved: false,
+  },
+  {
+    id: 'tw-003',
+    severity: 'WARN',
+    label: 'Substrate ledger POST returned 422 — HTML error body',
+    agent: 'ZEUS',
+    ts: Date.now() - 172_800_000,
+    resolved: true,
+    resolvedAt: Date.now() - 86_400_000,
+    resolvedBy: 'ZEUS · C-321 sweep',
+  },
+  {
+    id: 'tw-004',
+    severity: 'CRITICAL',
+    label: 'GI floor breach — ATLAS confidence below 0.60',
+    agent: 'ATLAS',
+    ts: Date.now() - 259_200_000,
+    resolved: true,
+    resolvedAt: Date.now() - 172_800_000,
+    resolvedBy: 'Operator · C-320 manual override',
+  },
+];
+
+export async function fetchTripwires(): Promise<TripwireEntry[]> {
+  const raw = await fetchInternal('/api/tripwire/status');
+  if (raw && typeof raw === 'object') {
+    const tw = raw as { tripwires?: unknown };
+    if (Array.isArray(tw.tripwires) && tw.tripwires.length > 0) {
+      return (tw.tripwires as TripwireEntry[]).filter((t) => t && typeof t.id === 'string');
+    }
+  }
+  return MOCK_CHAMBER_ENTRIES;
+}
 
 export const MOCK_TRIPWIRES: Tripwire[] = [
   ...mockTripwires,
