@@ -45,6 +45,7 @@ export default function RouterPageClient() {
     let mounted = true;
 
     async function load() {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       const [nextMetrics, nextReasoning] = await Promise.all([
         getJson<RouterMetrics>('/api/router/metrics'),
         getJson<AgentReasoning>('/api/agents/reasoning'),
@@ -54,12 +55,28 @@ export default function RouterPageClient() {
       setReasoning(nextReasoning);
     }
 
-    void load();
-    const timer = window.setInterval(() => void load(), 5000);
+    let timer: number | null = null;
+    const arm = () => {
+      if (timer !== null) window.clearInterval(timer);
+      timer = null;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void load();
+      timer = window.setInterval(() => void load(), 5000);
+    };
+    arm();
+    const onVis = () => {
+      if (document.visibilityState === 'visible') arm();
+      else if (timer !== null) {
+        window.clearInterval(timer);
+        timer = null;
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
 
     return () => {
       mounted = false;
-      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVis);
+      if (timer !== null) window.clearInterval(timer);
     };
   }, []);
 
