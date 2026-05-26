@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-05-26T08:06:56.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-323",
+  "gi": 0.75,
+  "mode": "yellow",
+  "source": "live",
+  "integrity_source": "kv",
+  "gi_provenance": "kv-live",
+  "anomalies": [
+    "OpenAQ air quality (error)",
+    "NWS API health (low)",
+    "OpenLibrary API health (error)",
+    "data.gov dataset freshness (error)",
+    "UN Data API availability (error)",
+    "OECD stats API health (error)",
+    "npm registry health (low)",
+    "Terminal self-ping latency (low)",
+    "Cloudflare Radar BGP health (error)",
+    "Fastly CDN status (error)",
+    "Certificate transparency log health (error)",
+    "FRED economic data health (error)",
+    "NASA APIs health (error)"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "seed_seeded_keys": ["GI_STATE", "HEARTBEAT", "LAST_INGEST", "SIGNAL_SNAPSHOT"],
+  "sustain_eligible": false,
+  "journal_status": "502",
+  "journal_id": null,
+  "journal_error": "ledger 400: No API base configured for terminal",
+  "classification": "STRESSED",
+  "micro_composite": 0.643,
+  "micro_cycle": "C-306",
+  "degraded_agents": 6,
+  "last_journal_cycle": "C-323",
+  "force_journal_cycle_mismatch": true,
+  "flags": {
+    "integrity_source_mock": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_all_ok": false,
+    "micro_operator_cycle_divergence": true
+  }
+}
