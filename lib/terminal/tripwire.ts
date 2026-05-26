@@ -1,12 +1,103 @@
 /**
  * OPT-09 (C-323): Tripwire fetch with MOCK_TRIPWIRES that include mock-safe
  * entries for DAEDALUS (401 auth sentinel) and HERMES (µ3/µ4 signal lanes).
+ * Phase 02: added TripwireEntry (UI chamber type), fetchTripwires(), resolved entries.
  */
 
 import type { Tripwire } from './types';
 import { mockTripwires } from './mock';
 import { fetchInternal, fetchExternal, isLiveAPI } from './api-client';
 import { transformTripwire } from './transforms';
+
+// ── Phase 02 chamber types ───────────────────────────────────
+export type TripwireSeverity = 'INFO' | 'WARN' | 'CRITICAL';
+
+export interface TripwireEntry {
+  id: string;
+  severity: TripwireSeverity;
+  label: string;
+  agent: string;
+  ts: number;
+  resolved: boolean;
+  resolvedAt?: number;
+  resolvedBy?: string;
+}
+
+const MOCK_CHAMBER_ENTRIES: TripwireEntry[] = [
+  {
+    id: 'tw-001',
+    severity: 'CRITICAL',
+    label: 'DAEDALUS Auth Sentinel — 401 upstream',
+    agent: 'DAEDALUS',
+    ts: Date.now() - 7_200_000,
+    resolved: false,
+  },
+  {
+    id: 'tw-002',
+    severity: 'WARN',
+    label: 'HERMES µ3 / µ4 signal lanes — structural zero',
+    agent: 'HERMES',
+    ts: Date.now() - 14_400_000,
+    resolved: false,
+  },
+  {
+    id: 'tw-003',
+    severity: 'WARN',
+    label: 'Substrate ledger POST returned 422 — HTML error body',
+    agent: 'ZEUS',
+    ts: Date.now() - 172_800_000,
+    resolved: true,
+    resolvedAt: Date.now() - 86_400_000,
+    resolvedBy: 'ZEUS · C-321 sweep',
+  },
+  {
+    id: 'tw-004',
+    severity: 'CRITICAL',
+    label: 'GI floor breach — ATLAS confidence below 0.60',
+    agent: 'ATLAS',
+    ts: Date.now() - 259_200_000,
+    resolved: true,
+    resolvedAt: Date.now() - 172_800_000,
+    resolvedBy: 'Operator · C-320 manual override',
+  },
+];
+
+function levelToSeverity(level: unknown): TripwireSeverity {
+  if (level === 'high')   return 'CRITICAL';
+  if (level === 'medium') return 'WARN';
+  return 'INFO';
+}
+
+export async function fetchTripwires(): Promise<TripwireEntry[]> {
+  const raw = await fetchInternal('/api/tripwire/status');
+  if (raw && typeof raw === 'object') {
+    const payload = raw as { tripwire?: unknown; tripwires?: unknown };
+
+    // Primary live shape: singular tripwire object from GET /api/tripwire/status
+    if (payload.tripwire && typeof payload.tripwire === 'object') {
+      const t = payload.tripwire as Record<string, unknown>;
+      if (!t.active) return [];
+      return [{
+        id: 'runtime-tripwire',
+        severity: levelToSeverity(t.level),
+        label: typeof t.reason === 'string' && t.reason ? t.reason : 'Runtime tripwire active',
+        agent: typeof t.triggeredBy === 'string' && t.triggeredBy
+          ? t.triggeredBy.toUpperCase()
+          : 'OPERATOR',
+        ts: typeof t.last_updated === 'string'
+          ? (new Date(t.last_updated).getTime() || Date.now())
+          : Date.now(),
+        resolved: false,
+      }];
+    }
+
+    // Array form
+    if (Array.isArray(payload.tripwires) && payload.tripwires.length > 0) {
+      return (payload.tripwires as TripwireEntry[]).filter((t) => t && typeof t.id === 'string');
+    }
+  }
+  return MOCK_CHAMBER_ENTRIES;
+}
 
 export const MOCK_TRIPWIRES: Tripwire[] = [
   ...mockTripwires,
