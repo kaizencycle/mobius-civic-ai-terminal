@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-05-26T00:05:00.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-322",
+  "verification_status": "inconclusive",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality (elevated)": "persistent",
+    "NWS API health (elevated)": "persistent",
+    "ArXiv new submissions (elevated)": "persistent",
+    "OpenLibrary API health (elevated)": "persistent",
+    "data.gov dataset freshness (elevated)": "persistent",
+    "UN Data API availability (elevated)": "persistent",
+    "OECD stats API health (elevated)": "persistent",
+    "npm registry health (elevated)": "persistent",
+    "Terminal self-ping latency (elevated)": "persistent",
+    "Cloudflare Radar BGP health (elevated)": "persistent",
+    "Fastly CDN status (elevated)": "persistent",
+    "Certificate transparency log health (elevated)": "persistent",
+    "FRED economic data health (elevated)": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-05-25T23-05-07Z-atlas.json (latest *-atlas*.json lexicographic)",
+      "result": "pass",
+      "detail": "gi=0.74 mode=yellow source=kv gi_provenance=kv-live; anomalies=13; kv_keys_ok=false; seed_result=200 OK; sustain_eligible=false; journal_status=502; micro_composite=0.648; flags.integrity_source_mock=false."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.642 errors=10 instrumentCount=40; ATLAS-listed lanes remain error or sub-nominal (OpenAQ, ArXiv, OpenLibrary, data.gov, UN Data, OECD, Cloudflare, Fastly, CT log, FRED errors; NWS/npm/terminal-ping low primary scores)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.75 mode=yellow source=kv (not mock); cycle=C-322. Cross-lane: micro gi ~0.64 vs integrity headline ~0.75 vs ATLAS gi 0.74 — material spread."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; not 401 — ZEUS STOP not triggered. Supplemental GET /api/quorum/state HTTP 200 — cycle=C-322 quorum_state=substrate_pending vault_block_state=attested reserve latest_status=attested integrity.gi=0.75 integrity.source=kv-live."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"ledger 400: No API base configured for terminal\""
+    }
+  ],
+  "recommendation": "KV seed is not failing mock integrity (source=kv). External civic/API error lanes remain persistent on micro; align TERMINAL_API_BASE / ledger config to clear journal 502. Deploy POST /api/vault/attest (or document replacement) for explicit ZEUS quorum pings. Re-run after infra fixes."
+}
