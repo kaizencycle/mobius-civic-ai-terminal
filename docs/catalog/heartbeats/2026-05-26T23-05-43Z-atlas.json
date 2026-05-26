@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-05-26T23:05:43.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-323",
+  "gi": 0.788,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    "OpenAQ air quality (elevated)",
+    "NWS API health (elevated)",
+    "OpenLibrary API health (elevated)",
+    "data.gov dataset freshness (elevated)",
+    "UN Data API availability (elevated)",
+    "OECD stats API health (elevated)",
+    "npm registry health (elevated)",
+    "Terminal self-ping latency (elevated)",
+    "Cloudflare Radar BGP health (elevated)",
+    "Fastly CDN status (elevated)",
+    "Certificate transparency log health (elevated)",
+    "FRED economic data health (elevated)",
+    "NASA APIs health (elevated)"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false,
+    "backup_redis_available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "sustain_eligible": true,
+  "journal_status": "502",
+  "journal_id": null,
+  "journal_error": "Error: ledger 400: {\"detail\":\"No API base configured for terminal\"}",
+  "classification": "STRESSED",
+  "micro_composite": 0.639,
+  "micro_cycle": "C-306",
+  "degraded_agents": 2,
+  "last_journal_cycle": "C-323",
+  "current_cycle": "C-323",
+  "force_journal_cycle_mismatch": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false,
+    "micro_operator_cycle_divergence": true,
+    "tripwire_active": false
+  }
+}
