@@ -261,6 +261,12 @@ def build_mock_tripwires():
 # ── REST endpoints ───────────────────────────────────────────
 
 
+@app.get("/health", tags=["meta"])
+def health():
+    """OPT-05 (C-323): Lightweight probe for external monitors and the Next.js health check."""
+    return {"ok": True, "service": settings.app_name, "timestamp": now_utc()}
+
+
 @app.get("/", tags=["meta"])
 def root():
     return {

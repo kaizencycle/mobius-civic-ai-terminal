@@ -13,6 +13,9 @@ const CHAMBERS = [
   { label: 'Ledger', mobileLabel: 'Ldg', href: '/terminal/ledger', icon: '⛓', shortcut: 'Alt/Ctrl/Cmd+5' },
   { label: 'Journal', mobileLabel: 'Jrl', href: '/terminal/journal', icon: '✦', shortcut: 'Alt/Ctrl/Cmd+6' },
   { label: 'Vault', mobileLabel: 'Vlt', href: '/terminal/vault', icon: '◇', shortcut: 'Alt/Ctrl/Cmd+7' },
+  { label: 'EPICON', mobileLabel: 'EPC', href: '/terminal/epicon', icon: '⬡', shortcut: 'Alt/Ctrl/Cmd+8' },
+  { label: 'Tripwire', mobileLabel: 'Trp', href: '/terminal/tripwire', icon: '⚡', shortcut: 'Alt/Ctrl/Cmd+9' },
+  { label: 'Markets', mobileLabel: 'Mkt', href: '/terminal/markets', icon: '◈', shortcut: 'Alt/Ctrl/Cmd+0' },
 ] as const;
 
 const KEY_TO_ROUTE: Record<string, string> = {
@@ -23,6 +26,9 @@ const KEY_TO_ROUTE: Record<string, string> = {
   '5': '/terminal/ledger',
   '6': '/terminal/journal',
   '7': '/terminal/vault',
+  '8': '/terminal/epicon',
+  '9': '/terminal/tripwire',
+  '0': '/terminal/markets',
 };
 
 export default function ChamberSwitcher() {
