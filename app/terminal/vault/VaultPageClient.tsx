@@ -244,8 +244,28 @@ export default function VaultPageClient() {
       });
   }, [focusCycle]);
 
-  if (loading) return <div className="p-4 text-sm text-slate-400">Loading vault…</div>;
-  if (err) return <div className="p-4 text-sm text-rose-300">{err}</div>;
+  if (loading) return (
+    <div className="p-4 font-mono text-xs text-amber-400 animate-pulse">VAULT · probing substrate…</div>
+  );
+  if (err) {
+    // OPT-04: DEGRADED state with circuit-breaker info instead of bare error text
+    const is404 = err.includes('404') || err.includes('attest') || err.includes('timeout') || err.includes('Vault status timed out');
+    return (
+      <div className="p-4 space-y-3 font-mono text-xs">
+        <div className="flex items-center gap-2 px-3 py-2 bg-red-950/30 border border-red-800/50 rounded text-red-300">
+          <span className="animate-pulse">⚠</span>
+          <span>VAULT DEGRADED · {is404 ? 'substrate path unreachable' : 'endpoint unavailable'}</span>
+          <span className="ml-auto text-zinc-600">{new Date().toISOString().slice(11, 19)} UTC</span>
+        </div>
+        <div className="text-rose-300 text-[10px] leading-relaxed">{err}</div>
+        <div className="rounded border border-zinc-800 px-3 py-2 text-zinc-500 text-[10px] space-y-1">
+          <div>Circuit breaker open · vault reads suspended until substrate responds.</div>
+          <div>▸ Verify SUBSTRATE_TOKEN, TERMINAL_ID, TERMINAL_API_BASE in Vercel env vars.</div>
+          <div>▸ Check /api/vault/attest route exists in the deployed build.</div>
+        </div>
+      </div>
+    );
+  }
   if (!data?.ok) return <div className="p-4 text-sm text-amber-300">Vault status endpoint returned no usable payload. Check /api/vault/status and upstream vault lane health.</div>;
 
   const v1Bal = data.balance_reserve ?? 0;
@@ -292,7 +312,33 @@ export default function VaultPageClient() {
           <div>Block status: <span className="text-cyan-200">{block.label}</span></div>
           <div>Fountain: <span className="text-amber-200/90">{fountain}</span>{data.reserve_block_lane ? <span className="text-slate-500"> · reserve_block_lane: {data.reserve_block_lane}</span> : null}</div>
           <div>GI threshold: {data.gi_threshold ?? 0.95} · Current: {giCur != null && Number.isFinite(giCur) ? giCur.toFixed(2) : '—'}{data.gi_threshold_met ? ' · GI gate met' : ''}</div>
-          <div>Sustain cycles required: {data.sustain_cycles_required ?? 5}{data.sustain_cycles_met ? ' · sustain met' : ' · sustain: not tracked in KV yet'}</div>
+          {/* OPT-17: visual sustain progress bar — 0/5 with fill */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span>Sustain gate:</span>
+              <span className={data.sustain_cycles_met ? 'text-emerald-300' : 'text-amber-400'}>
+                {data.sustain_cycles_met
+                  ? `${data.sustain_cycles_required ?? 5} / ${data.sustain_cycles_required ?? 5} met`
+                  : `0 / ${data.sustain_cycles_required ?? 5} consecutive`}
+              </span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded bg-slate-800">
+              <div
+                className="h-full rounded transition-all duration-500"
+                style={{
+                  width: data.sustain_cycles_met ? '100%' : '0%',
+                  background: data.sustain_cycles_met ? '#10b981' : '#ef4444',
+                }}
+              />
+            </div>
+            {!data.sustain_cycles_met && (
+              <div className="text-[9px] text-slate-600">
+                {data.substrate_attestation_error
+                  ? 'Vault write path error blocking attestation progress'
+                  : 'Awaiting consecutive attestation cycles'}
+              </div>
+            )}
+          </div>
           <div>preview_active: {data.preview_active ? 'true' : 'false'} (GI preview band)</div>
           <div>source_entries: {data.source_entries ?? 0}</div>
           <div>last_deposit: {data.last_deposit ?? 'null'}</div>

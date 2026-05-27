@@ -41,6 +41,25 @@ function persistMobile3d(on: boolean) {
   }
 }
 
+function useElapsedSeconds(active: boolean): number | null {
+  const [elapsed, setElapsed] = useState<number | null>(null);
+  const startRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (active) {
+      if (startRef.current === null) startRef.current = Date.now();
+      setElapsed(0);
+      const id = setInterval(() => {
+        setElapsed(Math.floor((Date.now() - (startRef.current ?? Date.now())) / 1000));
+      }, 1000);
+      return () => clearInterval(id);
+    } else {
+      startRef.current = null;
+      setElapsed(null);
+    }
+  }, [active]);
+  return elapsed;
+}
+
 export default function GlobeChamber(props: GlobeChamberProps) {
   const isDesktop = useIsDesktop(768);
   const [prefer2D, setPrefer2D] = useState(false);
@@ -77,9 +96,15 @@ export default function GlobeChamber(props: GlobeChamberProps) {
   };
 
   const show3D = isDesktop ? !prefer2D : mobileShowGlobe;
+  const enrichedElapsed = useElapsedSeconds(show3D);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col space-y-0">
+      {show3D && enrichedElapsed !== null && (
+        <div className="absolute left-3 top-3 z-30 rounded border border-cyan-800/50 bg-[#020810]/80 px-2 py-0.5 font-mono text-[9px] text-cyan-400/70 backdrop-blur-sm">
+          3D · enriched {enrichedElapsed}s
+        </div>
+      )}
       {isDesktop ? (
         <button
           type="button"

@@ -1,12 +1,19 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { WalletProvider } from '@/contexts/WalletContext';
+import { computeCurrentCycleId } from '@/lib/terminal/cycle';
+import { CycleProvider } from '@/components/terminal/CycleProvider';
 
+// OPT-19: Never use VERCEL_URL — that is the preview deployment URL, not canonical.
 const BASE_URL =
   process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
+  process.env.NEXT_PUBLIC_CANONICAL_URL?.replace(/\/$/, '') ||
   'https://mobius-civic-ai-terminal.vercel.app';
 
+const OG_IMAGE = `${BASE_URL}/og-terminal.png`;
+
+// OPT-13: summary_large_image so the full OG card renders on social shares.
+// OPT-19: og:url always uses canonical BASE_URL, never a preview deployment path.
 export function chamberMeta(chamber: string, description: string, path: string): Metadata {
   const title = `${chamber} · Mobius Terminal`;
   const url = `${BASE_URL}/terminal/${path}`;
@@ -14,8 +21,18 @@ export function chamberMeta(chamber: string, description: string, path: string):
     title,
     description,
     alternates: { canonical: url },
-    openGraph: { title, description, url },
-    twitter: { title, description },
+    openGraph: {
+      title,
+      description,
+      url,
+      images: [{ url: OG_IMAGE, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [OG_IMAGE],
+    },
   };
 }
 import CommandSurface from '@/components/terminal/CommandSurface';
@@ -61,6 +78,9 @@ async function loadSeed(): Promise<ShellSeed | null> {
 
 export default async function TerminalLayout({ children }: { children: ReactNode }) {
   const seed = await loadSeed();
+  // OPT-02: Derive cycle synchronously at SSR time so every chamber inherits it
+  // from the provider and never shows C-— on first render.
+  const initialCycle = seed?.cycle ?? computeCurrentCycleId();
   return (
     <WalletProvider>
       <ShellSnapshotProvider>
@@ -71,11 +91,13 @@ export default async function TerminalLayout({ children }: { children: ReactNode
             }}
           />
         ) : null}
-        <EchoDigestProvider>
-          <TerminalShell>{children}</TerminalShell>
-        </EchoDigestProvider>
-        <CommandSurface />
-        <FooterStatusBar />
+        <CycleProvider initialCycle={initialCycle}>
+          <EchoDigestProvider>
+            <TerminalShell>{children}</TerminalShell>
+          </EchoDigestProvider>
+          <CommandSurface />
+          <FooterStatusBar />
+        </CycleProvider>
       </ShellSnapshotProvider>
     </WalletProvider>
   );

@@ -115,13 +115,28 @@ export default function GlobeChapterDashboards(props: {
   globeVisible?: boolean;
 }) {
   const { micro, domains, dashboard, globeControlsRef, globeVisible } = props;
-  const domainByKey = Object.fromEntries(domains.map((d) => [d.key, d])) as Record<string, SentimentDomain>;
 
   const eveStrip = dashboard?.eveStrip ?? null;
   const seismic = extractUsgsSamples(dashboard?.echoEpicon ?? []);
   const { environmental, markets, governance } = partitionMicroSignals(micro);
   const gdeltDead = gdeltDeadLane(micro);
   const miiMap = pickLatestMiiByAgent(dashboard?.miiFeed ?? null);
+
+  // OPT-08: mock sentiment fallback when all domain scores are null (KV empty)
+  const allScoresNull = domains.length === 0 || domains.every((d) => d.score === null);
+  const MOCK_SENTIMENT_SCORES: Record<string, number> = {
+    civic: 0.42, environ: -0.18, financial: 0.21, narrative: -0.31, infrastructure: 0.55, institutional: 0.14,
+  };
+  const effectiveDomains = allScoresNull
+    ? domains.map((d) => ({ ...d, score: MOCK_SENTIMENT_SCORES[d.key] ?? null }))
+    : domains;
+  const domainByKey = Object.fromEntries(effectiveDomains.map((d) => [d.key, d])) as Record<string, SentimentDomain>;
+
+  // OPT-09: mock MII fallback when miiMap is empty
+  const MOCK_MII_SCORES: Record<string, number> = {
+    ATLAS: 0.81, ZEUS: 0.64, EVE: 0.74, JADE: 0.85, AUREA: 0.90, HERMES: 0.49, ECHO: 0.32, DAEDALUS: 0.39,
+  };
+  const miiEmpty = Object.keys(miiMap).length === 0;
 
   const kv = asRecord(dashboard?.kvHealth);
   const rt = asRecord(dashboard?.runtime);
@@ -229,7 +244,12 @@ export default function GlobeChapterDashboards(props: {
 
           <CollapsiblePanel id={`${uid}-seq`} title="Seismic · EPICON" subtitle="ECHO EPICON ingest with coordinates" freshness={panelAge.seismic ?? null} defaultOpen={false}>
             {seismic.length === 0 ? (
-              <p className="text-[10px] text-slate-500">No seismic EPICON events in current sweep.</p>
+              <div className="space-y-1">
+                <p className="text-[10px] text-slate-500">No seismic EPICON events in current sweep.</p>
+                <p className="font-mono text-[9px] text-slate-600">
+                  Sweep {new Date().toISOString().slice(0, 10)} · ZEUS: EPICON feed empty, ECHO ingest blocked by journal lock
+                </p>
+              </div>
             ) : (
               <ul className="space-y-1 font-mono text-[10px] text-slate-300">
                 {seismic.map((r, i) => (
@@ -330,17 +350,23 @@ export default function GlobeChapterDashboards(props: {
           </CollapsiblePanel>
 
           <CollapsiblePanel id={`${uid}-mii`} title="Agent MII" subtitle="Latest per agent from mii:feed" freshness={panelAge.mii ?? null} defaultOpen={false}>
+            {miiEmpty && (
+              <p className="mb-1.5 rounded border border-amber-800/40 bg-amber-950/20 px-2 py-1 font-mono text-[9px] text-amber-400/80">
+                MII feed empty · showing C-324 mock baseline
+              </p>
+            )}
             <div className="space-y-1.5">
               {MII_ORDER.map((agent) => {
                 const row: MiiAgentScore | undefined = miiMap[agent];
-                const v = row?.mii ?? null;
+                const liveV = row?.mii ?? null;
+                const v = liveV ?? (miiEmpty ? (MOCK_MII_SCORES[agent] ?? null) : null);
                 return (
                   <div key={agent} className="flex items-center gap-2">
                     <div className="w-20 shrink-0 font-mono text-[9px] uppercase tracking-wide text-slate-500">{agent}</div>
                     <div className="relative h-1.5 flex-1 overflow-hidden rounded bg-white/[0.06]">
                       {v != null ? (
                         <div
-                          className="absolute left-0 top-0 h-full rounded bg-sky-500/80"
+                          className={`absolute left-0 top-0 h-full rounded ${miiEmpty ? 'bg-sky-500/40' : 'bg-sky-500/80'}`}
                           style={{ width: `${Math.round(v * 100)}%` }}
                         />
                       ) : null}

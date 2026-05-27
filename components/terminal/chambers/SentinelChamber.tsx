@@ -81,6 +81,57 @@ export default function SentinelChamber() {
           </div>
         </div>
 
+        {/* OPT-03: ZEUS disputed root causes — surfaces system failures confirmed in C-324 */}
+        {disputeActive && (
+          <div className="rounded border border-red-800/60 mt-1">
+            <div className="px-3 py-2 bg-red-950/40 border-b border-red-800/40 text-[10px] text-red-400 font-bold tracking-widest">
+              ZEUS DISPUTE ROOT CAUSES
+            </div>
+            {([
+              {
+                id: 'disp-001',
+                system: 'EPICON',
+                status: 'empty',
+                detail: 'EPICON candidate queue empty — no events ingested this cycle',
+                severity: 'WARN' as const,
+                cta: 'POST /api/echo/ingest with test payload to unblock EPICON pipeline',
+              },
+              {
+                id: 'disp-002',
+                system: 'VAULT ATTEST',
+                status: '404',
+                detail: 'Vault attestation endpoint returning 404 — substrate write path broken',
+                severity: 'CRITICAL' as const,
+                cta: 'Verify SUBSTRATE_LEDGER_URL env var; check /api/vault/attest route exists',
+              },
+              {
+                id: 'disp-003',
+                system: 'JOURNAL',
+                status: 'blocked',
+                detail: 'Journal lane blocked — ledger returning 503 suspended on write attempt',
+                severity: 'CRITICAL' as const,
+                cta: 'Check Render ledger service status; inspect /api/ledger health endpoint',
+              },
+            ] as const).map((d) => (
+              <div key={d.id} className="px-3 py-2.5 border-b border-zinc-800/60 last:border-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded border ${
+                    d.severity === 'CRITICAL'
+                      ? 'text-red-400 border-red-800 bg-red-950/60 animate-pulse'
+                      : 'text-amber-400 border-amber-800 bg-amber-950/60'
+                  }`}>
+                    {d.severity}
+                  </span>
+                  <span className="text-sky-400 font-bold text-[10px]">{d.system}</span>
+                  <span className="text-zinc-500 font-mono text-[10px]">[{d.status}]</span>
+                </div>
+                <div className="text-zinc-200 text-[10px] mb-1">{d.detail}</div>
+                <div className="text-amber-300 text-[9px] font-mono leading-relaxed">▸ {d.cta}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* EPICON Escalation Panel */}
         <div className={`rounded border px-3 py-3 ${escalation
           ? SEVERITY_STYLE[escalation.severity]

@@ -23,9 +23,10 @@ function ageClass(timestamp: string | null | undefined, freshMs: number): string
 export default function FooterStatusBar() {
   const { shell, loading } = useShellSnapshot();
 
-  const runtimeAge = loading && !shell ? '—' : ageLabelFromIso(shell?.heartbeat.runtime);
-  const journalAge = loading && !shell ? '—' : ageLabelFromIso(shell?.heartbeat.journal);
-  const runtimeLabel = loading && !shell ? '—' : shell?.degraded ? 'degraded' : 'nominal';
+  // OPT-14: explicit state labels so console never shows bare — characters.
+  const runtimeAge = loading && !shell ? 'RESOLVING' : ageLabelFromIso(shell?.heartbeat.runtime);
+  const journalAge = loading && !shell ? 'RESOLVING' : ageLabelFromIso(shell?.heartbeat.journal);
+  const runtimeLabel = loading && !shell ? 'LOADING' : shell?.degraded ? 'degraded' : 'nominal';
   const runtimeAgeClass = loading && !shell ? 'text-slate-500' : ageClass(shell?.heartbeat.runtime, 120_000);
   const journalAgeClass = loading && !shell ? 'text-slate-500' : ageClass(shell?.heartbeat.journal, 300_000);
   const tripwireCount = shell?.tripwire.count ?? 0;
@@ -33,11 +34,15 @@ export default function FooterStatusBar() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-800 bg-slate-950/95 px-4 py-1 text-[10px] font-mono uppercase tracking-wide text-slate-400">
-      Runtime {runtimeLabel} · Source {shell?.source ?? 'fallback'} · Runtime hb{' '}
-      <span className={runtimeAgeClass}>{runtimeAge}</span> · Journal hb{' '}
-      <span className={journalAgeClass}>{journalAge}</span> · tripwire{' '}
+      Runtime {runtimeLabel} · Source{' '}
+      <span className={loading && !shell ? 'text-slate-600' : shell?.source === 'live' ? 'text-emerald-400' : 'text-amber-400'}>
+        {loading && !shell ? 'RESOLVING' : (shell?.source?.toUpperCase() ?? 'FALLBACK')}
+      </span>
+      {' '}· hb <span className={runtimeAgeClass}>{runtimeAge}</span>
+      {' '}· jrl <span className={journalAgeClass}>{journalAge}</span>
+      {' '}· tw{' '}
       {loading && !shell
-        ? '—'
+        ? <span className="text-slate-600">PENDING</span>
         : <span className={tripwireElevated ? 'text-red-400' : 'text-slate-500'}>
             {tripwireElevated ? `${tripwireCount} elevated` : `${tripwireCount} nominal`}
           </span>

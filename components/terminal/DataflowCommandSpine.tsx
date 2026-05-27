@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils';
 import type { LaneDiagnosticsPayload } from '@/hooks/useLaneDiagnosticsChamber';
 import type { ShellSnapshot } from '@/hooks/useShellSnapshot';
+import { useCycle } from '@/components/terminal/CycleProvider';
 
 type StageState = 'fresh' | 'ok' | 'watch' | 'slow' | 'stale' | 'degraded' | 'offline' | 'unknown';
 
@@ -122,6 +123,9 @@ export default function DataflowCommandSpine({
   visible: boolean;
   compact?: boolean;
 }) {
+  // OPT-15: always resolve cycle from provider — never shows C-— when shell is null
+  const providerCycle = useCycle();
+
   if (!visible) return null;
 
   const lanes = diagnostics?.lanes;
@@ -215,12 +219,14 @@ export default function DataflowCommandSpine({
   ];
 
   const packetMode = shell?.source === 'fallback' || diagnostics?.fallback ? 'preview/fallback' : shell ? 'live packet' : 'awaiting shell';
+  // OPT-15: shell cycle overrides provider cycle when live, otherwise provider fallback
+  const displayCycle = shell?.cycle ?? providerCycle;
 
   if (compact) {
     return (
       <section className="rounded-lg border border-slate-800/80 bg-slate-950/90 px-3 py-2.5" aria-label="Dataflow command compact">
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-slate-400">
-          <span className="text-slate-300">{shell?.cycle ?? 'C-—'}</span>
+          <span className="text-slate-300">{displayCycle}</span>
           <span className="text-violet-300/90">{packetMode}</span>
           <span>
             journal {journalState === 'unknown' ? '—' : badgeLabel(journalState)}
@@ -250,7 +256,7 @@ export default function DataflowCommandSpine({
           <div className="text-[11px] text-slate-500">Open-lane flow · agents govern pressure before canon</div>
         </div>
         <div className="flex flex-wrap gap-1.5 text-[10px] font-mono uppercase tracking-[0.12em]">
-          <span className="rounded border border-slate-700 bg-slate-900/70 px-2 py-1 text-slate-300">{shell?.cycle ?? 'C-—'}</span>
+          <span className="rounded border border-slate-700 bg-slate-900/70 px-2 py-1 text-slate-300">{displayCycle}</span>
           <span className="rounded border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-violet-200">{packetMode}</span>
           <span className="rounded border border-slate-700 bg-slate-900/70 px-2 py-1 text-slate-300">fresh {ageLabel(dataFreshness)}</span>
         </div>
@@ -284,6 +290,27 @@ export default function DataflowCommandSpine({
               </div>
               <div className="truncate text-[10px] text-slate-400">{budget.role}</div>
               <div className="truncate text-[10px] text-slate-500">{budget.metric}</div>
+              {/* OPT-20: SEED JOURNAL CTA when ECHO intake lane is blocked */}
+              {budget.label === 'Open HOT' && journalState === 'unknown' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void fetch('/api/agents/journal/seed', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        agent: 'ECHO',
+                        cycle: displayCycle,
+                        type: 'digest_seed',
+                        source: 'operator-dataflow-unblock',
+                      }),
+                    }).catch(() => {});
+                  }}
+                  className="mt-1 rounded border border-emerald-800/60 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.08em] text-emerald-400 transition-colors hover:bg-emerald-950/30"
+                >
+                  SEED JOURNAL →
+                </button>
+              )}
             </div>
           ))}
         </div>
