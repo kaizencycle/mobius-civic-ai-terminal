@@ -13,7 +13,7 @@ export async function POST() {
   const cycle = kvCycle?.cycle ?? computeCurrentCycleId();
 
   try {
-    await appendZeusCronJournal({ cycle, source: 'operator-ui' });
+    await appendZeusCronJournal({ cycle, source: 'cron' });
     return NextResponse.json({ ok: true, cycle });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'zeus_journal_failed';
