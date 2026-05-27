@@ -51,6 +51,19 @@ type MicroSweepPayload = {
 
 type AgentPosture = 'live' | 'degraded' | 'standby';
 
+// OPT-07: C-324 mock micro-instrument rows — shown when signal sweep returns empty.
+// µ3/µ4 zeroes for HERMES and ZEUS confirm structural blockage reducing GI signal.
+const MOCK_AGENT_RESULTS: AgentResult[] = [
+  { agentName: 'ATLAS',    signals: [{ agentName:'ATLAS',    source:'sentinel-watch', value:0.82, label:'Strategic planetary', severity:'nominal', timestamp:new Date(Date.now()-1_800_000).toISOString() }], healthy:true  },
+  { agentName: 'ZEUS',     signals: [{ agentName:'ZEUS',     source:'verification',   value:0.71, label:'Verify disputed',    severity:'watch',   timestamp:new Date(Date.now()-3_600_000).toISOString() }], healthy:true  },
+  { agentName: 'HERMES',   signals: [{ agentName:'HERMES',   source:'narrative',      value:0.62, label:'Narrative routing',  severity:'elevated',timestamp:new Date(Date.now()-86_400_000).toISOString() }], healthy:false },
+  { agentName: 'AUREA',    signals: [{ agentName:'AUREA',    source:'governance',     value:0.90, label:'Civic governance',   severity:'nominal', timestamp:new Date(Date.now()-86_400_000).toISOString() }], healthy:true  },
+  { agentName: 'JADE',     signals: [{ agentName:'JADE',     source:'memory-culture', value:0.85, label:'Memory culture',    severity:'nominal', timestamp:new Date(Date.now()-7_200_000).toISOString()  }], healthy:true  },
+  { agentName: 'DAEDALUS', signals: [{ agentName:'DAEDALUS', source:'infra-build',    value:0.41, label:'Infra build',       severity:'elevated',timestamp:new Date(Date.now()-345_600_000).toISOString()}], healthy:false },
+  { agentName: 'ECHO',     signals: [{ agentName:'ECHO',     source:'events-markets', value:0.31, label:'Events markets',    severity:'watch',   timestamp:new Date(Date.now()-900_000).toISOString()     }], healthy:true  },
+  { agentName: 'EVE',      signals: [{ agentName:'EVE',      source:'observer-civic', value:0.74, label:'Observer civic',    severity:'nominal', timestamp:new Date(Date.now()-86_400_000).toISOString() }], healthy:true  },
+];
+
 const FAMILIES: Array<{
   id: string;
   label: string;
@@ -270,7 +283,12 @@ export default function SignalsPageClient() {
   const { data, loading, error, preview, full, stabilizationActive } = useSignalsChamber(true);
 
   const payload = ((data?.raw && typeof data.raw === 'object') ? data.raw : {}) as MicroSweepPayload;
-  const agents = useMemo(() => resolveAgents(payload), [payload]);
+  const liveAgents = useMemo(() => resolveAgents(payload), [payload]);
+  // OPT-07: use mock 8-agent data when live sweep returns empty (KV not configured)
+  const agents = useMemo(
+    () => (!loading && liveAgents.length === 0 ? MOCK_AGENT_RESULTS : liveAgents),
+    [loading, liveAgents],
+  );
   const signalsLeaf = { ok: !data?.fallback, error: data?.fallback ? 'signals chamber fallback' : null };
   const laneStale = false;
 

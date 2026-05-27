@@ -8,6 +8,7 @@ import type { LedgerEntry } from '@/lib/terminal/types';
 import AgentLedgerAdapterPanel from './AgentLedgerAdapterPanel';
 import QuorumTrustPanel from './QuorumTrustPanel';
 import LedgerTrustBadge from './LedgerTrustBadge';
+import { computeLedgerTrustProfile } from '@/lib/agents/trust-weight';
 
 type EchoFeedResponse = {
   events?: LedgerEntry[];
@@ -297,6 +298,8 @@ export default function LedgerPageClient() {
             {visibleRows.map((row) => {
               const delta = row.integrityDelta ?? 0;
               const hasDelta = Math.abs(delta) > 0.0001;
+              const trustProfile = computeLedgerTrustProfile(row);
+              const trustWeak = trustProfile.trustScore < 0.5;
               return (
                 <div key={row.id}>
                   <div className="hidden md:grid grid-cols-[90px_70px_1fr_90px_50px_120px_80px_70px] items-center gap-1 px-3 py-1.5 text-slate-200">
@@ -304,8 +307,25 @@ export default function LedgerPageClient() {
                     <span className={`truncate font-mono text-[10px] ${agentColor(row.agentOrigin)}`} title={row.agentOrigin}>
                       {row.agentOrigin}
                     </span>
-                    <span className="truncate text-[11px]" title={row.title ?? row.summary}>
-                      {row.title ?? row.summary}
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="truncate text-[11px]" title={row.title ?? row.summary}>
+                        {row.title ?? row.summary}
+                      </span>
+                      {trustWeak && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void fetch('/api/agents/echo/resolve-trust', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ entryId: row.id, agent: row.agentOrigin }),
+                            }).catch(() => {});
+                          }}
+                          className="w-fit rounded border border-amber-800/50 px-1 py-0 font-mono text-[8px] uppercase tracking-[0.08em] text-amber-400/80 transition-colors hover:bg-amber-950/30"
+                        >
+                          RESOLVE TRUST →
+                        </button>
+                      )}
                     </span>
                     <span className="text-[9px] text-slate-500">{row.category ?? '—'}</span>
                     <span className="text-center text-[10px] text-slate-500">{row.confidenceTier ?? '—'}</span>
@@ -338,8 +358,25 @@ export default function LedgerPageClient() {
                       {row.category ? <span>{row.category}</span> : null}
                       {row.confidenceTier != null ? <span>T{row.confidenceTier}</span> : null}
                     </div>
-                    <div className="text-[9px] text-slate-600">
-                      {row.statusReason ?? 'status pending'} · proof {row.proofSource ?? 'none'}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-[9px] text-slate-600">
+                        {row.statusReason ?? 'status pending'} · proof {row.proofSource ?? 'none'}
+                      </div>
+                      {trustWeak && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void fetch('/api/agents/echo/resolve-trust', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ entryId: row.id, agent: row.agentOrigin }),
+                            }).catch(() => {});
+                          }}
+                          className="shrink-0 rounded border border-amber-800/50 px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.08em] text-amber-400/80 transition-colors hover:bg-amber-950/30"
+                        >
+                          RESOLVE TRUST →
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

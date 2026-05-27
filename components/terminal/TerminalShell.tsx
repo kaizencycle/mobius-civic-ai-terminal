@@ -86,7 +86,10 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   // but no live fetch has confirmed it yet (cached from sessionStorage or SSR seed
   // that predates the current client session). Shows ~ tilde in the GI badge.
   const isStale = stale;
-  const gi = shell?.gi ?? seededGi ?? null;
+  // OPT-01: treat gi===0 as unresolved only when shell hasn't loaded yet (seed
+  // default). Once a live shell is present, 0 is a real critical GI reading.
+  const rawGi = shell?.gi ?? seededGi ?? null;
+  const gi = rawGi === 0 && !shell ? null : rawGi;
   // OPT-08 (C-323): fall back to epoch-derived cycle ID so header never shows C-—.
   const cycle = shell?.cycle ?? computeCurrentCycleId();
   const mode = shell?.mode?.toLowerCase() ?? null;
@@ -152,8 +155,16 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
             <a href={SHELL_URL} target="_blank" rel="noopener noreferrer" className="hidden rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-violet-300 md:inline-block">Shell</a>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] font-mono md:gap-2 md:text-[11px]">
+            {/* OPT-18: skeleton pulse instead of raw — string during boot */}
             <span className={cn('flex items-center gap-1 rounded border px-1.5 py-0.5 md:px-2 md:py-1', loading && gi === null ? 'border-slate-700 text-slate-500' : giTone)}>
-              GI {gi === null ? '—' : `${gi.toFixed(2)}${isStale ? '~' : ''}`}
+              {loading && gi === null ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-4 animate-pulse rounded bg-slate-700" />
+                  <span className="h-2.5 w-6 animate-pulse rounded bg-slate-700" />
+                </span>
+              ) : (
+                <>GI {gi === null ? '—' : `${gi.toFixed(2)}${isStale ? '~' : ''}`}</>
+              )}
             </span>
             <span className={cn('rounded border px-1.5 py-0.5 uppercase md:px-2 md:py-1', loading ? 'border-slate-700 bg-slate-800/40 text-slate-500' : runtimeBadgeClass(runtime))}>
               {loading ? 'boot' : runtime}

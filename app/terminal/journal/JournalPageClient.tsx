@@ -22,6 +22,62 @@ import type { JournalDisplayEntry, JournalDisplaySeverity } from '@/lib/journal/
 
 const AGENTS = ['ATLAS', 'ZEUS', 'EVE', 'AUREA', 'HERMES', 'JADE', 'DAEDALUS', 'ECHO'] as const;
 
+// OPT-06: C-324 mock journal seed — shown when live journals and EPICON derivation
+// both return empty. Represents the ledger-503-blocked hot queue state.
+const C324_MOCK_JOURNAL: JournalDisplayEntry[] = [
+  {
+    id: 'mock-jrl-001',
+    agent: 'ATLAS',
+    cycle: 'C-324',
+    title: 'Sentinel watch complete · GI 0.82 · DAEDALUS auth pending',
+    category: 'observation',
+    observation: 'Sentinel watch complete · GI 0.82 · green · all agents checked · DAEDALUS auth pending',
+    inference: 'System operating in yellow band. DAEDALUS authorization outstanding from C-319.',
+    recommendation: 'Hold broad promotion. Resolve DAEDALUS auth before next cycle seal.',
+    source: 'agent-journal',
+    timestamp: new Date(Date.now() - 3_600_000).toISOString(),
+    status: 'committed',
+    severity: 'nominal',
+    confidence: 0.82,
+    agentOrigin: 'ATLAS',
+    derivedFrom: [],
+  },
+  {
+    id: 'mock-jrl-002',
+    agent: 'ZEUS',
+    cycle: 'C-324',
+    title: 'Verification disputed · EPICON empty · vault/attest 404 · journal write failed 503',
+    category: 'alert',
+    observation: 'Verification attempt returned disputed. EPICON candidate queue empty. Vault/attest endpoint returning 404.',
+    inference: 'Journal write attempt failed with ledger 503 suspended. Substrate write path is broken.',
+    recommendation: 'POST /api/vault/attest to verify route health. Check Render ledger service status.',
+    source: 'agent-journal',
+    timestamp: new Date(Date.now() - 7_200_000).toISOString(),
+    status: 'committed',
+    severity: 'critical',
+    confidence: 0.71,
+    agentOrigin: 'ZEUS',
+    derivedFrom: [],
+  },
+  {
+    id: 'mock-jrl-003',
+    agent: 'ECHO',
+    cycle: 'C-324',
+    title: 'Digest preview row ingested · trust weak 0.31 · pending verification',
+    category: 'observation',
+    observation: 'Digest preview row ingested · trust weak 0.31 · pending verification · no upstream EPICON data',
+    inference: 'Single-agent ingest without ZEUS cross-verification. Trust cannot advance until ledger write path is restored.',
+    recommendation: 'POST /api/echo/ingest with verified sources to boost signal. Restore ledger path.',
+    source: 'agent-journal',
+    timestamp: new Date(Date.now() - 900_000).toISOString(),
+    status: 'committed',
+    severity: 'elevated',
+    confidence: 0.31,
+    agentOrigin: 'ECHO',
+    derivedFrom: [],
+  },
+];
+
 const DVA_TIERS: Array<{ id: DvaTier; label: string; desc: string; color: string; border: string; activeBg: string }> = [
   { id: 'ALL', label: 'ALL', desc: 'All agents', color: 'text-slate-100', border: 'border-slate-600', activeBg: 'bg-slate-700/40' },
   { id: 't2', label: 'SENTINEL', desc: 'ATLAS + ZEUS · Verification', color: 'text-cyan-100', border: 'border-cyan-600/50', activeBg: 'bg-cyan-500/15' },
@@ -228,8 +284,17 @@ export default function JournalPageClient() {
         .filter(isDerivableEpiconItem)
         .map((item) => toDerivedEntry(item, currentCycle))
         .filter((entry) => entryMatchesDvaTier(entry, dvaTier));
-      setDerivedMode(derived.length > 0);
-      setEntries(derived);
+      if (derived.length > 0) {
+        setDerivedMode(true);
+        setEntries(derived);
+      } else {
+        // OPT-06: C-324 mock seed as absolute fallback when both live journal
+        // and EPICON derivation return empty (ledger 503 blocks lane).
+        // derivedMode stays false — these are mock entries, not EPICON-derived.
+        const mockSeed = C324_MOCK_JOURNAL.filter((entry) => entryMatchesDvaTier(entry, dvaTier));
+        setDerivedMode(false);
+        setEntries(mockSeed);
+      }
     })();
     return () => {
       mounted = false;

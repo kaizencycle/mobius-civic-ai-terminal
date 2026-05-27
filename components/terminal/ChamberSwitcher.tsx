@@ -65,7 +65,7 @@ export default function ChamberSwitcher() {
             title={tab.shortcut}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em] transition-all duration-150 md:rounded md:px-2.5 md:py-1 md:text-[11px] md:tracking-wide',
+              'shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em] transition-all duration-150 md:rounded md:px-2.5 md:py-1 md:text-[11px] md:tracking-wide',
               active
                 ? 'border-cyan-400/70 bg-cyan-500/15 text-cyan-50 shadow-[0_0_8px_rgba(34,211,238,0.12)]'
                 : 'border-slate-700/80 bg-slate-900/50 text-slate-400 hover:border-slate-600 hover:bg-slate-800/60 hover:text-slate-200',
