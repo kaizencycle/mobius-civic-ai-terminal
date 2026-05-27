@@ -353,6 +353,18 @@ export async function kvType(key: string): Promise<string> {
 }
 
 /**
+ * Safe GET that catches all errors and returns null — for server components where
+ * any KV failure must not crash the render (SSG / force-dynamic pages).
+ */
+export async function kvGetSafe<T>(key: string): Promise<T | null> {
+  try {
+    return await kvGet<T>(key);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Safe GET that catches WRONGTYPE errors (key stored as list but read as string).
  * Returns null instead of throwing. Use for keys that may have been written as
  * different types across cycle boundaries.

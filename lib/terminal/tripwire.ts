@@ -68,6 +68,27 @@ function levelToSeverity(level: unknown): TripwireSeverity {
   return 'INFO';
 }
 
+type PawLiveness = {
+  status: 'ok' | 'degraded' | 'down';
+  ts: number;
+  cycle?: string;
+  message?: string;
+};
+
+async function fetchPawTripwires(): Promise<TripwireEntry[]> {
+  const paw = await fetchInternal('/api/sentinel/paw-liveness') as PawLiveness | null;
+  if (!paw) return [];
+  if (paw.status === 'ok') return [];
+  return [{
+    id: 'paw-liveness',
+    severity: paw.status === 'down' ? 'CRITICAL' : 'WARN',
+    label: paw.message ?? `PAW liveness degraded — status: ${paw.status}`,
+    agent: 'ATLAS',
+    ts: paw.ts,
+    resolved: false,
+  }];
+}
+
 export async function fetchTripwires(): Promise<TripwireEntry[]> {
   const raw = await fetchInternal('/api/tripwire/status');
   if (raw && typeof raw === 'object') {
@@ -76,7 +97,8 @@ export async function fetchTripwires(): Promise<TripwireEntry[]> {
     // Primary live shape: singular tripwire object from GET /api/tripwire/status
     if (payload.tripwire && typeof payload.tripwire === 'object') {
       const t = payload.tripwire as Record<string, unknown>;
-      if (!t.active) return [];
+      const paw = await fetchPawTripwires();
+      if (!t.active) return paw;
       return [{
         id: 'runtime-tripwire',
         severity: levelToSeverity(t.level),
@@ -88,15 +110,18 @@ export async function fetchTripwires(): Promise<TripwireEntry[]> {
           ? (new Date(t.last_updated).getTime() || Date.now())
           : Date.now(),
         resolved: false,
-      }];
+      }, ...paw];
     }
 
     // Array form
     if (Array.isArray(payload.tripwires) && payload.tripwires.length > 0) {
-      return (payload.tripwires as TripwireEntry[]).filter((t) => t && typeof t.id === 'string');
+      const live = (payload.tripwires as TripwireEntry[]).filter((t) => t && typeof t.id === 'string');
+      const paw = await fetchPawTripwires();
+      return [...live, ...paw];
     }
   }
-  return MOCK_CHAMBER_ENTRIES;
+  const paw = await fetchPawTripwires();
+  return paw.length > 0 ? [...MOCK_CHAMBER_ENTRIES, ...paw] : MOCK_CHAMBER_ENTRIES;
 }
 
 export const MOCK_TRIPWIRES: Tripwire[] = [

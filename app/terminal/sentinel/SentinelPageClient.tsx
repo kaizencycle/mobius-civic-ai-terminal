@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { useTerminalSnapshot } from '@/hooks/useTerminalSnapshot';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import SentinelChamber from '@/components/terminal/chambers/SentinelChamber';
+
+type SentinelTab = 'agents' | 'signals';
 
 type Agent = { id: string; name: string; role: string; status: string; liveness?: string; lastAction?: string; last_action?: string; last_seen?: string | null; last_journal_at?: string | null; confidence?: number; source_badges?: string[]; tier?: string; mii_avg?: number };
 type JournalEntry = { id: string; observation?: string; cycle?: string };
@@ -171,6 +174,7 @@ export default function SentinelPageClient({
   zeusDispute?: ZeusDispute | null;
   epiconEscalation?: EpiconEscalation | null;
 }) {
+  const [tab, setTab] = useState<SentinelTab>('agents');
   const { snapshot, loading } = useTerminalSnapshot();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [journalByAgent, setJournalByAgent] = useState<Record<string, JournalEntry[]>>({});
@@ -286,7 +290,28 @@ export default function SentinelPageClient({
   const liveCount = sentinelNodes.filter((node) => node.hbLive).length;
 
   return (
-    <div className="h-full overflow-y-auto p-4">
+    <div className="h-full flex flex-col">
+      {/* Tab switcher */}
+      <div className="flex items-center gap-1 px-4 py-2 border-b border-slate-800 bg-slate-950 font-mono text-[10px] shrink-0">
+        {(['agents', 'signals'] as SentinelTab[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`px-3 py-0.5 rounded border uppercase tracking-widest transition-colors ${
+              tab === t
+                ? 'bg-cyan-950 border-cyan-700 text-cyan-300'
+                : 'border-slate-700 text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            {t === 'agents' ? '≡ Agents' : '⚡ Signals'}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'signals' && <SentinelChamber />}
+
+      {tab === 'agents' && <div className="flex-1 overflow-y-auto p-4">
       <ZeusDisputeBanner dispute={zeusDispute} />
       <EpiconEscalationBanner escalation={epiconEscalation} />
       <div className="mb-3 rounded border border-slate-800/80 bg-slate-950/50 px-3 py-2 text-[10px] font-mono leading-relaxed text-slate-400">
@@ -511,6 +536,7 @@ export default function SentinelPageClient({
           </div>
         </div>
       )}
+      </div>}
     </div>
   );
 }

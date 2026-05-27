@@ -6,6 +6,7 @@ set -euo pipefail
 subject="${VERCEL_GIT_COMMIT_MESSAGE:-}"
 author_email="${VERCEL_GIT_COMMIT_AUTHOR_EMAIL:-}"
 author_name="${VERCEL_GIT_COMMIT_AUTHOR_NAME:-}"
+author_login="${VERCEL_GIT_COMMIT_AUTHOR_LOGIN:-}"
 
 if [[ -z "$subject" ]]; then
   subject="$(git log -1 --format=%s 2>/dev/null || echo "")"
@@ -44,16 +45,19 @@ for em in "${SENTINEL_EMAILS[@]}"; do
   fi
 done
 
-# Match mobius-bot identity (name) and legacy bot emails used on CI / Cursor.
-# C-314: listed sentinel emails + mobius.systems agent pattern + substrate bot domain.
-if [[ "$author_name" == "mobius-bot" ]] \
+# Match mobius-bot identity (name/login) and legacy bot emails used on CI / Cursor.
+# C-323 INFRA-05: added VERCEL_GIT_COMMIT_AUTHOR_LOGIN check — more reliable than name/email
+# for GitHub Actions bot (login = "github-actions[bot]") and mobius-bot (login = "mobius-bot").
+if [[ "$author_login" == "mobius-bot" ]] \
+  || [[ "$author_login" == "github-actions[bot]" ]] \
+  || [[ "$author_name" == "mobius-bot" ]] \
   || [[ "$author_name" == "github-actions[bot]" ]] \
   || [[ "$is_listed_sentinel" == true ]] \
   || [[ "$author_email" =~ ^(bot@mobius\.systems|bot@mobius\.substrate|bot@mobius\.internal|cursoragent@cursor\.com)$ ]] \
   || [[ "$author_email" =~ ^(atlas|zeus|eve|jade|aurea|hermes|echo|daedalus)@mobius\.systems$ ]] \
   || [[ "$author_email" =~ @mobius\.substrate$ ]] \
   || [[ "$author_email" =~ \.noreply\.github\.com$ ]]; then
-  echo "Skipping: bot/sentinel commit by $author_name <$author_email>"
+  echo "Skipping: bot/sentinel commit by ${author_login:-$author_name} <$author_email>"
   exit 0
 fi
 
