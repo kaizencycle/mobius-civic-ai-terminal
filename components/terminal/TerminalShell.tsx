@@ -86,10 +86,10 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   // but no live fetch has confirmed it yet (cached from sessionStorage or SSR seed
   // that predates the current client session). Shows ~ tilde in the GI badge.
   const isStale = stale;
-  // OPT-01: treat gi===0 as unresolved — zero is not a valid live reading, it
-  // indicates a KV timeout default and would show a false red alarm to operators.
+  // OPT-01: treat gi===0 as unresolved only when shell hasn't loaded yet (seed
+  // default). Once a live shell is present, 0 is a real critical GI reading.
   const rawGi = shell?.gi ?? seededGi ?? null;
-  const gi = rawGi === 0 ? null : rawGi;
+  const gi = rawGi === 0 && !shell ? null : rawGi;
   // OPT-08 (C-323): fall back to epoch-derived cycle ID so header never shows C-—.
   const cycle = shell?.cycle ?? computeCurrentCycleId();
   const mode = shell?.mode?.toLowerCase() ?? null;

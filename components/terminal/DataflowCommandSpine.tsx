@@ -295,15 +295,8 @@ export default function DataflowCommandSpine({
                 <button
                   type="button"
                   onClick={() => {
-                    void fetch('/api/agents/journal/seed', {
+                    void fetch(`/api/agents/journal/seed?cycle=${encodeURIComponent(displayCycle)}`, {
                       method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        agent: 'ECHO',
-                        cycle: displayCycle,
-                        type: 'digest_seed',
-                        source: 'operator-dataflow-unblock',
-                      }),
                     }).catch(() => {});
                   }}
                   className="mt-1 rounded border border-emerald-800/60 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.08em] text-emerald-400 transition-colors hover:bg-emerald-950/30"

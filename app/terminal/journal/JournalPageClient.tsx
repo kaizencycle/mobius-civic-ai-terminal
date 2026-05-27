@@ -290,8 +290,9 @@ export default function JournalPageClient() {
       } else {
         // OPT-06: C-324 mock seed as absolute fallback when both live journal
         // and EPICON derivation return empty (ledger 503 blocks lane).
+        // derivedMode stays false — these are mock entries, not EPICON-derived.
         const mockSeed = C324_MOCK_JOURNAL.filter((entry) => entryMatchesDvaTier(entry, dvaTier));
-        setDerivedMode(true);
+        setDerivedMode(false);
         setEntries(mockSeed);
       }
     })();

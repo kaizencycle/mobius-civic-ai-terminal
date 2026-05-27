@@ -319,7 +319,7 @@ export default function VaultPageClient() {
               <span className={data.sustain_cycles_met ? 'text-emerald-300' : 'text-amber-400'}>
                 {data.sustain_cycles_met
                   ? `${data.sustain_cycles_required ?? 5} / ${data.sustain_cycles_required ?? 5} met`
-                  : `0 / ${data.sustain_cycles_required ?? 5} consecutive`}
+                  : `? / ${data.sustain_cycles_required ?? 5} consecutive`}
               </span>
             </div>
             <div className="h-1.5 overflow-hidden rounded bg-slate-800">
