@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-05-27T00:01:51.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-323",
+  "verification_status": "inconclusive",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality (elevated)": "persistent",
+    "NWS API health (elevated)": "persistent",
+    "OpenLibrary API health (elevated)": "persistent",
+    "data.gov dataset freshness (elevated)": "persistent",
+    "UN Data API availability (elevated)": "persistent",
+    "OECD stats API health (elevated)": "persistent",
+    "npm registry health (elevated)": "persistent",
+    "Terminal self-ping latency (elevated)": "persistent",
+    "Cloudflare Radar BGP health (elevated)": "persistent",
+    "Fastly CDN status (elevated)": "persistent",
+    "Certificate transparency log health (elevated)": "persistent",
+    "FRED economic data health (elevated)": "persistent",
+    "NASA APIs health (elevated)": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "GET /api/quorum/state HTTP 200 — quorum_state=substrate_pending vault_block_state=attested integrity.gi=0.74 integrity.source=kv-live attestations.received=0 attestations.needed=5. POST /api/vault/attest HTTP 404 (no JSON quorum_status from attest body).",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-05-26T23-05-43Z-atlas.json (latest *-atlas*.json by embedded timestamp under docs/catalog/heartbeats/)",
+      "result": "pass",
+      "detail": "gi=0.788 mode=yellow source=kv STRESSED; anomalies=13; kv_keys_ok=false; seed_result=200 OK; sustain_eligible=true; journal_status=502; micro_composite=0.639; flags.integrity_source_mock=false."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.646 errors=10 instrumentCount=40 cycle=C-306. Hard-error lanes persist for OpenAQ, OpenLibrary, data.gov, UN Data, OECD, Cloudflare, Fastly, CT log, FRED. NWS, npm, Terminal self-ping remain low-score elevated. CrossRef publication velocity newly error/elevated vs ATLAS civic list (not in catalog set). NASA APIs (echo-nasa) nominal score=1 primary vs ATLAS still listing NASA elevated — catalog lag."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.74 mode=yellow source=kv gi_provenance=kv-live (not mock; KV seed not indicated as mock failure). Cross-lane: ATLAS catalog gi=0.788 vs integrity headline 0.74 vs micro gi=0.646 — material spread; operators must not collapse lanes into one scalar."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; quorum attestation body not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"ledger 400: No API base configured for terminal\""
+    }
+  ],
+  "recommendation": "Integrity remains KV-backed (not mock). Third-party stress in the ATLAS set is largely persistent on micro; refresh ATLAS civic stress strings for NASA (live lane nominal). Track CrossRef as an additional stressed instrument. Reconcile catalog vs integrity-status vs micro before seal-class decisions. Deploy or route POST /api/vault/attest for ZEUS quorum pings toward 5/5. Configure Civic Protocol ledger API base so journal dual-write succeeds."
+}
