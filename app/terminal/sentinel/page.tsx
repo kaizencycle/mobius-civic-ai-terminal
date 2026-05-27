@@ -1,6 +1,9 @@
 import { chamberMeta } from '../layout';
 import SentinelPageClient from './SentinelPageClient';
-import { kvGet } from '@/lib/kv/store';
+import { kvGetSafe } from '@/lib/kv/store';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export const metadata = chamberMeta(
   'Sentinel',
@@ -15,8 +18,8 @@ export default async function SentinelPage() {
   // OPT-8 + OPT-10 (C-321): fetch dispute and escalation state from KV on the
   // server so the page renders with current signal data on first load.
   const [zeusDispute, epiconEscalation] = await Promise.all([
-    kvGet<ZeusDispute>('zeus:dispute:latest').catch(() => null),
-    kvGet<EpiconEscalation>('watchdog:epicon:escalation').catch(() => null),
+    kvGetSafe<ZeusDispute>('zeus:dispute:latest'),
+    kvGetSafe<EpiconEscalation>('watchdog:epicon:escalation'),
   ]);
 
   return (
