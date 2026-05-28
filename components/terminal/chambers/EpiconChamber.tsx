@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchEpiconEvents } from '@/lib/terminal/epicon';
+import { fetchEpiconEvents, MOCK_EPICON_EVENTS } from '@/lib/terminal/epicon';
 import type { EpiconEvent, ConfidenceTier } from '@/lib/terminal/epicon';
 import { EpiconInspector } from './EpiconInspector';
 import { EpiconFilterBar } from './EpiconFilterBar';

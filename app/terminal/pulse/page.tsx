@@ -214,13 +214,16 @@ export default function PulsePage() {
                 <p className="mt-1 font-mono text-[9px] text-slate-500">{epicon.length} EPICON events</p>
               </div>
             </div>
-            {/* GI Sparkline — ATLAS C-325 heartbeat history (PULSE-01 / G-06) */}
+            {/* GI Sparkline — ATLAS C-325 morning scan estimates (PULSE-01 / G-06) */}
             <div className="rounded border border-slate-800 bg-slate-950/60 px-3 py-2">
               <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
-                ATLAS heartbeat · C-325 · KV-source
+                ATLAS heartbeat · C-325 · scan estimate
               </p>
               {(() => {
-                const history = [0.64, 0.74, 0.791, 0.809, 0.81, 0.81, 0.814, 0.82, 0.9, 0.9, gi ?? 0.82].filter(v => v > 0);
+                // Scan-derived GI range from morning report; append live gi if available.
+                // These are not KV-sourced live readings — label is intentionally "scan estimate".
+                const base = [0.64, 0.74, 0.791, 0.809, 0.81, 0.81, 0.814, 0.82, 0.9, 0.9];
+                const history = (gi != null ? [...base, gi] : base).filter(v => v > 0);
                 const W = 300; const H = 40; const pad = 2;
                 const min = Math.min(...history, 0.60);
                 const max = Math.max(...history, 1.00);
@@ -246,7 +249,7 @@ export default function PulsePage() {
                       <span><span className="text-emerald-400">●</span> ≥ 0.75</span>
                       <span><span className="text-amber-400">●</span> 0.65–0.74</span>
                       <span><span className="text-red-400">●</span> &lt; 0.65</span>
-                      <span className="ml-auto">KV cache · {history.length} pts</span>
+                      <span className="ml-auto">scan est · {history.length} pts{gi != null ? ' + live' : ''}</span>
                     </div>
                   </div>
                 );
