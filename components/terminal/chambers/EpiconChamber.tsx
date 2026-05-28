@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchEpiconEvents } from '@/lib/terminal/epicon';
+import { fetchEpiconEvents, MOCK_EPICON_EVENTS } from '@/lib/terminal/epicon';
 import type { EpiconEvent, ConfidenceTier } from '@/lib/terminal/epicon';
 import { EpiconInspector } from './EpiconInspector';
 import { EpiconFilterBar } from './EpiconFilterBar';
@@ -28,13 +28,32 @@ export default function EpiconChamber() {
   const [ingestCount, setIngestCount] = useState(0);
 
   useEffect(() => {
-    fetchEpiconEvents().then((data) => {
-      setEvents(data);
-      setFiltered(data);
+    // G-03: 2s client-side fallback so mock renders immediately if API is slow
+    const fallback = setTimeout(() => {
+      setEvents((prev) => (prev.length > 0 ? prev : MOCK_EPICON_EVENTS));
+      setFiltered((prev) => (prev.length > 0 ? prev : MOCK_EPICON_EVENTS));
       setLoading(false);
-    });
+    }, 2000);
+
+    fetchEpiconEvents()
+      .then((data) => {
+        clearTimeout(fallback);
+        setEvents(data);
+        setFiltered(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        clearTimeout(fallback);
+        setEvents(MOCK_EPICON_EVENTS);
+        setFiltered(MOCK_EPICON_EVENTS);
+        setLoading(false);
+      });
+
     const tick = setInterval(() => setIngestCount((n: number) => n + 1), 4000);
-    return () => clearInterval(tick);
+    return () => {
+      clearTimeout(fallback);
+      clearInterval(tick);
+    };
   }, []);
 
   if (loading) return (

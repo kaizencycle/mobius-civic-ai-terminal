@@ -42,9 +42,17 @@ export default function TerminalShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const currentPath = pathname ?? '';
   const flowSpineSuppressed = currentPath.startsWith('/terminal/journal');
+  // G-11: default Flow spine open only on Globe — operator opt-in on other chambers
+  const isGlobe = currentPath.startsWith('/terminal/globe');
   const [clock, setClock] = useState('—');
   const [showLaneDiagnostics, setShowLaneDiagnostics] = useState(false);
-  const [showDataflowCommand, setShowDataflowCommand] = useState(true);
+  const [showDataflowCommand, setShowDataflowCommand] = useState(isGlobe);
+
+  // G-11: reset Flow spine default whenever the chamber changes
+  useEffect(() => {
+    setShowDataflowCommand(isGlobe);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPath]);
   const [consoleCollapsed, setConsoleCollapsed] = useState(false);
   const { shell, loading, stale } = useShellSnapshot();
   const flowTelemetryEnabled = showDataflowCommand || showLaneDiagnostics;

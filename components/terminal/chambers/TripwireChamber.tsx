@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchTripwires } from '@/lib/terminal/tripwire';
+import { fetchTripwires, MOCK_CHAMBER_ENTRIES } from '@/lib/terminal/tripwire';
 import type { TripwireEntry, TripwireSeverity } from '@/lib/terminal/tripwire';
 import { TripwireSparkline } from './TripwireSparkline';
 import { TripwireDrillDown } from './TripwireDrillDown';
@@ -32,10 +32,25 @@ export default function TripwireChamber() {
   const [tab, setTab] = useState<'active' | 'resolved'>('active');
 
   useEffect(() => {
-    fetchTripwires().then((data) => {
-      setEntries(data);
+    // G-03: 2s client-side fallback so mock renders immediately if API is slow
+    const fallback = setTimeout(() => {
+      setEntries((prev) => (prev.length > 0 ? prev : MOCK_CHAMBER_ENTRIES));
       setLoading(false);
-    });
+    }, 2000);
+
+    fetchTripwires()
+      .then((data) => {
+        clearTimeout(fallback);
+        setEntries(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        clearTimeout(fallback);
+        setEntries(MOCK_CHAMBER_ENTRIES);
+        setLoading(false);
+      });
+
+    return () => clearTimeout(fallback);
   }, []);
 
   const visible      = entries.filter((e) => tab === 'active' ? !e.resolved : e.resolved);
