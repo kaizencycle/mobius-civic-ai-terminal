@@ -33,20 +33,31 @@ export default function FooterStatusBar() {
   const tripwireElevated = shell?.tripwire.elevated ?? false;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-800 bg-slate-950/95 px-4 py-1 text-[10px] font-mono uppercase tracking-wide text-slate-400">
-      Runtime {runtimeLabel} · Source{' '}
+    // G-12: fixed 24px height, single line, never wraps
+    <div className="fixed bottom-0 left-0 right-0 z-30 flex h-6 items-center gap-2 overflow-hidden border-t border-slate-800 bg-slate-950/95 px-3 text-[10px] font-mono uppercase tracking-wide text-slate-400 whitespace-nowrap">
+      <span className="text-slate-600">›</span>
+      <span>Runtime</span>
+      <span className={loading && !shell ? 'text-slate-500' : shell?.degraded ? 'text-amber-400' : 'text-emerald-400'}>
+        {runtimeLabel}
+      </span>
+      <span className="text-slate-700">·</span>
+      <span>Source</span>
       <span className={loading && !shell ? 'text-slate-600' : shell?.source === 'live' ? 'text-emerald-400' : 'text-amber-400'}>
         {loading && !shell ? 'RESOLVING' : (shell?.source?.toUpperCase() ?? 'FALLBACK')}
       </span>
-      {' '}· hb <span className={runtimeAgeClass}>{runtimeAge}</span>
-      {' '}· jrl <span className={journalAgeClass}>{journalAge}</span>
-      {' '}· tw{' '}
-      {loading && !shell
-        ? <span className="text-slate-600">PENDING</span>
-        : <span className={tripwireElevated ? 'text-red-400' : 'text-slate-500'}>
-            {tripwireElevated ? `${tripwireCount} elevated` : `${tripwireCount} nominal`}
-          </span>
-      }
+      <span className="text-slate-700">·</span>
+      <span>hb <span className={runtimeAgeClass}>{runtimeAge}</span></span>
+      <span className="text-slate-700">·</span>
+      <span>jrl <span className={journalAgeClass}>{journalAge}</span></span>
+      <span className="text-slate-700">·</span>
+      <span>tw{' '}
+        {loading && !shell
+          ? <span className="text-slate-600">PENDING</span>
+          : <span className={tripwireElevated ? 'text-red-400' : 'text-slate-500'}>
+              {tripwireElevated ? `${tripwireCount} elevated` : `${tripwireCount} nominal`}
+            </span>
+        }
+      </span>
     </div>
   );
 }

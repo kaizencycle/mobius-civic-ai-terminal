@@ -23,7 +23,7 @@ export interface TripwireEntry {
   resolvedBy?: string;
 }
 
-const MOCK_CHAMBER_ENTRIES: TripwireEntry[] = [
+export const MOCK_CHAMBER_ENTRIES: TripwireEntry[] = [
   {
     id: 'tw-001',
     severity: 'CRITICAL',

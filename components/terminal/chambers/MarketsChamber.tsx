@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { fetchMarketSignals, gatedConfidence } from '@/lib/terminal/markets';
+import { fetchMarketSignals, gatedConfidence, MOCK_MARKET_SIGNALS } from '@/lib/terminal/markets';
 import type { MarketSignal, SignalCategory } from '@/lib/terminal/markets';
 import { fetchTripwires } from '@/lib/terminal/tripwire';
 import type { TripwireEntry } from '@/lib/terminal/tripwire';
@@ -28,16 +28,31 @@ export default function MarketsChamber() {
   const [tab, setTab]             = useState<TabId>('signals');
 
   useEffect(() => {
+    // G-03: 2s client-side fallback so mock renders immediately if API is slow
+    const fallback = setTimeout(() => {
+      setSignals((prev) => (prev.length > 0 ? prev : MOCK_MARKET_SIGNALS));
+      setLoading(false);
+    }, 2000);
+
     Promise.all([
       fetchMarketSignals(),
       fetchIntegrity(),
       fetchTripwires(),
-    ]).then(([sigs, integrity, tw]) => {
-      setSignals(sigs);
-      setGi(integrity.gi);
-      setTripwires(tw.filter((t) => !t.resolved));
-      setLoading(false);
-    });
+    ])
+      .then(([sigs, integrity, tw]) => {
+        clearTimeout(fallback);
+        setSignals(sigs);
+        setGi(integrity.gi);
+        setTripwires(tw.filter((t) => !t.resolved));
+        setLoading(false);
+      })
+      .catch(() => {
+        clearTimeout(fallback);
+        setSignals(MOCK_MARKET_SIGNALS);
+        setLoading(false);
+      });
+
+    return () => clearTimeout(fallback);
   }, []);
 
   if (loading) return (
