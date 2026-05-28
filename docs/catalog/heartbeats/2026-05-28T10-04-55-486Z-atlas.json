@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-05-28T10:04:55.486Z",
+  "agent": "ATLAS",
+  "cycle": "C-325",
+  "gi": 0.809,
+  "mode": "green",
+  "source": "kv",
+  "gi_provenance": "live-compute",
+  "terminal_status": "nominal",
+  "anomalies": [
+    "OpenAQ air quality [critical]",
+    "NWS API health [elevated]",
+    "ArXiv new submissions [critical]",
+    "data.gov dataset freshness [critical]",
+    "UN Data API availability [critical]",
+    "OECD stats API health [critical]",
+    "GovTrack legislation feed [critical]",
+    "npm registry health [elevated]",
+    "Terminal self-ping latency [elevated]",
+    "Cloudflare Radar BGP health [critical]",
+    "Fastly CDN status [critical]",
+    "Certificate transparency log health [critical]",
+    "FRED economic data health [critical]",
+    "NASA APIs health [critical]"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false,
+    "backup_redis_available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.619,
+  "micro_cycle": "C-306",
+  "degraded_agents": 2,
+  "last_journal_cycle": "C-325",
+  "current_cycle": "C-325",
+  "force_journal_cycle_mismatch": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "micro_operator_cycle_divergence": true
+  },
+  "journal_status": "502",
+  "journal_id": "ATLAS-C-325-1779962695486",
+  "journal_canonical_status": false,
+  "journal_error": "Error: ledger 503: <!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /> <title>Service Suspended</title> </head> <body>",
+  "journal_observe": "502"
+}
