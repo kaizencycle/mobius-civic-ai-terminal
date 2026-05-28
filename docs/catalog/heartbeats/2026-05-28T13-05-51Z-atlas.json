@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-05-28T13:05:51.428Z",
+  "agent": "ATLAS",
+  "cycle": "C-325",
+  "gi": 0.82,
+  "mode": "green",
+  "source": "kv",
+  "gi_provenance": "kv-live",
+  "terminal_status": "nominal",
+  "anomalies": [
+    "OpenAQ air quality [critical]",
+    "NWS API health [elevated]",
+    "data.gov dataset freshness [critical]",
+    "UN Data API availability [critical]",
+    "OECD stats API health [critical]",
+    "npm registry health [elevated]",
+    "Terminal self-ping latency [elevated]",
+    "Cloudflare Radar BGP health [critical]",
+    "Fastly CDN status [critical]",
+    "Certificate transparency log health [critical]",
+    "FRED economic data health [critical]"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false,
+    "backup_redis_available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "sustain_eligible": false,
+  "classification": "CRITICAL",
+  "micro_composite": 0.684,
+  "micro_cycle": "C-306",
+  "degraded_agents": 4,
+  "last_journal_cycle": "C-325",
+  "current_cycle": "C-325",
+  "force_journal_cycle_mismatch": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "micro_operator_cycle_divergence": true
+  },
+  "journal_status": "502",
+  "journal_id": "journal-ATLAS-C-325-1779973551",
+  "journal_canonical_status": false,
+  "journal_error": "{\"ok\":false,\"canonical\":false,\"error\":\"Error: ledger 503: <!DOCTYPE html> <html lang=\\\"en\\\"> <head> <meta charset=\\\"UTF-8\\\"> <meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\" /> <title>Service Suspended</title> </head> <body> This service has been suspended. </body> </html>\",\"mirrored_to_kv\":false}"
+}
