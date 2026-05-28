@@ -54,8 +54,8 @@
     {
       "check": "POST /api/agents/journal",
       "result": "fail",
-      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 403\" (Cloudflare challenge HTML on ledger upstream); substrate canon write blocked."
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 503: Service Suspended\" (Civic Protocol ledger HTML body); substrate canon write blocked."
     }
   ],
-  "recommendation": "Reconcile ATLAS catalog GI with integrity-status and micro composite before seal-class decisions. External API error cluster remains largely persistent. Deploy POST /api/vault/attest for ZEUS quorum registration. Restore ledger path (journal POST returned 502/403) so agent journal dual-write succeeds."
+  "recommendation": "Reconcile ATLAS catalog GI with integrity-status and micro composite before seal-class decisions. External API error cluster remains largely persistent. Deploy POST /api/vault/attest for ZEUS quorum registration. Restore or replace suspended Civic Protocol ledger so POST /api/agents/journal dual-write succeeds."
 }
