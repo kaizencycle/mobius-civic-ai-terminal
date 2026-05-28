@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-05-28T05:05:28.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-325",
+  "gi": 0.74,
+  "mode": "yellow",
+  "source": "kv",
+  "gi_provenance": "kv-live",
+  "anomalies": [
+    "OpenAQ air quality [critical]",
+    "NWS API health [elevated]",
+    "data.gov dataset freshness [critical]",
+    "UN Data API availability [critical]",
+    "OECD stats API health [critical]",
+    "npm registry health [elevated]",
+    "Terminal self-ping latency [elevated]",
+    "Cloudflare Radar BGP health [critical]",
+    "Fastly CDN status [critical]",
+    "Certificate transparency log health [critical]",
+    "FRED economic data health [critical]"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": true,
+    "backup_redis_available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.683,
+  "micro_cycle": "C-306",
+  "degraded_agents": 2,
+  "last_journal_cycle": "C-324",
+  "current_cycle": "C-325",
+  "force_journal_cycle_mismatch": true,
+  "flags": {
+    "integrity_source_mock": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": true,
+    "tripwire_active": false,
+    "micro_operator_cycle_divergence": true
+  },
+  "journal_status": "502",
+  "journal_id": "journal-ATLAS-C-325-mpp14tn2pqb2",
+  "journal_canonical_status": false,
+  "journal_error": "Error: ledger 503: Service Suspended",
+  "journal_observe": "200"
+}
