@@ -1,13 +1,13 @@
 # CURRENT_CYCLE.md
 
 ## Cycle
-C-305
+C-326
 
 ## Active focus
 
 Mobius Terminal is transitioning from observation → enforcement coordination.
 
-C-305 focuses on:
+C-326 focuses on:
 - runtime truth alignment
 - vault / ledger attestation visibility
 - consensus durability
@@ -89,7 +89,7 @@ Never skip steps.
 
 ## Acceptance bar
 
-A good C-305 change:
+A good C-326 change:
 - improves runtime truth visibility
 - reduces ambiguity in consensus
 - preserves provenance

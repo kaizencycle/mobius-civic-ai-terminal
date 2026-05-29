@@ -116,7 +116,7 @@ function normalizeLedgerBaseUrl(url: string): string {
  * POSTs to the Civic Protocol Core Ledger on Render, which then writes to the Substrate
  * GitHub repo. Direct writes to GitHub always 404.
  */
-function resolveSubstrateLedgerUrl(): string {
+export function resolveSubstrateLedgerUrl(): string {
   const candidates = [
     process.env.RENDER_LEDGER_URL,
     process.env.CIVIC_LEDGER_URL,
@@ -314,6 +314,9 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
   try {
     // C-296 OPT-3: removed pre-flight /health probe — it doubled the RTT to Render
     // on every write with no recovery value (the attest call itself surfaces failures).
+    // Canonical Civic-Protocol-Core endpoint paths:
+    //   POST /ledger/attest, GET /ledger/chain
+    //   POST /api/vault/seal, POST /api/seal/reconcile, POST /api/epicon/ingest
     const res = await fetch(`${LEDGER_BASE}/ledger/attest`, {
       method: 'POST',
       headers: {
