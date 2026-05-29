@@ -36,7 +36,7 @@
     "SIGNAL_SNAPSHOT"
   ],
   "sustain_eligible": false,
-  "classification": "NOMINAL",
+  "classification": "STRESSED",
   "micro_composite": 0.644,
   "micro_cycle": "C-306",
   "degraded_agents": 5,
