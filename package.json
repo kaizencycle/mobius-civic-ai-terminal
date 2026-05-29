@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --import tsx --test tests/contract/ledger.test.ts tests/contract/shardConfig.test.ts"
+    "test": "tsx tests/contract/shardConfig.test.ts && tsx tests/contract/ledger.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
