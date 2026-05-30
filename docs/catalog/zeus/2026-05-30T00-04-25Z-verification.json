@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-05-30T00:04:25.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-326",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "NASA EONET natural events [critical]": "persistent",
+    "OpenAQ air quality [critical]": "persistent",
+    "ArXiv new submissions [critical]": "transient",
+    "data.gov dataset freshness [critical]": "persistent",
+    "UN Data API availability [critical]": "persistent",
+    "OECD stats API health [critical]": "persistent",
+    "Cloudflare Radar BGP health [critical]": "persistent",
+    "Fastly CDN status [critical]": "persistent",
+    "Certificate transparency log health [critical]": "persistent",
+    "FRED economic data health [critical]": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (spec path not deployed). POST /api/vault/block/attest HTTP 200 seal_id=seal-C-326-158 agent=ZEUS verdict=pass transition=already_attested quorum.pass_count=5 needed=4 reached=true. GET /api/quorum/state HTTP 200 cycle=C-326 integrity.gi=0.74 integrity.source=kv-live quorum_state=substrate_pending vault_block_state=attested.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-05-29T23-03-19-989Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.81 mode=green source=kv; anomalies=10; kv_keys_ok=true; seed_result=200 OK; sustain_eligible=false; micro_composite=0.627 classification=STRESSED micro_cycle=C-306; flags.integrity_source_mock=false tripwire_active=true micro_operator_cycle_divergence=true; journal_status=502 ledger 503 Service Suspended on substrate write path."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.646 composite=0.646 instrumentCount=40 cycle=C-306 errors=9 cached=false. Hard-error lanes (score 0): NASA EONET, OpenAQ, data.gov, UN Data, OECD, Cloudflare Radar, Fastly, CT log, FRED. Elevated (0.3): NWS, npm, Terminal self-ping. ArXiv nominal (0.9) — transient vs ATLAS catalog critical flag. 9/10 ATLAS-flagged anomalies still stressed or errored on live micro."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.74 mode=yellow source=kv gi_provenance=kv-live (not mock). Aligns with micro stress band; diverges from ATLAS catalog gi=0.81 green — three-surface GI reconciliation required before seal-class decisions."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-326-158 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 503: Service Suspended\"; substrate canon write blocked."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI (0.81 green) with integrity-status (0.74 yellow) and micro composite (0.646) before seal-class decisions. Refresh ATLAS anomaly list — ArXiv resolved on live micro. External API hard-fail cluster remains persistent (9 score-0 lanes). Deploy POST /api/vault/attest alias or document /api/vault/block/attest as C-298 path. Restore or replace suspended Civic Protocol ledger so POST /api/agents/journal dual-write succeeds."
+}
