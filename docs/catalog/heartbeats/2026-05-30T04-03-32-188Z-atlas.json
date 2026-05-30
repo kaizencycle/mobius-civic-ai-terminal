@@ -39,5 +39,8 @@
   "journal_status": "502",
   "journal_id": null,
   "journal_canonical_status": false,
-  "journal_error": "{\"ok\":false,\"canonical\":false,\"error\":\"Error: ledger 503: <!DOCTYPE html> <html lang=\\\"en\\\"> <head> <meta charset=\\\"UTF-8\\\"> <meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\" /> <title>Service Suspended</title> </head> <body> This service has been suspended. </body> </html>\",\"mirrored_to_kv\":false}"
+  "journal_error": "{\"ok\":false,\"canonical\":false,\"error\":\"Error: ledger 503: <!DOCTYPE html> <html lang=\\\"en\\\"> <head> <meta charset=\\\"UTF-8\\\"> <meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\" /> <title>Service Suspended</title> </head> <body> This service has been suspended. </body> </html>\",\"mirrored_to_kv\":false}",
+  "journal_observe_status": "200",
+  "journal_observe_id": "journal-ATLAS-C-327-mprttd1ua1uz",
+  "journal_observe_lane": "hot"
 }
