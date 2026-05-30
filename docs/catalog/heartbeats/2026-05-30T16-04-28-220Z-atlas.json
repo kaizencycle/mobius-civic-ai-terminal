@@ -47,9 +47,9 @@
   "journal_id": null,
   "journal_canonical_status": false,
   "journal_error": "Error: ledger 503: <!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /> <title>Service Suspended</title> </head> <body> This service has been suspended. </body> </html>",
-  "journal_observe_status": null,
-  "journal_observe_id": null,
-  "journal_observe_lane": null,
+  "journal_observe_status": "200",
+  "journal_observe_id": "journal-ATLAS-C-327-mpsjliamwggl",
+  "journal_observe_lane": "hot",
   "seed_seeded_keys": [
     "GI_STATE",
     "HEARTBEAT",
