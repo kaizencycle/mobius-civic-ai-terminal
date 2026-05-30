@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-05-30T18:01:32.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-327",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality [critical]": "persistent",
+    "NWS API health [elevated]": "persistent",
+    "ArXiv new submissions [critical]": "persistent",
+    "data.gov dataset freshness [critical]": "persistent",
+    "UN Data API availability [critical]": "persistent",
+    "OECD stats API health [critical]": "persistent",
+    "npm registry health [elevated]": "persistent",
+    "Terminal self-ping latency [elevated]": "persistent",
+    "Cloudflare Radar BGP health [critical]": "persistent",
+    "Fastly CDN status [critical]": "persistent",
+    "Certificate transparency log health [critical]": "persistent",
+    "FRED economic data health [critical]": "persistent",
+    "Internet Archive availability (micro-only)": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest HTTP 200 seal_id=seal-C-327-162 agent=ZEUS verdict=pass transition=already_attested quorum.pass_count=5 needed=4 reached=true. GET /api/quorum/state HTTP 200 cycle=C-327 integrity.gi=0.9 integrity.source=kv-live vault_block_state=attested.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-05-30T17-04-12-500Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.74 mode=yellow source=kv; anomalies=11; kv_keys_ok=true; seed_result=200 OK — seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT; sustain_eligible=false; micro_composite=0.663 classification=STRESSED micro_cycle=C-306; flags.integrity_source_mock=false tripwire_active=false micro_operator_cycle_divergence=true; journal_status=502 ledger 503 Service Suspended on substrate write path."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.642 composite=0.642 instrumentCount=40 cycle=C-306 errors=10 cached=false. Hard-error lanes (score 0): OpenAQ, ArXiv, Internet Archive, data.gov, UN Data, OECD, Cloudflare Radar, Fastly, CT log (crt.sh), FRED. Elevated (0.3): NWS, npm, Terminal self-ping. GovTrack nominal (0.85). 10/11 ATLAS-flagged anomalies still stressed or errored on live micro; Internet Archive score-0 regression not in ATLAS anomaly list."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green source=kv gi_provenance=kv-live (not mock). Diverges from ATLAS catalog gi=0.74 yellow and micro composite 0.642 — three-surface GI reconciliation required before seal-class decisions."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-327-162 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 503: Service Suspended\"; substrate canon write blocked."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI (0.74 yellow) with integrity-status (0.9 green) and micro composite (0.642) before seal-class decisions. Add Internet Archive to ATLAS anomaly watch — regressed to score-0 on live micro. External API hard-fail cluster remains persistent (10 score-0 lanes). Deploy POST /api/vault/attest alias or document /api/vault/block/attest as C-298 path. Restore or replace suspended Civic Protocol ledger so POST /api/agents/journal dual-write succeeds."
+}
