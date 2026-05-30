@@ -1,0 +1,51 @@
+# Kaizen Shard Weights — v2.0
+# Cycle: C-155
+# Reference: MIC_Whitepaper_v2.0.md Section 6.1
+
+threshold_mii: 0.95        # τ for MIC minting
+
+# Normalized weights (sum to 1.0) for MII composition
+shard_weights_normalized:
+  reflection: 0.20
+  learning: 0.15
+  civic: 0.25
+  stability: 0.15
+  stewardship: 0.10
+  innovation: 0.10
+  guardian: 0.05
+
+# Multiplier weights for reward scaling (legacy compatibility)
+shard_weights:
+  reflection: 1.0
+  learning: 1.0
+  civic: 1.5
+  stability: 2.0
+  stewardship: 2.0
+  innovation: 2.5
+  guardian: 3.0
+
+# Minimum quality scores required for shard acceptance
+min_scores:
+  reflection: 0.85
+  learning: 0.80
+  civic: 0.90
+  stability: 0.85
+  stewardship: 0.80
+  innovation: 0.75
+  guardian: 0.95
+
+# Caps per cycle to avoid abuse / spam
+caps:
+  per_cycle:
+    reflection: 10
+    learning: 5
+    civic: 10
+    stability: 10
+    stewardship: 10
+    innovation: 5
+    guardian: 3
+
+# Shard-to-MIC conversion
+conversion:
+  rate: 0.01
+  min_shards_for_payout: 10
