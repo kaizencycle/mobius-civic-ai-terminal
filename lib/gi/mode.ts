@@ -1,7 +1,7 @@
 // C-328: getGiMode and GIMode are now canonical in lib/gi/bands.ts.
 // Re-exported here for backwards compatibility.
-export type { GIMode } from './bands.js';
-export { getGiMode } from './bands.js';
+export type { GIMode } from './bands';
+export { getGiMode } from './bands';
 
 export const giModeConfig = {
   green: {
