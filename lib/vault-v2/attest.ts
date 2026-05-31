@@ -14,6 +14,7 @@
 
 import { computeAttestationSignature } from '@/lib/vault-v2/seal';
 import type { AttestationSubmission, Posture, SealCandidate, Verdict } from '@/lib/vault-v2/types';
+import { getSealingPosture } from '@/lib/gi/bands';
 
 // ────────────────────────────────────────────────────────────────
 // ATLAS — Strategic coherence
@@ -197,8 +198,8 @@ export function jadeAttest(args: {
  * AUREA does not pass/fail/reject. It always submits `pass` with a posture
  * stamp that influences later Fountain emission weighting.
  *
- * Posture rubric:
- *   - GI >= 0.88 AND mode green → confident
+ * Posture rubric: canonical thresholds from lib/gi/bands.ts (C-328).
+ *   - GI >= 0.80 AND mode green → confident
  *   - GI >= 0.74 AND mode yellow → cautionary
  *   - GI >= 0.60 AND mode yellow → stressed
  *   - GI < 0.60 OR mode red → degraded
@@ -208,16 +209,7 @@ export function aureaAttest(args: {
   token: string;
 }): AttestationSubmission {
   const { gi_at_seal, mode_at_seal } = args.candidate;
-  let posture: Posture;
-  if (gi_at_seal >= 0.88 && mode_at_seal === 'green') {
-    posture = 'confident';
-  } else if (gi_at_seal >= 0.74 && mode_at_seal === 'yellow') {
-    posture = 'cautionary';
-  } else if (gi_at_seal >= 0.6 && mode_at_seal === 'yellow') {
-    posture = 'stressed';
-  } else {
-    posture = 'degraded';
-  }
+  const posture: Posture = getSealingPosture(gi_at_seal, mode_at_seal as 'green' | 'yellow' | 'red');
 
   const rationale = `Posture at sealing: ${posture}. GI ${gi_at_seal.toFixed(2)}, mode ${mode_at_seal}. This Seal's future Fountain behavior will be weighted by this posture — see Vault v2 §9.`;
 
