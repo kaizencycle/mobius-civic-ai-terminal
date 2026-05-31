@@ -1,4 +1,4 @@
-import { kvSet } from '@/lib/kv/store';
+import { kvGet, kvSet } from '@/lib/kv/store';
 
 export type ZeusDisputeEvent = {
   id: string;
@@ -19,17 +19,19 @@ export async function recordDisputeEvent(event: Omit<ZeusDisputeEvent, 'id' | 'r
     recorded_at: new Date().toISOString(),
   };
 
-  let log: ZeusDisputeEvent[] = [];
-  try {
-    const { kvGet } = await import('@/lib/kv/store');
-    log = (await kvGet<ZeusDisputeEvent[]>(DISPUTE_LOG_KEY)) ?? [];
-  } catch {
-    log = [];
+  // Abort on read uncertainty — treating null-from-failure as empty would overwrite history.
+  const log = await kvGet<ZeusDisputeEvent[]>(DISPUTE_LOG_KEY);
+  if (log === null) {
+    throw new Error('[epicon/dispute] KV read returned null — aborting to avoid overwriting dispute history');
   }
 
-  log.unshift(full);
-  if (log.length > 200) log.length = 200;
+  const updated = [full, ...log].slice(0, 200);
 
-  await kvSet(DISPUTE_LOG_KEY, log, 60 * 60 * 24 * 30); // 30d TTL
+  // kvSet returns false on bridge-path rejection without throwing; surface that as a failure.
+  const ok = await kvSet(DISPUTE_LOG_KEY, updated, 60 * 60 * 24 * 30); // 30d TTL
+  if (!ok) {
+    throw new Error(`[epicon/dispute] KV write rejected for key ${DISPUTE_LOG_KEY}`);
+  }
+
   console.info('[epicon/dispute] recorded', full.id, { cycle: full.cycle, gi: full.gi_at_dispute });
 }
