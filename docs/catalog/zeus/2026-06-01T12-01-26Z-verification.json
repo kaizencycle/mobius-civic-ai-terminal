@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-01T12:01:26.399Z",
+  "agent": "ZEUS",
+  "cycle": "C-329",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality [elevated]": "persistent",
+    "NWS API health [elevated]": "persistent",
+    "ArXiv new submissions [elevated]": "persistent",
+    "data.gov dataset freshness [elevated]": "persistent",
+    "UN Data API availability [elevated]": "persistent",
+    "OECD stats API health [elevated]": "persistent",
+    "npm registry health [elevated]": "persistent",
+    "Terminal self-ping latency [elevated]": "persistent",
+    "Cloudflare Radar BGP health [elevated]": "persistent",
+    "Fastly CDN status [elevated]": "persistent",
+    "Certificate transparency log health [elevated]": "persistent",
+    "FRED economic data health [elevated]": "persistent",
+    "NASA APIs health [elevated]": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-328-171 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. GET /api/quorum/state cycle=C-329 integrity.gi=0.803 mode=green source=kv.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-01T11-05-19-238Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.803 mode=green source=kv classification=STRESSED micro_composite=0.64; anomalies=13 elevated; kv_keys_ok=false; seed_result=200 OK; sustain_eligible=false; flags.integrity_source_mock=false tripwire_active=true micro_operator_cycle_divergence=true; journal_status=502 ledger No API base configured; journal_observe_status=200 hot lane."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.632 composite=0.632 instrumentCount=40 cycle=C-306 cached=false. Hard-error lanes (score 0): OpenAQ, ArXiv, data.gov, UN Data, OECD, Cloudflare, Fastly, CT log, FRED, NASA. Elevated (0.3): NWS, npm, Terminal self-ping. 12/13 ATLAS-flagged anomalies persistent; NASA resolved on live micro."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.803 mode=green source=kv gi_provenance=live-compute (not mock) degraded=true terminal_status=nominal cycle=C-329. Aligns with ATLAS catalog gi=0.803; diverges from micro gi=0.632 (~0.17 gap) — operator cycle/micro reconciliation still required."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-328-171 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 400: No API base configured for terminal\"; substrate canon write blocked."
+    }
+  ],
+  "recommendation": "ATLAS KV GI (0.803 green) now aligns with integrity-status — KV surface trustworthy (not mock). Reconcile micro composite (0.632, cycle C-306) vs operator cycle C-329 before seal-class decisions. Resolve kv_keys_ok=false on ATLAS sweep. External API hard-fail cluster remains persistent (10 score-0 lanes). Configure Civic Protocol ledger API base so POST /api/agents/journal dual-write succeeds. Deploy POST /api/vault/attest alias or document /api/vault/block/attest as C-298 path."
+}
