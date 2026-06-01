@@ -19,6 +19,7 @@ import { loadGIState } from '@/lib/kv/store';
 import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
+import { computeAttestationCoverage, attestationHeadlineSuffix } from '@/lib/vault/attestation-coverage';
 import { getVaultDepositHashCoverage, getVaultStatusPayload } from '@/lib/vault/vault';
 import {
   countAllSeals,
@@ -83,7 +84,7 @@ export async function GET(req: NextRequest) {
       countAllSeals(),
       getLatestSeal(),
       getCandidate(),
-      listAllSeals(50),
+      listAllSeals(500),
       loadQuorumState(currentCycleForQuorum),
     ]);
 
@@ -121,6 +122,11 @@ export async function GET(req: NextRequest) {
   const hashCoverage = await getVaultDepositHashCoverage(200);
   const latestImmortalized = Boolean(latestSeal?.substrate_attestation_id && latestSeal?.substrate_event_hash);
 
+  // C-329: compute REAL substrate-attestation coverage across all seals so the
+  // payload can no longer report "N sealed" while hiding that 0 are immortalized.
+  const attestationCoverage = computeAttestationCoverage(allRecentSeals);
+  const honestHeadline = seal_lane.headline + attestationHeadlineSuffix(attestationCoverage);
+
   const body = {
     ...v1,
     gi_resolution: gi_provenance ? { provenance: gi_provenance } : undefined,
@@ -142,7 +148,18 @@ export async function GET(req: NextRequest) {
     fountain_status: seal_lane.fountain_lane,
     reserve_lane: seal_lane.reserve_lane,
     reserve_block_lane: seal_lane.reserve_block_lane,
-    vault_headline: seal_lane.headline,
+    vault_headline: honestHeadline,
+    // C-329: substrate-attestation coverage — the truth the old payload omitted.
+    substrate_attestation_coverage: {
+      examined: attestationCoverage.examined,
+      immortalized: attestationCoverage.immortalized,
+      errored: attestationCoverage.errored,
+      unattested: attestationCoverage.unattested,
+      coverage_ratio: attestationCoverage.coverage_ratio,
+      has_gap: attestationCoverage.has_gap,
+      latest_error: attestationCoverage.latest_error,
+      gap_cycle_range: attestationCoverage.gap_cycle_range,
+    },
     vault_canon: seal_lane.canon,
     unseal_requirements_remaining: {
       gi_sustain: !seal_lane.gi_threshold_met || !seal_lane.sustain_met,
@@ -161,7 +178,10 @@ export async function GET(req: NextRequest) {
     substrate_event_hash: latestSeal?.substrate_event_hash ?? null,
     substrate_attested_at: latestSeal?.substrate_attested_at ?? null,
     substrate_attestation_error: latestSeal?.substrate_attestation_error ?? null,
-    substrate_ok: !latestSeal?.substrate_attestation_error,
+    // C-329: substrate_ok now reflects WHOLE-VAULT immortalization, not just the
+    // latest seal. A single attested latest seal must not mask N unattested ones.
+    substrate_ok: !attestationCoverage.has_gap && !latestSeal?.substrate_attestation_error,
+    substrate_ok_latest_only: !latestSeal?.substrate_attestation_error,
     latest_block_immortalized: latestImmortalized,
     candidate_attestation_state: candidate
       ? {
