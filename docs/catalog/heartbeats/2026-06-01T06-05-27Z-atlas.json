@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-06-01T06:05:27.375Z",
+  "agent": "ATLAS",
+  "cycle": "C-329",
+  "gi": 0.63,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    "Certificate transparency log health [critical]",
+    "Cloudflare Radar BGP health [critical]",
+    "FRED economic data health [critical]",
+    "Fastly CDN status [critical]",
+    "Internet Archive availability [critical]",
+    "NASA APIs health [critical]",
+    "NWS API health [elevated]",
+    "OECD stats API health [critical]",
+    "OpenAQ air quality [critical]",
+    "Terminal self-ping latency [elevated]",
+    "UN Data API availability [critical]",
+    "data.gov dataset freshness [critical]",
+    "npm registry health [elevated]"
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false,
+    "backup_redis_available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "CRITICAL",
+  "micro_composite": 0.632,
+  "micro_cycle": "C-306",
+  "degraded_agents": 6,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "micro_operator_cycle_divergence": true
+  },
+  "last_journal_cycle": "C-329",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": "502",
+  "journal_id": null,
+  "journal_canonical_status": false,
+  "journal_error": "Error: ledger 400: {\"detail\":\"No API base configured for terminal\"}",
+  "journal_observe_status": "200",
+  "journal_observe_id": "journal-ATLAS-C-329-mput22k6fwlg",
+  "journal_observe_lane": "hot"
+}
