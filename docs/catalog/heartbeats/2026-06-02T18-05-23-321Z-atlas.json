@@ -94,7 +94,7 @@
     "SIGNAL_SNAPSHOT"
   ],
   "journal_status": "502",
-  "journal_id": null,
+  "journal_id": "ATLAS-C-330-1780423560651",
   "journal_canonical_status": false,
   "journal_error": "Error: ledger 400: {\"detail\":\"No API base configured for terminal\"}",
   "journal_observe_status": "200",
