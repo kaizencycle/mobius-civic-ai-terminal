@@ -78,7 +78,7 @@
     "integrity_source_kv": true,
     "micro_anomaly_severity_flag": true,
     "kv_keys_all_ok": false,
-    "tripwire_active": true,
+    "tripwire_active": false,
     "micro_operator_cycle_divergence": true
   },
   "last_journal_cycle": "C-330",
