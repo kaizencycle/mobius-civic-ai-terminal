@@ -54,7 +54,7 @@ function toEnvelope<T>(r: DalResult<T>): LaneEnvelope<T> {
 export async function getCanonicalSnapshot(cycle = 'C-303'): Promise<CanonicalSnapshot> {
   const integrity = await readIntegrityDalSnapshot();
   const giCurrent =
-    (integrity.data as { gi_current?: number | null } | null)?.gi_current ?? null;
+    (integrity.data as { global_integrity?: number | null } | null)?.global_integrity ?? null;
 
   const [vault, signals, ledger, journal, sentinel] = await Promise.all([
     readVaultDalSnapshot(giCurrent),
