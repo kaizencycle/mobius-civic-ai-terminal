@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --experimental-strip-types --no-warnings=MODULE_TYPELESS_PACKAGE_JSON --test tests/contract/deriveIntegrityCause.test.ts"
+    "test": "tsx tests/contract/shardConfig.test.ts && tsx tests/contract/ledger.test.ts && tsx tests/contract/giBands.test.ts && tsx tests/contract/attestationCoverage.test.ts && tsx tests/contract/attestationErrorClass.test.ts && tsx tests/contract/canonicalSnapshot.test.ts && tsx --test tests/contract/deriveIntegrityCause.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
