@@ -5,7 +5,60 @@
   "gi": 0.72,
   "mode": "yellow",
   "source": "kv",
-  "anomalies": [],
+  "anomalies": [
+    {
+      "label": "OpenAQ air quality",
+      "severity": "elevated"
+    },
+    {
+      "label": "NWS API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "ArXiv new submissions",
+      "severity": "elevated"
+    },
+    {
+      "label": "data.gov dataset freshness",
+      "severity": "elevated"
+    },
+    {
+      "label": "UN Data API availability",
+      "severity": "elevated"
+    },
+    {
+      "label": "OECD stats API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "npm registry health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Terminal self-ping latency",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare Radar BGP health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Fastly CDN status",
+      "severity": "elevated"
+    },
+    {
+      "label": "Certificate transparency log health",
+      "severity": "elevated"
+    },
+    {
+      "label": "FRED economic data health",
+      "severity": "elevated"
+    },
+    {
+      "label": "NASA APIs health",
+      "severity": "elevated"
+    }
+  ],
   "kv_keys": {
     "ok": true,
     "available": true,
@@ -23,7 +76,7 @@
   "flags": {
     "integrity_source_mock": false,
     "integrity_source_kv": true,
-    "micro_anomaly_severity_flag": false,
+    "micro_anomaly_severity_flag": true,
     "kv_keys_all_ok": false,
     "tripwire_active": true,
     "micro_operator_cycle_divergence": true,
