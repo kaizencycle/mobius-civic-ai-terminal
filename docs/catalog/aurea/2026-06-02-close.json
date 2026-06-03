@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-06-02T03:07:10Z",
+  "agent": "AUREA",
+  "cycle": "C-329",
+  "gi_final": 0.81,
+  "gi_mode": "green",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.807,
+  "financial_score": 0.585,
+  "environ_score": 0.87,
+  "civic_score": 0.7,
+  "event_count_24h": 5,
+  "event_counts_by_type": {
+    "merge": 1,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 4,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.81, though the 24-hour heartbeat band remained wide at 0.63-0.90 and the latest trend was volatile. The ledger registered 5 events over the last 24 hours, and the strongest visible signal remained narrative activity at 0.954. ZEUS verification stays disputed while live micro continues to carry hard failures across public-data, infrastructure, and financial-reference lanes. Forward signal: watch governance-data recovery and financial continuity for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch governance-data recovery and financial continuity for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "OpenAQ air quality [critical]",
+    "NWS API health [elevated]",
+    "ArXiv new submissions [critical]",
+    "data.gov dataset freshness [critical]",
+    "UN Data API availability [critical]",
+    "OECD stats API health [critical]",
+    "GovTrack legislation feed [critical]",
+    "npm registry health [elevated]",
+    "Terminal self-ping latency [elevated]",
+    "Cloudflare Radar BGP health [critical]",
+    "Fastly CDN status [critical]",
+    "Certificate transparency log health [critical]",
+    "FRED economic data health [critical]"
+  ],
+  "quorum_attested": true
+}

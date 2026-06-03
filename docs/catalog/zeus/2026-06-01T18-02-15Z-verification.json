@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-06-01T18:02:15.416Z",
+  "agent": "ZEUS",
+  "cycle": "C-329",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NASA EONET natural events": "persistent",
+    "NWS API health": "persistent",
+    "ArXiv new submissions": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent",
+    "NASA APIs health": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-329-173 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. GET /api/quorum/state cycle=C-329 integrity.gi=0.828 mode=green source=kv.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-01T17-03-58-325Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.9 mode=green source=kv classification=NOMINAL anomalies=[]; kv_keys_ok=false; seed_result=200 OK; sustain_eligible=true; micro_composite=0.659 micro_cycle=C-306; flags.micro_operator_cycle_divergence=true integrity_source_mock=false; journal_status=502 ledger No API base configured; journal_observe_status=200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.603 composite=0.603 instrumentCount=40 cycle=C-306 cached=false errors=11. Hard-error lanes (score 0): OpenAQ, NASA EONET, ArXiv, data.gov, UN Data, OECD, Cloudflare, Fastly, CT log, FRED, NASA APIs. Elevated (0.3): NWS, npm, Terminal self-ping. ATLAS reported zero catalog anomalies but micro still shows 14 degraded instrument lanes."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.828 mode=green source=kv gi_provenance=kv-live (not mock) degraded=true terminal_status=nominal cycle=C-329. Aligns below ATLAS catalog gi=0.9 (~0.07 gap) and above micro gi=0.603 (~0.23 gap) — operator/micro/catalog reconciliation required."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-329-173 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 400: No API base configured for terminal\"; substrate canon write blocked."
+    }
+  ],
+  "recommendation": "ATLAS catalog GI (0.9 green, anomalies=[]) is not independently corroborated: integrity-status reports 0.828 and micro composite 0.603 (cycle C-306). KV source is live (not mock) but kv_keys_ok=false on sweep. External API hard-fail cluster remains persistent (11 score-0 lanes). Reconcile ATLAS sweep GI with micro/integrity-status before seal-class decisions. Configure Civic Protocol ledger API base so POST /api/agents/journal dual-write succeeds. Deploy POST /api/vault/attest alias or document /api/vault/block/attest as C-298 path."
+}

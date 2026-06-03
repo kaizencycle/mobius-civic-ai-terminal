@@ -14,7 +14,7 @@
  *   MII (Mobius Integrity Index)  = weighted avg of agent scores (0–1)
  *   GI Delta                      = Σ integrityDelta from rated events
  *   MIC (Mobius Integrity Credits) = max(0, S * (MII - τ))
- *     where S = shard value, τ = 0.95 threshold
+ *     where S = shard value, τ = 0.88 (operator; canonical 0.95 — see lib/integrity/shardConfig.ts)
  *
  * Shard weights (from integrity-core/src/mic/shardWeights.ts):
  *   reflection: 1.0, learning: 1.0, civic: 1.5, stability: 2.0,
@@ -23,23 +23,16 @@
 
 import type { EpiconItem, CivicRadarAlert } from '@/lib/terminal/types';
 import type { RawEvent } from './sources';
+import { getEffectiveMiiThreshold, CANONICAL_SHARD_WEIGHTS, CANONICAL_MII_THRESHOLD } from '@/lib/integrity/shardConfig';
 
 // ── Constants (from Mobius-Substrate integrity-core) ─────────
 
 // C-296 OPT-4: lowered from 0.95 — weighted-average of typical agent scores
 // peaks at ~0.93, so 0.95 made "verified" unreachable and kept micMinted=0.
-const MII_THRESHOLD = 0.88;
+const MII_THRESHOLD = getEffectiveMiiThreshold();
 const MINT_COEFFICIENT = 1.0;
 
-const SHARD_WEIGHTS: Record<string, number> = {
-  reflection: 1.0,
-  learning: 1.0,
-  civic: 1.5,
-  stability: 2.0,
-  stewardship: 2.0,
-  innovation: 2.5,
-  guardian: 3.0,
-};
+const SHARD_WEIGHTS = CANONICAL_SHARD_WEIGHTS;
 
 // Map EPICON categories to shard types
 // C-296 OPT-9: added narrative/ethics/civic-risk — previously fell through to
@@ -257,7 +250,7 @@ function calculateMII(ratings: AgentRating[]): number {
 }
 
 // ── MIC Minting (from Mobius-Substrate formula) ──────────────
-// MIC_minted = max(0, S * (MII - τ)) where τ = 0.95
+// MIC_minted = max(0, S * (MII - τ)) where τ = 0.88 (operator; canonical 0.95 — see lib/integrity/shardConfig.ts)
 
 function calculateMIC(mii: number, shardValue: number): number {
   if (mii <= MII_THRESHOLD) return 0;

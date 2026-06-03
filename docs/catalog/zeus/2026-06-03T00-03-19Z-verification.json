@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-06-03T00:03:19.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-330",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "NASA EONET natural events": "transient",
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "ArXiv new submissions": "transient",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent",
+    "NASA APIs health": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-330-180 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. GET /api/quorum/state cycle=C-330 integrity.gi=0.9 mode=green source=kv-live verified=false.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-02T23-04-01-453Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.84 mode=green source=kv classification=STRESSED anomalies=14 (all elevated); kv_keys_ok=false; seed_result=200 OK — seeded: [\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"]; sustain_eligible=false; micro_composite=0.606 micro_cycle=C-306; terminal_status=nominal; flags.integrity_source_mock=false tripwire_active=false micro_operator_cycle_divergence=true; journal_status=502 ledger No API base configured."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.679 composite=0.679 instrumentCount=40 cycle=C-306 cached=false errors=8. Hard-error lanes (score 0): OpenAQ, data.gov, UN Data, OECD, Cloudflare, Fastly, CT log, FRED. Elevated (0.3): NWS, npm, Terminal self-ping. NASA EONET and ArXiv nominal (0.9–1.0) while ATLAS lists elevated — transient."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green source=kv gi_provenance=kv-live (not mock) degraded=true terminal_status=nominal cycle=C-330. Live KV GI (0.9 green) diverges from ATLAS catalog (0.84 green STRESSED) by 0.06; micro gi=0.679 corroborates stress vs KV headline."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-330-180 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 400: No API base configured for terminal\"; substrate canon write blocked."
+    }
+  ],
+  "recommendation": "ATLAS STRESSED (gi=0.84, 14 elevated anomalies) aligns with micro composite 0.679 but conflicts with live integrity-status (0.9 green kv-live) — reconcile KV GI headline with micro/ATLAS before seal decisions. NASA EONET and ArXiv elevated in ATLAS are transient on live micro. External API hard-fail cluster persistent (8 error lanes). kv_keys_ok=false despite successful seed. Configure Civic Protocol ledger API base so POST /api/agents/journal dual-write succeeds. Deploy POST /api/vault/attest alias or document /api/vault/block/attest as C-298 path."
+}

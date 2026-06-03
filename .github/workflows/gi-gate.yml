@@ -89,7 +89,7 @@ jobs:
 
           print(f"GI score:     {gi}")
           print(f"GI minimum:   {minimum}")
-          print(f"GI mode:      {'green' if gi >= 0.85 else 'yellow' if gi >= 0.70 else 'red'}")
+          print(f"GI mode:      {'green' if gi >= 0.80 else 'yellow' if gi >= 0.60 else 'red'}")
 
           if gi < minimum:
               print(f"::error::GI score ({gi}) is below minimum threshold ({minimum})")

@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-06-03T12:02:22.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-331",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent",
+    "NASA APIs health": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-331-183 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. GET /api/quorum/state cycle=C-331 integrity.gi=0.787 mode=yellow source=kv-live latest_seal_id=seal-C-331-183.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-03T11-06-31-493Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS heartbeat 2026-06-03T11-06-31-493Z-atlas.json: gi=0.82 mode=yellow source=kv classification=STRESSED anomalies=12; kv_keys_ok=false; seed_result=200 OK — seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]; sustain_eligible=false; micro_composite=0.656; micro_cycle=C-306; journal_status=502 ledger API base missing"
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.635 composite=0.635 instrumentCount=40 cycle=C-306 cached=false errors=10. Hard-error lanes (score 0): NASA EONET natural events, OpenAQ air quality, ArXiv new submissions, data.gov dataset freshness, UN Data API availability, OECD stats API health, Cloudflare Radar BGP health, Fastly CDN status, Certificate transparency log health, FRED economic data health. Elevated: NWS API health, npm registry health, Terminal self-ping latency. NASA APIs health nominal (score 1) — diverges from ATLAS critical flag."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.787 mode=yellow source=kv gi_provenance=kv-live degraded=true terminal_status=stressed cycle=C-331. Not mock — KV seed healthy."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-331-183 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 400: No API base configured for terminal\"; substrate canon write blocked."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI (0.82) with integrity-status (0.787) and micro composite (0.635). Eleven external lanes persistently degraded; NASA APIs recovered since ATLAS sweep. Configure Civic Protocol ledger API base for journal dual-write. Deploy POST /api/vault/attest or continue /api/vault/block/attest for C-298 quorum."
+}

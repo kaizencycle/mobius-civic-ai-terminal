@@ -1,0 +1,43 @@
+name: contract-tests
+
+# C-326 / OPT-20: gate merges on the canonical contracts.
+# Vercel runs `build`, never `test` — without this workflow, the test script
+# is decorative. A reintroduced integrity fork, a github-direct ledger write,
+# or a canon drift fails the PR here.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: contract-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install (frozen)
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify canon against upstream Substrate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/verify-canon.mjs
+
+      - name: Run contract tests
+        run: pnpm test

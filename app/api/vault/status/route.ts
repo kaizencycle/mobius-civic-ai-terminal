@@ -19,6 +19,7 @@ import { loadGIState } from '@/lib/kv/store';
 import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
+import { computeAttestationCoverage, attestationHeadlineSuffix } from '@/lib/vault/attestation-coverage';
 import { getVaultDepositHashCoverage, getVaultStatusPayload } from '@/lib/vault/vault';
 import {
   countAllSeals,
@@ -83,7 +84,7 @@ export async function GET(req: NextRequest) {
       countAllSeals(),
       getLatestSeal(),
       getCandidate(),
-      listAllSeals(50),
+      listAllSeals(500),
       loadQuorumState(currentCycleForQuorum),
     ]);
 
@@ -121,6 +122,16 @@ export async function GET(req: NextRequest) {
   const hashCoverage = await getVaultDepositHashCoverage(200);
   const latestImmortalized = Boolean(latestSeal?.substrate_attestation_id && latestSeal?.substrate_event_hash);
 
+  // C-329: compute REAL substrate-attestation coverage.
+  // Filter to 'attested' status only — quarantined/rejected seals never have
+  // substrate attestation attempted, so counting them as gaps is a false positive.
+  // Also surface the scan scope vs total so consumers can see when we're capped.
+  const attestedSeals = allRecentSeals.filter((s) => s.status === 'attested');
+  const attestationCoverage = computeAttestationCoverage(attestedSeals);
+  const coverageScanLimit = 500;
+  const coverageIsCapped = sealsAuditCount > coverageScanLimit;
+  const honestHeadline = seal_lane.headline + attestationHeadlineSuffix(attestationCoverage);
+
   const body = {
     ...v1,
     gi_resolution: gi_provenance ? { provenance: gi_provenance } : undefined,
@@ -142,7 +153,24 @@ export async function GET(req: NextRequest) {
     fountain_status: seal_lane.fountain_lane,
     reserve_lane: seal_lane.reserve_lane,
     reserve_block_lane: seal_lane.reserve_block_lane,
-    vault_headline: seal_lane.headline,
+    vault_headline: honestHeadline,
+    // C-329: substrate-attestation coverage — the truth the old payload omitted.
+    // `examined` covers attested seals only (quarantined/rejected never have substrate
+    // attestation attempted). `scan_capped` is true when the vault exceeds the 500-seal
+    // window; in that case substrate_ok reflects the visible window, not all-time history.
+    substrate_attestation_coverage: {
+      examined: attestationCoverage.examined,
+      immortalized: attestationCoverage.immortalized,
+      errored: attestationCoverage.errored,
+      unattested: attestationCoverage.unattested,
+      coverage_ratio: attestationCoverage.coverage_ratio,
+      has_gap: attestationCoverage.has_gap,
+      latest_error: attestationCoverage.latest_error,
+      gap_cycle_range: attestationCoverage.gap_cycle_range,
+      scan_limit: coverageScanLimit,
+      scan_capped: coverageIsCapped,
+      total_audit_count: sealsAuditCount,
+    },
     vault_canon: seal_lane.canon,
     unseal_requirements_remaining: {
       gi_sustain: !seal_lane.gi_threshold_met || !seal_lane.sustain_met,
@@ -161,7 +189,11 @@ export async function GET(req: NextRequest) {
     substrate_event_hash: latestSeal?.substrate_event_hash ?? null,
     substrate_attested_at: latestSeal?.substrate_attested_at ?? null,
     substrate_attestation_error: latestSeal?.substrate_attestation_error ?? null,
-    substrate_ok: !latestSeal?.substrate_attestation_error,
+    // C-329: substrate_ok reflects immortalization across the scanned attested window.
+    // When capped, it's conservative (false = gap in window or error on latest seal).
+    // substrate_attestation_coverage.scan_capped tells callers when the window is partial.
+    substrate_ok: !attestationCoverage.has_gap && !latestSeal?.substrate_attestation_error && !coverageIsCapped,
+    substrate_ok_latest_only: !latestSeal?.substrate_attestation_error,
     latest_block_immortalized: latestImmortalized,
     candidate_attestation_state: candidate
       ? {
