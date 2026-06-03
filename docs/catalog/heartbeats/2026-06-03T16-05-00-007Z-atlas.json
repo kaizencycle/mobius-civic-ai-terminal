@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-06-03T16:05:00.007Z",
+  "agent": "ATLAS",
+  "cycle": "C-331",
+  "gi": 0.75,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "OpenAQ air quality",
+      "severity": "critical"
+    },
+    {
+      "label": "NWS API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "OpenLibrary API health",
+      "severity": "critical"
+    },
+    {
+      "label": "data.gov dataset freshness",
+      "severity": "critical"
+    },
+    {
+      "label": "UN Data API availability",
+      "severity": "critical"
+    },
+    {
+      "label": "OECD stats API health",
+      "severity": "critical"
+    },
+    {
+      "label": "npm registry health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Terminal self-ping latency",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare Radar BGP health",
+      "severity": "critical"
+    },
+    {
+      "label": "Fastly CDN status",
+      "severity": "critical"
+    },
+    {
+      "label": "Certificate transparency log health",
+      "severity": "critical"
+    },
+    {
+      "label": "FRED economic data health",
+      "severity": "critical"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: [\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.669,
+  "micro_cycle": "C-306",
+  "degraded_agents": 5,
+  "terminal_status": "degraded",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-331",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": "502",
+  "journal_body": "{\"ok\":false,\"canonical\":false,\"error\":\"Error: ledger 400: {\\\"detail\\\":\\\"No API base configured for terminal\\\"}\",\"mirrored_to_kv\":false}",
+  "journal_id": "ATLAS-C-331-1780502736780",
+  "journal_canonical_status": false,
+  "journal_error": "Error: ledger 400: {\"detail\":\"No API base configured for terminal\"}"
+}
