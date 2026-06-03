@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --experimental-strip-types --no-warnings=MODULE_TYPELESS_PACKAGE_JSON --test tests/contract/deriveIntegrityCause.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
