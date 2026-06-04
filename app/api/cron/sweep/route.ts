@@ -14,6 +14,7 @@ import { updateSustainTrackingFromGi } from '@/lib/mic/sustainTracker';
 import { getMergedMicReadiness } from '@/lib/mic/assembleMicReadiness';
 import { persistLocalMicReadinessSnapshot } from '@/lib/mic/persistReadinessKv';
 import { kvGet, kvSet, kvDel, KV_KEYS } from '@/lib/kv/store';
+import { recordDisputeEvent } from '@/lib/epicon/disputeEvent';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,6 +101,20 @@ async function run(req: NextRequest) {
       }, 7200).catch(() => {});
     } else if (zeusRaw === 'pass') {
       await kvDel('zeus:dispute:latest').catch(() => {});
+    }
+
+    // C-328: Write durable EPICON dispute record for any non-pass ZEUS outcome.
+    if (zeusRaw !== 'pass') {
+      const priorVerdict = zeusRaw === 'inconclusive'
+        ? (await kvGet<ZeusSweepResult>(ZEUS_LAST_RESOLVED_KEY) ?? null)
+        : null;
+      recordDisputeEvent({
+        cycle,
+        gi_at_dispute: gi,
+        zeus_raw: zeusRaw,
+        zeus_resolved: zeusResolved,
+        prior_verdict: priorVerdict,
+      }).catch((e) => console.warn('[cron/sweep] dispute record failed:', e));
     }
 
     // Fix 2: restore missing CURRENT_CYCLE KV key so kvHealth shows it as present

@@ -1,0 +1,69 @@
+{
+  "timestamp": "2026-05-29T12:03:16.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-326",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "NOAA active weather alerts [elevated]": "transient",
+    "OpenAQ air quality [critical]": "persistent",
+    "NWS API health [elevated]": "persistent",
+    "ArXiv new submissions [critical]": "persistent",
+    "data.gov dataset freshness [critical]": "persistent",
+    "UN Data API availability [critical]": "persistent",
+    "OECD stats API health [critical]": "persistent",
+    "GovTrack legislation feed [critical]": "resolved",
+    "Transparency International API [elevated]": "transient",
+    "npm registry health [elevated]": "persistent",
+    "Terminal self-ping latency [elevated]": "persistent",
+    "Cloudflare Radar BGP health [critical]": "persistent",
+    "Fastly CDN status [critical]": "persistent",
+    "Certificate transparency log health [critical]": "persistent",
+    "FRED economic data health [critical]": "persistent",
+    "NASA APIs health [critical]": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (spec path not deployed). POST /api/vault/block/attest HTTP 200 seal_id=seal-C-326-154 agent=ZEUS verdict=pass transition=already_attested quorum.pass_count=5 needed=4 reached=true. GET /api/quorum/state HTTP 200 cycle=C-326 integrity.gi=0.7 integrity.source=kv-live quorum_state=substrate_pending vault_block_state=attested.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-05-29T11-08-09-797Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.81 mode=green source=kv; anomalies=16; kv_keys_ok=true; seed_result=200 OK; sustain_eligible=true; micro_composite=0.618 classification=STRESSED micro_cycle=C-306; flags.integrity_source_mock=false tripwire_active=false micro_operator_cycle_divergence=true; journal_status=502 ledger 503 Service Suspended on substrate write path."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.641 composite=0.641 instrumentCount=40 cycle=C-306 errors=10 cached=false. Hard-error lanes (score 0): OpenAQ, ArXiv, data.gov, UN Data, OECD, Cloudflare Radar, Fastly, CT log, FRED. Elevated (0.3): NWS, npm, Terminal self-ping. GovTrack nominal (0.85) and NASA APIs nominal (1.0) — diverge from ATLAS critical flags. NOAA alerts nominal on micro (0.8) vs ATLAS elevated. 14/16 ATLAS anomalies still stressed or errored on live micro."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.7 mode=yellow source=kv gi_provenance=kv-live (not mock). Diverges from ATLAS catalog gi=0.81 green and micro gi=0.641; directionally stressed yellow band."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-326-154 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 503: Service Suspended\"; substrate canon write blocked."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI (0.81 green) with integrity-status (0.7 yellow) and micro composite (0.641) before seal-class decisions. External API error cluster remains largely persistent (10 hard-error lanes). Refresh ATLAS severity mapping for GovTrack and NASA APIs (live micro nominal). Deploy POST /api/vault/attest alias or document /api/vault/block/attest as C-298 path. Restore or replace suspended Civic Protocol ledger so POST /api/agents/journal dual-write succeeds."
+}

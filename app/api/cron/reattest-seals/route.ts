@@ -22,6 +22,7 @@ import { bearerMatchesToken } from '@/lib/vault-v2/auth';
 import { listAllSeals, writeSeal, appendSealToChain, getLatestSealId } from '@/lib/vault-v2/store';
 import { backAttestSeal, buildBackAttestRationale } from '@/lib/vault-v2/back-attest';
 import { attestReserveBlockToSubstrate, dequeueSubstrateRetry } from '@/lib/vault-v2/substrate-attestation';
+import { isConfigClassError } from '@/lib/vault-v2/attestation-error-class';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
 import { kvGet, kvSet, kvDel, isRedisAvailable } from '@/lib/kv/store';
@@ -205,6 +206,13 @@ async function retrySubstratePointer(
     if (opts?.burstMode) {
       recordAttempt = !substrate.ok;
     }
+    // C-330: a server-config failure (e.g. CPC IDENTITY_API_BASE unset → 400
+    // "No API base configured for terminal") is NOT a per-seal failure. Do not
+    // burn this seal's retry budget — it must stay retryable and resume
+    // automatically once the env is fixed.
+    if (!substrate.ok && isConfigClassError(substrateError)) {
+      recordAttempt = false;
+    }
 
     const updatedSeal: Seal = {
       ...seal,
@@ -247,10 +255,17 @@ async function retrySubstratePointer(
       error: substrateError ?? undefined,
     });
   } catch (e) {
-    recordAttempt = true;
     const msg = `[substrate-retry:${reason}] ${seal.seal_id}: ${e instanceof Error ? e.message : String(e)}`;
+    // C-330: only count the attempt if it's not a server-config class failure.
+    recordAttempt = !isConfigClassError(msg);
     errors.push(msg);
-    results.push({ seal_id: seal.seal_id, agent: 'substrate-write', ok: false, error: msg });
+    results.push({
+      seal_id: seal.seal_id,
+      agent: 'substrate-write',
+      ok: false,
+      transition: isConfigClassError(msg) ? 'blocked-on-config' : undefined,
+      error: msg,
+    });
   }
 
   if (recordAttempt) {
@@ -378,6 +393,24 @@ export async function GET(req: NextRequest) {
     // FIX-07: cap total attempts to prevent seals from looping forever.
     const attempts = (await kvGet<number>(`seal:${seal.seal_id}:reattest_attempts`)) ?? 0;
     if (attempts >= MAX_REATTEST_ATTEMPTS) {
+      // C-330: never mark a seal permanently-failed when its outstanding error is
+      // a server-config class failure (e.g. CPC IDENTITY_API_BASE unset). Those
+      // are not the seal's fault and resolve when the env is fixed. Marking them
+      // permanently-failed is what forced the hand-maintained reset list.
+      if (isConfigClassError(seal.substrate_attestation_error)) {
+        console.warn(
+          `[reattest-seals] ${seal.seal_id} hit attempt cap but error is config-class ` +
+            `(${seal.substrate_attestation_error}) — holding retryable, not marking permanently-failed`,
+        );
+        results.push({
+          seal_id: seal.seal_id,
+          agent: 'cap',
+          ok: true,
+          transition: 'held-blocked-on-config',
+          error: seal.substrate_attestation_error ?? undefined,
+        });
+        continue;
+      }
       console.error(
         `[reattest-seals] ${seal.seal_id} exceeded ${MAX_REATTEST_ATTEMPTS} attempts — marking permanently-failed`,
       );

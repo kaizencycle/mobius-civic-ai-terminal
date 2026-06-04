@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-06-01T12:05:05.909Z",
+  "agent": "ATLAS",
+  "cycle": "C-329",
+  "gi": 0.82,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false,
+    "backup_redis_available": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.641,
+  "micro_cycle": "C-306",
+  "degraded_agents": 8,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "micro_operator_cycle_divergence": true
+  },
+  "last_journal_cycle": "C-329",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": "502",
+  "journal_id": "journal-ATLAS-C-329-mpv5vvymi7pt",
+  "journal_canonical_status": false,
+  "journal_error": "Error: ledger 400: {\"detail\":\"No API base configured for terminal\"}",
+  "journal_observe_status": "200",
+  "journal_observe_id": "journal-ATLAS-C-329-mpv5vvymi7pt",
+  "journal_observe_lane": "hot"
+}

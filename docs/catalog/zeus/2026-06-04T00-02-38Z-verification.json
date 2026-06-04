@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-04T00:02:38.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-331",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "ArXiv new submissions": "transient",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent",
+    "OpenLibrary API health": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-331-187 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. GET /api/quorum/state cycle=C-331 integrity.gi=0.81 mode=green source=kv-live (diverges from integrity-status 0.769 yellow).",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-03T23-05-09Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS heartbeat 2026-06-03T23-05-09Z-atlas.json: gi=0.71 mode=yellow source=kv classification=STRESSED anomalies=12; kv_keys_ok=false; seed_result=200 OK — seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]; sustain_eligible=false; micro_composite=0.66 micro_cycle=C-306; journal_status=502 ledger API base missing"
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.665 composite=0.665 instrumentCount=40 cycle=C-306 cached=false errors=9. Hard-error lanes (score 0): OpenAQ air quality, data.gov dataset freshness, UN Data API availability, OECD stats API health, Cloudflare Radar BGP health, Fastly CDN status, Certificate transparency log health, FRED economic data health, OpenLibrary API health. Elevated: NWS API health, npm registry health, Terminal self-ping latency. ArXiv new submissions nominal (0.9) — diverges from ATLAS elevated flag. NASA EONET nominal (1.0)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.769 mode=yellow source=kv gi_provenance=kv-live degraded=true terminal_status=stressed cycle=C-331. Not mock — KV-backed GI. GI above ATLAS catalog (0.71) and above micro composite (0.665); below quorum/state snapshot (0.81 green)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-331-187 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 400: No API base configured for terminal\"; substrate canon write blocked."
+    }
+  ],
+  "recommendation": "Reconcile GI across ATLAS catalog (0.71), integrity-status (0.769), micro composite (0.665), and quorum/state (0.81). Nine external lanes remain hard-error; ArXiv recovered since ATLAS sweep. Configure Civic Protocol ledger API base for journal dual-write. Deploy POST /api/vault/attest or continue /api/vault/block/attest for C-298 quorum."
+}

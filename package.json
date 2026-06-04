@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "tsx tests/contract/shardConfig.test.ts && tsx tests/contract/ledger.test.ts && tsx tests/contract/giBands.test.ts && tsx tests/contract/attestationCoverage.test.ts && tsx tests/contract/attestationErrorClass.test.ts && tsx tests/contract/canonicalSnapshot.test.ts && tsx tests/contract/deriveIntegrityCause.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
@@ -45,6 +46,7 @@
     "dotenv": "^16.6.1",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
-    "typescript": "^5.6.2"
+    "typescript": "^5.6.2",
+    "tsx": "^4.19.0"
   }
 }

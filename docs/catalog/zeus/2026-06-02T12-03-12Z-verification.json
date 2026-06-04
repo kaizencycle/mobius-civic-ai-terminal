@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-02T12:03:12.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-330",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "ArXiv new submissions": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent",
+    "NASA APIs health": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-330-177 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=True agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. GET /api/quorum/state cycle=C-330 integrity.gi=0.81 mode=green source=kv-live verified=False.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-02T11-06-24-865Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.785 mode=yellow source=kv classification=STRESSED anomalies=13 elevated; kv_keys_ok=False; seed_result=200 OK \u2014 seeded: [\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"]; sustain_eligible=False; micro_composite=0.634 micro_cycle=C-306; flags.integrity_source_mock=False tripwire_active=True micro_operator_cycle_divergence=True; journal_status=502 ledger No API base configured."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.662 composite=0.662 instrumentCount=40 cycle=C-306 cached=False. Hard-error lanes (score 0): OpenAQ, ArXiv, data.gov, UN Data, OECD, Cloudflare, Fastly, CT log, FRED. Elevated (0.3): NWS, npm, Terminal self-ping. NASA APIs nominal (1.0) while ATLAS catalog still lists elevated."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green source=kv gi_provenance=kv-live (not mock) degraded=True terminal_status=nominal cycle=C-330. Live KV gi=0.81 mode=green diverges from ATLAS catalog gi=0.785 mode=yellow by 0.025; micro gi=0.662 remains ~0.148 lower."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 \u2014 no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-330-177 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 400: No API base configured for terminal\"; substrate canon write blocked."
+    }
+  ],
+  "recommendation": "ATLAS catalog heartbeat (yellow 0.785 STRESSED) lags live integrity-status (green 0.81 kv-live nominal) \u2014 reconcile before seal/GI decisions. Micro composite 0.662 confirms persistent external API stress; NASA APIs transient on live micro. kv_keys_ok=false and tripwire active per ATLAS \u2014 operator attention on KV reconciliation. Configure NEXT_PUBLIC_TERMINAL_URL / Civic Protocol ledger API base so journal dual-write succeeds. Deploy POST /api/vault/attest alias or document /api/vault/block/attest as C-298 path."
+}
