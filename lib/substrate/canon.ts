@@ -22,7 +22,12 @@ export type CanonAttestationMode = 'missing' | 'partial' | 'complete' | 'timed_o
 
 export type CanonCounts = {
   total_seals: number;
+  /** Locally sentinel-attested (5 sentinels signed). Does NOT imply substrate immortalization. */
   attested: number;
+  /** C-332: actually immortalized in substrate (attestation_id AND event_hash present). */
+  substrate_immortalized: number;
+  /** C-332: blocks carrying a substrate attestation error (e.g. ledger 400). */
+  substrate_errored: number;
   quarantined_timeout: number;
   quarantined_other: number;
   rejected: number;
@@ -259,7 +264,16 @@ function sortTimeline(events: CanonTimelineEvent[]): CanonTimelineEvent[] {
 function buildCounts(blocks: CanonReserveBlockView[]): CanonCounts {
   return {
     total_seals: blocks.length,
+    // Local sentinel attestation lifecycle — independent of substrate.
     attested: blocks.filter((b) => b.status === 'attested' && b.attestation_state === 'complete').length,
+    // C-332: substrate immortalization is a SEPARATE fact — the pointer must
+    // actually exist. Previously canon reported "attested" for locally-sealed
+    // blocks whose substrate_pointer was null + ledger-400, contradicting the
+    // vault coverage block. Keep both truths distinct so neither lies.
+    substrate_immortalized: blocks.filter(
+      (b) => b.substrate_pointer.attestation_id && b.substrate_pointer.event_hash,
+    ).length,
+    substrate_errored: blocks.filter((b) => b.substrate_pointer.error != null).length,
     quarantined_timeout: blocks.filter((b) => b.status === 'quarantined' && b.attestation_state === 'timed_out').length,
     quarantined_other: blocks.filter((b) => b.status === 'quarantined' && b.attestation_state !== 'timed_out').length,
     rejected: blocks.filter((b) => b.status === 'rejected').length,
@@ -267,6 +281,9 @@ function buildCounts(blocks: CanonReserveBlockView[]): CanonCounts {
     replay_promotions: blocks.filter((b) => b.replay_promotion !== null).length,
   };
 }
+
+// C-332: test-only export so the counts contract can be verified without live infra.
+export const buildCanonCountsForTest = buildCounts;
 
 export async function buildSubstrateCanon(options: { limit?: number; type?: CanonFilterType | null; seal_id?: string | null } = {}): Promise<CanonResponse> {
   const limit = Math.max(1, Math.min(100, Math.floor(options.limit ?? 50)));
