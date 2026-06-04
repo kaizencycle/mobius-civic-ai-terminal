@@ -1,0 +1,69 @@
+{
+  "timestamp": "2026-06-04T06:04:12.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-332",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "micro_operator_cycle_divergence": "persistent",
+    "kv_keys_ok": "persistent",
+    "NASA EONET natural events": "transient",
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent",
+    "NASA APIs health": "persistent",
+    "OpenLibrary API health": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-332-189 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. GET /api/quorum/state cycle=C-332 integrity.gi=0.71 mode=yellow (diverges from ATLAS catalog gi=0.8 green); attestations.by_agent all pending in quorum snapshot while block attest reports council complete.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-04T05-04-57Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-332: gi=0.8 mode=green source=kv anomalies=[] classification=STRESSED; kv_keys_ok=false; seed_result=200 OK — seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]; sustain_eligible=true; micro_composite=0.647 micro_cycle=C-306; flags micro_operator_cycle_divergence=true; journal_status=502 ledger API base missing"
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.636 composite=0.636 instrumentCount=40 cycle=C-306 cached=false errors=10. Hard-error lanes (score 0): NASA EONET, OpenAQ, data.gov, UN Data, OECD, Cloudflare Radar, Fastly CDN, crt.sh, FRED, NASA APIs (ECHO). Elevated: NWS API health, npm registry, Terminal self-ping. OpenLibrary recovered (0.9). ArXiv nominal (0.9)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.71 mode=yellow source=kv gi_provenance=kv-live degraded=true terminal_status=stressed cycle=C-332. Not mock — KV-backed GI. GI below ATLAS catalog (0.8 green) and above micro composite (0.636); aligns with quorum/state integrity.gi=0.71."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-332-189 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false mirrored_to_kv=false error=\"Error: ledger 400: No API base configured for terminal\"; substrate canon write blocked."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI (0.8 green) with integrity-status and micro composite (0.71 / 0.636). Ten external instrument lanes remain hard-error; OpenLibrary recovered. NASA EONET regressed to hard-error since prior pass. Configure Civic Protocol ledger API base for journal dual-write. Deploy POST /api/vault/attest or continue /api/vault/block/attest for C-298 quorum. Reconcile quorum/state pending attestations vs block attest already_attested."
+}
