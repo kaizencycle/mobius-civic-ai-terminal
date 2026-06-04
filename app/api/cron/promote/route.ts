@@ -76,9 +76,9 @@ export async function GET(request: NextRequest) {
     if (!res.ok) {
       console.error(`[promote] /api/epicon/promote returned ${res.status} — check SUBSTRATE_TOKEN env var`);
       if (res.status === 401) {
-        const token = authHeader ?? '';
-        const prefix = token.replace(/^Bearer /, '').slice(0, 6);
-        console.error(`[promote] 401 received — auth token prefix: ${prefix || '(none)'}***`);
+        // C-332 OPT-3: never log token characters — log only length+presence.
+        const tokenLen = (authHeader ?? '').replace(/^Bearer /, '').length;
+        console.error(`[promote] 401 received — token len=${tokenLen} present=${tokenLen > 0}`);
         const failCount = ((await kvGet<number>(PROMOTE_FAIL_KEY)) ?? 0) + 1;
         await kvSet(PROMOTE_FAIL_KEY, failCount, 86400).catch(() => {});
       }
