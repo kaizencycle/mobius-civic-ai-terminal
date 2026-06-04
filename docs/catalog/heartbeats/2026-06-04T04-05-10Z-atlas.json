@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-06-04T04:05:10.222493Z",
+  "agent": "ATLAS",
+  "cycle": "C-332",
+  "gi": 0.785,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.637,
+  "micro_cycle": "C-306",
+  "degraded_agents": 3,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-331",
+  "force_journal": true,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": "502",
+  "journal_id": "ATLAS-C-332-1780545855470",
+  "journal_body": "{\"ok\": false, \"canonical\": false, \"error\": \"Error: ledger 400: {\\\"detail\\\":\\\"No API base configured for terminal\\\"}\", \"mirrored_to_kv\": false}",
+  "journal_canonical_status": false,
+  "journal_error": "Error: ledger 400: {\"detail\":\"No API base configured for terminal\"}"
+}
