@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
           Authorization: `Bearer ${process.env.SUBSTRATE_TOKEN ?? process.env.AGENT_SERVICE_TOKEN ?? ''}`,
         },
         body: JSON.stringify({ ...entry, source: 'terminal-bridge', bridgedAt: ts }),
+        signal: AbortSignal.timeout(8_000),
       });
       bridge = res.ok ? { ok: true, status: res.status } : { ok: false, status: res.status };
       if (!res.ok) {
