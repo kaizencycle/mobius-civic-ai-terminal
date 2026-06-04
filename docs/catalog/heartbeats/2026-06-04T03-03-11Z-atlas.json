@@ -14,7 +14,7 @@
   },
   "seed_attempted": true,
   "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
-  "sustain_eligible": false,
+  "sustain_eligible": true,
   "classification": "STRESSED",
   "micro_composite": 0.657,
   "micro_cycle": "C-306",
@@ -25,7 +25,7 @@
     "integrity_source_kv": true,
     "micro_anomaly_severity_flag": false,
     "kv_keys_all_ok": false,
-    "tripwire_active": true,
+    "tripwire_active": false,
     "micro_operator_cycle_divergence": true,
     "heartbeat_key_seeded": true
   },
