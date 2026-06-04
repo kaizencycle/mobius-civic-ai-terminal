@@ -17,11 +17,13 @@ app = FastAPI(title="Mobius Redis Bridge")
 # the "*" fallback. Set CORS_ALLOW_ORIGINS on the Render service to the real
 # terminal/shell origins before enabling credentialed requests.
 _raw_origins = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
-if _raw_origins:
-    _allow_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+# Filter out wildcard entries — CORS spec forbids allow_credentials=True with "*".
+_explicit_origins = [o.strip() for o in _raw_origins.split(",") if o.strip() and o.strip() != "*"]
+if _explicit_origins:
+    _allow_origins = _explicit_origins
     _allow_credentials = True
 else:
-    # Safe default: wildcard without credentials (spec-valid).
+    # Safe default (also handles CORS_ALLOW_ORIGINS="*" explicitly): wildcard without credentials.
     _allow_origins = ["*"]
     _allow_credentials = False
 
