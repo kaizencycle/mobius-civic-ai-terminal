@@ -55,7 +55,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       fallback: true,
-      cycle: 'C-—',
+      cycle: null,
       gi: null,
       dva: {
         primaryAgent: 'ECHO',

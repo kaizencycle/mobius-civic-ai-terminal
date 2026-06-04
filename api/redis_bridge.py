@@ -11,10 +11,26 @@ from fastapi.responses import StreamingResponse
 
 app = FastAPI(title="Mobius Redis Bridge")
 
+# C-332 OPT-1: wildcard origin + credentials is invalid per the CORS spec and is
+# a real cross-origin exposure. Drive origins from CORS_ALLOW_ORIGINS (comma-
+# separated). Credentials are enabled ONLY when origins are explicit — never with
+# the "*" fallback. Set CORS_ALLOW_ORIGINS on the Render service to the real
+# terminal/shell origins before enabling credentialed requests.
+_raw_origins = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
+# Filter out wildcard entries — CORS spec forbids allow_credentials=True with "*".
+_explicit_origins = [o.strip() for o in _raw_origins.split(",") if o.strip() and o.strip() != "*"]
+if _explicit_origins:
+    _allow_origins = _explicit_origins
+    _allow_credentials = True
+else:
+    # Safe default (also handles CORS_ALLOW_ORIGINS="*" explicitly): wildcard without credentials.
+    _allow_origins = ["*"]
+    _allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten in production
-    allow_credentials=True,
+    allow_origins=_allow_origins,
+    allow_credentials=_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
