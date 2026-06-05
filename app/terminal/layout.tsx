@@ -40,6 +40,8 @@ import FooterStatusBar from '@/components/terminal/FooterStatusBar';
 import { ShellSnapshotProvider } from '@/components/terminal/ShellSnapshotProvider';
 import TerminalShell from '@/components/terminal/TerminalShell';
 import { EchoDigestProvider } from '@/components/terminal/EchoDigestProvider';
+import { getCanonicalSnapshot } from '@/lib/dal/getCanonicalSnapshot';
+import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 
 type ShellSeed = {
   gi?: number | null;
@@ -50,26 +52,64 @@ type ShellSeed = {
   heartbeat?: { runtime?: string | null; journal?: string | null };
   source?: 'live' | 'fallback';
   timestamp?: string | null;
+  // C-303 Phase 3: vault + sentinel enrichment so first paint is non-blank.
+  vault_headline?: string | null;
+  vault_reserve_blocks?: number | null;
+  vault_attestation_gap?: boolean | null;
+  sentinel_posture?: string | null;
 };
 
+// C-303 Phase 3: replaces the internal HTTP self-fetch (fetch('/api/terminal/shell'))
+// with direct DAL calls. No recursive HTTP round-trip; no cold-start latency spike.
+// getCanonicalSnapshot is capped at 2s — if it times out, the shell still renders
+// with the richer data it managed to collect.
 async function loadSeed(): Promise<ShellSeed | null> {
   try {
-    const res = await fetch('/api/terminal/shell', {
-      next: { revalidate: 15 },
-      cache: 'force-cache',
-      signal: AbortSignal.timeout(1500),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as ShellSeed;
+    let cycle: string;
+    try {
+      cycle = await resolveOperatorCycleId();
+    } catch {
+      cycle = computeCurrentCycleId();
+    }
+
+    const snapshot = await Promise.race([
+      getCanonicalSnapshot(cycle),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+    ]);
+
+    if (!snapshot) return null;
+
+    const integrity = snapshot.lanes.integrity;
+    const vault = snapshot.lanes.vault;
+    const sentinel = snapshot.lanes.sentinel;
+
+    const gi = typeof (integrity.data as { global_integrity?: unknown })?.global_integrity === 'number'
+      ? (integrity.data as { global_integrity: number }).global_integrity
+      : null;
+    const mode = (integrity.data as { mode?: string } | null)?.mode ?? null;
+
+    const vaultData = vault.data as {
+      headline?: string;
+      reserve_block_lane?: string;
+      status?: string;
+    } | null;
+    const attestationCoverage = snapshot.lanes.vault.data as {
+      attestation_gap?: boolean;
+    } | null;
+
     return {
-      gi: typeof data.gi === 'number' ? data.gi : null,
-      mode: typeof data.mode === 'string' ? data.mode : null,
-      cycle: typeof data.cycle === 'string' ? data.cycle : null,
-      degraded: Boolean(data.degraded),
-      tripwire: data.tripwire ?? { count: 0, elevated: false },
-      heartbeat: data.heartbeat ?? { runtime: null, journal: null },
-      source: data.source ?? 'fallback',
-      timestamp: typeof data.timestamp === 'string' ? data.timestamp : null,
+      gi,
+      mode,
+      cycle,
+      degraded: snapshot.degraded,
+      tripwire: { count: 0, elevated: false },
+      heartbeat: { runtime: null, journal: null },
+      source: snapshot.degraded ? 'fallback' : 'live',
+      timestamp: snapshot.generated_at,
+      vault_headline: vaultData?.headline ?? null,
+      vault_reserve_blocks: null,
+      vault_attestation_gap: attestationCoverage?.attestation_gap ?? null,
+      sentinel_posture: (sentinel.data as { posture?: string } | null)?.posture ?? null,
     };
   } catch {
     return null;
