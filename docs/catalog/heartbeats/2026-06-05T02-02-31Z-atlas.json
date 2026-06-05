@@ -1,0 +1,108 @@
+{
+  "timestamp": "2026-06-05T02:02:31.088Z",
+  "agent": "ATLAS",
+  "cycle": "C-332",
+  "gi": 0.74,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "OpenAQ air quality",
+      "severity": "critical"
+    },
+    {
+      "label": "NWS API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "ArXiv new submissions",
+      "severity": "critical"
+    },
+    {
+      "label": "Internet Archive availability",
+      "severity": "critical"
+    },
+    {
+      "label": "OpenLibrary API health",
+      "severity": "critical"
+    },
+    {
+      "label": "data.gov dataset freshness",
+      "severity": "critical"
+    },
+    {
+      "label": "UN Data API availability",
+      "severity": "critical"
+    },
+    {
+      "label": "OECD stats API health",
+      "severity": "critical"
+    },
+    {
+      "label": "npm registry health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Terminal self-ping latency",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare Radar BGP health",
+      "severity": "critical"
+    },
+    {
+      "label": "Fastly CDN status",
+      "severity": "critical"
+    },
+    {
+      "label": "Certificate transparency log health",
+      "severity": "critical"
+    },
+    {
+      "label": "FRED economic data health",
+      "severity": "critical"
+    },
+    {
+      "label": "NASA APIs health",
+      "severity": "critical"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.603,
+  "micro_cycle": "C-306",
+  "degraded_agents": 2,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-332",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": 200,
+  "journal_id": "journal-ATLAS-C-332-mq0a4de7rgqh",
+  "journal_ok": true,
+  "journal_canonical": true,
+  "journal_route": "atlas/observe",
+  "journal_error": null,
+  "journal_body": "{\"ok\": true, \"agent\": \"ATLAS\", \"journalId\": \"journal-ATLAS-C-332-mq0a4de7rgqh\", \"journal\": {\"id\": \"journal-ATLAS-C-332-mq0a4de7rgqh\", \"agent\": \"ATLAS\", \"cycle\": \"C-332\", \"timestamp\": \"2026-06-05T02:02:30.991Z\", \"scope\": \"System integrity, operator accountability, sentinel oversight\", \"observation\": \"ATLAS cycle observation (cron) for C-332. GI=0.71. Micro snapshot anomalies: 0.\", \"inference\": \"Signal surface review complete. ATLAS-\\u00b51: WB WLD GDP growth latest: 2.87% (y/y) [stale: 2024, -0.2"
+}
