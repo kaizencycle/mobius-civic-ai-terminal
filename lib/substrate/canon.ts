@@ -233,7 +233,10 @@ function reserveBlockToTimeline(block: CanonReserveBlockView): CanonTimelineEven
     });
   }
 
-  if (block.substrate_pointer.attestation_id || block.substrate_pointer.event_hash) {
+  // C-332: require BOTH id+hash to emit a 'proof' substrate attestation event —
+  // matches the substrate_immortalized count definition exactly. A partial pointer
+  // (only one field present) is not immortalized and should not claim 'proof'.
+  if (block.substrate_pointer.attestation_id && block.substrate_pointer.event_hash) {
     events.push({
       id: `substrate:${block.seal_id}`,
       type: 'substrate_attestation',
