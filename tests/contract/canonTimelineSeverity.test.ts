@@ -85,6 +85,15 @@ describe('canon timeline severity respects substrate attestation reality', () =>
     assert.strictEqual(reserveEvent(events).severity, 'proof');
   });
 
+  it('partial pointer (id only, no hash) → no substrate_attestation proof event emitted', () => {
+    // substrate_immortalized requires BOTH id+hash; the timeline predicate must
+    // match — a partial pointer must not emit a 'proof' substrate_attestation event.
+    const events = reserveBlockToTimelineForTest(
+      block({ status: 'attested', attestation_state: 'complete', attestation_id: 'evt-1', event_hash: null }),
+    );
+    assert.ok(!events.some((e) => e.type === 'substrate_attestation' && e.severity === 'proof'));
+  });
+
   it('needs_reattestation block → incident', () => {
     const events = reserveBlockToTimelineForTest(
       block({ status: 'quarantined', attestation_state: 'timed_out', needs_reattestation: true }),
