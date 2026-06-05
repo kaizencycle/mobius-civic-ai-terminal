@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 import { writeToSubstrate } from '@/lib/substrate/client';
+import { decideWriteResult } from '@/lib/substrate/resilientWrite';
 import { kvLrange, kvGet } from '@/lib/kv/store';
 import { scanKeys } from '@/lib/kv/scan';
 import { getOperatorSession } from '@/lib/auth/session';
@@ -643,6 +644,23 @@ export async function POST(request: NextRequest) {
     console.error('[journal] TERMINAL_ID or TERMINAL_API_BASE not set in env (FIX-20) — ledger write may be rejected with "No API base configured for terminal"');
   }
 
+  // C-333 OPT-2: KV-first, substrate best-effort. The previous order (substrate
+  // hard-gate → KV mirror below the 502 return) meant a ledger 401 skipped the
+  // KV write entirely, taking down all agent journaling. Now: write KV first,
+  // then attempt substrate, then let decideWriteResult pick the honest status.
+  let mirroredToKv = false;
+  const redis = getJournalRedisClient();
+  if (redis) {
+    const writeResult = await appendJournalLaneEntry(redis, {
+      ...entry,
+      id: entry.id,
+      timestamp: entry.timestamp,
+      canon: false,
+      ...(giAt !== undefined ? { gi_at_time: giAt } : {}),
+    });
+    mirroredToKv = writeResult.written || writeResult.token === 'already_exists';
+  }
+
   // GitHub PAT write path removed in C-317 (PAT lacks contents:write scope → 403 → 502).
   // All journal writes route through Civic Protocol Core Ledger exclusively.
   const ledgerResult = await writeToSubstrate({
@@ -661,37 +679,21 @@ export async function POST(request: NextRequest) {
     ...(giAt !== undefined ? { gi_at_time: giAt } : {}),
   });
 
-  if (!ledgerResult.ok) {
-    return NextResponse.json(
-      {
-        ok: false,
-        canonical: false,
-        error: ledgerResult.error ?? 'ledger_write_failed',
-        mirrored_to_kv: false,
-      },
-      { status: 502 },
-    );
-  }
+  const decision = decideWriteResult(
+    { ok: mirroredToKv, error: mirroredToKv ? undefined : 'kv_write_failed' },
+    ledgerResult.ok
+      ? { ok: true, entryId: ledgerResult.entryId }
+      : { ok: false, error: ledgerResult.error ?? 'ledger_write_failed' },
+    entry.id,
+  );
 
-  let mirroredToKv = false;
-  const redis = getJournalRedisClient();
-  if (redis) {
-    const writeResult = await appendJournalLaneEntry(redis, {
-      ...entry,
-      id: entry.id,
+  return NextResponse.json(
+    {
+      ...decision.body,
+      path: ledgerResult.ok ? ledgerResult.entryId : undefined,
+      entryId: entry.id,
       timestamp: entry.timestamp,
-      canon: false,
-      ...(giAt !== undefined ? { gi_at_time: giAt } : {}),
-    });
-    mirroredToKv = writeResult.written || writeResult.token === 'already_exists';
-  }
-
-  return NextResponse.json({
-    ok: true,
-    canonical: true,
-    path: ledgerResult.entryId,
-    mirrored_to_kv: mirroredToKv,
-    entryId: entry.id,
-    timestamp: entry.timestamp,
-  });
+    },
+    { status: decision.status },
+  );
 }
