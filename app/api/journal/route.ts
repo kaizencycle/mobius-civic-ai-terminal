@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAgentBearerToken } from '@/lib/substrate/client';
 import { GET as getJournal } from '@/app/api/chambers/journal/route';
 import { kvSetRawKey } from '@/lib/kv/store';
 
@@ -37,7 +38,8 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.SUBSTRATE_TOKEN ?? process.env.AGENT_SERVICE_TOKEN ?? ''}`,
+          // C-333 OPT-1: canonical resolver (SUBSTRATE_TOKEN is the internal cron secret, not the ledger JWT)
+          Authorization: `Bearer ${getAgentBearerToken()}`,
         },
         body: JSON.stringify({ ...entry, source: 'terminal-bridge', bridgedAt: ts }),
         signal: AbortSignal.timeout(8_000),
