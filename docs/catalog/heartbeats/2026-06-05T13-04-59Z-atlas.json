@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-06-05T13:04:59.514Z",
+  "agent": "ATLAS",
+  "cycle": "C-333",
+  "gi": 0.9,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "OpenAQ air quality",
+      "severity": "critical"
+    },
+    {
+      "label": "NWS API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "ArXiv new submissions",
+      "severity": "critical"
+    },
+    {
+      "label": "Internet Archive availability",
+      "severity": "critical"
+    },
+    {
+      "label": "data.gov dataset freshness",
+      "severity": "critical"
+    },
+    {
+      "label": "UN Data API availability",
+      "severity": "critical"
+    },
+    {
+      "label": "OECD stats API health",
+      "severity": "critical"
+    },
+    {
+      "label": "npm registry health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Terminal self-ping latency",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare Radar BGP health",
+      "severity": "critical"
+    },
+    {
+      "label": "Fastly CDN status",
+      "severity": "critical"
+    },
+    {
+      "label": "Certificate transparency log health",
+      "severity": "critical"
+    },
+    {
+      "label": "FRED economic data health",
+      "severity": "critical"
+    },
+    {
+      "label": "NASA APIs health",
+      "severity": "critical"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: [\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": false,
+  "classification": "NOMINAL",
+  "micro_composite": 0.614,
+  "micro_cycle": "C-306",
+  "degraded_agents": 5,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-333",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": 200,
+  "journal_id": "journal-ATLAS-C-333-mq0xrjiiw99u",
+  "journal_ok": true,
+  "journal_route": "atlas/observe",
+  "journal_atlas_observe_id": "journal-ATLAS-C-333-mq0xrjiiw99u"
+}
