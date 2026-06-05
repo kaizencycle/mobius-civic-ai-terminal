@@ -205,7 +205,14 @@ function reserveBlockToTimeline(block: CanonReserveBlockView): CanonTimelineEven
       title: `Reserve Block ${block.block_number}`,
       timestamp: block.sealed_at,
       cycle: block.cycle_at_seal,
-      severity: block.status === 'attested' && block.attestation_state === 'complete' ? 'proof' : block.needs_reattestation ? 'incident' : 'watch',
+      severity:
+        block.status === 'attested' &&
+        block.attestation_state === 'complete' &&
+        !block.substrate_pointer.error
+          ? 'proof'
+          : block.needs_reattestation
+            ? 'incident'
+            : 'watch',
       seal_id: block.seal_id,
       hash: block.seal_hash,
       summary: `${block.amount} MIC · ${block.status} · ${block.attestation_state}${block.needs_reattestation ? ' · needs re-attestation' : ''}${block.replay_promotion ? ' · replay promotion authorized' : ''}`,
@@ -316,3 +323,6 @@ export async function buildSubstrateCanon(options: { limit?: number; type?: Cano
     ],
   };
 }
+
+// C-332: test-only export so the timeline severity contract can be verified.
+export const reserveBlockToTimelineForTest = reserveBlockToTimeline;
