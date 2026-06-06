@@ -95,7 +95,7 @@
     "LAST_INGEST",
     "SIGNAL_SNAPSHOT"
   ],
-  "journal_status": 200,
+  "journal_status": 502,
   "journal_id": "journal-ATLAS-C-334-5jswrw",
   "journal_ok": false,
   "journal_route": "agents/journal",
