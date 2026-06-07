@@ -1,0 +1,99 @@
+{
+  "timestamp": "2026-06-07T04:05:20.479Z",
+  "agent": "ATLAS",
+  "cycle": "C-335",
+  "gi": 0.74,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "OpenAQ air quality",
+      "severity": "elevated"
+    },
+    {
+      "label": "NWS API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "ArXiv new submissions",
+      "severity": "elevated"
+    },
+    {
+      "label": "data.gov dataset freshness",
+      "severity": "elevated"
+    },
+    {
+      "label": "UN Data API availability",
+      "severity": "elevated"
+    },
+    {
+      "label": "OECD stats API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "npm registry health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Terminal self-ping latency",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare Radar BGP health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Fastly CDN status",
+      "severity": "elevated"
+    },
+    {
+      "label": "Certificate transparency log health",
+      "severity": "elevated"
+    },
+    {
+      "label": "FRED economic data health",
+      "severity": "elevated"
+    },
+    {
+      "label": "NASA APIs health",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false,
+    "backup_redis_available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.639,
+  "micro_cycle": "C-306",
+  "degraded_agents": 4,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "heartbeat_key_seeded": true,
+    "micro_operator_cycle_divergence": true
+  },
+  "last_journal_cycle": "C-335",
+  "force_journal": true,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": 200,
+  "journal_id": "journal-ATLAS-C-335-kso38i",
+  "journal_ok": true,
+  "journal_route": "agents/journal",
+  "journal_body": "{\"ok\":true,\"canonical\":false,\"mirrored_to_kv\":true,\"entry_id\":\"journal-ATLAS-C-335-kso38i\",\"substrate_error\":\"Error: ledger 401: {\\\"detail\\\":\\\"Token verification failed: Client error '401 Unauthorized' for url 'https://mobius-identity-service.onrender.com/auth/introspect'\\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401\\\"}\",\"pending_immortalization\":true,\"entryId\":\"journal-ATLAS-C-335-kso38i\",\"timestamp\":\"2026-06-07T04:05:05.205Z\"}"
+}
