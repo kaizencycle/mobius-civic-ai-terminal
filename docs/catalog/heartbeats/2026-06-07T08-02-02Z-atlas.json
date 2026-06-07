@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-06-07T08:02:02.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-335",
+  "gi": 0.772,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false,
+    "backup_redis_available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: [\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.664,
+  "degraded_agents": 3,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-335",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": 502,
+  "journal_id": "journal-ATLAS-C-335-mq3hubk963nl",
+  "journal_ok": true,
+  "journal_route": "agents/atlas/observe",
+  "journal_body": "{\"ok\":true,\"journalId\":\"journal-ATLAS-C-335-mq3hubk963nl\"}"
+}
