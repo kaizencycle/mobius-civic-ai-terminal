@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-07T00:04:07.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-334",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "Internet Archive availability": "resolved",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent",
+    "NASA APIs health": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-334-007 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. GET /api/quorum/state cycle=C-334 integrity.gi=0.92 mode=green vault_block_state=attested.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-07T00-03-06-173Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-334 (latest): gi=0.92 mode=green classification=STRESSED; anomalies=[] (cleared since prior 23:05Z sweep of 13 elevated); kv_keys_ok=false; seed_result=200 OK seeded [GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT]; sustain_eligible=false; micro_composite=0.595 micro_cycle=C-306; journal_status=502 substrate identity introspect 401. Prior heartbeat (23:05Z) had gi=0.71/yellow with 13 anomalies — ATLAS GI recovered +0.21 in one sweep while micro still degraded."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.679 composite=0.679 instrumentCount=40 cycle=C-306 cached=false errors=8. Hard-zero lanes (score 0): OpenAQ, data.gov, UN Data, OECD, Cloudflare Radar, Fastly, crt.sh, FRED. Elevated (0.3): NWS, npm, Terminal self-ping. Recovered: Internet Archive 0.9, NASA APIs 1.0, ArXiv 0.9. ATLAS cleared all anomaly flags but 11 micro lanes remain degraded."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.92 mode=green source=kv gi_provenance=kv-live degraded=true terminal_status=nominal cycle=C-334. Not mock. GI matches latest ATLAS catalog (0.92/green) but micro composite 0.679 is ~0.24 below operator headline — tripwire divergence."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-334-007 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-334-1x6hnz canonical=false mirrored_to_kv=false; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect."
+    }
+  ],
+  "recommendation": "Disputed: ATLAS latest sweep cleared 13 anomalies and raised GI to 0.92/green, but independent micro read shows 8 hard-fail and 3 elevated lanes (composite 0.679). Do not treat anomaly clearance as operator truth until micro lanes recover. Monitor kv_keys_ok=false despite successful KV seed. Micro cycle C-306 diverges from operator C-334. Repair Civic Protocol identity introspect for journal canon immortalization. Deploy POST /api/vault/attest or continue /api/vault/block/attest for C-298 quorum."
+}
