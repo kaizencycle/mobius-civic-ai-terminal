@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-07T18:00:23.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-335",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "Internet Archive availability": "resolved",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent",
+    "NASA APIs health": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-335-013 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. GET /api/quorum/state cycle=C-335 integrity.gi=0.734 mode=yellow terminal_status=stressed vault_block_state=attested.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-07T17-03-46-446Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-335: gi=0.82 mode=green classification=STRESSED source=kv; 13 anomalies (10 critical, 3 elevated); kv_keys_ok=false; seed_result=200 OK seeded [GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT]; sustain_eligible=false; micro_composite=0.64; journal_status=502."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.669 composite=0.669 instrumentCount=40 cycle=C-306 cached=false errors=9. Hard-zero lanes (score 0): OpenAQ, data.gov, UN Data, OECD, Cloudflare Radar, Fastly, crt.sh, FRED, OpenLibrary. Elevated (0.3): NWS, npm, Terminal self-ping. Recovered vs ATLAS flag: Internet Archive 0.9, NASA APIs 1.0. 11/13 ATLAS anomalies persistent; 2 resolved; OpenLibrary failure not in ATLAS sweep."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.734 mode=yellow source=kv gi_provenance=kv-live degraded=true terminal_status=stressed cycle=C-335. Not mock. GI diverges -0.086 from ATLAS catalog (0.82 green); micro composite 0.669 is ~0.065 below operator headline — lane-level drag reflected in yellow/stressed posture."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-335-013 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-335-cgqz4l canonical=false mirrored_to_kv=false; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; kv_error kv_write_failed."
+    }
+  ],
+  "recommendation": "GI headline disputed: ATLAS catalog 0.82 green vs live integrity-status 0.734 yellow — micro composite 0.669 confirms stressed lane reality. Eleven persistent external API failures warrant elevated monitoring. Reconcile ATLAS GI/mode with live operator surface. Repair kv_keys_ok=false. Add OpenLibrary to ATLAS anomaly sweep. Repair Civic Protocol identity introspect for journal canon immortalization. Deploy POST /api/vault/attest or continue /api/vault/block/attest for C-298 quorum."
+}
