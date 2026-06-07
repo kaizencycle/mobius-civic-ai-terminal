@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-06-07T03:06:34.923Z",
+  "agent": "AUREA",
+  "cycle": "C-334",
+  "gi_final": 0.63,
+  "gi_mode": "yellow",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.71,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.746,
+  "financial_score": 0.673,
+  "environ_score": 0.889,
+  "civic_score": 0.783,
+  "event_count_24h": 4,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 4,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.63. The ledger registered 4 events over the last 24 hours, with the strongest visible signal in ENVIRON at 0.889. ZEUS verification status is disputed, and the heartbeat trend is falling. Forward signal: watch financial continuity for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch financial continuity for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "falling",
+  "anomalies": [],
+  "quorum_attested": true
+}
