@@ -78,8 +78,8 @@
     "heartbeat_key_seeded": true
   },
   "journal_status": 502,
-  "journal_id": "journal-ATLAS-C-336-zdkicu",
-  "journal_ok": false,
+  "journal_id": "journal-ATLAS-C-336-5p4hfs",
+  "journal_ok": true,
   "journal_route": "agents/journal",
   "last_journal_cycle": "C-336",
   "force_journal": false,
