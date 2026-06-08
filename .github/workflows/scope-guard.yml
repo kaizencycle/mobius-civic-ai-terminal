@@ -1,0 +1,43 @@
+name: scope-guard
+
+# C-336: machine-enforces "agents author, the operator ships." Classifies the PR
+# diff into the canonical Tier 0-3 model (PULL_REQUEST_TEMPLATE.md) and blocks:
+#   - Tier-3 paths (auth/identity/ledger-math/guardrails/infra) edited by non-owners
+#   - agent-authored code changes that lack an EPICON receipt
+# Complements anti-nuke (deletions) and sentinel-review (quality) — this is scope.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: scope-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  scope-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Materialize PR body
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr_body.md"
+
+      - name: Run scope-guard
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          ACTOR: ${{ github.event.pull_request.user.login }}
+          OWNER_LOGINS: kaizencycle
+          PR_BODY_FILE: ${{ runner.temp }}/pr_body.md
+          STRICT_ALLOWLIST: "false"   # flip to "true" once agent-paths.txt is trusted
+        run: bash scripts/scope-guard.sh
