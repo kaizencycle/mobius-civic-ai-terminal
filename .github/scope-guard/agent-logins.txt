@@ -1,0 +1,6 @@
+# C-336 — Known agent author logins (in addition to any "*[bot]" login).
+mobius-bot
+github-actions[bot]
+cursor[bot]
+claude[bot]
+cursoragent

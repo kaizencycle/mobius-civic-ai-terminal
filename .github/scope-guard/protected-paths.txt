@@ -1,0 +1,41 @@
+# C-336 — Tier-3 paths (operator-only). Agents must never modify these.
+# Matched as extended regex against repo-relative changed-file paths.
+# Mirrors PULL_REQUEST_TEMPLATE.md Tier 3: "MIC economy, identity, ledger
+# integrity math, auth" — plus the guardrails themselves and deploy/infra config.
+# Verified against the actual tree (not aspirational paths) — see C-336 PR notes.
+
+# Outbound ledger/token client + canon read/write (the C-333 token-truth surface).
+^lib/substrate/
+
+# Auth / identity / agent-write authorization (lib + the live API surface).
+^auth\.ts$
+^lib/auth/
+^lib/identity/
+^app/api/auth/
+^app/api/identity/
+
+# MIC economy + ledger integrity math (settlement, chain hashing, quorum, sustain).
+^app/api/mic/
+^lib/mic/
+
+# Canon hash roots / integrity derivation.
+^lib/integrity/
+
+# The guardrails themselves — agents may not edit what constrains agents.
+^scripts/ignore-build\.sh$
+^scripts/scope-guard\.sh$
+^scripts/setup-branch-protection\.sh$
+^\.github/scope-guard/
+^\.github/CODEOWNERS$
+^\.github/workflows/
+
+# Deploy / build / infra / node-declaration config.
+^vercel\.json$
+^render\.yaml$
+^mobius\.yaml$
+^next\.config\.(js|mjs|ts)$
+^package\.json$
+^pnpm-lock\.yaml$
+
+# Secrets-adjacent.
+^\.env

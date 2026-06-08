@@ -1,0 +1,8 @@
+# C-336 — Areas agents may freely edit. Only enforced when STRICT_ALLOWLIST=true.
+# Verified against the actual tree — replace/extend as agent scope grows.
+^app/api/agents/
+^app/api/chambers/
+^lib/chambers/
+^lib/signals/
+^lib/agents/
+^docs/

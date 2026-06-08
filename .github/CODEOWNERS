@@ -1,0 +1,26 @@
+# C-336 — Agent DevOps guardrails.
+# Tier-3 paths require the operator's review. Agents may PROPOSE, never SHIP.
+# Effective once branch protection requires CODEOWNER review on `main`.
+# Kept in lockstep with .github/scope-guard/protected-paths.txt.
+
+/auth.ts                    @kaizencycle
+/lib/auth/                  @kaizencycle
+/lib/identity/              @kaizencycle
+/app/api/auth/              @kaizencycle
+/app/api/identity/          @kaizencycle
+/lib/substrate/             @kaizencycle
+/lib/mic/                   @kaizencycle
+/lib/integrity/             @kaizencycle
+/app/api/mic/               @kaizencycle
+
+/scripts/ignore-build.sh    @kaizencycle
+/scripts/scope-guard.sh     @kaizencycle
+/scripts/setup-branch-protection.sh @kaizencycle
+/.github/                   @kaizencycle
+
+/vercel.json                @kaizencycle
+/render.yaml                @kaizencycle
+/mobius.yaml                @kaizencycle
+/next.config.ts             @kaizencycle
+/package.json               @kaizencycle
+/pnpm-lock.yaml             @kaizencycle
