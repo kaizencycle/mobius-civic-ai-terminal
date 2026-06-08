@@ -90,12 +90,30 @@ if [[ "$is_owner" != true ]]; then
 fi
 actor_class="external"; [[ "$is_owner" == true ]] && actor_class="owner"; [[ "$is_agent" == true ]] && actor_class="agent"
 
-# ── EPICON receipt (matches the existing PR template's §3 + §7 fields) ──────
+# ── EPICON receipt: a ledgered `epicon_id:` + a FILLED-IN rollback plan ─────
+# PULL_REQUEST_TEMPLATE.md instructs "Replace all `[PLACEHOLDERS]`" — its own
+# unfilled §3/§7 carry `epicon_id: EPICON_C-[CYCLE]_...` and `git revert
+# [commit-sha]`, while "Rollback Plan" / "Rollback plan provided" appear in
+# the template's heading and stop-conditions checklist regardless of whether
+# anything was filled in. A bare substring match on "epicon_id:" / "rollback"
+# is therefore satisfied by a verbatim, untouched template. Require the
+# epicon_id line — and EITHER a `rollback:` key (the compact receipt shape)
+# OR a filled-in `git revert <sha>` (the template's own §7 shape) — to carry
+# real values, not `[bracket]` placeholders.
 have_receipt=false
 if [[ -n "$PR_BODY_FILE" && -f "$PR_BODY_FILE" ]]; then
-  if grep -qiE 'epicon_id[[:space:]]*:' "$PR_BODY_FILE" && grep -qiE 'rollback' "$PR_BODY_FILE"; then
-    have_receipt=true
-  fi
+  epicon_line="$(grep -iE 'epicon_id[[:space:]]*:' "$PR_BODY_FILE" | head -1 || true)"
+  rollback_kv="$(grep -iE 'rollback[[:space:]]*:' "$PR_BODY_FILE" | head -1 || true)"
+  rollback_cmd="$(grep -iE 'git revert' "$PR_BODY_FILE" | head -1 || true)"
+
+  have_epicon=false
+  [[ -n "$epicon_line" && "$epicon_line" != *'['*']'* ]] && have_epicon=true
+
+  have_rollback=false
+  [[ -n "$rollback_kv"  && "$rollback_kv"  != *'['*']'* ]] && have_rollback=true
+  [[ -n "$rollback_cmd" && "$rollback_cmd" != *'['*']'* ]] && have_rollback=true
+
+  [[ "$have_epicon" == true && "$have_rollback" == true ]] && have_receipt=true
 fi
 
 # ── decision ─────────────────────────────────────────────────────────────────

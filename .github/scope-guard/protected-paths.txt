@@ -7,10 +7,12 @@
 # Outbound ledger/token client + canon read/write (the C-333 token-truth surface).
 ^lib/substrate/
 
-# Auth / identity / agent-write authorization.
+# Auth / identity / agent-write authorization (lib + the live API surface).
 ^auth\.ts$
 ^lib/auth/
 ^lib/identity/
+^app/api/auth/
+^app/api/identity/
 
 # MIC economy + ledger integrity math (settlement, chain hashing, quorum, sustain).
 ^app/api/mic/

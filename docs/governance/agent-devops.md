@@ -23,15 +23,22 @@ mechanically rather than assumed.)
 3. **scope-guard** (`scripts/scope-guard.sh`, run by `.github/workflows/scope-guard.yml`
    on every PR) — classifies the diff into the canonical tiers and enforces:
    - **Tier-3 paths are operator-only**: `lib/substrate/` (the C-333 token-truth
-     surface), `auth.ts` + `lib/auth/` + `lib/identity/` (auth/identity), `lib/mic/`
-     + `app/api/mic/` (MIC ledger settlement/chain-hash math), `lib/integrity/`
-     (canon hash roots), the guardrail scripts and `.github/` itself, and
-     deploy/infra config (`vercel.json`, `render.yaml`, `mobius.yaml`,
-     `next.config.ts`, `package.json`, `pnpm-lock.yaml`). A Tier-3 edit by a
-     non-owner **fails** the check — see `.github/scope-guard/protected-paths.txt`.
-   - **Agent code changes require an EPICON receipt** — `epicon_id:` plus a
-     rollback plan in the PR body, mirroring `PULL_REQUEST_TEMPLATE.md` §3/§7.
-     The "why" is ledgered before the diff, same as any other consequential act.
+     surface), `auth.ts` + `lib/auth/` + `lib/identity/` + the live
+     `app/api/auth/` + `app/api/identity/` routes (auth/identity — both the
+     library and the API surface it backs), `lib/mic/` + `app/api/mic/` (MIC
+     ledger settlement/chain-hash math), `lib/integrity/` (canon hash roots),
+     the guardrail scripts and `.github/` itself, and deploy/infra config
+     (`vercel.json`, `render.yaml`, `mobius.yaml`, `next.config.ts`,
+     `package.json`, `pnpm-lock.yaml`). A Tier-3 edit by a non-owner **fails**
+     the check — see `.github/scope-guard/protected-paths.txt`.
+   - **Agent code changes require an EPICON receipt** — a ledgered, *filled-in*
+     `epicon_id: EPICON_C-...` plus `rollback: ...` (key:value lines, mirroring
+     `PULL_REQUEST_TEMPLATE.md` §3/§7) in the PR body. The check rejects the
+     template's own untouched placeholders — `epicon_id: EPICON_C-[CYCLE]_...`
+     and `git revert [commit-sha]` would otherwise satisfy a bare substring
+     match for "epicon_id:" / "rollback" without anyone having ledgered
+     anything. The "why" is ledgered before the diff, same as any other
+     consequential act — not merely gestured at.
    - Optional `STRICT_ALLOWLIST=true` confines agents to `agent-paths.txt`.
    - **Fails closed**: if the diff can't be proven (shallow checkout, bad refs),
      the gate blocks rather than silently passing — the deliberate inverse of
