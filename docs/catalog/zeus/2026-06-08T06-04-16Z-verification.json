@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-06-08T06:04:16.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-336",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "OpenAQ air quality": "persistent",
+    "NWS API health": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "UN Data API availability": "persistent",
+    "OECD stats API health": "persistent",
+    "npm registry health": "persistent",
+    "Terminal self-ping latency": "persistent",
+    "Cloudflare Radar BGP health": "persistent",
+    "Fastly CDN status": "persistent",
+    "Certificate transparency log health": "persistent",
+    "FRED economic data health": "persistent",
+    "NASA APIs health": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-335-016 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. GET /api/quorum/state cycle=C-336 integrity.gi=0.81 mode=green terminal_status=nominal vault_block_state=attested latest_seal_id=seal-C-335-016.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-08T05-04-52-089Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-336: gi=0.71 mode=yellow classification=STRESSED source=kv; 12 elevated anomalies; kv_keys_ok=false; seed_result=200 OK seeded [GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT]; sustain_eligible=false; micro_composite=0.648; journal_status=502."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.68 composite=0.68 instrumentCount=40 cycle=C-306 cached=false errors=8. Hard-zero lanes (score 0): OpenAQ, data.gov, UN Data, OECD, Cloudflare Radar, Fastly, crt.sh, FRED. Elevated (0.3): NWS, npm, Terminal self-ping. NASA APIs recovered (score 1.0) vs ATLAS elevated flag. 11/12 ATLAS anomalies persistent; 1 resolved."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green source=kv gi_provenance=kv-live degraded=true terminal_status=nominal cycle=C-336. Not mock. GI diverges +0.10 from ATLAS catalog (0.71 yellow) and +0.13 from micro composite 0.68 — operator headline overstates health relative to lane-level drag."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-335-016 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true entry_id=journal-ZEUS-C-336-j6tazt canonical=false mirrored_to_kv=true; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; pending_immortalization=true."
+    }
+  ],
+  "recommendation": "GI headline disputed: ATLAS catalog 0.71 yellow vs live integrity-status 0.81 green vs micro composite 0.68 — lane-level reality confirms stressed external API posture (8 hard-zero lanes). NASA APIs anomaly resolved since ATLAS sweep. Reconcile GI/mode across ATLAS, integrity-status, and micro surfaces. Repair kv_keys_ok=false. Repair Civic Protocol identity introspect for journal canon immortalization. Deploy POST /api/vault/attest or continue /api/vault/block/attest for C-298 quorum."
+}
