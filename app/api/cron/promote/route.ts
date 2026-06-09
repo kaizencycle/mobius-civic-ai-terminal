@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
 
     const body = await res.json().catch(() => null);
     if (!res.ok) {
-      console.error(`[promote] /api/epicon/promote returned ${res.status} — check SUBSTRATE_TOKEN env var`);
+      console.error(`[promote] /api/epicon/promote returned ${res.status} — AGENT_SERVICE_TOKEN rejected at Identity /auth/introspect (SUBSTRATE_TOKEN is the internal cron secret, not the ledger JWT)`);
       if (res.status === 401) {
         // C-332 OPT-3: never log token characters — log only length+presence.
         const tokenLen = (authHeader ?? '').replace(/^Bearer /, '').length;

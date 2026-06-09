@@ -51,7 +51,7 @@ export async function GET() {
     );
   } catch (error) {
     const reason = await classifyAlertsFailure();
-    console.error('[treasury/alerts] upstream failure', { reason, error });
+    console.warn('[treasury/alerts] upstream degraded (expected; serving last-good/fallback)', { reason, error });
 
     return NextResponse.json(
       {
