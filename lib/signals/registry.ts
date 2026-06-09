@@ -247,11 +247,14 @@ const THEMIS_INSTRUMENTS: SignalInstrument[] = [
   {
     id: 'themis-oecd',
     agent: 'THEMIS',
-    label: 'OECD stats API health',
-    // C-337: stats.oecd.org deprecated; migrated to sdmx.oecd.org (OECD SDMX 2.1 REST).
-    primary: 'https://sdmx.oecd.org/public/rest/data/OECD,DF_DP_LIVE,/DEU.GDP.P_NB_A?lastNObservations=2&format=jsondata',
-    normalize: (d: unknown) =>
-      ((d as { dataSets?: unknown[] })?.dataSets?.length ?? 0) > 0 ? 0.85 : 0.3,
+    label: 'Eurostat EU economic data',
+    // C-337: stats.oecd.org deprecated; sdmx.oecd.org also 403 in prod (cloud IP blocked).
+    // Codex review: replaced with Eurostat public API (EU statistical office, no key, stable).
+    primary: 'https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/tec00001?format=JSON&sinceTimePeriod=2022&lastTimePeriod=1',
+    normalize: (d: unknown) => {
+      const vals = (d as { value?: Record<string, unknown> })?.value;
+      return vals && Object.keys(vals).length > 0 ? 0.85 : 0.3;
+    },
     weight: 0.7,
     timeoutMs: 10000,
   },
@@ -311,8 +314,9 @@ const DAEDALUS_INSTRUMENTS: SignalInstrument[] = [
   {
     id: 'daedalus-cloudflare-radar',
     agent: 'DAEDALUS',
-    label: 'Cloudflare Radar BGP health',
+    label: 'Cloudflare infrastructure status',
     // C-337: Radar BGP API requires auth token; replaced with Cloudflare public statuspage (no auth).
+    // Label updated to match what the endpoint actually measures (overall CDN/infra health, not BGP hijacks).
     primary: 'https://www.cloudflarestatus.com/api/v2/status.json',
     normalize: (d: unknown) => {
       const indicator = (d as { status?: { indicator?: string } })?.status?.indicator;
