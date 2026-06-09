@@ -1,0 +1,54 @@
+{
+  "timestamp": "2026-06-09T02:07:32.586Z",
+  "agent": "ATLAS",
+  "cycle": "C-336",
+  "gi": 0.71,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-09T02:05:05.785Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.609,
+  "degraded_agents": 0,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "heartbeat_key_seeded": true
+  },
+  "journal_status": 502,
+  "journal_id": "journal-ATLAS-C-336-aw0s4t",
+  "journal_ok": true,
+  "journal_route": "agents/journal",
+  "last_journal_cycle": "C-336",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ]
+}
