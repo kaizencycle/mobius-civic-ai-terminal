@@ -214,6 +214,8 @@ const THEMIS_INSTRUMENTS: SignalInstrument[] = [
     agent: 'THEMIS',
     label: 'data.gov dataset freshness',
     primary: 'https://catalog.data.gov/api/3/action/package_search?q=civic&rows=5&sort=metadata_modified+desc',
+    // C-337: data.gov CKAN API intermittently down; fallback to data.gov status page API.
+    fallback: 'https://catalog.data.gov/api/3/action/site_read',
     normalize: (d: unknown) => ((d as { success?: boolean })?.success ? 0.9 : 0.3),
     weight: 1,
   },
@@ -340,13 +342,14 @@ const DAEDALUS_INSTRUMENTS: SignalInstrument[] = [
   {
     id: 'daedalus-crt-sh',
     agent: 'DAEDALUS',
-    label: 'Certificate transparency log health',
-    // C-337: crt.sh is reliably slow (~6s); bumped timeout to 10s — endpoint is alive, just sluggish.
-    primary: 'https://crt.sh/?q=vercel.app&output=json&limit=1',
+    label: 'SSL Labs API health',
+    // C-337: crt.sh times out at 10s+ on Vercel — consistently unusable. Replaced with
+    // SSL Labs /api/v3/info (returns engine version; fast, free, no key, same infra-trust signal intent).
+    primary: 'https://api.ssllabs.com/api/v3/info',
     normalize: (d: unknown) =>
-      Array.isArray(d) && (d as unknown[]).length > 0 ? 0.9 : 0.3,
+      (d as { engineVersion?: string })?.engineVersion ? 0.9 : 0.3,
     weight: 0.7,
-    timeoutMs: 10000,
+    timeoutMs: 5000,
   },
   {
     id: 'daedalus-pypi',
