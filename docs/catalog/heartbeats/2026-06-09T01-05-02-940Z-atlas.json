@@ -1,0 +1,99 @@
+{
+  "timestamp": "2026-06-09T01:05:02.940Z",
+  "agent": "ATLAS",
+  "cycle": "C-336",
+  "gi": 0.74,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "OpenAQ air quality",
+      "severity": "elevated"
+    },
+    {
+      "label": "NWS API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "data.gov dataset freshness",
+      "severity": "elevated"
+    },
+    {
+      "label": "UN Data API availability",
+      "severity": "elevated"
+    },
+    {
+      "label": "OECD stats API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "npm registry health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Terminal self-ping latency",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare Radar BGP health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Fastly CDN status",
+      "severity": "elevated"
+    },
+    {
+      "label": "Certificate transparency log health",
+      "severity": "elevated"
+    },
+    {
+      "label": "FRED economic data health",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 2,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-09T01:03:40.939Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.679,
+  "degraded_agents": 4,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "heartbeat_key_seeded": true
+  },
+  "journal_status": 502,
+  "journal_id": "journal-ATLAS-C-336-iuqb8t",
+  "journal_ok": true,
+  "journal_route": "agents/journal",
+  "last_journal_cycle": "C-336",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ]
+}
