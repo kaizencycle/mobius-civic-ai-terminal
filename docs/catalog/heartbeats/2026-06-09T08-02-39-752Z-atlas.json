@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-06-09T08:02:39.752Z",
+  "agent": "ATLAS",
+  "cycle": "C-337",
+  "gi": 0.794,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "OpenAQ air quality",
+      "severity": "elevated"
+    },
+    {
+      "label": "NWS API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Internet Archive availability",
+      "severity": "elevated"
+    },
+    {
+      "label": "OpenLibrary API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "CrossRef publication velocity",
+      "severity": "elevated"
+    },
+    {
+      "label": "data.gov dataset freshness",
+      "severity": "elevated"
+    },
+    {
+      "label": "UN Data API availability",
+      "severity": "elevated"
+    },
+    {
+      "label": "OECD stats API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "npm registry health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Terminal self-ping latency",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare Radar BGP health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Fastly CDN status",
+      "severity": "elevated"
+    },
+    {
+      "label": "Certificate transparency log health",
+      "severity": "elevated"
+    },
+    {
+      "label": "FRED economic data health",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 2,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-09T08:01:34.905Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.628,
+  "degraded_agents": 5,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "heartbeat_key_seeded": true
+  },
+  "journal_status": 502,
+  "journal_id": "journal-ATLAS-C-337-hditul",
+  "journal_ok": true,
+  "journal_route": "agents/journal",
+  "last_journal_cycle": "C-337",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_substrate_error": "Error: ledger 401: {\"detail\":\"Token verification failed: Client error '401 Unauthorized' for url 'https://mobius-identity-service.onrender.com/auth/introspect'\\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401\"}",
+  "journal_kv_error": "kv_write_failed"
+}
