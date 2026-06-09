@@ -44,6 +44,8 @@ export type SignalMicroPayload = {
   instruments: InstrumentResult[];
   fallbacksUsed: number;
   errors: number;
+  /** C-337 OPT-1: names + reasons of errored instruments (GI-neutral diagnostic; makes the `errors` count actionable). */
+  failedInstruments: { id: string; agent: string; error: string }[];
   generatedAt: number;
   cycle: string;
   // Legacy fields — preserved for backward compat with chambers/signals and SignalsPageClient
@@ -162,6 +164,9 @@ export async function GET() {
     instruments,
     fallbacksUsed: instruments.filter((i) => i.source === 'fallback').length,
     errors: instruments.filter((i) => i.source === 'error').length,
+    failedInstruments: instruments
+      .filter((i) => i.source === 'error')
+      .map((i) => ({ id: i.id, agent: i.agent, error: i.error ?? 'unknown' })),
     generatedAt: Date.now(),
     cycle: process.env.CURRENT_CYCLE ?? 'C-306',
     // Legacy compat

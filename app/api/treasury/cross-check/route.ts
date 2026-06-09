@@ -34,7 +34,7 @@ export async function GET() {
     );
   } catch (error) {
     const reason = classifyCrossCheckFailure(error);
-    console.error('[treasury/cross-check] upstream failure', { reason, error });
+    console.warn('[treasury/cross-check] upstream degraded (expected; serving last-good/fallback)', { reason, error });
 
     return NextResponse.json(
       {
