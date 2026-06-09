@@ -68,10 +68,12 @@ const GAIA_INSTRUMENTS: SignalInstrument[] = [
     id: 'gaia-openaq',
     agent: 'GAIA',
     label: 'OpenAQ air quality',
-    primary: 'https://api.openaq.org/v3/locations?limit=10&coordinates=40.71,-74.01&radius=25000',
+    // C-337: OpenAQ v3 requires API key; replaced with Open-Meteo Air Quality API (free, no auth).
+    primary: 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=40.71&longitude=-74.01&current=us_aqi',
     normalize: (d: unknown) => {
-      const locs = (d as { results?: unknown[] })?.results?.length ?? 0;
-      return locs > 0 ? 0.85 : 0.5;
+      const aqi = (d as { current?: { us_aqi?: number } })?.current?.us_aqi;
+      if (aqi == null) return 0.5;
+      return aqi <= 50 ? 0.95 : aqi <= 100 ? 0.75 : aqi <= 150 ? 0.5 : aqi <= 200 ? 0.3 : 0.1;
     },
     weight: 0.8,
   },
@@ -236,8 +238,9 @@ const THEMIS_INSTRUMENTS: SignalInstrument[] = [
     id: 'themis-un-data',
     agent: 'THEMIS',
     label: 'UN Data API availability',
-    primary: 'https://data.un.org/ws/rest/data/DF_UNSD_MGNT/A.SL_CPA_BRNF../ALL/?startPeriod=2020',
-    normalize: (d: unknown) => (d ? 0.85 : 0.3),
+    // C-337: old SDMX dataflow URL broken; replaced with UN SDG Goals API (stable, free).
+    primary: 'https://unstats.un.org/sdgapi/v1/sdg/Goal/List',
+    normalize: (d: unknown) => (Array.isArray(d) && (d as unknown[]).length > 0 ? 0.85 : 0.3),
     weight: 0.8,
     timeoutMs: 8000,
   },
@@ -245,11 +248,12 @@ const THEMIS_INSTRUMENTS: SignalInstrument[] = [
     id: 'themis-oecd',
     agent: 'THEMIS',
     label: 'OECD stats API health',
-    primary: 'https://stats.oecd.org/SDMX-JSON/data/QNA/AUS+AUT.GDP+B1_GE.GYSA.Q/OECD?startTime=2020-Q1&endTime=2023-Q4&dimensionAtObservation=allDimensions',
+    // C-337: stats.oecd.org deprecated; migrated to sdmx.oecd.org (OECD SDMX 2.1 REST).
+    primary: 'https://sdmx.oecd.org/public/rest/data/OECD,DF_DP_LIVE,/DEU.GDP.P_NB_A?lastNObservations=2&format=jsondata',
     normalize: (d: unknown) =>
-      ((d as { dataSets?: unknown })?.dataSets ? 0.85 : 0.3),
+      ((d as { dataSets?: unknown[] })?.dataSets?.length ?? 0) > 0 ? 0.85 : 0.3,
     weight: 0.7,
-    timeoutMs: 8000,
+    timeoutMs: 10000,
   },
   {
     id: 'themis-govtrack',
@@ -308,11 +312,11 @@ const DAEDALUS_INSTRUMENTS: SignalInstrument[] = [
     id: 'daedalus-cloudflare-radar',
     agent: 'DAEDALUS',
     label: 'Cloudflare Radar BGP health',
-    primary: 'https://api.cloudflare.com/client/v4/radar/bgp/hijacks/events?limit=5&format=json',
+    // C-337: Radar BGP API requires auth token; replaced with Cloudflare public statuspage (no auth).
+    primary: 'https://www.cloudflarestatus.com/api/v2/status.json',
     normalize: (d: unknown) => {
-      const count =
-        (d as { result?: { asn_info?: unknown[] } })?.result?.asn_info?.length ?? 0;
-      return count === 0 ? 1.0 : count <= 3 ? 0.7 : 0.4;
+      const indicator = (d as { status?: { indicator?: string } })?.status?.indicator;
+      return indicator === 'none' ? 1.0 : indicator === 'minor' ? 0.7 : 0.3;
     },
     weight: 1,
     timeoutMs: 5000,
@@ -321,7 +325,8 @@ const DAEDALUS_INSTRUMENTS: SignalInstrument[] = [
     id: 'daedalus-fastly-status',
     agent: 'DAEDALUS',
     label: 'Fastly CDN status',
-    primary: 'https://www.fastlystatus.com/status.json',
+    // C-337: fastlystatus.com moved to status.fastly.com (statuspage.io).
+    primary: 'https://status.fastly.com/api/v2/status.json',
     normalize: (d: unknown) => {
       const indicator = (d as { status?: { indicator?: string } })?.status?.indicator;
       return indicator === 'none' ? 1.0 : indicator === 'minor' ? 0.7 : 0.3;
@@ -332,11 +337,12 @@ const DAEDALUS_INSTRUMENTS: SignalInstrument[] = [
     id: 'daedalus-crt-sh',
     agent: 'DAEDALUS',
     label: 'Certificate transparency log health',
+    // C-337: crt.sh is reliably slow (~6s); bumped timeout to 10s — endpoint is alive, just sluggish.
     primary: 'https://crt.sh/?q=vercel.app&output=json&limit=1',
     normalize: (d: unknown) =>
       Array.isArray(d) && (d as unknown[]).length > 0 ? 0.9 : 0.3,
     weight: 0.7,
-    timeoutMs: 6000,
+    timeoutMs: 10000,
   },
   {
     id: 'daedalus-pypi',
@@ -364,10 +370,13 @@ const AUREA_INSTRUMENTS: SignalInstrument[] = [
     id: 'aurea-fred',
     agent: 'AUREA',
     label: 'FRED economic data health',
-    primary: 'https://fred.stlouisfed.org/graph/fredgraph.json?id=UNRATE',
-    fallback: 'https://api.stlouisfed.org/fred/series?series_id=UNRATE&api_key=DEMO&file_type=json',
-    normalize: (d: unknown) =>
-      Array.isArray(d) && (d as unknown[]).length > 0 ? 0.9 : 0.4,
+    // C-337: fredgraph.json requires key; DEMO key exhausted in prod. Replaced with World Bank
+    // US unemployment rate (same economic signal, free, no key, same WB pattern already used elsewhere).
+    primary: 'https://api.worldbank.org/v2/country/US/indicator/SL.UEM.TOTL.ZS?format=json&per_page=1&mrv=1',
+    normalize: (d: unknown) => {
+      const arr = d as unknown[];
+      return Array.isArray(arr) && (arr[1] as unknown[])?.length > 0 ? 0.9 : 0.4;
+    },
     weight: 1.2,
   },
   {
@@ -407,8 +416,13 @@ const ECHO_INSTRUMENTS: SignalInstrument[] = [
     id: 'echo-nasa',
     agent: 'ECHO',
     label: 'NASA APIs health',
-    primary: 'https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY',
-    normalize: (d: unknown) => ((d as { url?: string })?.url ? 1.0 : 0.3),
+    // C-337: DEMO_KEY is rate-limited (30 req/hr/IP) on shared Vercel egress — exhausted in prod.
+    // NASA Image Library API requires no key at all and is not rate-limited by IP.
+    primary: 'https://images-api.nasa.gov/search?q=earth&media_type=image&page_size=1',
+    normalize: (d: unknown) => {
+      const hits = (d as { collection?: { metadata?: { total_hits?: number } } })?.collection?.metadata?.total_hits ?? 0;
+      return hits > 0 ? 1.0 : 0.3;
+    },
     weight: 1,
   },
   {
