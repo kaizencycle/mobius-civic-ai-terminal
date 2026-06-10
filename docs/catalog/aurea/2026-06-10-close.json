@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-06-10T03:05:48.555Z",
+  "agent": "AUREA",
+  "cycle": "C-337",
+  "gi_final": 0.9,
+  "gi_mode": "green",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.733,
+  "financial_score": 0.632,
+  "environ_score": 0.834,
+  "civic_score": 0.7,
+  "event_count_24h": 6,
+  "event_counts_by_type": {
+    "merge": 2,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 4,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.9, while the micro composite held lower at 0.771 under persistent external-service failures. The ledger registered 6 events over the last 24 hours, with the strongest visible domain signal in institutional strength at 0.866. ZEUS verification status is disputed, and the heartbeat trend is volatile across a 0.63-0.9 range. Forward signal: watch infrastructure continuity for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch infrastructure continuity for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "data.gov dataset freshness",
+    "OECD stats API health",
+    "Fastly CDN status",
+    "Certificate transparency log health"
+  ],
+  "quorum_attested": true
+}
