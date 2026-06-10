@@ -214,9 +214,15 @@ const THEMIS_INSTRUMENTS: SignalInstrument[] = [
     agent: 'THEMIS',
     label: 'data.gov dataset freshness',
     primary: 'https://catalog.data.gov/api/3/action/package_search?q=civic&rows=5&sort=metadata_modified+desc',
-    // C-337: data.gov CKAN API intermittently down; fallback to data.gov status page API.
-    fallback: 'https://catalog.data.gov/api/3/action/site_read',
-    normalize: (d: unknown) => ((d as { success?: boolean })?.success ? 0.9 : 0.3),
+    // C-337: catalog.data.gov occasionally goes down host-wide, which previously took out
+    // both primary and fallback (site_read shares the same host). Fallback now points at
+    // GSA's data.gov repo on api.github.com — a different host, so a catalog.data.gov
+    // outage doesn't blind this instrument too.
+    fallback: 'https://api.github.com/repos/GSA/data.gov/commits?per_page=1',
+    normalize: (d: unknown) => {
+      if (Array.isArray(d)) return d.length > 0 ? 0.8 : 0.3;
+      return (d as { success?: boolean })?.success ? 0.9 : 0.3;
+    },
     weight: 1,
   },
   {
