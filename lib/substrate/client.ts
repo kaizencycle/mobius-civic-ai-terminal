@@ -268,7 +268,10 @@ export type AttestToLedgerResult = { ok: boolean; entryId?: string; error?: stri
  */
 export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLedgerResult> {
   const LEDGER_BASE = resolveSubstrateLedgerUrl();
-  const AGENT_TOKEN = getAgentBearerToken();
+  // C-338: /ledger/attest verifies via Identity introspection — mint a runtime
+  // JWT (falls back to the static agent token when creds are unconfigured).
+  const { getAttestBearerToken } = await import('@/lib/substrate/identityToken');
+  const AGENT_TOKEN = await getAttestBearerToken();
   const authorization = AGENT_TOKEN.length > 0 ? `Bearer ${AGENT_TOKEN}` : '';
   const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
   const attestTimestamp = new Date().toISOString();
@@ -350,6 +353,12 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
         : undefined;
       console.warn('[substrate] ledger attest rejected', { ...safeDebug, hint });
       await persistLastLedgerRejection(safeDebug);
+      if (res.status === 401) {
+        // C-338: cached identity JWT may have expired mid-window — force a
+        // re-mint so the next cron tick attests with a fresh token.
+        const { invalidateIdentityToken } = await import('@/lib/substrate/identityToken');
+        invalidateIdentityToken();
+      }
       throw new Error(`ledger ${res.status}${detail ? `: ${detail}` : ''}`);
     }
     // C-296 OPT-2: guard Content-Type before JSON.parse — Render cold-starts
