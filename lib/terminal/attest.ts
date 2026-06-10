@@ -1,6 +1,5 @@
 // C-305 OPT-03: Substrate write — hardcoded Render endpoint, no GitHub fallback.
 // CIVIC_LEDGER_URL must be set; if absent, write is aborted and error is logged.
-import { getAgentBearerToken } from '@/lib/substrate/client';
 
 export type AttestPayload = {
   cycle?: string;
@@ -34,10 +33,10 @@ export async function attestToSubstrate(payload: AttestPayload): Promise<AttestR
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // C-333 OPT-1: use the canonical token resolver. SUBSTRATE_TOKEN is the
-        // INTERNAL cron→endpoint shared secret, NOT the outbound Identity JWT.
-        // Sending it to the ledger caused the Branch-C 401 at /auth/introspect.
-        Authorization: `Bearer ${getAgentBearerToken()}`,
+        // C-338: /ledger/attest speaks Identity introspection, not shared
+        // secret. Mint a runtime JWT (getAttestBearerToken falls back to the
+        // static agent token when IDENTITY_SERVICE_* env is unconfigured).
+        Authorization: `Bearer ${await (await import('@/lib/substrate/identityToken')).getAttestBearerToken()}`,
       },
       body: JSON.stringify(enriched),
     });
