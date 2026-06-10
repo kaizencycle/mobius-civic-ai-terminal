@@ -281,7 +281,13 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
 
   const requestBody = {
     event_type: entry.category,
-    civic_id: eventId,
+    // C-338: the ledger binds civic_id to the introspected JWT
+    // (_civic_id_allowed_for_lab in CPC ledger/app/main.py) — for
+    // lab_source "terminal" only mobius-* synthetic ids are exempt from
+    // exact-match. Agent-prefixed ids (ATLAS-C-338-…) would 403 the moment
+    // auth starts succeeding. payload.event_id keeps the raw id for
+    // cross-referencing; only the ledger-facing civic_id is prefixed.
+    civic_id: eventId.startsWith('mobius-') ? eventId : `mobius-${eventId}`,
     lab_source: ledgerLabSource,
     terminal_base_url: api_base,
     api_base,
