@@ -380,7 +380,10 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
       terminal_id,
       api_base: api_base,
     });
-    void markSubmitted(entryId);
+    // C-338 Codex review: dedupe is keyed on the raw eventId (isAlreadySubmitted
+    // above checks eventId, not the mobius-prefixed civic_id the ledger may echo
+    // back as entryId) — mark the raw id submitted so re-attest is actually skipped.
+    void markSubmitted(eventId);
 
     const MIC_URL = (process.env.MIC_WALLET_URL ?? process.env.RENDER_MIC_URL ?? '').trim();
     // C-338 Codex review: keep MIC earn on the static service token — the
