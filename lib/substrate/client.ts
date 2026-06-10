@@ -377,12 +377,15 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
     void markSubmitted(entryId);
 
     const MIC_URL = (process.env.MIC_WALLET_URL ?? process.env.RENDER_MIC_URL ?? '').trim();
-    if (MIC_URL.length > 0 && AGENT_TOKEN.length > 0) {
+    // C-338 Codex review: keep MIC earn on the static service token — the
+    // minted Identity JWT (AGENT_TOKEN above) is for /ledger/attest only.
+    const MIC_TOKEN = getAgentBearerToken();
+    if (MIC_URL.length > 0 && MIC_TOKEN.length > 0) {
       void fetch(`${MIC_URL.replace(/\/+$/, '')}/mic/earn`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${AGENT_TOKEN}`,
+          Authorization: `Bearer ${MIC_TOKEN}`,
         },
         body: JSON.stringify({
           source: 'agent_epicon_attest',
