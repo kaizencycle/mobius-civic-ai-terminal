@@ -214,6 +214,8 @@ const THEMIS_INSTRUMENTS: SignalInstrument[] = [
     agent: 'THEMIS',
     label: 'data.gov dataset freshness',
     primary: 'https://catalog.data.gov/api/3/action/package_search?q=civic&rows=5&sort=metadata_modified+desc',
+    // C-337: data.gov CKAN API intermittently down; fallback to data.gov status page API.
+    fallback: 'https://catalog.data.gov/api/3/action/site_read',
     normalize: (d: unknown) => ((d as { success?: boolean })?.success ? 0.9 : 0.3),
     weight: 1,
   },
@@ -247,11 +249,14 @@ const THEMIS_INSTRUMENTS: SignalInstrument[] = [
   {
     id: 'themis-oecd',
     agent: 'THEMIS',
-    label: 'OECD stats API health',
-    // C-337: stats.oecd.org deprecated; migrated to sdmx.oecd.org (OECD SDMX 2.1 REST).
-    primary: 'https://sdmx.oecd.org/public/rest/data/OECD,DF_DP_LIVE,/DEU.GDP.P_NB_A?lastNObservations=2&format=jsondata',
-    normalize: (d: unknown) =>
-      ((d as { dataSets?: unknown[] })?.dataSets?.length ?? 0) > 0 ? 0.85 : 0.3,
+    label: 'Eurostat EU economic data',
+    // C-337: stats.oecd.org deprecated; sdmx.oecd.org also 403 in prod (cloud IP blocked).
+    // Codex review: replaced with Eurostat public API (EU statistical office, no key, stable).
+    primary: 'https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/tec00001?format=JSON&sinceTimePeriod=2022&lastTimePeriod=1',
+    normalize: (d: unknown) => {
+      const vals = (d as { value?: Record<string, unknown> })?.value;
+      return vals && Object.keys(vals).length > 0 ? 0.85 : 0.3;
+    },
     weight: 0.7,
     timeoutMs: 10000,
   },
@@ -311,8 +316,9 @@ const DAEDALUS_INSTRUMENTS: SignalInstrument[] = [
   {
     id: 'daedalus-cloudflare-radar',
     agent: 'DAEDALUS',
-    label: 'Cloudflare Radar BGP health',
+    label: 'Cloudflare infrastructure status',
     // C-337: Radar BGP API requires auth token; replaced with Cloudflare public statuspage (no auth).
+    // Label updated to match what the endpoint actually measures (overall CDN/infra health, not BGP hijacks).
     primary: 'https://www.cloudflarestatus.com/api/v2/status.json',
     normalize: (d: unknown) => {
       const indicator = (d as { status?: { indicator?: string } })?.status?.indicator;
@@ -336,13 +342,14 @@ const DAEDALUS_INSTRUMENTS: SignalInstrument[] = [
   {
     id: 'daedalus-crt-sh',
     agent: 'DAEDALUS',
-    label: 'Certificate transparency log health',
-    // C-337: crt.sh is reliably slow (~6s); bumped timeout to 10s — endpoint is alive, just sluggish.
-    primary: 'https://crt.sh/?q=vercel.app&output=json&limit=1',
+    label: 'SSL Labs API health',
+    // C-337: crt.sh times out at 10s+ on Vercel — consistently unusable. Replaced with
+    // SSL Labs /api/v3/info (returns engine version; fast, free, no key, same infra-trust signal intent).
+    primary: 'https://api.ssllabs.com/api/v3/info',
     normalize: (d: unknown) =>
-      Array.isArray(d) && (d as unknown[]).length > 0 ? 0.9 : 0.3,
+      (d as { engineVersion?: string })?.engineVersion ? 0.9 : 0.3,
     weight: 0.7,
-    timeoutMs: 10000,
+    timeoutMs: 5000,
   },
   {
     id: 'daedalus-pypi',
