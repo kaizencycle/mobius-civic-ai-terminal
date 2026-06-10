@@ -281,7 +281,13 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
 
   const requestBody = {
     event_type: entry.category,
-    civic_id: eventId,
+    // C-338: the ledger binds civic_id to the introspected JWT
+    // (_civic_id_allowed_for_lab in CPC ledger/app/main.py) — for
+    // lab_source "terminal" only mobius-* synthetic ids are exempt from
+    // exact-match. Agent-prefixed ids (ATLAS-C-338-…) would 403 the moment
+    // auth starts succeeding. payload.event_id keeps the raw id for
+    // cross-referencing; only the ledger-facing civic_id is prefixed.
+    civic_id: eventId.startsWith('mobius-') ? eventId : `mobius-${eventId}`,
     lab_source: ledgerLabSource,
     terminal_base_url: api_base,
     api_base,
@@ -374,7 +380,10 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
       terminal_id,
       api_base: api_base,
     });
-    void markSubmitted(entryId);
+    // C-338 Codex review: dedupe is keyed on the raw eventId (isAlreadySubmitted
+    // above checks eventId, not the mobius-prefixed civic_id the ledger may echo
+    // back as entryId) — mark the raw id submitted so re-attest is actually skipped.
+    void markSubmitted(eventId);
 
     const MIC_URL = (process.env.MIC_WALLET_URL ?? process.env.RENDER_MIC_URL ?? '').trim();
     // C-338 Codex review: keep MIC earn on the static service token — the
