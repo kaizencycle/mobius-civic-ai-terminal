@@ -31,6 +31,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // C-339 PR-C item 6: make the strict-build contract explicit. These default
+  // to false in Next.js, but pinning them here prevents a future "just ship it"
+  // edit from silently turning the production build into a warning generator —
+  // typecheck and lint errors must keep failing the build (BUILD.md contract).
+  typescript: { ignoreBuildErrors: false },
+  eslint: { ignoreDuringBuilds: false },
   bundlePagesRouterDependencies: true,
   serverExternalPackages: ['@mobius/integrity-core'],
   experimental: {
