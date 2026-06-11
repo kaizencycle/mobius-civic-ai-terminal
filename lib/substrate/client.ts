@@ -1,4 +1,7 @@
 import { TERMINAL_REGISTRATION } from '@/lib/ledger';
+import { log } from '@/lib/log';
+import { env } from '@/lib/env';
+import { getAgentBearerToken } from '@/lib/substrate/agentToken';
 
 export type SubstrateServiceKey = 'ledger' | 'gi' | 'mic' | 'broker' | 'oaa';
 
@@ -20,11 +23,11 @@ type ServiceConfig = Record<SubstrateServiceKey, string>;
 
 export function getSubstrateServiceConfig(): ServiceConfig {
   return {
-    ledger: process.env.MOBIUS_LEDGER_URL || 'http://localhost:3000',
-    gi: process.env.MOBIUS_GI_URL || 'http://localhost:3001',
-    mic: process.env.MOBIUS_MIC_URL || 'http://localhost:4002',
-    broker: process.env.MOBIUS_BROKER_URL || 'http://localhost:4005',
-    oaa: process.env.MOBIUS_OAA_URL || 'http://localhost:3004',
+    ledger: env.MOBIUS_LEDGER_URL || 'http://localhost:3000',
+    gi: env.MOBIUS_GI_URL || 'http://localhost:3001',
+    mic: env.MOBIUS_MIC_URL || 'http://localhost:4002',
+    broker: env.MOBIUS_BROKER_URL || 'http://localhost:4005',
+    oaa: env.MOBIUS_OAA_URL || 'http://localhost:3004',
   };
 }
 
@@ -134,7 +137,7 @@ export function resolveSubstrateLedgerUrl(): string {
       continue;
     }
     if (normalized.includes('onrender.com') || normalized.includes('civic-protocol') || normalized.startsWith('http')) {
-      console.log('[substrate] using ledger URL:', normalized);
+      log.info('[substrate] using ledger URL:', normalized);
       return normalized;
     }
   }
@@ -157,11 +160,10 @@ export function getTerminalRegistration(): { terminal_id: string; api_base: stri
 }
 
 /** JWT for Civic Protocol ledger + MIC (identity login). Falls back to legacy RENDER_API_KEY. */
-export function getAgentBearerToken(): string {
-  const primary = process.env.AGENT_SERVICE_TOKEN?.trim() ?? '';
-  if (primary.length > 0) return primary;
-  return process.env.RENDER_API_KEY?.trim() ?? '';
-}
+// C-339 PR-C item 15: implementation extracted to lib/substrate/agentToken.ts
+// (dependency-free, unit-testable); re-exported here so existing importers of
+// '@/lib/substrate/client' are unaffected.
+export { getAgentBearerToken };
 
 function compactLedgerBody(text: string): string {
   return text.replace(/\s+/g, ' ').trim().slice(0, 900);
@@ -316,7 +318,7 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
 
   // Deduplication guard: skip re-attestation for entries already successfully submitted.
   if (await isAlreadySubmitted(eventId)) {
-    console.log('[sweep] journal entry already attested, skipping:', eventId);
+    log.info('[sweep] journal entry already attested, skipping:', eventId);
     return { ok: true, entryId: eventId };
   }
 

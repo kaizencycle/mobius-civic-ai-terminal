@@ -9,6 +9,7 @@
  * to bypass Bearer check (same pattern as /api/eve/cycle-synthesize).
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { log } from '@/lib/log';
 import { getEveSynthesisAuthError, serviceAuthorizationHeaderValue, normalizeServiceSecretMaterial } from '@/lib/security/serviceAuth';
 import { kvSet, kvGet } from '@/lib/kv/store';
 
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
         await kvSet(PROMOTE_FAIL_KEY, failCount, 86400).catch(() => {});
       }
     } else {
-      console.log(`[promote] epicon promote ok @ ${process.env.CURRENT_CYCLE ?? 'C-305'}`);
+      log.info(`[promote] epicon promote ok @ ${process.env.CURRENT_CYCLE ?? 'C-305'}`);
       await kvSet(PROMOTE_FAIL_KEY, 0, 86400).catch(() => {});
     }
 

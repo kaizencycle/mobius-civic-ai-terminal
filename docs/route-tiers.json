@@ -1,0 +1,30 @@
+{
+  "$comment": "C-339 PR-C item 12: central route tier map. Source of truth for docs/ROUTE_MANIFEST.md tier column when a route has no inline `export const tier`. Only routes with a VERIFIABLE classification are listed; the rest are reported as untiered until classified. Vocabulary: public | authed | agent-gateway | cron | internal.",
+  "$provenance": {
+    "cron": "Paths registered under vercel.json crons (Vercel-triggered).",
+    "public": "Endpoints declared auth:none in mobius.yaml MCP tools, plus public-cache routes in next.config.ts."
+  },
+  "tiers": {
+    "/api/cron/heartbeat": "cron",
+    "/api/cron/promote": "cron",
+    "/api/cron/vault-attestation": "cron",
+    "/api/cron/sweep": "cron",
+    "/api/cron/swarm": "cron",
+    "/api/cron/journal-canonize": "cron",
+    "/api/cron/publish-oaa-snapshots": "cron",
+    "/api/cron/reattest-seals": "cron",
+    "/api/cron/echo-ingest": "cron",
+    "/api/cron/gi-refresh": "cron",
+    "/api/cron/watchdog": "cron",
+    "/api/eve/cycle-synthesize": "cron",
+    "/api/vault/block/attest-sweep": "cron",
+    "/api/terminal/snapshot-lite": "public",
+    "/api/terminal/shell": "public",
+    "/api/epicon/feed": "public",
+    "/api/echo/digest": "public",
+    "/api/echo/ingest": "public",
+    "/api/vault/status": "public",
+    "/api/agents/journal": "public",
+    "/api/mic/readiness": "public"
+  }
+}

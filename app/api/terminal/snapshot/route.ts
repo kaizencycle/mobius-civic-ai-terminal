@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { log } from '@/lib/log';
 import { GET as getIntegrity } from '@/app/api/integrity-status/route';
 import { GET as getKvHealth } from '@/app/api/kv/health/route';
 import { GET as getAgents } from '@/app/api/agents/status/route';
@@ -343,7 +344,7 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
       }
     : { elevated: false, critical: false, tripwireCount: 0, top: [] };
 
-  console.log('[terminal/snapshot] success', {
+  log.info('[terminal/snapshot] success', {
     journalMode: journalMode,
     lanesCount: lanes.length,
     trustTripwireOk: Boolean(trustSnapshot),

@@ -3,6 +3,7 @@
 // GET  /api/vault/reattest — lists currently quarantined seals.
 
 import { NextResponse } from 'next/server';
+import { log } from '@/lib/log';
 import { kvSetRawKey, kvGet, kvDel } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
   });
   await kvSetRawKey(HEARTBEAT_KEY, { lastReattest: ts, sealId, cycle });
 
-  console.log(`[ATLAS] Vault reattest queued: ${sealId} @ ${cycle}`);
+  log.info(`[ATLAS] Vault reattest queued: ${sealId} @ ${cycle}`);
   return NextResponse.json({ ok: true, sealId, status: 'reattest_queued', cycle, ts });
 }
 

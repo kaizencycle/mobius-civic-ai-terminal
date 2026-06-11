@@ -1,0 +1,54 @@
+name: build-check
+
+# C-339 PR-C item 16: Vercel runs `build` but GitHub never gated PRs on a build
+# or typecheck — a type error or a broken build could merge and only surface in
+# Vercel after the fact. This workflow makes typecheck + build required PR
+# checks, and also enforces the C-339 generated-artifact freshness gates so the
+# cycle docs, route manifest, and .env.example can't silently drift.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: build-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install (frozen)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      # C-339 PR-C item 7: .env.example must stay 1:1 with lib/env.ts.
+      - name: Env example in sync
+        run: node scripts/check-env-example.mjs
+
+      # C-339 PR-C item 1: cycle headers must reflect the published pulse.
+      - name: Cycle docs fresh
+        run: node scripts/gen-cycle-docs.mjs --check
+
+      # C-339 PR-C items 11/12: route manifest must match app/**/route.ts.
+      - name: Route manifest fresh
+        run: node scripts/gen-route-manifest.mjs --check
+
+      - name: Build
+        run: pnpm build
