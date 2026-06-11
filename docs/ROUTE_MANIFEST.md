@@ -44,7 +44,7 @@ Declare a tier in a route with: `export const tier = 'public';`
 | `/api/agents/vault-context` | GET | `untiered` |
 | `/api/agents/zeus/verify` | GET, POST | `untiered` |
 | `/api/aurea/oversee` | GET | `untiered` |
-| `/api/auth/[...nextauth]` | — | `untiered` |
+| `/api/auth/[...nextauth]` | GET, POST | `untiered` |
 | `/api/automations/registry` | GET | `untiered` |
 | `/api/bridge/status` | GET, OPTIONS | `untiered` |
 | `/api/canon/seal-verification` | GET | `untiered` |
@@ -127,7 +127,7 @@ Declare a tier in a route with: `export const tier = 'public';`
 | `/api/markets/market-sweep-export` | GET | `untiered` |
 | `/api/markets/narrator` | GET | `untiered` |
 | `/api/markets/rates-dollar-fusion` | GET | `untiered` |
-| `/api/mcp` | — | `untiered` |
+| `/api/mcp` | GET, POST, DELETE | `untiered` |
 | `/api/mic/account` | GET, OPTIONS | `untiered` |
 | `/api/mic/attestations` | GET | `untiered` |
 | `/api/mic/blocks/latest` | GET | `untiered` |

@@ -36,15 +36,40 @@ function walk(dir, acc = []) {
   return acc;
 }
 
-function detectMethods(src) {
-  const found = [];
+export function detectMethods(src) {
+  const found = new Set();
+
+  // 1. Direct handlers: `export [async] function GET` / `export const GET =` / `export const GET:`
   for (const m of HTTP_METHODS) {
-    const re = new RegExp(
-      `export\\s+(?:async\\s+)?function\\s+${m}\\b|export\\s+const\\s+${m}\\s*[:=]`,
-    );
-    if (re.test(src)) found.push(m);
+    const re = new RegExp(`export\\s+(?:async\\s+)?function\\s+${m}\\b|export\\s+const\\s+${m}\\s*[:=]`);
+    if (re.test(src)) found.add(m);
   }
-  return found;
+
+  // 2. Destructured re-export: `export const { GET, POST } = handlers;`
+  //    (next-auth pattern). Bound name is the alias if `key: alias`, else key.
+  for (const block of src.matchAll(/export\s+const\s*\{([^}]*)\}\s*=/g)) {
+    for (const part of block[1].split(',')) {
+      const seg = part.trim();
+      if (!seg) continue;
+      const [key, alias] = seg.split(':').map((s) => s.trim());
+      const name = alias || key;
+      if (HTTP_METHODS.includes(name)) found.add(name);
+    }
+  }
+
+  // 3. Named/aliased re-export: `export { handler as GET, handler as POST };`
+  //    or `export { GET }`. Exported name is after `as` when present.
+  for (const block of src.matchAll(/export\s*\{([^}]*)\}/g)) {
+    for (const part of block[1].split(',')) {
+      const seg = part.trim();
+      if (!seg) continue;
+      const asMatch = /\bas\s+([A-Za-z0-9_$]+)$/.exec(seg);
+      const name = asMatch ? asMatch[1] : seg;
+      if (HTTP_METHODS.includes(name)) found.add(name);
+    }
+  }
+
+  return [...found].sort((a, b) => HTTP_METHODS.indexOf(a) - HTTP_METHODS.indexOf(b));
 }
 
 function detectTier(src) {
@@ -144,4 +169,8 @@ function main() {
   console.log(`✅ wrote docs/ROUTE_MANIFEST.md (${rows.length} routes, ${untiered.length} untiered).`);
 }
 
-main();
+// Run only when invoked directly, so the detector can be imported by tests
+// without triggering a manifest write.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main();
+}
