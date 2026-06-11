@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-06-11T03:07:12Z",
+  "agent": "AUREA",
+  "cycle": "C-338",
+  "gi_final": 0.81,
+  "gi_mode": "green",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.781,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.73,
+  "financial_score": 0.663,
+  "environ_score": 0.841,
+  "civic_score": 0.7,
+  "event_count_24h": 8,
+  "event_counts_by_type": {
+    "merge": 4,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 4,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.81. The ledger registered 8 events over the last 24 hours, with the strongest visible signal in institutional strength at 0.866. ZEUS verification status is disputed, and the heartbeat trend is volatile. Forward signal: watch infrastructure continuity for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch infrastructure continuity for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "USGS water conditions",
+    "Eurostat EU economic data",
+    "Fastly CDN status"
+  ],
+  "quorum_attested": true
+}
