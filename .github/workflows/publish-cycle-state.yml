@@ -36,15 +36,20 @@ jobs:
       - name: Write cycle state
         run: node scripts/mesh/write-cycle-state.js snapshot.json
 
+      # C-339 PR-C item 1: regenerate the cycle headers in CURRENT_CYCLE.md /
+      # CURRENT_STATE.md from the freshly written pulse so they can never freeze.
+      - name: Regenerate cycle docs
+        run: node scripts/gen-cycle-docs.mjs
+
       - name: Commit cycle state
         run: |
           set -euo pipefail
           git config user.name "mobius-bot"
           git config user.email "bot@mobius.systems"
-          git add ledger/cycle-state.json
+          git add ledger/cycle-state.json CURRENT_CYCLE.md CURRENT_STATE.md
           if git diff --staged --quiet; then
-            echo "No changes to cycle-state.json"
+            echo "No changes to cycle-state.json / cycle docs"
             exit 0
           fi
-          git commit -m "chore(mesh): refresh cycle state from snapshot-lite"
+          git commit -m "chore(mesh): refresh cycle state + docs from snapshot-lite"
           git push
