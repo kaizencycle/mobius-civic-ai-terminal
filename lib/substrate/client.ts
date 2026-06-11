@@ -1,6 +1,7 @@
 import { TERMINAL_REGISTRATION } from '@/lib/ledger';
 import { log } from '@/lib/log';
 import { env } from '@/lib/env';
+import { getAgentBearerToken } from '@/lib/substrate/agentToken';
 
 export type SubstrateServiceKey = 'ledger' | 'gi' | 'mic' | 'broker' | 'oaa';
 
@@ -159,11 +160,10 @@ export function getTerminalRegistration(): { terminal_id: string; api_base: stri
 }
 
 /** JWT for Civic Protocol ledger + MIC (identity login). Falls back to legacy RENDER_API_KEY. */
-export function getAgentBearerToken(): string {
-  const primary = process.env.AGENT_SERVICE_TOKEN?.trim() ?? '';
-  if (primary.length > 0) return primary;
-  return process.env.RENDER_API_KEY?.trim() ?? '';
-}
+// C-339 PR-C item 15: implementation extracted to lib/substrate/agentToken.ts
+// (dependency-free, unit-testable); re-exported here so existing importers of
+// '@/lib/substrate/client' are unaffected.
+export { getAgentBearerToken };
 
 function compactLedgerBody(text: string): string {
   return text.replace(/\s+/g, ' ').trim().slice(0, 900);

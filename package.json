@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx tests/contract/shardConfig.test.ts && tsx tests/contract/ledger.test.ts && tsx tests/contract/giBands.test.ts && tsx tests/contract/attestationCoverage.test.ts && tsx tests/contract/attestationErrorClass.test.ts && tsx tests/contract/canonicalSnapshot.test.ts && tsx tests/contract/deriveIntegrityCause.test.ts && tsx tests/contract/canonCounts.test.ts && tsx tests/contract/canonTimelineSeverity.test.ts && tsx tests/contract/resilientWrite.test.ts"
+    "test": "tsx tests/contract/shardConfig.test.ts && tsx tests/contract/ledger.test.ts && tsx tests/contract/giBands.test.ts && tsx tests/contract/attestationCoverage.test.ts && tsx tests/contract/attestationErrorClass.test.ts && tsx tests/contract/canonicalSnapshot.test.ts && tsx tests/contract/deriveIntegrityCause.test.ts && tsx tests/contract/canonCounts.test.ts && tsx tests/contract/canonTimelineSeverity.test.ts && tsx tests/contract/resilientWrite.test.ts && tsx tests/contract/agentBearerToken.test.ts && tsx tests/contract/ignoreBuild.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
