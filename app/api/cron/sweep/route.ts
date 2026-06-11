@@ -4,6 +4,7 @@
  */
 
 import type { NextRequest } from 'next/server';
+import { log } from '@/lib/log';
 import { NextResponse } from 'next/server';
 import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
 import { runMicroSweepPipeline } from '@/lib/signals/runMicroSweep';
@@ -122,7 +123,7 @@ async function run(req: NextRequest) {
       const currentCycleKv = await kvGet<string>(KV_KEYS.CURRENT_CYCLE);
       if (!currentCycleKv) {
         await kvSet(KV_KEYS.CURRENT_CYCLE, cycle, 604800);
-        console.log('[sweep] restored missing CURRENT_CYCLE:', cycle);
+        log.info('[sweep] restored missing CURRENT_CYCLE:', cycle);
       }
     } catch (e) {
       console.warn('[sweep] CURRENT_CYCLE guard failed:', e instanceof Error ? e.message : e);
@@ -151,7 +152,7 @@ async function run(req: NextRequest) {
       const newEntries = council.entries.map((e) => ({ ...e, _indexedAt: new Date().toISOString() }));
       const updated = [...newEntries, ...currentIndex].slice(0, 500);
       await kvSet('agent:journal:index', updated, 604800);
-      console.log('[sweep] AGENT_JOURNAL_INDEX updated, total entries:', updated.length);
+      log.info('[sweep] AGENT_JOURNAL_INDEX updated, total entries:', updated.length);
     } catch (e) {
       console.warn('[sweep] AGENT_JOURNAL_INDEX write failed:', e instanceof Error ? e.message : e);
     }
@@ -163,7 +164,7 @@ async function run(req: NextRequest) {
       const mic = await getMergedMicReadiness(cycle);
       const micWithCycle = { ...mic, cycle, updatedAt: new Date().toISOString() };
       await persistLocalMicReadinessSnapshot(micWithCycle as typeof mic);
-      console.log('[sweep] micReadiness snapshot written:', cycle, new Date().toISOString());
+      log.info('[sweep] micReadiness snapshot written:', cycle, new Date().toISOString());
     } catch (e) {
       console.warn('[cron/sweep] micReadiness refresh failed:', e instanceof Error ? e.message : e);
     }

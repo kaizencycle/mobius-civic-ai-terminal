@@ -11,6 +11,7 @@
 //   7. Log tier routing summary
 
 import type { NextRequest } from 'next/server';
+import { log } from '@/lib/log';
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
@@ -201,7 +202,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (activated.length === 0) {
-    console.log(`[swarm] no agents activated @ ${cycle} (gi=${signals.gi.toFixed(3)})`);
+    log.info(`[swarm] no agents activated @ ${cycle} (gi=${signals.gi.toFixed(3)})`);
     return NextResponse.json({
       ok: true,
       activated: 0,
@@ -253,7 +254,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error(`[swarm] ${agentId} tier${tier} error: ${error}`);
     } else {
-      console.log(`[swarm] ${agentId} tier${tier} ok in ${durationMs}ms (conf=${entry.confidence ?? '?'})`);
+      log.info(`[swarm] ${agentId} tier${tier} ok in ${durationMs}ms (conf=${entry.confidence ?? '?'})`);
     }
   }
 
@@ -274,7 +275,7 @@ export async function GET(request: NextRequest) {
     spentUsd: currentBudget.spentUsd,
   }, 3600);
 
-  console.log(
+  log.info(
     `[swarm] run complete @ ${cycle}: ${successCount}/${results.length} agents ok, ` +
     `$${currentBudget.spentUsd.toFixed(4)} spent, ${totalMs}ms total`,
   );

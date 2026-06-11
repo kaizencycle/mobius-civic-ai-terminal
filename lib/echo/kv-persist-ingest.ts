@@ -4,6 +4,7 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { log } from '@/lib/log';
 import type { IngestResult } from '@/lib/echo/transform';
 import type { IntegrityRating } from '@/lib/echo/integrity-engine';
 import { getEchoStatus } from '@/lib/echo/store';
@@ -201,7 +202,7 @@ export async function persistEchoIngestSideEffects(result: IngestResult): Promis
       const rawMii = typeof agentAverages[agent] === 'number' ? agentAverages[agent] : (lastKnown[agent] ?? 0.9);
       const mii = Number(Math.max(SENTINEL_MII_FLOOR, rawMii).toFixed(4));
       if (rawMii < SENTINEL_MII_FLOOR) {
-        console.log(`[echo] Sentinel floor applied for ${agent}: raw=${rawMii.toFixed(4)} → floored=${mii}`);
+        log.info(`[echo] Sentinel floor applied for ${agent}: raw=${rawMii.toFixed(4)} → floored=${mii}`);
       }
       return { agent, mii, gi: currentGi, cycle: result.cycleId, timestamp: miiTimestamp, source: 'live' as const };
     });

@@ -3,6 +3,7 @@
 // then re-submits to substrate. Also lists remaining v1 seals via GET.
 
 import { NextResponse } from 'next/server';
+import { log } from '@/lib/log';
 import { createHash } from 'crypto';
 import { kvGetRaw, kvSetRawKey, kvDel, kvInspectSamples } from '@/lib/kv/store';
 import { TERMINAL_REGISTRATION } from '@/lib/ledger';
@@ -101,7 +102,7 @@ export async function POST(req: Request) {
   await kvDel(`vault:quarantine:${sealId}`);
   await kvSetRawKey(v1Key, { ...v2Seal, status: 'promoted', promotedAt: ts });
 
-  console.log(`[migrate-v1] ${sealId} migrated v1→v2 @ ${cycle} (substrate: ${substrateOk})`);
+  log.info(`[migrate-v1] ${sealId} migrated v1→v2 @ ${cycle} (substrate: ${substrateOk})`);
   return NextResponse.json({ ok: true, sealId, schema_version: 'v2', cycle, ts, substrateOk });
 }
 

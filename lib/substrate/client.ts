@@ -1,4 +1,5 @@
 import { TERMINAL_REGISTRATION } from '@/lib/ledger';
+import { log } from '@/lib/log';
 
 export type SubstrateServiceKey = 'ledger' | 'gi' | 'mic' | 'broker' | 'oaa';
 
@@ -134,7 +135,7 @@ export function resolveSubstrateLedgerUrl(): string {
       continue;
     }
     if (normalized.includes('onrender.com') || normalized.includes('civic-protocol') || normalized.startsWith('http')) {
-      console.log('[substrate] using ledger URL:', normalized);
+      log.info('[substrate] using ledger URL:', normalized);
       return normalized;
     }
   }
@@ -316,7 +317,7 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
 
   // Deduplication guard: skip re-attestation for entries already successfully submitted.
   if (await isAlreadySubmitted(eventId)) {
-    console.log('[sweep] journal entry already attested, skipping:', eventId);
+    log.info('[sweep] journal entry already attested, skipping:', eventId);
     return { ok: true, entryId: eventId };
   }
 

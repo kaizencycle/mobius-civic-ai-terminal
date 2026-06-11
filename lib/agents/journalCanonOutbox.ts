@@ -2,6 +2,7 @@ import type { Redis } from '@upstash/redis';
 import type { SubstrateJournalWriteInput } from '@/lib/substrate/github-journal';
 import { attestToLedger } from '@/lib/substrate/client';
 import { bumpTerminalWatermark } from '@/lib/terminal/watermark';
+import { log } from '@/lib/log';
 
 export type JournalCanonStatus = 'canon_pending' | 'canon_written' | 'canon_failed';
 
@@ -113,7 +114,7 @@ export async function processJournalCanonOutbox(redis: Redis | null, limit = 5) 
         });
         if (ledgerResult.ok) {
           result = { ok: true, path: `ledger:${ledgerResult.entryId ?? 'submitted'}` };
-          console.log('[journal/canon-outbox] ledger write ok:', item.entry.id);
+          log.info('[journal/canon-outbox] ledger write ok:', item.entry.id);
         } else {
           result = { ok: false, error: ledgerResult.error ?? 'ledger_write_failed' };
           console.error('[journal/canon-outbox] ledger write failed:', result.error);
