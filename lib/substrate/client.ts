@@ -1,5 +1,6 @@
 import { TERMINAL_REGISTRATION } from '@/lib/ledger';
 import { log } from '@/lib/log';
+import { env } from '@/lib/env';
 
 export type SubstrateServiceKey = 'ledger' | 'gi' | 'mic' | 'broker' | 'oaa';
 
@@ -21,11 +22,11 @@ type ServiceConfig = Record<SubstrateServiceKey, string>;
 
 export function getSubstrateServiceConfig(): ServiceConfig {
   return {
-    ledger: process.env.MOBIUS_LEDGER_URL || 'http://localhost:3000',
-    gi: process.env.MOBIUS_GI_URL || 'http://localhost:3001',
-    mic: process.env.MOBIUS_MIC_URL || 'http://localhost:4002',
-    broker: process.env.MOBIUS_BROKER_URL || 'http://localhost:4005',
-    oaa: process.env.MOBIUS_OAA_URL || 'http://localhost:3004',
+    ledger: env.MOBIUS_LEDGER_URL || 'http://localhost:3000',
+    gi: env.MOBIUS_GI_URL || 'http://localhost:3001',
+    mic: env.MOBIUS_MIC_URL || 'http://localhost:4002',
+    broker: env.MOBIUS_BROKER_URL || 'http://localhost:4005',
+    oaa: env.MOBIUS_OAA_URL || 'http://localhost:3004',
   };
 }
 
