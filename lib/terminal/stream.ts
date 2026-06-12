@@ -1,5 +1,6 @@
 import type { Agent, EpiconItem, GISnapshot, Tripwire } from './types';
 import { transformAgent, transformEpicon, transformGI, transformTripwire } from './transforms';
+import { asRecord, str } from './raw';
 
 export type StreamMessage =
   | { type: 'heartbeat'; cycle: string; timestamp: string; message: string }
@@ -14,44 +15,49 @@ const API_BASE =
     : ''
   )?.replace(/\/$/, '') || '';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function parseStreamPayload(raw: any): StreamMessage | null {
-  if (!raw || !raw.type) return null;
+function parseStreamPayload(raw: unknown): StreamMessage | null {
+  const r = asRecord(raw);
+  if (!r.type) return null;
 
-  switch (raw.type) {
+  switch (r.type) {
     case 'heartbeat':
-      return raw as StreamMessage;
+      return {
+        type: 'heartbeat',
+        cycle: str(r.cycle),
+        timestamp: str(r.timestamp),
+        message: str(r.message),
+      };
 
     case 'agents':
       return {
         type: 'agents',
-        cycle: raw.cycle,
-        timestamp: raw.timestamp,
-        agents: Array.isArray(raw.agents) ? raw.agents.map(transformAgent) : [],
+        cycle: str(r.cycle),
+        timestamp: str(r.timestamp),
+        agents: Array.isArray(r.agents) ? r.agents.map(transformAgent) : [],
       };
 
     case 'epicon':
       return {
         type: 'epicon',
-        cycle: raw.cycle,
-        timestamp: raw.timestamp,
-        item: transformEpicon(raw.item),
+        cycle: str(r.cycle),
+        timestamp: str(r.timestamp),
+        item: transformEpicon(r.item),
       };
 
     case 'integrity':
       return {
         type: 'integrity',
-        cycle: raw.cycle,
-        timestamp: raw.timestamp,
-        gi: transformGI(raw.gi),
+        cycle: str(r.cycle),
+        timestamp: str(r.timestamp),
+        gi: transformGI(r.gi),
       };
 
     case 'tripwire':
       return {
         type: 'tripwire',
-        cycle: raw.cycle,
-        timestamp: raw.timestamp,
-        tripwires: Array.isArray(raw.tripwires) ? raw.tripwires.map(transformTripwire) : [],
+        cycle: str(r.cycle),
+        timestamp: str(r.timestamp),
+        tripwires: Array.isArray(r.tripwires) ? r.tripwires.map(transformTripwire) : [],
       };
 
     default:

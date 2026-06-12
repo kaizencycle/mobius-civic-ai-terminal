@@ -1,19 +1,20 @@
 import type { Agent, EpiconItem, GISnapshot, Tripwire } from './types';
+import { asRecord, bool, firstDefined, num, numOpt, oneOf, str, strArray, strOpt } from './raw';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function transformAgent(raw: any): Agent {
+export function transformAgent(raw: unknown): Agent {
+  const r = asRecord(raw);
   return {
-    id: raw.id,
-    name: raw.name,
-    role: raw.role,
-    color: raw.color,
-    status: raw.status,
-    heartbeatOk: raw.heartbeat_ok ?? raw.heartbeatOk,
-    lastAction: raw.last_action ?? raw.lastAction,
+    id: str(r.id),
+    name: str(r.name),
+    role: str(r.role),
+    color: str(r.color),
+    status: str(r.status) as Agent['status'],
+    heartbeatOk: bool(firstDefined(r, ['heartbeat_ok', 'heartbeatOk'])),
+    lastAction: str(firstDefined(r, ['last_action', 'lastAction'])),
   };
 }
 
-const EPICON_CATEGORIES = new Set([
+const EPICON_CATEGORIES = [
   'geopolitical',
   'market',
   'governance',
@@ -21,91 +22,86 @@ const EPICON_CATEGORIES = new Set([
   'narrative',
   'ethics',
   'civic-risk',
-]);
+] as const;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function transformEpicon(raw: any): EpiconItem {
-  const catRaw = raw.category ?? raw.dominantTheme;
-  const category = EPICON_CATEGORIES.has(catRaw) ? catRaw : 'geopolitical';
+export function transformEpicon(raw: unknown): EpiconItem {
+  const r = asRecord(raw);
+  const category = oneOf(firstDefined(r, ['category', 'dominantTheme']), EPICON_CATEGORIES, 'geopolitical');
 
-  const body = typeof raw.body === 'string' ? raw.body : undefined;
+  const body = strOpt(r.body);
+  const summaryRaw = strOpt(r.summary);
   const summary =
-    typeof raw.summary === 'string' && raw.summary.trim()
-      ? raw.summary
+    summaryRaw && summaryRaw.trim()
+      ? summaryRaw
       : body && body.trim()
         ? body.slice(0, 280)
         : '';
 
-  const verified = Boolean(raw.verified);
+  const verified = bool(r.verified);
   const status: EpiconItem['status'] = verified ? 'verified' : 'pending';
 
-  const author = typeof raw.author === 'string' ? raw.author : 'operator';
-  const tierRaw = raw.confidence_tier ?? raw.confidenceTier;
+  const author = str(r.author, 'operator');
+  const tierRaw = numOpt(firstDefined(r, ['confidence_tier', 'confidenceTier']));
   const confidenceTier =
-    typeof tierRaw === 'number' && tierRaw >= 0 && tierRaw <= 4
+    tierRaw !== undefined && tierRaw >= 0 && tierRaw <= 4
       ? (tierRaw as EpiconItem['confidenceTier'])
       : 2;
 
-  const trace =
-    Array.isArray(raw.trace) && raw.trace.every((t: unknown): t is string => typeof t === 'string')
-      ? raw.trace
-      : [];
+  const trace = strArray(r.trace);
+
+  const promotionStateRaw = r.promotion_state;
+  const promotionState =
+    promotionStateRaw === 'pending' ||
+    promotionStateRaw === 'selected' ||
+    promotionStateRaw === 'promoted' ||
+    promotionStateRaw === 'failed'
+      ? promotionStateRaw
+      : undefined;
 
   return {
-    id: raw.id,
-    title: raw.title,
+    id: str(r.id),
+    title: str(r.title),
     category,
     status,
     confidenceTier,
-    ownerAgent: raw.owner_agent ?? raw.ownerAgent ?? author,
-    sources: Array.isArray(raw.sources) ? raw.sources : [],
-    timestamp: raw.timestamp,
+    ownerAgent: str(firstDefined(r, ['owner_agent', 'ownerAgent']) ?? author),
+    sources: Array.isArray(r.sources) ? (r.sources as string[]) : [],
+    timestamp: str(r.timestamp),
     summary,
     trace,
-    feedSource: typeof raw.source === 'string' ? raw.source : undefined,
-    agentOrigin:
-      typeof raw.agentOrigin === 'string'
-        ? raw.agentOrigin
-        : typeof raw.agent_origin === 'string'
-          ? raw.agent_origin
-          : undefined,
-    promotionState:
-      raw.promotion_state === 'pending' ||
-      raw.promotion_state === 'selected' ||
-      raw.promotion_state === 'promoted' ||
-      raw.promotion_state === 'failed'
-        ? raw.promotion_state
-        : undefined,
-    assignedAgents: Array.isArray(raw.assigned_agents) ? raw.assigned_agents.filter((a: unknown): a is string => typeof a === 'string') : undefined,
-    committedEntries: Array.isArray(raw.committed_entries) ? raw.committed_entries.filter((a: unknown): a is string => typeof a === 'string') : undefined,
+    feedSource: strOpt(r.source),
+    agentOrigin: strOpt(firstDefined(r, ['agentOrigin', 'agent_origin'])),
+    promotionState,
+    assignedAgents: Array.isArray(r.assigned_agents) ? strArray(r.assigned_agents) : undefined,
+    committedEntries: Array.isArray(r.committed_entries) ? strArray(r.committed_entries) : undefined,
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function transformGI(raw: any): GISnapshot {
+export function transformGI(raw: unknown): GISnapshot {
+  const r = asRecord(raw);
   return {
-    score: raw.score,
-    delta: raw.delta,
-    mode: raw.mode,
-    terminalStatus: raw.terminal_status ?? raw.terminalStatus,
-    primaryDriver: raw.primary_driver ?? raw.primaryDriver,
-    summary: raw.summary,
-    institutionalTrust: raw.institutional_trust ?? raw.institutionalTrust,
-    infoReliability: raw.info_reliability ?? raw.infoReliability,
-    consensusStability: raw.consensus_stability ?? raw.consensusStability,
-    signalBreakdown: raw.signal_breakdown ?? raw.signalBreakdown,
-    weekly: raw.weekly,
+    score: num(r.score),
+    delta: num(r.delta),
+    mode: r.mode as GISnapshot['mode'],
+    terminalStatus: firstDefined(r, ['terminal_status', 'terminalStatus']) as GISnapshot['terminalStatus'],
+    primaryDriver: strOpt(firstDefined(r, ['primary_driver', 'primaryDriver'])),
+    summary: strOpt(r.summary),
+    institutionalTrust: num(firstDefined(r, ['institutional_trust', 'institutionalTrust'])),
+    infoReliability: num(firstDefined(r, ['info_reliability', 'infoReliability'])),
+    consensusStability: num(firstDefined(r, ['consensus_stability', 'consensusStability'])),
+    signalBreakdown: firstDefined(r, ['signal_breakdown', 'signalBreakdown']) as GISnapshot['signalBreakdown'],
+    weekly: Array.isArray(r.weekly) ? (r.weekly as number[]) : [],
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function transformTripwire(raw: any): Tripwire {
+export function transformTripwire(raw: unknown): Tripwire {
+  const r = asRecord(raw);
   return {
-    id: raw.id,
-    label: raw.label,
-    severity: raw.severity,
-    owner: raw.owner,
-    openedAt: raw.opened_at ?? raw.openedAt,
-    action: raw.action,
+    id: str(r.id),
+    label: str(r.label),
+    severity: str(r.severity) as Tripwire['severity'],
+    owner: str(r.owner),
+    openedAt: str(firstDefined(r, ['opened_at', 'openedAt'])),
+    action: str(r.action),
   };
 }

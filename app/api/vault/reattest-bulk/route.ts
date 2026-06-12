@@ -3,6 +3,7 @@
 // GET  — full quarantine audit: counts, ages, v1 vs v2.
 
 import { NextResponse } from 'next/server';
+import { log } from '@/lib/log';
 import { kvSetRawKey, kvDel, kvGetRaw, kvInspectSamples } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
   }
 
   await kvSetRawKey(HEARTBEAT_KEY, { lastBulkReattest: ts, count: queued.length, cycle });
-  console.log(`[reattest-bulk] queued ${queued.length} seals @ ${cycle}:`, queued);
+  log.info(`[reattest-bulk] queued ${queued.length} seals @ ${cycle}:`, queued);
 
   return NextResponse.json({ ok: true, queued, errors, cycle, ts });
 }

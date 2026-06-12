@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-06-11T11:06:32.005Z",
+  "agent": "ATLAS",
+  "cycle": "C-339",
+  "gi": 0.71,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "NWS API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Eurostat EU economic data",
+      "severity": "elevated"
+    },
+    {
+      "label": "npm registry health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Terminal self-ping latency",
+      "severity": "elevated"
+    },
+    {
+      "label": "Fastly CDN status",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 10,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-11T11:06:14.749Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.806,
+  "micro_cycle": "C-306",
+  "degraded_agents": 0,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-339",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": 502,
+  "journal_id": "journal-ATLAS-C-339-nktka5",
+  "journal_ok": false,
+  "journal_route": "agents/journal",
+  "journal_error": {
+    "ok": false,
+    "canonical": false,
+    "mirrored_to_kv": false,
+    "substrate_error": "Error: ledger 401: {\"detail\":\"Token verification failed: Client error '401 Unauthorized' for url 'https://mobius-identity-service.onrender.com/auth/introspect'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401\"}",
+    "kv_error": "kv_write_failed",
+    "entryId": "journal-ATLAS-C-339-nktka5",
+    "timestamp": "2026-06-11T11:06:04.925Z"
+  }
+}

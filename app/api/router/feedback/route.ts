@@ -14,10 +14,17 @@ async function append(record: RouterFeedbackRecord) {
 }
 
 export async function POST(req: NextRequest) {
-  let body: any = {};
+  let body: unknown = {};
   try { body = await req.json(); } catch {}
+  const b = (body !== null && typeof body === 'object' ? body : {}) as Record<string, unknown>;
 
-  const record = createRouterFeedbackRecord(body);
+  const record = createRouterFeedbackRecord({
+    decision_id: typeof b.decision_id === 'string' ? b.decision_id : '',
+    outcome: b.outcome as RouterFeedbackRecord['outcome'],
+    operator_note: typeof b.operator_note === 'string' ? b.operator_note : undefined,
+    actual_cis: typeof b.actual_cis === 'number' ? b.actual_cis : undefined,
+    actual_cost: typeof b.actual_cost === 'number' ? b.actual_cost : undefined,
+  });
   await append(record);
 
   return NextResponse.json({ ok: true, record });

@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { log } from '@/lib/log';
 import { NextResponse } from 'next/server';
 import { getJournalRedisClient } from '@/lib/agents/journalLane';
 import { processJournalCanonOutbox } from '@/lib/agents/journalCanonOutbox';
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest) {
   const githubToken = Boolean(process.env.SUBSTRATE_GITHUB_TOKEN?.trim() || process.env.GITHUB_TOKEN?.trim());
   const github_direct_write_configured = !substrateConfigured && githubToken;
 
-  console.log('[journal-canonize] running', {
+  log.info('[journal-canonize] running', {
     substrate_target: target.ledgerBase,
     substrate_configured: substrateConfigured,
     github_direct_write_configured,

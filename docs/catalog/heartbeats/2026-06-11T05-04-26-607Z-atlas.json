@@ -1,0 +1,90 @@
+{
+  "timestamp": "2026-06-11T05:04:26.607Z",
+  "agent": "ATLAS",
+  "cycle": "C-339",
+  "gi": 0.81,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "USGS water conditions",
+      "severity": "critical"
+    },
+    {
+      "label": "NWS API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Eurostat EU economic data",
+      "severity": "critical"
+    },
+    {
+      "label": "npm registry health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Terminal self-ping latency",
+      "severity": "elevated"
+    },
+    {
+      "label": "Fastly CDN status",
+      "severity": "critical"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 4,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-11T05:04:26.147Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.787,
+  "micro_cycle": "C-306",
+  "degraded_agents": 3,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-339",
+  "force_journal": true,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": 502,
+  "journal_id": "journal-ATLAS-C-339-twxxoj",
+  "journal_ok": false,
+  "journal_route": "agents/journal",
+  "journal_error": {
+    "ok": false,
+    "canonical": false,
+    "mirrored_to_kv": false,
+    "substrate_error": "Error: ledger 401: Token verification failed (mobius-identity-service introspect 401)",
+    "kv_error": "kv_write_failed",
+    "entryId": "journal-ATLAS-C-339-twxxoj",
+    "timestamp": "2026-06-11T05:04:31.127Z"
+  }
+}

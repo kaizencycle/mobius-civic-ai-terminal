@@ -23,12 +23,12 @@ function pick(obj: Json, keys: string[]): unknown {
 }
 
 function getNested(obj: Json, path: Array<string | number>): unknown {
-  let current: any = obj;
+  let current: unknown = obj;
   for (const part of path) {
     if (!current || typeof current !== 'object' || !(part in current)) {
       return undefined;
     }
-    current = current[part];
+    current = (current as Record<string | number, unknown>)[part];
   }
   return current;
 }

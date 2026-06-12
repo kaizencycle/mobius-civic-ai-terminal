@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-06-10T20:03:17.917458Z",
+  "agent": "ATLAS",
+  "cycle": "C-338",
+  "gi": 0.777,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "USGS water conditions",
+      "severity": "critical"
+    },
+    {
+      "label": "NWS API health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Eurostat EU economic data",
+      "severity": "critical"
+    },
+    {
+      "label": "npm registry health",
+      "severity": "elevated"
+    },
+    {
+      "label": "Terminal self-ping latency",
+      "severity": "elevated"
+    },
+    {
+      "label": "Fastly CDN status",
+      "severity": "critical"
+    },
+    {
+      "label": "GBIF biodiversity data health",
+      "severity": "critical"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-10T20:03:17.671Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.771,
+  "micro_cycle": "C-306",
+  "degraded_agents": 4,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-338",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": 502,
+  "journal_id": "journal-ATLAS-C-338-cqc5h0",
+  "journal_ok": true,
+  "journal_route": "agents/journal",
+  "journal_canonical": false,
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-338-mq8hxiti4e6j",
+  "journal_error": {
+    "ok": false,
+    "canonical": false,
+    "mirrored_to_kv": false,
+    "substrate_error": "ledger 401 identity introspect",
+    "kv_error": "kv_write_failed",
+    "entryId": "journal-ATLAS-C-338-cqc5h0",
+    "timestamp": "2026-06-10T20:03:17.917458Z"
+  }
+}

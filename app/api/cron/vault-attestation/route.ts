@@ -21,6 +21,7 @@
  */
 
 import type { NextRequest } from 'next/server';
+import { log } from '@/lib/log';
 import { NextResponse } from 'next/server';
 import type { Seal } from '@/lib/vault-v2/types';
 import {
@@ -172,7 +173,7 @@ export async function GET(req: NextRequest) {
   const lastRun = await kvGet<number>(VAULT_ATTEST_LAST_RUN_KEY).catch(() => null);
   if (lastRun && Date.now() - lastRun < MIN_RUN_INTERVAL_MS) {
     const agoSec = Math.floor((Date.now() - lastRun) / 1000);
-    console.log(`[vault-attestation] skipping — ran ${agoSec}s ago`);
+    log.info(`[vault-attestation] skipping — ran ${agoSec}s ago`);
     return NextResponse.json({ ok: true, skipped: true, reason: 'too_soon', last_run_s_ago: agoSec });
   }
   await kvSet(VAULT_ATTEST_LAST_RUN_KEY, Date.now()).catch(() => {});
