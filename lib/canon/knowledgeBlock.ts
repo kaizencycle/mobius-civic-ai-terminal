@@ -168,8 +168,16 @@ export async function validateKnowledgeBlock(block: KnowledgeBlock): Promise<Val
   const sourced = (p?.epicon_ids?.length ?? 0) + (p?.journal_ids?.length ?? 0) + (p?.source_hashes?.length ?? 0);
   if (sourced === 0) errors.push('unsourced: provenance has no epicon/journal/source references');
 
-  // Attested entries must carry quorum.
+  // Attested entries must carry quorum: ZEUS pass, no non-ZEUS reject, ≥4 passes.
   if (block.status === 'attested') {
+    const zeus = block.attestations.ZEUS;
+    if (zeus?.verdict !== 'pass') errors.push('attested block requires ZEUS pass');
+
+    const nonZeusRejects = (Object.keys(block.attestations) as SentinelAgent[]).filter(
+      (a) => a !== 'ZEUS' && block.attestations[a]?.verdict === 'reject',
+    );
+    if (nonZeusRejects.length > 0) errors.push(`attested block has non-ZEUS reject(s): ${nonZeusRejects.join(', ')}`);
+
     const passes = Object.values(block.attestations).filter((a) => a?.verdict === 'pass').length;
     if (passes < 4) errors.push(`attested block has only ${passes}/5 passing attestations (need ≥4, ZEUS non-reject)`);
   }
