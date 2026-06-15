@@ -368,12 +368,21 @@ const DAEDALUS_INSTRUMENTS: SignalInstrument[] = [
     // C-343: /api/health/heartbeats returns { journal, runtime, vault, promote, timestamp }
     // and has never returned an `ok` field, so this weight-2 self-ping scored a permanent
     // 0.3 — falsely reporting the terminal's own infra as degraded and dragging DAEDALUS.
-    // A well-formed ISO `timestamp` means the health route served the request (terminal is
-    // reachable); also surface a missing runtime heartbeat as a mild degradation.
+    // The response `timestamp` is generated per-request, so a valid one only proves the
+    // health route served us (terminal reachable). The real freshness signal is `runtime`
+    // (KV_KEYS.HEARTBEAT): the heartbeat cron runs every 5m with a 15m TTL, but
+    // writeSynthesisCronHeartbeatKv writes that key with NO TTL, so a stale-but-present
+    // runtime is possible. Grade on runtime freshness so a stale heartbeat can't show a
+    // perfect score (operator truth): fresh -> 1.0, stale (>15m) -> 0.6, absent -> 0.8,
+    // unreachable -> 0.3.
     normalize: (d: unknown) => {
       const hb = d as { timestamp?: string; runtime?: string | null };
       if (typeof hb?.timestamp !== 'string' || Number.isNaN(Date.parse(hb.timestamp))) return 0.3;
-      return hb.runtime ? 1.0 : 0.8;
+      if (!hb.runtime) return 0.8;
+      const runtimeAgeMs = Date.now() - Date.parse(hb.runtime);
+      if (Number.isNaN(runtimeAgeMs)) return 0.8;
+      const RUNTIME_FRESH_MS = 15 * 60 * 1000; // 3× the 5-min heartbeat cadence (== intended TTL)
+      return runtimeAgeMs <= RUNTIME_FRESH_MS ? 1.0 : 0.6;
     },
     weight: 2,
   },
