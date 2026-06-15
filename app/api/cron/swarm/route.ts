@@ -92,6 +92,7 @@ async function callAgent(
   tier: number,
   signals: SwarmSignals,
   busState: Record<string, unknown>,
+  creditExhausted: boolean,
 ): Promise<{ result: unknown; durationMs: number; error: string | null }> {
   const start = Date.now();
   const model = TIER_MODEL[tier] ?? TIER_MODEL[2];
@@ -108,13 +109,12 @@ async function callAgent(
     timestamp: new Date().toISOString(),
   });
 
-  const isCreditExhausted = await isAtlasCreditExhausted();
-  const effectiveModel = isCreditExhausted && tier > 1
+  // C-343: credit-exhausted state is resolved once per run by the caller; the per-agent
+  // per-cycle "credit-exhausted fallback" warn (logged for every tier>1 agent during the
+  // whole 1h cooldown) is summarised in one line by GET() instead of spamming the stream.
+  const effectiveModel = creditExhausted && tier > 1
     ? TIER_MODEL[1] // fall back to Haiku when ATLAS credits are exhausted
     : model;
-  if (isCreditExhausted && tier > 1) {
-    console.warn(`[swarm] ${agentId} credit-exhausted fallback: ${model} → ${effectiveModel}`);
-  }
 
   try {
     const msg = await client.messages.create({
@@ -218,6 +218,18 @@ export async function GET(request: NextRequest) {
   const tiersUsed: number[] = [];
   let currentBudget = budget;
 
+  // C-343: resolve the ATLAS credit-exhausted cooldown once per run and log a single
+  // summary line, instead of warning per agent per cycle for the full 1h cooldown window.
+  const creditExhausted = await isAtlasCreditExhausted();
+  if (creditExhausted) {
+    const downgraded = activated.filter((a) => a.tier > 1).map((a) => a.agentId);
+    if (downgraded.length > 0) {
+      console.warn(
+        `[swarm] ATLAS credits exhausted (cooldown active) — ${downgraded.length} tier>1 agent(s) routed to Haiku: ${downgraded.join(', ')}`,
+      );
+    }
+  }
+
   for (const { agentId, tier } of activated) {
     // Re-check budget before each call (prior calls reduce it)
     if (!canAfford(currentBudget, tier)) {
@@ -231,6 +243,7 @@ export async function GET(request: NextRequest) {
       tier,
       signals,
       busState,
+      creditExhausted,
     );
 
     const entry: AgentBusEntry = {
