@@ -62,6 +62,14 @@ export async function fetchInstrument(inst: SignalInstrument): Promise<Instrumen
   if (inst.fallback) {
     const fallback = await tryUrl(inst, inst.fallback, 'fallback', timeout, start);
     if (fallback) return fallback;
+  } else {
+    // C-343: 34 of 40 instruments are single-source, so a single transient blip
+    // (cold start, momentary timeout, brief 5xx) scores a hard 0 and drags the agent
+    // composite with no recovery path. Give single-source instruments exactly one
+    // bounded retry on the primary before declaring failure. Instruments that already
+    // have a fallback chain are left unchanged (the fallback is their resilience path).
+    const retry = await tryUrl(inst, inst.primary, 'primary', timeout, start);
+    if (retry) return retry;
   }
 
   return {
@@ -71,7 +79,7 @@ export async function fetchInstrument(inst: SignalInstrument): Promise<Instrumen
     score: 0,
     source: 'error',
     latencyMs: Date.now() - start,
-    error: 'primary and fallback both failed',
+    error: inst.fallback ? 'primary and fallback both failed' : 'primary failed (with retry)',
   };
 }
 
