@@ -218,9 +218,12 @@ export async function GET(request: NextRequest) {
   const tiersUsed: number[] = [];
   let currentBudget = budget;
 
-  // C-343: resolve the ATLAS credit-exhausted cooldown once per run and log a single
+  // C-343: resolve the ATLAS credit-exhausted cooldown once up front and log a single
   // summary line, instead of warning per agent per cycle for the full 1h cooldown window.
-  const creditExhausted = await isAtlasCreditExhausted();
+  // The flag stays mutable so that if credits run out *mid-run* (first tier>1 call throws a
+  // credit-balance error), later tier>1 agents in this same run still fall back to Haiku —
+  // preserving the prior per-agent re-read behaviour without the per-agent log spam.
+  let creditExhausted = await isAtlasCreditExhausted();
   if (creditExhausted) {
     const downgraded = activated.filter((a) => a.tier > 1).map((a) => a.agentId);
     if (downgraded.length > 0) {
@@ -245,6 +248,13 @@ export async function GET(request: NextRequest) {
       busState,
       creditExhausted,
     );
+
+    // If this call exhausted credits mid-run, flip the flag so the remaining tier>1 agents
+    // in this run route to Haiku (callAgent already set the KV cooldown). Log once.
+    if (!creditExhausted && error && error.toLowerCase().includes('credit balance')) {
+      creditExhausted = true;
+      console.warn('[swarm] ATLAS credits exhausted mid-run — remaining tier>1 agents will route to Haiku');
+    }
 
     const entry: AgentBusEntry = {
       agentId,
