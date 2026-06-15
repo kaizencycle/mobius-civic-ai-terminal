@@ -12,6 +12,29 @@ export interface SignalInstrument {
   timeoutMs?: number;
 }
 
+// C-343: shared Atlassian Statuspage v2 (status.json) scorer. The prior inline
+// mappings collapsed every non-none/minor indicator to 0.3, which scored a
+// benign scheduled "maintenance" window the same as a "major" outage. Map every
+// documented indicator explicitly so the infra score reflects operator truth.
+// Indicators: https://status.io / statuspage.io → none | minor | major | critical | maintenance
+function statuspageScore(data: unknown): number {
+  const indicator = (data as { status?: { indicator?: string } })?.status?.indicator;
+  switch (indicator) {
+    case 'none':
+      return 1.0;
+    case 'maintenance':
+      return 0.85;
+    case 'minor':
+      return 0.7;
+    case 'major':
+      return 0.3;
+    case 'critical':
+      return 0.1;
+    default:
+      return 0.5; // unknown/missing indicator — degraded but not a hard zero
+  }
+}
+
 // ── GAIA: Environmental (8) ──────────────────────────────
 const GAIA_INSTRUMENTS: SignalInstrument[] = [
   {
@@ -106,8 +129,19 @@ const GAIA_INSTRUMENTS: SignalInstrument[] = [
     id: 'gaia-nws-status',
     agent: 'GAIA',
     label: 'NWS API health',
-    primary: 'https://api.weather.gov/',
-    normalize: (d: unknown) => (d as { status?: string })?.status === 'OK' ? 1.0 : 0.3,
+    // C-343: api.weather.gov root now serves an HTML landing page (Dynatrace-gated),
+    // so the old `status === 'OK'` check parsed HTML and scored a permanent 0.3 even
+    // though NWS was healthy. Probe a real JSON endpoint (/points) instead and treat a
+    // well-formed GeoJSON Feature (has `properties`) as healthy.
+    primary: 'https://api.weather.gov/points/40.71,-74.01',
+    fallback: 'https://api.weather.gov/alerts/types',
+    normalize: (d: unknown) => {
+      const props = (d as { properties?: unknown })?.properties;
+      if (props && typeof props === 'object') return 1.0;
+      // /alerts/types fallback returns an `eventTypes` array.
+      const types = (d as { eventTypes?: unknown[] })?.eventTypes;
+      return Array.isArray(types) && types.length > 0 ? 0.9 : 0.3;
+    },
     weight: 0.5,
   },
 ];
@@ -255,11 +289,22 @@ const THEMIS_INSTRUMENTS: SignalInstrument[] = [
   {
     id: 'themis-oecd',
     agent: 'THEMIS',
-    label: 'Eurostat EU economic data',
+    label: 'EU economic data freshness',
     // C-337: stats.oecd.org deprecated; sdmx.oecd.org also 403 in prod (cloud IP blocked).
-    // Codex review: replaced with Eurostat public API (EU statistical office, no key, stable).
-    primary: 'https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/tec00001?format=JSON&sinceTimePeriod=2022&lastTimePeriod=1',
+    // Eurostat public API (EU statistical office, no key, stable).
+    // C-343: Eurostat rejects `sinceTimePeriod` + `lastTimePeriod` together with HTTP 400
+    // (verified) — both/fallback failed in prod, scoring 0. Drop the conflicting
+    // `sinceTimePeriod` so the request is well-formed (verified 200), and add a
+    // different-host World Bank EU-aggregate GDP fallback so a Eurostat outage no longer
+    // blinds this single-source instrument.
+    primary: 'https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/tec00001?format=JSON&lastTimePeriod=1',
+    fallback: 'https://api.worldbank.org/v2/country/EUU/indicator/NY.GDP.MKTP.CD?format=json&per_page=1&mrv=1',
     normalize: (d: unknown) => {
+      // World Bank fallback shape: [meta, [rows]]
+      if (Array.isArray(d)) {
+        return Array.isArray((d as unknown[])[1]) && ((d as unknown[][])[1]?.length ?? 0) > 0 ? 0.85 : 0.3;
+      }
+      // Eurostat primary shape: { value: { "0": n, ... } }
       const vals = (d as { value?: Record<string, unknown> })?.value;
       return vals && Object.keys(vals).length > 0 ? 0.85 : 0.3;
     },
@@ -306,9 +351,13 @@ const DAEDALUS_INSTRUMENTS: SignalInstrument[] = [
     id: 'daedalus-npm',
     agent: 'DAEDALUS',
     label: 'npm registry health',
-    primary: 'https://registry.npmjs.org/-/ping',
+    // C-343: registry.npmjs.org/-/ping (and the registry root) now return an empty `{}`
+    // — the CouchDB `db_name: "registry"` field is gone — so the old check scored a
+    // permanent 0.3 even though npm was fully healthy. Probe a real package metadata doc
+    // (`npm` itself) and confirm the registry serves correct content (verified 200).
+    primary: 'https://registry.npmjs.org/npm/latest',
     normalize: (d: unknown) =>
-      (d as { db_name?: string })?.db_name === 'registry' ? 1.0 : 0.3,
+      (d as { name?: string })?.name === 'npm' ? 1.0 : 0.3,
     weight: 1,
   },
   {
@@ -316,7 +365,16 @@ const DAEDALUS_INSTRUMENTS: SignalInstrument[] = [
     agent: 'DAEDALUS',
     label: 'Terminal self-ping latency',
     primary: `${process.env.NEXT_PUBLIC_TERMINAL_URL ?? 'https://mobius-civic-ai-terminal.vercel.app'}/api/health/heartbeats`,
-    normalize: (d: unknown) => ((d as { ok?: boolean })?.ok ? 1.0 : 0.3),
+    // C-343: /api/health/heartbeats returns { journal, runtime, vault, promote, timestamp }
+    // and has never returned an `ok` field, so this weight-2 self-ping scored a permanent
+    // 0.3 — falsely reporting the terminal's own infra as degraded and dragging DAEDALUS.
+    // A well-formed ISO `timestamp` means the health route served the request (terminal is
+    // reachable); also surface a missing runtime heartbeat as a mild degradation.
+    normalize: (d: unknown) => {
+      const hb = d as { timestamp?: string; runtime?: string | null };
+      if (typeof hb?.timestamp !== 'string' || Number.isNaN(Date.parse(hb.timestamp))) return 0.3;
+      return hb.runtime ? 1.0 : 0.8;
+    },
     weight: 2,
   },
   {
@@ -326,24 +384,24 @@ const DAEDALUS_INSTRUMENTS: SignalInstrument[] = [
     // C-337: Radar BGP API requires auth token; replaced with Cloudflare public statuspage (no auth).
     // Label updated to match what the endpoint actually measures (overall CDN/infra health, not BGP hijacks).
     primary: 'https://www.cloudflarestatus.com/api/v2/status.json',
-    normalize: (d: unknown) => {
-      const indicator = (d as { status?: { indicator?: string } })?.status?.indicator;
-      return indicator === 'none' ? 1.0 : indicator === 'minor' ? 0.7 : 0.3;
-    },
+    normalize: statuspageScore,
     weight: 1,
     timeoutMs: 5000,
   },
   {
-    id: 'daedalus-fastly-status',
+    id: 'daedalus-netlify-status',
     agent: 'DAEDALUS',
-    label: 'Fastly CDN status',
-    // C-337: fastlystatus.com moved to status.fastly.com (statuspage.io).
-    primary: 'https://status.fastly.com/api/v2/status.json',
-    normalize: (d: unknown) => {
-      const indicator = (d as { status?: { indicator?: string } })?.status?.indicator;
-      return indicator === 'none' ? 1.0 : indicator === 'minor' ? 0.7 : 0.3;
-    },
+    label: 'Netlify edge/CDN status',
+    // C-343: Fastly retired its public statuspage v2 API — status.fastly.com now 301s to a
+    // plain HTML page (www.fastlystatus.com) with no JSON, so the instrument scored a hard 0
+    // ("primary and fallback both failed") every cycle and dragged DAEDALUS. Repointed to
+    // Netlify's Atlassian statuspage (verified 200, identical status.json schema) to keep a
+    // distinct third-party edge/CDN health signal. Renamed from daedalus-fastly-status so the
+    // id matches the actual source (operator truth).
+    primary: 'https://www.netlifystatus.com/api/v2/status.json',
+    normalize: statuspageScore,
     weight: 0.8,
+    timeoutMs: 5000,
   },
   {
     id: 'daedalus-crt-sh',
