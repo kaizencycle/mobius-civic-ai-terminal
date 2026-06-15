@@ -75,13 +75,20 @@ export async function GET(request: NextRequest) {
 
     const body = await res.json().catch(() => null);
     if (!res.ok) {
-      console.error(`[promote] /api/epicon/promote returned ${res.status} — AGENT_SERVICE_TOKEN rejected at Identity /auth/introspect (SUBSTRATE_TOKEN is the internal cron secret, not the ledger JWT)`);
-      if (res.status === 401) {
+      // C-343: classify by status so the error stream isn't polluted every 5 minutes.
+      // Transient 5xx is expected Render cold-start (see heartbeat note above) → warn.
+      // 4xx (esp. 401/403) is a real auth/config fault that needs operator attention → error.
+      if (res.status >= 500) {
+        console.warn(`[promote] /api/epicon/promote transient ${res.status} (likely Render cold-start) — heartbeat already written, will retry next cycle`);
+      } else if (res.status === 401 || res.status === 403) {
+        console.error(`[promote] /api/epicon/promote returned ${res.status} — AGENT_SERVICE_TOKEN rejected at Identity /auth/introspect (SUBSTRATE_TOKEN is the internal cron secret, not the ledger JWT)`);
         // C-332 OPT-3: never log token characters — log only length+presence.
         const tokenLen = (authHeader ?? '').replace(/^Bearer /, '').length;
-        console.error(`[promote] 401 received — token len=${tokenLen} present=${tokenLen > 0}`);
+        console.error(`[promote] ${res.status} received — token len=${tokenLen} present=${tokenLen > 0}`);
         const failCount = ((await kvGet<number>(PROMOTE_FAIL_KEY)) ?? 0) + 1;
         await kvSet(PROMOTE_FAIL_KEY, failCount, 86400).catch(() => {});
+      } else {
+        console.error(`[promote] /api/epicon/promote returned ${res.status}`);
       }
     } else {
       log.info(`[promote] epicon promote ok @ ${process.env.CURRENT_CYCLE ?? 'C-305'}`);
