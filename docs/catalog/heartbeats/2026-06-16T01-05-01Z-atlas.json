@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-06-16T01:05:01.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-343",
+  "gi": 0.81,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 0,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-16T01:03:19.598Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.889,
+  "degraded_agents": 1,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-343",
+  "force_journal_cycle_mismatch": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": 502,
+  "journal_id": "journal-ATLAS-C-343-czx37i",
+  "journal_ok": false,
+  "journal_route": "agents/journal",
+  "journal_notes": "Substrate ledger 401 on introspect; KV mirror failed; entryId assigned in hot lane."
+}
