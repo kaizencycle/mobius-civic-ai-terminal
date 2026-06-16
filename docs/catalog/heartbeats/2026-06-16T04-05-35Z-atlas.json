@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-06-16T04:05:35.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-344",
+  "gi": 0.9,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-16T04:04:53.728Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.882,
+  "degraded_agents": 0,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-343",
+  "force_journal_cycle_mismatch": true,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": 200,
+  "journal_id": "journal-ATLAS-C-344-w6w0st",
+  "journal_ok": true,
+  "journal_route": "agents/journal",
+  "journal_notes": "Substrate ledger 401 on introspect; mirrored_to_kv=true; pending_immortalization."
+}
