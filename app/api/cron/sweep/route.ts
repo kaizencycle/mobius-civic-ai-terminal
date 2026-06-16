@@ -29,7 +29,7 @@ async function runZeusVerificationSweep(origin: string): Promise<ZeusSweepResult
       signal: AbortSignal.timeout(12_000),
     });
     if (!res.ok) {
-      console.warn('[cron/sweep] ZEUS verification probe non-OK:', res.status);
+      console.warn(`[cron/sweep] ZEUS verification probe non-OK: ${res.status} — ${res.status >= 500 ? 'CPC/substrate upstream error' : 'auth or routing issue; check AGENT_SERVICE_TOKEN'}`);
       return 'inconclusive';
     }
     const body = (await res.json()) as {

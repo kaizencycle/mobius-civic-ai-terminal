@@ -92,11 +92,22 @@ const GAIA_INSTRUMENTS: SignalInstrument[] = [
     agent: 'GAIA',
     label: 'OpenAQ air quality',
     // C-337: OpenAQ v3 requires API key; replaced with Open-Meteo Air Quality API (free, no auth).
+    // C-344 OPT-7: EU fallback (London) — same provider, different region, identical schema, verified 200.
     primary: 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=40.71&longitude=-74.01&current=us_aqi',
+    fallback: 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=51.51&longitude=-0.12&current=european_aqi',
     normalize: (d: unknown) => {
-      const aqi = (d as { current?: { us_aqi?: number } })?.current?.us_aqi;
-      if (aqi == null) return 0.5;
-      return aqi <= 50 ? 0.95 : aqi <= 100 ? 0.75 : aqi <= 150 ? 0.5 : aqi <= 200 ? 0.3 : 0.1;
+      const curr = (d as { current?: { us_aqi?: number; european_aqi?: number } })?.current;
+      // US AQI scale: 0–50 good, 51–100 moderate, 101–150 unhealthy-sensitive, 151–200 unhealthy, >200 very unhealthy
+      if (curr?.us_aqi != null) {
+        const aqi = curr.us_aqi;
+        return aqi <= 50 ? 0.95 : aqi <= 100 ? 0.75 : aqi <= 150 ? 0.5 : aqi <= 200 ? 0.3 : 0.1;
+      }
+      // European AQI scale (Open-Meteo): 0–20 good, 20–40 fair, 40–60 moderate, 60–80 poor, >80 very poor
+      if (curr?.european_aqi != null) {
+        const aqi = curr.european_aqi;
+        return aqi <= 20 ? 0.95 : aqi <= 40 ? 0.75 : aqi <= 60 ? 0.5 : aqi <= 80 ? 0.3 : 0.1;
+      }
+      return 0.5;
     },
     weight: 0.8,
   },
@@ -205,9 +216,16 @@ const HERMES_INSTRUMENTS: SignalInstrument[] = [
     id: 'hermes-openlibrary',
     agent: 'HERMES',
     label: 'OpenLibrary API health',
-    primary: 'https://openlibrary.org/search.json?q=civic+intelligence&limit=3',
-    normalize: (d: unknown) =>
-      ((d as { numFound?: number })?.numFound ?? 0) > 0 ? 0.9 : 0.3,
+    // C-344 OPT-1: search endpoint times out in prod (verified 000 in sandbox).
+    // Books API verified 200 with structured JSON response.
+    // C-344 OPT-2: added fallback to works endpoint (same host, different path, no auth).
+    primary: 'https://openlibrary.org/api/books?bibkeys=ISBN:9780374275631&jscmd=data&format=json',
+    fallback: 'https://openlibrary.org/works/OL45804W.json',
+    normalize: (d: unknown) => {
+      // Books API: { "ISBN:xxx": { url, key, ... } } — any populated key = healthy
+      if (d && typeof d === 'object' && !Array.isArray(d) && Object.keys(d as object).length > 0) return 0.9;
+      return 0.3;
+    },
     weight: 0.6,
   },
   {
@@ -215,6 +233,8 @@ const HERMES_INSTRUMENTS: SignalInstrument[] = [
     agent: 'HERMES',
     label: 'CrossRef publication velocity',
     primary: 'https://api.crossref.org/works?filter=from-created-date:2026-01-01&rows=5&sort=created&order=desc',
+    // C-344 OPT-8: fallback strips date filter — simpler query, same schema, verified 200.
+    fallback: 'https://api.crossref.org/works?rows=5&sort=created&order=desc',
     normalize: (d: unknown) => {
       const total = (d as { message?: { 'total-results'?: number } })?.message?.['total-results'] ?? 0;
       return total > 0 ? 0.9 : 0.4;

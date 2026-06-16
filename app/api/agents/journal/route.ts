@@ -641,7 +641,7 @@ export async function POST(request: NextRequest) {
   // FIX-20: warn when explicit env vars are absent (TERMINAL_REGISTRATION has fallbacks,
   // but the Civic Protocol Ledger may reject if fallback values don't match its registry).
   if (!process.env.TERMINAL_ID || !process.env.TERMINAL_API_BASE) {
-    console.error('[journal] TERMINAL_ID or TERMINAL_API_BASE not set in env (FIX-20) — ledger write may be rejected with "No API base configured for terminal"');
+    console.warn('[journal] TERMINAL_ID or TERMINAL_API_BASE not set in env (FIX-20) — ledger write may be rejected with "No API base configured for terminal"; set both in Vercel env vars');
   }
 
   // C-333 OPT-2: KV-first, substrate best-effort. The previous order (substrate

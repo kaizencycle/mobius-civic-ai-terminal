@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
       failures: promoteFailCount,
       severity: escalationTier.severity,
       threshold: escalationTier.threshold,
-      hint: 'Set SUBSTRATE_TOKEN in Vercel env vars to unblock EPICON promotion.',
+      hint: 'Promotion 401: verify SUBSTRATE_TOKEN or CRON_SECRET in Vercel env vars matches the value used by the cron/promote caller. AGENT_SERVICE_TOKEN is required separately for substrate attestation.',
     });
     actions.push(`promote-fail-alert:${promoteFailCount}:${escalationTier.severity}`);
     await kvSet('watchdog:epicon:escalation', {
