@@ -97,9 +97,17 @@ const GAIA_INSTRUMENTS: SignalInstrument[] = [
     fallback: 'https://air-quality-api.open-meteo.com/v1/air-quality?latitude=51.51&longitude=-0.12&current=european_aqi',
     normalize: (d: unknown) => {
       const curr = (d as { current?: { us_aqi?: number; european_aqi?: number } })?.current;
-      const aqi = curr?.us_aqi ?? curr?.european_aqi;
-      if (aqi == null) return 0.5;
-      return aqi <= 50 ? 0.95 : aqi <= 100 ? 0.75 : aqi <= 150 ? 0.5 : aqi <= 200 ? 0.3 : 0.1;
+      // US AQI scale: 0–50 good, 51–100 moderate, 101–150 unhealthy-sensitive, 151–200 unhealthy, >200 very unhealthy
+      if (curr?.us_aqi != null) {
+        const aqi = curr.us_aqi;
+        return aqi <= 50 ? 0.95 : aqi <= 100 ? 0.75 : aqi <= 150 ? 0.5 : aqi <= 200 ? 0.3 : 0.1;
+      }
+      // European AQI scale (Open-Meteo): 0–20 good, 20–40 fair, 40–60 moderate, 60–80 poor, >80 very poor
+      if (curr?.european_aqi != null) {
+        const aqi = curr.european_aqi;
+        return aqi <= 20 ? 0.95 : aqi <= 40 ? 0.75 : aqi <= 60 ? 0.5 : aqi <= 80 ? 0.3 : 0.1;
+      }
+      return 0.5;
     },
     weight: 0.8,
   },
