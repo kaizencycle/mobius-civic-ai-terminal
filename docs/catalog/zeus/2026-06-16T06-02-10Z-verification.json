@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-16T06:02:10.444Z",
+  "agent": "ZEUS",
+  "cycle": "C-344",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "USGS water conditions": "persistent",
+    "Cloudflare infrastructure status": "transient",
+    "NWS API health": "resolved",
+    "Eurostat EU economic data": "resolved",
+    "npm registry health": "resolved",
+    "Terminal self-ping latency": "resolved",
+    "Fastly CDN status": "resolved",
+    "GBIF biodiversity data health": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-343-065 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. No seal-C-344-* candidate yet in quorum/state.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-16T05-03-32Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-344: gi=0.81 mode=green classification=STRESSED source=kv; anomalies=[]; micro_composite=0.896; kv_keys_ok=false; seed_result=200 OK; sustain_eligible=true; journal_status=502 journal_id=journal-ATLAS-C-344-osrj86."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.895 composite=0.895 instrumentCount=40 cycle=C-306 cached=false. One hard-zero: USGS water conditions (primary failed with retry, 10s timeout). Cloudflare infrastructure status watch at 0.7. ATLAS reports zero anomalies while USGS failure persists."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.774 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live degraded=true. Not mock. DIVERGENCE: integrity GI 0.774 vs ATLAS heartbeat 0.81 vs live micro 0.895."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-343-065 ZEUS pass; quorum pass_count=5/4 already_attested. seal-C-344-* not yet formed."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true entry_id=journal-ZEUS-C-344-x2xskn canonical=false mirrored_to_kv=true pending_immortalization=true; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.774 mode=yellow terminal_status=stressed source=kv-live verified=false — aligned with integrity-status but NOT ATLAS heartbeat (0.81 green) or live micro (0.895). Micro operator cycle C-306 vs operator cycle C-344."
+    }
+  ],
+  "recommendation": "GI surface inconsistent across three lanes: ATLAS heartbeat 0.81 green, integrity-status/quorum 0.774 yellow stressed, live micro 0.895. Reconcile GI computation canon. USGS water API remains persistently failing (hard-zero) — ATLAS anomaly list empty despite micro flag. kv_keys_ok=false despite successful seed; sustain_eligible=true on ATLAS vs prior disputed state. Repair Civic Protocol identity introspect for journal immortalization (401). Deploy POST /api/vault/attest or continue /api/vault/block/attest for C-298 quorum."
+}
