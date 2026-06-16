@@ -98,7 +98,7 @@ async function persistTripwireRuntimeToKv(state: RuntimeTripwireState): Promise<
       kvSet(KV_KEYS.TRIPWIRE_STATE_KV, payload),
     ]);
   } catch (err) {
-    console.error('[signal-engine] TRIPWIRE_STATE KV persist failed:', err instanceof Error ? err.message : err);
+    console.warn('[signal-engine] TRIPWIRE_STATE KV persist failed (non-critical — state recomputed next sweep):', err instanceof Error ? err.message : err);
   }
 }
 
