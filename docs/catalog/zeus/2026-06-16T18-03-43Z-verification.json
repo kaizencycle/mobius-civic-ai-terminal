@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-06-16T18:03:43.566Z",
+  "agent": "ZEUS",
+  "cycle": "C-344",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "NASA EONET natural events": "transient",
+    "NOAA active weather alerts": "transient",
+    "Cloudflare infrastructure status": "transient",
+    "USGS water conditions": "resolved",
+    "CrossRef publication velocity": "resolved",
+    "Congress.gov bill activity": "resolved",
+    "NWS API health": "resolved",
+    "npm registry health": "resolved",
+    "Terminal self-ping latency": "resolved",
+    "GBIF biodiversity data health": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-344-068 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-16T17-04-33Z-atlas.json",
+      "result": "fail",
+      "detail": "ATLAS C-344: gi=0.63 mode=yellow classification=CRITICAL terminal_status=stressed source=kv; anomalies=[]; micro_composite=0.88; kv_keys_ok=false; seed_result=200 OK; sustain_eligible=false; journal_status=502 journal_id=journal-ATLAS-C-344-mqgw6rpmy4lq (observe route 200 canonical)."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.877 composite=0.877 instrumentCount=40 cycle=C-306 cached=false. One hard-zero error: gaia-nasa-eonet (primary and fallback both failed). NOAA alerts watch at 0.6; Cloudflare infrastructure status watch at 0.7. hermes-crossref and themis-congress recovered since prior pass. ATLAS reports zero anomalies while gaia-nasa-eonet is failing."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true. Not mock. Disputes ATLAS heartbeat gi=0.63 by +0.18; micro composite 0.877 is +0.067 above KV lane."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-344-068 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-344-br2e9t canonical=false mirrored_to_kv=false; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false — aligned with integrity-status but disputes ATLAS heartbeat (0.63 CRITICAL). Micro operator cycle C-306 vs operator cycle C-344 (known divergence)."
+    }
+  ],
+  "recommendation": "Operator attention required: reconcile ATLAS heartbeat GI drop to 0.63 (CRITICAL/stressed) against integrity-status and quorum (0.81 green/nominal). Investigate gaia-nasa-eonet EONET failure. ATLAS anomaly list should reflect active micro instrument errors. kv_keys_ok=false persists despite successful seed. Repair Civic Protocol identity introspect for journal immortalization (401). Deploy POST /api/vault/attest or continue /api/vault/block/attest for C-298 quorum."
+}
