@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-06-17T18:02:14.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-345",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "gaia-usgs-water": "persistent",
+    "gaia-nasa-eonet": "persistent",
+    "hermes-openlibrary": "persistent",
+    "gi_lane_divergence": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-345-073 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-17T17-03-32Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-345: gi=0.81 mode=green classification=STRESSED terminal_status=nominal source=kv; anomalies=[]; micro_composite=0.857 micro_cycle=C-306; kv_keys_ok=false; seed_result=200 OK; sustain_eligible=false; journal_agents_journal_status=502."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.843 composite=0.843 instrumentCount=40 cycle=C-306 cached=false errors=3. Failed: gaia-nasa-eonet (primary and fallback both failed), gaia-usgs-water (primary failed with retry), hermes-openlibrary (primary and fallback both failed). GAIA agent composite 0.671 (2 errors)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true gi_degraded=false freshness=0.6. Not mock. Disputes ATLAS heartbeat gi=0.81 by +0.09 and live micro gi=0.843 by +0.057."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-345-073 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-345-cgchhu canonical=false mirrored_to_kv=false; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.9 mode=green terminal_status=nominal source=kv-live verified=false — aligned with integrity-status. Micro operator cycle C-306 vs operator cycle C-345 (known divergence). Reserve block seal-C-345-073 attested; substrate attestation pending."
+    }
+  ],
+  "recommendation": "Operator attention required: reconcile ATLAS heartbeat GI (0.81) against integrity-status/quorum (0.9) and live micro (0.843). ATLAS reported zero anomalies but micro shows 3 instrument failures — update ATLAS anomaly surfacing or document intentional suppression. Investigate persistent kv_keys_ok=false despite successful KV seed. Repair GAIA NASA EONET, USGS water, and HERMES OpenLibrary lanes. Repair Civic Protocol identity introspect for journal immortalization (401). Deploy POST /api/vault/attest or continue /api/vault/block/attest for C-298 quorum."
+}
