@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-06-17T12:04:48.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-345",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "USGS water conditions": "transient",
+    "CrossRef publication velocity": "transient",
+    "Congress.gov bill activity": "persistent",
+    "GovTrack legislation feed": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-345-072 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-17T10-04-03Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-345: gi=0.71 mode=yellow classification=STRESSED terminal_status=stressed source=kv; anomalies=4 elevated (USGS water, CrossRef, Congress.gov, GovTrack); micro_composite=0.832; kv_keys_ok=false; seed_result=200 OK; sustain_eligible=false; journal_status=502 on agents/journal (observe route 200 canonical)."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.886 composite=0.886 instrumentCount=40 cycle=C-306 cached=false. One hard-zero error: themis-congress (primary failed with retry). gaia-usgs-water 0.85 nominal; hermes-crossref 0.9 nominal; themis-govtrack 0.85 nominal. ATLAS elevated flags on three instruments now nominal on live micro; Congress.gov failure confirmed."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.75 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live degraded=true. Not mock. Aligns with quorum/state but disputes ATLAS heartbeat gi=0.71 by +0.04 and live micro gi=0.886 by -0.136."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-345-072 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-345-5a9zg0 canonical=false mirrored_to_kv=false; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.75 mode=yellow terminal_status=stressed source=kv-live verified=false — aligned with integrity-status. Micro operator cycle C-306 vs operator cycle C-345 (known divergence). Reserve block seal-C-345-072 attested; substrate attestation pending."
+    }
+  ],
+  "recommendation": "Operator attention required: reconcile ATLAS heartbeat GI (0.71) and four elevated anomalies against integrity-status/quorum (0.75) and live micro (0.886). Congress.gov instrument failure is persistent — prioritize THEMIS lane repair. Investigate kv_keys_ok=false vs successful seed contradiction. Repair Civic Protocol identity introspect for journal immortalization (401). Deploy POST /api/vault/attest or continue /api/vault/block/attest for C-298 quorum."
+}
