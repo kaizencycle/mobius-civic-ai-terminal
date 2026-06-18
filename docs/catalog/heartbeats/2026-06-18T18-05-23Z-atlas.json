@@ -1,0 +1,88 @@
+{
+  "timestamp": "2026-06-18T18:05:23.648Z",
+  "agent": "ATLAS",
+  "cycle": "C-346",
+  "gi": 0.81,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "NOAA active weather alerts",
+      "severity": "critical",
+      "agent": "GAIA"
+    },
+    {
+      "label": "OpenLibrary API health",
+      "severity": "elevated",
+      "agent": "HERMES"
+    },
+    {
+      "label": "data.gov dataset freshness",
+      "severity": "elevated",
+      "agent": "THEMIS"
+    },
+    {
+      "label": "Transparency International API",
+      "severity": "elevated",
+      "agent": "THEMIS"
+    },
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated",
+      "agent": "DAEDALUS"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 5,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 0,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-18T18:05:02.072Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.906,
+  "micro_cycle": "C-306",
+  "degraded_agents": 4,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-346",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_agents_journal_status": 502,
+  "journal_agents_journal_id": "journal-ATLAS-C-346-ay2sr9",
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-346-mqjt89i55f4d",
+  "journal_status": 200,
+  "journal_id": "journal-ATLAS-C-346-mqjt89i55f4d",
+  "journal_ok": true,
+  "journal_canonical": true,
+  "journal_route": "agents/atlas/observe",
+  "journal_notes": "agents/journal substrate 502; canonical observe route succeeded."
+}
