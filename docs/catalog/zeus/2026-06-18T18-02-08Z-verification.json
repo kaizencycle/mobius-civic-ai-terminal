@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-06-18T18:02:08.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-346",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "NOAA active weather alerts": "persistent",
+    "OpenLibrary API health": "transient",
+    "data.gov dataset freshness": "transient",
+    "Transparency International API": "transient",
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-346-078 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-18T17-03-54Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-346: gi=0.81 mode=green classification=STRESSED terminal_status=nominal source=kv; anomalies=[NOAA alerts elevated, OpenLibrary elevated, data.gov elevated, Transparency Intl elevated]; micro_composite=0.884 micro_cycle=C-306; kv_keys_ok=false; seed_result=200 OK; sustain_eligible=true; tripwire_active=false; micro_operator_cycle_divergence=true; journal_agents_journal_status=502."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.906 composite=0.906 instrumentCount=40 cycle=C-306 cached=false errors=0 fallbacksUsed=3. NOAA alerts score=0.6 severity=watch (down from ATLAS elevated). OpenLibrary 0.9 nominal fallback; data.gov 0.8 nominal fallback; Transparency Intl 0.8 nominal fallback. All six agent groups healthy=true."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true gi_degraded=false freshness=1.0. Not mock — aligns with ATLAS gi=0.81 within 0.01 but diverges from live micro gi=0.906 by +0.086."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-346-078 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-346-pfi5z2; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; kv_error=kv_write_failed; canonical=false mirrored_to_kv=false."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.72 mode=yellow terminal_status=stressed source=kv-live verified=false — diverges from ATLAS heartbeat (0.81), integrity-status (0.82), and live micro (0.906). Micro operator cycle C-306 vs operator cycle C-346 (known divergence). Reserve block seal-C-346-078 attested; substrate immortalization pending (231 errored attestations)."
+    }
+  ],
+  "recommendation": "Operator attention: reconcile four-way GI divergence — quorum 0.72/yellow, ATLAS 0.81/green, integrity-status 0.82/green, live micro 0.906. Three ATLAS elevated anomalies resolved on live micro via fallback paths; NOAA weather alerts remain at watch. Investigate persistent kv_keys_ok=false despite successful KV seed. Repair Civic Protocol identity introspect and KV write path causing journal 502 and substrate attestation gaps."
+}
