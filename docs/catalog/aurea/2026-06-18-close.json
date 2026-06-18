@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-06-18T03:02:37Z",
+  "agent": "AUREA",
+  "cycle": "C-345",
+  "gi_final": 0.759,
+  "gi_mode": "yellow",
+  "gi_source": "kv",
+  "gi_range_24h": {
+    "min": 0.81,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.733,
+  "financial_score": 0.649,
+  "environ_score": 0.878,
+  "civic_score": 0.7,
+  "event_count_24h": 4,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 4,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.759. The ledger registered 4 events over the last 24 hours, with the strongest visible signal in ENVIRON at 0.878. ZEUS verification status is disputed, and the heartbeat trend is volatile. Forward signal: watch environmental data continuity and narrative weakness for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch environmental data continuity and narrative weakness for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "gaia-nasa-eonet: primary and fallback both failed",
+    "gaia-usgs-water: primary failed (with retry)",
+    "hermes-openlibrary: primary and fallback both failed"
+  ],
+  "quorum_attested": true
+}
