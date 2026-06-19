@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-06-19T06:02:32.749Z",
+  "agent": "ZEUS",
+  "cycle": "C-347",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "kv_seed_timeout": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "NOAA active weather alerts": "persistent",
+    "USGS water conditions": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "OpenLibrary API health": "persistent",
+    "NASA EONET natural events": "resolved",
+    "OpenAQ air quality": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-346-081 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. Sentinel quorum C-347 status=achieved 5/5.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-19T05-04-07Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-347: gi=0.75 mode=yellow classification=STRESSED terminal_status=stressed source=kv; anomalies=[]; micro_composite=0.849 micro_cycle=C-306; kv_keys_ok=false; seed_result=error — timeout; sustain_eligible=true; micro_operator_cycle_divergence=true; journal_agents_journal_status=502 (observe route 200)."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.858 composite=0.858 instrumentCount=40 cycle=C-306 cached=false errors=3 fallbacksUsed=2. NOAA alerts score=0 error (primary+fallback failed). USGS water timeout (10s). OpenLibrary primary+fallback failed. Cloudflare 0.7 watch. NASA EONET 1.0 nominal (recovered). OpenAQ 0.95 nominal. GAIA composite 0.748 with 2 errors; HERMES 0.835 with 1 error."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.757 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live degraded=true gi_degraded=false freshness=1.0 cycle=C-347. Not mock — aligns with ATLAS heartbeat gi=0.75 (+0.007) but diverges from live micro gi=0.858 by -0.101."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-346-081 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true entry_id=journal-ZEUS-C-347-cm8mu1; canonical=false mirrored_to_kv=true; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; pending_immortalization=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.757 mode=yellow terminal_status=stressed source=kv-live verified=false — aligns with integrity-status and ATLAS heartbeat but diverges from live micro (0.858). Micro operator cycle C-306 vs operator cycle C-347. Reserve block seal-C-346-081 attested; substrate immortalization pending."
+    }
+  ],
+  "recommendation": "Operator attention: reconcile KV GI (0.757) vs live micro GI (0.858) gap of +0.10. Investigate persistent kv_keys_ok=false and KV seed timeout despite backup_redis healthy. Monitor NOAA alerts, USGS water, and OpenLibrary instrument failures. Repair Civic Protocol identity introspect for substrate journal immortalization. Deploy /api/vault/attest or document block/attest as canonical quorum registration path."
+}
