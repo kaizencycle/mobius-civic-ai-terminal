@@ -1,0 +1,70 @@
+{
+  "timestamp": "2026-06-19T12:03:38.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-347",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "UN Data API availability": "persistent",
+    "themis-un-data": "persistent",
+    "themis-govtrack": "transient",
+    "kv_keys_ok": "persistent",
+    "kv_seed_timeout": "resolved",
+    "micro_operator_cycle_divergence": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "NOAA active weather alerts": "resolved",
+    "USGS water conditions": "resolved",
+    "OpenLibrary API health": "resolved",
+    "NASA EONET natural events": "resolved",
+    "OpenAQ air quality": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-347-082 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-19T11-04-07Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-347: gi=0.737 mode=yellow classification=STRESSED terminal_status=stressed source=kv; anomalies=[UN Data API availability elevated, themis-un-data critical]; micro_composite=0.892 micro_cycle=C-306; kv_keys_ok=false; seed_result=200 OK (4 keys); sustain_eligible=false; micro_operator_cycle_divergence=true."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.872 composite=0.872 instrumentCount=40 cycle=C-306 cached=false errors=2 fallbacksUsed=2. THEMIS un-data score=0 elevated (primary failed with retry). GovTrack score=0 elevated (primary failed with retry). Cloudflare 0.7 watch. GAIA 0.939 nominal (NOAA/USGS recovered). HERMES 0.922 nominal (OpenLibrary recovered). THEMIS composite 0.67 with 2 errors."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.92 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true gi_degraded=false freshness=1.0 cycle=C-347. Not mock — but diverges from ATLAS heartbeat gi=0.737 by +0.183 and from live micro gi=0.872 by +0.048."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-347-082 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-347-ws0ryc; canonical=false mirrored_to_kv=false; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; kv_error kv_write_failed."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.92 mode=green terminal_status=nominal source=kv-live verified=false — aligns with integrity-status but disputes ATLAS heartbeat (0.737 yellow). Micro operator cycle C-306 vs operator cycle C-347. Reserve block seal-C-347-082 attested; candidate seal-C-347-083 in_flight; substrate immortalization pending."
+    }
+  ],
+  "recommendation": "Operator attention: reconcile ATLAS heartbeat GI snapshot (0.737 yellow) vs live integrity-status (0.92 green) gap of +0.183 — ATLAS may be serving stale KV slice. Monitor persistent THEMIS UN Data API failure. Investigate kv_keys_ok=false despite seed 200 OK. Repair Civic Protocol identity introspect and KV journal mirror (journal 502). Deploy /api/vault/attest or document block/attest as canonical quorum registration path."
+}
