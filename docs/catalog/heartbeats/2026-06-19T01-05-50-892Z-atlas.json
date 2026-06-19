@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-06-19T01:05:50.892Z",
+  "agent": "ATLAS",
+  "cycle": "C-346",
+  "gi": 0.64,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "OpenAQ air quality",
+      "severity": "elevated",
+      "agent": "GAIA"
+    },
+    {
+      "label": "ArXiv new submissions",
+      "severity": "critical",
+      "agent": "HERMES"
+    },
+    {
+      "label": "OpenLibrary API health",
+      "severity": "critical",
+      "agent": "HERMES"
+    },
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated",
+      "agent": "DAEDALUS"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-19T01:05:25.008Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "CRITICAL",
+  "micro_composite": 0.869,
+  "micro_cycle": "C-306",
+  "degraded_agents": 1,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-346",
+  "force_journal": false,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_agents_journal_status": 502,
+  "journal_agents_journal_id": "journal-ATLAS-C-346-lrfmy1",
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-346-mqk88bi7ul4r",
+  "journal_status": 200,
+  "journal_id": "journal-ATLAS-C-346-mqk88bi7ul4r",
+  "journal_ok": true,
+  "journal_canonical": true,
+  "journal_route": "agents/atlas/observe",
+  "journal_notes": "agents/journal returned 502 (substrate); observe route used as primary."
+}
