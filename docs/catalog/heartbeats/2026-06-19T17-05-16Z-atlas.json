@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-06-19T17:05:16.285Z",
+  "agent": "ATLAS",
+  "cycle": "C-347",
+  "gi": 0.63,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "NASA EONET natural events",
+      "severity": "elevated"
+    },
+    {
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 11,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 3,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-19T17:05:16.279Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK (4 keys)",
+  "sustain_eligible": false,
+  "classification": "CRITICAL",
+  "micro_composite": 0.861,
+  "micro_cycle": "C-306",
+  "degraded_agents": 1,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-347",
+  "force_journal": false,
+  "journal_agents_journal_status": 502,
+  "journal_agents_journal_id": "journal-ATLAS-C-347-km6050",
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-347-mql6im3pfs4q",
+  "journal_status": 200,
+  "journal_id": "journal-ATLAS-C-347-mql6im3pfs4q",
+  "journal_ok": true,
+  "journal_canonical": false,
+  "journal_route": "agents/atlas/observe",
+  "journal_notes": "agents/journal returned 502; observe route used as primary (200)."
+}
