@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-06-19T00:02:52.403Z",
+  "agent": "ZEUS",
+  "cycle": "C-346",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "NOAA active weather alerts": "persistent",
+    "OpenAQ air quality": "transient",
+    "Cloudflare infrastructure status": "persistent",
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "NASA EONET natural events": "transient",
+    "USGS water conditions": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-346-078 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-18T23-04-58-932Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-346: gi=0.64 mode=yellow classification=CRITICAL terminal_status=stressed source=kv; anomalies=[NOAA elevated, OpenAQ elevated, Cloudflare elevated]; micro_composite=0.902 micro_cycle=C-306; kv_keys_ok=false; seed_result=200 OK; sustain_eligible=false; tripwire_active=false; micro_operator_cycle_divergence=true; journal_agents_journal_status=200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.858 composite=0.858 instrumentCount=40 cycle=C-306 cached=false errors=2 fallbacksUsed=2. NOAA alerts score=0.6 severity=watch (down from ATLAS elevated). OpenAQ 0.75 nominal (resolved from ATLAS elevated). Cloudflare 0.7 watch (down from ATLAS elevated). New failures: NASA EONET (primary+fallback failed), USGS water (timeout). GAIA composite 0.671 with 2 errors; other five agent groups healthy."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true gi_degraded=false freshness=1.0. Not mock — but diverges from ATLAS heartbeat gi=0.64 by +0.17 and from live micro gi=0.858 by -0.048."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-346-078 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-346-c2i9we; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; kv_error=kv_write_failed; canonical=false mirrored_to_kv=false."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false — aligns with integrity-status but diverges from ATLAS heartbeat (0.64 CRITICAL) and live micro (0.858). Micro operator cycle C-306 vs operator cycle C-346 (known divergence). Reserve block seal-C-346-079 attested; substrate immortalization pending."
+    }
+  ],
+  "recommendation": "Operator attention: reconcile three-way GI divergence — ATLAS heartbeat 0.64/CRITICAL vs integrity-status 0.81/green vs live micro 0.858. OpenAQ anomaly resolved on live micro; NOAA and Cloudflare persist at watch severity. Investigate persistent kv_keys_ok=false despite successful KV seed. Repair Civic Protocol identity introspect and KV write path causing journal 502. Deploy /api/vault/attest or document block/attest as canonical quorum registration path."
+}
