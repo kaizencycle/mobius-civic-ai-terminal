@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-06-20T03:07:13Z",
+  "agent": "AUREA",
+  "cycle": "C-347",
+  "gi_final": 0.71,
+  "gi_mode": "yellow",
+  "gi_source": "kv",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.696,
+  "financial_score": 0.685,
+  "environ_score": 0.829,
+  "civic_score": 0.75,
+  "event_count_24h": 10,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 6,
+    "epicon": 0,
+    "zeus_verify": 4,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.71. The ledger registered 10 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL at 0.866. ZEUS verification status is confirmed, and the heartbeat trend is rising. Forward signal: watch the narrative lane and Congress.gov recovery for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch the narrative lane and Congress.gov recovery for confirmation or drift in the next cycle.",
+  "zeus_status": "confirmed",
+  "heartbeat_gi_trend": "rising",
+  "anomalies": [
+    "hermes-arxiv: primary failed (with retry)",
+    "themis-congress: primary failed (with retry)"
+  ],
+  "quorum_attested": true
+}
