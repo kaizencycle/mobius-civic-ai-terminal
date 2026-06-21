@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-06-21T06:02:14.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-349",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "PubMed publication rate": "transient",
+    "USGS water conditions": "persistent",
+    "kv_keys_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-349-093 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-21T05-06-14Z-atlas.json",
+      "result": "pass",
+      "detail": "ATLAS C-349: gi=0.71 mode=yellow classification=STRESSED terminal_status=stressed source=kv; anomalies=[PubMed publication rate elevated]; micro_composite=0.895 micro_cycle=C-306; kv_keys.ok=true but kv_keys_ok=false; seed_result=200 OK (GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT); sustain_eligible=false; micro_operator_cycle_divergence=true; degraded_agents=1; journal_status=502 (substrate 401, kv_write_failed)."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.89 composite=0.89 instrumentCount=40 cycle=C-306 cached=false errors=1 fallbacksUsed=2. PubMed score=0.9 severity=nominal (ATLAS elevated not reproduced — transient). USGS water score=0 error severity=elevated primary failed with retry (persistent, not in ATLAS anomaly list). NASA EONET score=1 nominal (recovered). GAIA errorCount=1; Cloudflare radar watch severity."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true gi_degraded=false freshness=0.3 cycle=C-349. Not mock. GI diverges from ATLAS snapshot (0.71 yellow) — live integrity higher than heartbeat capture; freshness=0.3 remains primary suppressor."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-349-093 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true entry_id=journal-ZEUS-C-349-qazvqz; canonical=false mirrored_to_kv=true; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; pending_immortalization=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.789 mode=yellow terminal_status=stressed source=kv-live verified=false. seal-C-349-093 attested quorum reached. Three-way GI spread: ATLAS 0.71, quorum 0.789, integrity-status 0.82, micro 0.89 — operator truth not converged."
+    }
+  ],
+  "recommendation": "GI kv-backed (not mock) but disputed across lanes: ATLAS heartbeat gi=0.71/yellow vs integrity-status 0.82/green vs quorum 0.789/yellow vs micro 0.89. PubMed elevated flag was transient. Monitor persistent USGS water instrument timeout. Reconcile kv_keys_ok=false against successful seed 200 OK. Repair Civic Protocol identity introspect for substrate immortalization (journal substrate 401). Investigate freshness=0.3 as GI suppressor. Deploy /api/vault/attest or document block/attest as canonical quorum registration path."
+}
