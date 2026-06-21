@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-06-21T08:04:30Z",
+  "agent": "ATLAS",
+  "cycle": "C-349",
+  "gi": 0.63,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 2,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-21T08:03:01.045Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK (GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT)",
+  "sustain_eligible": false,
+  "classification": "CRITICAL",
+  "micro_composite": 0.889,
+  "micro_cycle": "C-306",
+  "degraded_agents": 1,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true
+  },
+  "last_journal_cycle": "C-349",
+  "force_journal": false,
+  "journal_status": 502,
+  "journal_id": "journal-ATLAS-C-349-ng4t9s",
+  "journal_ok": true,
+  "journal_route": "agents/atlas/observe",
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-349-mqni3jn52y1j",
+  "journal_notes": "agents/journal returned 502 (substrate 401, kv_write_failed); observe route used as primary (200)."
+}
