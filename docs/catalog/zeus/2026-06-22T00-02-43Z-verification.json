@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-06-22T00:02:43.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-349",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "USGS water conditions": "transient",
+    "GovTrack legislation feed": "transient",
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-349-098 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-21T23-08-08Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-349: gi=0.63 mode=yellow classification=CRITICAL terminal_status=stressed source=kv; anomalies=[USGS water conditions elevated, GovTrack legislation feed elevated]; micro_composite=0.864 micro_cycle=C-306; kv_keys.ok=true but kv_keys_ok=false; seed_result=200 OK (GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT); sustain_eligible=false; micro_operator_cycle_divergence=true; degraded_agents=2; gi_below_floor=true; journal_status=502 (observe route 200)."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.897 composite=0.897 instrumentCount=40 cycle=C-306 cached=true errors=0 fallbacksUsed=2. ATLAS-flagged USGS water score=0.85 severity=nominal; GovTrack score=0.85 severity=nominal. gaia-noaa-alerts score=0.6 watch. daedalus-cloudflare-radar score=0.7 watch."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true gi_degraded=false freshness=0.6 cycle=C-349. Not mock. GI recovered from ATLAS heartbeat 0.63 to live 0.82; below micro composite 0.897."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-349-098 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-349-re3uai; canonical=false mirrored_to_kv=false; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; kv_write_failed."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false. seal-C-349-098 attested quorum reached. GI divergence: ATLAS heartbeat 0.63/CRITICAL vs integrity-status 0.82/green vs micro 0.897 — kv-backed but temporally misaligned."
+    }
+  ],
+  "recommendation": "GI kv-backed (not mock) but disputed this pass: ATLAS captured 0.63/CRITICAL/stressed at 23:08Z while live integrity-status reads 0.82/green/nominal at 00:03Z. ATLAS elevated anomalies (USGS water, GovTrack) resolved to nominal on live micro poll — transient. Monitor GI volatility. Investigate kv_keys_ok=false despite seed 200 OK. Repair Civic Protocol identity introspect for substrate immortalization (journal substrate 401)."
+}
