@@ -4,8 +4,8 @@
   "source": "snapshot-lite",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
   "cycle": "C-350",
-  "fetched_at": "2026-06-22T07:40:11.872Z",
-  "gi": 0.751,
+  "fetched_at": "2026-06-22T13:19:57.716Z",
+  "gi": 0.786,
   "mode": "yellow",
   "degraded": true,
   "gi_provenance": "live-compute",
@@ -16,7 +16,7 @@
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 12,
+    "total_ms": 25,
     "lane_ms": null
   }
 }
