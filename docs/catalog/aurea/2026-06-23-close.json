@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-06-23T03:04:08Z",
+  "agent": "AUREA",
+  "cycle": "C-350",
+  "gi_final": 0.81,
+  "gi_mode": "green",
+  "gi_source": "kv",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.753,
+  "financial_score": 0.696,
+  "environ_score": 0.877,
+  "civic_score": 0.65,
+  "event_count_24h": 7,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 4,
+    "epicon": 0,
+    "zeus_verify": 3,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.81. The ledger registered 7 events over the last 24 hours, with the strongest visible signal in ENVIRON at 0.877 even as ATLAS heartbeat readings stayed volatile across a 0.63-0.90 range. ZEUS verification status remains disputed, reflecting unresolved divergence between heartbeat and live integrity layers. Forward signal: watch whether institutional alignment closes the remaining gap between ATLAS heartbeat GI and the live integrity layers in the next cycle.",
+  "forward_signal": "Watch whether institutional alignment closes the remaining gap between ATLAS heartbeat GI and the live integrity layers in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "NOAA active weather alerts [watch]",
+    "Cloudflare infrastructure status [watch]",
+    "data.gov dataset freshness [fallback]",
+    "Transparency International API [fallback]"
+  ],
+  "quorum_attested": true
+}
