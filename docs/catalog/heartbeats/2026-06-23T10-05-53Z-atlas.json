@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-06-23T10:05:53Z",
+  "agent": "ATLAS",
+  "cycle": "C-351",
+  "gi": 0.82,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 6,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 8,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-23T10:06:46.431Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK ({\"ok\":true,\"seeded\":[\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"],\"timestamp\":\"2026-06-23T10:06:09.835Z\"})",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.901,
+  "micro_cycle": "C-306",
+  "degraded_agents": 0,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "micro_operator_cycle_divergence": true,
+    "heartbeat_key_seeded": true,
+    "gi_below_floor": false
+  },
+  "last_journal_cycle": "C-351",
+  "force_journal": false,
+  "journal_status": 200,
+  "journal_id": "journal-ATLAS-C-351-mqqhbbv6e89o",
+  "journal_ok": true,
+  "journal_route": "agents/atlas/observe",
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-351-mqqhbbv6e89o",
+  "journal_agents_status": 502,
+  "journal_agents_id": null
+}
