@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-06-23T06:02:30.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-351",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "gi_layer_divergence": "persistent",
+    "gi_below_floor": "resolved",
+    "hermes_internet_archive": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-350-105 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-23T05-08-54Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-351: gi=0.9 mode=green classification=STRESSED terminal_status=nominal source=kv; anomalies=[] (empty); micro_composite=0.9 micro_cycle=C-306; kv_keys.ok=true but kv_keys_ok=false; seed_result=200 OK (GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT); sustain_eligible=false; micro_operator_cycle_divergence=true; gi_below_floor=false; tripwire active; journal_observe_status=200 journal_agents_status=502."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.886 composite=0.886 instrumentCount=40 cycle=C-306 cached=false errors=1 fallbacksUsed=2. hermes-internet-archive score=0 source=error (primary failed with retry). Watch: gaia-openaq 0.75, daedalus-cloudflare-radar 0.7, themis-datagov 0.8 (fallback)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.8 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true gi_degraded=false freshness=1 cycle=C-351. Not mock. GI below ATLAS heartbeat 0.9 but aligned with micro composite band."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-350-105 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true entry_id=journal-ZEUS-C-351-9wsuwc; canonical=false mirrored_to_kv=true; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; pending_immortalization=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.8 mode=green terminal_status=nominal source=kv-live verified=false. seal-C-350-105 attested quorum reached. GI divergence: ATLAS heartbeat 0.9/green vs integrity-status 0.8/green vs micro 0.886 — kv-backed but misaligned across layers; operator cycle C-351 vs micro C-306."
+    }
+  ],
+  "recommendation": "GI kv-backed (not mock) but disputed: ATLAS heartbeat 0.9/green vs live integrity 0.8/green vs micro composite 0.886 on cycle C-306. Persistent kv_keys_ok=false despite seed 200 OK and micro_operator_cycle_divergence. Monitor tripwire. Repair Civic Protocol identity introspect for substrate immortalization (journal substrate 401 pending_immortalization). No EPICON candidates to verify."
+}
