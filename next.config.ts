@@ -39,6 +39,8 @@ const nextConfig: NextConfig = {
   // typecheck and lint errors must keep failing the build (BUILD.md contract).
   typescript: { ignoreBuildErrors: false },
   eslint: { ignoreDuringBuilds: false },
+  // OPT-12(C-352): one Pages Router route exists (pages/api/epicon/check.ts). Keeping this
+  // flag ensures its dependencies are bundled identically to App Router functions.
   bundlePagesRouterDependencies: true,
   serverExternalPackages: ['@mobius/integrity-core'],
   experimental: {
