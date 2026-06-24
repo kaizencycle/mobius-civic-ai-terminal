@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-06-24T03:06:13Z",
+  "agent": "AUREA",
+  "cycle": "C-351",
+  "gi_final": 0.63,
+  "gi_mode": "yellow",
+  "gi_source": "kv",
+  "gi_range_24h": {
+    "min": 0.64,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.727,
+  "financial_score": 0.637,
+  "environ_score": 0.907,
+  "civic_score": 0.65,
+  "event_count_24h": 4,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 4,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "fallback",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.63. The ledger registered 4 events over the last 24 hours, while ENVIRON remained the strongest visible domain at 0.907 even as ATLAS heartbeat GI stayed volatile across a 0.64-0.90 range. ZEUS verification status is disputed, and live integrity remains compressed below the stronger micro and sentiment layers. Forward signal: watch NARRATIVE for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch NARRATIVE for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "ArXiv new submissions [error]",
+    "data.gov dataset freshness [fallback]",
+    "Transparency International API [fallback]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
