@@ -42,7 +42,9 @@ const nextConfig: NextConfig = {
   // OPT-12(C-352): one Pages Router route exists (pages/api/epicon/check.ts). Keeping this
   // flag ensures its dependencies are bundled identically to App Router functions.
   bundlePagesRouterDependencies: true,
-  serverExternalPackages: ['@mobius/integrity-core'],
+  // OPT-13(C-352): @mobius/integrity-core removed — package does not exist in node_modules
+  // or packages/ workspace; the entry was dead weight causing module resolution warnings.
+  serverExternalPackages: [],
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts', 'motion'],
   },
