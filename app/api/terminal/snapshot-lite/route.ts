@@ -2,12 +2,39 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { handbookCorsHeaders } from '@/lib/http/handbook-cors';
 import { isRedisAvailable } from '@/lib/kv/store';
+import type { GIState } from '@/lib/kv/store';
 import { loadSnapshotLiteKvBundle } from '@/lib/kv/snapshotLiteKvBundle';
 import { cachedByKey } from '@/lib/kv/snapshotLiteCache';
 import { kvBridgeConfigured, kvBridgeRead } from '@/lib/kv/kvBridgeClient';
+import { backupPrefixedGet } from '@/lib/kv/backup-redis';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getHeartbeat, getJournalHeartbeat } from '@/lib/runtime/heartbeat';
 import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
+
+export type GiVerificationResult = {
+  gi_verified: boolean;
+  gi_conflict?: boolean;
+  gi_mirror_error?: boolean;
+  gi_mirror_delta?: number;
+};
+
+export function computeGiVerification(
+  primaryGi: number | null,
+  mirrorGi: number | null,
+  mirrorError: boolean,
+): GiVerificationResult {
+  if (mirrorError) {
+    return { gi_verified: false, gi_mirror_error: true };
+  }
+  if (primaryGi === null || mirrorGi === null) {
+    return { gi_verified: false };
+  }
+  const delta = Math.abs(primaryGi - mirrorGi);
+  if (delta >= 0.01) {
+    return { gi_verified: false, gi_conflict: true, gi_mirror_delta: delta };
+  }
+  return { gi_verified: true, gi_mirror_delta: delta };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -140,6 +167,16 @@ export async function GET(req: NextRequest) {
       };
     }
 
+  // OPT-01(C-352): cross-verify GI against backup Redis mirror
+  let giVerification: GiVerificationResult = { gi_verified: false };
+  try {
+    const mirrorState = await backupPrefixedGet<GIState>('gi:latest');
+    const mirrorGi = typeof mirrorState?.global_integrity === 'number' ? mirrorState.global_integrity : null;
+    giVerification = computeGiVerification(giResolved.gi, mirrorGi, false);
+  } catch {
+    giVerification = computeGiVerification(null, null, true);
+  }
+
   const gi =
     giResolved.source === 'kv'
       ? giResolved.kv
@@ -271,7 +308,7 @@ export async function GET(req: NextRequest) {
                   ? 'readiness_fallback'
                   : 'null',
         gi_provenance: giResolved.gi_provenance,
-        gi_verified: giResolved.verified,
+        ...giVerification,
         degraded,
         lanes,
         heartbeat: {
