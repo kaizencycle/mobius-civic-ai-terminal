@@ -43,7 +43,7 @@
     },
     {
       "path": "/api/cron/echo-ingest",
-      "schedule": "0 * * * *"
+      "schedule": "20 * * * *"
     },
     {
       "path": "/api/cron/gi-refresh",
