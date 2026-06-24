@@ -58,6 +58,11 @@ const nextConfig: NextConfig = {
         source: '/api/echo/digest',
         headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=120' }],
       },
+      // OPT-05(C-352): edge cache for snapshot-lite — 15s max-age safe given 78s freshness window
+      {
+        source: '/api/terminal/snapshot-lite',
+        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=15, stale-while-revalidate=30' }],
+      },
     ];
   },
 };
