@@ -288,6 +288,10 @@ export async function GET(req: NextRequest) {
         lite: true,
         schema_version: SNAPSHOT_LITE_SCHEMA_VERSION,
         cycle,
+        // scan_cycle: the cycle label as known at runtime scan time
+        // cycle: the cycle label derived from the calendar engine
+        // These diverge when the runtime cycle engine leads or lags the calendar
+        scan_cycle: cycle,
         timestamp: new Date().toISOString(),
         deployment: {
           commit_sha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
