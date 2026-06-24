@@ -18,7 +18,7 @@
 
 Mobius Terminal is transitioning from observation → enforcement coordination.
 
-C-326 focuses on:
+C-352 focuses on:
 - runtime truth alignment
 - vault / ledger attestation visibility
 - consensus durability
@@ -100,7 +100,7 @@ Never skip steps.
 
 ## Acceptance bar
 
-A good C-326 change:
+A good C-352 change:
 - improves runtime truth visibility
 - reduces ambiguity in consensus
 - preserves provenance
