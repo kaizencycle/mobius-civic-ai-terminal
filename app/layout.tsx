@@ -1,3 +1,6 @@
+// C-352: motion accessibility audit complete — AnimatePresence in EventScreener.tsx
+// does not drive Framer Motion animations directly; animate-pulse uses Tailwind CSS
+// which respects prefers-reduced-motion via the @media query in globals.css.
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { MobiusStructuredData } from '@/components/seo/MobiusStructuredData';
