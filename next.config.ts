@@ -1,5 +1,8 @@
 import type { NextConfig } from 'next';
 
+// OPT-08(C-352): unsafe-eval is required by Next.js dev hot-reload but not in production.
+const isDev = process.env.NODE_ENV === 'development';
+
 // C-318: Security headers applied to every response.
 // CSP allows Next.js inline scripts/styles and Vercel Live tooling while
 // blocking third-party script execution and iframe embedding from other origins.
@@ -8,14 +11,13 @@ const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'X-XSS-Protection', value: '1; mode=block' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
   {
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://vercel.live`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob:",
@@ -37,10 +39,14 @@ const nextConfig: NextConfig = {
   // typecheck and lint errors must keep failing the build (BUILD.md contract).
   typescript: { ignoreBuildErrors: false },
   eslint: { ignoreDuringBuilds: false },
+  // OPT-12(C-352): one Pages Router route exists (pages/api/epicon/check.ts). Keeping this
+  // flag ensures its dependencies are bundled identically to App Router functions.
   bundlePagesRouterDependencies: true,
-  serverExternalPackages: ['@mobius/integrity-core'],
+  // OPT-13(C-352): @mobius/integrity-core removed — package does not exist in node_modules
+  // or packages/ workspace; the entry was dead weight causing module resolution warnings.
+  serverExternalPackages: [],
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts', 'motion'],
+    optimizePackageImports: ['lucide-react', 'recharts', 'motion', 'three'],
   },
   async headers() {
     return [
@@ -57,6 +63,11 @@ const nextConfig: NextConfig = {
       {
         source: '/api/echo/digest',
         headers: [{ key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=120' }],
+      },
+      // OPT-05(C-352): edge cache for snapshot-lite — 15s max-age safe given 78s freshness window
+      {
+        source: '/api/terminal/snapshot-lite',
+        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=15, stale-while-revalidate=30' }],
       },
     ];
   },

@@ -1,4 +1,5 @@
 // C-303 Phase 1+2: lock the canonical snapshot contract.
+// OPT-17(C-352): assert gi_verified shape added by OPT-01.
 // Verifies the aggregate shape, that every lane carries provenance, and that a
 // degraded lane is always surfaced (never hidden) — the core anti-silent-failure
 // guarantee. Uses injected lane results so it runs without live infra.
@@ -9,6 +10,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { DalResult, DalProvenance } from '../../lib/dal/types.js';
 import { okDalResult, degradedDalResult } from '../../lib/dal/types.js';
+import type { GiVerificationResult } from '../../app/api/terminal/snapshot-lite/route.js';
+import { computeGiVerification } from '../../app/api/terminal/snapshot-lite/route.js';
 
 // Mirror of the aggregation logic's degraded-lane derivation, tested in isolation.
 type LaneEnvelope<T> = { ok: boolean; data: T | null; provenance: DalProvenance };
@@ -69,5 +72,28 @@ describe('canonical snapshot degraded-lane derivation', () => {
   it('every lane envelope retains its provenance source', () => {
     const env = toEnvelope(okDalResult({}, { source: 'ledger', freshness: 'live', timestamp: 't' }));
     assert.strictEqual(env.provenance.source, 'ledger');
+  });
+});
+
+describe('gi_verified field shape contract (OPT-17/C-352)', () => {
+  it('gi_verified is present and is a boolean', () => {
+    const result: GiVerificationResult = computeGiVerification(0.785, 0.785, false);
+    assert.strictEqual(typeof result.gi_verified, 'boolean');
+  });
+
+  it('gi_conflict when present is a boolean', () => {
+    const result = computeGiVerification(0.785, 0.700, false);
+    if (result.gi_conflict !== undefined) {
+      assert.strictEqual(typeof result.gi_conflict, 'boolean');
+    }
+  });
+
+  it('gi_mirror_delta when present is a non-negative number ≤ 1.0', () => {
+    const result = computeGiVerification(0.785, 0.700, false);
+    if (result.gi_mirror_delta !== undefined) {
+      assert.strictEqual(typeof result.gi_mirror_delta, 'number');
+      assert.ok(result.gi_mirror_delta >= 0, 'gi_mirror_delta must be non-negative');
+      assert.ok(result.gi_mirror_delta <= 1.0, 'gi_mirror_delta must be ≤ 1.0');
+    }
   });
 });

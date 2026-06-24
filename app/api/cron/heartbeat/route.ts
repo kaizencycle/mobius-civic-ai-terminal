@@ -33,6 +33,16 @@ async function run(req: NextRequest) {
   const authErr = getEveSynthesisAuthError(req);
   if (authErr) return authErr;
 
+  // OPT-04(C-352): dedup guard — skip write if last heartbeat was < 4 minutes ago
+  try {
+    const existing = await kvGet<{ last_written?: number }>('heartbeat:last');
+    if (existing?.last_written && Date.now() - existing.last_written < 4 * 60 * 1000) {
+      return NextResponse.json({ skipped: true, reason: 'too_soon', timestamp: new Date().toISOString() });
+    }
+  } catch {
+    // If the read fails, proceed with the write — dedup is best-effort
+  }
+
   const ok = await writeFleetHeartbeatKV('cron-heartbeat');
   const timestamp = new Date().toISOString();
   if (!ok) {

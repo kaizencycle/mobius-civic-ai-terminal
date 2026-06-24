@@ -5,9 +5,6 @@
     }
   },
   "ignoreCommand": "bash scripts/ignore-build.sh",
-  "env": {
-    "NODE_OPTIONS": "--no-deprecation"
-  },
   "crons": [
     {
       "path": "/api/cron/heartbeat",
@@ -43,11 +40,11 @@
     },
     {
       "path": "/api/cron/echo-ingest",
-      "schedule": "0 * * * *"
+      "schedule": "20 * * * *"
     },
     {
       "path": "/api/cron/gi-refresh",
-      "schedule": "45 0 * * *"
+      "schedule": "45 1 * * *"
     },
     {
       "path": "/api/eve/cycle-synthesize",
