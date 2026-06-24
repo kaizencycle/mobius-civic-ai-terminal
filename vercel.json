@@ -5,9 +5,6 @@
     }
   },
   "ignoreCommand": "bash scripts/ignore-build.sh",
-  "env": {
-    "NODE_OPTIONS": "--no-deprecation"
-  },
   "crons": [
     {
       "path": "/api/cron/heartbeat",
