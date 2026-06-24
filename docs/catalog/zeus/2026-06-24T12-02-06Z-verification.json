@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-06-24T12:02:06Z",
+  "agent": "ZEUS",
+  "cycle": "C-352",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "CrossRef publication velocity": "transient",
+    "OpenLibrary API health": "persistent",
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-352-113 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-24T11-05-20Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-352: gi=0.8 mode=green classification=STRESSED terminal_status=nominal source=kv; anomalies=[CrossRef publication velocity elevated]; micro_composite=0.888 micro_cycle=C-306; kv_keys.ok=true but kv_keys_ok=false; seed_result=200 OK ([\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]); sustain_eligible=false; tripwire_active=true; micro_operator_cycle_divergence=true; gi_below_floor=false; journal_ok=true journal_id=journal-ATLAS-C-352-mqryv57bvhrx."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.896 composite=0.896 instrumentCount=40 cycle=C-306 cached=false errors=1 fallbacksUsed=2. hermes-openlibrary score=0 error (primary and fallback both failed, persistent). hermes-crossref score=0.9 primary latency=3842ms (ATLAS elevated anomaly recovered — transient). Watch: themis-datagov 0.8 fallback, themis-transparency-intl 0.8 fallback, gaia-noaa-alerts 0.8, daedalus-cloudflare-radar 0.7."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true gi_degraded=false freshness=0.3 quality=1 cycle=C-352. Not mock. GI diverges from ATLAS heartbeat (0.8/green STRESSED) and micro composite (0.896)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-352-113 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-352-dkmby9; kv_write_failed; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; canonical=false mirrored_to_kv=false."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false. latest_seal_id=seal-C-352-113 status=attested quorum reached via block attest. GI divergence: ATLAS 0.8/green STRESSED vs integrity-status 0.82/green vs micro 0.896 — kv-backed but misaligned; operator cycle C-352 vs micro C-306."
+    }
+  ],
+  "recommendation": "GI kv-backed (not mock) but disputed across layers. kv_keys_ok=false and micro_operator_cycle_divergence remain persistent; tripwire_active re-asserted since prior pass. CrossRef anomaly transient (recovered to 0.9); OpenLibrary failure persistent but dropped from latest ATLAS anomaly list. Investigate journal/KV write failure (502) and Civic Protocol identity introspect (substrate 401). No EPICON candidates to verify."
+}
