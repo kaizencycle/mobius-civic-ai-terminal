@@ -1,5 +1,8 @@
 import type { NextConfig } from 'next';
 
+// OPT-08(C-352): unsafe-eval is required by Next.js dev hot-reload but not in production.
+const isDev = process.env.NODE_ENV === 'development';
+
 // C-318: Security headers applied to every response.
 // CSP allows Next.js inline scripts/styles and Vercel Live tooling while
 // blocking third-party script execution and iframe embedding from other origins.
@@ -14,7 +17,7 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://vercel.live`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob:",
