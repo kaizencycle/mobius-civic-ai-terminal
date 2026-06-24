@@ -46,7 +46,7 @@ const nextConfig: NextConfig = {
   // or packages/ workspace; the entry was dead weight causing module resolution warnings.
   serverExternalPackages: [],
   experimental: {
-    optimizePackageImports: ['lucide-react', 'recharts', 'motion'],
+    optimizePackageImports: ['lucide-react', 'recharts', 'motion', 'three'],
   },
   async headers() {
     return [
