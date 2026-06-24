@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-06-24T06:03:12Z",
+  "agent": "ZEUS",
+  "cycle": "C-352",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "tripwire_active": "resolved",
+    "hermes_openlibrary": "transient",
+    "hermes_crossref": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-351-112 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-24T05-03-11Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-352: gi=0.762 mode=yellow classification=STRESSED terminal_status=stressed source=kv; anomalies=[] (empty); micro_composite=0.885 micro_cycle=C-306; kv_keys.ok=true but kv_keys_ok=false; seed_result=200 OK ([\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]); sustain_eligible=true; tripwire_active=false (resolved); micro_operator_cycle_divergence=true; gi_below_floor=false; journal_ok=true journal_id=journal-ATLAS-C-352-mqrlyp1ind1t."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.876 composite=0.876 instrumentCount=40 cycle=C-306 cached=true errors=2 fallbacksUsed=2. HERMES degraded (0.733, errorCount=2): hermes-openlibrary and hermes-crossref primary+fallback both failed. Watch: themis-datagov 0.8 (fallback), themis-transparency-intl 0.8 (fallback), gaia-noaa-alerts 0.8."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true gi_degraded=false freshness=0.6 quality=0.76 cycle=C-352. Not mock. GI diverges from ATLAS heartbeat (0.762/yellow) but below micro composite (0.876)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-351-112 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true entry_id=journal-ZEUS-C-352-qzk76v; canonical=false mirrored_to_kv=true; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; pending_immortalization=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false. latest_seal_id=seal-C-351-112 attested quorum reached. GI divergence: ATLAS heartbeat 0.762/yellow vs integrity-status 0.82/green vs micro 0.876 — kv-backed but misaligned across layers; operator cycle C-352 vs micro C-306."
+    }
+  ],
+  "recommendation": "GI kv-backed (not mock) but disputed: ATLAS heartbeat 0.762/yellow vs live integrity 0.82/green vs micro composite 0.876 on cycle C-306. tripwire_active resolved; kv_keys_ok=false and micro_operator_cycle_divergence remain persistent. Investigate HERMES openlibrary/crossref upstream failures. Repair Civic Protocol identity introspect for substrate immortalization (journal substrate 401). No EPICON candidates to verify."
+}
