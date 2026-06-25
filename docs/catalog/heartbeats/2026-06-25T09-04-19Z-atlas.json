@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-06-25T09:04:19Z",
+  "agent": "ATLAS",
+  "cycle": "C-353",
+  "gi": 0.71,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 645,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1219,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-25T09:03:42.365Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK ([\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"])",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.889,
+  "degraded_agents": 1,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "last_journal_cycle": "C-353",
+  "force_journal": false,
+  "journal_status": 502,
+  "journal_route": "agents/atlas/observe",
+  "journal_id": "journal-ATLAS-C-353-mqt9zut8b0w3",
+  "journal_ok": true,
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-06-25T09:03:42.472Z"
+  },
+  "journal_direct_status": 502,
+  "journal_direct_id": null,
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-353-mqt9zut8b0w3"
+}
