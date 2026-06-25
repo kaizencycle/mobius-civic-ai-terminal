@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-25T12:04:02Z",
+  "agent": "ZEUS",
+  "cycle": "C-353",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "gi_layer_divergence": "persistent",
+    "gi_below_floor": "persistent",
+    "hermes-openlibrary": "resolved",
+    "gaia-nasa-eonet": "transient",
+    "hermes-crossref": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-353-120 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-25T11-07-15Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-353: gi=0.64 mode=yellow classification=CRITICAL terminal_status=stressed source=kv; anomalies=[] (empty); micro_composite=0.884; kv_keys.ok=true but kv_keys_ok=false; seed_result=200 OK ([\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]); sustain_eligible=false; tripwire_active=true (Hormuz Transit Fee Risk elevated); gi_below_floor=true; journal_status=200 journal_observe_status=200 journal_id=journal-ATLAS-C-353-mqtec3qahos7; journal_direct_status=502."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.86 composite=0.86 instrumentCount=40 cycle=C-306 cached=false errors=2 fallbacksUsed=2. Failed instruments: gaia-nasa-eonet (primary and fallback both failed), hermes-crossref (primary and fallback both failed). Watch: gaia-noaa-alerts 0.8, daedalus-cloudflare-radar 0.7, themis-datagov 0.8 fallback, themis-transparency-intl 0.8 fallback."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.72 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live degraded=true gi_degraded=false cycle=C-353. Not mock. GI diverges from ATLAS heartbeat gi=0.64 and micro composite 0.86; stability=0.45 reflects active tripwire."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-353-120 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-353-8yec5l; mirrored_to_kv=false; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; kv_error=kv_write_failed."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.72 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-353. latest_seal_id=seal-C-353-120 status=attested vault_block_state=attested. GI divergence: ATLAS 0.64/CRITICAL vs integrity 0.72/yellow vs micro 0.86 — kv-backed but misaligned; operator cycle C-353 vs micro C-306."
+    }
+  ],
+  "recommendation": "Operator attention required: GI below floor (0.64 ATLAS / 0.72 integrity) with CRITICAL classification and tripwire elevated. Persistent kv_keys_ok=false and micro/operator cycle divergence. Investigate ATLAS journal direct route 502 and substrate identity introspect 401 blocking journal KV mirror. Triage gaia-nasa-eonet and hermes-crossref signal failures. No EPICON candidates to verify."
+}
