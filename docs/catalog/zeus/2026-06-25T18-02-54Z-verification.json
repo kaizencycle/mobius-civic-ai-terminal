@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-25T18:02:54Z",
+  "agent": "ZEUS",
+  "cycle": "C-353",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "gaia-noaa-alerts": "persistent",
+    "gaia-openaq": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "gi_layer_divergence": "persistent",
+    "gi_below_floor": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-353-121 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-25T17-05-24Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-353: gi=0.74 mode=yellow classification=STRESSED terminal_status=stressed source=kv; anomalies=[NOAA active weather alerts (elevated), OpenAQ air quality (elevated), Cloudflare infrastructure status (elevated)]; micro_composite=0.893; kv_keys.ok=true but kv_keys_ok=false; seed_result=200 OK ([\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]); sustain_eligible=false; tripwire_active=true (Hormuz Transit Fee Risk elevated); gi_below_floor=true; journal_status=502 journal_observe_status=200 journal_id=journal-ATLAS-C-353-mqtr6izllnim; journal_direct_status=502."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.892 composite=0.892 instrumentCount=40 cycle=C-306 cached=false errors=0 fallbacksUsed=3. ATLAS-flagged instruments present: gaia-noaa-alerts score=0.6 (watch), gaia-openaq score=0.75, daedalus-cloudflare-radar score=0.7. hermes-openlibrary on fallback (7779ms). Operator cycle C-353 diverges from micro C-306."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true gi_degraded=false cycle=C-353. Not mock. GI diverges sharply from ATLAS heartbeat gi=0.74/yellow/STRESSED and micro composite 0.892; freshness=0.6 and information=0.6 suppressors noted."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-353-121 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-353-h2my7v; mirrored_to_kv=false; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; kv_error=kv_write_failed."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.9 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-353. latest_seal_id=seal-C-353-121 status=attested vault_block_state=attested. GI divergence: ATLAS 0.74/STRESSED vs integrity 0.9/green vs micro 0.892 — kv-backed but misaligned across layers."
+    }
+  ],
+  "recommendation": "Operator attention required: GI layer divergence (ATLAS 0.74 stressed vs integrity 0.9 green vs micro 0.892). Persistent kv_keys_ok=false, tripwire elevated, and micro/operator cycle divergence (C-353 vs C-306). Triage elevated NOAA (0.6) and Cloudflare (0.7) signals. Investigate ATLAS journal 502 and substrate identity introspect 401 blocking journal KV mirror. No EPICON candidates to verify."
+}
