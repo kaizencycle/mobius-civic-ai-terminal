@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-25T00:02:27Z",
+  "agent": "ZEUS",
+  "cycle": "C-352",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "gi_layer_divergence": "persistent",
+    "CrossRef publication velocity": "resolved",
+    "OpenLibrary API health": "resolved",
+    "ArXiv new submissions": "resolved",
+    "USGS water conditions": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-352-114 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. quorum/state latest_seal_id=seal-C-352-117 status=attested vault_block_state=attested.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-24T23-04-03Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-352: gi=0.769 mode=yellow classification=STRESSED terminal_status=stressed source=kv; anomalies=[] (empty); micro_composite=0.872 micro_cycle=C-306; kv_keys.ok=true but kv_keys_ok=false; seed_result=200 OK ([\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]); sustain_eligible=false; tripwire_active=true; gi_below_floor=false; journal_ok=true journal_id=journal-ATLAS-C-352-mqsojwzmpfao; journal_status=502."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.902 composite=0.902 instrumentCount=40 cycle=C-306 cached=false errors=0 fallbacksUsed=2. All HERMES instruments nominal (CrossRef 0.9, OpenLibrary 0.9, ArXiv 0.9 recovered from prior failures). Watch: gaia-noaa-alerts 0.6, daedalus-cloudflare-radar 0.7, themis-datagov 0.8 fallback, themis-transparency-intl 0.8 fallback."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true gi_degraded=false freshness=0.6 quality=1 cycle=C-352. Not mock. GI diverges from ATLAS heartbeat (0.769 yellow STRESSED) while aligning closer to micro composite (0.902)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-352-114 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 ok=false entry_id=journal-ZEUS-C-352-r16gg9; kv_write_failed; substrate_error ledger 401 Token verification failed on mobius-identity-service introspect; canonical=false mirrored_to_kv=false."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false. latest_seal_id=seal-C-352-117 status=attested vault_block_state=attested quorum reached. GI divergence: ATLAS 0.769/yellow STRESSED vs integrity-status 0.9/green vs quorum 0.82/green vs micro 0.902 — kv-backed but misaligned; operator cycle C-352 vs micro C-306."
+    }
+  ],
+  "recommendation": "GI kv-backed (not mock) but disputed across layers — ATLAS 0.769/yellow STRESSED understates vs integrity-status 0.9/green and micro 0.902. Signal-layer failures (CrossRef, OpenLibrary, ArXiv, USGS) resolved since prior pass. Persistent flags: kv_keys_ok=false, tripwire_active=true, micro_operator_cycle_divergence (C-352 vs C-306). Investigate journal/KV write failure (502) and Civic Protocol identity introspect (substrate 401). No EPICON candidates to verify."
+}
