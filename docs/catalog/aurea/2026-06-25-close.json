@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-06-25T03:06:50Z",
+  "agent": "AUREA",
+  "cycle": "C-352",
+  "gi_final": 0.82,
+  "gi_mode": "green",
+  "gi_source": "kv",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.93
+  },
+  "overall_sentiment": 0.704,
+  "financial_score": 0.615,
+  "environ_score": 0.841,
+  "civic_score": 0.7,
+  "event_count_24h": 12,
+  "event_counts_by_type": {
+    "merge": 1,
+    "heartbeat": 0,
+    "catalog": 7,
+    "epicon": 0,
+    "zeus_verify": 4,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.82. The ledger registered 12 events over the last 24 hours, with the strongest visible signal in ENVIRON at 0.841 while ATLAS heartbeat GI fell from 0.90 to 0.71 and settled stressed. ZEUS verification status is disputed, and the heartbeat trend is falling across a 0.63-0.93 range. Forward signal: watch NARRATIVE for confirmation or drift as Hermes feed failures test whether the green GI reading can hold into the next cycle.",
+  "forward_signal": "Watch NARRATIVE for confirmation or drift, especially whether Hermes feed failures clear while GI remains above the stressed ATLAS heartbeat reads.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "falling",
+  "anomalies": [
+    "ArXiv new submissions [error]",
+    "CrossRef publication velocity [error]",
+    "Cloudflare infrastructure status [watch]",
+    "data.gov dataset freshness [fallback]",
+    "Transparency International API [fallback]"
+  ],
+  "quorum_attested": true
+}
