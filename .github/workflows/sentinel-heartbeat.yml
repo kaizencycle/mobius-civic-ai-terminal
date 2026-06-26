@@ -96,7 +96,7 @@ jobs:
 
           # Extract values
           COMPOSITE=$(python3 -c "import json; d=json.load(open('/tmp/micro.json')); print(d.get('composite', 0.5))" 2>/dev/null || echo "0.5")
-          ANOMALY_COUNT=$(python3 -c "import json; d=json.load(open('/tmp/micro.json')); print(len(d.get('anomalies', [])))" 2>/dev/null || echo "0")
+          ANOMALY_COUNT=$(python3 -c "import json; d=json.load(open('/tmp/micro.json')); print(d.get('anomaly_count', len(d.get('anomalies', []))))" 2>/dev/null || echo "0")
           ANOMALY_NAMES=$(python3 -c "
 import json
 d = json.load(open('/tmp/micro.json'))

@@ -116,14 +116,13 @@ export async function GET(req: NextRequest) {
   const cached = await kvGet<CacheEntry>(CACHE_KEY);
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
     if (lite) {
+      const nonNominal = cached.data.allSignals.filter((s) => s.severity !== 'nominal');
       return NextResponse.json(
         {
           ok: true,
           composite: cached.data.composite,
-          anomalies: cached.data.allSignals
-            .filter((s) => s.severity !== 'nominal')
-            .slice(0, 10)
-            .map((s) => ({ source: s.source, label: s.label, severity: s.severity })),
+          anomaly_count: nonNominal.length,
+          anomalies: nonNominal.slice(0, 10).map((s) => ({ source: s.source, label: s.label, severity: s.severity })),
           healthy: cached.data.healthy,
         },
         { headers: LITE_CACHE_HEADERS },
@@ -201,14 +200,13 @@ export async function GET(req: NextRequest) {
   kvSet<CacheEntry>(CACHE_KEY, { data, cachedAt: Date.now() }, CACHE_TTL_SEC).catch(() => {});
 
   if (lite) {
+    const nonNominal = data.allSignals.filter((s) => s.severity !== 'nominal');
     return NextResponse.json(
       {
         ok: true,
         composite: data.composite,
-        anomalies: data.allSignals
-          .filter((s) => s.severity !== 'nominal')
-          .slice(0, 10)
-          .map((s) => ({ source: s.source, label: s.label, severity: s.severity })),
+        anomaly_count: nonNominal.length,
+        anomalies: nonNominal.slice(0, 10).map((s) => ({ source: s.source, label: s.label, severity: s.severity })),
         healthy: data.healthy,
       },
       { headers: LITE_CACHE_HEADERS },
