@@ -1,7 +1,7 @@
 /**
  * GET/POST /api/cron/heartbeat — refresh fleet HEARTBEAT in KV (C-286).
  *
- * Schedule: every 5 minutes (`vercel.json`). Marks all canonical agents active
+ * Schedule: every 30 minutes (`vercel.json`). Marks all canonical agents active
  * so `/api/agents/status` does not degrade on cycle-open KV gaps.
  *
  * C-298: also advances the sustain counter using the carry-forward GI value

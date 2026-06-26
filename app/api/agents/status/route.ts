@@ -93,7 +93,7 @@ function applyConfidenceFloor(agentName: string, confidence: number): number {
   return SENTINEL_AGENT_NAMES.has(agentName) ? Math.max(confidence, SENTINEL_MII_FLOOR) : confidence;
 }
 
-const HEARTBEAT_FRESH_MS = Number(process.env.AGENT_HEARTBEAT_FRESH_MS ?? 300000);
+const HEARTBEAT_FRESH_MS = Number(process.env.AGENT_HEARTBEAT_FRESH_MS ?? 1_680_000);
 const ACTION_FRESH_MS = Number(process.env.AGENT_ACTION_FRESH_MS ?? 900000);
 // Optimization 4: single uniform freshness window — no KV vs substrate distinction
 const JOURNAL_FRESH_MS = Number(process.env.AGENT_JOURNAL_FRESH_MS ?? 3600000);

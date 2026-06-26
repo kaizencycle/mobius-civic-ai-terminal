@@ -35,7 +35,7 @@ export type AgentHeartbeatFleetPayload = {
 
 /**
  * Writes `mobius:heartbeat:last` JSON expected by `GET /api/agents/status`.
- * TTL: 15 minutes (3× a 5-minute cron interval).
+ * TTL: 90 minutes (3× a 30-minute cron interval).
  */
 export async function writeFleetHeartbeatKV(source: AgentHeartbeatFleetPayload['source']): Promise<boolean> {
   if (!isRedisAvailable()) return false;
