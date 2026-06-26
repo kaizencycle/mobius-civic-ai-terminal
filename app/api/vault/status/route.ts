@@ -41,7 +41,7 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: cors });
 }
 
-export async function GET(req: NextRequest) {
+async function buildVaultStatus(req: NextRequest) {
   const cors = handbookCorsHeaders(req.headers.get('origin'));
   let gi: number | null = null;
   let gi_provenance: string | null = null;
@@ -250,4 +250,45 @@ export async function GET(req: NextRequest) {
       'X-Mobius-Source': 'vault-status-v2',
     },
   });
+}
+
+export async function GET(req: NextRequest) {
+  const cors = handbookCorsHeaders(req.headers.get('origin'));
+  try {
+    // C-354: top-level timeout — vault makes many KV reads (listAllSeals, getVaultDepositHashCoverage,
+    // etc.) with no individual guards. On degraded KV these hang indefinitely, causing the vault
+    // UI to show "probing substrate…" forever. 6s gives cold Render dynos room to wake.
+    return await Promise.race([
+      buildVaultStatus(req),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('vault_status_timeout')), 6_000),
+      ),
+    ]);
+  } catch (err) {
+    const isTimeout = err instanceof Error && err.message === 'vault_status_timeout';
+    console.warn('[vault/status] ' + (isTimeout ? 'timed out after 6s' : 'error'), isTimeout ? '' : err);
+    return NextResponse.json(
+      {
+        ok: false,
+        status: 'degraded',
+        reason: isTimeout ? 'kv_timeout' : 'internal_error',
+        vault_version: 2,
+        balance_reserve: null,
+        in_progress_balance: null,
+        seals_count: null,
+        substrate_ok: null,
+        blocks: [],
+        quarantine_cycle_list: [],
+        seals_needing_reattestation: [],
+      },
+      {
+        status: 200,
+        headers: {
+          ...(cors ?? {}),
+          'Cache-Control': 'no-store',
+          'X-Mobius-Source': 'vault-status-degraded',
+        },
+      },
+    );
+  }
 }

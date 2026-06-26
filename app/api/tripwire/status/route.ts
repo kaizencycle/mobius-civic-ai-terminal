@@ -61,14 +61,15 @@ async function writeTripwireKvState(activeTripwires: number): Promise<void> {
 export async function GET() {
   try {
     const tripwire = getTripwireState();
-    await writeTripwireKvState(tripwire.active ? 1 : 0);
-    await saveTripwireState({
+    // C-354: KV writes are opportunistic side effects — do not block the response.
+    // On degraded KV, awaiting these caused tw PENDING indefinitely in the vault UI.
+    void writeTripwireKvState(tripwire.active ? 1 : 0);
+    void saveTripwireState({
       cycleId: currentCycleId(),
       tripwireCount: tripwire.active ? 1 : 0,
       elevated: tripwire.active,
       timestamp: new Date().toISOString(),
     }).catch(() => {});
-
     return NextResponse.json({
       ok: true,
       ...liveEnvelope(),

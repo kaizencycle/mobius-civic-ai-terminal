@@ -445,7 +445,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   if (!hasSpecialParams) {
     // Serve from KV coalesce cache if within window
-    const coalesced = await kvGet<{ builtAt: number; body: string }>(SNAPSHOT_COALESCE_KEY);
+    // C-354: guard the coalesce KV read — if KV is degraded this hangs before any lane starts
+    const coalesced = await Promise.race([
+      kvGet<{ builtAt: number; body: string }>(SNAPSHOT_COALESCE_KEY),
+      new Promise<null>(resolve => setTimeout(() => resolve(null), 2_000)),
+    ]).catch(() => null);
     if (coalesced && now - coalesced.builtAt < SNAPSHOT_COALESCE_MS) {
       try {
         return new NextResponse(coalesced.body, {
