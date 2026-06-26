@@ -85,8 +85,8 @@ function classifyHttpFailure(status: number, error: string | null): { state: Sna
   if (status === 401 || status === 403) {
     return { state: 'offline', message: error ?? 'Lane blocked (auth or config)' };
   }
-  if (status === 408 || status === 504) {
-    return { state: 'degraded', message: error ?? 'Upstream timeout' };
+  if (status === 408 || status === 503 || status === 504) {
+    return { state: 'degraded', message: error ?? 'Upstream timeout or degraded capacity' };
   }
   if (status >= 500) {
     return { state: 'offline', message: error ?? 'Upstream error' };

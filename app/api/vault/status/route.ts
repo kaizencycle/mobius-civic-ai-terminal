@@ -267,6 +267,9 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     const isTimeout = err instanceof Error && err.message === 'vault_status_timeout';
     console.warn('[vault/status] ' + (isTimeout ? 'timed out after 6s' : 'error'), isTimeout ? '' : err);
+    // Return 503 so response.ok is false — callers (vault-context, snapshot timedHandler)
+    // key off HTTP status to gate data usage, not body.ok. A 200 with ok:false body
+    // caused them to treat null vault fields as readable data.
     return NextResponse.json(
       {
         ok: false,
@@ -282,7 +285,7 @@ export async function GET(req: NextRequest) {
         seals_needing_reattestation: [],
       },
       {
-        status: 200,
+        status: 503,
         headers: {
           ...(cors ?? {}),
           'Cache-Control': 'no-store',
