@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-06-26T22:05:10.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-354",
+  "gi": 0.75,
+  "mode": "yellow",
+  "source": "mock",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": false,
+    "available": false,
+    "configured": true,
+    "latencyMs": null,
+    "error": "ERR This database has been suspended for exceeding the defined budget limit. Please increase budget or switch to a Fixed plan on Upstash Console, command was: [[\"ping\"]]",
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 5,
+      "error": null
+    },
+    "kv_keys_ok": null,
+    "timestamp": "2026-06-26T22:03:21.762Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK ([\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"])",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.893,
+  "micro_cycle": "C-306",
+  "degraded_agents": 0,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": true,
+    "integrity_source_kv": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": null,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "primary_kv_suspended": true,
+    "gi_below_floor": false
+  },
+  "last_journal_cycle": "C-354",
+  "force_journal": false,
+  "journal_status": 200,
+  "journal_route": "agents/atlas/observe",
+  "journal_id": "journal-ATLAS-C-354-mqvhbxbbb2ns",
+  "journal_ok": true,
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-354-mqvhbxbbb2ns",
+  "journal_direct_status": 500,
+  "journal_direct_id": null,
+  "tripwire": {
+    "active": true,
+    "level": "elevated",
+    "reason": "Hormuz Transit Fee Risk — Monitoring whether Iran formalizes transit fees and turns passage into an overt leverage instrument",
+    "last_updated": "2026-06-26T22:01:40.271Z"
+  }
+}
