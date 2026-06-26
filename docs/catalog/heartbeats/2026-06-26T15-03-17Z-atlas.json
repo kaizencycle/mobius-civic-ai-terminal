@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-26T15:03:17Z",
+  "agent": "ATLAS",
+  "cycle": "C-354",
+  "gi": 0.75,
+  "mode": "yellow",
+  "source": "mock",
+  "anomalies": [
+    {
+      "label": "CrossRef publication velocity",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": false,
+    "available": false,
+    "configured": true,
+    "latencyMs": null,
+    "error": "ERR This database has been suspended for exceeding the defined budget limit. Please increase budget or switch to a Fixed plan on Upstash Console, command was: [[\"ping\"]]",
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": null,
+    "timestamp": "2026-06-26T15:02:04.606Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK ([\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"])",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.874,
+  "micro_cycle": "C-306",
+  "degraded_agents": 1,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": true,
+    "integrity_source_kv": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": null,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "primary_kv_suspended": true,
+    "gi_below_floor": false,
+    "micro_operator_cycle_divergence": true
+  },
+  "last_journal_cycle": "C-354",
+  "force_journal": false,
+  "journal_status": 200,
+  "journal_route": "agents/atlas/observe",
+  "journal_id": "journal-ATLAS-C-354-mqv29404ocvh",
+  "journal_ok": true,
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-354-mqv29404ocvh",
+  "journal_direct_status": 500,
+  "journal_direct_id": null,
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-06-26T14:29:35.855Z"
+  }
+}
