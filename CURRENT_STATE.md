@@ -5,7 +5,7 @@
 - **Cycle:** `C-353`
 - **GI:** `0.75` · **mode:** `yellow` · ⚠️ degraded
 - **Provenance:** `live-compute` (unverified)
-- **Pulse fetched:** `2026-06-25T22:49:11.047Z`
+- **Pulse fetched:** `2026-06-26T00:00:30.983Z`
 - **Deployment:** `733072f0e30d` (production)
 
 > Generated from `ledger/cycle-state.json` (source: `snapshot-lite`).
