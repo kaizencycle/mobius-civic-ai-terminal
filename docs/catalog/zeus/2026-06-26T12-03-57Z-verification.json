@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-06-26T12-03-57Z",
+  "agent": "ZEUS",
+  "cycle": "C-354",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "primary_kv_suspended": "persistent",
+    "kv_keys_ok": "persistent",
+    "tripwire_active": "resolved",
+    "micro_operator_cycle_divergence": "persistent",
+    "cloudflare_infrastructure_status": "transient",
+    "gaia-noaa-alerts": "persistent",
+    "gaia-openaq": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "gi_layer_divergence": "persistent",
+    "integrity_source_mock": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). vault/seal/attest requires seal_id — no latest_seal_id in quorum/state; reserve block accumulating, 0 attestations received.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-26T12-02-49Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-354: gi=0.93 mode=green classification=NOMINAL terminal_status=nominal source=live; anomalies=[]; micro_composite=0.84 micro_cycle=C-306; kv_keys.ok=false primary_kv_suspended=true (Upstash budget exceeded); backup_redis available latency=1ms; seed_result=200 OK ([\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]); sustain_eligible=true; tripwire_active=false (resolved since 11:59Z); micro_operator_cycle_divergence=true; degraded_agents=2; journal_ok=true journal_id=journal-ATLAS-C-354-mquvszgty7ml. Prior heartbeat (11-04-56Z) had gi=0.72 yellow with Cloudflare anomaly — transient recovery."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.866 composite=0.866 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2. Elevated instruments: gaia-earthquakes score=0.7, gaia-noaa-alerts score=0.8, gaia-openaq score=0.75, daedalus-cloudflare-radar score=0.7, daedalus-terminal-ping score=0.8. hermes-crossref source=error. Operator cycle C-354 diverges from micro C-306. Micro composite 0.866 vs ATLAS micro_composite 0.84."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.83 mode=green terminal_status=nominal source=live gi_provenance=live-compute degraded=true cycle=C-354 kv=true. integrity_source_mock resolved. GI diverges from ATLAS gi=0.93 and micro composite 0.866. authority.gi_origin=live note='GI is being computed from live in-process signals.'"
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path. Alternatives: vault/seal/attest requires seal_id (400 invalid seal_id); vault/block/attest requires verdict (400)."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 500 empty body — likely primary KV suspended; journal write could not complete."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.83 mode=green terminal_status=nominal source=live-compute verified=false cycle=C-354. latest_seal_id=null vault_block_state=accumulating attestations received=0/5. GI divergence: ATLAS 0.93 vs integrity 0.83 vs micro 0.866."
+    }
+  ],
+  "recommendation": "Operator attention: primary KV suspended — restore Upstash budget or migrate primary KV. Reconcile GI across layers (0.83–0.93 spread). Deploy /api/vault/attest for C-298 quorum. Tripwire cleared since 11:59Z; Cloudflare ATLAS anomaly transient (micro daedalus-cloudflare-radar still 0.7). Micro/operator cycle divergence remains. No EPICON candidates to verify."
+}
