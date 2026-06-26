@@ -50,8 +50,9 @@ function buildAuthority(payload: Awaited<ReturnType<typeof computeIntegrityPaylo
 }
 
 const CACHE_HEADERS = {
-  // C-318: private — integrity payload contains operational state not suitable for public CDN cache
-  'Cache-Control': 'private, no-store',
+  // C-354: public edge cache — 120s s-maxage reduces KV reads from heartbeat polling.
+  // GI changes only on cron ticks (5-10 min); 2 min CDN cache is safe.
+  'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=30',
   'X-Mobius-Source': 'integrity-status',
 };
 

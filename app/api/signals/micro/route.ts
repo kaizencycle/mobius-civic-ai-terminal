@@ -3,7 +3,7 @@
 // Backward-compat: emits `agents` as AgentResult[] + `allSignals` so existing consumers
 // (chambers/signals buildFamilies, SignalsPageClient familyFromAgent) continue to work.
 
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { SIGNAL_REGISTRY, AGENT_WEIGHTS } from '@/lib/signals/registry';
 import { fetchAllInstruments, type InstrumentResult } from '@/lib/signals/fetcher';
 import { kvGet, kvSet } from '@/lib/kv/store';
@@ -104,10 +104,31 @@ function buildLegacyAgents(
   return { agents, allSignals };
 }
 
-export async function GET() {
+const LITE_CACHE_HEADERS = {
+  'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+  'X-Mobius-Source': 'micro-lite',
+} as const;
+
+export async function GET(req: NextRequest) {
+  const lite = new URL(req.url).searchParams.get('lite') === '1';
+
   // Serve from KV cache if fresh
   const cached = await kvGet<CacheEntry>(CACHE_KEY);
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
+    if (lite) {
+      return NextResponse.json(
+        {
+          ok: true,
+          composite: cached.data.composite,
+          anomalies: cached.data.allSignals
+            .filter((s) => s.severity !== 'nominal')
+            .slice(0, 10)
+            .map((s) => ({ source: s.source, label: s.label, severity: s.severity })),
+          healthy: cached.data.healthy,
+        },
+        { headers: LITE_CACHE_HEADERS },
+      );
+    }
     return NextResponse.json(
       { ...cached.data, cached: true },
       {
@@ -178,6 +199,21 @@ export async function GET() {
   };
 
   kvSet<CacheEntry>(CACHE_KEY, { data, cachedAt: Date.now() }, CACHE_TTL_SEC).catch(() => {});
+
+  if (lite) {
+    return NextResponse.json(
+      {
+        ok: true,
+        composite: data.composite,
+        anomalies: data.allSignals
+          .filter((s) => s.severity !== 'nominal')
+          .slice(0, 10)
+          .map((s) => ({ source: s.source, label: s.label, severity: s.severity })),
+        healthy: data.healthy,
+      },
+      { headers: LITE_CACHE_HEADERS },
+    );
+  }
 
   return NextResponse.json(data, {
     headers: {

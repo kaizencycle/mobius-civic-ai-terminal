@@ -13,7 +13,7 @@ name: Sentinel Heartbeat
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # Every 30 minutes
+    - cron: '0 * * * *'     # Every 60 minutes (top of hour)
   workflow_dispatch:
     inputs:
       dry_run:
@@ -52,7 +52,7 @@ jobs:
 
           # Try to fetch from live terminal
           MICRO_OK=false
-          if curl -sf "${TERMINAL_URL}/api/signals/micro" -o /tmp/micro.json --max-time 15; then
+          if curl -sf "${TERMINAL_URL}/api/signals/micro?lite=1" -o /tmp/micro.json --max-time 15; then
             MICRO_OK=true
             echo "✅ Micro-agent API responded"
           else
