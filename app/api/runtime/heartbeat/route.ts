@@ -105,12 +105,10 @@ async function runHeartbeat() {
     tags: ['heartbeat', severity, 'automated'],
   }).catch(() => {});
 
-  return NextResponse.json({
-    ok: true,
-    message: 'Heartbeat executed',
-    timestamp,
-    tripwire,
-  });
+  return NextResponse.json(
+    { ok: true, message: 'Heartbeat executed', timestamp, tripwire },
+    { headers: { 'Cache-Control': 'private, max-age=60' } },
+  );
 }
 
 function authorize(request: NextRequest) {

@@ -13,7 +13,7 @@ name: Sentinel Heartbeat
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # Every 30 minutes
+    - cron: '0 * * * *'     # Every 60 minutes (top of hour)
   workflow_dispatch:
     inputs:
       dry_run:
@@ -52,7 +52,7 @@ jobs:
 
           # Try to fetch from live terminal
           MICRO_OK=false
-          if curl -sf "${TERMINAL_URL}/api/signals/micro" -o /tmp/micro.json --max-time 15; then
+          if curl -sf "${TERMINAL_URL}/api/signals/micro?lite=1" -o /tmp/micro.json --max-time 15; then
             MICRO_OK=true
             echo "✅ Micro-agent API responded"
           else
@@ -96,7 +96,7 @@ jobs:
 
           # Extract values
           COMPOSITE=$(python3 -c "import json; d=json.load(open('/tmp/micro.json')); print(d.get('composite', 0.5))" 2>/dev/null || echo "0.5")
-          ANOMALY_COUNT=$(python3 -c "import json; d=json.load(open('/tmp/micro.json')); print(len(d.get('anomalies', [])))" 2>/dev/null || echo "0")
+          ANOMALY_COUNT=$(python3 -c "import json; d=json.load(open('/tmp/micro.json')); print(d.get('anomaly_count', len(d.get('anomalies', []))))" 2>/dev/null || echo "0")
           ANOMALY_NAMES=$(python3 -c "
 import json
 d = json.load(open('/tmp/micro.json'))
