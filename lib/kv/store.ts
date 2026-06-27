@@ -353,6 +353,32 @@ export async function kvType(key: string): Promise<string> {
 }
 
 /**
+ * C-356 — GET that bypasses the internal error-swallow so callers can detect
+ * budget suspension. Returns null when Redis is unconfigured; throws on Redis errors.
+ */
+export async function kvGetOrThrow<T>(key: string): Promise<T | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  const value = await redis.get<T>(prefixKey(key));
+  return value !== undefined ? value : null;
+}
+
+/**
+ * C-356 — SET that bypasses the internal error-swallow so callers can detect
+ * budget suspension. No-ops when Redis is unconfigured; throws on Redis errors.
+ */
+export async function kvSetOrThrow<T>(key: string, value: T, ttlSeconds?: number): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  const fullKey = prefixKey(key);
+  if (ttlSeconds) {
+    await redis.set(fullKey, value, { ex: ttlSeconds });
+  } else {
+    await redis.set(fullKey, value);
+  }
+}
+
+/**
  * Safe GET that catches all errors and returns null — for server components where
  * any KV failure must not crash the render (SSG / force-dynamic pages).
  */

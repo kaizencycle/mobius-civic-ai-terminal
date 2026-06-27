@@ -691,7 +691,7 @@ export async function POST(request: NextRequest) {
   });
 
   const decision = decideWriteResult(
-    { ok: mirroredToKv || kvSuspended, error: mirroredToKv || kvSuspended ? undefined : 'kv_write_failed' },
+    { ok: mirroredToKv, error: mirroredToKv ? undefined : kvSuspended ? 'kv_suspended' : 'kv_write_failed' },
     ledgerResult.ok
       ? { ok: true, entryId: ledgerResult.entryId }
       : { ok: false, error: ledgerResult.error ?? 'ledger_write_failed' },

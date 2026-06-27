@@ -28,6 +28,7 @@ import { updateSustainTrackingFromGi, seedSustainStateIfMissing } from '@/lib/mi
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import { isBudgetSuspensionError } from '@/lib/substrate/kv-errors';
 import { deriveGiFromSubstrate } from '@/lib/substrate/derive/gi';
+import { kvGetOrThrow } from '@/lib/kv/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,17 +36,18 @@ async function run(req: NextRequest) {
   const authErr = getEveSynthesisAuthError(req);
   if (authErr) return authErr;
 
-  // OPT-04(C-352): dedup guard — skip write if last heartbeat was < 4 minutes ago
+  // OPT-04(C-352): dedup guard — skip write if last heartbeat was < 4 minutes ago.
+  // C-356: use kvGetOrThrow so budget-suspension errors propagate (kvGet swallows them).
   let kvSuspended = false;
   try {
-    const existing = await kvGet<{ last_written?: number }>('heartbeat:last');
+    const existing = await kvGetOrThrow<{ last_written?: number }>('heartbeat:last');
     if (existing?.last_written && Date.now() - existing.last_written < 4 * 60 * 1000) {
       return NextResponse.json({ skipped: true, reason: 'too_soon', timestamp: new Date().toISOString() });
     }
   } catch (err) {
     if (isBudgetSuspensionError(err)) {
       kvSuspended = true;
-      console.warn('[cron/heartbeat] KV suspended — skipping dedup check, continuing heartbeat');
+      console.warn('[cron/heartbeat] KV suspended — skipping dedup check and fleet write');
     }
     // Any other error: proceed with the write
   }
@@ -53,17 +55,10 @@ async function run(req: NextRequest) {
   let ok = false;
   const timestamp = new Date().toISOString();
   if (!kvSuspended) {
-    ok = await writeFleetHeartbeatKV('cron-heartbeat').catch((err) => {
-      if (isBudgetSuspensionError(err)) { kvSuspended = true; return false; }
-      return false;
-    });
-  }
-
-  if (!ok && !kvSuspended) {
-    return NextResponse.json(
-      { ok: false, error: 'kv_unavailable_or_write_failed', timestamp },
-      { status: 503 },
-    );
+    ok = await writeFleetHeartbeatKV('cron-heartbeat');
+    // writeFleetHeartbeatKV returns false on any KV failure (suspension or connectivity blip).
+    // Treat false as a performance event — proceed to GI derivation rather than returning 503.
+    if (!ok) kvSuspended = true;
   }
 
   // C-298: advance sustain counter. Use live GI if fresh, else carry-forward.

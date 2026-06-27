@@ -3,7 +3,7 @@
 // propagating the error to the caller. KV suspension is a performance event,
 // not a system failure.
 
-import { kvGet } from '@/lib/kv/store';
+import { kvGetOrThrow } from '@/lib/kv/store';
 import { isBudgetSuspensionError } from './kv-errors';
 
 export type ResilientReadResult<T> = {
@@ -21,7 +21,7 @@ export async function resilientGet<T>(
   fallback: () => Promise<T | null>,
 ): Promise<ResilientReadResult<T>> {
   try {
-    const value = await kvGet<T>(key);
+    const value = await kvGetOrThrow<T>(key);
     if (value !== null && value !== undefined) {
       return { value, source: 'kv' };
     }

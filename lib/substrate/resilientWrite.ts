@@ -21,7 +21,7 @@
 // flag canonical:false, instead of 502 + data loss). A successful substrate write
 // is unchanged: canonical:true, 200.
 
-import { kvSet } from '@/lib/kv/store';
+import { kvSetOrThrow } from '@/lib/kv/store';
 import { isBudgetSuspensionError } from './kv-errors';
 
 export type KvSetResult = { ok: boolean; kv_suspended?: boolean; error?: string };
@@ -36,7 +36,7 @@ export async function resilientSet(
   ttlSeconds?: number,
 ): Promise<KvSetResult> {
   try {
-    await kvSet(key, value, ttlSeconds);
+    await kvSetOrThrow(key, value, ttlSeconds);
     return { ok: true };
   } catch (err) {
     if (isBudgetSuspensionError(err)) {
