@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-06-27T06-03-32Z",
+  "agent": "ZEUS",
+  "cycle": "C-355",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "primary_kv_suspended": "persistent",
+    "kv_keys_ok": "persistent",
+    "tripwire_active": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "integrity_source_mock": "persistent",
+    "hermes-openlibrary": "persistent",
+    "gaia-noaa-alerts": "persistent",
+    "gaia-openaq": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "gi_layer_divergence": "persistent",
+    "gaia-nasa-eonet": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). vault/seal/attest requires seal_id — no latest_seal_id in quorum/state; reserve block accumulating block 1 at 64%, 0 attestations received.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-27T05-05-34-645Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-355: gi=0.75 mode=yellow classification=STRESSED terminal_status=stressed source=mock; anomalies=[]; micro_composite=0.857 micro_cycle=C-306; kv_keys.ok=false primary_kv_suspended=true (Upstash budget exceeded); backup_redis available latency=1ms; seed_result=200 OK ([\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"]); sustain_eligible=false; tripwire_active=true level=elevated (Hormuz Transit Fee Risk); flags integrity_source_mock=true gi_below_floor=true micro_operator_cycle_divergence=true; journal_ok=true journal_id=journal-ATLAS-C-355-mqvwcj3pizjt; journal_direct_status=500. Prior heartbeat (04-05-24Z) gi=0.83 mode=green — GI dropped within sweep window."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.862 composite=0.862 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=1. Failing instrument: hermes-openlibrary score=0 (primary and fallback failed). Elevated: gaia-noaa-alerts score=0.6, gaia-openaq score=0.75, daedalus-cloudflare-radar score=0.7, gaia-earthquakes score=0.7, daedalus-terminal-ping score=0.8. gaia-nasa-eonet recovered to score=1.0 (was failing at 00:02 pass). Operator cycle C-355 diverges from micro C-306."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=live gi_provenance=live-compute degraded=true cycle=C-355 kv=true. ATLAS reported source=mock but live integrity shows source=live — KV seed failing at sweep while live-compute active. GI diverges from ATLAS 0.75 and micro 0.862. stability=0.45 drag from tripwire. freshness=1.0 quality=0.79."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 500 empty body — likely primary KV suspended; journal write could not complete."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.72 mode=yellow terminal_status=stressed source=live-compute verified=false cycle=C-355. latest_seal_id=null vault_block_state=accumulating in_progress_pct=64% attestations received=0/5. GI divergence: ATLAS 0.75 vs integrity 0.82 vs micro 0.862 vs quorum 0.72."
+    }
+  ],
+  "recommendation": "Operator attention: primary KV suspended — restore Upstash budget or migrate primary KV. ATLAS source=mock while live integrity remains live-compute — reconcile KV seed path. GI layer divergence (0.72–0.862) and gi_below_floor flag active. hermes-openlibrary persistently failing; gaia-nasa-eonet recovered. Deploy /api/vault/attest for C-298 quorum. Tripwire elevated (Hormuz Transit Fee Risk). No EPICON candidates to verify."
+}

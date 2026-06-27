@@ -16,6 +16,6 @@ export const KV_TTL_SECONDS = {
   MIC_SUSTAIN_STATE: 604_800,
   /** Decayed replay pressure from ECHO duplicate suppression */
   MIC_REPLAY_PRESSURE: 1_209_600,
-  /** Agent fleet heartbeat (cron every 5m; TTL 3× interval) */
-  HEARTBEAT: 900,
+  /** Agent fleet heartbeat (cron every 30m; TTL 3× interval) */
+  HEARTBEAT: 5400,
 } as const;
