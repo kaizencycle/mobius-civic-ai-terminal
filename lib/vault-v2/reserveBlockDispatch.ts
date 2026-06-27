@@ -34,9 +34,12 @@ export interface ReserveBlockDispatchPayload {
 function buildAnchorPayload(seal: Seal): ReserveBlockDispatchPayload {
   const sentinelSeals: Record<string, { signed: boolean; timestamp: string }> = {};
   for (const [agent, att] of Object.entries(seal.attestations ?? {})) {
+    const a = att as { verdict?: string; signature?: string; timestamp?: string };
     sentinelSeals[agent] = {
-      signed: (att as { verdict?: string }).verdict === 'pass',
-      timestamp: (att as { timestamp?: string }).timestamp ?? seal.sealed_at ?? new Date().toISOString(),
+      // signed = signature is present (matches canon.ts:136-140 semantics)
+      // verdict is preserved separately so CPC can distinguish pass vs flag
+      signed: Boolean(a.signature),
+      timestamp: a.timestamp ?? seal.sealed_at ?? new Date().toISOString(),
     };
   }
   return {
