@@ -26,6 +26,8 @@ import {
 import { githubStateWriteJson, isGithubStateWriteConfigured } from '@/lib/github-state-cache';
 import { updateSustainTrackingFromGi, seedSustainStateIfMissing } from '@/lib/mic/sustainTracker';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
+import { isBudgetSuspensionError } from '@/lib/substrate/kv-errors';
+import { deriveGiFromSubstrate } from '@/lib/substrate/derive/gi';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,18 +36,30 @@ async function run(req: NextRequest) {
   if (authErr) return authErr;
 
   // OPT-04(C-352): dedup guard — skip write if last heartbeat was < 4 minutes ago
+  let kvSuspended = false;
   try {
     const existing = await kvGet<{ last_written?: number }>('heartbeat:last');
     if (existing?.last_written && Date.now() - existing.last_written < 4 * 60 * 1000) {
       return NextResponse.json({ skipped: true, reason: 'too_soon', timestamp: new Date().toISOString() });
     }
-  } catch {
-    // If the read fails, proceed with the write — dedup is best-effort
+  } catch (err) {
+    if (isBudgetSuspensionError(err)) {
+      kvSuspended = true;
+      console.warn('[cron/heartbeat] KV suspended — skipping dedup check, continuing heartbeat');
+    }
+    // Any other error: proceed with the write
   }
 
-  const ok = await writeFleetHeartbeatKV('cron-heartbeat');
+  let ok = false;
   const timestamp = new Date().toISOString();
-  if (!ok) {
+  if (!kvSuspended) {
+    ok = await writeFleetHeartbeatKV('cron-heartbeat').catch((err) => {
+      if (isBudgetSuspensionError(err)) { kvSuspended = true; return false; }
+      return false;
+    });
+  }
+
+  if (!ok && !kvSuspended) {
     return NextResponse.json(
       { ok: false, error: 'kv_unavailable_or_write_failed', timestamp },
       { status: 503 },
@@ -53,6 +67,7 @@ async function run(req: NextRequest) {
   }
 
   // C-298: advance sustain counter. Use live GI if fresh, else carry-forward.
+  // C-356: on KV suspension, fall back to CPC substrate derivation.
   let sustainStatus: string | null = null;
   let sustainCycles: number | null = null;
   let gi: number | null = null;
@@ -60,14 +75,19 @@ async function run(req: NextRequest) {
     const cycle = await resolveOperatorCycleId().catch(() => '');
     await seedSustainStateIfMissing(cycle || undefined);
 
-    const giState = await loadGIState();
-    if (giState && typeof giState.global_integrity === 'number') {
-      const ageMs = Date.now() - new Date(giState.timestamp).getTime();
-      if (ageMs < 15 * 60 * 1000) gi = giState.global_integrity;
-    }
-    if (gi === null) {
-      const carry = await loadGIStateCarry();
-      if (carry && typeof carry.global_integrity === 'number') gi = carry.global_integrity;
+    if (kvSuspended) {
+      const derived = await deriveGiFromSubstrate();
+      if (derived) gi = derived.global_integrity;
+    } else {
+      const giState = await loadGIState();
+      if (giState && typeof giState.global_integrity === 'number') {
+        const ageMs = Date.now() - new Date(giState.timestamp).getTime();
+        if (ageMs < 15 * 60 * 1000) gi = giState.global_integrity;
+      }
+      if (gi === null) {
+        const carry = await loadGIStateCarry();
+        if (carry && typeof carry.global_integrity === 'number') gi = carry.global_integrity;
+      }
     }
 
     if (gi !== null && cycle) {
@@ -142,6 +162,7 @@ async function run(req: NextRequest) {
     ok: true,
     timestamp,
     source: 'cron-heartbeat',
+    kv_suspended: kvSuspended || undefined,
     sustain: sustainStatus !== null
       ? { status: sustainStatus, consecutiveEligibleCycles: sustainCycles }
       : null,
