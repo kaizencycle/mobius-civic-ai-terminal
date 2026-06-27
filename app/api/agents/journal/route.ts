@@ -3,6 +3,7 @@ import { getServiceAuthError } from '@/lib/security/serviceAuth';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 import { writeToSubstrate } from '@/lib/substrate/client';
 import { decideWriteResult } from '@/lib/substrate/resilientWrite';
+import { isBudgetSuspensionError } from '@/lib/substrate/kv-errors';
 import { kvLrange, kvGet } from '@/lib/kv/store';
 import { scanKeys } from '@/lib/kv/scan';
 import { getOperatorSession } from '@/lib/auth/session';
@@ -649,16 +650,26 @@ export async function POST(request: NextRequest) {
   // KV write entirely, taking down all agent journaling. Now: write KV first,
   // then attempt substrate, then let decideWriteResult pick the honest status.
   let mirroredToKv = false;
+  let kvSuspended = false;
   const redis = getJournalRedisClient();
   if (redis) {
-    const writeResult = await appendJournalLaneEntry(redis, {
-      ...entry,
-      id: entry.id,
-      timestamp: entry.timestamp,
-      canon: false,
-      ...(giAt !== undefined ? { gi_at_time: giAt } : {}),
-    });
-    mirroredToKv = writeResult.written || writeResult.token === 'already_exists';
+    try {
+      const writeResult = await appendJournalLaneEntry(redis, {
+        ...entry,
+        id: entry.id,
+        timestamp: entry.timestamp,
+        canon: false,
+        ...(giAt !== undefined ? { gi_at_time: giAt } : {}),
+      });
+      mirroredToKv = writeResult.written || writeResult.token === 'already_exists';
+    } catch (err) {
+      if (isBudgetSuspensionError(err)) {
+        kvSuspended = true;
+        console.warn('[journal] KV suspended — KV meta write skipped, continuing to substrate');
+      } else {
+        throw err;
+      }
+    }
   }
 
   // GitHub PAT write path removed in C-317 (PAT lacks contents:write scope → 403 → 502).
@@ -680,7 +691,7 @@ export async function POST(request: NextRequest) {
   });
 
   const decision = decideWriteResult(
-    { ok: mirroredToKv, error: mirroredToKv ? undefined : 'kv_write_failed' },
+    { ok: mirroredToKv || kvSuspended, error: mirroredToKv || kvSuspended ? undefined : 'kv_write_failed' },
     ledgerResult.ok
       ? { ok: true, entryId: ledgerResult.entryId }
       : { ok: false, error: ledgerResult.error ?? 'ledger_write_failed' },
@@ -693,6 +704,7 @@ export async function POST(request: NextRequest) {
       path: ledgerResult.ok ? ledgerResult.entryId : undefined,
       entryId: entry.id,
       timestamp: entry.timestamp,
+      ...(kvSuspended ? { kv_suspended: true } : {}),
     },
     { status: decision.status },
   );
