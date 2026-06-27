@@ -10,6 +10,7 @@ import { backupPrefixedGet } from '@/lib/kv/backup-redis';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getHeartbeat, getJournalHeartbeat } from '@/lib/runtime/heartbeat';
 import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
+import { computeIPI } from '@/lib/integrity/ipi';
 
 export type GiVerificationResult = {
   gi_verified: boolean;
@@ -273,6 +274,51 @@ export async function GET(req: NextRequest) {
     },
   };
 
+  // C-355: IPI computation — derive components from available runtime data.
+  // Components default to 0 when source data is unavailable; surfaced as
+  // ipi_data_insufficient:true so consumers know to interpret conservatively.
+  const giNow = giResolved.gi ?? gi?.global_integrity ?? null;
+  const giPrev = bundle.giCarry
+    ? (typeof (bundle.giCarry as Record<string, unknown>).global_integrity === 'number'
+        ? (bundle.giCarry as Record<string, unknown>).global_integrity as number
+        : null)
+    : null;
+
+  const recentFlagCount = (lanes.signals.anomalies ?? 0) + (lanes.tripwire.count ?? 0);
+  const anomaly_density = Math.min(recentFlagCount / 10, 1);
+  const dissent = 0; // no quorum dissent source available in snapshot-lite context
+  const volatility =
+    giNow !== null && giPrev !== null
+      ? Math.min(Math.abs(giNow - giPrev) / 0.3, 1)
+      : 0;
+  // witness_lag: 72h normalization. No human-action timestamp in snapshot-lite;
+  // default to 0 (no lag signal) to avoid inventing pressure.
+  const witness_lag = 0;
+
+  const ipiDataInsufficient = giNow === null && recentFlagCount === 0;
+  const ipiResult = ipiDataInsufficient
+    ? null
+    : computeIPI({ anomaly_density, dissent, volatility, witness_lag });
+
+  const ipiBlock = ipiResult
+    ? {
+        score: ipiResult.score,
+        state: ipiResult.state,
+        fountain_status: ipiResult.fountain_status,
+        human_required: ipiResult.human_required,
+        triggered_sentinels: ipiResult.triggered_sentinels,
+        components: ipiResult.components,
+        computed_at: ipiResult.computed_at,
+      }
+    : {
+        score: 0,
+        state: 'stable' as const,
+        fountain_status: 'confirmed' as const,
+        human_required: false,
+        triggered_sentinels: [] as string[],
+        ipi_data_insufficient: true,
+      };
+
   const modeStr = (giResolved.mode as string | null) ?? gi?.mode ?? null;
   const degraded =
     giResolved.degraded ||
@@ -315,6 +361,7 @@ export async function GET(req: NextRequest) {
         ...giVerification,
         degraded,
         lanes,
+        ipi: ipiBlock,
         heartbeat: {
           runtime: getHeartbeat(),
           journal: getJournalHeartbeat(),
