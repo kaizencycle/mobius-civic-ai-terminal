@@ -93,7 +93,8 @@ function applyConfidenceFloor(agentName: string, confidence: number): number {
   return SENTINEL_AGENT_NAMES.has(agentName) ? Math.max(confidence, SENTINEL_MII_FLOOR) : confidence;
 }
 
-const HEARTBEAT_FRESH_MS = Number(process.env.AGENT_HEARTBEAT_FRESH_MS ?? 300000);
+// 2_100_000 ms = 35 min — 5 min buffer above the 30-min cron interval (C-354 throttle)
+const HEARTBEAT_FRESH_MS = Number(process.env.AGENT_HEARTBEAT_FRESH_MS ?? 2_100_000);
 const ACTION_FRESH_MS = Number(process.env.AGENT_ACTION_FRESH_MS ?? 900000);
 // Optimization 4: single uniform freshness window — no KV vs substrate distinction
 const JOURNAL_FRESH_MS = Number(process.env.AGENT_JOURNAL_FRESH_MS ?? 3600000);
