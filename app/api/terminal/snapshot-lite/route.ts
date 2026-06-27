@@ -295,29 +295,22 @@ export async function GET(req: NextRequest) {
   // default to 0 (no lag signal) to avoid inventing pressure.
   const witness_lag = 0;
 
-  const ipiDataInsufficient = giNow === null && recentFlagCount === 0;
-  const ipiResult = ipiDataInsufficient
-    ? null
-    : computeIPI({ anomaly_density, dissent, volatility, witness_lag });
+  // dissent and witness_lag have no source in snapshot-lite; multiplicative IPI
+  // would always be 0. Always flag insufficient so consumers don't treat the
+  // result as a real constitutional reading until those signals are wired.
+  const ipiDataInsufficient = true;
+  const ipiResult = computeIPI({ anomaly_density, dissent, volatility, witness_lag });
 
-  const ipiBlock = ipiResult
-    ? {
-        score: ipiResult.score,
-        state: ipiResult.state,
-        fountain_status: ipiResult.fountain_status,
-        human_required: ipiResult.human_required,
-        triggered_sentinels: ipiResult.triggered_sentinels,
-        components: ipiResult.components,
-        computed_at: ipiResult.computed_at,
-      }
-    : {
-        score: 0,
-        state: 'stable' as const,
-        fountain_status: 'confirmed' as const,
-        human_required: false,
-        triggered_sentinels: [] as string[],
-        ipi_data_insufficient: true,
-      };
+  const ipiBlock = {
+    score: ipiResult.score,
+    state: ipiResult.state,
+    fountain_status: ipiResult.fountain_status,
+    human_required: ipiResult.human_required,
+    triggered_sentinels: ipiResult.triggered_sentinels,
+    components: ipiResult.components,
+    computed_at: ipiResult.computed_at,
+    ipi_data_insufficient: ipiDataInsufficient,
+  };
 
   const modeStr = (giResolved.mode as string | null) ?? gi?.mode ?? null;
   const degraded =
