@@ -16,7 +16,7 @@
     },
     {
       "path": "/api/cron/vault-attestation",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron/sweep",
