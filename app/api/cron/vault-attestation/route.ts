@@ -52,6 +52,7 @@ import {
   type SentinelQuorumState,
 } from '@/lib/mic/quorumTracker';
 import { kvGet, kvSet } from '@/lib/kv/store';
+import { dispatchReserveBlockCanon } from '@/lib/vault-v2/reserveBlockDispatch';
 
 export const dynamic = 'force-dynamic';
 
@@ -276,6 +277,8 @@ export async function GET(req: NextRequest) {
           // OPT-3 (C-293): surface substrate error in cron logs
           substrate_error: sealed.substrate_attestation_error ?? null,
         });
+        // C-355: fire-and-forget .dat canon dispatch on attested seals
+        if (quorum1.decision === 'attested') dispatchReserveBlockCanon(sealed);
       } else {
         // null means another cron/manual invocation raced and already finalized+cleared
         // the candidate. Benign race — log for visibility but don't mark report ok: false.
@@ -309,6 +312,8 @@ export async function GET(req: NextRequest) {
                 seal_id: sealed.seal_id,
                 status: sealed.status,
               });
+              // C-355: fire-and-forget .dat canon dispatch on attested seals
+              if (quorum2.decision === 'attested') dispatchReserveBlockCanon(sealed);
             }
           } else {
             candidate_state = 'timeout-injected';

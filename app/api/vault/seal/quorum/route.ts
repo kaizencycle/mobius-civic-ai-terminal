@@ -35,6 +35,7 @@ import type { Posture, SealAttestation, SealCandidate, SentinelAgent } from '@/l
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import { getVaultStatusPayload, listVaultDeposits } from '@/lib/vault/vault';
+import { dispatchReserveBlockCanon } from '@/lib/vault-v2/reserveBlockDispatch';
 
 export const dynamic = 'force-dynamic';
 
@@ -196,6 +197,8 @@ export async function POST(req: NextRequest) {
   const finalized = await finalizeSeal(quorum);
   const balanceAfter = await getInProgressBalance();
   const finalizedSeal = finalized ?? (await getSeal(pinnedCandidate.seal_id));
+  // C-355: fire-and-forget .dat canon dispatch on attested seals
+  if (quorum.decision === 'attested' && finalizedSeal) dispatchReserveBlockCanon(finalizedSeal);
 
   return NextResponse.json({
     ok: failed.length === 0 && quorum.decision === 'attested' && finalizedSeal?.status === 'attested',
