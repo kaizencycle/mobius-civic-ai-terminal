@@ -4,6 +4,7 @@
  */
 
 import { kvSet, KV_KEYS, loadSignalSnapshot } from '@/lib/kv/store';
+import { isBudgetSuspensionError } from '@/lib/substrate/kv-errors';
 
 export async function writeSynthesisCronHeartbeatKv(gi: number, cycle: string): Promise<void> {
   const snap = await loadSignalSnapshot().catch(() => null);
@@ -24,5 +25,13 @@ export async function writeSynthesisCronHeartbeatKv(gi: number, cycle: string): 
     timestamp,
     source: 'synthesis-cron',
   });
-  await kvSet(KV_KEYS.HEARTBEAT, payload);
+  try {
+    await kvSet(KV_KEYS.HEARTBEAT, payload);
+  } catch (err) {
+    if (isBudgetSuspensionError(err)) {
+      console.warn('[synthesis-cron] KV suspended — heartbeat write skipped (non-fatal)');
+      return;
+    }
+    throw err;
+  }
 }

@@ -1,4 +1,5 @@
 // C-333 — Resilient substrate write decision (the journaling-cascade fix).
+// C-356 — resilientSet: KV write with budget-suspension swallow.
 //
 // THE BUG (live this cycle): /api/agents/journal awaited writeToSubstrate() and,
 // on any failure, returned HTTP 502 with mirrored_to_kv:false — and the KV write
@@ -19,6 +20,32 @@
 // criteria. It only changes how a substrate FAILURE is reported (accept to KV +
 // flag canonical:false, instead of 502 + data loss). A successful substrate write
 // is unchanged: canonical:true, 200.
+
+import { kvSetOrThrow } from '@/lib/kv/store';
+import { isBudgetSuspensionError } from './kv-errors';
+
+export type KvSetResult = { ok: boolean; kv_suspended?: boolean; error?: string };
+
+/**
+ * Write a KV key, swallowing budget-suspension errors so callers never 5xx
+ * on a budget cap. All other errors are re-thrown.
+ */
+export async function resilientSet(
+  key: string,
+  value: unknown,
+  ttlSeconds?: number,
+): Promise<KvSetResult> {
+  try {
+    await kvSetOrThrow(key, value, ttlSeconds);
+    return { ok: true };
+  } catch (err) {
+    if (isBudgetSuspensionError(err)) {
+      console.warn(`[resilientSet] KV suspended — skipping write for key "${key}"`);
+      return { ok: false, kv_suspended: true };
+    }
+    throw err;
+  }
+}
 
 export type SubstrateOutcome =
   | { ok: true; entryId?: string }
