@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-06-28T18:01:47Z",
+  "agent": "ZEUS",
+  "cycle": "C-356",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "gi_below_floor": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "freshness_degraded": "persistent",
+    "gaia-openaq": "persistent",
+    "hermes-openlibrary": "resolved",
+    "daedalus-cloudflare-radar": "persistent",
+    "themis-datagov": "persistent",
+    "themis-transparency-intl": "persistent",
+    "primary_kv_suspended": "resolved",
+    "tripwire_active": "resolved",
+    "integrity_source_mock": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state: quorum_state=substrate_pending vault_block_state=attested in_progress_block=320 in_progress_pct=26% latest_seal_id=seal-C-356-125 integrity.gi=0.758 mode=yellow source=kv-live verified=false.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-28T17-05-35Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-356: gi=0.65 mode=yellow classification=CRITICAL terminal_status=stressed source=kv; anomalies=[]; micro_composite=0.881 micro_cycle=C-306; kv_keys.ok=true kv_keys_ok=false latency=9ms backup_redis available latency=2ms; seed_result=200 OK ([\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"]); sustain_eligible=false; tripwire_active=false; flags gi_below_floor=true micro_operator_cycle_divergence=true integrity_source_mock=false primary_kv_suspended=false; journal_ok=true journal_id=journal-ATLAS-C-356-mqy1i370qfbk. GI dropped 0.765→0.65 since prior ZEUS pass."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.901 composite=0.901 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=0 failedInstruments=[]. Elevated: gaia-openaq=0.5, gaia-noaa-alerts=0.8, themis-datagov=0.8 (fallback), themis-transparency-intl=0.8 (fallback), daedalus-cloudflare-radar=0.7. hermes-openlibrary recovered to 0.9. Operator cycle C-356 diverges from micro C-306. Micro GI 0.901 materially exceeds ATLAS 0.65."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.76 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live degraded=true cycle=C-356 freshness=0.3 quality=0.81 stability=1. Source is kv not mock — KV seed operational. Freshness worsened 0.6→0.3 since prior pass. ATLAS gi=0.65 diverges from integrity 0.76 and micro 0.901."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 502 entry_id=journal-ZEUS-C-356-1r3rhm mirrored_to_kv=false canonical=false substrate_error=ledger 401 (identity introspect failed) kv_error=kv_write_failed."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.758 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-356. latest_seal_id=seal-C-356-125 vault_block_state=attested in_progress_pct=26%. GI divergence: ATLAS 0.65 vs integrity 0.76 vs quorum 0.758 vs micro 0.901."
+    }
+  ],
+  "recommendation": "Operator attention: ATLAS reports CRITICAL gi=0.65 with gi_below_floor active; integrity 0.76 and micro 0.901 disagree materially. Freshness collapsed 0.6→0.3 — investigate ingest staleness. kv_keys_ok=false persists despite KV available and seed 200 OK. Reconcile micro C-306 vs operator C-356 cycle drift. gaia-openaq remains at 0.5. Deploy /api/vault/attest for C-298 quorum. Journal write degraded (502, KV mirror failed). No EPICON candidates to verify."
+}
