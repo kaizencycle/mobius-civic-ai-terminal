@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { AttestationStatus } from '@/components/vault/AttestationStatus';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 type ReserveBlockSummary = {
@@ -59,6 +60,12 @@ type VaultPayload = {
   substrate_attestation_error?: string | null;
   latest_block_immortalized?: boolean;
   timestamp?: string;
+  substrate_attestation_coverage?: {
+    examined?: number;
+    immortalized?: number;
+    errored?: number;
+    unattested?: number;
+  };
 };
 
 type ContributionAgentRow = {
@@ -343,29 +350,13 @@ export default function VaultPageClient() {
           <div>source_entries: {data.source_entries ?? 0}</div>
           <div>last_deposit: {data.last_deposit ?? 'null'}</div>
           {(data.latest_seal_id || data.latest_seal_at) && <div className="pt-1 text-slate-500">Latest seal: {data.latest_seal_id ?? '—'} @ {data.latest_seal_at ?? '—'}</div>}
-          {/* V-3: human-readable substrate attestation */}
-          {data.substrate_attestation_id ? (
-            <div className="text-cyan-300">
-              ✓ Substrate attested · {data.substrate_attestation_id}
-            </div>
-          ) : data.substrate_attestation_error ? (
-            <div className="space-y-1 text-rose-300">
-              <div className="flex flex-wrap items-center gap-2">
-                <span>✗ Substrate attestation failed</span>
-                {data.substrate_attestation_error.includes('No API base configured') && (
-                  <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-300">No API base</span>
-                )}
-                {data.substrate_attestation_error.includes('ledger 400') && (
-                  <span className="rounded border border-rose-500/40 bg-rose-500/10 px-1.5 py-0.5 text-[9px] text-rose-300">ledger 400</span>
-                )}
-              </div>
-              {data.substrate_attestation_error.includes('No API base configured') && (
-                <div className="text-[10px] text-slate-400">
-                  Fix: set RENDER_LEDGER_URL env var in Vercel, or wait for Phase 15 deploy.
-                </div>
-              )}
-            </div>
-          ) : null}
+          <AttestationStatus
+            erroredBlocks={data.substrate_attestation_coverage?.errored ?? 0}
+            sealedBlocks={block.sealed_blocks}
+            liveAttested={data.substrate_attestation_coverage?.immortalized ?? 0}
+            substrateAttestationError={data.substrate_attestation_error}
+            substrateAttestationId={data.substrate_attestation_id}
+          />
         </div>
       </div>
 
