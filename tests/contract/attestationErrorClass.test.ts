@@ -22,6 +22,13 @@ describe('config-class errors are recognized (must not count toward retry cap)',
     assert.strictEqual(classifyAttestationError('ledger 400: Unknown lab source: terminal'), 'config');
   });
 
+  it('token verification failed (C-357 introspect 401) classifies as config', () => {
+    const live =
+      'ledger 401: {"detail":"Token verification failed: Client error \'401 Unauthorized\' for url \'https://mobius-identity-service.onrender.com/auth/introspect\'"}';
+    assert.strictEqual(classifyAttestationError(live), 'config');
+    assert.strictEqual(isConfigClassError(live), true);
+  });
+
   it('config match is case-insensitive and survives wrapping', () => {
     assert.strictEqual(isConfigClassError('NO API BASE CONFIGURED FOR TERMINAL'), true);
     assert.strictEqual(isConfigClassError('  Error: ledger 400: {"detail":"no api base configured for terminal"} '), true);

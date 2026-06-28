@@ -273,8 +273,8 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
   // C-338: /ledger/attest verifies via Identity introspection — mint a runtime
   // JWT (falls back to the static agent token when creds are unconfigured).
   const { getAttestBearerToken } = await import('@/lib/substrate/identityToken');
-  const AGENT_TOKEN = await getAttestBearerToken();
-  const authorization = AGENT_TOKEN.length > 0 ? `Bearer ${AGENT_TOKEN}` : '';
+  let AGENT_TOKEN = await getAttestBearerToken();
+  let authorization = AGENT_TOKEN.length > 0 ? `Bearer ${AGENT_TOKEN}` : '';
   const eventId = entry.id ?? `${entry.agentOrigin}-${entry.cycle}-${Date.now()}`;
   const attestTimestamp = new Date().toISOString();
   const ledgerLabSource = toLedgerLabSource(entry.source);
@@ -328,7 +328,7 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
     // Canonical Civic-Protocol-Core endpoint paths:
     //   POST /ledger/attest, GET /ledger/chain
     //   POST /api/vault/seal, POST /api/seal/reconcile, POST /api/epicon/ingest
-    const res = await fetch(`${LEDGER_BASE}/ledger/attest`, {
+    let res = await fetch(`${LEDGER_BASE}/ledger/attest`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -340,6 +340,30 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
       signal: AbortSignal.timeout(8000),
       cache: 'no-store',
     });
+
+    // C-357: one retry after 401 — invalidate cached JWT, re-mint, re-attest.
+    if (res.status === 401) {
+      const { invalidateIdentityToken, getAttestBearerToken: remint } = await import(
+        '@/lib/substrate/identityToken'
+      );
+      invalidateIdentityToken();
+      AGENT_TOKEN = await remint();
+      authorization = AGENT_TOKEN.length > 0 ? `Bearer ${AGENT_TOKEN}` : '';
+      if (authorization) {
+        res = await fetch(`${LEDGER_BASE}/ledger/attest`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: authorization,
+            ...(terminal_id ? { 'X-Terminal-ID': terminal_id } : {}),
+            ...(api_base ? { 'X-Terminal-API-Base': api_base } : {}),
+          },
+          body: JSON.stringify(requestBody),
+          signal: AbortSignal.timeout(8000),
+          cache: 'no-store',
+        });
+      }
+    }
 
     const contentType = res.headers.get('content-type') ?? '';
     if (!res.ok) {
