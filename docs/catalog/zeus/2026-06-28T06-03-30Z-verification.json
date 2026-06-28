@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-06-28T06:03:30Z",
+  "agent": "ZEUS",
+  "cycle": "C-356",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "freshness_degraded": "persistent",
+    "gaia-openaq": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "themis-datagov": "persistent",
+    "themis-transparency-intl": "persistent",
+    "primary_kv_suspended": "resolved",
+    "tripwire_active": "resolved",
+    "integrity_source_mock": "resolved",
+    "gaia-noaa-alerts": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state: vault_block_state=attested in_progress_block=318 in_progress_pct=35% latest_seal_id=seal-C-355-123 substrate_pending attestations 0/5.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-28T05-03-00Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-356: gi=0.762 mode=yellow classification=STRESSED terminal_status=stressed source=kv; anomalies=[]; micro_composite=0.88 micro_cycle=C-306; kv_keys.ok=true kv_keys_ok=false latency=12ms backup_redis available latency=2ms; seed_result=200 OK ([\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"]); sustain_eligible=true; tripwire_active=false; flags micro_operator_cycle_divergence=true integrity_source_mock=false primary_kv_suspended=false; journal_ok=true journal_id=journal-ATLAS-C-356-mqxboxre8j5v."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.907 composite=0.907 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=0 failedInstruments=[]. Elevated instruments: gaia-noaa-alerts=0.8, gaia-openaq=0.75, themis-datagov=0.8 (fallback), themis-transparency-intl=0.8 (fallback), daedalus-cloudflare-radar=0.7. Operator cycle C-356 diverges from micro C-306."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true cycle=C-356 freshness=0.6 quality=1 stability=1. ATLAS gi=0.762 (yellow) diverges from integrity 0.9 (green). Source is kv not mock — KV seed operational. Freshness 0.6 suppresses full confidence despite green mode."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-356-ud7rs6 mirrored_to_kv=true canonical=false pending_immortalization=true substrate_error=ledger 401 (identity introspect failed)."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.9 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-356. latest_seal_id=seal-C-355-123 vault_block_state=attested in_progress_pct=35%. GI divergence: ATLAS 0.762 vs integrity/quorum 0.9 vs micro 0.907."
+    }
+  ],
+  "recommendation": "Operator attention: GI layer divergence persists — ATLAS 0.762 (yellow STRESSED) vs kv-backed integrity 0.9 (green) vs micro 0.907. Treat ATLAS heartbeat GI as conservative stressed band until reconciled. kv_keys_ok=false despite KV available and seed 200 OK — investigate missing keys. Reconcile micro C-306 vs operator C-356 cycle drift. Freshness 0.6 remains degraded. Deploy /api/vault/attest for C-298 quorum (0/5 attestations). Positive: primary_kv_suspended and tripwire resolved since C-355. No EPICON candidates to verify."
+}
