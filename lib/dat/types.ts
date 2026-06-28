@@ -94,6 +94,7 @@ export interface CanonizationError {
 export type AttestationDisplayStatus =
   | 'attested'
   | 'canonized_via_dat'
+  | 'partial_canonized_via_dat'
   | 'pending'
   | 'error'
   | 'quarantined';

@@ -64,20 +64,18 @@ async function fetchViaKv(opts: {
   const { fromBlock, toBlock, verbose, errors } = opts;
 
   const seals = await listAllSeals(MAX_BLOCKS);
-  const finalized = seals.filter(
-    (s) => s.status === 'attested' || s.status === 'quarantined',
-  );
+  const attestedOnly = seals.filter((s) => s.status === 'attested');
 
   if (verbose) {
-    console.log(`[fetchAllSealedBlocks] KV: ${finalized.length} finalized seals`);
+    console.log(`[fetchAllSealedBlocks] KV: ${attestedOnly.length} attested seals`);
   }
 
-  const blocks = finalized
+  const blocks = attestedOnly
     .map(sealToVaultBlock)
     .filter((b) => b.block_number >= fromBlock && b.block_number <= toBlock)
     .sort((a, b) => a.block_number - b.block_number);
 
-  const gaps = findGaps(blocks.map((b) => b.block_number));
+  const gaps = findGaps(blocks.map((b) => b.block_number), fromBlock);
 
   return {
     blocks,
@@ -138,7 +136,7 @@ async function fetchViaApi(opts: {
   }
 
   blocks.sort((a, b) => a.block_number - b.block_number);
-  const gaps = findGaps(blocks.map((b) => b.block_number));
+  const gaps = findGaps(blocks.map((b) => b.block_number), fromBlock);
 
   return {
     blocks,
@@ -149,13 +147,12 @@ async function fetchViaApi(opts: {
   };
 }
 
-function findGaps(sortedNumbers: number[]): number[] {
+function findGaps(sortedNumbers: number[], expectedStart: number): number[] {
   if (sortedNumbers.length === 0) return [];
   const gaps: number[] = [];
-  const min = sortedNumbers[0];
   const max = sortedNumbers[sortedNumbers.length - 1];
   const set = new Set(sortedNumbers);
-  for (let i = min; i <= max; i++) {
+  for (let i = expectedStart; i <= max; i++) {
     if (!set.has(i)) gaps.push(i);
   }
   return gaps;
@@ -169,11 +166,11 @@ export async function fetchSealedSealsForApi(
   offset: number,
 ): Promise<{ seals: Seal[]; total: number }> {
   const seals = await listAllSeals(MAX_BLOCKS);
-  const finalized = seals
-    .filter((s) => s.status === 'attested' || s.status === 'quarantined')
+  const attestedOnly = seals
+    .filter((s) => s.status === 'attested')
     .filter((s) => s.sequence >= fromBlock && s.sequence <= toBlock)
     .sort((a, b) => a.sequence - b.sequence);
 
-  const page = finalized.slice(offset, offset + limit);
-  return { seals: page, total: finalized.length };
+  const page = attestedOnly.slice(offset, offset + limit);
+  return { seals: page, total: attestedOnly.length };
 }

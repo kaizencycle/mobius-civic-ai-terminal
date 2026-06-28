@@ -88,7 +88,8 @@ export function AttestationStatus({
         )}
       </div>
 
-      {status === 'canonized_via_dat' && manifest.total_blocks_anchored > 0 && (
+      {(status === 'canonized_via_dat' || status === 'partial_canonized_via_dat') &&
+        manifest.total_blocks_anchored > 0 && (
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-slate-400">
           <div>
             <span className="text-slate-500">.dat files</span>{' '}
@@ -135,6 +136,13 @@ const STATUS_CONFIG: Record<
     detail: (m) =>
       `${m.total_blocks_anchored} blocks hash-anchored to CPC · chain verified`,
   },
+  partial_canonized_via_dat: {
+    icon: '◈',
+    label: 'Partial .dat canonization',
+    className: 'border-amber-500/30 bg-amber-500/5 text-amber-200',
+    detail: (m, errored) =>
+      `${m.total_blocks_anchored} blocks anchored · ${errored} live attestation errors remain · run full C-357 migration`,
+  },
   pending: {
     icon: '○',
     label: 'Pending attestation',
@@ -167,8 +175,12 @@ function deriveStatus(args: {
 
   if (loading) return 'pending';
 
-  if (blocksAnchored > 0 && blocksAnchored >= sealedBlocks - erroredBlocks) {
+  if (blocksAnchored >= sealedBlocks && sealedBlocks > 0) {
     return 'canonized_via_dat';
+  }
+
+  if (blocksAnchored > 0) {
+    return 'partial_canonized_via_dat';
   }
 
   if (liveAttested >= sealedBlocks && erroredBlocks === 0) {

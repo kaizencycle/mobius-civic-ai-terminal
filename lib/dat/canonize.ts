@@ -56,12 +56,16 @@ export async function canonizeReserveBlocks(
 
   let startBlock = 1;
   let prevChainTip = GENESIS_HASH;
+  let existingManifest: DatManifest | null = null;
 
   if (incremental) {
-    const existing = getExistingChainState(outputDir);
-    if (existing) {
-      startBlock = existing.last_block_number + 1;
-      prevChainTip = existing.chain_tip_hash;
+    existingManifest = loadExistingManifest(outputDir);
+    if (existingManifest) {
+      const lastFile = Object.values(existingManifest.files).sort(
+        (a, b) => b.range[1] - a.range[1],
+      )[0];
+      startBlock = lastFile.range[1] + 1;
+      prevChainTip = existingManifest.chain_tip_hash;
       log(`Incremental: from block ${startBlock}`);
     }
   }
@@ -97,7 +101,7 @@ export async function canonizeReserveBlocks(
   }
 
   const datFiles: string[] = [];
-  const manifest: Record<string, DatManifestEntry> = {};
+  const newManifestEntries: Record<string, DatManifestEntry> = {};
   let chainTip = prevChainTip;
   let fileIndex = incremental ? getNextFileIndex(outputDir) : 0;
   let fileRecords: DatBlockRecord[] = [];
@@ -148,7 +152,7 @@ export async function canonizeReserveBlocks(
         log(`[dry-run] Would write ${filename}: blocks ${fileStartBlock}–${fileEndBlock}`);
       }
 
-      manifest[filename] = {
+      newManifestEntries[filename] = {
         range: [fileStartBlock, fileEndBlock],
         sha256: fileHash,
         block_count: fileRecords.length,
@@ -161,13 +165,20 @@ export async function canonizeReserveBlocks(
     }
   }
 
+  const priorBlockCount = existingManifest?.total_blocks ?? 0;
+  const mergedFiles = {
+    ...(existingManifest?.files ?? {}),
+    ...newManifestEntries,
+  };
+  const totalBlocks = priorBlockCount + blocks.length;
+
   const manifestObj: DatManifest = {
     version: DAT_VERSION,
     generated_at: new Date().toISOString(),
-    total_blocks: blocks.length,
-    total_mic: blocks.length * MIC_PER_BLOCK,
+    total_blocks: totalBlocks,
+    total_mic: totalBlocks * MIC_PER_BLOCK,
     chain_tip_hash: chainTip,
-    files: manifest,
+    files: mergedFiles,
   };
   const manifestContent = JSON.stringify(manifestObj, null, 2);
   const manifestHash = hashDatFile(manifestContent);
@@ -194,7 +205,7 @@ export async function canonizeReserveBlocks(
     const lastFile = datFiles[datFiles.length - 1];
 
     for (const filename of datFiles) {
-      const entry = manifest[filename];
+      const entry = newManifestEntries[filename];
       const result = await postHashAnchor({
         dat_file: filename,
         file_hash: entry.sha256,
@@ -254,39 +265,27 @@ function makeResult(args: {
     cpc_anchors_idempotent: args.cpcIdempotent,
     errors: args.errors,
     completed_at: args.completedAt,
-    substrate_commit_ready: args.errors.filter((e) => e.stage === 'write').length === 0,
+    substrate_commit_ready: isSubstrateCommitReady(args.errors),
   };
 }
 
-function getExistingChainState(outputDir: string): {
-  last_block_number: number;
-  chain_tip_hash: string;
-} | null {
+function isSubstrateCommitReady(errors: CanonizationError[]): boolean {
+  return errors.length === 0;
+}
+
+function loadExistingManifest(outputDir: string): DatManifest | null {
   const manifestPath = join(outputDir, 'MANIFEST.json');
   if (!existsSync(manifestPath)) return null;
 
   try {
-    const m = JSON.parse(readFileSync(manifestPath, 'utf8')) as DatManifest;
-    const files = Object.values(m.files);
-    if (files.length === 0) return null;
-    const lastFile = files.sort((a, b) => b.range[1] - a.range[1])[0];
-    return {
-      last_block_number: lastFile.range[1],
-      chain_tip_hash: m.chain_tip_hash,
-    };
+    return JSON.parse(readFileSync(manifestPath, 'utf8')) as DatManifest;
   } catch {
     return null;
   }
 }
 
 function getNextFileIndex(outputDir: string): number {
-  const manifestPath = join(outputDir, 'MANIFEST.json');
-  if (!existsSync(manifestPath)) return 0;
-
-  try {
-    const m = JSON.parse(readFileSync(manifestPath, 'utf8')) as DatManifest;
-    return Object.keys(m.files).length;
-  } catch {
-    return 0;
-  }
+  const manifest = loadExistingManifest(outputDir);
+  if (!manifest) return 0;
+  return Object.keys(manifest.files).length;
 }

@@ -72,7 +72,4 @@ if (!dryRun) {
   console.log(`Result log: ${resultPath}`);
 }
 
-const fatalErrors = result.errors.filter(
-  (e) => e.stage === 'write' || (e.stage === 'hash' && !e.retryable),
-);
-process.exit(fatalErrors.length > 0 ? 1 : 0);
+process.exit(result.substrate_commit_ready ? 0 : 1);
