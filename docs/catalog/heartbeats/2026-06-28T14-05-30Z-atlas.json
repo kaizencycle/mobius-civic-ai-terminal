@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-06-28T14:05:30.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-356",
+  "gi": 0.63,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 18,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-06-28T14:05:26.343Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK ([\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"])",
+  "sustain_eligible": false,
+  "classification": "CRITICAL",
+  "micro_composite": 0.881,
+  "micro_cycle": "C-306",
+  "degraded_agents": 0,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "primary_kv_suspended": false,
+    "gi_below_floor": true,
+    "micro_operator_cycle_divergence": true
+  },
+  "last_journal_cycle": "C-356",
+  "force_journal": false,
+  "journal_status": 200,
+  "journal_route": "agents/atlas/observe",
+  "journal_id": "journal-ATLAS-C-356-mqxv2fkpue6s",
+  "journal_ok": true,
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-356-mqxv2fkpue6s",
+  "journal_direct_status": 502,
+  "journal_direct_id": "journal-ATLAS-C-356-k70v6r",
+  "tripwire": {
+    "active": true,
+    "level": "elevated",
+    "reason": "Hormuz Transit Fee Risk — Monitoring whether Iran formalizes transit fees and turns passage into an overt leverage instrument",
+    "last_updated": "2026-06-28T14:01:50.654Z"
+  }
+}
