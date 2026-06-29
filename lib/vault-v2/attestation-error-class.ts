@@ -25,6 +25,8 @@ export type AttestationErrorClass = 'config' | 'transient' | 'permanent';
 const CONFIG_ERROR_SIGNATURES = [
   'no api base configured', // CPC main.py:112 — IDENTITY_API_BASE unset
   'unknown lab source',     // CPC main.py:109 — routing misconfig
+  'token verification failed', // C-357 — wrong bearer (AGENT_SERVICE_TOKEN) or identity creds unset
+  'identity_service_email',    // explicit mint failure when creds missing/invalid
 ] as const;
 
 // Substrings identifying a transient/retryable failure. SHOULD count toward cap.
