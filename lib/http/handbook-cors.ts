@@ -5,6 +5,10 @@
  */
 
 const DEFAULT_ALLOWED = [
+  'https://mobius-substrate.com',
+  'https://www.mobius-substrate.com',
+  'https://handbook.mobius-substrate.com',
+  'https://terminal.mobius-substrate.com',
   'https://mobius-browser-shell.vercel.app',
   'https://kaizencycle.github.io',
 ] as const;
