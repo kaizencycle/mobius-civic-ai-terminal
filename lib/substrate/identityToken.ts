@@ -24,8 +24,7 @@
 //     fall back to AGENT_SERVICE_TOKEN (introspect rejects it every time).
 //   - If creds are absent, fall back to getAgentBearerToken() — graceful
 //     degradation until env is provisioned.
-//   - invalidateIdentityToken() lets callers force a re-mint after a 401
-//     (token expiry mid-cache-window).
+//   - invalidateIdentityToken() clears memory + KV before re-mint after a 401.
 //
 // EPICON note: this changes only HOW the Terminal authenticates to
 // /ledger/attest. Event content, EPICON criteria, and KV-first write order
@@ -184,24 +183,28 @@ async function mintToken(): Promise<string | null> {
 }
 
 /** Force a re-mint on next call (use after a ledger 401 with a cached token). */
-export function invalidateIdentityToken(): void {
+export async function invalidateIdentityToken(): Promise<void> {
   memoryCache = null;
-  void (async () => {
-    try {
-      const { kvDel } = await import('@/lib/kv/store');
-      await kvDel(KV_KEY);
-    } catch {
-      /* best effort */
-    }
-  })();
+  inflight = null;
+  try {
+    const { kvDel } = await import('@/lib/kv/store');
+    await kvDel(KV_KEY);
+  } catch {
+    /* best effort */
+  }
 }
+
+export type AttestBearerOptions = {
+  /** Skip memory/KV cache and mint a fresh JWT (use after invalidateIdentityToken). */
+  bypassCache?: boolean;
+};
 
 /**
  * Bearer for /ledger/attest. Identity JWT when service creds are configured
  * (the protocol the ledger's verify_token actually speaks); falls back to the
  * static agent token only when identity creds are absent.
  */
-export async function getAttestBearerToken(): Promise<string> {
+export async function getAttestBearerToken(options?: AttestBearerOptions): Promise<string> {
   if (!credsConfigured()) {
     console.warn(
       '[identity-token] IDENTITY_SERVICE_EMAIL/PASSWORD unset — using AGENT_SERVICE_TOKEN (introspect will 401)',
@@ -209,12 +212,18 @@ export async function getAttestBearerToken(): Promise<string> {
     return getAgentBearerToken();
   }
 
-  if (memoryCache && memoryCache.expiresAt > Date.now()) return memoryCache.token;
+  const bypassCache = options?.bypassCache === true;
 
-  const kvCached = await readKvCache();
-  if (kvCached && kvCached.expiresAt > Date.now()) {
-    memoryCache = kvCached;
-    return kvCached.token;
+  if (!bypassCache && memoryCache && memoryCache.expiresAt > Date.now()) {
+    return memoryCache.token;
+  }
+
+  if (!bypassCache) {
+    const kvCached = await readKvCache();
+    if (kvCached && kvCached.expiresAt > Date.now()) {
+      memoryCache = kvCached;
+      return kvCached.token;
+    }
   }
 
   if (!inflight) {

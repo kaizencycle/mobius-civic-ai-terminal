@@ -341,13 +341,13 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
       cache: 'no-store',
     });
 
-    // C-357: one retry after 401 — invalidate cached JWT, re-mint, re-attest.
+    // C-357: one retry after 401 — await cache clear, bypass KV, re-mint, re-attest.
     if (res.status === 401) {
       const { invalidateIdentityToken, getAttestBearerToken: remint } = await import(
         '@/lib/substrate/identityToken'
       );
-      invalidateIdentityToken();
-      AGENT_TOKEN = await remint();
+      await invalidateIdentityToken();
+      AGENT_TOKEN = await remint({ bypassCache: true });
       authorization = AGENT_TOKEN.length > 0 ? `Bearer ${AGENT_TOKEN}` : '';
       if (authorization) {
         res = await fetch(`${LEDGER_BASE}/ledger/attest`, {
@@ -389,7 +389,7 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
         // C-338: cached identity JWT may have expired mid-window — force a
         // re-mint so the next cron tick attests with a fresh token.
         const { invalidateIdentityToken } = await import('@/lib/substrate/identityToken');
-        invalidateIdentityToken();
+        await invalidateIdentityToken();
       }
       throw new Error(`ledger ${res.status}${detail ? `: ${detail}` : ''}`);
     }
