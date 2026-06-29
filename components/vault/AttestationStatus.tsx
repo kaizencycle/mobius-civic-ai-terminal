@@ -12,6 +12,7 @@ interface AttestationStatusProps {
   erroredBlocks: number;
   sealedBlocks: number;
   liveAttested: number;
+  identityServiceConfigured?: boolean;
   substrateAttestationError?: string | null;
   substrateAttestationId?: string | null;
 }
@@ -28,6 +29,7 @@ export function AttestationStatus({
   erroredBlocks,
   sealedBlocks,
   liveAttested,
+  identityServiceConfigured = true,
   substrateAttestationError,
   substrateAttestationId,
 }: AttestationStatusProps) {
@@ -83,6 +85,15 @@ export function AttestationStatus({
           )}
         </div>
         <div className="mt-0.5 text-[10px] opacity-90">{cfg.detail(manifest, erroredBlocks)}</div>
+        {!identityServiceConfigured && (
+          <div className="mt-1 rounded border border-amber-500/30 bg-amber-500/5 px-2 py-1 text-[10px] text-amber-200">
+            <strong>IDENTITY_SERVICE_EMAIL</strong> and <strong>IDENTITY_SERVICE_PASSWORD</strong> are
+            not set on Vercel. Live attest sends <code className="text-amber-100">AGENT_SERVICE_TOKEN</code>{' '}
+            which introspect rejects (401). Provision via{' '}
+            <code className="text-amber-100">Civic-Protocol-Core/scripts/provision_service_account.py</code>{' '}
+            then add both vars to Vercel → Settings → Environment Variables.
+          </div>
+        )}
         {status === 'error' && substrateAttestationError && (
           <div className="mt-1 text-[10px] text-slate-400">{substrateAttestationError}</div>
         )}

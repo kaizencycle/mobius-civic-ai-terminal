@@ -73,6 +73,11 @@ function credsConfigured(): boolean {
   );
 }
 
+/** True when Vercel has service-account creds for runtime JWT minting. */
+export function isIdentityServiceConfigured(): boolean {
+  return credsConfigured();
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
