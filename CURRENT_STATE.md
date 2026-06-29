@@ -14,7 +14,20 @@
 <!-- MOBIUS:CYCLE-STATE:END -->
 
 
-> The live cycle/GI/mode header below is generated from the published pulse.
+## Canonical URLs (C-357)
+
+| Surface | URL |
+|---------|-----|
+| Browser Shell | https://mobius-substrate.com |
+| Civic Terminal | https://terminal.mobius-substrate.com |
+| Handbook | https://handbook.mobius-substrate.com |
+| Email | michael@mobius-substrate.com |
+
+*Domain registered C-356. DNS propagated and verified. Canonical propagation C-357.*
+
+---
+
+> The live cycle/GI/mode header above is generated from the published pulse.
 > The operator notes further down are hand-authored and historical — treat
 > their cycle references as the cycle they were written in, not "now".
 

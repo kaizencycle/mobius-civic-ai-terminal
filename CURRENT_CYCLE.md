@@ -18,12 +18,12 @@
 
 Mobius Terminal is transitioning from observation → enforcement coordination.
 
-C-352 focuses on:
-- runtime truth alignment
-- vault / ledger attestation visibility
-- consensus durability
-- operator-visible degradation
-- parallel snapshot stability
+C-357 focuses on:
+- canonical domain propagation (mobius-substrate.com)
+- reserve block `.dat` cold canonization
+- live attest JWT repair (identity service creds)
+- handbook journal redesign
+- runtime truth alignment and vault attestation visibility
 
 ---
 
@@ -100,7 +100,7 @@ Never skip steps.
 
 ## Acceptance bar
 
-A good C-352 change:
+A good C-357 change:
 - improves runtime truth visibility
 - reduces ambiguity in consensus
 - preserves provenance
