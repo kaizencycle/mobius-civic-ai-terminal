@@ -1,0 +1,69 @@
+{
+  "timestamp": "2026-06-29T06:02:12Z",
+  "agent": "ZEUS",
+  "cycle": "C-357",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "CrossRef publication velocity": "persistent",
+    "kv_keys_all_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "gaia-openaq": "persistent",
+    "hermes-openlibrary": "persistent",
+    "hermes-crossref": "persistent",
+    "themis-congress": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "themis-datagov": "persistent",
+    "themis-transparency-intl": "persistent",
+    "gaia-nasa-eonet": "resolved",
+    "integrity_source_mock": "resolved",
+    "tripwire_active": "resolved",
+    "primary_kv_suspended": "resolved",
+    "gi_below_floor": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state: quorum_state=substrate_pending vault_block_state=attested in_progress_block=321 in_progress_pct=12% latest_seal_id=seal-C-357-126 integrity.gi=0.82 mode=green source=kv-live verified=false.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-29T05-04-34Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-357: gi=0.9 mode=green classification=STRESSED terminal_status=nominal source=kv; anomalies=[CrossRef publication velocity elevated]; micro_composite=0.883 micro_cycle=C-306; kv_keys.ok=true kv_keys_all_ok=false latency=3ms backup_redis available; seed_result=200 OK; sustain_eligible=true; tripwire_active=false; flags micro_anomaly_severity_flag=true micro_operator_cycle_divergence=true gi_below_floor=false integrity_source_mock=false. Journal observe 200 / direct 502."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.858 composite=0.858 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=3 errors=2. Failed: hermes-crossref (score=0, primary and fallback both failed — matches ATLAS CrossRef anomaly), themis-congress (score=0, primary failed with retry). Elevated: gaia-openaq=0.5, gaia-noaa-alerts=0.8, themis-datagov=0.8 (fallback), themis-transparency-intl=0.8 (fallback), daedalus-cloudflare-radar=0.7, hermes-openlibrary=0.9 (fallback). Operator cycle C-357 diverges from micro C-306. Micro GI 0.858 below ATLAS 0.9."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true cycle=C-357 freshness=0.3 quality=1 stability=1. Source is kv not mock — KV seed operational. Freshness regressed 1.0→0.3 since prior ZEUS pass. ATLAS gi=0.9 diverges from integrity 0.82 and micro 0.858."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-357-gmvwk1 mirrored_to_kv=true canonical=false substrate_error=ledger 401 pending_immortalization=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-357. latest_seal_id=seal-C-357-126 vault_block_state=attested in_progress_pct=12%. GI divergence: ATLAS 0.9 vs integrity 0.82 vs quorum 0.82 vs micro 0.858."
+    }
+  ],
+  "recommendation": "Operator attention: ATLAS reports gi=0.9 green but classification=STRESSED and integrity/quorum remain at 0.82. CrossRef publication velocity anomaly confirmed — hermes-crossref instrument fully failed. New themis-congress failure. Freshness degraded to 0.3. kv_keys_all_ok=false persists despite KV seed 200 OK. Reconcile micro C-306 vs operator C-357 cycle drift. Deploy /api/vault/attest for C-298 quorum. No EPICON candidates to verify."
+}
