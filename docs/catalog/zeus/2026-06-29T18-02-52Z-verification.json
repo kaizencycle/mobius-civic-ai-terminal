@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-06-29T18:02:52Z",
+  "agent": "ZEUS",
+  "cycle": "C-357",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_all_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "gaia-nasa-eonet": "transient",
+    "integrity_source_mock": "resolved",
+    "tripwire_active": "resolved",
+    "primary_kv_suspended": "resolved",
+    "gi_below_floor": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state: quorum_state=substrate_pending vault_block_state=attested in_progress_block=127 in_progress_pct=100% latest_seal_id=seal-C-357-126 integrity.gi=0.82 mode=green source=kv-live verified=false.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-29T17-02-51Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-357: gi=0.75 mode=yellow classification=STRESSED terminal_status=stressed source=cached; anomalies=[]; micro_composite=0.908 micro_cycle=C-306; kv_keys.ok=true kv_keys_all_ok=false latency=4ms backup_redis available; seed_result=200 OK; sustain_eligible=true; tripwire_active=false; flags micro_operator_cycle_divergence=true degraded_agents=2. Journal observe 200 / direct 502."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.878 composite=0.878 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=1 failedInstruments=[gaia-nasa-eonet]. Elevated watch: gaia-openaq=0.75, daedalus-cloudflare-radar=0.7, themis-datagov=0.8, themis-transparency-intl=0.8. Operator cycle C-357 diverges from micro C-306. Micro GI (0.878) diverges from ATLAS headline gi (0.75) but aligns closer to ATLAS micro_composite (0.908)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true cycle=C-357 freshness=0.6 stability=1 quality=1. Source is kv not mock — KV seed operational. ATLAS cached gi=0.75 diverges sharply from integrity 0.9 (improved from prior pass 0.71)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 502 entry_id=journal-ZEUS-C-357-xfs6du mirrored_to_kv=false canonical=false substrate_error=ledger 401 kv_error=kv_write_failed."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-357. latest_seal_id=seal-C-357-126 vault_block_state=attested in_progress_pct=100% candidate seal-C-357-127 in_flight. GI divergence: ATLAS 0.75 vs integrity 0.9 vs quorum 0.82 vs micro 0.878."
+    }
+  ],
+  "recommendation": "Operator attention: ATLAS cached gi=0.75 yellow STRESSED diverges from integrity-status 0.9 green and quorum 0.82 — GI layer divergence persists across layers. kv_keys_all_ok=false persists despite KV seed 200 OK. Monitor gaia-nasa-eonet instrument failure (transient). Reconcile micro C-306 vs operator C-357 cycle drift. Deploy /api/vault/attest for C-298 quorum. Journal dual-write failing (ledger 401). No EPICON candidates to verify."
+}
