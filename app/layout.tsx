@@ -5,6 +5,7 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { MobiusStructuredData } from '@/components/seo/MobiusStructuredData';
 import SessionClientProvider from '@/components/auth/SessionClientProvider';
+import { CANONICAL_TERMINAL_ORIGIN } from '@/lib/site/canonicalUrl';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -40,14 +41,14 @@ export const metadata: Metadata = {
   ],
   creator: 'Michael Judan',
   publisher: 'Mobius Substrate',
-  metadataBase: new URL('https://mobius-civic-ai-terminal.vercel.app'),
+  metadataBase: new URL(CANONICAL_TERMINAL_ORIGIN),
   alternates: {
     canonical: '/',
   },
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://mobius-civic-ai-terminal.vercel.app',
+    url: CANONICAL_TERMINAL_ORIGIN,
     siteName: 'Mobius Civic AI Terminal',
     title: 'Mobius Civic AI Terminal — Civic Intelligence Dashboard',
     description:

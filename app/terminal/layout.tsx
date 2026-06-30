@@ -3,12 +3,10 @@ import type { Metadata } from 'next';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { computeCurrentCycleId } from '@/lib/terminal/cycle';
 import { CycleProvider } from '@/components/terminal/CycleProvider';
+import { CANONICAL_TERMINAL_ORIGIN } from '@/lib/site/canonicalUrl';
 
 // OPT-19: Never use VERCEL_URL — that is the preview deployment URL, not canonical.
-const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ||
-  process.env.NEXT_PUBLIC_CANONICAL_URL?.replace(/\/$/, '') ||
-  'https://mobius-civic-ai-terminal.vercel.app';
+const BASE_URL = CANONICAL_TERMINAL_ORIGIN;
 
 const OG_IMAGE = `${BASE_URL}/og-terminal.png`;
 
