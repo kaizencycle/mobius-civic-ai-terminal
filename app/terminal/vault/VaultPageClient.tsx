@@ -59,6 +59,9 @@ type VaultPayload = {
   substrate_attested_at?: string | null;
   substrate_attestation_error?: string | null;
   identity_service_configured?: boolean;
+  identity_login_ok?: boolean;
+  identity_introspect_ok?: boolean;
+  identity_attest_diagnosis?: string;
   latest_block_immortalized?: boolean;
   timestamp?: string;
   substrate_attestation_coverage?: {
@@ -344,7 +347,9 @@ export default function VaultPageClient() {
                 {data.substrate_attestation_error
                   ? data.identity_service_configured === false
                     ? 'IDENTITY_SERVICE_EMAIL/PASSWORD missing on Vercel — live attest blocked'
-                    : 'Vault write path error blocking attestation progress'
+                    : data.identity_login_ok === false
+                      ? 'Identity login failed — service account missing or password wrong (Render DB may be wiped)'
+                      : 'Vault write path error blocking attestation progress'
                   : 'Awaiting consecutive attestation cycles'}
               </div>
             )}
@@ -358,6 +363,8 @@ export default function VaultPageClient() {
             sealedBlocks={block.sealed_blocks}
             liveAttested={data.substrate_attestation_coverage?.immortalized ?? 0}
             identityServiceConfigured={data.identity_service_configured !== false}
+            identityLoginOk={data.identity_login_ok}
+            identityAttestDiagnosis={data.identity_attest_diagnosis}
             substrateAttestationError={data.substrate_attestation_error}
             substrateAttestationId={data.substrate_attestation_id}
           />
