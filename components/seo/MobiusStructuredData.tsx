@@ -4,6 +4,10 @@
 // CC0 Public Domain
 // ============================================================================
 
+import { CANONICAL_TERMINAL_ORIGIN } from '@/lib/site/canonicalUrl';
+
+const ORIGIN = CANONICAL_TERMINAL_ORIGIN;
+
 export function MobiusStructuredData() {
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -11,9 +15,9 @@ export function MobiusStructuredData() {
       // ── Organization ──────────────────────────────────────────────
       {
         '@type': 'Organization',
-        '@id': 'https://mobius-civic-ai-terminal.vercel.app/#org',
+        '@id': `${ORIGIN}/#org`,
         name: 'Mobius Substrate',
-        url: 'https://mobius-civic-ai-terminal.vercel.app',
+        url: ORIGIN,
         description:
           'Mobius Substrate is civic AI governance infrastructure focused on integrity, verifiable memory, and democratic accountability. Released under CC0 public domain.',
         founder: {
@@ -35,12 +39,12 @@ export function MobiusStructuredData() {
       // ── SoftwareApplication (the Terminal) ────────────────────────
       {
         '@type': 'SoftwareApplication',
-        '@id': 'https://mobius-civic-ai-terminal.vercel.app/#app',
+        '@id': `${ORIGIN}/#app`,
         name: 'Mobius Civic AI Terminal',
         alternateName: 'Mobius Terminal',
         description:
           'A Bloomberg-style civic command console for monitoring Global Integrity (GI), EPICON ledger events, agent status, tripwire anomalies, and micro sub-agent signals from public APIs. Part of the Mobius Substrate governance infrastructure.',
-        url: 'https://mobius-civic-ai-terminal.vercel.app/terminal',
+        url: `${ORIGIN}/terminal`,
         applicationCategory: 'GovernanceTool',
         operatingSystem: 'Web',
         offers: {
@@ -49,7 +53,7 @@ export function MobiusStructuredData() {
           priceCurrency: 'USD',
         },
         author: {
-          '@id': 'https://mobius-civic-ai-terminal.vercel.app/#org',
+          '@id': `${ORIGIN}/#org`,
         },
         license: 'https://creativecommons.org/publicdomain/zero/1.0/',
         codeRepository: 'https://github.com/kaizencycle/mobius-civic-ai-terminal',
@@ -62,19 +66,19 @@ export function MobiusStructuredData() {
       // ── Dataset (micro-agent signals) ─────────────────────────────
       {
         '@type': 'Dataset',
-        '@id': 'https://mobius-civic-ai-terminal.vercel.app/#signals',
+        '@id': `${ORIGIN}/#signals`,
         name: 'Mobius Micro-Agent Civic Signals',
         description:
           'Real-time civic integrity signals from four micro sub-agents polling nine free public APIs: Open-Meteo weather, USGS earthquakes, Federal Register, data.gov, Hacker News, Wikipedia recent changes, GitHub API, npm registry, and terminal self-ping. Updated every 5-15 minutes. Normalized to 0-1 scale where 1 equals healthy.',
-        url: 'https://mobius-civic-ai-terminal.vercel.app/api/signals/micro',
+        url: `${ORIGIN}/api/signals/micro`,
         license: 'https://creativecommons.org/publicdomain/zero/1.0/',
         creator: {
-          '@id': 'https://mobius-civic-ai-terminal.vercel.app/#org',
+          '@id': `${ORIGIN}/#org`,
         },
         distribution: {
           '@type': 'DataDownload',
           encodingFormat: 'application/json',
-          contentUrl: 'https://mobius-civic-ai-terminal.vercel.app/api/signals/micro',
+          contentUrl: `${ORIGIN}/api/signals/micro`,
         },
         temporalCoverage: '2026-03-20/..',
         measurementTechnique: 'Automated polling of public APIs with normalization to 0-1 integrity scale',
@@ -101,14 +105,14 @@ export function MobiusStructuredData() {
       // ── Dataset (Mobius Catalog) ──────────────────────────────────
       {
         '@type': 'Dataset',
-        '@id': 'https://mobius-civic-ai-terminal.vercel.app/#catalog',
+        '@id': `${ORIGIN}/#catalog`,
         name: 'Mobius Catalog',
         description:
           'Machine-readable health snapshots of the Mobius Civic AI Terminal, updated every 2 hours via GitHub Actions. Tracks codebase stats, integrity metrics, agent roster, API surface, and deployment state.',
         url: 'https://github.com/kaizencycle/mobius-civic-ai-terminal/tree/main/docs/catalog',
         license: 'https://creativecommons.org/publicdomain/zero/1.0/',
         creator: {
-          '@id': 'https://mobius-civic-ai-terminal.vercel.app/#org',
+          '@id': `${ORIGIN}/#org`,
         },
         distribution: {
           '@type': 'DataDownload',
@@ -121,7 +125,7 @@ export function MobiusStructuredData() {
       // ── FAQPage ───────────────────────────────────────────────────
       {
         '@type': 'FAQPage',
-        '@id': 'https://mobius-civic-ai-terminal.vercel.app/#faq',
+        '@id': `${ORIGIN}/#faq`,
         mainEntity: [
           {
             '@type': 'Question',
@@ -177,11 +181,11 @@ export function MobiusStructuredData() {
       // ── WebSite ───────────────────────────────────────────────────
       {
         '@type': 'WebSite',
-        '@id': 'https://mobius-civic-ai-terminal.vercel.app/#website',
+        '@id': `${ORIGIN}/#website`,
         name: 'Mobius Civic AI Terminal',
-        url: 'https://mobius-civic-ai-terminal.vercel.app',
+        url: ORIGIN,
         publisher: {
-          '@id': 'https://mobius-civic-ai-terminal.vercel.app/#org',
+          '@id': `${ORIGIN}/#org`,
         },
       },
     ],

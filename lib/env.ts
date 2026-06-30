@@ -29,6 +29,7 @@ const serverSchema = z.object({
   NEXT_PUBLIC_TERMINAL_API_BASE: z.string().optional(),
   NEXT_PUBLIC_SUBSTRATE_API_BASE: z.string().optional(),
   NEXT_PUBLIC_SITE_URL: z.string().optional(),
+  NEXT_PUBLIC_CANONICAL_URL: z.string().optional(),
   NEXT_PUBLIC_TERMINAL_URL: z.string().optional(),
   NEXT_PUBLIC_MESH_ENABLED: z.string().optional(),
   NEXT_PUBLIC_MESH_GATEWAY_URL: z.string().optional(),
