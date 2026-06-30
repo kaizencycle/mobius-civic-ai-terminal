@@ -199,6 +199,98 @@ export type AttestBearerOptions = {
   bypassCache?: boolean;
 };
 
+export type IdentityAttestAuthProbe = {
+  configured: boolean;
+  identity_base: string;
+  login_ok: boolean;
+  login_status: number | null;
+  token_minted: boolean;
+  introspect_ok: boolean;
+  introspect_status: number | null;
+  /** Operator-facing hint — no secrets. */
+  diagnosis: string;
+};
+
+let probeCache: { at: number; result: IdentityAttestAuthProbe } | null = null;
+const PROBE_TTL_MS = 60_000;
+
+/**
+ * Live probe: login + introspect with configured service creds.
+ * Cached ~60s so /api/vault/status does not hammer Identity on every poll.
+ */
+export async function probeIdentityAttestAuth(): Promise<IdentityAttestAuthProbe> {
+  const base = identityBase();
+  const configured = credsConfigured();
+
+  if (probeCache && Date.now() - probeCache.at < PROBE_TTL_MS) {
+    return probeCache.result;
+  }
+
+  if (!configured) {
+    const result: IdentityAttestAuthProbe = {
+      configured: false,
+      identity_base: base,
+      login_ok: false,
+      login_status: null,
+      token_minted: false,
+      introspect_ok: false,
+      introspect_status: null,
+      diagnosis:
+        'IDENTITY_SERVICE_EMAIL/PASSWORD unset — Terminal falls back to AGENT_SERVICE_TOKEN which introspect rejects (ledger 401).',
+    };
+    probeCache = { at: Date.now(), result };
+    return result;
+  }
+
+  await wakeIdentityService();
+
+  const email = (process.env.IDENTITY_SERVICE_EMAIL ?? '').trim();
+  const password = (process.env.IDENTITY_SERVICE_PASSWORD ?? '').trim();
+  const token = await loginOnce(email, password);
+
+  let loginStatus: number | null = token ? 200 : 401;
+  let introspectOk = false;
+  let introspectStatus: number | null = null;
+
+  if (token) {
+    try {
+      const res = await fetch(`${base}/auth/introspect`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(8_000),
+        cache: 'no-store',
+      });
+      introspectStatus = res.status;
+      introspectOk = res.ok;
+    } catch {
+      introspectStatus = null;
+    }
+  }
+
+  let diagnosis: string;
+  if (!token) {
+    diagnosis =
+      'Identity login failed with configured Vercel creds — service account missing or password wrong. ' +
+      'Mobius Identity signup may be failing (Render SQLite wiped on deploy). Re-provision via provision_service_account.py after wiring persistent DATABASE_URL.';
+  } else if (!introspectOk) {
+    diagnosis = `Identity JWT minted but introspect returned ${introspectStatus ?? 'network error'} — check IDENTITY_API_BASE on CPC ledger.`;
+  } else {
+    diagnosis = 'Identity login + introspect OK — ledger attest should succeed.';
+  }
+
+  const result: IdentityAttestAuthProbe = {
+    configured: true,
+    identity_base: base,
+    login_ok: Boolean(token),
+    login_status: loginStatus,
+    token_minted: Boolean(token),
+    introspect_ok: introspectOk,
+    introspect_status: introspectStatus,
+    diagnosis,
+  };
+  probeCache = { at: Date.now(), result };
+  return result;
+}
+
 /**
  * Bearer for /ledger/attest. Identity JWT when service creds are configured
  * (the protocol the ledger's verify_token actually speaks); falls back to the

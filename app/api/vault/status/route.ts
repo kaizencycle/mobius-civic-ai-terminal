@@ -20,7 +20,7 @@ import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
 import { computeAttestationCoverage, attestationHeadlineSuffix } from '@/lib/vault/attestation-coverage';
-import { isIdentityServiceConfigured } from '@/lib/substrate/identityToken';
+import { isIdentityServiceConfigured, probeIdentityAttestAuth } from '@/lib/substrate/identityToken';
 import { getVaultDepositHashCoverage, getVaultStatusPayload } from '@/lib/vault/vault';
 import {
   countAllSeals,
@@ -132,6 +132,7 @@ async function buildVaultStatus(req: NextRequest) {
   const coverageScanLimit = 500;
   const coverageIsCapped = sealsAuditCount > coverageScanLimit;
   const honestHeadline = seal_lane.headline + attestationHeadlineSuffix(attestationCoverage);
+  const identityAuth = await probeIdentityAttestAuth();
 
   const body = {
     ...v1,
@@ -191,6 +192,9 @@ async function buildVaultStatus(req: NextRequest) {
     substrate_attested_at: latestSeal?.substrate_attested_at ?? null,
     substrate_attestation_error: latestSeal?.substrate_attestation_error ?? null,
     identity_service_configured: isIdentityServiceConfigured(),
+    identity_login_ok: identityAuth.login_ok,
+    identity_introspect_ok: identityAuth.introspect_ok,
+    identity_attest_diagnosis: identityAuth.diagnosis,
     // C-329: substrate_ok reflects immortalization across the scanned attested window.
     // When capped, it's conservative (false = gap in window or error on latest seal).
     // substrate_attestation_coverage.scan_capped tells callers when the window is partial.

@@ -13,6 +13,8 @@ interface AttestationStatusProps {
   sealedBlocks: number;
   liveAttested: number;
   identityServiceConfigured?: boolean;
+  identityLoginOk?: boolean;
+  identityAttestDiagnosis?: string | null;
   substrateAttestationError?: string | null;
   substrateAttestationId?: string | null;
 }
@@ -30,6 +32,8 @@ export function AttestationStatus({
   sealedBlocks,
   liveAttested,
   identityServiceConfigured = true,
+  identityLoginOk,
+  identityAttestDiagnosis,
   substrateAttestationError,
   substrateAttestationId,
 }: AttestationStatusProps) {
@@ -92,6 +96,12 @@ export function AttestationStatus({
             which introspect rejects (401). Provision via{' '}
             <code className="text-amber-100">Civic-Protocol-Core/scripts/provision_service_account.py</code>{' '}
             then add both vars to Vercel → Settings → Environment Variables.
+          </div>
+        )}
+        {identityServiceConfigured && identityLoginOk === false && (
+          <div className="mt-1 rounded border border-rose-500/30 bg-rose-500/5 px-2 py-1 text-[10px] text-rose-200">
+            {identityAttestDiagnosis ??
+              'Identity login failed with configured Vercel creds. Re-provision terminal@mobius-substrate.com and update IDENTITY_SERVICE_PASSWORD.'}
           </div>
         )}
         {status === 'error' && substrateAttestationError && (
