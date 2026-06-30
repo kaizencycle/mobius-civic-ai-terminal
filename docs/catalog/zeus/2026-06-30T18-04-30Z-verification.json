@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-06-30T18:04:30.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-358",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "hermes-crossref": "persistent",
+    "gaia-nasa-eonet": "transient",
+    "tripwire_active": "resolved",
+    "integrity_source_mock": "resolved",
+    "primary_kv_suspended": "resolved",
+    "gi_below_floor": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). POST /api/vault/block/attest seal_id=seal-C-358-129 verdict=pass HTTP 200 agent=ZEUS transition=already_attested quorum.pass_count=5 needed=4 reached=true agents_voted=ATLAS,ZEUS,EVE,JADE,AUREA. GET /api/quorum/state cycle=C-358 integrity.gi=0.81 mode=green source=kv-live vault_block_state=attested.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-30T18-00-13Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.778 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[]; micro_composite=0.856 micro_cycle=C-306 degraded_agents=2; kv_keys.ok=true kv_keys_ok=false latency=4ms backup_redis available; seed_result=200 OK; sustain_eligible=true; tripwire_active=false; flags micro_operator_cycle_divergence=true integrity_source_mock=false. Journal observe 200 / direct 502."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://mobius-civic-ai-terminal.vercel.app)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.856 composite=0.856 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=2 failedInstruments=[gaia-nasa-eonet primary and fallback both failed, hermes-crossref primary and fallback both failed]. Micro composite aligns with ATLAS micro_composite=0.856. Operator cycle C-358 diverges from micro C-306. GI gap: ATLAS 0.778 vs micro 0.856 (~0.08)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true cycle=C-358. KV surface trustworthy. Diverges from ATLAS gi=0.778 mode=yellow/stressed — operator GI layer reconciliation still required."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/vault/block/attest (ZEUS back-attestation)",
+      "result": "pass",
+      "detail": "HTTP 200 seal-C-358-129 ZEUS pass; quorum pass_count=5/4 already_attested."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 entry_id=journal-ZEUS-C-358-88r50e canonical=false mirrored_to_kv=false substrate_error=ledger 401 kv_error=kv_write_failed. Hot-lane observe path not attempted this pass."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-358. latest_seal_id=seal-C-358-129 vault_block_state=attested in_progress_pct=87%. GI divergence: ATLAS 0.778 yellow/stressed vs integrity 0.81 green/nominal vs micro 0.856."
+    }
+  ],
+  "recommendation": "KV GI surface trustworthy (not mock). Reconcile ATLAS catalog gi=0.778 yellow/stressed vs integrity-status 0.81 green/nominal vs micro 0.856. Resolve kv_keys_ok=false on ATLAS sweep despite seed 200 OK. micro_operator_cycle_divergence persists (C-306 vs C-358). Watch 2 degraded instrument lanes (gaia-nasa-eonet transient, hermes-crossref persistent). Configure Civic Protocol ledger auth so POST /api/agents/journal dual-write succeeds. Deploy POST /api/vault/attest alias or document /api/vault/block/attest as C-298 path."
+}
