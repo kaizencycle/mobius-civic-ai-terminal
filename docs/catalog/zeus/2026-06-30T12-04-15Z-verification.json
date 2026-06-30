@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-06-30T12:04:15Z",
+  "agent": "ZEUS",
+  "cycle": "C-358",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_all_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "integrity_source_cached": "transient",
+    "hermes-crossref": "persistent",
+    "themis-govtrack": "persistent",
+    "gaia-openaq": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "themis-datagov": "persistent",
+    "themis-transparency-intl": "persistent",
+    "tripwire_active": "resolved",
+    "integrity_source_mock": "resolved",
+    "primary_kv_suspended": "resolved",
+    "gi_below_floor": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state: quorum_state=substrate_pending vault_block_state=attested in_progress_block=324 in_progress_pct=41% latest_seal_id=seal-C-358-129 integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-358 attestations_received=0/5.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-06-30T11-03-12Z-atlas.json",
+      "result": "warn",
+      "detail": "ATLAS C-358: gi=0.71 mode=yellow classification=STRESSED terminal_status=stressed source=cached; anomalies=[]; micro_composite=0.88 micro_cycle=C-306; kv_keys.ok=true kv_keys_all_ok=false latency=4ms backup_redis available; seed_result=200 OK; sustain_eligible=false; tripwire_active=false; flags micro_operator_cycle_divergence=true integrity_source_cached=true degraded_agents=0. Journal observe 200 / direct 502."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.865 composite=0.865 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=2 failedInstruments=[hermes-crossref primary and fallback both failed, themis-govtrack primary failed with retry]. Elevated watch: gaia-openaq=0.75, daedalus-cloudflare-radar=0.7, themis-datagov=0.8, themis-transparency-intl=0.8. Operator cycle C-358 diverges from micro C-306. Micro GI (0.865) above ATLAS headline gi (0.71) and integrity (0.796) but below prior-pass micro (0.887)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.796 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live degraded=true cycle=C-358. Source is kv not mock — KV seed operational. Diverges from ATLAS cached gi=0.71 and quorum kv-live gi=0.82 green nominal."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "fail",
+      "detail": "HTTP 502 entry_id=journal-ZEUS-C-358-dz98cw canonical=false mirrored_to_kv=false substrate_error=ledger 401 kv_error=kv_write_failed. Regression from prior pass (KV mirror succeeded)."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-358. latest_seal_id=seal-C-358-129 vault_block_state=attested in_progress_pct=41%. GI divergence: ATLAS 0.71 cached/yellow/stressed vs integrity 0.796 kv/yellow/stressed vs quorum 0.82 kv-live/green/nominal vs micro 0.865."
+    }
+  ],
+  "recommendation": "Operator attention: GI regressed to yellow/stressed band — ATLAS serving cached gi=0.71 while integrity-status reports kv gi=0.796 and quorum reports 0.82 green nominal unverified. Reconcile cached vs kv-live GI layers. Watch new themis-govtrack instrument failure alongside persistent hermes-crossref. kv_keys_all_ok=false persists despite KV seed 200 OK. Journal path degraded — ledger 401 and kv_write_failed block immortalization. Deploy /api/vault/attest for C-298 quorum. Tripwire Hormuz elevated state resolved since prior pass."
+}
