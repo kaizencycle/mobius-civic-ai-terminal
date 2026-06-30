@@ -101,7 +101,7 @@ export function AttestationStatus({
         {identityServiceConfigured && identityLoginOk === false && (
           <div className="mt-1 rounded border border-rose-500/30 bg-rose-500/5 px-2 py-1 text-[10px] text-rose-200">
             {identityAttestDiagnosis ??
-              'Identity login failed with configured Vercel creds. Re-provision terminal-service@mobius.systems and update IDENTITY_SERVICE_PASSWORD.'}
+              'Identity login failed with configured Vercel creds. Re-provision terminal@mobius-substrate.com and update IDENTITY_SERVICE_PASSWORD.'}
           </div>
         )}
         {status === 'error' && substrateAttestationError && (
