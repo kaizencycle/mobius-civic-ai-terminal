@@ -1,0 +1,76 @@
+{
+  "timestamp": "2026-07-01T05:04:06.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-359",
+  "gi": 0.8,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    },
+    {
+      "label": "ArXiv new submissions",
+      "severity": "elevated"
+    },
+    {
+      "label": "CrossRef publication velocity",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 9,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-07-01T05:03:56.944Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK ([\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]) — 30s timeout, 60s retry",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.861,
+  "micro_cycle": "C-306",
+  "degraded_agents": 1,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "primary_kv_suspended": false,
+    "gi_below_floor": false,
+    "micro_operator_cycle_divergence": true
+  },
+  "last_journal_cycle": "C-359",
+  "force_journal": false,
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-07-01T04:03:34.874Z"
+  },
+  "journal_status": 200,
+  "journal_route": "agents/atlas/observe",
+  "journal_id": "journal-ATLAS-C-359-mr1m1y38grjt",
+  "journal_ok": true,
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-359-mr1m1y38grjt",
+  "journal_direct_status": 200,
+  "journal_direct_id": "journal-ATLAS-C-359-12gdcz"
+}
