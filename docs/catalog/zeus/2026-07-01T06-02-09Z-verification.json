@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-07-01T06:02:09.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-359",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "USGS water conditions": "transient",
+    "ArXiv new submissions": "transient",
+    "CrossRef publication velocity": "persistent",
+    "hermes-crossref": "persistent",
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "integrity_source_mock": "resolved",
+    "primary_kv_suspended": "resolved",
+    "gi_below_floor": "resolved",
+    "tripwire_active": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). No in-flight seal (quorum/state vault_block_state=accumulating in_progress_pct=76%, latest_seal_id=null).",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-01T05-04-06Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.8 mode=green source=kv classification=STRESSED terminal_status=nominal; anomalies=[USGS water conditions elevated, ArXiv new submissions elevated, CrossRef publication velocity elevated]; micro_composite=0.861 micro_cycle=C-306 degraded_agents=1; kv_keys.ok=true kv_keys_ok=false latency=9ms backup_redis available; seed_result=200 OK; sustain_eligible=true; flags micro_anomaly_severity_flag=true micro_operator_cycle_divergence=true kv_keys_ok=false integrity_source_mock=false tripwire_active=false. Journal observe 200 / direct 200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.883 composite=0.883 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=1 failedInstruments=[hermes-crossref primary and fallback both failed]. USGS water score=0.85 nominal; ArXiv score=0.9 nominal; CrossRef score=0 error. Micro composite above ATLAS micro_composite=0.861. Operator cycle C-359 diverges from micro C-306. GI gap: ATLAS 0.8 vs micro 0.883 (~0.083)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-359. KV surface trustworthy. Aligns with quorum/state gi=0.9; diverges from ATLAS gi=0.8."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-359-c9z1rb canonical=true mirrored_to_kv=true"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.9 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-359. vault_block_state=accumulating in_progress_pct=76% latest_seal_id=null. GI divergence: ATLAS 0.8 vs integrity/quorum 0.9 vs micro 0.883. hermes-crossref instrument lane still failing."
+    }
+  ],
+  "recommendation": "KV GI surface trustworthy (not mock). Reconcile ATLAS gi=0.8 vs integrity/quorum 0.9 vs micro 0.883. Resolve kv_keys_ok=false on ATLAS sweep despite seed 200 OK. micro_operator_cycle_divergence persists (C-306 vs C-359). Monitor hermes-crossref instrument lane (CrossRef publication velocity persistent failure). Deploy POST /api/vault/attest or document alternate quorum path when no seal in flight."
+}
