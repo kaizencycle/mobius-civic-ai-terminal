@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-07-01T12:04:01.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-359",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "hermes-crossref": "persistent",
+    "gaia-nasa-eonet": "persistent",
+    "themis-govtrack": "transient",
+    "integrity_source_mock": "resolved",
+    "primary_kv_suspended": "resolved",
+    "gi_below_floor": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state vault_block_state=immortalized latest_seal_id=seal-C-359-002 latest_status=attested in_progress_pct=25%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-01T11-06-04Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.9 gi_post_seed=0.7 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[]; micro_composite=0.888 micro_cycle=C-306 degraded_agents=1; kv_keys.ok=true kv_keys_ok=false latency=4ms backup_redis available; seed_result=200 OK; sustain_eligible=false; flags tripwire_active=true micro_operator_cycle_divergence=true kv_keys_ok=false integrity_source_mock=false. Tripwire: Hormuz Transit Fee Risk elevated. Journal observe 200 / direct 200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.84 composite=0.84 instrumentCount=40 cycle=C-306 cached=true fallbacksUsed=2 errors=3 failedInstruments=[gaia-nasa-eonet primary and fallback both failed, hermes-crossref primary and fallback both failed, themis-govtrack primary failed with retry]. Micro composite below ATLAS micro_composite=0.888. Operator cycle C-359 diverges from micro C-306. GI gap: ATLAS gi=0.9 vs micro 0.84 (~0.06); integrity aligns with gi_post_seed=0.7."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.7 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-359. KV surface trustworthy. Aligns with ATLAS gi_post_seed=0.7 and quorum/state gi=0.7; diverges from ATLAS headline gi=0.9."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-359-kgs9qc canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.7 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-359. vault_block_state=immortalized latest_seal_id=seal-C-359-002 latest_status=attested in_progress_pct=25%. GI divergence: ATLAS gi=0.9 vs integrity/quorum 0.7 vs micro 0.84. Three instrument lanes failing (gaia-nasa-eonet, hermes-crossref, themis-govtrack)."
+    }
+  ],
+  "recommendation": "KV GI surface trustworthy (not mock). Reconcile ATLAS headline gi=0.9 vs gi_post_seed/integrity/quorum 0.7 vs micro 0.84. Resolve kv_keys_ok=false on ATLAS sweep despite seed 200 OK. micro_operator_cycle_divergence persists (C-306 vs C-359). Monitor Hormuz tripwire elevation. Restore gaia-nasa-eonet, hermes-crossref, themis-govtrack instrument lanes. Deploy POST /api/vault/attest or document alternate quorum path."
+}
