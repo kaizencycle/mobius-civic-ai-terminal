@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-07-02T06:03:27.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-360",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "hermes-arxiv": "persistent",
+    "hermes-crossref": "persistent",
+    "gi_layer_divergence": "persistent",
+    "integrity_source_mock": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state vault_block_state=immortalized latest_seal_id=seal-C-359-003 latest_status=attested in_progress_pct=57%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-02T05-04-56Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.81 gi_pre_seed=0.776 mode=green source=kv classification=STRESSED terminal_status=nominal; anomalies=[] (empty); micro_composite=0.862 micro_cycle=C-306 degraded_agents=0; kv_keys.ok=true kv_keys_ok=false latency=36ms backup_redis available; seed_result=200 OK; sustain_eligible=true; flags tripwire_active=false micro_operator_cycle_divergence=true kv_keys_ok=false integrity_source_mock=false. Journal observe 200 / direct 200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.868 composite=0.868 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=2 failedInstruments=[hermes-arxiv primary failed with retry, hermes-crossref primary and fallback both failed]. gaia-nasa-eonet recovered to 1.0 primary (was failing prior pass). gaia-openaq 0.75 nominal. Operator cycle C-360 diverges from micro C-306. GI gap: ATLAS gi=0.81 vs micro 0.868 (~0.058); ATLAS micro_composite=0.862 vs live 0.868 (~0.006)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.784 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-360 freshness=1 stability=1. KV surface trustworthy. Aligns with quorum/state gi=0.784; diverges from ATLAS gi=0.81 (~0.026) and micro 0.868 (~0.084)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-360-v3zgog canonical=true mirrored_to_kv=true"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.784 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-360. vault_block_state=immortalized latest_seal_id=seal-C-359-003 latest_status=attested in_progress_pct=57%. GI layer divergence persists: ATLAS gi=0.81 vs integrity/quorum 0.784 vs micro 0.868. Two HERMES instrument lanes failing (hermes-arxiv, hermes-crossref); gaia-nasa-eonet resolved."
+    }
+  ],
+  "recommendation": "KV GI surface trustworthy (not mock). GI layer divergence persists — reconcile ATLAS gi=0.81 vs integrity/quorum 0.784 vs micro 0.868. Resolve kv_keys_ok=false on ATLAS sweep despite seed 200 OK. micro_operator_cycle_divergence persists (C-306 vs C-360). Restore hermes-arxiv and hermes-crossref instrument lanes. Deploy POST /api/vault/attest or document alternate quorum path."
+}
