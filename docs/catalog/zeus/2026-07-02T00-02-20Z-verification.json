@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-07-02T00:02:20.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-359",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "gaia-nasa-eonet": "persistent",
+    "gaia-openaq": "transient",
+    "hermes-arxiv": "persistent",
+    "themis-govtrack": "resolved",
+    "hermes-crossref": "persistent",
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "tripwire_active": "resolved",
+    "integrity_source_mock": "resolved",
+    "gi_below_floor": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state vault_block_state=immortalized latest_seal_id=seal-C-359-003 latest_status=attested in_progress_pct=12%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-01T23-04-15Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.767 gi_pre_seed=0.767 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[NASA EONET elevated/GAIA, OpenAQ elevated/GAIA, ArXiv elevated/HERMES, GovTrack elevated/THEMIS]; micro_composite=0.824 micro_cycle=C-306 degraded_agents=0; kv_keys.ok=true kv_keys_ok=false latency=4ms backup_redis available; seed_result=200 OK; sustain_eligible=true; flags tripwire_active=false micro_operator_cycle_divergence=true kv_keys_ok=false integrity_source_mock=false. Journal observe 200 / direct 200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.83 composite=0.83 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=3 failedInstruments=[gaia-nasa-eonet primary and fallback both failed, hermes-arxiv primary failed with retry, hermes-crossref primary and fallback both failed]. themis-govtrack recovered to 0.85 primary (was elevated in ATLAS). gaia-openaq 0.5 watch (ATLAS flagged elevated). Operator cycle C-359 diverges from micro C-306. GI gap: ATLAS gi=0.767 vs micro 0.83 (~0.063); ATLAS micro_composite=0.824 vs live 0.83 (~0.006)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.747 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-359 freshness=1 stability=1. KV surface trustworthy. Aligns with quorum/state gi=0.747; diverges from ATLAS gi=0.767 (~0.020) and micro 0.83 (~0.083)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-359-rs6hgv canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.747 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-359. vault_block_state=immortalized latest_seal_id=seal-C-359-003 latest_status=attested in_progress_pct=12%. GI layer divergence persists: ATLAS gi=0.767 vs integrity/quorum 0.747 vs micro 0.83. Three instrument lanes failing (gaia-nasa-eonet, hermes-arxiv, hermes-crossref); themis-govtrack resolved; gaia-openaq severity reduced."
+    }
+  ],
+  "recommendation": "KV GI surface trustworthy (not mock). GI layer divergence persists — reconcile ATLAS gi=0.767 vs integrity/quorum 0.747 vs micro 0.83. Resolve kv_keys_ok=false on ATLAS sweep despite seed 200 OK. micro_operator_cycle_divergence persists (C-306 vs C-359). Restore gaia-nasa-eonet, hermes-arxiv, and hermes-crossref instrument lanes. Deploy POST /api/vault/attest or document alternate quorum path."
+}
