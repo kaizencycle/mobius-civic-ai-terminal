@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-07-02T00:03:20.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-359",
+  "gi": 0.747,
+  "gi_pre_seed": 0.747,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "NASA EONET natural events",
+      "severity": "elevated",
+      "agent": "GAIA"
+    },
+    {
+      "label": "OpenAQ air quality",
+      "severity": "elevated",
+      "agent": "GAIA"
+    },
+    {
+      "label": "ArXiv new submissions",
+      "severity": "elevated",
+      "agent": "HERMES"
+    },
+    {
+      "label": "CrossRef publication velocity",
+      "severity": "elevated",
+      "agent": "HERMES"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 2,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-07-02T00:02:32.273Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK ([\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"]) — 30s timeout, 60s success",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.83,
+  "micro_cycle": "C-306",
+  "degraded_agents": 2,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "gi_below_floor": false,
+    "micro_operator_cycle_divergence": true
+  },
+  "last_journal_cycle": "C-359",
+  "force_journal": false,
+  "tripwire": {
+    "active": true,
+    "elevated": true,
+    "count": 1
+  },
+  "journal_status": 200,
+  "journal_route": "agents/atlas/observe",
+  "journal_id": "journal-ATLAS-C-359-mr2qrw8ty73p",
+  "journal_ok": true,
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-359-mr2qrw8ty73p",
+  "journal_direct_status": 200,
+  "journal_direct_id": "journal-ATLAS-C-359-uyp248"
+}
