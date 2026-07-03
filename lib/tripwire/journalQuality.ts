@@ -1,6 +1,37 @@
 import type { SubstrateJournalEntry } from '@/lib/substrate/github-journal';
 import type { TripwireSeverity } from '@/lib/tripwire/types';
 
+export type JournalQualityContractEntry = {
+  content: string;
+  derivedFrom?: string[];
+};
+
+export type JournalQualityContractResult = {
+  status: 'nominal' | 'elevated';
+  repetition?: boolean;
+};
+
+/** OPT-15 / MOBIUS_TRUST_TRIPWIRES_V1 §3.3 — contract-facing journal quality evaluator. */
+export function evaluateJournalQuality(
+  entries: JournalQualityContractEntry[],
+): JournalQualityContractResult {
+  if (entries.length === 0) return { status: 'nominal' };
+
+  const contentCounts = new Map<string, number>();
+  for (const entry of entries) {
+    const content = entry.content.trim();
+    contentCounts.set(content, (contentCounts.get(content) ?? 0) + 1);
+  }
+  const hasRepetition = [...contentCounts.values()].some((count) => count >= 3);
+
+  const shortEntries = entries.filter((entry) => entry.content.trim().length < 50);
+  if (shortEntries.length === entries.length) {
+    return { status: 'elevated', repetition: hasRepetition };
+  }
+
+  return { status: 'nominal', repetition: hasRepetition };
+}
+
 type JournalQualityDriftCheck = {
   triggered: boolean;
   severity: TripwireSeverity;
