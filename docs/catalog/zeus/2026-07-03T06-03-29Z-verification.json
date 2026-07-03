@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-07-03T06:03:29.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-361",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "open_meteo_temperature_anomaly": "persistent",
+    "arxiv_new_submissions": "persistent",
+    "tripwire_active": "resolved",
+    "hermes-arxiv": "regressed",
+    "hermes-crossref": "regressed",
+    "integrity_source_mock": "resolved",
+    "atlas_source_cached": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state vault_block_state=immortalized latest_seal_id=seal-C-360-006 latest_status=attested in_progress_pct=39%. attestations path not reachable on deployed surface.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-03T05-02-02Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.71 gi_pre_seed=0.71 mode=yellow source=cached classification=STRESSED terminal_status=stressed; anomalies=[Open-Meteo temperature anomaly/GAIA elevated, ArXiv new submissions/HERMES elevated]; micro_composite=0.862 micro_cycle=C-306 degraded_agents=2 (GAIA, HERMES); kv_keys.ok=true kv_keys_ok=false latency=16ms backup_redis available; seed_result=200 OK; sustain_eligible=false; flags tripwire_active=false micro_operator_cycle_divergence=true micro_anomaly_severity_flag=true integrity_source_cached=true. Journal observe 200 / direct 200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.838 composite=0.838 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=3 failedInstruments=[gaia-weather-temp, hermes-arxiv, hermes-crossref]. Operator cycle C-361 diverges from micro C-306. GI gap: ATLAS gi=0.71 vs micro 0.838 (~0.128); ATLAS micro_composite=0.862 vs live 0.838 (~0.024). ATLAS anomalies confirmed in live micro: GAIA Open-Meteo elevated, HERMES ArXiv elevated. hermes-arxiv and hermes-crossref regressed from prior pass recovery."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.756 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-361 freshness=1 stability=0.45. KV surface trustworthy. Aligns with ATLAS gi=0.71 (~0.046); diverges from micro 0.838 (~0.082)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-361-lhtek0 canonical=true mirrored_to_kv=true"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.71 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-361. vault_block_state=immortalized latest_seal_id=seal-C-360-006 latest_status=attested in_progress_pct=39%. GI layer divergence persists: ATLAS/quorum 0.71 / integrity 0.756 / micro 0.838. ATLAS source=cached vs integrity kv-live. kv_keys_ok=false on ATLAS sweep."
+    }
+  ],
+  "recommendation": "Operator attention: ATLAS GI dropped to 0.71 on cached sweep (was 0.763 kv prior pass). Investigate ATLAS source=cached vs integrity kv-live divergence. Resolve kv_keys_ok=false despite seed 200 OK. Reconcile micro cycle C-306 lag. Monitor GAIA Open-Meteo and HERMES ArXiv/CrossRef instrument failures (regressed). Deploy POST /api/vault/attest or document alternate quorum path."
+}
