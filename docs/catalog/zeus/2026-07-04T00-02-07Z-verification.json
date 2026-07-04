@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-07-04T00:02:07.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-361",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "tripwire_active": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "sustain_eligible_false": "persistent",
+    "gaia-weather-temp": "transient",
+    "gi_layer_divergence": "resolved",
+    "gaia-nasa-eonet": "resolved",
+    "hermes-arxiv": "resolved",
+    "gi_below_floor": "resolved",
+    "atlas_classification_stressed": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state vault_block_state=immortalized latest_seal_id=seal-C-361-008 latest_status=attested in_progress_pct=66%. attestations path not reachable on deployed surface.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-03T23-02-01Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.9 gi_pre_seed=0.9 gi_post_seed=0.9 mode=green source=kv classification=NOMINAL terminal_status=nominal; anomalies=[]; flags kv_keys_ok=true kv_keys_all_ok=false tripwire_active=true micro_operator_cycle_divergence=true gi_below_floor=false; micro_composite=0.862 micro_cycle=C-306 degraded_agents=0; kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire elevated (Hormuz Transit Fee Risk). Journal observe 200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.872 composite=0.872 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=1 failedInstruments=[gaia-weather-temp]. Operator cycle C-361 diverges from micro C-306. GI gap ATLAS 0.9 vs micro 0.872 (~0.028) — within tolerance. gaia-weather-temp transient failure (Open-Meteo); gaia-nasa-eonet and hermes-arxiv recovered since prior pass."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-361 freshness=0.6 stability=1. KV surface trustworthy. Aligns with ATLAS gi=0.9."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-361-gsjwq6 canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "pass",
+      "detail": "quorum/state integrity.gi=0.9 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-361. vault_block_state=immortalized latest_seal_id=seal-C-361-008 latest_status=attested in_progress_pct=66%. GI layers aligned: ATLAS 0.9 / integrity 0.9 / micro 0.872 / quorum 0.9. ATLAS classification NOMINAL (upgraded from STRESSED prior pass)."
+    }
+  ],
+  "recommendation": "GI trustworthy across layers. Monitor Hormuz tripwire (elevated, persistent). Triage gaia-weather-temp Open-Meteo transient failure. Reconcile micro cycle C-306 lag vs operator C-361. Deploy POST /api/vault/attest or document alternate quorum path. Journal KV mirror failed — verify KV write path."
+}
