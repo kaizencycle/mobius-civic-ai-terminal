@@ -4,19 +4,19 @@
   "source": "snapshot-lite",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
   "cycle": "C-362",
-  "fetched_at": "2026-07-04T04:48:57.980Z",
-  "gi": 0.71,
+  "fetched_at": "2026-07-04T07:32:14.056Z",
+  "gi": 0.75,
   "mode": "yellow",
   "degraded": true,
-  "gi_provenance": "live-compute",
-  "gi_verified": false,
+  "gi_provenance": "kv-live",
+  "gi_verified": true,
   "memory_mode": null,
   "deployment": {
     "commit_sha": "f3d6c1c6342c311f5c3aa3b8fd14445a027eccef",
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 61,
+    "total_ms": 16,
     "lane_ms": null
   }
 }
