@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-07-04T06:02:09.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-362",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "tripwire_active": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "sustain_eligible_false": "persistent",
+    "gi_layer_divergence": "persistent",
+    "atlas_classification_stressed": "persistent",
+    "hermes-arxiv": "persistent",
+    "hermes-crossref": "persistent",
+    "themis-govtrack": "persistent",
+    "gaia-space-weather": "transient",
+    "themis_degraded": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state vault_block_state=immortalized latest_seal_id=seal-C-362-010 latest_status=attested in_progress_pct=15%. attestations path not reachable on deployed surface.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-04T05-00-19Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.79 gi_pre_seed=0.79 gi_post_seed=0.79 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[]; flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=true micro_operator_cycle_divergence=true gi_below_floor=false; micro_composite=0.877 micro_cycle=C-306 degraded_agents=1 (THEMIS); kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire elevated (lane tripwire count 1 elevated). Journal observe 200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.834 composite=0.834 instrumentCount=40 cycle=C-306 cached=true fallbacksUsed=2 errors=3 failedInstruments=[hermes-arxiv hermes-crossref themis-govtrack]. Operator cycle C-362 diverges from micro C-306. GI gap ATLAS 0.79 vs micro 0.834 (~0.044). THEMIS degraded (govtrack timeout); HERMES degraded (arxiv crossref failures). gaia-space-weather elevated (Kp index 0.2)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-362 freshness=0.6 stability=1. KV surface trustworthy but disagrees with ATLAS: gi 0.82 vs 0.79, mode green vs yellow, status nominal vs stressed."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-362-zvliir canonical=true mirrored_to_kv=true"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-362. vault_block_state=immortalized latest_seal_id=seal-C-362-010 latest_status=attested in_progress_pct=15%. GI layers divergent: ATLAS 0.79/yellow/stressed vs integrity 0.82/green/nominal vs micro 0.834. ATLAS classification STRESSED re-emerged."
+    }
+  ],
+  "recommendation": "GI layer divergence requires operator attention: reconcile ATLAS heartbeat (0.79 yellow STRESSED) with integrity-status and quorum (0.82 green nominal). Triage persistent HERMES arxiv/crossref and THEMIS govtrack instrument failures. Monitor elevated tripwire. Investigate kv_keys_ok=false despite seed 200 OK. Deploy POST /api/vault/attest or document alternate quorum path."
+}
