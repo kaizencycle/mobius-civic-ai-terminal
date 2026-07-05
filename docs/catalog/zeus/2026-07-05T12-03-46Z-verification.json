@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-07-05T12:03:46.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-363",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "tripwire_active": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "sustain_eligible_false": "persistent",
+    "gi_layer_divergence": "persistent",
+    "atlas_classification_stressed": "persistent",
+    "gaia_nasa_eonet_fallback": "persistent",
+    "hermes_arxiv_failure": "persistent",
+    "themis_govtrack_failure": "persistent",
+    "journal_kv_write_failed": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state vault_block_state=immortalized latest_seal_id=seal-C-363-012 latest_status=attested in_progress_pct=40%. attestations 0/5 pending; attest path not reachable on deployed surface.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-05T11-05-34Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.71 gi_pre_seed=0.71 gi_post_seed=0.71 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[]; flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=true micro_operator_cycle_divergence=true gi_below_floor=false; micro_composite=0.899 micro_cycle=C-306 degraded_agents=0; kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire elevated (Hormuz Transit Fee Risk). Journal observe 200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.848 composite=0.848 instrumentCount=40 cycle=C-306 cached=true fallbacksUsed=3 errors=2 failedInstruments=[hermes-arxiv, themis-govtrack]. Operator cycle C-363 diverges from micro C-306. GI gap ATLAS 0.71 vs micro 0.848 (~0.138). HERMES score 0.806 with hermes-arxiv primary failed; THEMIS score 0.761 with themis-govtrack primary failed; gaia-nasa-eonet on fallback (0.65)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-363 freshness=0.6 stability=1. KV surface trustworthy but disagrees with ATLAS: gi 0.82 vs 0.71, mode green vs yellow, status nominal vs stressed."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-363-771se8 canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-363. vault_block_state=immortalized latest_seal_id=seal-C-363-012 latest_status=attested in_progress_pct=40%. attestations 0/5 pending. GI layers divergent: ATLAS 0.71/yellow/stressed vs integrity 0.82/green/nominal vs quorum 0.82/green/nominal vs micro 0.848."
+    }
+  ],
+  "recommendation": "GI layer divergence requires operator attention: reconcile ATLAS heartbeat GI drop (0.71 yellow STRESSED) with integrity-status (0.82 green nominal) and micro composite (0.848). Triage hermes-arxiv and themis-govtrack instrument failures. Reconcile kv_keys_ok=false despite seed 200 OK and kv.ok=true. Tripwire elevated (Hormuz, stability 1.0 in integrity signals) remains active. Deploy POST /api/vault/attest for quorum registration. Investigate journal mirrored_to_kv=false kv_write_failed."
+}
