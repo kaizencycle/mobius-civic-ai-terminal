@@ -42,7 +42,7 @@
     "integrity_source_live": false,
     "integrity_source_cached": false,
     "micro_anomaly_severity_flag": false,
-    "kv_keys_ok": true,
+    "kv_keys_ok": false,
     "kv_keys_all_ok": false,
     "tripwire_active": true,
     "gi_below_floor": false,
