@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-07-06T18:04:43.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-364",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "hermes_crossref_failure": "persistent",
+    "gaia_usgs_water_failure": "transient",
+    "hermes_internet_archive_failure": "transient",
+    "tripwire_active": "resolved",
+    "sustain_eligible_false": "resolved",
+    "gi_below_floor": "resolved",
+    "atlas_classification_critical": "resolved",
+    "journal_kv_write_failed": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state vault_block_state=immortalized latest_seal_id=seal-C-364-015 latest_status=attested in_progress_pct=58%. attestations 0/5 pending; attest path not reachable on deployed surface.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-06T18-04-20Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.781 gi_pre_seed=0.781 gi_post_seed=0.781 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[]; flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=false gi_below_floor=false micro_operator_cycle_divergence=true; micro_composite=0.848 micro_cycle=C-306 degraded_agents=2 (GAIA, HERMES); kv_keys.ok=true seed_result=200 OK; sustain_eligible=true; tripwire inactive (baseline). Journal observe 200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.848 composite=0.848 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=3 failedInstruments=[gaia-usgs-water, hermes-internet-archive, hermes-crossref]. Operator cycle C-364 diverges from micro C-306. ATLAS micro_composite 0.848 matches micro API. Watch instruments: cloudflare-radar 0.7, openaq 0.75, noaa-alerts 0.8, datagov 0.8 fallback, transparency-intl 0.8 fallback."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.781 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-364 freshness=1 stability=1. Aligns with ATLAS gi=0.781 mode=yellow stressed."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-364-2qzioj canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-364. vault_block_state=immortalized latest_seal_id=seal-C-364-015 latest_status=attested in_progress_pct=58%. attestations 0/5 pending. Residual GI layer divergence: ATLAS/integrity 0.781 yellow stressed vs quorum 0.81 green nominal; micro composite 0.848."
+    }
+  ],
+  "recommendation": "ATLAS and integrity-status now aligned at gi=0.781 yellow stressed; tripwire cleared and sustain_eligible=true since prior 17:08 pass. Residual divergence: quorum/state reports 0.81 green nominal. Investigate kv_keys_ok=false despite seed 200 OK and kv.ok=true. Monitor gaia-usgs-water, hermes-internet-archive, and hermes-crossref instrument failures. Deploy POST /api/vault/attest for quorum registration."
+}
