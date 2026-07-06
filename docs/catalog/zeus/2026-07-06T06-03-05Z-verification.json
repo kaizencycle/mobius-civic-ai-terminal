@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-07-06T06:03:05.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-364",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "SSL Labs API health": "resolved",
+    "Cloudflare infrastructure status": "persistent",
+    "OpenAQ air quality": "persistent",
+    "NOAA active weather alerts": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "Transparency International API": "persistent",
+    "kv_keys_ok_false": "persistent",
+    "tripwire_active": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "sustain_eligible_false": "persistent",
+    "hermes_crossref_failure": "transient",
+    "themis_congress_failure": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state vault_block_state=immortalized latest_seal_id=seal-C-363-014 latest_status=attested in_progress_pct=74%. attestations 0/5 pending; attest path not reachable on deployed surface.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-06T05-05-19Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.71 gi_pre_seed=0.9 gi_post_seed=0.71 mode=yellow source=kv classification=STRESSED terminal_status=stressed; 6 watch anomalies (DAEDALUS SSL Labs/Cloudflare, GAIA OpenAQ/NOAA alerts, THEMIS data.gov/Transparency Intl); kv_keys.ok=true seed_result=200 OK; kv_keys_ok=false; sustain_eligible=false; tripwire elevated (Hormuz Transit Fee Risk); micro_composite=0.893 micro_cycle=C-306."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.858 composite=0.858 instrumentCount=40 cycle=C-306 cached=true fallbacksUsed=2 errors=2 failedInstruments=[hermes-crossref, themis-congress]. Operator cycle C-364 diverges from micro C-306. ATLAS-flagged instruments: cloudflare-radar 0.7, openaq 0.75, noaa-alerts 0.8, datagov 0.8 fallback, transparency-intl 0.8 fallback; crt-sh 0.9 (SSL Labs proxy improved). New errors: crossref and congress.gov."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.793 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true cycle=C-364 freshness=1 stability=1. KV surface not mock but disagrees with ATLAS heartbeat gi 0.71 (~0.083 gap) and micro 0.858 (~0.065 gap)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-364-k6fj0q canonical=true mirrored_to_kv=true"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.71 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-364. vault_block_state=immortalized latest_seal_id=seal-C-363-014 latest_status=attested in_progress_pct=74%. attestations 0/5 pending. GI layers divergent: ATLAS 0.71 vs integrity 0.793 vs micro 0.858 vs quorum 0.71."
+    }
+  ],
+  "recommendation": "GI layer divergence requires operator attention: reconcile ATLAS/quorum GI (0.71) with integrity-status (0.793) and micro composite (0.858). Investigate kv_keys_ok=false flag despite seed 200 OK and kv.ok=true. Tripwire elevated (Hormuz) remains active. sustain_eligible=false persistent. Monitor new HERMES crossref and THEMIS congress failures. Deploy POST /api/vault/attest for quorum registration."
+}
