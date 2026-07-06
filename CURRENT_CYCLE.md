@@ -4,8 +4,8 @@
 
 - **Cycle:** `C-364`
 - **GI:** `0.7` · **mode:** `yellow` · ⚠️ degraded
-- **Provenance:** `kv-live` (verified)
-- **Pulse fetched:** `2026-07-06T21:02:26.797Z`
+- **Provenance:** `live-compute` (verified)
+- **Pulse fetched:** `2026-07-06T22:23:33.163Z`
 - **Deployment:** `f3d6c1c6342c` (production)
 
 > Generated from `ledger/cycle-state.json` (source: `snapshot-lite`).
