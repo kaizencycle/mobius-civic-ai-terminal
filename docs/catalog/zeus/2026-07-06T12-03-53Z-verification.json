@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-07-06T12:03:53.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-364",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "tripwire_active": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "sustain_eligible_false": "persistent",
+    "gi_layer_divergence": "persistent",
+    "atlas_classification_stressed": "persistent",
+    "hermes_crossref_failure": "persistent",
+    "themis_govtrack_failure": "persistent",
+    "journal_kv_write_failed": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state vault_block_state=immortalized latest_seal_id=seal-C-364-015 latest_status=attested in_progress_pct=18%. attestations 0/5 pending; attest path not reachable on deployed surface.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-06T11-03-36Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.776 gi_pre_seed=0.776 gi_post_seed=0.776 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[]; flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=true micro_operator_cycle_divergence=true gi_below_floor=false; micro_composite=0.887 micro_cycle=C-306 degraded_agents=1 (HERMES); kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire elevated (Hormuz Transit Fee Risk). Journal observe 200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.869 composite=0.869 instrumentCount=40 cycle=C-306 cached=true fallbacksUsed=2 errors=2 failedInstruments=[hermes-crossref, themis-govtrack]. Operator cycle C-364 diverges from micro C-306. GI gap ATLAS 0.776 vs micro 0.869 (~0.093). Watch instruments: cloudflare-radar 0.7, openaq 0.75, noaa-alerts 0.8, datagov 0.8 fallback, transparency-intl 0.8 fallback."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-364 freshness=1 stability=0.45. KV surface trustworthy but disagrees with ATLAS: gi 0.81 vs 0.776, mode green vs yellow, status nominal vs stressed."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-364-cx3aae canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-364. vault_block_state=immortalized latest_seal_id=seal-C-364-015 latest_status=attested in_progress_pct=18%. attestations 0/5 pending. GI layers divergent: ATLAS 0.776/yellow/stressed vs integrity 0.81/green/nominal vs quorum 0.81/green/nominal vs micro 0.869."
+    }
+  ],
+  "recommendation": "GI layer divergence requires operator attention: reconcile ATLAS heartbeat GI (0.776 yellow STRESSED) with integrity-status (0.81 green nominal) and micro composite (0.869). Investigate kv_keys_ok=false flag despite seed 200 OK and kv.ok=true. Tripwire elevated (Hormuz) remains active. sustain_eligible=false persistent. Monitor hermes-crossref and themis-govtrack instrument failures. Deploy POST /api/vault/attest for quorum registration."
+}
