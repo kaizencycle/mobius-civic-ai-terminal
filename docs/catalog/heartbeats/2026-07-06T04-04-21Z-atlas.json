@@ -1,0 +1,76 @@
+{
+  "timestamp": "2026-07-06T04:04:21.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-364",
+  "gi": 0.778,
+  "gi_pre_seed": 0.778,
+  "gi_post_seed": 0.778,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "NOAA active weather alerts",
+      "severity": "watch",
+      "agent": "GAIA"
+    },
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch",
+      "agent": "DAEDALUS"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-07-06T04:01:54.829Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK {\"ok\":true,\"seeded\":[\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"],\"timestamp\":\"2026-07-06T04:02:57.047Z\"} (30s timeout, 60s retry)",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.891,
+  "micro_cycle": "C-306",
+  "degraded_agents": 0,
+  "degraded_agent_names": [],
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false,
+    "micro_operator_cycle_divergence": true
+  },
+  "last_journal_cycle": "C-363",
+  "force_journal": true,
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-07-06T04:02:57.034Z"
+  },
+  "journal_status": 200,
+  "journal_route": "agents/atlas/observe",
+  "journal_id": "journal-ATLAS-C-364-mr8p4h031yix",
+  "journal_ok": true,
+  "journal_observe_status": 200,
+  "journal_observe_id": "journal-ATLAS-C-364-mr8p4h031yix",
+  "journal_direct_status": 200,
+  "journal_direct_id": "journal-ATLAS-C-364-x40vwo"
+}
