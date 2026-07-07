@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-07-07T12:02:28.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-365",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "gi_below_floor": "persistent",
+    "sustain_eligible_false": "persistent",
+    "hermes_crossref_failure": "persistent",
+    "themis_govtrack_failure": "persistent",
+    "gaia_nasa_eonet_failure": "transient",
+    "journal_kv_write_failed": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.71 mode=yellow stressed source=kv-live verified=false. vault_block_state=immortalized latest_seal_id=seal-C-364-016 latest_status=attested in_progress_pct=88%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-07T11-03-32Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.82 gi_pre_seed=0.82 gi_post_seed=0.82 mode=green source=kv classification=STRESSED terminal_status=nominal; anomalies=[]; flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=true gi_below_floor=true micro_operator_cycle_divergence=true; micro_composite=0.893 micro_cycle=C-306 degraded_agents=0; kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire active elevated (Hormuz Transit Fee Risk). Journal 200 journal_id=journal-ATLAS-C-365-vbmrp2."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.844 composite=0.844 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=3 failedInstruments=[gaia-nasa-eonet, hermes-crossref, themis-govtrack]. Operator cycle C-365 diverges from micro C-306. ATLAS micro_composite 0.893 close to micro API 0.844. gaia-nasa-eonet newly failing (was nominal at 06:04 pass)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.71 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-365 freshness=0.6 stability=0.45. DIVERGES from ATLAS gi=0.82 green nominal. Aligns with quorum/state gi=0.71 yellow stressed."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-365-ts9nyh canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.71 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-365. vault_block_state=immortalized latest_seal_id=seal-C-364-016 latest_status=attested in_progress_pct=88%. Residual GI layer divergence: ATLAS 0.82 green nominal vs integrity/quorum 0.71 yellow stressed vs micro composite 0.844."
+    }
+  ],
+  "recommendation": "ATLAS heartbeat reports gi=0.82 green nominal while integrity-status and quorum agree at 0.71 yellow stressed — treat ATLAS lens as divergent and investigate GI computation path. ATLAS flags gi_below_floor=true despite gi=0.82 (internal contradiction). kv_keys_ok=false persists despite seed 200 OK and kv.ok=true. Monitor Hormuz transit fee tripwire. Address gaia-nasa-eonet, hermes-crossref, and themis-govtrack instrument failures. Journal KV mirror failing again. Deploy POST /api/vault/attest for quorum registration."
+}
