@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-07-07T06:04:17.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-365",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "gi_below_floor": "persistent",
+    "sustain_eligible_false": "persistent",
+    "hermes_crossref_failure": "persistent",
+    "themis_govtrack_failure": "persistent",
+    "journal_kv_write_failed": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.75 mode=yellow stressed source=kv-live verified=false. vault_block_state=immortalized latest_seal_id=seal-C-364-016 latest_status=attested in_progress_pct=47%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-07T05-02-51Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.64 gi_pre_seed=0.64 gi_post_seed=0.64 mode=yellow source=kv classification=CRITICAL terminal_status=stressed; anomalies=[]; flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=true gi_below_floor=true micro_operator_cycle_divergence=true; micro_composite=0.866 micro_cycle=C-306 degraded_agents=0; kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire active elevated (Hormuz Transit Fee Risk). Journal 200 journal_id=journal-ATLAS-C-365-hhhpav."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.872 composite=0.872 instrumentCount=40 cycle=C-306 cached=true fallbacksUsed=2 errors=2 failedInstruments=[hermes-crossref, themis-govtrack]. Operator cycle C-365 diverges from micro C-306. ATLAS micro_composite 0.866 close to micro API 0.872. All GAIA instruments nominal including nasa-eonet score=1. Watch: cloudflare-radar 0.7, datagov/transparency-intl 0.8 fallback."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.75 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-365 freshness=0.3 stability=1. DIVERGES from ATLAS gi=0.64 CRITICAL. Aligns with quorum/state gi=0.75 yellow stressed."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-365-78ujbo canonical=true mirrored_to_kv=true"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.75 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-365. vault_block_state=immortalized latest_seal_id=seal-C-364-016 latest_status=attested in_progress_pct=47%. Residual GI layer divergence: ATLAS 0.64 CRITICAL vs integrity/quorum 0.75 yellow stressed vs micro composite 0.872."
+    }
+  ],
+  "recommendation": "ATLAS heartbeat reports gi=0.64 CRITICAL with tripwire_active and gi_below_floor while integrity-status and quorum agree at 0.75 yellow stressed — treat ATLAS lens as divergent and investigate GI computation path. Micro composite 0.872 suggests signal surface healthier than operator GI. kv_keys_ok=false persists despite seed 200 OK and kv.ok=true. Monitor Hormuz transit fee tripwire. Address hermes-crossref and themis-govtrack instrument failures. Deploy POST /api/vault/attest for quorum registration."
+}
