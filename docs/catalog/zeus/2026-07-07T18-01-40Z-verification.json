@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-07-07T18:01:40.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-365",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "gi_below_floor": "persistent",
+    "sustain_eligible_false": "persistent",
+    "hermes_crossref_failure": "persistent",
+    "journal_kv_write_failed": "persistent",
+    "atlas_post_seed_gi_drop": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.761 mode=yellow stressed source=kv-live verified=false. vault_block_state=immortalized latest_seal_id=seal-C-365-018 latest_status=attested in_progress_pct=31%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-07T17-07-36Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.64 gi_pre_seed=0.802 gi_post_seed=0.64 mode=yellow source=kv classification=CRITICAL terminal_status=stressed; anomalies=[CrossRef publication velocity elevated/HERMES]; flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=true gi_below_floor=true micro_operator_cycle_divergence=true; micro_composite=0.899 micro_cycle=C-306 degraded_agents=1 [HERMES]; kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire active elevated (Hormuz Transit Fee Risk). Journal 200 journal_id=journal-ATLAS-C-365-njetho. Post-seed GI drop 0.802→0.64."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.893 composite=0.893 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=1 failedInstruments=[hermes-crossref score=0 source=error]. Operator cycle C-365 diverges from micro C-306. HERMES agent score=0.82 errorCount=1. gaia-nasa-eonet recovered (score=1 primary, was failing at 12:02 pass). themis-datagov and themis-transparency-intl on fallback (0.8)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.761 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-365 freshness=1 stability=1 quality=0.737. DIVERGES from ATLAS gi=0.64 CRITICAL. Aligns with quorum/state gi=0.761 yellow stressed. Improved from 0.71 at 12:02 pass."
+    },
+    {
+      "check": "ATLAS anomaly: CrossRef publication velocity (HERMES)",
+      "result": "warn",
+      "detail": "Anomaly flagged elevated by ATLAS at 17:07Z. Independent micro confirms hermes-crossref instrument score=0 source=error — persistent. Other HERMES instruments nominal (hn-velocity=1, wiki-changes=1, arxiv=0.9)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-365-94pr9d canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.761 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-365. vault_block_state=immortalized latest_seal_id=seal-C-365-018 latest_status=attested in_progress_pct=31%. Residual GI layer divergence: ATLAS 0.64 CRITICAL vs integrity/quorum 0.761 yellow stressed vs micro composite 0.893."
+    }
+  ],
+  "recommendation": "ATLAS post_seed GI drop (0.802→0.64) drives CRITICAL classification while integrity/quorum report 0.761 and micro 0.893 — treat ATLAS lens as divergent and investigate seed-side GI suppression. HERMES CrossRef velocity anomaly confirmed persistent (hermes-crossref error). kv_keys_ok=false persists despite seed 200 OK. Monitor Hormuz transit fee tripwire. Deploy POST /api/vault/attest for quorum registration. Fix journal KV mirror failures."
+}
