@@ -14,5 +14,9 @@ jobs:
           SEAL_ISSUE_URL: ${{ secrets.SEAL_ISSUE_URL }}
           SEAL_TOKEN: ${{ secrets.SEAL_TOKEN }}
         run: |
+          if [ -z "${SEAL_ISSUE_URL:-}" ] || [ -z "${SEAL_TOKEN:-}" ]; then
+            echo "::notice::SEAL_ISSUE_URL / SEAL_TOKEN not configured — skipping auto-seal-check (infra not wired)"
+            exit 0
+          fi
           curl -X POST "$SEAL_ISSUE_URL" \
             -H "Authorization: Bearer $SEAL_TOKEN"
