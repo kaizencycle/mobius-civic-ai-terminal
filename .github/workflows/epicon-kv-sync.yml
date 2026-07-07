@@ -29,8 +29,8 @@ jobs:
           set -euo pipefail
 
           if [ -z "${CRON_SECRET:-}" ]; then
-            echo "::error::INFRASTRUCTURE NOT READY — CRON_SECRET GitHub Actions secret is not set. Cannot authorize POST /api/admin/seed-kv."
-            exit 1
+            echo "::notice::CRON_SECRET not set — skipping EPICON KV Sync (configure GitHub Actions secret to enable seed-kv)"
+            exit 0
           fi
 
           START_MS=$(python3 -c 'import time; print(int(time.time() * 1000))')
