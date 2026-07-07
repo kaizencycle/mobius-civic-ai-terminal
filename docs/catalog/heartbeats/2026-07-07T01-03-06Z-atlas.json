@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-07-07T01:03:06.940Z",
+  "agent": "ATLAS",
+  "cycle": "C-364",
+  "gi": 0.82,
+  "gi_pre_seed": 0.82,
+  "gi_post_seed": 0.82,
+  "mode": "green",
+  "source": "cached",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-07-07T01:01:52.525Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK {\"ok\":true,\"seeded\":[\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"],\"timestamp\":\"2026-07-07T01:02:14.366Z\"}",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.879,
+  "micro_cycle": "C-306",
+  "degraded_agents": 1,
+  "degraded_agent_names": [
+    "HERMES"
+  ],
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": false,
+    "integrity_source_live": false,
+    "integrity_source_cached": true,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "gi_below_floor": false,
+    "micro_operator_cycle_divergence": true
+  },
+  "last_journal_cycle": "C-364",
+  "force_journal": false,
+  "tripwire": {
+    "active": true,
+    "level": "elevated",
+    "reason": "lane tripwire count 1 elevated",
+    "last_updated": "2026-07-07T01:03:06.940Z"
+  },
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-364-i1j95t",
+  "journal_ok": true
+}
