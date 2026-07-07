@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-07-07T00:03:53.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-364",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "nasa_eonet_elevated": "transient",
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "hermes_crossref_failure": "persistent",
+    "gaia_usgs_water_failure": "resolved",
+    "hermes_internet_archive_failure": "resolved",
+    "tripwire_active": "resolved",
+    "sustain_eligible_false": "resolved",
+    "gi_below_floor": "resolved",
+    "journal_kv_write_failed": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state attestations 0/5 pending (ATLAS, ZEUS, EVE, JADE, AUREA). vault_block_state=immortalized latest_seal_id=seal-C-364-015 latest_status=attested in_progress_pct=3%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-07T00-02-26Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.753 gi_pre_seed=0.753 gi_post_seed=0.753 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[NASA EONET natural events (elevated)]; flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=false gi_below_floor=false micro_operator_cycle_divergence=true micro_anomaly_severity_flag=true; micro_composite=0.874 micro_cycle=C-306 degraded_agents=3 (ATLAS, ZEUS, EVE); kv_keys.ok=true seed_result=200 OK; sustain_eligible=true; tripwire inactive (baseline). Journal observe 200."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.882 composite=0.882 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=1 failedInstruments=[hermes-crossref]. Operator cycle C-364 diverges from micro C-306. ATLAS micro_composite 0.874 close to micro API 0.882. gaia-nasa-eonet score=1 nominal (ATLAS elevated anomaly not present). Watch: gaia-noaa-alerts 0.6, cloudflare-radar 0.7, openaq 0.75, datagov/transparency-intl 0.8 fallback."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-364 freshness=0.6 stability=1. DIVERGES from ATLAS gi=0.753 mode=yellow stressed. Aligns with quorum/state gi=0.82 green nominal."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-364-9ofie4 canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-364. vault_block_state=immortalized latest_seal_id=seal-C-364-015 latest_status=attested in_progress_pct=3%. attestations 0/5 pending. Residual GI layer divergence: ATLAS 0.753 yellow stressed vs integrity/quorum 0.82 green nominal; micro composite 0.882."
+    }
+  ],
+  "recommendation": "ATLAS heartbeat reports gi=0.753 yellow stressed while integrity-status and quorum agree at 0.82 green nominal — treat ATLAS stressed lens as divergent until reconciled. NASA EONET elevated anomaly transient (micro nominal). kv_keys_ok=false persists despite seed 200 OK and kv.ok=true. Monitor hermes-crossref instrument failure. Deploy POST /api/vault/attest for quorum registration."
+}
