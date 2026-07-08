@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-07-08T00:03:08.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-365",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "gi_below_floor": "persistent",
+    "sustain_eligible_false": "persistent",
+    "atlas_post_seed_gi_drop": "persistent",
+    "hermes_crossref_failure": "resolved",
+    "journal_kv_write_failed": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.766 mode=yellow stressed source=kv-live verified=false. vault_block_state=immortalized latest_seal_id=seal-C-365-018 latest_status=attested in_progress_pct=79%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-07T23-04-36Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.63 gi_pre_seed=0.92 gi_post_seed=0.63 mode=yellow source=kv classification=CRITICAL terminal_status=stressed; anomalies=[] (empty); flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=true gi_below_floor=true micro_operator_cycle_divergence=true; micro_composite=0.908 micro_cycle=C-306 degraded_agents=0; kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire active elevated (Hormuz Transit Fee Risk). Journal 200 journal_id=journal-ATLAS-C-365-0xi036. Post-seed GI drop 0.92→0.63."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.911 composite=0.911 instrumentCount=40 cycle=C-306 cached=true fallbacksUsed=2 errors=0 failedInstruments=[]. Operator cycle C-365 diverges from micro C-306. All 6 agents healthy errorCount=0. hermes-crossref recovered to score=0.9 source=primary (was error at prior pass). themis-datagov and themis-transparency-intl on fallback (0.8)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.766 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true gi_degraded=false cycle=C-365 freshness=1 stability=1 quality=0.766. DIVERGES from ATLAS gi=0.63 CRITICAL. Aligns with quorum/state gi=0.766 yellow stressed."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Flag persistent across passes despite kv_keys.ok=true and seed_result=200 OK. kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-365-xybhlh canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.766 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-365. vault_block_state=immortalized latest_seal_id=seal-C-365-018 latest_status=attested in_progress_pct=79%. Residual GI layer divergence: ATLAS 0.63 CRITICAL vs integrity/quorum 0.766 yellow stressed vs micro composite 0.911."
+    }
+  ],
+  "recommendation": "ATLAS post_seed GI drop (0.92→0.63) drives CRITICAL classification while integrity/quorum report 0.766 and micro 0.911 — treat ATLAS lens as divergent and investigate seed-side GI suppression. kv_keys_ok=false persists despite seed 200 OK. HERMES CrossRef recovered (resolved from prior pass). Monitor Hormuz transit fee tripwire. Deploy POST /api/vault/attest for quorum registration. Fix journal KV mirror failures."
+}
