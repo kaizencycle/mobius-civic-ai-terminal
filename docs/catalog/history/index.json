@@ -1,30 +1,7 @@
 {
   "repo": "kaizencycle/mobius-civic-ai-terminal",
-  "updated_at": "2026-07-07T23:06:01Z",
+  "updated_at": "2026-07-08T03:19:01Z",
   "timeline": [
-    {
-      "repo": "kaizencycle/mobius-civic-ai-terminal",
-      "generated_at": "2026-04-29T17:43:03Z",
-      "cycle": "C-296",
-      "stats": {
-        "total_commits": 2199,
-        "total_files": 1439,
-        "lines_of_code": 70325,
-        "api_routes": 157
-      },
-      "integrity": {
-        "gi": 0.78,
-        "mode": "yellow",
-        "terminal_status": "stressed"
-      },
-      "agents": {
-        "canonical_count": 8,
-        "micro_count": 4,
-        "micro_sources_total": 9
-      },
-      "recent_prs_merged": 93,
-      "deployment_state": "unknown"
-    },
     {
       "repo": "kaizencycle/mobius-civic-ai-terminal",
       "generated_at": "2026-04-29T19:43:57Z",
@@ -11486,6 +11463,29 @@
       "stats": {
         "total_commits": 5399,
         "total_files": 3577,
+        "lines_of_code": 93368,
+        "api_routes": 215
+      },
+      "integrity": {
+        "gi": 0.78,
+        "mode": "yellow",
+        "terminal_status": "stressed"
+      },
+      "agents": {
+        "canonical_count": 8,
+        "micro_count": 4,
+        "micro_sources_total": 9
+      },
+      "recent_prs_merged": 2,
+      "deployment_state": "unknown"
+    },
+    {
+      "repo": "kaizencycle/mobius-civic-ai-terminal",
+      "generated_at": "2026-07-08T03:19:01Z",
+      "cycle": "C-365",
+      "stats": {
+        "total_commits": 5406,
+        "total_files": 3583,
         "lines_of_code": 93368,
         "api_routes": 215
       },
