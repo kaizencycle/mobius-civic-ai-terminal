@@ -1,0 +1,80 @@
+{
+  "timestamp": "2026-07-09T00:03:03.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-366",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "tripwire_active": "resolved",
+    "sustain_eligible_false": "persistent",
+    "gi_below_floor": "persistent",
+    "journal_kv_write_failed": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.9 mode=green nominal source=kv-live verified=false. vault_block_state=immortalized latest_seal_id=seal-C-366-021 latest_status=attested in_progress_pct=53%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-09T00-02-31Z-atlas.json",
+      "result": "fail",
+      "detail": "gi=0.64 gi_pre_seed=0.64 gi_post_seed=0.64 mode=yellow source=kv classification=CRITICAL terminal_status=stressed; anomalies=[] (empty); flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=false gi_below_floor=true micro_operator_cycle_divergence=true; micro_composite=0.902 micro_cycle=C-306 degraded_agents=0; kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire inactive (baseline). Journal 200 journal_id=journal-ATLAS-C-366-s90mya."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.897 composite=0.897 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=0 failedInstruments=[]. Operator cycle C-366 diverges from micro C-306 (persistent). HERMES score=0.922 errorCount=0 (healthy). themis-datagov and themis-transparency-intl on fallback (0.8)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=false cycle=C-366 freshness=0.6 quality=1 stability=1. DIVERGES from ATLAS gi=0.64 CRITICAL; aligns with quorum gi=0.9. GI recovered from 0.72 (18:04Z pass) to 0.9 green."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Flag persistent across passes despite kv_keys.ok=true and seed_result=200 OK. kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: gi_below_floor=true",
+      "result": "fail",
+      "detail": "Persistent in ATLAS catalog (gi=0.64) but live integrity-status reports gi=0.9 green — ATLAS GI read path diverges from integrity-status endpoint."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. micro cycle C-306 vs operator C-366."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "pass",
+      "detail": "Resolved. ATLAS 00:02Z sweep shows tripwire inactive (baseline); was elevated Hormuz at 23:07Z."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-366-w1texj canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.9 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-366. vault_block_state=immortalized latest_seal_id=seal-C-366-021 latest_status=attested in_progress_pct=53%. Residual GI layer divergence: ATLAS catalog gi=0.64 CRITICAL vs integrity/quorum 0.9 green nominal vs micro composite 0.897."
+    }
+  ],
+  "recommendation": "GI layer divergence remains acute: ATLAS catalog gi=0.64 CRITICAL vs integrity-status/quorum 0.9 green nominal vs micro composite 0.897. Investigate why ATLAS sweep reads gi=0.64 while /api/integrity-status serves 0.9 from same kv-live source. kv_keys_ok=false persists despite seed 200 OK. Micro cycle C-306 stale vs operator C-366. Journal KV mirror failing (kv_write_failed). Deploy POST /api/vault/attest for quorum registration."
+}
