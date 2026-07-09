@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-07-09T18:03:46.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-367",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "arxiv_new_submissions": "transient",
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "sustain_eligible_false": "persistent",
+    "atlas_mode_terminal_divergence": "persistent",
+    "hermes_degraded_flag": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-367. vault_block_state=immortalized latest_seal_id=seal-C-367-022 latest_status=attested in_progress_pct=94%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-09T17-05-51Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.791 gi_pre_seed=0.791 gi_post_seed=0.791 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[ArXiv new submissions elevated/HERMES/hermes-arxiv]; flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=true micro_operator_cycle_divergence=true; micro_composite=0.886 micro_cycle=C-306 degraded_agents=1 (HERMES); kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire elevated Hormuz Transit Fee Risk. Journal 200 journal_id=journal-ATLAS-C-367-1nu1lt."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.905 composite=0.905 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=0. Operator cycle C-367 diverges from micro C-306 (persistent). HERMES composite=0.922 errorCount=0 (healthy). hermes-arxiv score=0.9 severity=nominal — ATLAS elevated flag not reproduced on live instrument read. themis-datagov and themis-transparency-intl on fallback (0.8)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true cycle=C-367 freshness=1 quality=0.77 stability=0.45. DIVERGES from ATLAS gi=0.791 mode=yellow terminal_status=stressed. Aligns with quorum gi=0.81. Micro composite 0.905 sits above both operator layers."
+    },
+    {
+      "check": "ATLAS anomaly: ArXiv new submissions (elevated)",
+      "result": "pass",
+      "detail": "Transient/resolved on live micro. hermes-arxiv score=0.9 severity=nominal; HERMES agent composite 0.922 healthy. ATLAS degraded_agents HERMES flag not corroborated."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent across passes despite kv_keys.ok=true and seed_result=200 OK. kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. micro cycle C-306 vs operator C-367."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "warn",
+      "detail": "Persistent. Hormuz Transit Fee Risk active at elevated level since 2026-07-09T17:02:32Z."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-367-2jv5ri canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-367. vault_block_state=immortalized latest_seal_id=seal-C-367-022 latest_status=attested in_progress_pct=94%. Residual GI layer divergence: ATLAS catalog gi=0.791 vs integrity/quorum 0.81 vs micro composite 0.905. ATLAS mode=yellow/stressed vs integrity/quorum green/nominal."
+    }
+  ],
+  "recommendation": "GI layer and mode divergence remains: ATLAS gi=0.791 mode=yellow terminal_status=stressed vs integrity-status/quorum gi=0.81 mode=green terminal_status=nominal kv-live vs micro composite 0.905. Investigate ATLAS sweep read path vs live integrity-status. kv_keys_ok=false persists despite seed 200 OK. Micro cycle C-306 stale vs operator C-367. Hormuz tripwire elevated — monitor. Journal KV write failed this pass. Deploy POST /api/vault/attest for quorum registration."
+}
