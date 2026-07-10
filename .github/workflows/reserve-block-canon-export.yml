@@ -1,0 +1,164 @@
+# C-368 PR7 — Reserve Block cold canon export + Substrate PR
+# Authority: EPICON_C-368_SPECS_reserve-canon-prime_v1
+#
+# Triggered by workflow_dispatch only (manual prime/append, or Vercel cron
+# /api/cron/reserve-canon-append when hot/cold gap > 0). No GitHub schedule —
+# avoids duplicate runs with the Vercel cron at 00:30 UTC.
+#
+# Required secrets (terminal repo Actions):
+#   KV_REST_API_URL, KV_REST_API_TOKEN  — Upstash/Vercel KV (same as production)
+#   SUBSTRATE_GITHUB_TOKEN              — contents + pull_requests on Mobius-Substrate
+# Optional:
+#   AGENT_SERVICE_TOKEN                 — API fallback if KV read fails
+#   TERMINAL_API_BASE                   — default https://mobius-civic-ai-terminal.vercel.app
+#   CPC_BASE_URL                        — skip CPC anchors when unset (use skip_cpc input)
+
+name: Reserve Block Canon Export
+
+on:
+  workflow_dispatch:
+    inputs:
+      incremental:
+        description: 'Incremental append (false = full prime export)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      dry_run:
+        description: 'Dry run (export + verify only, no Substrate PR)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      open_substrate_pr:
+        description: 'Open draft PR on Mobius-Substrate after verify'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reserve-block-canon-export
+  cancel-in-progress: false
+
+jobs:
+  export-and-pr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout terminal
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Preflight secrets
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          SUBSTRATE_GITHUB_TOKEN: ${{ secrets.SUBSTRATE_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -z "${KV_REST_API_URL:-}" ] && missing+=("KV_REST_API_URL")
+          [ -z "${KV_REST_API_TOKEN:-}" ] && missing+=("KV_REST_API_TOKEN")
+          if [ "${{ github.event.inputs.open_substrate_pr || 'true' }}" = "true" ] && [ "${{ github.event.inputs.dry_run || 'false' }}" != "true" ]; then
+            [ -z "${SUBSTRATE_GITHUB_TOKEN:-}" ] && missing+=("SUBSTRATE_GITHUB_TOKEN")
+          fi
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            echo "Configure GitHub Actions secrets on kaizencycle/mobius-civic-ai-terminal, then re-run."
+            exit 1
+          fi
+
+      - name: Export Reserve Blocks to .dat
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          AGENT_SERVICE_TOKEN: ${{ secrets.AGENT_SERVICE_TOKEN }}
+          TERMINAL_API_BASE: ${{ secrets.TERMINAL_API_BASE }}
+          CPC_BASE_URL: ${{ secrets.CPC_BASE_URL }}
+        run: |
+          set -euo pipefail
+          INCREMENTAL="${{ github.event.inputs.incremental || 'true' }}"
+          ARGS=(--output=./canon/reserve-blocks --skip-cpc)
+          if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          mkdir -p ./canon/reserve-blocks
+          if [ "$INCREMENTAL" = "true" ]; then
+            git clone --depth 1 https://github.com/kaizencycle/Mobius-Substrate.git /tmp/substrate
+            if [ -f /tmp/substrate/canon/reserve-blocks/MANIFEST.json ]; then
+              cp /tmp/substrate/canon/reserve-blocks/*.dat ./canon/reserve-blocks/ 2>/dev/null || true
+              cp /tmp/substrate/canon/reserve-blocks/MANIFEST.json ./canon/reserve-blocks/
+            fi
+            ARGS+=(--incremental)
+          fi
+          export CI=1
+          npx tsx scripts/canonize-reserve-blocks.ts "${ARGS[@]}"
+
+      - name: Verify hash chain
+        if: github.event.inputs.dry_run != 'true'
+        run: node scripts/verify-dat-chain.js canon/reserve-blocks/
+
+      - name: Summarize export
+        if: always()
+        run: |
+          {
+            echo "## Reserve Block Canon Export (C-368 PR7)"
+            echo ""
+            if [ -f canon/reserve-blocks/MANIFEST.json ]; then
+              python3 - <<'PY'
+          import json
+          m=json.load(open("canon/reserve-blocks/MANIFEST.json"))
+          print(f"- total_blocks: **{m.get('total_blocks')}**")
+          print(f"- total_mic: **{m.get('total_mic')}**")
+          print(f"- chain_tip: `{m.get('chain_tip_hash', '')[:24]}...`")
+          print(f"- files: {', '.join(sorted(m.get('files', {}).keys()))}")
+          PY
+            else
+              echo "_No MANIFEST.json produced_"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open Substrate draft PR
+        if: |
+          github.event.inputs.dry_run != 'true' &&
+          github.event.inputs.open_substrate_pr != 'false'
+        env:
+          SUBSTRATE_GITHUB_TOKEN: ${{ secrets.SUBSTRATE_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SUBSTRATE_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.incremental || 'true' }}" = "false" ]; then
+            node scripts/open-substrate-canon-pr.mjs --prime --source=./canon/reserve-blocks
+          else
+            node scripts/open-substrate-canon-pr.mjs --source=./canon/reserve-blocks
+          fi
+
+      - name: Upload canon artifact
+        if: github.event.inputs.dry_run != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: reserve-blocks-canon
+          path: canon/reserve-blocks/
+          retention-days: 30

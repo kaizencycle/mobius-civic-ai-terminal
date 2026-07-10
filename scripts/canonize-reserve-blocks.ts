@@ -7,6 +7,7 @@
  *   npx tsx scripts/canonize-reserve-blocks.ts --dry-run
  *   npx tsx scripts/canonize-reserve-blocks.ts --skip-cpc
  *   npx tsx scripts/canonize-reserve-blocks.ts --force-api
+ *   npx tsx scripts/canonize-reserve-blocks.ts --incremental
  *
  * EPICON: C-357 | RESERVE_BLOCK_DAT_CANONIZATION
  */
@@ -21,6 +22,7 @@ const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const skipCpc = args.includes('--skip-cpc');
 const forceApi = args.includes('--force-api');
+const incremental = args.includes('--incremental');
 const outputDir =
   args.find((a) => a.startsWith('--output='))?.split('=')[1] ?? './canon/reserve-blocks';
 
@@ -31,6 +33,7 @@ console.log(`
 ╚═══════════════════════════════════════════════════════════╝
 
   Mode:        ${dryRun ? 'DRY RUN' : 'LIVE'}
+  Incremental: ${incremental ? 'yes' : 'no (full prime)'}
   CPC anchors: ${skipCpc ? 'skipped' : 'enabled'}
   Fetch:       ${forceApi ? 'forced API' : 'KV (with API fallback)'}
   Output:      ${outputDir}
@@ -49,7 +52,7 @@ const result = await canonizeReserveBlocks({
   skipCpcAnchors: skipCpc,
   forceApi,
   verbose: true,
-  incremental: false,
+  incremental,
 });
 
 const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);

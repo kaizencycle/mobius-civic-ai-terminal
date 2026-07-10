@@ -27,6 +27,10 @@
       "schedule": "*/30 * * * *"
     },
     {
+      "path": "/api/cron/reserve-canon-append",
+      "schedule": "30 0 * * *"
+    },
+    {
       "path": "/api/cron/journal-canonize",
       "schedule": "*/30 * * * *"
     },

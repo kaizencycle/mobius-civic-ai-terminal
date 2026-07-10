@@ -11,6 +11,7 @@
     "/api/cron/sweep": "cron",
     "/api/cron/swarm": "cron",
     "/api/cron/journal-canonize": "cron",
+    "/api/cron/reserve-canon-append": "cron",
     "/api/cron/publish-oaa-snapshots": "cron",
     "/api/cron/reattest-seals": "cron",
     "/api/cron/echo-ingest": "cron",
