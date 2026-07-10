@@ -23,6 +23,7 @@ import type {
   DatManifest,
   DatManifestEntry,
 } from './types';
+import { validateSealedBlockSequence } from './validateSealedBlock';
 
 export interface CanonizeOptions {
   outputDir?: string;
@@ -87,6 +88,29 @@ export async function canonizeReserveBlocks(
 
   log(`Fetched ${total_found} blocks via ${source}`);
 
+  if (blocks.length > 0) {
+    try {
+      validateSealedBlockSequence(blocks, startBlock);
+    } catch (e) {
+      errors.push({
+        block_number: blocks[0]?.block_number,
+        stage: 'hash',
+        message: e instanceof Error ? e.message : String(e),
+        retryable: false,
+      });
+      return makeResult({
+        blocks: [],
+        datFiles: [],
+        manifestHash: '',
+        chainTip: prevChainTip,
+        cpcAnchored: 0,
+        cpcIdempotent: 0,
+        errors,
+        completedAt: new Date().toISOString(),
+      });
+    }
+  }
+
   if (blocks.length === 0) {
     return makeResult({
       blocks: [],
@@ -103,9 +127,21 @@ export async function canonizeReserveBlocks(
   const datFiles: string[] = [];
   const newManifestEntries: Record<string, DatManifestEntry> = {};
   let chainTip = prevChainTip;
-  let fileIndex = incremental ? getNextFileIndex(outputDir) : 0;
-  let fileRecords: DatBlockRecord[] = [];
-  let fileStartBlock = blocks[0].block_number;
+  const writeState = incremental
+    ? resolveIncrementalWriteState(outputDir, existingManifest)
+    : {
+        fileIndex: 0,
+        fileRecords: [] as DatBlockRecord[],
+        fileStartBlock: blocks[0].block_number,
+        appendToExistingFile: false,
+        existingFilename: null as string | null,
+      };
+  let fileIndex = writeState.fileIndex;
+  let fileRecords = writeState.fileRecords;
+  let fileStartBlock = writeState.fileStartBlock || blocks[0].block_number;
+  if (writeState.appendToExistingFile && fileRecords.length > 0) {
+    chainTip = fileRecords[fileRecords.length - 1].block_hash;
+  }
 
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
@@ -152,16 +188,21 @@ export async function canonizeReserveBlocks(
         log(`[dry-run] Would write ${filename}: blocks ${fileStartBlock}–${fileEndBlock}`);
       }
 
+      const isAppend = writeState.appendToExistingFile && writeState.existingFilename === filename;
       newManifestEntries[filename] = {
         range: [fileStartBlock, fileEndBlock],
         sha256: fileHash,
         block_count: fileRecords.length,
       };
-      datFiles.push(filename);
+      if (!isAppend || !datFiles.includes(filename)) {
+        datFiles.push(filename);
+      }
 
       fileIndex++;
       fileStartBlock = isLastBlock ? 0 : (blocks[i + 1]?.block_number ?? 0);
       fileRecords = [];
+      writeState.appendToExistingFile = false;
+      writeState.existingFilename = null;
     }
   }
 
@@ -284,8 +325,64 @@ function loadExistingManifest(outputDir: string): DatManifest | null {
   }
 }
 
-function getNextFileIndex(outputDir: string): number {
-  const manifest = loadExistingManifest(outputDir);
-  if (!manifest) return 0;
-  return Object.keys(manifest.files).length;
+interface IncrementalWriteState {
+  fileIndex: number;
+  fileRecords: DatBlockRecord[];
+  fileStartBlock: number;
+  appendToExistingFile: boolean;
+  existingFilename: string | null;
+}
+
+function resolveIncrementalWriteState(
+  outputDir: string,
+  existingManifest: DatManifest | null,
+): IncrementalWriteState {
+  if (!existingManifest || Object.keys(existingManifest.files).length === 0) {
+    return {
+      fileIndex: 0,
+      fileRecords: [],
+      fileStartBlock: 0,
+      appendToExistingFile: false,
+      existingFilename: null,
+    };
+  }
+
+  const sorted = Object.entries(existingManifest.files).sort((a, b) => a[1].range[0] - b[1].range[0]);
+  const [lastFilename, lastEntry] = sorted[sorted.length - 1];
+  const lastFileIndex = sorted.length - 1;
+
+  if (lastEntry.block_count < BLOCKS_PER_DAT_FILE) {
+    const filepath = join(outputDir, lastFilename);
+    if (!existsSync(filepath)) {
+      return {
+        fileIndex: lastFileIndex,
+        fileRecords: [],
+        fileStartBlock: lastEntry.range[0],
+        appendToExistingFile: false,
+        existingFilename: null,
+      };
+    }
+
+    const content = readFileSync(filepath, 'utf8');
+    const fileRecords = content
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line) as DatBlockRecord);
+
+    return {
+      fileIndex: lastFileIndex,
+      fileRecords,
+      fileStartBlock: lastEntry.range[0],
+      appendToExistingFile: true,
+      existingFilename: lastFilename,
+    };
+  }
+
+  return {
+    fileIndex: sorted.length,
+    fileRecords: [],
+    fileStartBlock: 0,
+    appendToExistingFile: false,
+    existingFilename: null,
+  };
 }
