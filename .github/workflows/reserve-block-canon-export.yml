@@ -1,8 +1,9 @@
 # C-368 PR7 — Reserve Block cold canon export + Substrate PR
 # Authority: EPICON_C-368_SPECS_reserve-canon-prime_v1
 #
-# Exports sealed Reserve Blocks from production KV, verifies hash chain locally,
-# and opens a draft PR on Mobius-Substrate with .dat files + MANIFEST.json.
+# Triggered by workflow_dispatch only (manual prime/append, or Vercel cron
+# /api/cron/reserve-canon-append when hot/cold gap > 0). No GitHub schedule —
+# avoids duplicate runs with the Vercel cron at 00:30 UTC.
 #
 # Required secrets (terminal repo Actions):
 #   KV_REST_API_URL, KV_REST_API_TOKEN  — Upstash/Vercel KV (same as production)
@@ -15,9 +16,6 @@
 name: Reserve Block Canon Export
 
 on:
-  schedule:
-    # Daily after EVE cycle synthesize (15 0 * * *) — append lane
-    - cron: '30 0 * * *'
   workflow_dispatch:
     inputs:
       incremental:
@@ -92,38 +90,7 @@ jobs:
             exit 1
           fi
 
-      - name: Check hot/cold gap (scheduled runs only)
-        if: github.event_name == 'schedule'
-        id: gap
-        run: |
-          set -euo pipefail
-          STATUS=$(curl -fsSL "https://mobius-civic-ai-terminal.vercel.app/api/vault/status")
-          SEALED=$(echo "$STATUS" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('reserve_blocks_sealed', d.get('reserve_block',{}).get('sealed_blocks',0)))")
-          MANIFEST_HTTP=$(curl -s -o /tmp/manifest.json -w "%{http_code}" "https://raw.githubusercontent.com/kaizencycle/Mobius-Substrate/main/canon/reserve-blocks/MANIFEST.json")
-          if [ "$MANIFEST_HTTP" = "200" ]; then
-            COLD=$(python3 -c "import json; print(json.load(open('/tmp/manifest.json')).get('total_blocks',0))")
-          else
-            COLD=0
-          fi
-          GAP=$((SEALED - COLD))
-          echo "sealed_hot=$SEALED" >> "$GITHUB_OUTPUT"
-          echo "canonized_cold=$COLD" >> "$GITHUB_OUTPUT"
-          echo "gap=$GAP" >> "$GITHUB_OUTPUT"
-          echo "Scheduled gap check: hot=$SEALED cold=$COLD gap=$GAP"
-          if [ "$GAP" -le 0 ]; then
-            echo "skip_export=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip_export=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Skip — canon aligned
-        if: github.event_name == 'schedule' && steps.gap.outputs.skip_export == 'true'
-        run: |
-          echo "No hot/cold gap — skipping export"
-          exit 0
-
       - name: Export Reserve Blocks to .dat
-        if: github.event_name != 'schedule' || steps.gap.outputs.skip_export != 'true'
         env:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
@@ -150,7 +117,7 @@ jobs:
           npx tsx scripts/canonize-reserve-blocks.ts "${ARGS[@]}"
 
       - name: Verify hash chain
-        if: ${{ github.event.inputs.dry_run != 'true' }}
+        if: github.event.inputs.dry_run != 'true'
         run: node scripts/verify-dat-chain.js canon/reserve-blocks/
 
       - name: Summarize export
@@ -175,9 +142,8 @@ jobs:
 
       - name: Open Substrate draft PR
         if: |
-          (github.event_name != 'schedule' || steps.gap.outputs.skip_export != 'true') &&
           github.event.inputs.dry_run != 'true' &&
-          (github.event.inputs.open_substrate_pr == 'true' || github.event_name == 'schedule')
+          github.event.inputs.open_substrate_pr != 'false'
         env:
           SUBSTRATE_GITHUB_TOKEN: ${{ secrets.SUBSTRATE_GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.SUBSTRATE_GITHUB_TOKEN }}
@@ -190,9 +156,7 @@ jobs:
           fi
 
       - name: Upload canon artifact
-        if: |
-          (github.event_name != 'schedule' || steps.gap.outputs.skip_export != 'true') &&
-          github.event.inputs.dry_run != 'true'
+        if: github.event.inputs.dry_run != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: reserve-blocks-canon
