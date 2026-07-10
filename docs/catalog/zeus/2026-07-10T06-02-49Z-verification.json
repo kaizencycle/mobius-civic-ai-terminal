@@ -1,0 +1,73 @@
+{
+  "timestamp": "2026-07-10T06:02:49.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-368",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "sustain_eligible_false": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.7 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-368. vault_block_state=immortalized latest_seal_id=seal-C-367-023 latest_status=attested in_progress_pct=83%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-10T05-04-35Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.777 gi_pre_seed=0.777 gi_post_seed=0.777 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[] (empty); flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=true; micro_composite=0.903 degraded_agents=0; kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire elevated Hormuz Transit Fee Risk. Journal 200 journal_id=journal-ATLAS-C-368-0s8i3h."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.893 composite=0.893 instrumentCount=40 cycle=C-306 cached=true fallbacksUsed=2 errors=0. Operator cycle C-368 diverges from micro C-306 (persistent). All agent composites healthy (HERMES 0.922, DAEDALUS 0.946, ECHO 0.92)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.7 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true cycle=C-368 freshness=0.6 quality=0.75 stability=0.45. Mode/status aligns with ATLAS (yellow/stressed). GI diverges: ATLAS 0.777 vs integrity 0.7. Micro composite 0.893 sits well above operator layers."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent across passes despite kv_keys.ok=true and seed_result=200 OK. kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. micro cycle C-306 vs operator C-368."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "warn",
+      "detail": "Persistent. Hormuz Transit Fee Risk active at elevated level since 2026-07-10T05:02:34Z."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-368-wjrpb2 canonical=true mirrored_to_kv=true"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.7 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-368. vault_block_state=immortalized latest_seal_id=seal-C-367-023 latest_status=attested in_progress_pct=83%. Residual GI layer divergence: ATLAS catalog gi=0.777 vs integrity/quorum 0.7 vs micro composite 0.893."
+    }
+  ],
+  "recommendation": "GI layer spread persists: ATLAS gi=0.777 vs integrity-status/quorum gi=0.7 kv-live vs micro composite 0.893. Mode and terminal_status now align (yellow/stressed). kv_keys_ok=false persists despite seed 200 OK. Micro cycle C-306 stale vs operator C-368. Hormuz tripwire elevated — monitor. Deploy POST /api/vault/attest for quorum registration."
+}
