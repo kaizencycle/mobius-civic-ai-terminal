@@ -32,6 +32,7 @@
     "next.config.ts"
   ],
   "EP-3": [
+    "docs/epicon/**",
     "auth.ts",
     "gateway.py",
     "agents/**",
