@@ -29,6 +29,19 @@ async function main() {
   assert.equal(current.document.pipeline_status.seal_status, 'pending_quorum');
   assert.equal(current.document.pipeline_status.ledger_status, 'not_ingested');
 
+  const needsEvidence = buildShardCandidate({ cycleId: 'C-999' });
+  assert.equal(needsEvidence.document.shard.status, 'needs_evidence');
+
+  for (const agent of SHARD_QUORUM_AGENTS) {
+    const updated = updateShardReview(needsEvidence.id, agent, 'pass');
+    assert.ok(updated);
+    assert.equal(updated.document.shard.status, 'needs_evidence');
+    assert.notEqual(updated.document.shard.status, 'approved_for_quorum');
+    const blocked = evaluateShardQuorum(updated);
+    assert.equal(blocked.ready, false);
+    assert.ok(blocked.blocking.some((reason) => reason === 'shard_status:needs_evidence'));
+  }
+
   const packet = buildShardQuorumPacket(current);
   const decision = buildShardQuorumDecision(packet, current);
   assert.equal(decision.status, 'quorum_ready');

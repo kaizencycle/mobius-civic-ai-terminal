@@ -1,7 +1,21 @@
-import type { ReviewAgent, ReviewVerdict } from '@/lib/epicon/shards/compiler/types';
+import type {
+  ReviewAgent,
+  ReviewVerdict,
+  ShardPipelineStatus,
+} from '@/lib/epicon/shards/compiler/types';
 import type { StoredShardProposal } from '@/lib/epicon/shards/store';
 
 export const SHARD_QUORUM_AGENTS: ReviewAgent[] = ['atlas', 'zeus', 'aurea', 'jade'];
+
+const SHARD_STATUSES_BLOCKING_QUORUM: ReadonlySet<ShardPipelineStatus> = new Set([
+  'needs_evidence',
+  'quarantined',
+  'rejected',
+]);
+
+export function isShardStatusQuorumEligible(status: ShardPipelineStatus): boolean {
+  return !SHARD_STATUSES_BLOCKING_QUORUM.has(status);
+}
 
 export type ShardQuorumEvaluation = {
   ready: boolean;
@@ -32,8 +46,9 @@ export function evaluateShardQuorum(proposal: StoredShardProposal): ShardQuorumE
   }
 
   const blocking: string[] = [];
-  if (proposal.document.shard.status === 'quarantined') {
-    blocking.push('shard_quarantined');
+  const shardStatus = proposal.document.shard.status;
+  if (!isShardStatusQuorumEligible(shardStatus)) {
+    blocking.push(`shard_status:${shardStatus}`);
   }
   if (failed.length > 0) {
     blocking.push(`failed_reviews:${failed.join(',')}`);

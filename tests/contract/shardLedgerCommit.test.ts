@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 
 import { buildShardCandidate } from '../../lib/epicon/shards/buildCandidate';
 import { ShardCommitError } from '../../lib/epicon/shards/commit-candidate';
-import { updateShardReview } from '../../lib/epicon/shards/store';
+import {
+  reserveShardLedgerCommit,
+  rollbackShardLedgerCommit,
+  updateShardReview,
+} from '../../lib/epicon/shards/store';
 import { toPublicShardProposal } from '../../lib/epicon/shards/sanitize';
 
 async function main() {
@@ -24,6 +28,18 @@ async function main() {
     assert.ok(updated);
     current = updated;
   }
+
+  const firstReservation = reserveShardLedgerCommit(current.id);
+  assert.equal(firstReservation.ok, true);
+  const secondReservation = reserveShardLedgerCommit(current.id);
+  assert.equal(secondReservation.ok, false);
+  if (!secondReservation.ok) {
+    assert.equal(secondReservation.reason, 'already_committed');
+  }
+  rollbackShardLedgerCommit(current.id);
+  const thirdReservation = reserveShardLedgerCommit(current.id);
+  assert.equal(thirdReservation.ok, true);
+  rollbackShardLedgerCommit(current.id);
 
   const payload = toPublicShardProposal(current);
   assert.equal(payload.sealed, false);

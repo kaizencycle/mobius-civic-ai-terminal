@@ -80,3 +80,58 @@ export function replaceShardProposal(proposal: StoredShardProposal): StoredShard
   proposals.set(proposal.id, proposal);
   return proposal;
 }
+
+export type ShardCommitReservation =
+  | { ok: true; proposal: StoredShardProposal }
+  | { ok: false; reason: 'not_found' | 'already_committed' };
+
+/** Atomically reserve a proposal for ledger commit before any async I/O. */
+export function reserveShardLedgerCommit(id: string): ShardCommitReservation {
+  const existing = proposals.get(id);
+  if (!existing) {
+    return { ok: false, reason: 'not_found' };
+  }
+
+  if (existing.document.pipeline_status.ledger_status !== 'not_ingested') {
+    return { ok: false, reason: 'already_committed' };
+  }
+
+  const reserved: StoredShardProposal = {
+    ...existing,
+    updatedAt: new Date().toISOString(),
+    document: {
+      ...existing.document,
+      pipeline_status: {
+        ...existing.document.pipeline_status,
+        ledger_status: 'candidate_committed',
+      },
+    },
+  };
+
+  proposals.set(id, reserved);
+  return { ok: true, proposal: reserved };
+}
+
+/** Roll back an optimistic commit reservation when ledger write fails. */
+export function rollbackShardLedgerCommit(id: string): void {
+  const existing = proposals.get(id);
+  if (!existing || existing.ledgerCommitId) {
+    return;
+  }
+
+  if (existing.document.pipeline_status.ledger_status !== 'candidate_committed') {
+    return;
+  }
+
+  proposals.set(id, {
+    ...existing,
+    updatedAt: new Date().toISOString(),
+    document: {
+      ...existing.document,
+      pipeline_status: {
+        ...existing.document.pipeline_status,
+        ledger_status: 'not_ingested',
+      },
+    },
+  });
+}
