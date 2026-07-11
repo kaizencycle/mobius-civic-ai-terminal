@@ -1,4 +1,5 @@
 import type { EveReserveShard, ReviewAgent, ReviewVerdict } from '@/lib/epicon/shards/compiler/types';
+import { syncShardQuorumStatus } from '@/lib/epicon/shards/quorum-gate';
 
 export type StoredShardProposal = {
   id: string;
@@ -7,6 +8,8 @@ export type StoredShardProposal = {
   updatedAt: string;
   document: EveReserveShard;
   reviews: Partial<Record<ReviewAgent, ReviewVerdict>>;
+  quorumPacketId?: string;
+  ledgerCommitId?: string;
 };
 
 const proposals = new Map<string, StoredShardProposal>();
@@ -43,7 +46,7 @@ export function updateShardReview(
     return null;
   }
 
-  const updated: StoredShardProposal = {
+  let updated: StoredShardProposal = {
     ...existing,
     updatedAt: new Date().toISOString(),
     reviews: {
@@ -68,6 +71,12 @@ export function updateShardReview(
     },
   };
 
+  updated = syncShardQuorumStatus(updated);
   proposals.set(id, updated);
   return updated;
+}
+
+export function replaceShardProposal(proposal: StoredShardProposal): StoredShardProposal {
+  proposals.set(proposal.id, proposal);
+  return proposal;
 }

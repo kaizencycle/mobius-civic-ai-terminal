@@ -8,12 +8,32 @@ export type PublicShardProposal = {
   document: EveReserveShard;
 };
 
+const ALLOWED_SHARD_STATUSES = new Set<EveReserveShard['shard']['status']>([
+  'proposed',
+  'needs_evidence',
+  'clarify',
+  'quarantined',
+  'rejected',
+  'approved_for_quorum',
+  'export_pending',
+  'cold_canon_verified',
+]);
+
+const ALLOWED_SEAL_STATUSES = new Set<EveReserveShard['pipeline_status']['seal_status']>([
+  'not_requested',
+  'pending_quorum',
+  'rejected',
+]);
+
 function enforceProposalDocument(document: EveReserveShard): EveReserveShard {
-  if (document.shard.status === 'sealed') {
+  if (document.shard.status === 'sealed' || !ALLOWED_SHARD_STATUSES.has(document.shard.status)) {
     document.shard.status = 'proposed';
   }
 
-  if (document.pipeline_status.seal_status === 'sealed') {
+  if (
+    document.pipeline_status.seal_status === 'sealed' ||
+    !ALLOWED_SEAL_STATUSES.has(document.pipeline_status.seal_status)
+  ) {
     document.pipeline_status.seal_status = 'not_requested';
   }
 

@@ -180,6 +180,7 @@ function toLedgerLabSource(source: SubstrateEntry['source']): LedgerLabSource {
     case 'aurea-close':
     case 'echo-ingest':
     case 'epicon-promotion':
+    case 'eve-shard-candidate':
     case 'seed-backfill':
       return 'terminal';
   }
@@ -253,6 +254,7 @@ export interface SubstrateEntry {
     | 'aurea-close'
     | 'echo-ingest'
     | 'epicon-promotion'
+    | 'eve-shard-candidate'
     | 'seed-backfill';
   gi_at_time?: number;
   confidence?: number;
