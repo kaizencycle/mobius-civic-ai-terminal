@@ -1,0 +1,95 @@
+{
+  "timestamp": "2026-07-11T00:03:24.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-368",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "atlas_integrity_mode_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "sustain_eligible_false": "persistent",
+    "daedalus_crt_sh_instrument_error": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.9 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-368. vault_block_state=immortalized latest_seal_id=seal-C-368-025 latest_status=attested in_progress_pct=17%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-10T23-04-01Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.783 gi_pre_seed=0.783 gi_post_seed=0.783 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[] (empty); flags kv_keys_ok=false kv_keys_all_ok=false tripwire_active=true micro_operator_cycle_divergence=true; micro_composite=0.901 micro_cycle=C-306; kv_keys.ok=true seed_result=200 OK; sustain_eligible=false; tripwire elevated Hormuz Transit Fee Risk. Journal 200 journal_id=journal-ATLAS-C-368-w285l9."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.879 composite=0.879 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=1. Operator cycle C-368 diverges from micro C-306 (persistent). daedalus-crt-sh score=0 error (SSL Labs probe timeout). daedalus-cloudflare-radar score=0.7 (watch). Agent composites: GAIA 0.847, HERMES 0.922, THEMIS 0.853, DAEDALUS 0.876 (1 error), AUREA 0.889, ECHO 0.92."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true cycle=C-368 freshness=0.6. Diverges from ATLAS catalog gi=0.783 mode=yellow terminal_status=stressed. Micro composite 0.879 sits between ATLAS and KV layers."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent across passes despite kv_keys.ok=true and seed_result=200 OK. kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. micro cycle C-306 vs operator C-368."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "warn",
+      "detail": "Re-activated since prior pass (was resolved at 18:02Z). Hormuz Transit Fee Risk level=elevated. ATLAS tripwire.active=true."
+    },
+    {
+      "check": "atlas_integrity_mode_divergence",
+      "result": "fail",
+      "detail": "ATLAS reports gi=0.783 mode=yellow terminal_status=stressed classification=STRESSED; integrity-status and quorum/state report gi=0.9 mode=green terminal_status=nominal on same cycle C-368. Catalog snapshot path diverges from KV read path."
+    },
+    {
+      "check": "gi_layer_divergence",
+      "result": "warn",
+      "detail": "ATLAS catalog gi=0.783 vs integrity-status/quorum gi=0.9 vs micro composite 0.879. Three-layer spread exceeds nominal tolerance."
+    },
+    {
+      "check": "sustain_eligible_false",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false (regressed from true at 18:02Z pass). KV seed succeeded but sustain gate not met."
+    },
+    {
+      "check": "daedalus-crt-sh instrument",
+      "result": "warn",
+      "detail": "New failure this pass: SSL Labs API health probe timed out after retry (latencyMs=10003). May be transient external outage."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-368-nncefs canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "pass",
+      "detail": "quorum/state integrity.gi=0.9 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-368. vault_block_state=immortalized latest_seal_id=seal-C-368-025 latest_status=attested in_progress_pct=17%. Aligns with integrity-status; conflicts with ATLAS catalog gi=0.783 mode=yellow stressed."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI (0.783 yellow/stressed) with integrity/quorum KV (0.9 green/nominal). kv_keys_ok=false persists despite seed 200 OK. sustain_eligible=false regressed. Micro cycle C-306 stale vs operator C-368. Monitor Hormuz tripwire (re-activated). Investigate daedalus-crt-sh SSL Labs probe failure. Deploy POST /api/vault/attest for quorum registration."
+}
