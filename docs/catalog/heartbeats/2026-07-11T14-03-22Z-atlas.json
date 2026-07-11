@@ -30,7 +30,7 @@
   "sustain_eligible": false,
   "classification": "STRESSED",
   "micro_composite": 0.908,
-  "micro_cycle": "C-369",
+  "micro_cycle": "C-306",
   "degraded_agents": 0,
   "degraded_agent_names": [],
   "terminal_status": "stressed",
@@ -44,7 +44,7 @@
     "kv_keys_all_ok": false,
     "tripwire_active": true,
     "gi_below_floor": false,
-    "micro_operator_cycle_divergence": false
+    "micro_operator_cycle_divergence": true
   },
   "last_journal_cycle": "C-369",
   "force_journal": false,
