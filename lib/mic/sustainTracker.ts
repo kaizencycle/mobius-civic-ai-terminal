@@ -6,6 +6,8 @@ import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { kvGet, kvSet, KV_KEYS, KV_TTL_SECONDS } from '@/lib/kv/store';
 
 export const SUSTAIN_GI_THRESHOLD = 0.75;
+/** Fountain / Integrity Grade sustain gate — five consecutive cycles at GI ≥ 0.95. */
+export const FOUNTAIN_SUSTAIN_GI_THRESHOLD = 0.95;
 export const SUSTAIN_REQUIRED_CYCLES = 5;
 
 import type { MicSustainStatus } from '@/lib/mic/types';
@@ -13,6 +15,8 @@ import type { MicSustainStatus } from '@/lib/mic/types';
 export interface MicSustainStateV1 {
   schema: 'MIC_SUSTAIN_STATE_V1';
   consecutiveEligibleCycles: number;
+  /** Consecutive operator cycles at GI ≥ 0.95 (Fountain / Integrity Grade gate). */
+  consecutiveGi95Cycles: number;
   lastEligibleCycle: string | null;
   lastCheckedCycle: string;
   status: MicSustainStatus;
@@ -26,6 +30,7 @@ function defaultState(cycle: string): MicSustainStateV1 {
   return {
     schema: 'MIC_SUSTAIN_STATE_V1',
     consecutiveEligibleCycles: 0,
+    consecutiveGi95Cycles: 0,
     lastEligibleCycle: null,
     lastCheckedCycle: cycle,
     status: 'not_started',
@@ -73,12 +78,15 @@ export async function updateSustainTrackingFromGi(
   }
 
   const eligible = gi >= SUSTAIN_GI_THRESHOLD;
+  const gi95Eligible = gi >= FOUNTAIN_SUSTAIN_GI_THRESHOLD;
   const consecutive = eligible ? prev.consecutiveEligibleCycles + 1 : 0;
+  const consecutiveGi95 = gi95Eligible ? (prev.consecutiveGi95Cycles ?? 0) + 1 : 0;
   const status = deriveStatus(consecutive);
 
   const next: MicSustainStateV1 = {
     schema: 'MIC_SUSTAIN_STATE_V1',
     consecutiveEligibleCycles: consecutive,
+    consecutiveGi95Cycles: consecutiveGi95,
     lastEligibleCycle: eligible ? cycle : prev.lastEligibleCycle,
     lastCheckedCycle: cycle,
     status,

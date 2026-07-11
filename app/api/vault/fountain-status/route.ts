@@ -66,8 +66,8 @@ export async function GET(req: NextRequest) {
 
     const SUSTAIN_REQUIRED = 5;
     const GI_THRESHOLD = 0.95;
-    const consecutiveEligible = sustainState?.consecutiveEligibleCycles ?? 0;
-    const sustainAchieved = consecutiveEligible >= SUSTAIN_REQUIRED;
+    const consecutiveGi95 = sustainState?.consecutiveGi95Cycles ?? 0;
+    const sustainAchieved = consecutiveGi95 >= SUSTAIN_REQUIRED;
     const giEligible = gi !== null && gi >= GI_THRESHOLD;
 
     const emissionReady = sustainAchieved && giEligible && pending.length > 0;
@@ -86,7 +86,8 @@ export async function GET(req: NextRequest) {
       },
       sustain: {
         status: sustainState?.status ?? 'not_started',
-        consecutive_eligible_cycles: consecutiveEligible,
+        consecutive_eligible_cycles: consecutiveGi95,
+        consecutive_gi95_cycles: consecutiveGi95,
         required: SUSTAIN_REQUIRED,
         achieved: sustainAchieved,
       },

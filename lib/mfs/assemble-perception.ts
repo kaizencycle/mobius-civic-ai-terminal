@@ -1,4 +1,6 @@
 import { loadGIState, loadSignalSnapshot, kvGet } from '@/lib/kv/store';
+import { isGiStateFresh } from '@/lib/integrity/giFreshness';
+import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
 import { loadSustainState, SUSTAIN_REQUIRED_CYCLES } from '@/lib/mic/sustainTracker';
 import type {
   ConfidenceLabel,
@@ -49,6 +51,7 @@ function inferFountainState(input: {
   sustainRequired: number;
   criticalSignals: number;
   giDegraded: boolean;
+  giStale: boolean;
   vaultFountainLane?: string | null;
 }): FountainStateName {
   if (input.giDegraded || input.criticalSignals >= 3) {
@@ -60,6 +63,7 @@ function inferFountainState(input: {
   if (input.gi < 0.8) return 'DORMANT';
   if (input.gi < 0.88) return 'OBSERVING';
   if (input.gi < GI_FOUNTAIN_THRESHOLD) return 'APPROACHING';
+  if (input.giStale || input.giConfidence < 0.5) return 'PROVISIONAL_GI95';
   if (input.sustainObserved < input.sustainRequired) return 'PROVISIONAL_GI95';
   if (input.vaultFountainLane === 'active' || input.vaultFountainLane === 'unsealed') {
     return 'REVIEW_WINDOW_OPEN';
@@ -156,6 +160,7 @@ async function assembleFountainState(
   sustainRequired: number,
   criticalSignals: number,
   giDegraded: boolean,
+  giStale: boolean,
   vaultFountainLane?: string | null,
 ): Promise<FountainStateManifest> {
   const state = inferFountainState({
@@ -165,6 +170,7 @@ async function assembleFountainState(
     sustainRequired,
     criticalSignals,
     giDegraded,
+    giStale,
     vaultFountainLane,
   });
 
@@ -204,12 +210,13 @@ export async function loadIntegrityPerception(
 ): Promise<IntegrityPerceptionResponse> {
   const observedAt = new Date().toISOString();
 
-  const [kvGi, kvFountain, giState, snapshot, sustain] = await Promise.all([
+  const [kvGi, kvFountain, giState, snapshot, sustain, resolvedGi] = await Promise.all([
     kvGet<GIPerceptionManifest>(KV_GI_MANIFEST),
     kvGet<FountainStateManifest>(KV_FOUNTAIN_STATE),
     loadGIState().catch(() => null),
     loadSignalSnapshot().catch(() => null),
     loadSustainState().catch(() => null),
+    resolveGiForTerminal().catch(() => null),
   ]);
 
   if (kvGi && kvFountain) {
@@ -236,19 +243,33 @@ export async function loadIntegrityPerception(
 
   const signals = (snapshot?.allSignals ?? []) as SignalRow[];
   const giValue =
-    typeof giState?.global_integrity === 'number' ? giState.global_integrity : snapshot?.composite ?? 0;
-  const giDegraded = Boolean(snapshot && snapshot.healthy === false);
+    resolvedGi && typeof resolvedGi.gi === 'number'
+      ? resolvedGi.gi
+      : typeof giState?.global_integrity === 'number'
+        ? giState.global_integrity
+        : snapshot?.composite ?? 0;
+  const giTimestamp = resolvedGi?.timestamp ?? giState?.timestamp ?? snapshot?.timestamp ?? null;
+  const giStale =
+    Boolean(resolvedGi?.degraded) ||
+    Boolean(giState && !isGiStateFresh(giState)) ||
+    (resolvedGi?.gi === null && giState !== null);
+  const giDegraded = Boolean(snapshot && snapshot.healthy === false) || giStale;
   const criticalSignals = signals.filter((s) => s.severity === 'critical').length;
-  const sustainObserved = sustain?.consecutiveEligibleCycles ?? 0;
   const sustainRequired = SUSTAIN_REQUIRED_CYCLES;
 
   const giPerception = await assembleGiPerception(
     observedAt,
     signals,
     giValue,
-    giState?.timestamp ?? snapshot?.timestamp ?? null,
+    giTimestamp,
     giDegraded,
   );
+
+  const confidenceBlocksSustain = giPerception.gi.confidence < 0.5;
+  const sustainObserved =
+    giStale || giDegraded || confidenceBlocksSustain
+      ? 0
+      : (sustain?.consecutiveGi95Cycles ?? 0);
 
   const fountainState = await assembleFountainState(
     observedAt,
@@ -258,6 +279,7 @@ export async function loadIntegrityPerception(
     sustainRequired,
     criticalSignals,
     giDegraded,
+    giStale,
     vaultFountainLane,
   );
 
@@ -282,3 +304,6 @@ export async function loadIntegrityPerception(
     at: observedAt,
   };
 }
+
+/** Exported for contract tests — Fountain state inference from assembled inputs. */
+export { inferFountainState };
