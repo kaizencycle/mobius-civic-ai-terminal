@@ -1,13 +1,10 @@
-import AjvModule from 'ajv';
-import addFormatsModule from 'ajv-formats';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
 import type { ErrorObject } from 'ajv';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { EveReserveShard } from './types';
-
-const Ajv = AjvModule.default ?? AjvModule;
-const addFormats = addFormatsModule.default ?? addFormatsModule;
 
 const schemaPath = join(process.cwd(), 'lib/epicon/shards/eve-reserve-shard.schema.json');
 
