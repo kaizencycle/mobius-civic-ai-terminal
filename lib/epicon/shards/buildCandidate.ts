@@ -16,7 +16,7 @@ export function buildShardCandidate(input: BuildShardCandidateInput): StoredShar
   });
 
   const now = new Date().toISOString();
-  const id = document.shard.id || allocateShardProposalId(input.cycleId);
+  const id = allocateShardProposalId(input.cycleId);
   document.shard.id = id;
 
   const proposal: StoredShardProposal = {
