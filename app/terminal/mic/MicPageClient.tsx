@@ -5,6 +5,7 @@ import { AttestationProofPanel } from '@/components/mic/AttestationProofPanel';
 import { GenesisBlockViewer } from '@/components/mic/GenesisBlockViewer';
 import { MicStatusCard } from '@/components/mic/MicStatusCard';
 import { SealProofPanel } from '@/components/mic/SealProofPanel';
+import { IntegrityGradeProposalPanel } from '@/components/integrity/IntegrityGradeProposalPanel';
 import ChamberSkeleton from '@/components/terminal/ChamberSkeleton';
 import { fetchMicAttestations } from '@/lib/mic/fetchMicAttestations';
 import { fetchMicGenesisBlock } from '@/lib/mic/fetchMicGenesisBlock';
@@ -96,6 +97,8 @@ export default function MicPageClient() {
         </div>
         <div className="rounded border border-slate-800 bg-slate-900/60 p-3 text-sm">mic_supply: {integrity.mic_supply ?? '—'}</div>
       </div>
+
+      <IntegrityGradeProposalPanel walletId={identity?.user?.username} />
     </div>
   );
 }

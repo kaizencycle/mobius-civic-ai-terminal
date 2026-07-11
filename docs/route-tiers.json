@@ -26,6 +26,10 @@
     "/api/echo/ingest": "public",
     "/api/vault/status": "public",
     "/api/agents/journal": "public",
-    "/api/mic/readiness": "public"
+    "/api/mic/readiness": "public",
+    "/api/integrity/perception": "authed",
+    "/api/integrity/grade/requests": "authed",
+    "/api/integrity/grade/requests/[id]": "authed",
+    "/api/integrity/grade/requests/[id]/review": "authed"
   }
 }
