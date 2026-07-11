@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AttestationStatus } from '@/components/vault/AttestationStatus';
+import { GIPerceptionFountainPanel } from '@/components/integrity/GIPerceptionFountainPanel';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 type ReserveBlockSummary = {
@@ -388,6 +389,8 @@ export default function VaultPageClient() {
       {auditOnlyBlocks > 0 && (
         <QuarantinePanel auditBlocks={auditOnlyBlocks} sealedBlocks={block.sealed_blocks} />
       )}
+
+      <GIPerceptionFountainPanel vaultFountainLane={data.fountain_status ?? data.reserve_block_lane} />
 
       <div className="mt-4 rounded border border-slate-700/50 bg-slate-950/60 p-4 font-mono text-xs">
         <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-violet-300/80">Path to Fountain (integrity)</div>
