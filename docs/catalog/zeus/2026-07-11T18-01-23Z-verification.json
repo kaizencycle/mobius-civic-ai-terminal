@@ -1,0 +1,95 @@
+{
+  "timestamp": "2026-07-11T18:01:23.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-369",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "atlas_classification_mode_divergence": "persistent",
+    "daedalus_cloudflare_radar_low": "persistent",
+    "tripwire_active": "resolved",
+    "sustain_eligible_false": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.765 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-369. vault_block_state=immortalized latest_seal_id=seal-C-369-027 latest_status=attested in_progress_pct=50%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-11T17-03-54Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.9 gi_pre_seed=0.9 gi_post_seed=0.9 mode=green source=kv classification=STRESSED terminal_status=nominal; anomalies=[] (empty); flags kv_keys_ok=false kv_keys_all_ok=false micro_operator_cycle_divergence=true tripwire_active=false; micro_composite=0.886 micro_cycle=C-306; kv_keys.ok=true seed_result=200 OK (60s retry); sustain_eligible=true (improved). Journal 200 journal_id=journal-ATLAS-C-369-wxa1kh."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.907 composite=0.907 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=0. Operator cycle C-369 diverges from micro C-306 (persistent). Low instruments: gaia-openaq score=0.75, daedalus-cloudflare-radar score=0.7 (watch). Agent composites: GAIA 0.917, HERMES 0.922, THEMIS 0.853, DAEDALUS 0.946, AUREA 0.889, ECHO 0.92."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.765 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true cycle=C-369 gi_age_seconds=5. Diverges from ATLAS catalog gi=0.9 green. Micro composite 0.907 exceeds KV GI layer."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent across passes despite kv_keys.ok=true and seed_result=200 OK. kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. micro cycle C-306 vs operator C-369."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "pass",
+      "detail": "Resolved. tripwire.active=false level=none. Previously elevated Hormuz Transit Fee Risk — no longer active."
+    },
+    {
+      "check": "gi_layer_divergence",
+      "result": "fail",
+      "detail": "ATLAS catalog gi=0.9 mode=green vs integrity-status gi=0.765 mode=yellow vs micro composite 0.907. Divergence widened since prior pass (ATLAS gi rose while integrity/quorum held at 0.765)."
+    },
+    {
+      "check": "atlas_classification_mode_divergence",
+      "result": "warn",
+      "detail": "ATLAS mode=green terminal_status=nominal but classification=STRESSED. Integrity terminal_status=stressed mode=yellow."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=true (resolved from false at 06:03Z and 12:02Z passes). KV seed 200 OK."
+    },
+    {
+      "check": "daedalus-cloudflare-radar instrument",
+      "result": "warn",
+      "detail": "Persistent low score 0.7 on cloudflare-radar instrument. Infrastructure watch signal."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-369-yi7559 canonical=true mirrored_to_kv=false kv_error=kv_write_failed"
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.765 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-369. vault_block_state=immortalized latest_seal_id=seal-C-369-027 latest_status=attested in_progress_pct=50%. Aligns with integrity-status; diverges from ATLAS catalog gi=0.9."
+    }
+  ],
+  "recommendation": "GI disputed: ATLAS catalog reports 0.9 green but integrity/quorum report 0.765 yellow/stressed. Reconcile ATLAS GI seed vs KV integrity layer before trusting green classification. kv_keys_ok=false persists despite seed 200 OK. Micro cycle C-306 stale vs operator C-369. Monitor daedalus-cloudflare-radar score 0.7 and gaia-openaq 0.75. Deploy POST /api/vault/attest for quorum registration. Tripwire and sustain_eligible improved this pass."
+}
