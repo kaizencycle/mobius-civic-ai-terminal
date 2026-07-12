@@ -54,6 +54,25 @@ Missing required secrets: KV_REST_API_URL KV_REST_API_TOKEN SUBSTRATE_GITHUB_TOK
 
 all three Actions secrets are unset or empty. This is expected until Step 1 is complete — **not a code failure**. Add the secrets, then re-run Step 2. No code change required.
 
+### Zero blocks / missing MANIFEST after export
+
+If the export step completes but logs show:
+
+```text
+[Upstash Redis] The redis url contains whitespace or newline, which can cause errors!
+[fetchAllSealedBlocks] KV: 0 attested seals
+```
+
+and verify fails with `MANIFEST.json not found`, the KV secrets are set but **malformed** — usually a trailing newline when copy-pasting from Vercel.
+
+**Fix:**
+
+1. Open [Repository secrets](https://github.com/kaizencycle/mobius-civic-ai-terminal/settings/secrets/actions)
+2. Edit `KV_REST_API_URL` and `KV_REST_API_TOKEN` — re-paste each value as a **single line with no trailing spaces or newlines**
+3. Re-run Step 2 with `incremental: false`
+
+The workflow preflight warns on secrets with leading/trailing whitespace and trims them for the export run. Re-save secrets as single lines when convenient.
+
 ---
 
 ## Step 2 — Run the workflow with the backlog flag
