@@ -23,7 +23,7 @@ import type {
   DatManifest,
   DatManifestEntry,
 } from './types';
-import { validateSealedBlockSequence } from './validateSealedBlock';
+import { validateSealedBlocksForExport } from './validateSealedBlock';
 
 export interface CanonizeOptions {
   outputDir?: string;
@@ -79,23 +79,34 @@ export async function canonizeReserveBlocks(
   }
 
   if (gaps.length > 0) {
-    errors.push({
-      stage: 'fetch',
-      message: `${gaps.length} gaps in block sequence`,
-      retryable: false,
-    });
+    const gapSample = gaps.slice(0, 5).join(', ');
+    const gapMsg = `${gaps.length} gaps in attested block sequence${gapSample ? ` (e.g. ${gapSample}${gaps.length > 5 ? '…' : ''})` : ''}`;
+    if (incremental) {
+      errors.push({
+        stage: 'fetch',
+        message: gapMsg,
+        retryable: false,
+      });
+    } else {
+      log(`Warning: ${gapMsg}`);
+    }
   }
 
   log(`Fetched ${total_found} blocks via ${source}`);
 
   if (blocks.length > 0) {
     try {
-      validateSealedBlockSequence(blocks, startBlock);
+      const validationWarnings = validateSealedBlocksForExport(blocks, { incremental, startBlock });
+      for (const warning of validationWarnings) {
+        log(`Warning: ${warning}`);
+      }
     } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      log(`Validation failed: ${message}`);
       errors.push({
         block_number: blocks[0]?.block_number,
         stage: 'hash',
-        message: e instanceof Error ? e.message : String(e),
+        message,
         retryable: false,
       });
       return makeResult({

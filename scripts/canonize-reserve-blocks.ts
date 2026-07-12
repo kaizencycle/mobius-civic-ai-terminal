@@ -65,7 +65,7 @@ CANONIZATION RESULT — C-357
   .dat files written: ${result.dat_files_written.join(', ') || 'none'}
   CPC anchors:        ${result.cpc_anchors_posted} new, ${result.cpc_anchors_idempotent} idempotent
   Errors:             ${result.errors.length}
-  Chain tip:          ${result.chain_tip_hash.slice(0, 20)}...
+${result.errors.length > 0 ? result.errors.map((e) => `  - ${e.message}`).join('\n') + '\n' : ''}  Chain tip:          ${result.chain_tip_hash.slice(0, 20)}...
   Substrate ready:    ${result.substrate_commit_ready ? 'YES' : 'NO'}
   Elapsed:            ${elapsed}s
 `);
@@ -77,9 +77,8 @@ CANONIZATION RESULT — C-357
   }
 
   if (!incremental && !dryRun && result.total_blocks_processed === 0) {
-    console.error(
-      '[canonize] Full prime exported 0 blocks — verify KV_REST_API_* secrets (no trailing newlines) and attested seal count in production KV',
-    );
+    const detail = result.errors[0]?.message ?? 'no attested seals exported';
+    console.error(`[canonize] Full prime exported 0 blocks — ${detail}`);
     process.exit(1);
   }
 
