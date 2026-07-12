@@ -3,10 +3,10 @@
  * EPICON: C-368 PR7 | RESERVE_BLOCK_DAT_CANONIZATION
  */
 
-import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
+import { VAULT_QUORUM_MIN_PASSES } from '@/lib/vault-v2/constants';
 import type { VaultSealedBlock } from './types';
 
-const REQUIRED_QUORUM = SENTINEL_AGENTS.length;
+const ZEUS_AGENT = 'ZEUS' as const;
 
 export class SealedBlockValidationError extends Error {
   constructor(
@@ -53,22 +53,20 @@ export function validateSealedBlock(block: VaultSealedBlock, expectedNumber?: nu
   }
 
   const quorum = block.quorum ?? [];
-  if (quorum.length !== REQUIRED_QUORUM) {
+  if (quorum.length < VAULT_QUORUM_MIN_PASSES) {
     throw new SealedBlockValidationError(
       block.block_number,
       block.seal_id,
-      `seal_quorum must have ${REQUIRED_QUORUM} agents, got ${quorum.length}`,
+      `seal_quorum must have at least ${VAULT_QUORUM_MIN_PASSES} signed agents, got ${quorum.length}`,
     );
   }
 
-  for (const agent of SENTINEL_AGENTS) {
-    if (!quorum.includes(agent)) {
-      throw new SealedBlockValidationError(
-        block.block_number,
-        block.seal_id,
-        `missing sentinel ${agent} in seal_quorum`,
-      );
-    }
+  if (!quorum.includes(ZEUS_AGENT)) {
+    throw new SealedBlockValidationError(
+      block.block_number,
+      block.seal_id,
+      'missing ZEUS in seal_quorum',
+    );
   }
 }
 

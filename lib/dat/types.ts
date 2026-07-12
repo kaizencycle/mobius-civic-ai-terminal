@@ -41,6 +41,8 @@ export interface DatManifest {
   total_mic: number;
   chain_tip_hash: string;
   files: Record<string, DatManifestEntry>;
+  /** Attested sequence numbers absent from this export (quarantined holes). */
+  known_gaps?: number[];
 }
 
 export interface DatManifestEntry {
@@ -101,9 +103,7 @@ export type AttestationDisplayStatus =
 
 /** Map a vault-v2 Seal to a canonizable block record. */
 export function sealToVaultBlock(seal: Seal): VaultSealedBlock {
-  const signed = SENTINEL_AGENTS.filter((agent) => seal.attestations?.[agent]?.signature);
-  const quorum: SentinelAgent[] =
-    seal.status === 'attested' ? [...SENTINEL_AGENTS] : signed.length > 0 ? signed : [...SENTINEL_AGENTS];
+  const quorum = SENTINEL_AGENTS.filter((agent) => seal.attestations?.[agent]?.signature);
   return {
     seal_id: seal.seal_id,
     block_number: seal.sequence,
