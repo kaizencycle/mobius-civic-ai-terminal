@@ -38,6 +38,8 @@ Replaces ambiguous prose like "354 sealed" vs "194 blocks" with labelled fields:
 - `fountain_gi_below_threshold` — `gi_current < 0.95`
 - `terminal_degraded` — snapshot `degraded === true`
 - `substrate_attestation_gap` — `substrate_ok === false`
+- `vault_fetch_failed` — optional vault input missing or workflow fallback `{"ok":false}`
+- `manifest_fetch_failed` — optional manifest input missing or workflow fallback `{}`
 
 ---
 
@@ -64,5 +66,6 @@ node scripts/gen-cycle-docs.mjs
 ## Test
 
 ```bash
-node --test tests/contract/cycleStateV2.test.js
+pnpm test
+# or: tsx tests/contract/cycleStateV2.test.ts
 ```

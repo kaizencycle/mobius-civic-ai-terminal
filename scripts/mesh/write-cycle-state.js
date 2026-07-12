@@ -44,21 +44,45 @@ function parseSealTip(sealId) {
   };
 }
 
-function deriveOpenGates({ vault, cold, snap }) {
+function isVaultStatusUnavailable(vault) {
+  if (!vault) return true;
+  if (vault.ok === false) {
+    const hasCounts =
+      vault.seals_count != null ||
+      vault.reserve_blocks_sealed != null ||
+      vault.latest_seal_id != null;
+    return !hasCounts;
+  }
+  return false;
+}
+
+function isManifestUnavailable(manifest) {
+  if (!manifest) return true;
+  if (Object.keys(manifest).length === 0) return true;
+  return typeof manifest.total_blocks !== 'number';
+}
+
+function deriveOpenGates({ vaultAvailable, manifestAvailable, vault, gapRawVsCold, snap }) {
   const gates = [];
-  if (cold && cold.gap_raw_vs_cold > 0) {
+  if (!vaultAvailable) {
+    gates.push('vault_fetch_failed');
+  }
+  if (!manifestAvailable) {
+    gates.push('manifest_fetch_failed');
+  }
+  if (manifestAvailable && typeof gapRawVsCold === 'number' && gapRawVsCold > 0) {
     gates.push('cold_canon_append_pending');
   }
-  if (vault && vault.sustain_cycles_met === false) {
+  if (vaultAvailable && vault.sustain_cycles_met === false) {
     gates.push('sustain_not_wired');
   }
-  if (vault && typeof vault.gi_current === 'number' && vault.gi_current < 0.95) {
+  if (vaultAvailable && typeof vault.gi_current === 'number' && vault.gi_current < 0.95) {
     gates.push('fountain_gi_below_threshold');
   }
   if (snap && snap.degraded === true) {
     gates.push('terminal_degraded');
   }
-  if (vault && vault.substrate_ok === false) {
+  if (vaultAvailable && vault.substrate_ok === false) {
     gates.push('substrate_attestation_gap');
   }
   return gates;
@@ -78,8 +102,12 @@ if (!snap) {
 
 const vaultPath = process.argv[3] || process.env.VAULT_STATUS_FILE || 'vault-status.json';
 const manifestPath = process.argv[4] || process.env.MANIFEST_FILE || 'manifest.json';
-const vault = readJson(vaultPath, 'vault-status');
-const manifest = readJson(manifestPath, 'manifest');
+const vaultRaw = readJson(vaultPath, 'vault-status');
+const manifestRaw = readJson(manifestPath, 'manifest');
+const vaultAvailable = !isVaultStatusUnavailable(vaultRaw);
+const manifestAvailable = !isManifestUnavailable(manifestRaw);
+const vault = vaultAvailable ? vaultRaw : null;
+const manifest = manifestAvailable ? manifestRaw : null;
 
 const cycle =
   (typeof snap.cycle === 'string' && snap.cycle.trim() ? snap.cycle.trim() : null) ??
@@ -134,7 +162,7 @@ const giReadings = {
       : null,
 };
 
-const openGates = deriveOpenGates({ vault, cold: { gap_raw_vs_cold: gapRawVsCold }, snap });
+const openGates = deriveOpenGates({ vaultAvailable, manifestAvailable, vault, gapRawVsCold, snap });
 
 const out = {
   schema: 'MOBIUS_CYCLE_STATE_V2',
@@ -177,7 +205,7 @@ const out = {
         source: '/api/vault/status',
       }
     : null,
-  cold: manifest
+  cold: manifestAvailable
     ? {
         manifest_blocks: coldBlocks,
         manifest_mic: coldMic,
