@@ -133,24 +133,36 @@ async function putFile(branch, path, contentUtf8, message) {
   }
 }
 
-function intentBlock(cycle, manifest) {
-  return `## EPICON Intent
+function intentBlock(cycle, manifest, prime) {
+  const issuedAt = new Date();
+  const expiresAt = new Date(issuedAt);
+  expiresAt.setUTCDate(expiresAt.getUTCDate() + 90);
+  const epiconSlug = prime ? 'reserve-canon-prime' : 'reserve-canon-append';
+  const action = prime ? 'Prime cold canon export' : 'Append sealed Reserve Blocks';
+
+  return `## EPICON-02 INTENT PUBLICATION
 
 \`\`\`intent
-epicon_id: EPICON_${cycle}_SPECS_reserve-canon-append_v1
-ledger_id: kaizencycle
+epicon_id: EPICON_${cycle}_SPECS_${epiconSlug}_v1
+ledger_id: mobius:kaizencycle
 scope: specs
 mode: normal
-issued_at: ${new Date().toISOString()}
-justification:
+issued_at: ${issuedAt.toISOString()}
+expires_at: ${expiresAt.toISOString()}
+justification: |
+  ${action} of ${manifest.total_blocks} Reserve Blocks from hot KV to canon/reserve-blocks/.
+  Chain verified before PR open (${manifest.total_mic} MIC).
+
   VALUES INVOKED: integrity, custodianship, permanence
-  REASONING: Append sealed Reserve Blocks from hot KV to cold Substrate canon.
+  REASONING: Hot KV holds attested seals; cold .dat canon on Substrate is the durable attestation layer per C-357/C-368.
   ANCHORS:
-    - Mobius-Substrate/MOBIUS_RESERVE_BLOCK_DAT.md
-    - Mobius-Substrate/.github/workflows/reserve-block-canonization.yml
+  - MOBIUS_RESERVE_BLOCK_DAT.md
+  - .github/workflows/reserve-block-canonization.yml
+  - docs/epicon/cycles/C-368/C368-PR7_reserve-canon-prime.md
   BOUNDARIES: Canonizes sealed blocks as-is; excludes in-progress block.
 counterfactuals:
   - If chain verification fails, do not merge until KV audit completes
+  - If MANIFEST total_blocks disagrees with verify-dat-chain.js, halt and re-export
 \`\`\`
 
 ## Canon snapshot
@@ -191,7 +203,7 @@ async function main() {
     await putFile(args.branch, `canon/reserve-blocks/${name}`, content, `canon(${args.cycle}): add ${name}`);
   }
 
-  const prBody = intentBlock(args.cycle, manifest);
+  const prBody = intentBlock(args.cycle, manifest, args.prime);
   const prRes = await github(`/repos/${SUBSTRATE_REPO}/pulls`, {
     method: 'POST',
     body: JSON.stringify({
