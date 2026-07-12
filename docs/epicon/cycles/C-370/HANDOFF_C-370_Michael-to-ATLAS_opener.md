@@ -1,9 +1,8 @@
 # EPICON Handoff — Cycle C-370
 
-> **Archive status (2026-07-12):** Original custodian handoff preserved below verbatim.  
-> **Items 1–2 resolved:** [PR #597](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/597) → [`EPICON_C-370_GOVERNANCE_mic-issuance-ratification_v1.md`](./EPICON_C-370_GOVERNANCE_mic-issuance-ratification_v1.md)  
-> **Items 3–20 open:** [`HANDOFF_C-370_ATLAS-to-AUREA_remaining-items.md`](./HANDOFF_C-370_ATLAS-to-AUREA_remaining-items.md) (PR [#598](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/598), merged)  
-> **Key correction during resolution:** the "journal lock" cited in Live Telemetry §14 below is **not** a live ingest lock — it was hardcoded UI placeholder text in `GlobeChapterDashboards.tsx` (corrected in PR #597). See AUREA handoff for verified live issues.
+> **STATUS UPDATE (post-archive):** This document is preserved as the original opener, now archived on `main` via PR #599 as `HANDOFF_C-370_Michael-to-ATLAS_opener.md`. Items 1–2 (doctrine ratification, `earnMIC` gating) were resolved in PR #597 — see `EPICON_C-370_GOVERNANCE_mic-issuance-ratification_v1.md`. Items 3–20 were handed to AUREA in PR #598 (`HANDOFF_C-370_ATLAS-to-AUREA_remaining-items.md`). C-369 was left DISPUTED, not reopened, per the recommendation below. **Correction:** PR #597 determined the "journal lock" described in item #14 and the Live Telemetry section below was hardcoded UI placeholder text, not a live ingest lock — I reported ZEUS's "ECHO ingest blocked by journal lock" line as live runtime telemetry without verifying what actually generated it. That was my error; the text below is left unedited as the original record, but should be read with this correction in mind. I have not independently re-verified PR #599's contents — this status update is based on a direct report from the human custodian.
+
+---
 
 **To:** ATLAS  
 **From:** Michael Judan (human custodian)  
