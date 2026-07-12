@@ -8,7 +8,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { dispatchCanonExportWorkflow } from '@/lib/dat/dispatchCanonExport';
-import { fetchCanonGap } from '@/lib/dat/substrateCanonGap';
+import { fetchReserveCanonIntegrity } from '@/lib/dat/reserveCanonIntegrity';
+import { resolveExportCycle } from '@/lib/dat/resolveExportCycle';
 import { bearerMatchesToken } from '@/lib/vault-v2/auth';
 
 export const dynamic = 'force-dynamic';
@@ -29,19 +30,20 @@ export async function GET(request: NextRequest) {
   const dryRun = request.nextUrl.searchParams.get('dry_run') === 'true';
 
   try {
-    const gap = await fetchCanonGap();
+    const integrity = await fetchReserveCanonIntegrity();
+    const operatorCycle = resolveExportCycle();
 
-    if (gap.gap === 0 && !force) {
+    if (integrity.gap === 0 && !force) {
       return NextResponse.json({
         ok: true,
         action: 'noop',
-        epicon_cycle: 'C-368',
-        gap,
-        message: 'Hot and cold canon are aligned — no export dispatched',
+        epicon_cycle: operatorCycle,
+        integrity,
+        message: 'Hot and cold canon are aligned (unique block_numbers) — no export dispatched',
       });
     }
 
-    const incremental = gap.manifest_present && gap.canonized_cold > 0;
+    const incremental = integrity.manifest_present && integrity.canonized_cold > 0;
     const dispatch = await dispatchCanonExportWorkflow({
       incremental,
       dryRun,
@@ -53,8 +55,8 @@ export async function GET(request: NextRequest) {
         {
           ok: false,
           action: 'dispatch_failed',
-          epicon_cycle: 'C-368',
-          gap,
+          epicon_cycle: operatorCycle,
+          integrity,
           error: dispatch.error,
           hint: 'Configure SUBSTRATE_GITHUB_TOKEN or GITHUB_TOKEN with workflow scope on Vercel',
         },
@@ -65,8 +67,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       action: dryRun ? 'dry_run_dispatched' : 'export_dispatched',
-      epicon_cycle: 'C-368',
-      gap,
+      epicon_cycle: operatorCycle,
+      integrity,
       incremental,
       workflow: 'reserve-block-canon-export.yml',
     });

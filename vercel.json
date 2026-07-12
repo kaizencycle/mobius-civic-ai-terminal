@@ -31,6 +31,10 @@
       "schedule": "30 0 * * *"
     },
     {
+      "path": "/api/cron/reserve-canon-integrity",
+      "schedule": "0 1 * * *"
+    },
+    {
       "path": "/api/cron/journal-canonize",
       "schedule": "*/30 * * * *"
     },

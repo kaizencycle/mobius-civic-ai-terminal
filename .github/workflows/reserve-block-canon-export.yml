@@ -122,6 +122,9 @@ jobs:
             ARGS+=(--incremental)
           fi
           export CI=1
+          if [ -f CURRENT_CYCLE.md ]; then
+            export OPERATOR_CYCLE="$(grep -m1 '^\*\*Cycle:\*\*' CURRENT_CYCLE.md | sed -n 's/.*\(C-[0-9][0-9]*\).*/\1/p')"
+          fi
           export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           export KV_REST_API_TOKEN="$(printf '%s' "$KV_REST_API_TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           ./node_modules/.bin/tsx scripts/canonize-reserve-blocks.ts "${ARGS[@]}"
