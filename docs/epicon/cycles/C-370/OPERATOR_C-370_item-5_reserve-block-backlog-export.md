@@ -34,6 +34,26 @@ confirm (or add) these repo secrets:
 If any secret exists under a different name, check `.github/workflows/reserve-block-canon-export.yml`
 and `scripts/canonize-reserve-blocks.ts` — match names to what the workflow actually reads.
 
+### Where to copy values from
+
+| Secret | Typical source |
+|---|---|
+| `KV_REST_API_URL` | Vercel project → **Settings → Environment Variables** → Production `KV_REST_API_URL` (same Upstash REST URL the live terminal uses) |
+| `KV_REST_API_TOKEN` | Same Vercel env panel → Production `KV_REST_API_TOKEN` |
+| `SUBSTRATE_GITHUB_TOKEN` | GitHub **fine-grained PAT** or classic PAT with `contents: write` + `pull_requests: write` on `kaizencycle/Mobius-Substrate` (and workflow dispatch on terminal if using cron path). May already exist as Vercel `GITHUB_TOKEN` / `SUBSTRATE_GITHUB_TOKEN` — copy the same value. |
+
+**GitHub UI path:** [Repository secrets](https://github.com/kaizencycle/mobius-civic-ai-terminal/settings/secrets/actions) → **New repository secret** for each name above. Secret names must match **exactly** (case-sensitive).
+
+### Preflight failure you may see
+
+If the workflow stops at **Preflight secrets** with:
+
+```text
+Missing required secrets: KV_REST_API_URL KV_REST_API_TOKEN SUBSTRATE_GITHUB_TOKEN
+```
+
+all three Actions secrets are unset or empty. This is expected until Step 1 is complete — **not a code failure**. Add the secrets, then re-run Step 2. No code change required.
+
 ---
 
 ## Step 2 — Run the workflow with the backlog flag
