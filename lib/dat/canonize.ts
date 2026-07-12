@@ -22,6 +22,7 @@ import type {
   DatBlockRecord,
   DatManifest,
   DatManifestEntry,
+  VaultSealedBlock,
 } from './types';
 import { validateSealedBlocksForExport } from './validateSealedBlock';
 
@@ -58,6 +59,7 @@ export async function canonizeReserveBlocks(
   let startBlock = 1;
   let prevChainTip = GENESIS_HASH;
   let existingManifest: DatManifest | null = null;
+  let rebuildCanon = false;
 
   if (incremental) {
     existingManifest = loadExistingManifest(outputDir);
@@ -71,8 +73,48 @@ export async function canonizeReserveBlocks(
     }
   }
 
-  const { blocks, total_found, source, gaps, errors: fetchErrors } =
-    await fetchAllSealedBlocks({ fromBlock: startBlock, verbose, forceApi });
+  let blocks: VaultSealedBlock[];
+  let total_found: number;
+  let source: 'kv' | 'api';
+  let gaps: number[];
+  const fetchErrors: string[] = [];
+
+  if (incremental && existingManifest) {
+    const canonized = collectCanonizedBlockNumbers(outputDir, existingManifest);
+    const allAttested = await fetchAllSealedBlocks({ fromBlock: 1, verbose, forceApi });
+    fetchErrors.push(...allAttested.errors);
+    const missing = allAttested.blocks.filter((b) => !canonized.has(b.block_number));
+
+    if (missing.some((b) => b.block_number < startBlock)) {
+      log(
+        `Backfill required: ${missing.length} attested block(s) missing from canon (including below block ${startBlock}) — rebuilding`,
+      );
+      rebuildCanon = true;
+      blocks = allAttested.blocks;
+      gaps = allAttested.gaps;
+      total_found = allAttested.total_found;
+      source = allAttested.source;
+      startBlock = blocks[0]?.block_number ?? 1;
+      prevChainTip = GENESIS_HASH;
+      existingManifest = null;
+    } else {
+      const incrementalFetch = await fetchAllSealedBlocks({ fromBlock: startBlock, verbose, forceApi });
+      fetchErrors.push(...incrementalFetch.errors);
+      blocks = incrementalFetch.blocks.filter((b) => !canonized.has(b.block_number));
+      gaps = incrementalFetch.gaps;
+      total_found = blocks.length;
+      source = incrementalFetch.source;
+    }
+  } else {
+    const fetched = await fetchAllSealedBlocks({ fromBlock: startBlock, verbose, forceApi });
+    fetchErrors.push(...fetched.errors);
+    blocks = fetched.blocks;
+    gaps = fetched.gaps;
+    total_found = fetched.total_found;
+    source = fetched.source;
+  }
+
+  const exportIncremental = incremental && !rebuildCanon;
 
   for (const e of fetchErrors) {
     errors.push({ stage: 'fetch', message: e, retryable: true });
@@ -81,7 +123,7 @@ export async function canonizeReserveBlocks(
   if (gaps.length > 0) {
     const gapSample = gaps.slice(0, 5).join(', ');
     const gapMsg = `${gaps.length} gaps in attested block sequence${gapSample ? ` (e.g. ${gapSample}${gaps.length > 5 ? '…' : ''})` : ''}`;
-    if (incremental) {
+    if (exportIncremental) {
       errors.push({
         stage: 'fetch',
         message: gapMsg,
@@ -96,7 +138,10 @@ export async function canonizeReserveBlocks(
 
   if (blocks.length > 0) {
     try {
-      const validationWarnings = validateSealedBlocksForExport(blocks, { incremental, startBlock });
+      const validationWarnings = validateSealedBlocksForExport(blocks, {
+        incremental: exportIncremental,
+        startBlock,
+      });
       for (const warning of validationWarnings) {
         log(`Warning: ${warning}`);
       }
@@ -138,7 +183,7 @@ export async function canonizeReserveBlocks(
   const datFiles: string[] = [];
   const newManifestEntries: Record<string, DatManifestEntry> = {};
   let chainTip = prevChainTip;
-  const writeState = incremental
+  const writeState = exportIncremental
     ? resolveIncrementalWriteState(outputDir, existingManifest)
     : {
         fileIndex: 0,
@@ -218,11 +263,10 @@ export async function canonizeReserveBlocks(
   }
 
   const priorBlockCount = existingManifest?.total_blocks ?? 0;
-  const mergedFiles = {
-    ...(existingManifest?.files ?? {}),
-    ...newManifestEntries,
-  };
-  const totalBlocks = priorBlockCount + blocks.length;
+  const mergedFiles = exportIncremental
+    ? { ...(existingManifest?.files ?? {}), ...newManifestEntries }
+    : { ...newManifestEntries };
+  const totalBlocks = exportIncremental ? priorBlockCount + blocks.length : blocks.length;
 
   const manifestObj: DatManifest = {
     version: DAT_VERSION,
@@ -231,6 +275,7 @@ export async function canonizeReserveBlocks(
     total_mic: totalBlocks * MIC_PER_BLOCK,
     chain_tip_hash: chainTip,
     files: mergedFiles,
+    ...(gaps.length > 0 ? { known_gaps: gaps } : {}),
   };
   const manifestContent = JSON.stringify(manifestObj, null, 2);
   const manifestHash = hashDatFile(manifestContent);
@@ -396,4 +441,23 @@ function resolveIncrementalWriteState(
     appendToExistingFile: false,
     existingFilename: null,
   };
+}
+
+function collectCanonizedBlockNumbers(outputDir: string, manifest: DatManifest): Set<number> {
+  const numbers = new Set<number>();
+  for (const filename of Object.keys(manifest.files)) {
+    const filepath = join(outputDir, filename);
+    if (!existsSync(filepath)) continue;
+    const content = readFileSync(filepath, 'utf8');
+    for (const line of content.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const record = JSON.parse(line) as DatBlockRecord;
+        numbers.add(record.block_number);
+      } catch {
+        // skip malformed lines
+      }
+    }
+  }
+  return numbers;
 }
