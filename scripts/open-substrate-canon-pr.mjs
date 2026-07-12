@@ -39,10 +39,23 @@ function parseArgs(argv) {
 
   if (args.prime) {
     args.branch = 'canon/reserve-blocks-prime-c368';
-    args.title = 'canon(C-368): prime reserve blocks cold canon (349 blocks)';
+    args.title = 'canon(C-368): prime reserve blocks cold canon';
   }
 
   return args;
+}
+
+function formatGitHubApiError(status, body, operation) {
+  const base = `${operation} failed ${status}: ${body}`;
+  if (status !== 403) return base;
+
+  const hints = [
+    'SUBSTRATE_GITHUB_TOKEN lacks write access to kaizencycle/Mobius-Substrate.',
+    'Fine-grained PAT: Repository access = Mobius-Substrate; Contents = Read and write; Pull requests = Read and write.',
+    'Classic PAT: repo scope for that repository.',
+    'Update secret: https://github.com/kaizencycle/mobius-civic-ai-terminal/settings/secrets/actions',
+  ];
+  return `${base}\n\n${hints.join('\n')}`;
 }
 
 function token() {
@@ -85,7 +98,7 @@ async function ensureBranch(branchName, fromSha) {
   });
   if (!create.ok) {
     const body = await create.text();
-    throw new Error(`create branch failed ${create.status}: ${body}`);
+    throw new Error(formatGitHubApiError(create.status, body, 'create branch'));
   }
 }
 
@@ -116,7 +129,7 @@ async function putFile(branch, path, contentUtf8, message) {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`put ${path} failed ${res.status}: ${text}`);
+    throw new Error(formatGitHubApiError(res.status, text, `put ${path}`));
   }
 }
 
@@ -159,6 +172,9 @@ async function main() {
   }
 
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  if (args.prime) {
+    args.title = `canon(C-368): prime reserve blocks cold canon (${manifest.total_blocks} blocks)`;
+  }
   const files = readdirSync(sourceDir)
     .filter((name) => name.endsWith('.dat') || name === 'MANIFEST.json')
     .sort();
@@ -189,7 +205,7 @@ async function main() {
 
   if (!prRes.ok) {
     const text = await prRes.text();
-    throw new Error(`create PR failed ${prRes.status}: ${text}`);
+    throw new Error(formatGitHubApiError(prRes.status, text, 'create PR'));
   }
 
   const pr = await prRes.json();
@@ -202,6 +218,7 @@ async function main() {
         branch: args.branch,
         pr_number: pr.number,
         pr_url: pr.html_url,
+        pr_title: args.title,
         files_uploaded: files.length,
         total_blocks: manifest.total_blocks,
         manifest_hash_prefix: manifestHash,

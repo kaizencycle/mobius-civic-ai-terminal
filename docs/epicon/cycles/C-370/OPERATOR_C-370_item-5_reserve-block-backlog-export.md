@@ -73,6 +73,35 @@ and verify fails with `MANIFEST.json not found`, the KV secrets are set but **ma
 
 The workflow preflight warns on secrets with leading/trailing whitespace and trims them for the export run. Re-save secrets as single lines when convenient.
 
+### Substrate PR failed with HTTP 403
+
+If export and verify succeed but **Open Substrate draft PR** fails with:
+
+```text
+create branch failed 403: {"message":"Resource not accessible by personal access token",...}
+```
+
+the `SUBSTRATE_GITHUB_TOKEN` is set but **lacks write permission** on `kaizencycle/Mobius-Substrate`. Read-only tokens can pass preflight but cannot create branches.
+
+**Fix:**
+
+1. Create or update a **fine-grained PAT** with:
+   - Repository access: **Only select repositories** → `Mobius-Substrate`
+   - Permissions: **Contents** = Read and write; **Pull requests** = Read and write
+2. Or use a **classic PAT** with `repo` scope for that repository.
+3. Re-save as `SUBSTRATE_GITHUB_TOKEN` at [Repository secrets](https://github.com/kaizencycle/mobius-civic-ai-terminal/settings/secrets/actions).
+4. Re-run Step 2 with the same inputs (`incremental: false`, `open_substrate_pr: true`). Export is fast (~seconds) on re-run.
+
+**Fallback (no token fix yet):** Re-run with `open_substrate_pr: false`, download the `reserve-blocks-canon` artifact from the Actions run, then open the PR locally:
+
+```bash
+node scripts/open-substrate-canon-pr.mjs --prime --source=./canon/reserve-blocks
+```
+
+### Block count lower than hot-KV seal count
+
+KV may contain **duplicate `block_number` values** from re-sealed cycles (e.g. C-308–337 vs C-359+ at the same sequence). `fetchAllSealedBlocks` dedupes by `block_number`, keeping the seal with more quorum signatures, then later `sealed_at`, then later `seal_id`. A prime export may therefore show **fewer unique blocks** than raw attested seal count (e.g. 313 seals → 194 unique blocks). Trust **`MANIFEST.json` → `total_blocks`** after dedupe, not the raw KV seal count.
+
 ---
 
 ## Step 2 — Run the workflow with the backlog flag
@@ -112,11 +141,11 @@ every block sitting in hot KV since C-357.
 
 After the workflow run:
 
-1. **Actions run** — job `export-and-pr` green; step summary shows `total_blocks` from `MANIFEST.json`.
-2. **Artifact** — `reserve-blocks-canon` uploaded (30-day retention) as a backup.
-3. **Substrate draft PR** — look for `canon(C-368): prime reserve blocks cold canon (349 blocks)` on [Mobius-Substrate PRs](https://github.com/kaizencycle/Mobius-Substrate/pulls). Branch: `canon/reserve-blocks-prime-c368`.
+1. **Actions run** — export + verify green; step summary shows `total_blocks` from `MANIFEST.json`. Substrate PR may warn (not fail the job) if token lacks write access — see troubleshooting above.
+2. **Artifact** — `reserve-blocks-canon` uploaded (30-day retention) as a backup — available even when Substrate PR fails.
+3. **Substrate draft PR** — look for `canon(C-368): prime reserve blocks cold canon (<N> blocks)` on [Mobius-Substrate PRs](https://github.com/kaizencycle/Mobius-Substrate/pulls). Branch: `canon/reserve-blocks-prime-c368`.
 4. **Merge the Substrate PR** — cold canon lives on Substrate `main` at `canon/reserve-blocks/`, not in the terminal repo.
-5. **Count check** — confirm `canon/reserve-blocks/` has multiple `.dat` files plus `MANIFEST.json` (not zero / `.gitkeep` only). **Do not expect one `.dat` per block:** `lib/dat/hashDatRecord.ts` sets `BLOCKS_PER_DAT_FILE = 100`, so a ~349-block backlog produces **~4 `.dat` files** (e.g. `blk0001.dat`–`blk0004.dat`) plus `MANIFEST.json`. Verify **`MANIFEST.json` → `total_blocks`** matches hot-KV sealed count (~349), not the `.dat` file count.
+5. **Count check** — confirm `canon/reserve-blocks/` has `.dat` files plus `MANIFEST.json` (not zero / `.gitkeep` only). **Do not expect one `.dat` per block:** `lib/dat/hashDatRecord.ts` sets `BLOCKS_PER_DAT_FILE = 100`, so blocks are packed ~100 per file. Verify **`MANIFEST.json` → `total_blocks`** matches the deduped export count (may be less than raw KV seal count if duplicate `block_number` entries were dropped).
 6. **Gap check** — `GET https://mobius-civic-ai-terminal.vercel.app/api/vault/status` sealed count should align with `MANIFEST.json` `total_blocks` after merge.
 
 Spot-check `MANIFEST.json` `files` ranges and `total_blocks` against the hot-KV attestation list — not individual `.dat` filenames per block.
