@@ -77,10 +77,10 @@ After the workflow run:
 2. **Artifact** — `reserve-blocks-canon` uploaded (30-day retention) as a backup.
 3. **Substrate draft PR** — look for `canon(C-368): prime reserve blocks cold canon (349 blocks)` on [Mobius-Substrate PRs](https://github.com/kaizencycle/Mobius-Substrate/pulls). Branch: `canon/reserve-blocks-prime-c368`.
 4. **Merge the Substrate PR** — cold canon lives on Substrate `main` at `canon/reserve-blocks/`, not in the terminal repo.
-5. **Count check** — confirm `canon/reserve-blocks/` has ~349+ `.dat` files plus `MANIFEST.json` (not zero / `.gitkeep` only).
+5. **Count check** — confirm `canon/reserve-blocks/` has multiple `.dat` files plus `MANIFEST.json` (not zero / `.gitkeep` only). **Do not expect one `.dat` per block:** `lib/dat/hashDatRecord.ts` sets `BLOCKS_PER_DAT_FILE = 100`, so a ~349-block backlog produces **~4 `.dat` files** (e.g. `blk0001.dat`–`blk0004.dat`) plus `MANIFEST.json`. Verify **`MANIFEST.json` → `total_blocks`** matches hot-KV sealed count (~349), not the `.dat` file count.
 6. **Gap check** — `GET https://mobius-civic-ai-terminal.vercel.app/api/vault/status` sealed count should align with `MANIFEST.json` `total_blocks` after merge.
 
-Spot-check a few `.dat` filenames against the hot-KV attestation list to make sure counts line up.
+Spot-check `MANIFEST.json` `files` ranges and `total_blocks` against the hot-KV attestation list — not individual `.dat` filenames per block.
 
 This unblocks **item 6** (scheduled hot-KV-vs-`.dat`-count integrity check), which currently
 has nothing to compare against.
