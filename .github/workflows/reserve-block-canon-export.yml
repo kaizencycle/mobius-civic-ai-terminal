@@ -107,8 +107,9 @@ jobs:
         run: |
           set -euo pipefail
           INCREMENTAL="${{ github.event.inputs.incremental || 'true' }}"
+          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
           ARGS=(--output=./canon/reserve-blocks --skip-cpc)
-          if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
+          if [ "$DRY_RUN" = "true" ]; then
             ARGS+=(--dry-run)
           fi
           mkdir -p ./canon/reserve-blocks
@@ -124,7 +125,7 @@ jobs:
           export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           export KV_REST_API_TOKEN="$(printf '%s' "$KV_REST_API_TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           ./node_modules/.bin/tsx scripts/canonize-reserve-blocks.ts "${ARGS[@]}"
-          if [ "$INCREMENTAL" = "false" ] && [ ! -f ./canon/reserve-blocks/MANIFEST.json ]; then
+          if [ "$INCREMENTAL" = "false" ] && [ "$DRY_RUN" != "true" ] && [ ! -f ./canon/reserve-blocks/MANIFEST.json ]; then
             echo "::error::Full prime produced no MANIFEST.json (0 blocks exported). Check KV secrets and attested seal count."
             exit 1
           fi
