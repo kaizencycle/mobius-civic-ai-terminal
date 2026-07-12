@@ -1,0 +1,22 @@
+{
+  "lite": true,
+  "schema_version": "MOBIUS_SNAPSHOT_LITE_1",
+  "cycle": "C-370",
+  "gi": 0.81,
+  "mode": "green",
+  "degraded": true,
+  "gi_provenance": "live-compute",
+  "gi_verified": true,
+  "memory_mode": {
+    "gi_value": 0.81,
+    "gi_source": "kv:gi-state",
+    "gi_provenance": "live-compute",
+    "gi_verified": true,
+    "degraded": true,
+    "lite_ok": true
+  },
+  "deployment": {
+    "commit_sha": "abc123def456",
+    "environment": "production"
+  }
+}
