@@ -32,7 +32,7 @@ describe('reserveBlockCollisions', () => {
         ATLAS: {
           agent: 'ATLAS',
           signature: 'sig',
-          verdict: 'attest',
+          verdict: 'pass',
           rationale: 'ok',
           gi_at_attestation: 0.9,
           timestamp: '2026-07-12T00:00:00.000Z',
@@ -46,7 +46,7 @@ describe('reserveBlockCollisions', () => {
         ATLAS: {
           agent: 'ATLAS',
           signature: 'sig',
-          verdict: 'attest',
+          verdict: 'pass',
           rationale: 'ok',
           gi_at_attestation: 0.9,
           timestamp: '2026-07-12T00:00:00.000Z',
@@ -54,7 +54,7 @@ describe('reserveBlockCollisions', () => {
         ZEUS: {
           agent: 'ZEUS',
           signature: 'sig',
-          verdict: 'attest',
+          verdict: 'pass',
           rationale: 'ok',
           gi_at_attestation: 0.9,
           timestamp: '2026-07-12T00:00:00.000Z',

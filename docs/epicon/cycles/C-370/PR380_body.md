@@ -3,7 +3,7 @@
 ```intent
 epicon_id: EPICON_C-368_SPECS_reserve-canon-prime_v1
 ledger_id: mobius:kaizencycle
-scope: specs
+scope: specs, docs
 mode: normal
 issued_at: 2026-07-12T18:50:08.462Z
 expires_at: 2026-10-10T18:50:08.462Z
