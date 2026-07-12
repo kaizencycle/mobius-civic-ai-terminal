@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "gi_current": 0.78,
+  "seals_count": 354,
+  "reserve_blocks_sealed": 354,
+  "latest_seal_id": "seal-C-370-029",
+  "in_progress_balance": 20.33,
+  "reserve_block_in_progress": 355,
+  "sustain_cycles_met": false,
+  "fountain_status": "locked",
+  "substrate_ok": true,
+  "reserve_block": {
+    "sealed_blocks": 354,
+    "in_progress_block": 355,
+    "in_progress_balance": 20.33
+  }
+}

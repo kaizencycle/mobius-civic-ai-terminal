@@ -26,15 +26,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fetch snapshot-lite
+      - name: Fetch live inputs
         run: |
           set -euo pipefail
           BASE="${TERMINAL_BASE_URL:-https://mobius-civic-ai-terminal.vercel.app}"
           curl -fsSL "${BASE}/api/terminal/snapshot-lite" -o snapshot.json
           test -s snapshot.json
+          curl -fsSL "${BASE}/api/vault/status" -o vault-status.json || echo '{"ok":false}' > vault-status.json
+          curl -fsSL "https://raw.githubusercontent.com/kaizencycle/Mobius-Substrate/main/canon/reserve-blocks/MANIFEST.json" -o manifest.json || echo '{}' > manifest.json
 
       - name: Write cycle state
-        run: node scripts/mesh/write-cycle-state.js snapshot.json
+        run: node scripts/mesh/write-cycle-state.js snapshot.json vault-status.json manifest.json
 
       # C-339 PR-C item 1: regenerate the cycle headers in CURRENT_CYCLE.md /
       # CURRENT_STATE.md from the freshly written pulse so they can never freeze.
@@ -51,5 +53,5 @@ jobs:
             echo "No changes to cycle-state.json / cycle docs"
             exit 0
           fi
-          git commit -m "chore(mesh): refresh cycle state + docs from snapshot-lite"
+          git commit -m "chore(mesh): refresh cycle state V2 + docs from snapshot-lite"
           git push

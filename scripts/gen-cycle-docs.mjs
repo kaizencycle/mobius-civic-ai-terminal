@@ -67,6 +67,19 @@ function renderBlock(state) {
       `- **Deployment:** \`${state.deployment.commit_sha.slice(0, 12)}\` (${state.deployment.environment ?? 'unknown'})`,
     );
   }
+  if (state.hot?.seals_raw != null || state.cold?.manifest_blocks != null) {
+    bullets.push(
+      `- **Reserve hot (raw):** \`${state.hot?.seals_raw ?? 'n/a'}\` · **cold manifest:** \`${state.cold?.manifest_blocks ?? 'n/a'}\` · **gap (raw−cold):** \`${state.cold?.gap_raw_vs_cold ?? 'n/a'}\``,
+    );
+    if (state.hot?.chain_tip?.seal_id) {
+      bullets.push(
+        `- **Chain tip:** \`${state.hot.chain_tip.seal_id}\` (seq \`${state.hot.chain_tip.sequence ?? 'n/a'}\`)`,
+      );
+    }
+  }
+  if (Array.isArray(state.open_gates) && state.open_gates.length > 0) {
+    bullets.push(`- **Open gates:** ${state.open_gates.map((g) => `\`${g}\``).join(', ')}`);
+  }
   return [
     BEGIN,
     '',
