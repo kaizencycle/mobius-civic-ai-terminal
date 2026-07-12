@@ -5,8 +5,8 @@
 - **Cycle:** `C-370`
 - **GI:** `0.81` · **mode:** `green` · ⚠️ degraded
 - **Provenance:** `live-compute` (verified)
-- **Pulse fetched:** `2026-07-12T20:28:39.080Z`
-- **Deployment:** `0de64b9a5312` (production)
+- **Pulse fetched:** `2026-07-12T21:24:31.661Z`
+- **Deployment:** `0c800d268da2` (production)
 
 > Generated from `ledger/cycle-state.json` (source: `snapshot-lite`).
 > Live source of truth: [snapshot-lite](https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot-lite). Do not hand-edit this block.
