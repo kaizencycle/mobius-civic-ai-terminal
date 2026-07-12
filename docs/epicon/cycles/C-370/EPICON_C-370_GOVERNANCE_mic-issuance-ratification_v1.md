@@ -39,6 +39,7 @@ summary: "Resolves the C-369 canon/runtime contradiction (§17 Witness Principle
 - **Date:** 2026-07-12
 - **Status:** Active
 - **Prior seal state:** C-369 — DISPUTED (canon/runtime contradiction). Not reopened; C-370 carries the resolution, per the handoff's own recommendation that reopening a sealed cycle is itself a Witness Principle concern.
+- **Custodian opener:** [`HANDOFF_C-370_Michael-to-ATLAS_opener.md`](./HANDOFF_C-370_Michael-to-ATLAS_opener.md) — original 20-item brief from Michael Judan (2026-07-12).
 
 ## Context
 
