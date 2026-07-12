@@ -1,5 +1,11 @@
 # Operator Action — C-370 Item 5: Reserve Block `.dat` Backlog Export
 
+> **Status (2026-07-12):** Prime export **completed**. 313 attested seals → **194 unique blocks**
+> after dedupe; chain verified; artifact `reserve-blocks-canon` uploaded.
+> **Pending:** merge [Mobius-Substrate PR #380](https://github.com/kaizencycle/Mobius-Substrate/pull/380).
+> Paste EPICON-02 body from [`OPERATOR_C-370_PR380_epicon-body.md`](./OPERATOR_C-370_PR380_epicon-body.md).
+> Collision audit: [`AUDIT_C-370_reserve-block-collisions.md`](./AUDIT_C-370_reserve-block-collisions.md).
+
 **Why you're doing this:** The export infrastructure already exists (merged in PR #591 —
 "C-368 PR7 reserve canon export + continuous append lane"). It has never been run against
 the backlog. `canon/reserve-blocks/` on **Mobius-Substrate** is empty (`.gitkeep` only)
@@ -150,8 +156,8 @@ After the workflow run:
 
 Spot-check `MANIFEST.json` `files` ranges and `total_blocks` against the hot-KV attestation list — not individual `.dat` filenames per block.
 
-This unblocks **item 6** (scheduled hot-KV-vs-`.dat`-count integrity check), which currently
-has nothing to compare against.
+This unblocks **item 6** (`/api/cron/reserve-canon-integrity`, Vercel cron `0 1 * * *`),
+which compares deduplicated hot block count vs cold MANIFEST and alerts on collisions.
 
 ---
 

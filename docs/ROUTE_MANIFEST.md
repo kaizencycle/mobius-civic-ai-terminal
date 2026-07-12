@@ -67,6 +67,7 @@ Declare a tier in a route with: `export const tier = 'public';`
 | `/api/cron/publish-oaa-snapshots` | GET, POST | cron |
 | `/api/cron/reattest-seals` | GET | cron |
 | `/api/cron/reserve-canon-append` | GET, POST | cron |
+| `/api/cron/reserve-canon-integrity` | GET, POST | cron |
 | `/api/cron/swarm` | GET | cron |
 | `/api/cron/sweep` | GET, POST | cron |
 | `/api/cron/vault-attestation` | GET | cron |

@@ -15,6 +15,11 @@
 import { config } from 'dotenv';
 import { writeFileSync } from 'fs';
 import { canonizeReserveBlocks } from '@/lib/dat/canonize';
+import {
+  RESERVE_BLOCK_SPEC_CYCLE,
+  RESERVE_CANON_EXPORT_LANE,
+  resolveExportCycle,
+} from '@/lib/dat/resolveExportCycle';
 
 config({ path: '.env.local' });
 
@@ -24,13 +29,14 @@ async function main(): Promise<void> {
   const skipCpc = args.includes('--skip-cpc');
   const forceApi = args.includes('--force-api');
   const incremental = args.includes('--incremental');
+  const operatorCycle = resolveExportCycle();
   const outputDir =
     args.find((a) => a.startsWith('--output='))?.split('=')[1] ?? './canon/reserve-blocks';
 
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║  MOBIUS SUBSTRATE — Reserve Block .dat Canonization       ║
-║  EPICON: C-357 | RESERVE_BLOCK_DAT_CANONIZATION           ║
+║  Spec: ${RESERVE_BLOCK_SPEC_CYCLE} | Lane: ${RESERVE_CANON_EXPORT_LANE} | Run: ${operatorCycle} ║
 ╚═══════════════════════════════════════════════════════════╝
 
   Mode:        ${dryRun ? 'DRY RUN' : 'LIVE'}
@@ -59,7 +65,7 @@ async function main(): Promise<void> {
   const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
 
   console.log(`
-CANONIZATION RESULT — C-357
+CANONIZATION RESULT — ${operatorCycle} (spec ${RESERVE_BLOCK_SPEC_CYCLE})
   Blocks processed:   ${result.total_blocks_processed}
   MIC canonized:      ${result.total_mic_canonized.toFixed(2)}
   .dat files written: ${result.dat_files_written.join(', ') || 'none'}
@@ -71,7 +77,7 @@ ${result.errors.length > 0 ? result.errors.map((e) => `  - ${e.message}`).join('
 `);
 
   if (!dryRun) {
-    const resultPath = `${outputDir}/CANONIZATION_LOG_C357.json`;
+    const resultPath = `${outputDir}/CANONIZATION_LOG_${operatorCycle.replace(/-/g, '')}.json`;
     writeFileSync(resultPath, JSON.stringify(result, null, 2), 'utf8');
     console.log(`Result log: ${resultPath}`);
   }

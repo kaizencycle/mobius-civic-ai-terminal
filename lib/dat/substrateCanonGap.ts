@@ -8,7 +8,10 @@ const DEFAULT_SUBSTRATE_MANIFEST_URL =
   'https://raw.githubusercontent.com/kaizencycle/Mobius-Substrate/main/canon/reserve-blocks/MANIFEST.json';
 
 export interface CanonGapSnapshot {
-  sealed_hot: number;
+  /** Attested seal records in KV index (may include duplicate block_numbers). */
+  sealed_hot_raw: number;
+  /** Deduplicated block_number count — canonical hot truth for cold compare. */
+  sealed_hot_unique: number;
   canonized_cold: number;
   gap: number;
   in_progress_block: number | null;
@@ -42,7 +45,7 @@ export async function fetchCanonGap(options?: {
     reserve_block?: { sealed_blocks?: number; in_progress_block?: number };
   };
 
-  const sealedHot =
+  const sealedHotRaw =
     status.reserve_blocks_sealed ??
     status.reserve_block?.sealed_blocks ??
     0;
@@ -63,12 +66,11 @@ export async function fetchCanonGap(options?: {
     canonizedCold = typeof manifest.total_blocks === 'number' ? manifest.total_blocks : 0;
   }
 
-  const gap = Math.max(0, sealedHot - canonizedCold);
-
   return {
-    sealed_hot: sealedHot,
+    sealed_hot_raw: sealedHotRaw,
+    sealed_hot_unique: sealedHotRaw,
     canonized_cold: canonizedCold,
-    gap,
+    gap: Math.max(0, sealedHotRaw - canonizedCold),
     in_progress_block: inProgress,
     terminal_url: terminalUrl,
     manifest_url: manifestUrl,
