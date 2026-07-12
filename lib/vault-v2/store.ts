@@ -21,6 +21,7 @@ import {
   scheduleBackupMirrorRawDel,
   scheduleBackupMirrorRawKey,
 } from '@/lib/kv/backup-redis';
+import { getUpstashRestCredentials } from '@/lib/kv/upstashEnv';
 import type { Seal, SealAttestation, SealCandidate, SentinelAgent } from '@/lib/vault-v2/types';
 
 const BALANCE_KEY = 'vault:in_progress_balance';
@@ -39,11 +40,10 @@ function sealKey(seal_id: string): string {
 }
 
 function getRedis(): Redis | null {
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
+  const creds = getUpstashRestCredentials();
+  if (!creds) return null;
   try {
-    return new Redis({ url, token });
+    return new Redis({ url: creds.url, token: creds.token });
   } catch {
     return null;
   }

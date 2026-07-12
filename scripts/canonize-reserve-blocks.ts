@@ -19,15 +19,15 @@ import { canonizeReserveBlocks } from '@/lib/dat/canonize';
 config({ path: '.env.local' });
 
 async function main(): Promise<void> {
-const args = process.argv.slice(2);
-const dryRun = args.includes('--dry-run');
-const skipCpc = args.includes('--skip-cpc');
-const forceApi = args.includes('--force-api');
-const incremental = args.includes('--incremental');
-const outputDir =
-  args.find((a) => a.startsWith('--output='))?.split('=')[1] ?? './canon/reserve-blocks';
+  const args = process.argv.slice(2);
+  const dryRun = args.includes('--dry-run');
+  const skipCpc = args.includes('--skip-cpc');
+  const forceApi = args.includes('--force-api');
+  const incremental = args.includes('--incremental');
+  const outputDir =
+    args.find((a) => a.startsWith('--output='))?.split('=')[1] ?? './canon/reserve-blocks';
 
-console.log(`
+  console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║  MOBIUS SUBSTRATE — Reserve Block .dat Canonization       ║
 ║  EPICON: C-357 | RESERVE_BLOCK_DAT_CANONIZATION           ║
@@ -40,25 +40,25 @@ console.log(`
   Output:      ${outputDir}
 `);
 
-if (!dryRun && !process.env.CI) {
-  console.log('Proceeding in 3 seconds... (Ctrl+C to cancel)');
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-}
+  if (!dryRun && !process.env.CI) {
+    console.log('Proceeding in 3 seconds... (Ctrl+C to cancel)');
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
 
-const startMs = Date.now();
+  const startMs = Date.now();
 
-const result = await canonizeReserveBlocks({
-  outputDir,
-  dryRun,
-  skipCpcAnchors: skipCpc,
-  forceApi,
-  verbose: true,
-  incremental,
-});
+  const result = await canonizeReserveBlocks({
+    outputDir,
+    dryRun,
+    skipCpcAnchors: skipCpc,
+    forceApi,
+    verbose: true,
+    incremental,
+  });
 
-const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
+  const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
 
-console.log(`
+  console.log(`
 CANONIZATION RESULT — C-357
   Blocks processed:   ${result.total_blocks_processed}
   MIC canonized:      ${result.total_mic_canonized.toFixed(2)}
@@ -70,13 +70,20 @@ CANONIZATION RESULT — C-357
   Elapsed:            ${elapsed}s
 `);
 
-if (!dryRun) {
-  const resultPath = `${outputDir}/CANONIZATION_LOG_C357.json`;
-  writeFileSync(resultPath, JSON.stringify(result, null, 2), 'utf8');
-  console.log(`Result log: ${resultPath}`);
-}
+  if (!dryRun) {
+    const resultPath = `${outputDir}/CANONIZATION_LOG_C357.json`;
+    writeFileSync(resultPath, JSON.stringify(result, null, 2), 'utf8');
+    console.log(`Result log: ${resultPath}`);
+  }
 
-process.exit(result.substrate_commit_ready ? 0 : 1);
+  if (!incremental && !dryRun && result.total_blocks_processed === 0) {
+    console.error(
+      '[canonize] Full prime exported 0 blocks — verify KV_REST_API_* secrets (no trailing newlines) and attested seal count in production KV',
+    );
+    process.exit(1);
+  }
+
+  process.exit(result.substrate_commit_ready ? 0 : 1);
 }
 
 main().catch((error) => {
