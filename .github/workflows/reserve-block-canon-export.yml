@@ -154,10 +154,20 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Upload canon artifact
+        if: github.event.inputs.dry_run != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: reserve-blocks-canon
+          path: canon/reserve-blocks/
+          retention-days: 30
+
       - name: Open Substrate draft PR
+        id: substrate_pr
         if: |
           github.event.inputs.dry_run != 'true' &&
           github.event.inputs.open_substrate_pr != 'false'
+        continue-on-error: true
         env:
           SUBSTRATE_GITHUB_TOKEN: ${{ secrets.SUBSTRATE_GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.SUBSTRATE_GITHUB_TOKEN }}
@@ -169,10 +179,25 @@ jobs:
             node scripts/open-substrate-canon-pr.mjs --source=./canon/reserve-blocks
           fi
 
-      - name: Upload canon artifact
-        if: github.event.inputs.dry_run != 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: reserve-blocks-canon
-          path: canon/reserve-blocks/
-          retention-days: 30
+      - name: Report Substrate PR status
+        if: |
+          github.event.inputs.dry_run != 'true' &&
+          github.event.inputs.open_substrate_pr != 'false'
+        run: |
+          {
+            echo ""
+            echo "### Substrate PR"
+            if [ "${{ steps.substrate_pr.outcome }}" = "success" ]; then
+              echo "Draft PR opened successfully."
+            else
+              echo "::warning::Substrate PR step failed — export and artifact are still valid."
+              echo ""
+              echo "Common fix: \`SUBSTRATE_GITHUB_TOKEN\` needs **Contents (Read and write)** and **Pull requests (Read and write)** on \`kaizencycle/Mobius-Substrate\`."
+              echo "Re-save the secret at https://github.com/kaizencycle/mobius-civic-ai-terminal/settings/secrets/actions then re-run with \`open_substrate_pr: true\`,"
+              echo "or download the \`reserve-blocks-canon\` artifact and run locally:"
+              echo ""
+              echo '```bash'
+              echo "node scripts/open-substrate-canon-pr.mjs --prime --source=./canon/reserve-blocks"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
