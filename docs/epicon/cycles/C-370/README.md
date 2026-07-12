@@ -10,6 +10,13 @@
 | 1 | [`HANDOFF_C-370_Michael-to-ATLAS_opener.md`](./HANDOFF_C-370_Michael-to-ATLAS_opener.md) | Original custodian handoff (Michael → ATLAS), 20 optimizations + live telemetry; post-archive status update at top |
 | 2 | [`EPICON_C-370_GOVERNANCE_mic-issuance-ratification_v1.md`](./EPICON_C-370_GOVERNANCE_mic-issuance-ratification_v1.md) | Items 1–2 resolution — doctrine ratification + earnMIC gate ([PR #597](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/597)) |
 | 3 | [`HANDOFF_C-370_ATLAS-to-AUREA_remaining-items.md`](./HANDOFF_C-370_ATLAS-to-AUREA_remaining-items.md) | Items 3–20 continuation for AUREA ([PR #598](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/598)) |
+| — | [`OPERATOR_C-370_item-5_reserve-block-backlog-export.md`](./OPERATOR_C-370_item-5_reserve-block-backlog-export.md) | **Operator action** — item 5 backlog `.dat` export (config/ops, not code) |
+
+## Operator actions (no code change)
+
+| Item | Action | Doc |
+|------|--------|-----|
+| 5 | Prime reserve block cold canon (349+ `.dat` backlog) | [OPERATOR item 5](./OPERATOR_C-370_item-5_reserve-block-backlog-export.md) |
 
 ## Doctrine anchor
 
