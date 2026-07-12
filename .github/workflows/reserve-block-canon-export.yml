@@ -114,7 +114,7 @@ jobs:
             ARGS+=(--incremental)
           fi
           export CI=1
-          npx tsx scripts/canonize-reserve-blocks.ts "${ARGS[@]}"
+          ./node_modules/.bin/tsx scripts/canonize-reserve-blocks.ts "${ARGS[@]}"
 
       - name: Verify hash chain
         if: github.event.inputs.dry_run != 'true'

@@ -18,6 +18,7 @@ import { canonizeReserveBlocks } from '@/lib/dat/canonize';
 
 config({ path: '.env.local' });
 
+async function main(): Promise<void> {
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const skipCpc = args.includes('--skip-cpc');
@@ -76,3 +77,9 @@ if (!dryRun) {
 }
 
 process.exit(result.substrate_commit_ready ? 0 : 1);
+}
+
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
