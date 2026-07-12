@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adaptAgentJournalToLedger, type AgentLedgerAdapterPreview } from '@/lib/agents/ledger-adapter';
+import { adaptAgentJournalToLedger, type AgentLedgerAdapterPreview, type AgentLedgerJournalEntry } from '@/lib/agents/ledger-adapter';
 import { verifyWithZeus } from '@/lib/agents/zeus-verification';
+import { parseResponseJson } from '@/lib/http/safeJson';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -10,11 +11,32 @@ async function fetchJournal(request: NextRequest, limit: number) {
   url.searchParams.set('mode', 'merged');
   url.searchParams.set('limit', String(limit));
 
-  const response = await fetch(url, { cache: 'no-store' });
-  const payload = await response.json();
+  const invoker = request.headers.get('x-mobius-invoker') ?? 'ledger-zeus';
+  const response = await fetch(url, {
+    cache: 'no-store',
+    headers: { 'x-mobius-invoker': invoker },
+    signal: AbortSignal.timeout(10_000),
+  });
 
+  const parsed = await parseResponseJson<{ ok?: boolean; entries?: AgentLedgerJournalEntry[] }>(response);
+  if (!parsed.ok) {
+    console.warn('[ledger-zeus] journal fetch returned non-JSON', {
+      invoker,
+      status: parsed.status,
+      error: parsed.error,
+      contentType: parsed.contentType,
+      preview: parsed.bodyPreview,
+    });
+    return {
+      ok: false,
+      status: parsed.status,
+      entries: [] as AgentLedgerJournalEntry[],
+    };
+  }
+
+  const payload = parsed.data;
   return {
-    ok: response.ok && payload?.ok,
+    ok: response.ok && payload?.ok !== false,
     status: response.status,
     entries: Array.isArray(payload?.entries) ? payload.entries : [],
   };

@@ -2,18 +2,16 @@
  * Cron: POST /api/epicon/promote every night at 00:30 UTC.
  *
  * Vercel crons can only fire GET requests. This GET handler internally
- * fans out to POST /api/epicon/promote with { maxItems: 5 } so the
- * promotion engine runs on a schedule without requiring manual trigger.
+ * invokes the promote handler in-process (no HTTP round-trip) so auth
+ * material cannot diverge between SUBSTRATE_TOKEN and CRON_SECRET.
  *
  * Auth: getEveSynthesisAuthError — allows Vercel platform cron headers
  * to bypass Bearer check (same pattern as /api/eve/cycle-synthesize).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { log } from '@/lib/log';
-import { getEveSynthesisAuthError, serviceAuthorizationHeaderValue, normalizeServiceSecretMaterial } from '@/lib/security/serviceAuth';
-import { kvSet, kvGet } from '@/lib/kv/store';
-
-const PROMOTE_FAIL_KEY = 'watchdog:promote-fail-count';
+import { getEveSynthesisAuthError, normalizeServiceSecretMaterial } from '@/lib/security/serviceAuth';
+import { runEpiconPromoteCron } from '@/lib/cron/runEpiconPromote';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,82 +19,45 @@ export async function GET(request: NextRequest) {
   const authError = getEveSynthesisAuthError(request);
   if (authError) return authError;
 
-  const origin = request.nextUrl.origin;
-  // C-314 T-03: /api/epicon/promote compares normalized SUBSTRATE_TOKEN / CRON_SECRET material
-  // (see normalizeServiceSecretMaterial) so env may include optional Bearer prefix or quotes.
-  // /api/epicon/promote accepts either SUBSTRATE_TOKEN or CRON_SECRET — fast-fail only when
-  // neither is present, since both are valid auth paths for the promote endpoint (C-319).
   const substrateMat = normalizeServiceSecretMaterial(process.env.SUBSTRATE_TOKEN);
   const cronMat = normalizeServiceSecretMaterial(process.env.CRON_SECRET);
-  if (substrateMat === null && cronMat === null) {
-    console.error('[cron/promote] Neither SUBSTRATE_TOKEN nor CRON_SECRET configured — skipping promote run. Set at least one in Vercel env vars.');
-    return NextResponse.json({
-      ok: false,
-      error: 'NO_PROMOTE_AUTH_TOKEN',
-      hint: 'Set SUBSTRATE_TOKEN or CRON_SECRET in Vercel environment variables and redeploy',
-      timestamp: new Date().toISOString(),
-    });
-  }
-  const authHeader =
-    substrateMat !== null
-      ? `Bearer ${substrateMat}`
-      : cronMat !== null
-        ? `Bearer ${cronMat}`
-        : serviceAuthorizationHeaderValue();
+  const mobiusMat = normalizeServiceSecretMaterial(process.env.MOBIUS_SERVICE_SECRET);
 
-  if (!authHeader) {
-    console.warn(
-      '[promote] skipped: no SUBSTRATE_TOKEN, CRON_SECRET, or outbound service bearer — configure env to run scheduled promotion',
+  if (substrateMat === null && cronMat === null && mobiusMat === null) {
+    console.error(
+      '[cron/promote] No promote auth configured — set CRON_SECRET, MOBIUS_SERVICE_SECRET, or SUBSTRATE_TOKEN in Vercel env vars.',
     );
     return NextResponse.json({
       ok: false,
-      skipped: true,
-      reason: 'no_promote_auth_material',
+      error: 'NO_PROMOTE_AUTH_TOKEN',
+      hint: 'Set CRON_SECRET, MOBIUS_SERVICE_SECRET, or SUBSTRATE_TOKEN in Vercel environment variables and redeploy',
       timestamp: new Date().toISOString(),
     });
   }
 
   try {
-    // FIX-507-02: write heartbeat unconditionally so promotion-status never shows stale
-    // when the promote fetch times out or returns a transient non-OK (Render cold-start).
-    await kvSet('LAST_PROMOTION_RUN_AT', new Date().toISOString(), 7 * 24 * 3600).catch(() => {});
+    const origin = request.nextUrl.origin;
+    const { ok, status, body } = await runEpiconPromoteCron(origin, 35);
 
-    const res = await fetch(new URL('/api/epicon/promote', origin), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-internal-cron': '1',
-        ...(authHeader ? { Authorization: authHeader } : {}),
-      },
-      body: JSON.stringify({ maxItems: 35 }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(25_000),
-    });
-
-    const body = await res.json().catch(() => null);
-    if (!res.ok) {
-      // C-343: classify by status so the error stream isn't polluted every 5 minutes.
-      // Transient 5xx is expected Render cold-start (see heartbeat note above) → warn.
-      // 4xx (esp. 401/403) is a real auth/config fault that needs operator attention → error.
-      if (res.status >= 500) {
-        console.warn(`[promote] /api/epicon/promote transient ${res.status} (likely Render cold-start) — heartbeat already written, will retry next cycle`);
-      } else if (res.status === 401 || res.status === 403) {
-        console.error(`[promote] /api/epicon/promote returned ${res.status} — AGENT_SERVICE_TOKEN rejected at Identity /auth/introspect (SUBSTRATE_TOKEN is the internal cron secret, not the ledger JWT)`);
-        // C-332 OPT-3: never log token characters — log only length+presence.
-        const tokenLen = (authHeader ?? '').replace(/^Bearer /, '').length;
-        console.error(`[promote] ${res.status} received — token len=${tokenLen} present=${tokenLen > 0}`);
-        const failCount = ((await kvGet<number>(PROMOTE_FAIL_KEY)) ?? 0) + 1;
-        await kvSet(PROMOTE_FAIL_KEY, failCount, 86400).catch(() => {});
+    if (!ok) {
+      if (status >= 500) {
+        console.warn(
+          `[promote] epicon promote transient ${status} (likely Render cold-start) — heartbeat already written, will retry next cycle`,
+        );
+      } else if (status === 401 || status === 403) {
+        console.error(
+          `[promote] epicon promote returned ${status} — check CRON_SECRET / SUBSTRATE_TOKEN / MOBIUS_SERVICE_SECRET alignment`,
+          typeof body === 'object' && body !== null && 'hint' in body ? { hint: (body as { hint?: string }).hint } : {},
+        );
       } else {
-        console.error(`[promote] /api/epicon/promote returned ${res.status}`);
+        console.error(`[promote] epicon promote returned ${status}`);
       }
     } else {
-      log.info(`[promote] epicon promote ok @ ${process.env.CURRENT_CYCLE ?? 'C-305'}`);
-      await kvSet(PROMOTE_FAIL_KEY, 0, 86400).catch(() => {});
+      log.info(`[promote] epicon promote ok @ ${process.env.CURRENT_CYCLE ?? 'C-370'}`);
     }
 
     return NextResponse.json({
-      ok: res.ok,
+      ok,
       promotion: body,
       timestamp: new Date().toISOString(),
     });

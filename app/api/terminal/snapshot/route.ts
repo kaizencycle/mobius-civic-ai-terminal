@@ -94,8 +94,10 @@ function slowTimedHandler(
   return timedHandlerWith(SLOW_LANE_TIMEOUT_MS, request, handler);
 }
 
-function makeRequest(baseUrl: string, path: string): NextRequest {
-  return new NextRequest(new URL(path, baseUrl));
+function makeRequest(baseUrl: string, path: string, invoker = 'terminal/snapshot'): NextRequest {
+  return new NextRequest(new URL(path, baseUrl), {
+    headers: { 'x-mobius-invoker': invoker },
+  });
 }
 
 async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse> {
@@ -350,6 +352,9 @@ async function buildSnapshotResponse(request: NextRequest): Promise<NextResponse
     trustTripwireOk: Boolean(trustSnapshot),
     journalCount: journalEntries.length,
     agentCount: agentLiveness.length,
+    agentsLaneOk: agents.leaf.ok,
+    agentsLaneStatus: agents.leaf.status,
+    giSource: memoryMode?.gi_source ?? integrityData?.source ?? null,
     topGi,
     effectiveGi,
   });
