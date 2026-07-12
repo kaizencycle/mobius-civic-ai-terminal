@@ -16,7 +16,7 @@
 
 | Item | Action | Doc |
 |------|--------|-----|
-| 5 | Prime reserve block cold canon (349+ `.dat` backlog) | [OPERATOR item 5](./OPERATOR_C-370_item-5_reserve-block-backlog-export.md) |
+| 5 | Prime reserve block cold canon (349-block backlog → ~4 `.dat` files) | [OPERATOR item 5](./OPERATOR_C-370_item-5_reserve-block-backlog-export.md) |
 
 ## Doctrine anchor
 
