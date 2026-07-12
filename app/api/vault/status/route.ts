@@ -258,8 +258,14 @@ async function buildVaultStatus(req: NextRequest) {
   });
 }
 
+function vaultLogContext(req: NextRequest): string {
+  const invoker = req.headers.get('x-mobius-invoker');
+  return invoker ? `invoker=${invoker}` : `path=${req.nextUrl.pathname}`;
+}
+
 export async function GET(req: NextRequest) {
   const cors = handbookCorsHeaders(req.headers.get('origin'));
+  const logCtx = vaultLogContext(req);
   try {
     // C-354: top-level timeout — vault makes many KV reads (listAllSeals, getVaultDepositHashCoverage,
     // etc.) with no individual guards. On degraded KV these hang indefinitely, causing the vault
@@ -272,7 +278,10 @@ export async function GET(req: NextRequest) {
     ]);
   } catch (err) {
     const isTimeout = err instanceof Error && err.message === 'vault_status_timeout';
-    console.warn('[vault/status] ' + (isTimeout ? 'timed out after 6s' : 'error'), isTimeout ? '' : err);
+    console.warn(
+      `[vault/status] ${isTimeout ? 'timed out after 6s' : 'error'} (${logCtx})`,
+      isTimeout ? '' : err,
+    );
     // Return 503 so response.ok is false — callers (vault-context, snapshot timedHandler)
     // key off HTTP status to gate data usage, not body.ok. A 200 with ok:false body
     // caused them to treat null vault fields as readable data.

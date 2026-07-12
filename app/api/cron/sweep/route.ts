@@ -3,9 +3,8 @@
  * Schedule: every 10 minutes in `vercel.json`. Lighter `/api/cron/heartbeat` stays at 5m.
  */
 
-import type { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { log } from '@/lib/log';
-import { NextResponse } from 'next/server';
 import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
 import { runMicroSweepPipeline } from '@/lib/signals/runMicroSweep';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
@@ -15,7 +14,8 @@ import { updateSustainTrackingFromGi } from '@/lib/mic/sustainTracker';
 import { getMergedMicReadiness } from '@/lib/mic/assembleMicReadiness';
 import { persistLocalMicReadinessSnapshot } from '@/lib/mic/persistReadinessKv';
 import { kvGet, kvSet, kvDel, KV_KEYS } from '@/lib/kv/store';
-import { recordDisputeEvent } from '@/lib/epicon/disputeEvent';
+import { parseResponseJson } from '@/lib/http/safeJson';
+import { GET as getLedgerZeus } from '@/app/api/agents/ledger-zeus/route';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,18 +24,31 @@ type ZeusSweepResult = 'pass' | 'fail' | 'inconclusive';
 
 async function runZeusVerificationSweep(origin: string): Promise<ZeusSweepResult> {
   try {
-    const res = await fetch(`${origin}/api/agents/ledger-zeus?limit=50`, {
+    const request = new Request(new URL('/api/agents/ledger-zeus?limit=50', origin), {
       cache: 'no-store',
       signal: AbortSignal.timeout(12_000),
+      headers: { 'x-mobius-invoker': 'cron/sweep' },
     });
-    if (!res.ok) {
-      console.warn(`[cron/sweep] ZEUS verification probe non-OK: ${res.status} — ${res.status >= 500 ? 'CPC/substrate upstream error' : 'auth or routing issue; check AGENT_SERVICE_TOKEN'}`);
+    const response = await getLedgerZeus(new NextRequest(request));
+    if (!response.ok) {
+      console.warn(
+        `[cron/sweep] ZEUS verification probe non-OK: ${response.status} — ${response.status >= 500 ? 'CPC/substrate upstream error' : 'journal or routing issue'}`,
+      );
       return 'inconclusive';
     }
-    const body = (await res.json()) as {
+    const parsed = await parseResponseJson<{
       evaluated?: Array<{ zeus?: { zeus_verified?: boolean } }>;
-    };
-    const ev = body.evaluated;
+    }>(response);
+    if (!parsed.ok) {
+      console.warn('[cron/sweep] ZEUS verification parse failed — inconclusive', {
+        error: parsed.error,
+        contentType: parsed.contentType,
+        status: parsed.status,
+        preview: parsed.bodyPreview,
+      });
+      return 'inconclusive';
+    }
+    const ev = parsed.data.evaluated;
     if (!Array.isArray(ev) || ev.length === 0) {
       return 'inconclusive';
     }

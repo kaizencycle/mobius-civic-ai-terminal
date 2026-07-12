@@ -17,7 +17,7 @@ import {
 } from '@/lib/epicon/promotion';
 import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
 import { getAgentBearerToken, writeToSubstrate } from '@/lib/substrate/client';
-import { normalizeServiceSecretMaterial } from '@/lib/security/serviceAuth';
+import { getEpiconPromoteAuthError } from '@/lib/security/epiconPromoteAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -611,33 +611,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  // FIX-02: validate bearer token when SUBSTRATE_TOKEN is configured.
-  // Accepts SUBSTRATE_TOKEN OR CRON_SECRET so existing internal callers
-  // (cron/promote, watchdog) that use serviceAuthorizationHeaderValue() continue
-  // to work without requiring all callers to be updated simultaneously.
-  const substrateToken = process.env.SUBSTRATE_TOKEN?.trim();
-  const cronSecret = process.env.CRON_SECRET?.trim();
-  if (substrateToken || cronSecret) {
-    const authHeader = request.headers.get('authorization') ?? '';
-    const bearerMat = normalizeServiceSecretMaterial(
-      authHeader.length > 0 ? authHeader : undefined,
-    );
-    const substrateMat = normalizeServiceSecretMaterial(substrateToken);
-    const cronMat = normalizeServiceSecretMaterial(cronSecret);
-    const isValid =
-      Boolean(bearerMat) &&
-      ((Boolean(substrateMat) && bearerMat === substrateMat) ||
-        (Boolean(cronMat) && bearerMat === cronMat));
-    if (!isValid) {
-      const hint = !bearerMat
-        ? 'caller sent no Authorization header — set SUBSTRATE_TOKEN or CRON_SECRET in caller env'
-        : 'token mismatch — verify SUBSTRATE_TOKEN/CRON_SECRET matches across all callers';
-      console.error('[epicon/promote] auth failed', { hint });
-      return NextResponse.json(
-        { error: 'invalid_token', hint },
-        { status: 401 },
-      );
-    }
+  const authError = getEpiconPromoteAuthError(request);
+  if (authError) {
+    console.error('[epicon/promote] auth failed');
+    return authError;
   }
 
   const body = (await request.json().catch(() => ({}))) as { maxItems?: number };
