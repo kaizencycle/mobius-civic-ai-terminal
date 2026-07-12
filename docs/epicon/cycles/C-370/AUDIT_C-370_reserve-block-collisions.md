@@ -7,6 +7,19 @@
 
 ---
 
+## Codex review (PR #380, 2026-07-12)
+
+Codex P2 suggested re-exporting to reach ~350 blocks. **Disagree with re-export** —
+see Substrate `docs/epicon/cycles/C-368/C368-PR7_prime-count-clarification.md`.
+
+Summary: `313` attested seal **records** ≠ `194` unique **`block_number`** chain slots.
+The ~350 runbook figure counted raw `seals_count`; MOBIUS01 canon requires one line per
+unique `block_number`. Re-export yields the same 194 unless KV collisions are resolved first.
+
+**Merge gate:** confirm `hash_divergent_collisions === 0` via audit script before merge.
+
+---
+
 ## Summary
 
 The first full prime export (`reserve-block-canon-export.yml`, `incremental: false`) surfaced
