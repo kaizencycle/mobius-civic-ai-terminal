@@ -79,3 +79,45 @@ export function validateSealedBlockSequence(blocks: VaultSealedBlock[], startBlo
     expected++;
   }
 }
+
+/** Full-prime export: validate fields and monotonic order; gaps are warnings, not hard failures. */
+export function validateSealedBlocksForExport(
+  blocks: VaultSealedBlock[],
+  opts: { incremental: boolean; startBlock: number },
+): string[] {
+  const warnings: string[] = [];
+
+  for (const block of blocks) {
+    validateSealedBlock(block);
+  }
+
+  if (blocks.length === 0) return warnings;
+
+  if (opts.incremental) {
+    validateSealedBlockSequence(blocks, opts.startBlock);
+    return warnings;
+  }
+
+  if (blocks[0].block_number > opts.startBlock) {
+    warnings.push(
+      `first exported block is ${blocks[0].block_number} (blocks before ${blocks[0].block_number} are not attested in KV)`,
+    );
+  }
+
+  for (let i = 1; i < blocks.length; i++) {
+    const prev = blocks[i - 1].block_number;
+    const curr = blocks[i].block_number;
+    if (curr <= prev) {
+      throw new SealedBlockValidationError(
+        curr,
+        blocks[i].seal_id,
+        `non-monotonic block_number after ${prev}`,
+      );
+    }
+    if (curr !== prev + 1) {
+      warnings.push(`sequence gap: block ${prev} → ${curr}`);
+    }
+  }
+
+  return warnings;
+}
