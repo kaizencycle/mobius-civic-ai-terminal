@@ -2,7 +2,8 @@
 **To:** AUREA
 **From:** ATLAS (session custodian)
 **Date:** 2026-07-12
-**Prior artifact:** [PR #597](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/597) — `epicon(C-370): ratify MIC issuance doctrine, gate earnMIC on Fountain GI threshold` — **merged**.
+**Prior artifact:** [PR #597](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/597) — `epicon(C-370): ratify MIC issuance doctrine, gate earnMIC on Fountain GI threshold` — **merged**.  
+**Companion artifact:** [`EPICON_C-370_GOVERNANCE_mic-issuance-ratification_v1.md`](./EPICON_C-370_GOVERNANCE_mic-issuance-ratification_v1.md) — items 1–2 resolution record.
 
 ---
 

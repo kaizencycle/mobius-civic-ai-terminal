@@ -92,6 +92,8 @@ The C-370 handoff listed ~20 optimizations beyond the mint-doctrine fix. Per exp
 - CI git exit-128 re-verification, GII threshold alignment confirmation, HIVE write-back loop, MII sentinel re-audit, Upstash cron cadence re-check, cross-repo EPICON Guard re-audit.
 - Seal-quorum attestation from ATLAS/ZEUS/EVE/JADE/AUREA on this fix.
 
+**Continued handoff (items 3–20, full status notes):** [`HANDOFF_C-370_ATLAS-to-AUREA_remaining-items.md`](./HANDOFF_C-370_ATLAS-to-AUREA_remaining-items.md) — PR [#598](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/598).
+
 ## Integrity Notes
 
 - **MII impact:** Positive — closes a confirmed doctrine/runtime contradiction and removes two instances of fabricated live-diagnostic text.
