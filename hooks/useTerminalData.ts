@@ -40,6 +40,12 @@ import type { StreamStatus } from '@/components/terminal/TopStatusBar';
 import type { MobiusCivicIntegritySignal } from '@/lib/integrity-signal';
 import type { TerminalBootstrapSnapshot } from '@/lib/terminal/bootstrap-types';
 
+// MIC Issuance Protocol v1 (docs/protocols/mic/mic_issuance_protocol.md):
+// reward accounting (totalMicProvisional) runs continuously, but mint
+// authorization is gated on the Fountain integrity threshold. Below this,
+// provisional value stays provisional — it must not become spendable balance.
+const FOUNTAIN_MINT_GI_THRESHOLD = 0.95;
+
 const CATEGORY_MAP: Partial<Record<NavKey, EpiconItem['category']>> = {
   markets: 'market',
   geopolitics: 'geopolitical',
@@ -281,14 +287,19 @@ export function useTerminalData(selectedNav: NavKey, initialData?: TerminalBoots
     if (micProv <= 0) return;
     if (lastMintedCycleRef.current === echoIntegrity.cycleId) return;
 
+    // Fountain gate: do not mint until GI proves the threshold. Leave the
+    // ref unset so this cycle is retried on the next poll if GI recovers.
+    if ((gi?.score ?? 0) < FOUNTAIN_MINT_GI_THRESHOLD) return;
+
     lastMintedCycleRef.current = echoIntegrity.cycleId;
     earnMIC('echo_integrity_mint', micProv, {
       cycleId: echoIntegrity.cycleId,
       avgMii: echoIntegrity.avgMii,
       eventCount: echoIntegrity.eventCount,
       totalGiDelta: echoIntegrity.totalGiDelta,
+      giAtMint: gi?.score ?? null,
     });
-  }, [echoIntegrity, earnMIC]);
+  }, [echoIntegrity, earnMIC, gi]);
 
   const filteredEpicon = useMemo(
     () => (CATEGORY_MAP[selectedNav] ? epicon.filter((item) => item.category === CATEGORY_MAP[selectedNav]) : epicon),
