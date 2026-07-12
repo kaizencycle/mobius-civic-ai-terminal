@@ -1,22 +1,64 @@
 {
-  "schema": "MOBIUS_CYCLE_STATE_V1",
+  "schema": "MOBIUS_CYCLE_STATE_V2",
   "node_id": "mobius-terminal",
-  "source": "snapshot-lite",
+  "source": "snapshot-lite+vault+manifest",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
   "cycle": "C-370",
-  "fetched_at": "2026-07-12T21:24:31.661Z",
-  "gi": 0.81,
-  "mode": "green",
+  "as_of": "2026-07-12T22:21:46.332Z",
+  "fetched_at": "2026-07-12T22:21:46.406Z",
+  "gi": 0.75,
+  "mode": "yellow",
   "degraded": true,
   "gi_provenance": "live-compute",
   "gi_verified": true,
+  "gi_readings": {
+    "snapshot_lite": {
+      "value": 0.75,
+      "field": "gi",
+      "source": "snapshot-lite"
+    },
+    "memory_mode": null,
+    "vault_dashboard": null
+  },
   "memory_mode": null,
   "deployment": {
     "commit_sha": "0c800d268da28c9b2615d86a4e0c6386b293e1c7",
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 11,
+    "total_ms": 27,
     "lane_ms": null
-  }
+  },
+  "counting_rules": {
+    "seals_raw": "Attested seal records in KV index (reserve_blocks_sealed / seals_count). May include duplicate block_number eras.",
+    "seals_unique_block_number": "Distinct block_number chain slots — cold canon unit of account. Requires KV collision audit; not computed in public workflow.",
+    "gap_raw_vs_cold": "seals_raw minus manifest.total_blocks — upper-bound gap; true append gap uses deduped unique count."
+  },
+  "hot": null,
+  "cold": {
+    "manifest_blocks": 194,
+    "manifest_mic": 9700,
+    "chain_tip_hash": "sha256:2ccc5e411828b32927bd53842558dd8202b9395955668f75237b107539d25baa",
+    "manifest_url": "https://raw.githubusercontent.com/kaizencycle/Mobius-Substrate/main/canon/reserve-blocks/MANIFEST.json",
+    "gap_raw_vs_cold": null,
+    "source": "Mobius-Substrate/canon/reserve-blocks/MANIFEST.json"
+  },
+  "repos": {
+    "terminal": {
+      "sha": "0c800d268da28c9b2615d86a4e0c6386b293e1c7",
+      "branch": "main",
+      "source": "snapshot-lite.deployment"
+    },
+    "substrate": {
+      "sha": null,
+      "branch": "main",
+      "manifest_ref": "https://raw.githubusercontent.com/kaizencycle/Mobius-Substrate/main/canon/reserve-blocks/MANIFEST.json",
+      "manifest_generated_at": "2026-07-12T18:50:08.462Z",
+      "source": "manifest"
+    }
+  },
+  "open_gates": [
+    "vault_fetch_failed",
+    "terminal_degraded"
+  ]
 }
