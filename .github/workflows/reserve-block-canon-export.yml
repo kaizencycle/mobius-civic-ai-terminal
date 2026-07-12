@@ -197,7 +197,11 @@ jobs:
               echo "or download the \`reserve-blocks-canon\` artifact and run locally:"
               echo ""
               echo '```bash'
-              echo "node scripts/open-substrate-canon-pr.mjs --prime --source=./canon/reserve-blocks"
+              if [ "${{ github.event.inputs.incremental || 'true' }}" = "false" ]; then
+                echo "node scripts/open-substrate-canon-pr.mjs --prime --source=./canon/reserve-blocks"
+              else
+                echo "node scripts/open-substrate-canon-pr.mjs --source=./canon/reserve-blocks"
+              fi
               echo '```'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
