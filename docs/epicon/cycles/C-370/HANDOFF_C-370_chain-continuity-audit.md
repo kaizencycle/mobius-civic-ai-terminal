@@ -7,6 +7,8 @@
 **Severity:** HIGH — chain-continuity question, not a count/dedup question  
 **Status:** OPEN — investigation required; not independently verified against raw KV at filing time
 
+**Custodian response:** [`NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md`](./NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md) — accepts scope correction; holds until KV audit JSON.
+
 ---
 
 ## EPICON Intent

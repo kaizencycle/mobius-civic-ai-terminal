@@ -12,6 +12,7 @@
 | 3 | [`HANDOFF_C-370_ATLAS-to-AUREA_remaining-items.md`](./HANDOFF_C-370_ATLAS-to-AUREA_remaining-items.md) | Items 3–20 continuation for AUREA ([PR #598](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/598)) |
 | — | [`OPERATOR_C-370_item-5_reserve-block-backlog-export.md`](./OPERATOR_C-370_item-5_reserve-block-backlog-export.md) | **Operator action** — item 5 backlog `.dat` export (config/ops, not code) |
 | — | [`HANDOFF_C-370_chain-continuity-audit.md`](./HANDOFF_C-370_chain-continuity-audit.md) | **HIGH** — hot KV `prev_seal_hash` lineage vs cold export chain; investigation open |
+| — | [`NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md`](./NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md) | Custodian ack — scope correction accepted; HOLD until KV audit JSON |
 
 ## Operator actions (no code change)
 
