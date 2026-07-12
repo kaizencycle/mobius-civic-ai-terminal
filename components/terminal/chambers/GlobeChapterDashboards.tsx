@@ -247,7 +247,7 @@ export default function GlobeChapterDashboards(props: {
               <div className="space-y-1">
                 <p className="text-[10px] text-slate-500">No seismic EPICON events in current sweep.</p>
                 <p className="font-mono text-[9px] text-slate-600">
-                  Sweep {new Date().toISOString().slice(0, 10)} · ZEUS: EPICON feed empty, ECHO ingest blocked by journal lock
+                  Sweep {new Date().toISOString().slice(0, 10)} · empty result — check ZEUS verification catalog for cause, do not assume ingest failure.
                 </p>
               </div>
             ) : (
