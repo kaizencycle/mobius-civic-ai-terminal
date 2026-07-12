@@ -66,9 +66,10 @@ export async function fetchReserveCanonIntegrity(options?: {
     issues.push(`unique_count_mismatch:fetch=${uniqueFromFetch},analyze=${collisionReport.unique_block_count}`);
   }
 
-  const expectedCold = collisionReport.unique_block_count;
-  if (gap.manifest_present && gap.canonized_cold !== expectedCold && gap.gap === 0) {
-    issues.push(`cold_manifest_count_mismatch:manifest=${gap.canonized_cold},unique=${expectedCold}`);
+  if (gap.manifest_present && gap.canonized_cold > sealedHotUnique) {
+    issues.push(
+      `cold_manifest_overcount:manifest=${gap.canonized_cold},unique=${sealedHotUnique}`,
+    );
   }
 
   return {
