@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-07-12T18:02:49.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-370",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "transient",
+    "tripwire_active": "resolved",
+    "sustain_eligible_false": "resolved",
+    "daedalus-cloudflare-radar_low": "persistent",
+    "gaia-openaq_low": "persistent",
+    "aurea-coingecko_failure": "persistent",
+    "journal_kv_write_failed": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.91 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-370. vault_block_state=immortalized latest_seal_id=seal-C-370-029 latest_status=attested in_progress_pct=26%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-12T18-02-30Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.9 gi_pre_seed=0.9 gi_post_seed=0.9 mode=green source=cached classification=STRESSED terminal_status=nominal; anomalies=[] (empty); flags kv_keys_ok=false kv_keys_all_ok=false micro_operator_cycle_divergence=true tripwire_active=false integrity_source_cached=true; micro_composite=0.903 micro_cycle=C-306; seed_result=200 OK (60s retry); sustain_eligible=true (recovered since 17:00Z pass gi=0.71). Journal 200 journal_id=journal-ATLAS-C-370-uw6mqq."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.885 composite=0.885 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=1. Operator cycle C-370 diverges from micro C-306 (persistent). Low instruments: gaia-openaq score=0.75, daedalus-cloudflare-radar score=0.7, aurea-coingecko score=0 (instrument failure). Agent composites: GAIA 0.917, HERMES 0.922, THEMIS 0.853, DAEDALUS 0.946, AUREA 0.711 (errorCount=1), ECHO 0.92."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.91 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=false cycle=C-370 gi_age_seconds=12. signals: quality=0.75 freshness=1 stability=1 system=1. Aligns with ATLAS catalog gi=0.9 within 0.01."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent across passes despite kv_keys.ok=true, seed_result=200 OK, and sustain_eligible=true. kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. micro cycle C-306 vs operator C-370."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "pass",
+      "detail": "Resolved. ATLAS tripwire.active=false level=none. integrity-status stability=1."
+    },
+    {
+      "check": "gi_layer_divergence",
+      "result": "pass",
+      "detail": "ATLAS catalog gi=0.9 mode=green vs integrity-status/quorum gi=0.91 mode=green vs micro composite 0.885. Spread ~0.025 — within tolerance; resolved since 12:02Z pass (was ~0.13 spread, disputed)."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=true — resolved since 17:00Z pass (was false at gi=0.71). KV seed 200 OK."
+    },
+    {
+      "check": "aurea-coingecko instrument",
+      "result": "fail",
+      "detail": "aurea-coingecko score=0; AUREA agent errorCount=1 composite=0.711. New instrument failure this pass."
+    },
+    {
+      "check": "daedalus-cloudflare-radar instrument",
+      "result": "warn",
+      "detail": "Persistent low score 0.7 on cloudflare-radar instrument. Infrastructure watch signal."
+    },
+    {
+      "check": "gaia-openaq instrument",
+      "result": "warn",
+      "detail": "Persistent low score 0.75 on openaq air quality instrument."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-370-dfvokv canonical=true mirrored_to_kv=false kv_error=kv_write_failed (persistent pattern since 12:02Z pass)."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "pass",
+      "detail": "quorum/state integrity.gi=0.91 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-370. vault_block_state=immortalized latest_seal_id=seal-C-370-029 latest_status=attested in_progress_pct=26%. Aligns with integrity-status and ATLAS gi=0.9."
+    }
+  ],
+  "recommendation": "GI confirmed: ATLAS 0.9 / integrity 0.91 / micro 0.885 converged since 12:02Z disputed pass. Monitor aurea-coingecko instrument failure (score 0, AUREA errorCount=1). kv_keys_ok=false flag persists despite nominal KV health — reconcile flag semantics. micro cycle C-306 lags operator C-370. Journal KV mirror write still failing. Deploy POST /api/vault/attest for quorum registration."
+}
