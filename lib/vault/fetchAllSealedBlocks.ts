@@ -70,10 +70,18 @@ async function fetchViaKv(opts: {
     console.log(`[fetchAllSealedBlocks] KV: ${attestedOnly.length} attested seals`);
   }
 
-  const blocks = attestedOnly
+  const mapped = attestedOnly
     .map(sealToVaultBlock)
     .filter((b) => b.block_number >= fromBlock && b.block_number <= toBlock)
     .sort((a, b) => a.block_number - b.block_number);
+
+  const blocks = dedupeBlocksByNumber(mapped, verbose);
+
+  if (verbose && blocks.length !== mapped.length) {
+    console.log(
+      `[fetchAllSealedBlocks] deduped ${mapped.length - blocks.length} duplicate block_number(s) → ${blocks.length} unique`,
+    );
+  }
 
   const gaps = findGaps(blocks.map((b) => b.block_number), fromBlock);
 
@@ -136,11 +144,17 @@ async function fetchViaApi(opts: {
   }
 
   blocks.sort((a, b) => a.block_number - b.block_number);
-  const gaps = findGaps(blocks.map((b) => b.block_number), fromBlock);
+  const deduped = dedupeBlocksByNumber(blocks, verbose);
+  if (verbose && deduped.length !== blocks.length) {
+    console.log(
+      `[fetchAllSealedBlocks] deduped ${blocks.length - deduped.length} duplicate block_number(s) → ${deduped.length} unique`,
+    );
+  }
+  const gaps = findGaps(deduped.map((b) => b.block_number), fromBlock);
 
   return {
-    blocks,
-    total_found: blocks.length,
+    blocks: deduped,
+    total_found: deduped.length,
     source: 'api',
     gaps,
     errors,
@@ -156,6 +170,35 @@ function findGaps(sortedNumbers: number[], expectedStart: number): number[] {
     if (!set.has(i)) gaps.push(i);
   }
   return gaps;
+}
+
+function pickPreferredBlock(a: VaultSealedBlock, b: VaultSealedBlock): VaultSealedBlock {
+  const aQuorum = a.quorum?.length ?? 0;
+  const bQuorum = b.quorum?.length ?? 0;
+  if (bQuorum !== aQuorum) return bQuorum > aQuorum ? b : a;
+  if (b.sealed_at !== a.sealed_at) return b.sealed_at > a.sealed_at ? b : a;
+  return b.seal_id > a.seal_id ? b : a;
+}
+
+/** KV can hold multiple attested seals for the same sequence (re-seal / back-attest). */
+function dedupeBlocksByNumber(blocks: VaultSealedBlock[], verbose: boolean): VaultSealedBlock[] {
+  const byNumber = new Map<number, VaultSealedBlock>();
+  for (const block of blocks) {
+    const existing = byNumber.get(block.block_number);
+    if (!existing) {
+      byNumber.set(block.block_number, block);
+      continue;
+    }
+    const kept = pickPreferredBlock(existing, block);
+    const dropped = kept === existing ? block : existing;
+    if (verbose) {
+      console.warn(
+        `[fetchAllSealedBlocks] duplicate block_number ${block.block_number}: kept ${kept.seal_id}, dropped ${dropped.seal_id}`,
+      );
+    }
+    byNumber.set(block.block_number, kept);
+  }
+  return [...byNumber.values()].sort((a, b) => a.block_number - b.block_number);
 }
 
 /** Export seals for API route (reuses same filter logic). */
