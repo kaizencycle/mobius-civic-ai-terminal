@@ -81,11 +81,12 @@ export default function SentinelChamber() {
           </div>
         </div>
 
-        {/* OPT-03: ZEUS disputed root causes — surfaces system failures confirmed in C-324 */}
+        {/* OPT-03: known failure modes confirmed in C-324. Historical reference only —
+            not re-derived from the live dispute, so do not present as its root cause. */}
         {disputeActive && (
           <div className="rounded border border-red-800/60 mt-1">
             <div className="px-3 py-2 bg-red-950/40 border-b border-red-800/40 text-[10px] text-red-400 font-bold tracking-widest">
-              ZEUS DISPUTE ROOT CAUSES
+              KNOWN FAILURE MODES (C-324 reference, not live-diagnosed)
             </div>
             {([
               {

@@ -1,8 +1,8 @@
 # MIC Issuance Protocol v1
 
-**Status:** Proposed canonical **runtime-facing** spec for the civic stack.  
+**Status:** Ratified canonical **runtime-facing** spec for the civic stack.  
 **Repo:** `mobius-civic-ai-terminal` (Terminal + protocol docs); ledger/MIC wallet services may live on Render or in **Mobius-Substrate**.  
-**Cycle:** C-285 draft
+**Cycle:** C-285 draft, ratified C-370 (see `docs/epicon/cycles/C-370/`)
 
 ---
 
