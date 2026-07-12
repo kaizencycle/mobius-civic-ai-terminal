@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adaptAgentJournalToLedger, type AgentLedgerAdapterPreview } from '@/lib/agents/ledger-adapter';
+import { adaptAgentJournalToLedger, type AgentLedgerAdapterPreview, type AgentLedgerJournalEntry } from '@/lib/agents/ledger-adapter';
 import { verifyWithZeus } from '@/lib/agents/zeus-verification';
 import { parseResponseJson } from '@/lib/http/safeJson';
 
@@ -18,7 +18,7 @@ async function fetchJournal(request: NextRequest, limit: number) {
     signal: AbortSignal.timeout(10_000),
   });
 
-  const parsed = await parseResponseJson<{ ok?: boolean; entries?: unknown[] }>(response);
+  const parsed = await parseResponseJson<{ ok?: boolean; entries?: AgentLedgerJournalEntry[] }>(response);
   if (!parsed.ok) {
     console.warn('[ledger-zeus] journal fetch returned non-JSON', {
       invoker,
@@ -30,7 +30,7 @@ async function fetchJournal(request: NextRequest, limit: number) {
     return {
       ok: false,
       status: parsed.status,
-      entries: [] as unknown[],
+      entries: [] as AgentLedgerJournalEntry[],
     };
   }
 

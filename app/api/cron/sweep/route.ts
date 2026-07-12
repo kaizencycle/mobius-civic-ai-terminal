@@ -14,6 +14,7 @@ import { updateSustainTrackingFromGi } from '@/lib/mic/sustainTracker';
 import { getMergedMicReadiness } from '@/lib/mic/assembleMicReadiness';
 import { persistLocalMicReadinessSnapshot } from '@/lib/mic/persistReadinessKv';
 import { kvGet, kvSet, kvDel, KV_KEYS } from '@/lib/kv/store';
+import { recordDisputeEvent } from '@/lib/epicon/disputeEvent';
 import { parseResponseJson } from '@/lib/http/safeJson';
 import { GET as getLedgerZeus } from '@/app/api/agents/ledger-zeus/route';
 
@@ -128,7 +129,7 @@ async function run(req: NextRequest) {
         zeus_raw: zeusRaw,
         zeus_resolved: zeusResolved,
         prior_verdict: priorVerdict,
-      }).catch((e) => console.warn('[cron/sweep] dispute record failed:', e));
+      }).catch((e: unknown) => console.warn('[cron/sweep] dispute record failed:', e));
     }
 
     // Fix 2: restore missing CURRENT_CYCLE KV key so kvHealth shows it as present
