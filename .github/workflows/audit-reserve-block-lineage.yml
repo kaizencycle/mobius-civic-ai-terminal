@@ -1,0 +1,135 @@
+# C-370 — Reserve Block lineage + collision audit (production KV)
+# Authority: EPICON_C-370_CANON_chain-continuity-audit_v1
+#
+# Manual workflow_dispatch only. Reads production Upstash KV via the same
+# secrets as reserve-block-canon-export.yml — no credentials in chat.
+#
+# Required secrets:
+#   KV_REST_API_URL, KV_REST_API_TOKEN
+#
+# Outputs (workflow artifacts, 30-day retention):
+#   lineage-audit.json   — multiple_lineages, components, reattest_clusters
+#   collision-audit.json — block_number collisions, hash_divergent_collisions
+
+name: Audit Reserve Block Lineage
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-reserve-block-lineage
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout terminal
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Preflight KV secrets
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -z "${KV_REST_API_URL:-}" ] && missing+=("KV_REST_API_URL")
+          [ -z "${KV_REST_API_TOKEN:-}" ] && missing+=("KV_REST_API_TOKEN")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            echo "Configure at https://github.com/kaizencycle/mobius-civic-ai-terminal/settings/secrets/actions"
+            exit 1
+          fi
+
+      - name: Run lineage + collision audits
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p ./audit-output
+          export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          export KV_REST_API_TOKEN="$(printf '%s' "$KV_REST_API_TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -f CURRENT_CYCLE.md ]; then
+            export OPERATOR_CYCLE="$(grep -m1 '^\*\*Cycle:\*\*' CURRENT_CYCLE.md | sed -n 's/.*\(C-[0-9][0-9]*\).*/\1/p')"
+          fi
+          ./node_modules/.bin/tsx scripts/audit-seal-hash-lineage.ts --json | tee ./audit-output/lineage-audit.json
+          ./node_modules/.bin/tsx scripts/audit-reserve-block-collisions.ts --json | tee ./audit-output/collision-audit.json
+
+      - name: Summarize key fields
+        if: always()
+        run: |
+          {
+            echo "## Reserve Block Lineage Audit (C-370)"
+            echo ""
+            if [ -f audit-output/lineage-audit.json ]; then
+              python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("audit-output/lineage-audit.json")
+          try:
+              d = json.loads(p.read_text())
+          except Exception as e:
+              print(f"_Failed to parse lineage JSON: {e}_")
+          else:
+              print(f"- **multiple_lineages:** `{d.get('multiple_lineages')}`")
+              print(f"- attested_count: {d.get('attested_count')}")
+              print(f"- lineage_components: {len(d.get('components', []))}")
+              print(f"- genesis_count: {d.get('genesis_count')}")
+              print(f"- link_issues: {len(d.get('link_issues', []))}")
+              clusters = d.get('reattest_clusters', [])
+              print(f"- reattest_clusters: {len(clusters)}")
+              for c in clusters[:3]:
+                  print(f"  - {c.get('attested_at_hour')}: {c.get('seal_count')} seals, seq {c.get('sequence_range')}")
+          PY
+            else
+              echo "_No lineage-audit.json produced_"
+            fi
+            echo ""
+            if [ -f audit-output/collision-audit.json ]; then
+              python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("audit-output/collision-audit.json")
+          try:
+              d = json.loads(p.read_text())
+          except Exception as e:
+              print(f"_Failed to parse collision JSON: {e}_")
+          else:
+              print(f"- raw_attested_count: {d.get('raw_attested_count')}")
+              print(f"- unique_block_count: {d.get('unique_block_count')}")
+              print(f"- collision_count: {d.get('collision_count')}")
+              print(f"- **hash_divergent_collisions:** `{d.get('hash_divergent_collisions')}`")
+          PY
+            else
+              echo "_No collision-audit.json produced_"
+            fi
+            echo ""
+            echo "Download **reserve-block-audit** artifact and paste JSON (not creds) into the C-370 thread."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload audit artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reserve-block-audit
+          path: audit-output/
+          retention-days: 30

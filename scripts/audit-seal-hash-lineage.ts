@@ -6,7 +6,8 @@
  *   npx tsx scripts/audit-seal-hash-lineage.ts
  *   npx tsx scripts/audit-seal-hash-lineage.ts --json
  *
- * Requires KV_REST_API_URL + KV_REST_API_TOKEN in .env.local (production creds).
+ * Requires KV_REST_API_URL + KV_REST_API_TOKEN (local .env.local or GitHub Actions:
+ *   workflow audit-reserve-block-lineage.yml).
  */
 
 import { config } from 'dotenv';

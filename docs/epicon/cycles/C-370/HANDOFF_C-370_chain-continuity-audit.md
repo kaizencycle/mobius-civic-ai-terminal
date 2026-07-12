@@ -153,6 +153,15 @@ Per Canon law: *"No rollback without proof, operator consent, and preserved inci
 
 ## Operator commands
 
+### Option A — GitHub Actions (recommended; no creds in chat)
+
+1. Open [Actions → Audit Reserve Block Lineage](https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/workflows/audit-reserve-block-lineage.yml)
+2. **Run workflow** (workflow_dispatch; uses existing `KV_REST_API_URL` / `KV_REST_API_TOKEN` secrets)
+3. Download the **reserve-block-audit** artifact (`lineage-audit.json`, `collision-audit.json`)
+4. Paste **JSON only** into the C-370 thread — check `multiple_lineages` and `reattest_clusters` in the job summary
+
+### Option B — Local (Michael machine)
+
 ```bash
 cd mobius-civic-ai-terminal
 # KV_REST_API_URL + KV_REST_API_TOKEN in .env.local (production)

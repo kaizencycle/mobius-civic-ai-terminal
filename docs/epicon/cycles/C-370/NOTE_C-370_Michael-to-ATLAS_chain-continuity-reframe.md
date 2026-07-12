@@ -21,6 +21,8 @@ npx tsx scripts/audit-seal-hash-lineage.ts --json
 npx tsx scripts/audit-reserve-block-collisions.ts --json
 ```
 
+Or trigger **Actions → Audit Reserve Block Lineage** (workflow_dispatch) and download the `reserve-block-audit` artifact — same secrets as canon export, no creds in chat.
+
 **Watch bits:**
 
 | Field | If true | If false |
