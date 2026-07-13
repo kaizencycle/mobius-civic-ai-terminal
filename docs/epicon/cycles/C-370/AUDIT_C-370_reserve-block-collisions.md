@@ -58,7 +58,7 @@ Dedupe preference order (same as export): **quorum count → `sealed_at` → `se
 | Raw attested seals | 313 |
 | Unique `block_number` | 194 |
 | Collision pairs | 119 |
-| Hash-divergent pairs | _run audit script to confirm_ |
+| Hash-divergent pairs | **119** (confirmed 2026-07-13 via GitHub Actions KV audit) |
 
 Example collisions from export logs (same `block_number`, different `cycle_at_seal`):
 
@@ -69,9 +69,9 @@ Most likely cause: **parallel chain eras / migration artifacts** in KV from pre-
 pipeline work — not ongoing double-sealing. Live `formCandidate()` assigns monotonic
 `sequence = prevSeal.sequence + 1`, and `appendSealToChain()` does not enforce uniqueness.
 
-**Action:** Run `audit-reserve-block-collisions.ts` against production KV and attach
-`COLLISION_AUDIT_C370.json` to this cycle record. If `hash_divergent_collisions > 0`,
-treat as P0 — two different payloads share the same block number.
+**Action:** Confirmed via GitHub Actions `audit-reserve-block-lineage.yml` on 2026-07-13.
+`hash_divergent_collisions: 119` — **P0**. Every collision pair has `kept_quorum: 5` and
+`dropped_quorum: 5`. See [`FINDINGS_C-370_chain-continuity-kv-audit.md`](./FINDINGS_C-370_chain-continuity-kv-audit.md).
 
 ---
 
