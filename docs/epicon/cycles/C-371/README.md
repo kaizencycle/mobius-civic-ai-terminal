@@ -14,4 +14,11 @@
 
 ## Forensic result (2026-07-13)
 
-**MATCH** — predecessor body recovered from production KV (`status: promoted`). Hash confirmed. C-307 block 41 → C-308 block 42 continuity proven. Governance Q1 options still require custodian selection.
+**MATCH** — predecessor body recovered from production KV (`status: promoted`). Hash confirmed. C-307 block 41 → C-308 block 42 continuity proven.
+
+**Custodian disposition:** [`NOTE_C-371_custodian-Q1-boundary-disposition.md`](./NOTE_C-371_custodian-Q1-boundary-disposition.md) — `orphan_prev` was false positive (attested-only audit). Status: `HISTORICAL_CONTINUITY_PROVEN_AT_C307_C308_BOUNDARY`.
+
+| Document | Role |
+|----------|------|
+| [`VERIFICATION_C-371_adversarial-hash-check.md`](./VERIFICATION_C-371_adversarial-hash-check.md) | Independent re-verification (fresh API + double recompute) |
+| [`EPICON_C-371_PROPOSAL_lineage-audit-historical-index_v1.md`](./EPICON_C-371_PROPOSAL_lineage-audit-historical-index_v1.md) | Audit index correction proposal (not implemented) |
