@@ -28,8 +28,8 @@ This is the authoritative carry-forward list. The next cycle's opening justifica
 
 | Priority | Item | State at seal |
 |---|---|---|
-| Governance | **Q1 — orphan fragment** (`seal-C-308-042`, `orphan_prev`, no genesis, predates the Jun 26 KV incident by ~6 weeks) | No resolution option selected. No evidence located. Fully open. |
-| Governance | **Q2 — custodian sign-off** | Technical root cause filed and accepted as the closing account, but the sign-off date/signature line on `GOVERNANCE_DECISION_C-370_chain-continuity.md` is still blank. |
+| Governance | **Q1 — orphan fragment** (`seal-C-308-042`, `orphan_prev`, no genesis, predates the Jun 26 KV incident by ~6 weeks) | No resolution option (a/b/c) selected. Catalog-boundary evidence filed ([`NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md`](./NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md)); no conclusive resolution evidence. Governance decision still OPEN. |
+| Governance | **Q2 — custodian sign-off** | Technical root cause filed (ATLAS reconstruction per PR #612); custodian acceptance pending — sign-off date/signature line on [`GOVERNANCE_DECISION_C-370_chain-continuity.md`](./GOVERNANCE_DECISION_C-370_chain-continuity.md) still blank. |
 | Governance | **Q3 — MIC reconciliation** | 0 of 119 dropped-but-fully-quorum-signed seals checked against the MIC ledger. Checklist ready (`MIC_RECONCILIATION_C-370_dropped-seals.md`); no rows completed. |
 | Doctrine | **`earnMIC` sustain-window gap** | Gate checks instantaneous `gi.score`, not the `consecutiveGi95Cycles` sustain tracker the ratified doctrine actually requires. Flagged by Codex on PR #597; not yet wired. |
 | Production | **Log-audit fixes unverified in production** | Fixes for `cron/promote`, `cron/sweep`, `vault/status`, and `cron/swarm` drafted but not confirmed live against a fresh production log pull. |
