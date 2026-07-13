@@ -16,6 +16,7 @@
     "seal-C-297-001",
     "seal-C-298-001"
   ],
+  "continuous_legacy_chain_root": "seal-C-299-001",
   "continuous_lineages": [
     {
       "id": "legacy-mic-tranche",
@@ -60,7 +61,7 @@
     {
       "issue": "attested_only_orphan_prev",
       "seal_id": "seal-C-308-042",
-      "cause": "lib/dat/sealHashLineage.ts filters status===attested; predecessor is promoted in same KV"
+      "cause": "analyzeSealHashLineage only emits orphan_prev for seals in attested input; child injected when absent from paginated default index; predecessor is promoted in same KV"
     },
     {
       "issue": "audit_index_pagination",
