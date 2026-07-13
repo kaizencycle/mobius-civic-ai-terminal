@@ -89,7 +89,7 @@ PR #380's `.dat` export reported **CHAIN VALID** for 194 blocks. It is not yet c
 | 2 | Collision audit (block_number winners, hash divergence) | `npx tsx scripts/audit-reserve-block-collisions.ts` | **DONE** — 119 collisions, all hash-divergent, all dual-quorum |
 | 3 | Confirm what `verify-dat-chain.js` validated | `Mobius-Substrate/scripts/verify-dat-chain.js` on `canon/reserve-blocks/` | **DONE** — see findings below |
 | 4 | Confirm Jun 30 bulk re-attestation cluster | Lineage audit `reattest_clusters` + `cron/reattest-seals` logs | **PARTIAL** — KV cluster at `2026-06-30T20` (283 seals, seq 1–194) confirmed via lineage audit; **`cron/reattest-seals` production logs not yet cited** |
-| 5 | Document known fork/reset at C-359 if intentional | Cycle journals, EPICON events, operator memory | **PENDING** — **governance decision required** |
+| 5 | Document known fork/reset at C-359 if intentional | Cycle journals, EPICON events, operator memory | **RESOLVED (infra)** — not a governance fork; see [GOVERNANCE Q2](./GOVERNANCE_DECISION_C-370_chain-continuity.md); custodian accept pending |
 
 ---
 
@@ -188,7 +188,7 @@ This handoff does **not** recommend:
 
 Per Canon law: *"No rollback without proof, operator consent, and preserved incident history."*
 
-**Next responsible step: governance decision (item 5) — was C-359 restart + orphan fragment documented/intentional? Hold export/dedup (#380/#598) until answered.**
+**Next responsible step: governance decision — [`GOVERNANCE_DECISION_C-370_chain-continuity.md`](./GOVERNANCE_DECISION_C-370_chain-continuity.md). MIC lookup: [`MIC_RECONCILIATION_C-370_dropped-seals.md`](./MIC_RECONCILIATION_C-370_dropped-seals.md). Hold export/dedup (#380/#598) until Q1 and Q2 are signed.**
 
 ---
 
@@ -228,6 +228,8 @@ npx tsx scripts/audit-reserve-block-collisions.ts --json | tee /tmp/collision-au
 | Prime count clarification | `Mobius-Substrate/docs/epicon/cycles/C-368/C368-PR7_prime-count-clarification.md` |
 | Cold canon verify | `Mobius-Substrate/scripts/verify-dat-chain.js` |
 | Cycle-state V2 bindings | `docs/epicon/cycles/C-370/CYCLE_STATE_V2.md` |
+| Governance decision (OPEN) | [`GOVERNANCE_DECISION_C-370_chain-continuity.md`](./GOVERNANCE_DECISION_C-370_chain-continuity.md) |
+| MIC reconciliation checklist | [`MIC_RECONCILIATION_C-370_dropped-seals.md`](./MIC_RECONCILIATION_C-370_dropped-seals.md) |
 | Re-attest cron | `app/api/cron/reattest-seals/route.ts` |
 
 ---
