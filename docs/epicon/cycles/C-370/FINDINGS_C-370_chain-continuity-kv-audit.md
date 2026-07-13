@@ -130,7 +130,7 @@ Collisions span blocks 1–131. Blocks 132–194 have no collision pairs in the 
 
 ## Governance questions (for seal-quorum authority)
 
-1. **C-359 "reset" — custodian position: not intentional.** ZEUS verification catalog shows `latest_seal_id=seal-C-358-129` on 2026-06-30, then `latest_seal_id=null` by 2026-07-01T00:01Z, then forward sealing from `seal-C-359-002` onward with `vault_block_state=immortalized`. See [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md). **Revised root cause:** `LATEST_SEAL_KEY` continuity loss + missing `block_number` uniqueness — not authorized fork.
+1. **C-359 "reset" — custodian position: not intentional.** Root cause: **Upstash KV exceeded max budget** → hot state degraded → `vault:seal:latest` lost while attested seals remained. ZEUS catalog shows `latest_seal_id=seal-C-358-129` on 2026-06-30, then `null` by 2026-07-01T00:01Z. See [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md). Compounded by missing `block_number` uniqueness.
 
 2. **What happened to the origin of the orphan fragment?** `seal-C-308-042`'s `prev_seal_hash` points to a hash absent from all 313 attested seals — was prior history deleted, never attested, or lost during migration?
 

@@ -16,7 +16,30 @@ Initial reference: [ZEUS verification 2026-07-02T06-03-27Z](https://github.com/k
 
 ---
 
-## ZEUS quorum/state timeline (production catalog)
+## Root cause (custodian, 2026-07-13)
+
+**KV hot state went down when Upstash exceeded its max budget.** This is not a governance reset — it is infrastructure degradation during high-write activity (bulk re-attestation window aligns with Jun 30 `reattest_clusters`).
+
+### How budget suspension fractures the chain (code path)
+
+| Component | Behavior |
+|-----------|----------|
+| `lib/substrate/kv-errors.ts` | Detects Upstash suspension: `"exceeded the defined budget limit"` / `"database has been suspended"` |
+| `lib/substrate/resilientWrite.ts` | `resilientSet()` **swallows** budget-suspension writes — returns `{ ok: false, kv_suspended: true }` without failing the caller |
+| `lib/vault-v2/store.ts` | `appendSealToChain()` sets `vault:seal:latest` (`LATEST_SEAL_KEY`) in the same `Promise.all` as seal records — but **catches all errors with `console.warn` only** (lines 316–318) |
+
+**Failure mode:** Under budget pressure, individual seal writes or re-attest updates may partially succeed while `LATEST_SEAL_KEY` write is skipped or lost. `getLatestSeal()` then returns null → `prev_seal_hash: null` on the next seal → apparent "genesis" at `seal-C-359-001`, while hundreds of prior attested seals remain in KV untouched.
+
+### Catalog corroboration — prior budget suspension episodes
+
+ATLAS heartbeats document live Upstash budget suspension (Jun 26–27):
+
+- `docs/catalog/heartbeats/2026-06-27T23-04-56Z-atlas.json` — `primary_kv_suspended: true`, error: *"database has been suspended for exceeding the defined budget limit"*
+- Same pattern across multiple Jun 26–27 heartbeats
+
+Jun 30 heartbeats show `primary_kv_suspended: false` (KV recovered by then), but the **283-seal bulk re-attest cluster at `2026-06-30T20`** would have spiked write volume — consistent with custodian account of hot-state continuity loss by Jul 1 00:01Z when `latest_seal_id` went null.
+
+---
 
 | Timestamp | Cycle | `latest_seal_id` | `vault_block_state` | Notes |
 |-----------|-------|------------------|---------------------|-------|
@@ -38,7 +61,7 @@ Initial reference: [ZEUS verification 2026-07-02T06-03-27Z](https://github.com/k
 | Prior question | Revised framing |
 |----------------|-----------------|
 | Was C-359 restart intentional? | **Custodian: no.** No documented fork event found. |
-| Root cause hypothesis | **Missing `LATEST_SEAL_KEY` continuity + missing `block_number` uniqueness** after bulk re-attestation window |
+| Root cause hypothesis | **Upstash KV budget suspension** during high-write window (bulk re-attest Jun 30) → `vault:seal:latest` continuity lost; **`block_number` uniqueness never enforced** → parallel chain eras in KV |
 | Still open | Orphan fragment (`seal-C-308-042` `orphan_prev`); MIC reconciliation for 119 dropped dual-quorum seals |
 | Pipeline fix (future, not this PR) | Enforce unique `block_number` at seal formation; preserve or explicitly migrate `LATEST_SEAL_KEY` across re-attest operations |
 
