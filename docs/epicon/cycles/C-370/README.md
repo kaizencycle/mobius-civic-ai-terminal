@@ -14,7 +14,9 @@
 | — | [`HANDOFF_C-370_chain-continuity-audit.md`](./HANDOFF_C-370_chain-continuity-audit.md) | **P0** — hot KV `prev_seal_hash` lineage confirmed: 3 components, 119 dual-quorum collisions |
 | — | [`FINDINGS_C-370_chain-continuity-kv-audit.md`](./FINDINGS_C-370_chain-continuity-kv-audit.md) | **Confirmed** — production KV audit JSON summary (2026-07-13) |
 | — | [`NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md`](./NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md) | Custodian ack — scope correction accepted; findings confirmed |
-| — | [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md) | Custodian position — C-359 not intentional; ZEUS catalog timeline |
+| — | [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md) | Custodian position — C-359 not intentional; KV budget suspension |
+| — | [`GOVERNANCE_DECISION_C-370_chain-continuity.md`](./GOVERNANCE_DECISION_C-370_chain-continuity.md) | **OPEN** — human governance decision template (Q1–Q3) |
+| — | [`MIC_RECONCILIATION_C-370_dropped-seals.md`](./MIC_RECONCILIATION_C-370_dropped-seals.md) | Q3 lookup checklist — 119 dropped seals |
 
 ## Operator actions (no code change)
 

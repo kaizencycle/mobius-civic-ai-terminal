@@ -188,7 +188,7 @@ This handoff does **not** recommend:
 
 Per Canon law: *"No rollback without proof, operator consent, and preserved incident history."*
 
-**Next responsible step: governance decision (item 5) — was C-359 restart + orphan fragment documented/intentional? Hold export/dedup (#380/#598) until answered.**
+**Next responsible step: governance decision — [`GOVERNANCE_DECISION_C-370_chain-continuity.md`](./GOVERNANCE_DECISION_C-370_chain-continuity.md). MIC lookup: [`MIC_RECONCILIATION_C-370_dropped-seals.md`](./MIC_RECONCILIATION_C-370_dropped-seals.md). Hold export/dedup (#380/#598) until Q1 and Q2 are signed.**
 
 ---
 

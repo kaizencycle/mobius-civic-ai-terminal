@@ -160,6 +160,8 @@ Per Canon law and EPICON scope:
 | Custodian reframe | [`NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md`](./NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md) |
 | Collision audit doc | [`AUDIT_C-370_reserve-block-collisions.md`](./AUDIT_C-370_reserve-block-collisions.md) |
 | Custodian: no intentional reset | [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md) |
+| Governance decision (OPEN) | [`GOVERNANCE_DECISION_C-370_chain-continuity.md`](./GOVERNANCE_DECISION_C-370_chain-continuity.md) |
+| MIC reconciliation checklist | [`MIC_RECONCILIATION_C-370_dropped-seals.md`](./MIC_RECONCILIATION_C-370_dropped-seals.md) |
 | Audit workflow | `.github/workflows/audit-reserve-block-lineage.yml` |
 | Lineage script | `scripts/audit-seal-hash-lineage.ts` |
 | Collision script | `scripts/audit-reserve-block-collisions.ts` |

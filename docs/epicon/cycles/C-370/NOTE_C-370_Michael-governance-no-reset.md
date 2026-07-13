@@ -63,7 +63,7 @@ Jun 30 heartbeats show `primary_kv_suspended: false` (KV recovered by then), but
 | Was C-359 restart intentional? | **Custodian: no.** No documented fork event found. |
 | Root cause hypothesis | **Upstash KV budget suspension** during high-write window (bulk re-attest Jun 30) → `vault:seal:latest` continuity lost; **`block_number` uniqueness never enforced** → parallel chain eras in KV |
 | Still open | Orphan fragment (`seal-C-308-042` `orphan_prev`); MIC reconciliation for 119 dropped dual-quorum seals |
-| Pipeline fix (future, not this PR) | Enforce unique `block_number` at seal formation; preserve or explicitly migrate `LATEST_SEAL_KEY` across re-attest operations |
+| Pipeline fix (future, not this PR) | Enforce unique `block_number` at seal formation; make `LATEST_SEAL_KEY` write failure **fatal** (not swallowed); budget headroom / write batching for re-attest crons |
 
 ---
 
