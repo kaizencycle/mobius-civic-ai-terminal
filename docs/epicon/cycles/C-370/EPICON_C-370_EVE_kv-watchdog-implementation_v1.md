@@ -14,6 +14,7 @@ epicon_type: "implementation-intent"
 status: "in_progress"
 related_prs:
   - "https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/613"
+  - "https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/615"
 related_commits: []
 related_epicons:
   - "EPICON_C-370_EVE_kv-watchdog-proposal_v1"
@@ -30,12 +31,12 @@ created_at: "2026-07-13T00:50:00Z"
 updated_at: "2026-07-13T00:50:00Z"
 version: 1
 hash_hint: ""
-summary: "Implementation intent for EVE-attributed KV/Upstash watchdog (Option B). Monitoring-only; Q2 sealing fixes and hard-stop-on-critical are explicitly out of scope or gated. Ready to sit until Q1 moves or implementation begins."
+summary: "Implementation intent for EVE-attributed KV/Upstash watchdog (Option B). Implemented in PR #615; hard-stop sealing gated off pending custodian sign-off."
 ---
 
 # EPICON C-370 — EVE KV/Upstash Watchdog Implementation Intent
 
-**Status:** In progress — implementation PR `cursor/eve-kv-watchdog-0e02`  
+**Status:** In progress — implementation PR [#615](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/615) (`cursor/eve-kv-watchdog-0e02`); pending merge and deploy
 **Follows:** [`EPICON_C-370_EVE_kv-watchdog-proposal_v1.md`](./EPICON_C-370_EVE_kv-watchdog-proposal_v1.md) (proposal, PR #613)  
 **Architecture:** Option B — decoupled `/api/cron/kv-watchdog`, EVE-attributed, independent of `cycle-synthesize`
 
@@ -122,4 +123,4 @@ counterfactuals:
 
 ---
 
-*Ready to sit until Q1 moves or implementation is explicitly started. No code in this artifact.*
+*Implementation landed in PR #615. Hard-stop sealing remains gated off (`hard_stop_enabled: false`) pending custodian sign-off.*
