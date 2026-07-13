@@ -42,3 +42,4 @@
 | [`VERIFICATION_C-371_adversarial-hash-check.md`](./VERIFICATION_C-371_adversarial-hash-check.md) | Independent re-verification (fresh API + double recompute) |
 | [`EPICON_C-371_PROPOSAL_lineage-audit-historical-index_v1.md`](./EPICON_C-371_PROPOSAL_lineage-audit-historical-index_v1.md) | Audit index correction proposal (not implemented) |
 | [`EPICON_C-371_PROPOSAL_reserve-block-ui-verified-truth_v1.md`](./EPICON_C-371_PROPOSAL_reserve-block-ui-verified-truth_v1.md) | **Custodian proposal** — decomposed Reserve Block UI + shared query layer (not implemented) |
+| [`EPICON_C-371_PROPOSAL_oaa-universal-agent-hub_v1.md`](./EPICON_C-371_PROPOSAL_oaa-universal-agent-hub_v1.md) | **Custodian proposal** — OAA universal agent hub, tiered inference, ledger-native identity (not implemented) |
