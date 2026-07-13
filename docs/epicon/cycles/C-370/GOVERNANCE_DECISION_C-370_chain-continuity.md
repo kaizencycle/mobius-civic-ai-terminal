@@ -10,6 +10,7 @@
 
 - [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md) — custodian position + budget suspension evidence
 - [`MIC_RECONCILIATION_C-370_dropped-seals.md`](./MIC_RECONCILIATION_C-370_dropped-seals.md) — Question 3 lookup checklist (119 seals)
+- [`EPICON_C-370_EVE_kv-watchdog-proposal_v1.md`](./EPICON_C-370_EVE_kv-watchdog-proposal_v1.md) — custodian proposal to operationalize Q2 fixes #1–#3 via live EVE-attributed KV watchdog (not yet implemented)
 
 ---
 
@@ -93,6 +94,8 @@ as unexplained — it's explained, just not by a decision.
 2. **Add `block_number` uniqueness constraint** at seal time, not just at export/dedupe time — this is what actually let sequence numbers restart silently.
 3. **KV budget headroom** — check whether the earlier cron-normalization fix (`*/5–*/15` → `*/30`) actually held, or whether this Jun 26–30 suspension is a second, distinct budget exhaustion event, possibly driven by the bulk re-attest write volume itself.
 4. **Batch re-attestation more gently** — if the 283-seal spike itself contributed to pushing KV over budget, this and #3 may be the same fix.
+
+**Operationalization proposal (fixes #1–#3):** [`EPICON_C-370_EVE_kv-watchdog-proposal_v1.md`](./EPICON_C-370_EVE_kv-watchdog-proposal_v1.md) — custodian-drafted EVE-attributed KV/Upstash watchdog to escalate `primary_kv_suspended`, stale `LATEST_SEAL_KEY`, live `block_number` collisions, and re-attest write spikes *before* they fork the chain. Proposal only; implementation requires a follow-up EPICON-02 intent.
 
 **Still genuinely open:** whether item 4 on the original checklist (`cron/reattest-seals`
 runtime logs confirming this write pattern) can be fully closed — the lineage audit
