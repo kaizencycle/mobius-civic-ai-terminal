@@ -4,8 +4,8 @@
 
 - **Cycle:** `C-371`
 - **GI:** `0.71` · **mode:** `yellow` · ⚠️ degraded
-- **Provenance:** `live-compute` (unverified)
-- **Pulse fetched:** `2026-07-13T10:57:10.665Z`
+- **Provenance:** `live-compute` (verified)
+- **Pulse fetched:** `2026-07-13T13:24:43.842Z`
 - **Deployment:** `2ae379e7b434` (production)
 - **Reserve hot (raw):** `n/a` · **cold manifest:** `194` · **gap (raw−cold):** `n/a`
 - **Open gates:** `vault_fetch_failed`, `terminal_degraded`
