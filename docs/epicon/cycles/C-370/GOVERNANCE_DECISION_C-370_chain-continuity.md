@@ -95,7 +95,7 @@ as unexplained — it's explained, just not by a decision.
 3. **KV budget headroom** — check whether the earlier cron-normalization fix (`*/5–*/15` → `*/30`) actually held, or whether this Jun 26–30 suspension is a second, distinct budget exhaustion event, possibly driven by the bulk re-attest write volume itself.
 4. **Batch re-attestation more gently** — if the 283-seal spike itself contributed to pushing KV over budget, this and #3 may be the same fix.
 
-**Operationalization proposal (fixes #1–#3):** [`EPICON_C-370_EVE_kv-watchdog-proposal_v1.md`](./EPICON_C-370_EVE_kv-watchdog-proposal_v1.md) — custodian-drafted EVE-attributed KV/Upstash watchdog to escalate `primary_kv_suspended`, stale `LATEST_SEAL_KEY`, live `block_number` collisions, and re-attest write spikes *before* they fork the chain. Proposal only; implementation requires a follow-up EPICON-02 intent.
+**Operationalization proposal (fixes #1–#3):** [`EPICON_C-370_EVE_kv-watchdog-proposal_v1.md`](./EPICON_C-370_EVE_kv-watchdog-proposal_v1.md) — custodian-drafted EVE-attributed KV/Upstash watchdog. **Implementation intent (ready, not started):** [`EPICON_C-370_EVE_kv-watchdog-implementation_v1.md`](./EPICON_C-370_EVE_kv-watchdog-implementation_v1.md) — Q2 sealing fixes and hard-stop remain explicitly out of scope or gated.
 
 **Still genuinely open:** whether item 4 on the original checklist (`cron/reattest-seals`
 runtime logs confirming this write pattern) can be fully closed — the lineage audit

@@ -89,8 +89,7 @@ Ranked by severity, so the response scales with how bad the signal is:
 ---
 
 *This is a proposal, not an EPICON intent — no code has been written and no PR opened.
-If this direction looks right, next step is drafting the actual EPICON-02 intent block
-and handing this to ATLAS/EVE for implementation.*
+Implementation intent (ready, not started): [`EPICON_C-370_EVE_kv-watchdog-implementation_v1.md`](./EPICON_C-370_EVE_kv-watchdog-implementation_v1.md).*
 
 ```intent
 epicon_id: EPICON_C-370_EVE_kv-watchdog-proposal_v1
