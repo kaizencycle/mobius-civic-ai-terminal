@@ -1,25 +1,28 @@
 # Governance Decision — C-370 Chain Continuity & MIC Reconciliation
 
-**Status:** OPEN — awaiting human governance decision  
+**Status:** PARTIAL — Q2 root cause reconstructed (pending custodian accept); Q1 and Q3 OPEN  
 **Authority required:** Seal quorum (ATLAS, ZEUS, EVE, JADE, AUREA) + human custodian (Michael)  
 **Severity:** P0  
 **Evidence source:** [`FINDINGS_C-370_chain-continuity-kv-audit.md`](./FINDINGS_C-370_chain-continuity-kv-audit.md), PR #611 workflow run (2026-07-13T00:00Z), `lineage-audit.json` / `collision-audit.json`  
-**Investigation status:** COMPLETE — this document does not choose a resolution. It exists to force one.
+**Investigation status:** COMPLETE — Q2 reframed as infra incident (not governance fork); Q1 and Q3 still require human sign-off
 
-**Related (filed context, not decisions):**
+**Related:**
 
-- [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md) — custodian position: C-359 not intentional; Upstash KV budget suspension + `vault:seal:latest` continuity loss
+- [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md) — custodian position + budget suspension evidence
 - [`MIC_RECONCILIATION_C-370_dropped-seals.md`](./MIC_RECONCILIATION_C-370_dropped-seals.md) — Question 3 lookup checklist (119 seals)
 
 ---
 
 ## How to use this document
 
-Three questions below, in decision order. Each has evidence, and a set of resolution
-options with no option pre-selected or recommended. Whoever holds the relevant
-authority marks a decision, dates it, and signs it. Do not merge/close #380, #598,
-#611, or #612 as fully resolved until Question 1 and Question 2 are both answered —
-Question 3 can proceed in parallel since it's a data-lookup task, not a policy call.
+Three questions below, in decision order. Question 2 is **resolved as a technical
+reconstruction** (infra failure, not a policy fork) — pending Michael's date/sign-off.
+Question 1 still requires a governance decision. Question 3 can proceed in parallel
+(data lookup, not policy).
+
+Do not merge/close #380, #598, #611, or #612 as fully resolved until **Question 1**
+is answered and **Question 2** is accepted/signed by the custodian. Question 3 may
+close independently once the reconciliation checklist completes.
 
 ---
 
@@ -31,7 +34,7 @@ Question 3 can proceed in parallel since it's a data-lookup task, not a policy c
 
 - `seal-C-308-042`'s `prev_seal_hash` (`2e03823c2d2145596d2a08afe8832ef10b27c19f8337d597c82d7efc1604c758`) does not match any of the 313 attested seals currently in KV.
 - This fragment (`lineage-seal-C-332-194`) spans sequences 42–194 across cycles C-308→C-332, with **zero genesis seals** — meaning whatever it originally linked to is not merely on a different chain, it isn't in the attested set at all.
-- This is the earliest and least-explained of the three components. Unlike the C-359 restart (which has an explicit genesis marker and could plausibly be an intentional decision point), this fragment reads as something upstream having been lost, truncated, or never migrated.
+- This is the earliest and least-explained of the three components. Unlike the C-359 fracture (explained below as infra failure), this fragment reads as something upstream having been lost, truncated, or never migrated.
 
 ### Resolution options (none pre-selected)
 
@@ -46,42 +49,45 @@ Question 3 can proceed in parallel since it's a data-lookup task, not a policy c
 
 ---
 
-## Question 2 — The C-359 restart and the uniqueness constraint
+## Question 2 — The C-359 restart and the uniqueness constraint — **RESOLVED (root cause identified, not a policy decision)**
 
-**Was the C-359 genesis restart itself intentional — and separately, should the pipeline's ability to re-seal the same `block_number` across 60+ cycles without a uniqueness check be treated as its own incident, regardless of the answer to the first part?**
+**Status update:** This is no longer an open governance question in the original sense.
+Reconstructed evidence shows this was not a decision anyone made — it was an
+infrastructure failure the pipeline absorbed silently.
 
-These are two sub-questions. Answering the first does not answer the second.
+### Confirmed causal chain
 
-### Evidence
+1. **Jun 26–27** — ATLAS heartbeats already show Upstash KV suspended for exceeding budget (`primary_kv_suspended: true`). See e.g. `docs/catalog/heartbeats/2026-06-27T23-04-56Z-atlas.json`.
+2. **Jun 30 ~20:00** — 283-seal bulk re-attestation cluster runs — a large KV write spike, landing during/after the suspension window.
+3. **Jul 1 00:01** — ZEUS shows `latest_seal_id: null`, even though old-chain attested seals (including `seal-C-358-129`) are still sitting in KV, unwiped. See `docs/catalog/zeus/2026-07-01T00-01-30Z-verification.json`.
+4. **Jul 1 ~09:02** — `seal-C-359-001` forms with `prev_seal_hash: null`, because `getLatestSeal()` found nothing at `vault:seal:latest` — the pointer, not the data, was lost.
 
-- Two full lineages exist with independent genesis seals: Chain B (`seal-C-332-001` → `seal-C-358-131`, cycles C-332–C-358, 131 seals) and Chain C (`seal-C-359-001` → `seal-C-370-029`, cycles C-359–C-370, 29 seals).
-- 119 of 313 total attested seals are `block_number` collisions with a counterpart elsewhere in KV. **All 119 are `seal_hashes_differ: true`** (genuinely different payloads, not duplicate transmissions of the same seal) and **all 119 have `kept_quorum: 5` and `dropped_quorum: 5`** — meaning both the kept and dropped version of every collided block were independently, fully signed by all five quorum agents at different times (gaps ranging from weeks to about a month between kept/dropped `sealed_at` timestamps).
-- A bulk re-attestation cluster is separately confirmed: 283 seals, sequence range 1–194, all carrying an `attested_at` timestamp in the 2026-06-30T20:00 hour — consistent with a single mass operation, not organic sealing activity (`cron/reattest-seals` production logs for that window still pending — checklist item 4 partial).
+### Why the code let this happen (three compounding gaps)
 
-### Filed operator context (not a decision)
-
-Custodian has filed position that C-359 was **not** an intentional governance reset. ZEUS catalog shows `latest_seal_id=seal-C-358-129` on 2026-06-30, then `null` by 2026-07-01T00:01Z. Root-cause hypothesis: **Upstash KV exceeded max budget** during high-write activity (bulk re-attest), `vault:seal:latest` continuity lost while attested seals remained, compounded by missing `block_number` uniqueness. See [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md). **This context does not close sub-question 2a or 2b** — it is evidence for the decision-maker to weigh.
+- `resilientSet()` (`lib/substrate/resilientWrite.ts`) swallows budget-suspension write failures silently instead of surfacing them.
+- `appendSealToChain()` (`lib/vault-v2/store.ts`) warns and continues if its `Promise.all` (including the `LATEST_SEAL_KEY` write) fails, rather than treating that as fatal.
+- No `block_number` uniqueness constraint — when sealing resumed with a lost pointer, it restarted at block 1 on what became a second, parallel chain instead of erroring.
 
 ### Sub-question 2a — Was C-359 a documented restart?
 
-### Resolution options
+**Answer: N/A — reframe rejected.** There was no decision to document. This was not
+a governance fork; it was silent infra failure. Do not treat "no documentation found"
+as unexplained — it's explained, just not by a decision.
 
-- [ ] **(a) Yes, documented** — attach the record (EPICON entry, migration doc, cycle notes) explaining the decision to restart genesis at C-359.
-- [ ] **(b) No documentation found** — treat as undocumented until proven otherwise.
-- [ ] **(c) Partially documented** — some record exists but doesn't fully explain the mechanics (e.g., explains *why* a restart happened but not why old seals remained re-sealable afterward).
+### Sub-question 2b — Is this its own incident requiring a fix?
 
-**Decision:** _______________________
+**Answer: Yes — confirmed, not hypothetical.** Four concrete fixes, in rough priority order:
 
-### Sub-question 2b — Regardless of 2a, is the missing uniqueness constraint its own incident requiring a fix?
+1. **Make `LATEST_SEAL_KEY` write failure fatal**, not a warn-and-continue — a seal chain cannot safely proceed without confirming its own pointer wrote successfully.
+2. **Add `block_number` uniqueness constraint** at seal time, not just at export/dedupe time — this is what actually let sequence numbers restart silently.
+3. **KV budget headroom** — check whether the earlier cron-normalization fix (`*/5–*/15` → `*/30`) actually held, or whether this Jun 26–30 suspension is a second, distinct budget exhaustion event, possibly driven by the bulk re-attest write volume itself.
+4. **Batch re-attestation more gently** — if the 283-seal spike itself contributed to pushing KV over budget, this and #3 may be the same fix.
 
-### Resolution options
+**Still genuinely open:** whether item 4 on the original checklist (`cron/reattest-seals`
+runtime logs confirming this write pattern) can be fully closed — the lineage audit
+workflow can only supply KV-side evidence, not runtime log confirmation.
 
-- [ ] **(a) Yes** — the pipeline should have enforced one seal per `block_number` from the start; this is a real gap, fix it going forward (this is likely already covered by the collision-detection work in #611/#612, but the *root cause* — why sealing allowed the collision in the first place — is a separate, still-open question this decision should explicitly assign to someone).
-- [ ] **(b) No** — re-sealing the same block number was an accepted/expected behavior of the pre-C-359 pipeline design, and the current detection tooling is sufficient going forward without a root-cause fix.
-- [ ] **(c) Needs more investigation** — specify what's needed to decide.
-
-**Decision:** _______________________  
-**Decided by:** _______________________  
+**Decided by:** ATLAS (technical reconstruction) — Michael to confirm/accept this as the closing account.  
 **Date:** _______________________
 
 ---
@@ -116,11 +122,12 @@ agent's balance even though the seal itself no longer appears in the deduped can
 
 ## Sign-off
 
-This decision is not final until at least Questions 1 and 2 are marked, dated, and signed
-by the human custodian, with seal-quorum agents' concurrence noted if their review was
-sought. Question 3 may close independently once the reconciliation checklist completes.
+Governance is not final until **Question 1** is marked, dated, and signed by the human
+custodian, and **Question 2** is accepted/signed (technical reconstruction complete;
+custodian date pending). Question 3 may close independently once the reconciliation
+checklist completes.
 
 | Role | Name | Decision recorded | Date |
 |---|---|---|---|
-| Human custodian | Michael Judan | | |
-| Seal quorum (if consulted) | ATLAS / ZEUS / EVE / JADE / AUREA | | |
+| Human custodian | Michael Judan | Q1: ___ / Q2 accept: ___ / Q3: ___ | |
+| Seal quorum (if consulted) | ATLAS / ZEUS / EVE / JADE / AUREA | Q2 reconstruction filed | 2026-07-13 |

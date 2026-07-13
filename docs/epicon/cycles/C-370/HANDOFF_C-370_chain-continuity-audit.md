@@ -89,7 +89,7 @@ PR #380's `.dat` export reported **CHAIN VALID** for 194 blocks. It is not yet c
 | 2 | Collision audit (block_number winners, hash divergence) | `npx tsx scripts/audit-reserve-block-collisions.ts` | **DONE** — 119 collisions, all hash-divergent, all dual-quorum |
 | 3 | Confirm what `verify-dat-chain.js` validated | `Mobius-Substrate/scripts/verify-dat-chain.js` on `canon/reserve-blocks/` | **DONE** — see findings below |
 | 4 | Confirm Jun 30 bulk re-attestation cluster | Lineage audit `reattest_clusters` + `cron/reattest-seals` logs | **PARTIAL** — KV cluster at `2026-06-30T20` (283 seals, seq 1–194) confirmed via lineage audit; **`cron/reattest-seals` production logs not yet cited** |
-| 5 | Document known fork/reset at C-359 if intentional | Cycle journals, EPICON events, operator memory | **CUSTODIAN: not intentional** — see [NOTE](./NOTE_C-370_Michael-governance-no-reset.md); ZEUS catalog shows `latest_seal_id` null after Jun 30 re-attest, not a documented fork |
+| 5 | Document known fork/reset at C-359 if intentional | Cycle journals, EPICON events, operator memory | **RESOLVED (infra)** — not a governance fork; see [GOVERNANCE Q2](./GOVERNANCE_DECISION_C-370_chain-continuity.md); custodian accept pending |
 
 ---
 
