@@ -1,0 +1,29 @@
+{
+  "note": "Redacted structural extract from production KV GET /api/vault/seal/seal-C-307-041 retrieved 2026-07-13T10:42:00Z. Full body retained offline at retrieval artifact sha256:acb32b8632fdad41b22b8c383ca503fa95996eb5515af6a793ad7a363e638018. deposit_hashes omitted (operator journal content).",
+  "source": "production_kv",
+  "source_path": "vault:seal:seal-C-307-041",
+  "retrieval_url": "https://mobius-civic-ai-terminal.vercel.app/api/vault/seal/seal-C-307-041",
+  "retrieval_timestamp": "2026-07-13T10:42:00Z",
+  "api_hash_valid": true,
+  "seal_id": "seal-C-307-041",
+  "sequence": 41,
+  "cycle_at_seal": "C-307",
+  "sealed_at": "2026-05-11T00:55:46.521Z",
+  "reserve": 50,
+  "gi_at_seal": 0.74,
+  "mode_at_seal": "yellow",
+  "source_entries": 5,
+  "deposit_hashes_count": 5,
+  "carried_forward_deposit_hashes_count": 1,
+  "prev_seal_hash": "7ae7705a3c08a058872bc7ab369704608d166da8ec5ce7a6bb1eba2f3d7ee280",
+  "seal_hash": "2e03823c2d2145596d2a08afe8832ef10b27c19f8337d597c82d7efc1604c758",
+  "status": "promoted",
+  "attestation_agents": ["ATLAS", "ZEUS", "EVE", "JADE", "AUREA"],
+  "attestation_verdicts": {
+    "ATLAS": "pass",
+    "ZEUS": "pass",
+    "EVE": "pass",
+    "JADE": "pass",
+    "AUREA": "pass"
+  }
+}
