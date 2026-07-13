@@ -228,6 +228,8 @@ npx tsx scripts/audit-reserve-block-collisions.ts --json | tee /tmp/collision-au
 | Prime count clarification | `Mobius-Substrate/docs/epicon/cycles/C-368/C368-PR7_prime-count-clarification.md` |
 | Cold canon verify | `Mobius-Substrate/scripts/verify-dat-chain.js` |
 | Cycle-state V2 bindings | `docs/epicon/cycles/C-370/CYCLE_STATE_V2.md` |
+| Governance decision (OPEN) | [`GOVERNANCE_DECISION_C-370_chain-continuity.md`](./GOVERNANCE_DECISION_C-370_chain-continuity.md) |
+| MIC reconciliation checklist | [`MIC_RECONCILIATION_C-370_dropped-seals.md`](./MIC_RECONCILIATION_C-370_dropped-seals.md) |
 | Re-attest cron | `app/api/cron/reattest-seals/route.ts` |
 
 ---
