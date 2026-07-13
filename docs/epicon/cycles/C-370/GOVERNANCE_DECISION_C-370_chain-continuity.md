@@ -36,6 +36,17 @@ close independently once the reconciliation checklist completes.
 - This fragment (`lineage-seal-C-332-194`) spans sequences 42–194 across cycles C-308→C-332, with **zero genesis seals** — meaning whatever it originally linked to is not merely on a different chain, it isn't in the attested set at all.
 - This is the earliest and least-explained of the three components. Unlike the C-359 fracture (explained below as infra failure), this fragment reads as something upstream having been lost, truncated, or never migrated.
 
+**Catalog history boundary (filed 2026-07-13):** [`NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md`](./NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md) — custodian pointer to [`docs/catalog/history/index.json`](../../../catalog/history/index.json) line ~1341. Summary:
+
+| Signal | Detail |
+|--------|--------|
+| Calendar catalog flip | C-307 → C-308 at `2026-05-11T07:51:45Z` (first C-308 snapshot: `20260511T075145Z.json`) |
+| Orphan seal timestamp | `seal-C-308-042` sealed `2026-05-11T07:51:02.451Z` — **43s earlier**, same boundary window |
+| Legacy list terminus | `LEGACY_SEAL_KV_RESET_IDS` ends at `seal-C-307-041` (block 41); orphan fragment starts at block 42 (`seal-C-308-042`) |
+| Collision gap | Blocks 30–41 have no collision pairs in current KV; blocks 1–29 and 42+ do — consistent with missing May-era seq 1–41 while Jun-era Chain B holds 30–41 |
+
+This narrows the orphan to an **era-boundary disconnect** at C-307→C-308 / block 41→42; it does **not** close Q1 — custodian must still choose (a) documented event, (b) acknowledged data loss, or (c) insufficient information.
+
 ### Resolution options (none pre-selected)
 
 - [ ] **(a) Documented event** — locate the original decision (EPICON entry, commit, cycle notes, or custodian record) explaining what happened before/around C-308, and attach it here as the closing evidence.

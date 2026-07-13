@@ -51,6 +51,8 @@ This is **not** a Canon Browser display artifact. Cold export dedupe-by-`block_n
 
 **Link issue:** `seal-C-308-042` (sequence 42) has `prev_seal_hash` = `2e03823c2d2145596d2a08afe8832ef10b27c19f8337d597c82d7efc1604c758` — **not found** among any attested seal. Whatever this chain was supposed to link back to no longer exists in the attested set.
 
+**Catalog correlation:** First C-308 catalog snapshot (`2026-05-11T07:51:45Z`) aligns with `seal-C-308-042` (`2026-05-11T07:51:02Z`) and the `seal-C-307-041` legacy-list terminus. See [`NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md`](./NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md).
+
 #### Component 2 — Chain B (`lineage-seal-C-332-001`)
 
 | Field | Value |
