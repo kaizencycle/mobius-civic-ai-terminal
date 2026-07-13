@@ -67,16 +67,39 @@ for (const id of LEGACY_IDS) {
 }
 
 // 3. Attested-only index vs promoted predecessor (C-370 false orphan)
+// analyzeSealHashLineage only evaluates seals present in its attested input set.
 const attestedList = await fetch(`${API}/api/vault/seal?limit=200`);
 const attestedJson = await attestedList.json();
-const attestedIds = new Set((attestedJson.seals ?? []).map((s) => s.seal_id));
+const attestedFromIndex = (attestedJson.seals ?? []).filter((s) => s.status === 'attested');
+const attestedIds = new Set(attestedFromIndex.map((s) => s.seal_id));
 const b42 = await fetchSeal('seal-C-308-042');
 const b41 = await fetchSeal('seal-C-307-041');
+
+const CHILD_ID = 'seal-C-308-042';
+const childInAttestedDefaultIndex = attestedIds.has(CHILD_ID);
+
+// Build attested-only input: paginated index, plus boundary child if missing from page
+// (mirrors lineage audit evaluating a seal that must be in the input set).
+const attestedInput = [...attestedFromIndex];
+let childInjectedForLineageSim = false;
+if (!childInAttestedDefaultIndex && b42.ok && b42.seal?.status === 'attested') {
+  attestedInput.push(b42.seal);
+  childInjectedForLineageSim = true;
+}
+
+const attestedInputIds = new Set(attestedInput.map((s) => s.seal_id));
+const attestedByHash = new Map(attestedInput.map((s) => [s.seal_hash, s]));
+const childInAttestedInput = attestedInputIds.has(CHILD_ID);
+const childSeal = attestedInput.find((s) => s.seal_id === CHILD_ID) ?? b42.seal;
+
+// orphan_prev reproduced only when child is in attested input AND prev hash absent from attested set
+// while predecessor body exists in KV (promoted, outside attested index).
 const orphanInAttestedOnly =
-  b42.ok &&
-  b42.seal?.prev_seal_hash &&
-  !attestedIds.has('seal-C-307-041') &&
-  b41.ok;
+  childInAttestedInput &&
+  childSeal?.prev_seal_hash != null &&
+  !attestedByHash.has(childSeal.prev_seal_hash) &&
+  b41.ok &&
+  b41.seal?.seal_hash === childSeal.prev_seal_hash;
 
 // 4. Audit scope coverage for seq 42-194
 const auditList = await fetch(`${API}/api/vault/seal?scope=audit&limit=200`);
@@ -105,10 +128,13 @@ const addressingFalseNegatives = wrongPatternResults.filter((r) => !r.present);
 const indexVisibilityFalseNegatives = [
   {
     issue: 'attested_only_orphan_prev',
-    seal_id: 'seal-C-308-042',
+    seal_id: CHILD_ID,
     reproduced: orphanInAttestedOnly,
+    child_in_attested_default_index: childInAttestedDefaultIndex,
+    child_injected_for_lineage_sim: childInjectedForLineageSim,
+    child_in_attested_input: childInAttestedInput,
     explanation:
-      'C-370 lineage audit filters status===attested; predecessor seal-C-307-041 is promoted in same KV',
+      'analyzeSealHashLineage only emits orphan_prev for seals in attested input; predecessor seal-C-307-041 is promoted and excluded from attested-only byHash',
   },
   {
     issue: 'audit_index_incomplete_for_seq_42_194',
@@ -137,6 +163,8 @@ const summary = {
   wrong_pattern_404_count: addressingFalseNegatives.length,
   substrate_archive_count: legacySurfaces.filter((s) => s.substrate_archive).length,
   orphan_prev_reproduced_attested_only: orphanInAttestedOnly,
+  child_in_attested_default_index: childInAttestedDefaultIndex,
+  child_injected_for_lineage_sim: childInjectedForLineageSim,
   audit_index_missing_seq_count: missingFromAuditIndex.length,
   boundary_checks: boundaryResolved,
   echo_verdict,

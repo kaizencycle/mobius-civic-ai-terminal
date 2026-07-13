@@ -46,7 +46,9 @@ All 49 authoritative legacy seal IDs are present in production KV. No true stora
 | `seal-C-308-042` in KV | ✅ `attested` |
 | `seal-C-307-041` in KV | ✅ `promoted` |
 | `seal-C-307-041` in default attested index | ❌ absent |
-| C-370 `orphan_prev` reproduced with attested-only traversal | ✅ **reproduced** |
+| C-370 `orphan_prev` reproduced with attested-only traversal | ✅ **reproduced** (child `seal-C-308-042` in attested input set; `prev_seal_hash` absent from attested `byHash`; predecessor promoted in KV) |
+
+**Method note:** `analyzeSealHashLineage` only evaluates seals present in its input set. When `seal-C-308-042` is absent from the paginated default attested index (observed: `child_in_attested_default_index: false`), ECHO injects the fetched attested body into the simulated input before claiming reproduction — matching how lineage audit must include the child seal to emit `orphan_prev`.
 
 **Root cause:** `lib/dat/sealHashLineage.ts` filters `status === 'attested'`. Predecessor exists in the same KV under `promoted` status. This is an **index visibility false negative**, not a storage gap.
 

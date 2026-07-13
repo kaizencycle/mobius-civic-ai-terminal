@@ -174,14 +174,23 @@ for (const id of MAY_ERA_KNOWN) {
   });
 }
 
-const genesisRecords = legacyResults
-  .slice(0, 8)
-  .filter((s) => s.prev_seal_hash === null)
-  .map((s) => s.seal_id);
+const PRE_CONTINUOUS_GENESIS_COUNT = 8;
+const preContinuousGenesis = legacyResults
+  .slice(0, PRE_CONTINUOUS_GENESIS_COUNT)
+  .filter((s) => s.prev_seal_hash === null);
+const genesisRecords = preContinuousGenesis.map((s) => s.seal_id);
+
+const continuousChainRoot = legacyResults[PRE_CONTINUOUS_GENESIS_COUNT];
+const continuousChainRootValid =
+  continuousChainRoot?.seal_id === 'seal-C-299-001' &&
+  continuousChainRoot?.prev_seal_hash === null;
+const continuousChainStartLinkOk =
+  continuousChainRootValid &&
+  legacyResults[PRE_CONTINUOUS_GENESIS_COUNT + 1]?.prev_seal_hash === continuousChainRoot.seal_hash;
 
 let continuousLegacyBreaks = 0;
 const legacyLinkIssues = [];
-for (let i = 9; i < legacyResults.length; i++) {
+for (let i = PRE_CONTINUOUS_GENESIS_COUNT + 1; i < legacyResults.length; i++) {
   const prev = legacyResults[i - 1];
   const cur = legacyResults[i];
   if (cur.prev_seal_hash !== prev.seal_hash) {
@@ -214,7 +223,7 @@ for (let i = 1; i < eraFragment.length; i++) {
 }
 
 // Duplicate sequence within continuous lineages only (not across independent genesis)
-const legacyContinuous = legacyResults.slice(8);
+const legacyContinuous = legacyResults.slice(PRE_CONTINUOUS_GENESIS_COUNT);
 const duplicateSequences = [];
 const seqMap = new Map();
 for (const s of [...legacyContinuous, ...eraFragment]) {
@@ -249,6 +258,9 @@ const summary = {
   hash_valid_total: allVerified.filter((s) => s.hash_valid).length,
   invalid_hashes: invalid.map((s) => s.seal_id),
   genesis_records: genesisRecords,
+  continuous_legacy_chain_root: continuousChainRoot?.seal_id ?? null,
+  continuous_chain_root_valid: continuousChainRootValid,
+  continuous_chain_start_link_ok: continuousChainStartLinkOk,
   continuous_legacy_breaks_pos9_49: continuousLegacyBreaks,
   boundary_41_42: boundaryOk,
   era_fragment_prev_breaks_walk_order: eraBreaks,
@@ -264,12 +276,16 @@ if (invalid.length > 0) {
   zeus_verdict = 'QUARANTINE';
 } else if (
   boundaryOk &&
+  continuousChainRootValid &&
+  continuousChainStartLinkOk &&
   continuousLegacyBreaks === 0 &&
   eraBreaks === 0 &&
   duplicateSequences.length === 0 &&
   summary.era_fragment_complete
 ) {
-  zeus_verdict = genesisRecords.length >= 8 ? 'PASS_WITH_HISTORICAL_GENESIS_SET' : 'PASS';
+  zeus_verdict = genesisRecords.length >= PRE_CONTINUOUS_GENESIS_COUNT
+    ? 'PASS_WITH_HISTORICAL_GENESIS_SET'
+    : 'PASS';
 } else if (
   boundaryOk &&
   continuousLegacyBreaks === 0 &&

@@ -1,6 +1,6 @@
 {
   "summary": {
-    "verified_at": "2026-07-13T15:18:22.428Z",
+    "verified_at": "2026-07-13T17:22:11.160Z",
     "agent": "ZEUS",
     "legacy_total": 49,
     "legacy_present": 49,
@@ -22,6 +22,9 @@
       "seal-C-297-001",
       "seal-C-298-001"
     ],
+    "continuous_legacy_chain_root": "seal-C-299-001",
+    "continuous_chain_root_valid": true,
+    "continuous_chain_start_link_ok": true,
     "continuous_legacy_breaks_pos9_49": 0,
     "boundary_41_42": true,
     "era_fragment_prev_breaks_walk_order": 0,
@@ -34,7 +37,7 @@
       "seal-C-332-194": true
     },
     "reserve_50_all": true,
-    "audit_index_total": 356,
+    "audit_index_total": 358,
     "audit_index_returned": 200,
     "zeus_verdict": "PASS_WITH_HISTORICAL_GENESIS_SET"
   },

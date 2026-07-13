@@ -1,13 +1,15 @@
 {
   "summary": {
-    "verified_at": "2026-07-13T15:18:33.872Z",
+    "verified_at": "2026-07-13T17:22:19.885Z",
     "agent": "ECHO",
     "legacy_kv_present": 49,
     "legacy_kv_total": 49,
     "wrong_pattern_404_count": 35,
     "substrate_archive_count": 1,
     "orphan_prev_reproduced_attested_only": true,
-    "audit_index_missing_seq_count": 25,
+    "child_in_attested_default_index": false,
+    "child_injected_for_lineage_sim": true,
+    "audit_index_missing_seq_count": 27,
     "boundary_checks": [
       {
         "seal_id": "seal-C-307-041",
@@ -180,11 +182,14 @@
       "issue": "attested_only_orphan_prev",
       "seal_id": "seal-C-308-042",
       "reproduced": true,
-      "explanation": "C-370 lineage audit filters status===attested; predecessor seal-C-307-041 is promoted in same KV"
+      "child_in_attested_default_index": false,
+      "child_injected_for_lineage_sim": true,
+      "child_in_attested_input": true,
+      "explanation": "analyzeSealHashLineage only emits orphan_prev for seals in attested input; predecessor seal-C-307-041 is promoted and excluded from attested-only byHash"
     },
     {
       "issue": "audit_index_incomplete_for_seq_42_194",
-      "missing_sequence_count": 25,
+      "missing_sequence_count": 27,
       "sample_missing": [
         132,
         133,
