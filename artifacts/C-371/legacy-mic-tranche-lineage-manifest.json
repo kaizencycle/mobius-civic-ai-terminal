@@ -1,0 +1,39 @@
+{
+  "cycle": "C-371",
+  "audit_at": "2026-07-13T15:05:00Z",
+  "source_list": "LEGACY_SEAL_KV_RESET_IDS (app/api/cron/reattest-seals/route.ts)",
+  "wrong_id_pattern_tested": "seal-C-307-{001..035}",
+  "wrong_id_pattern_result": "35/35 return 404 \u2014 IDs do not exist",
+  "correct_legacy_ids_count": 49,
+  "production_kv_present": 49,
+  "production_kv_status": "promoted (all 49)",
+  "hash_valid_all": true,
+  "substrate_seals_archive_count": 1,
+  "substrate_seals_archive_ids": [
+    "seal-C-288-001"
+  ],
+  "continuous_sequence_chain": {
+    "from": "seal-C-299-001",
+    "to": "seal-C-307-041",
+    "sequence_range": "1-41",
+    "internal_prev_links": 40,
+    "internal_breaks": 0
+  },
+  "pre_continuous_era_genesis_seals": [
+    "seal-C-288-001",
+    "seal-C-292-001",
+    "seal-C-293-001",
+    "seal-C-294-001",
+    "seal-C-295-001",
+    "seal-C-296-001",
+    "seal-C-297-001",
+    "seal-C-298-001"
+  ],
+  "boundary_41_to_42": {
+    "seal_41": "seal-C-307-041",
+    "seal_42": "seal-C-308-042",
+    "prev_hash_match": true
+  },
+  "revised_status": "LEGACY_MIC_TRANCHE_LINEAGE_RECOVERED_IN_KV",
+  "prior_error": "Blocks 1-35 missing claim used wrong seal-ID pattern (C-307 cycle prefix for all blocks)"
+}

@@ -5,7 +5,7 @@
 **Target seal:** `seal-C-307-041`  
 **Investigator:** ATLAS (Cursor agent)  
 **Search window:** 2026-07-13T10:35:00Z – 2026-07-13T10:45:00Z  
-**Manifest:** [`artifacts/C-371/c307-predecessor-search-manifest.json`](../../../artifacts/C-371/c307-predecessor-search-manifest.json)
+**Manifest:** [`artifacts/C-371/c307-predecessor-search-manifest.json`](../../../../artifacts/C-371/c307-predecessor-search-manifest.json)
 
 **Anchors:** [`SEAL_C-370_DISPUTED_partial-closing.md`](../C-370/SEAL_C-370_DISPUTED_partial-closing.md) (Q1 carry-forward), [`NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md`](../C-370/NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md), [`FINDINGS_C-370_chain-continuity-kv-audit.md`](../C-370/FINDINGS_C-370_chain-continuity-kv-audit.md)
 
@@ -28,7 +28,7 @@ The original serialized body of `seal-C-307-041` was recovered from **live produ
 
 **Critical scope correction:** C-370 classified the C-308 orphan fragment as `orphan_prev` because the predecessor hash was **not found among the 313 attested seals**. The predecessor **does exist** in KV with status `promoted` (v1 legacy migration era). The lineage audit (`analyzeSealHashLineage`) filters `status === 'attested'` only — promoted seals are excluded from the attested walk. This is an **index-scope blind spot**, not proof that the predecessor body was deleted.
 
-**What this does not resolve:** Governance option selection for Q1 (a/b/c). Blocks `seal-C-307-001` through `seal-C-307-035` remain absent from KV (35 of 41). Continuity is proven **only at the C-307 block 41 → C-308 block 42 boundary**.
+**What this does not resolve:** Governance option selection for Q1 (a/b/c). ~~Blocks `seal-C-307-001` through `seal-C-307-035` remain absent from KV (35 of 41).~~ **Amended 2026-07-13:** see [`FINDINGS_C-371_legacy-mic-tranche-lineage.md`](./FINDINGS_C-371_legacy-mic-tranche-lineage.md) — all legacy IDs present when using `LEGACY_SEAL_KV_RESET_IDS`; prior `seal-C-307-00N` pattern was wrong. Continuity is proven **at the C-307 block 41 → C-308 block 42 boundary** and for **sequence 1–41** (`seal-C-299-001` … `seal-C-307-041`).
 
 **No historical data was rewritten during this investigation.**
 
@@ -129,7 +129,7 @@ CDX queries for May 2026 returned `[]` for:
 | Source | Production KV, read-only API |
 | Retrieval timestamp | 2026-07-13T10:42:00Z |
 | Full artifact SHA-256 | `acb32b8632fdad41b22b8c383ca503fa95996eb5515af6a793ad7a363e638018` |
-| Redacted structural extract | [`artifacts/C-371/seal-C-307-041.recovered.redacted.json`](../../../artifacts/C-371/seal-C-307-041.recovered.redacted.json) |
+| Redacted structural extract | [`artifacts/C-371/seal-C-307-041.recovered.redacted.json`](../../../../artifacts/C-371/seal-C-307-041.recovered.redacted.json) |
 | `seal_id` | `seal-C-307-041` |
 | `sequence` | 41 |
 | `cycle_at_seal` | `C-307` |
