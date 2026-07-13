@@ -1,0 +1,135 @@
+{
+  "cycle": "C-371",
+  "target_seal_id": "seal-C-307-041",
+  "expected_hash": "2e03823c2d2145596d2a08afe8832ef10b27c19f8337d597c82d7efc1604c758",
+  "successor_seal_id": "seal-C-308-042",
+  "successor_prev_seal_hash": "2e03823c2d2145596d2a08afe8832ef10b27c19f8337d597c82d7efc1604c758",
+  "search_started_at": "2026-07-13T10:35:00Z",
+  "search_completed_at": "2026-07-13T10:45:00Z",
+  "investigator": "ATLAS (Cursor agent)",
+  "lanes": [
+    {
+      "id": "A",
+      "name": "Substrate and CPC ledger receipts",
+      "status": "checked_no_match",
+      "systems": [
+        "kaizencycle/Mobius-Substrate/canon/reserve-blocks/",
+        "kaizencycle/Civic-Protocol-Core/ledger/"
+      ],
+      "notes": "Cold canon blk0000.dat block 42 is seal-C-339-042 (2026-06-12), not C-307/C-308 era. CPC reserve-block-index.json empty (0 blocks). No seal-C-307-041 or expected hash in Substrate/CPC git history."
+    },
+    {
+      "id": "B",
+      "name": "GitHub Actions workflow runs and artifacts",
+      "status": "checked_expired_or_absent",
+      "date_window_primary": "2026-05-09..2026-05-15",
+      "date_window_expanded": "not_required",
+      "workflow_runs_in_window": 435,
+      "workflow_runs_retained": true,
+      "workflow_logs_retained": true,
+      "artifacts_retained": false,
+      "retention_policy_observed": "Sampled 15 May 2026 runs including auto-seal-check (25946411176) and Mobius Catalog Update (25945398109): 0 artifacts each. Jul 2026 lineage audit run 29214404747 still has reserve-block-audit artifact. May-era workflow logs exist; seal body artifacts not retained.",
+      "notes": "Org code search: seal-C-307-041 only in mobius-civic-ai-terminal docs + LEGACY_SEAL_KV_RESET_IDS. Expected hash 2e03823c… not present in any kaizencycle repo file."
+    },
+    {
+      "id": "C",
+      "name": "Historical KV and backup surfaces",
+      "status": "checked_recovery_success",
+      "systems": [
+        "production Upstash KV via public read API",
+        "lib/kv/backup-redis.ts (mirror policy documented, not directly queried)"
+      ],
+      "notes": "GET /api/vault/seal/seal-C-307-041 returned full seal body. Key vault:seal:seal-C-307-041. Status promoted (v1 legacy), excluded from vault:seals:index:attested. Blocks C-307-036..041 also present as promoted; C-307-001..035 return 404."
+    },
+    {
+      "id": "D",
+      "name": "Local and cold archives",
+      "status": "checked_no_match",
+      "notes": "Workspace repos searched: no seal-C-307-041 body in git trees. data/seals/ contains C-288 fixture only. Downloaded Jul 2026 lineage-audit.json references prev hash but not predecessor body."
+    },
+    {
+      "id": "E",
+      "name": "Wayback Machine parallel check",
+      "status": "checked_no_capture",
+      "queries": [
+        "mobius-civic-ai-terminal.vercel.app/* (20260501-20260515)",
+        "mobius-civic-ai-terminal.vercel.app/api/vault/status (20260501-20260515)",
+        "terminal.mobius-substrate.com/* (20260501-20260515)",
+        "mobius-substrate.com/* (20260501-20260515)"
+      ],
+      "notes": "CDX returned empty arrays for all queries. Non-blocking; no archived cryptographic body."
+    }
+  ],
+  "candidates": [
+    {
+      "candidate_id": "CAND-001",
+      "seal_id": "seal-C-307-041",
+      "provenance": {
+        "lane": "C",
+        "source_system": "production_kv",
+        "source_path": "vault:seal:seal-C-307-041",
+        "retrieval_method": "GET https://mobius-civic-ai-terminal.vercel.app/api/vault/seal/seal-C-307-041",
+        "retrieval_timestamp": "2026-07-13T10:42:00Z",
+        "artifact_sha256": "acb32b8632fdad41b22b8c383ca503fa95996eb5515af6a793ad7a363e638018",
+        "redacted_reference": "artifacts/C-371/seal-C-307-041.recovered.redacted.json"
+      },
+      "stored_seal_hash": "2e03823c2d2145596d2a08afe8832ef10b27c19f8337d597c82d7efc1604c758",
+      "status": "promoted",
+      "hash_valid_api": true,
+      "hash_valid_recomputed": true,
+      "disposition": "accepted_primary_recovery"
+    }
+  ],
+  "historical_hash_implementation": {
+    "module": "lib/vault-v2/seal.ts",
+    "function": "computeSealHash",
+    "commit_at_seal_time": "6279dcc61a665dd9db2d2f1c530d44dce10a1ff3",
+    "commit_date": "2026-05-03T13:53:07Z",
+    "unchanged_through_current_main": true,
+    "canonicalize_fields": [
+      "seal_id",
+      "sequence",
+      "cycle_at_seal",
+      "sealed_at",
+      "reserve",
+      "gi_at_seal (toFixed(6))",
+      "mode_at_seal",
+      "source_entries",
+      "deposit_hashes (sorted)",
+      "prev_seal_hash"
+    ],
+    "excluded_from_hash": [
+      "carried_forward_deposit_hashes",
+      "attestations",
+      "substrate_*",
+      "status",
+      "fountain_*"
+    ]
+  },
+  "recomputed_hash": "2e03823c2d2145596d2a08afe8832ef10b27c19f8337d597c82d7efc1604c758",
+  "recomputed_hash_runs": [
+    "2026-07-13T10:43:00Z tsx verifySealHash(seal-C-307-041) => true",
+    "2026-07-13T10:43:00Z tsx computeSealHash x2 => 2e03823c… (identical)",
+    "2026-07-13T10:42:00Z API hash_valid => true"
+  ],
+  "successor_verification": {
+    "seal_id": "seal-C-308-042",
+    "prev_seal_hash": "2e03823c2d2145596d2a08afe8832ef10b27c19f8337d597c82d7efc1604c758",
+    "prev_matches_recovered_hash": true,
+    "sealed_at": "2026-05-11T07:51:02.451Z",
+    "status": "attested"
+  },
+  "result": "MATCH",
+  "result_labels": [
+    "PREDECESSOR_RECOVERED",
+    "HASH_MATCH_CONFIRMED",
+    "HISTORICAL_CONTINUITY_PROVEN"
+  ],
+  "confidence": "high",
+  "notes": [
+    "C-370 lineage audit scoped to attested seals only (313). seal-C-307-041 exists with status promoted and was therefore invisible to orphan_prev classification despite being present in KV.",
+    "Continuity proven at C-307 block 41 -> C-308 block 42 boundary only. Blocks C-307-001..035 remain absent from KV (35/41 missing).",
+    "No historical data was rewritten during this investigation.",
+    "Governance disposition (Q1 options a/b/c) not selected — forensic result only."
+  ]
+}
