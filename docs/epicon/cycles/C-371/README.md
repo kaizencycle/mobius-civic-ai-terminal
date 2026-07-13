@@ -1,8 +1,19 @@
-# Cycle C-371 — Predecessor Recovery & Carry-Forward
+# Cycle C-371 — Predecessor Recovery & Multi-Agent Continuity Verification
 
-**Status:** Open — forensic task complete; governance disposition pending  
+**Status:** Open — multi-agent verification complete; custodian ratification pending  
 **Prior seal:** C-370 — DISPUTED / PARTIAL ([`SEAL_C-370_DISPUTED_partial-closing.md`](../C-370/SEAL_C-370_DISPUTED_partial-closing.md))  
 **Opening justification:** C-370 carry-forward table § "What C-370 did not resolve" — Q1 orphan fragment
+
+## Multi-agent verification (C-371 quorum)
+
+| Agent | Verdict | Document |
+|-------|---------|----------|
+| **ZEUS** | `PASS_WITH_HISTORICAL_GENESIS_SET` | [`VERIFICATION_C-371_ZEUS_full-reserve-lineage.md`](./VERIFICATION_C-371_ZEUS_full-reserve-lineage.md) |
+| **ECHO** | `INDEX_VISIBILITY_INCOMPLETE` | [`VERIFICATION_C-371_ECHO_storage-and-index-continuity.md`](./VERIFICATION_C-371_ECHO_storage-and-index-continuity.md) |
+| **JADE** | `SEMANTIC_RENAME_WITH_COMPATIBILITY` | [`VERIFICATION_C-371_JADE_reserve-semantic-continuity.md`](./VERIFICATION_C-371_JADE_reserve-semantic-continuity.md) |
+
+**Joint manifest:** [`artifacts/C-371/reserve-lineage-verification-manifest.json`](../../../../artifacts/C-371/reserve-lineage-verification-manifest.json)  
+**Final classification:** `HISTORICAL_RESERVE_CONTINUITY_VERIFIED` (pending EVE / AUREA / Custodian)
 
 ## Artifacts
 
