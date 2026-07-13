@@ -1,7 +1,8 @@
 # Cycle C-370 — Canon/Runtime Reconciliation
 
-**Status:** In progress — **do not seal complete** (see [`AUDIT_C-370_status-prior-to-closing-seal.md`](./AUDIT_C-370_status-prior-to-closing-seal.md))  
-**Prior seal:** C-369 — DISPUTED
+**Status:** **DISPUTED / PARTIAL** — sealed 2026-07-13 (see [`SEAL_C-370_DISPUTED_partial-closing.md`](./SEAL_C-370_DISPUTED_partial-closing.md))  
+**Prior seal:** C-369 — DISPUTED  
+**Carry-forward:** authoritative list in seal § "What C-370 did not resolve" — cite by reference when opening C-371
 
 ## Artifacts (read in order)
 
@@ -18,6 +19,7 @@
 | — | [`GOVERNANCE_DECISION_C-370_chain-continuity.md`](./GOVERNANCE_DECISION_C-370_chain-continuity.md) | **PARTIAL** — Q2 resolved (infra); Q1 + Q3 OPEN |
 | — | [`NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md`](./NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md) | Q1 evidence — catalog C-307→C-308 correlates with orphan block 42 |
 | — | [`AUDIT_C-370_status-prior-to-closing-seal.md`](./AUDIT_C-370_status-prior-to-closing-seal.md) | **Custodian audit** — ground truth before closing-seal decision; recommends DISPUTED/PARTIAL or C-371 carry-forward |
+| — | [`SEAL_C-370_DISPUTED_partial-closing.md`](./SEAL_C-370_DISPUTED_partial-closing.md) | **Closing seal** — DISPUTED/PARTIAL; authoritative carry-forward table for C-371 opener |
 | — | [`EPICON_C-370_EVE_kv-watchdog-proposal_v1.md`](./EPICON_C-370_EVE_kv-watchdog-proposal_v1.md) | **Proposal** — EVE-owned KV/Upstash watchdog |
 | — | [`EPICON_C-370_EVE_kv-watchdog-implementation_v1.md`](./EPICON_C-370_EVE_kv-watchdog-implementation_v1.md) | **Implementation** — shipped PR #615; hard-stop gated off |
 | — | [`MIC_RECONCILIATION_C-370_dropped-seals.md`](./MIC_RECONCILIATION_C-370_dropped-seals.md) | Q3 lookup checklist — 119 dropped seals |
