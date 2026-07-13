@@ -3,8 +3,8 @@
 **From:** Michael Judan (human custodian)  
 **To:** ATLAS  
 **Re:** `HANDOFF_C-370_chain-continuity-audit.md` / [PR #611](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/611)  
-**Date:** 2026-07-12  
-**Status:** HOLD — awaiting production KV audit JSON (no credentials in channel)
+**Date:** 2026-07-12 (updated 2026-07-13)  
+**Status:** **CONFIRMED** — production KV audit returned `multiple_lineages: true`; see [`FINDINGS_C-370_chain-continuity-kv-audit.md`](./FINDINGS_C-370_chain-continuity-kv-audit.md)
 
 ---
 
@@ -31,6 +31,26 @@ Or trigger **Actions → Audit Reserve Block Lineage** (workflow_dispatch) and d
 | `reattest_clusters` | Surfaces whether Jun 30 bulk `attested_at` on blocks 113–131 was legitimate quarantine-recovery | — |
 
 Holding here until that data comes back. No further action recommended on #380/#598/#611 until `multiple_lineages` is confirmed true or false.
+
+---
+
+## Update (2026-07-13) — KV audit complete
+
+GitHub Actions workflow ran successfully on production KV (`main` @ `194cfdb3`, 2026-07-13T00:00 UTC).
+
+| Field | Result | Implication |
+|-------|--------|-------------|
+| `multiple_lineages` | **true** | Original concern holds in raw KV — **not** a Canon Browser UX artifact |
+| `genesis_count` | 2 | Two independent genesis points, plus orphan fragment |
+| Lineage components | **3** | Orphan (seq 42–194, no genesis) + Chain B (C-332→C-358) + Chain C (C-359→C-370) |
+| `link_issues` | 1 (`orphan_prev`) | `seal-C-308-042` prev hash absent from all 313 attested seals |
+| `reattest_clusters` | 1 @ `2026-06-30T20` | 283 seals, seq 1–194 — KV cluster present; **cron/reattest-seals logs still pending** (item 4 partial) |
+| `hash_divergent_collisions` | **119** | Every collision has different seal hashes |
+| Dual-quorum | **119/119** | Both kept and dropped seals fully quorum-signed (5/5) |
+
+**Conclusion:** The concern relocates further — it is now confirmed as a **hot-KV integrity incident** requiring governance decision, not export tuning. Hold #380/#598 until custodian answers whether C-359 restart was documented/intentional. MIC reconciliation for 119 dropped dual-quorum seals is an open question for seal-quorum authority.
+
+Full findings: [`FINDINGS_C-370_chain-continuity-kv-audit.md`](./FINDINGS_C-370_chain-continuity-kv-audit.md)
 
 ---
 

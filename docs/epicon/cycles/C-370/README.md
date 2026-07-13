@@ -11,8 +11,9 @@
 | 2 | [`EPICON_C-370_GOVERNANCE_mic-issuance-ratification_v1.md`](./EPICON_C-370_GOVERNANCE_mic-issuance-ratification_v1.md) | Items 1–2 resolution — doctrine ratification + earnMIC gate ([PR #597](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/597)) |
 | 3 | [`HANDOFF_C-370_ATLAS-to-AUREA_remaining-items.md`](./HANDOFF_C-370_ATLAS-to-AUREA_remaining-items.md) | Items 3–20 continuation for AUREA ([PR #598](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/598)) |
 | — | [`OPERATOR_C-370_item-5_reserve-block-backlog-export.md`](./OPERATOR_C-370_item-5_reserve-block-backlog-export.md) | **Operator action** — item 5 backlog `.dat` export (config/ops, not code) |
-| — | [`HANDOFF_C-370_chain-continuity-audit.md`](./HANDOFF_C-370_chain-continuity-audit.md) | **HIGH** — hot KV `prev_seal_hash` lineage vs cold export chain; investigation open |
-| — | [`NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md`](./NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md) | Custodian ack — scope correction accepted; HOLD until KV audit JSON |
+| — | [`HANDOFF_C-370_chain-continuity-audit.md`](./HANDOFF_C-370_chain-continuity-audit.md) | **P0** — hot KV `prev_seal_hash` lineage confirmed: 3 components, 119 dual-quorum collisions |
+| — | [`FINDINGS_C-370_chain-continuity-kv-audit.md`](./FINDINGS_C-370_chain-continuity-kv-audit.md) | **Confirmed** — production KV audit JSON summary (2026-07-13) |
+| — | [`NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md`](./NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md) | Custodian ack — scope correction accepted; findings confirmed |
 
 ## Operator actions (no code change)
 

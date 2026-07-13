@@ -4,10 +4,12 @@
 **From:** Michael Judan (human custodian)  
 **Filed by:** ATLAS (Cursor agent)  
 **Source:** Direct inspection of Mobius Substrate Canon Browser (Sentinel → Canon, read-only Phase 8/11 replay layer), 2026-07-12T23:36 UTC snapshot  
-**Severity:** HIGH — chain-continuity question, not a count/dedup question  
-**Status:** OPEN — investigation required; not independently verified against raw KV at filing time
+**Severity:** **P0** — confirmed multiple hot lineages + 119 hash-divergent dual-quorum collisions  
+**Status:** **CONFIRMED** — production KV audit complete (2026-07-13); **governance decision required**
 
-**Custodian response:** [`NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md`](./NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md) — accepts scope correction; holds until KV audit JSON.
+**Custodian response:** [`NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md`](./NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md) — scope correction accepted.
+
+**Confirmed findings:** [`FINDINGS_C-370_chain-continuity-kv-audit.md`](./FINDINGS_C-370_chain-continuity-kv-audit.md) — full audit JSON summary from GitHub Actions run on `main`.
 
 ---
 
@@ -27,11 +29,11 @@ justification:
     - scripts/audit-seal-hash-lineage.ts
     - Mobius-Substrate/canon/reserve-blocks/MANIFEST.json
   BOUNDARIES: Investigation only. No rollback, merge/hold verdict on #380, or canon mutation without operator consent and preserved incident history.
-  COUNTERFACTUAL: If raw KV audit shows a single connected prev_seal_hash component (or UI pagination artifact), downgrade to documentation/UX clarification rather than chain-integrity incident.
+  COUNTERFACTUAL: Raw KV audit (2026-07-13) confirmed multiple_lineages: true with 3 components and 119 hash-divergent dual-quorum collisions. Counterfactual branches below are resolved — this is a governance incident, not a UX artifact.
 counterfactuals:
-  - This was first read from rendered Canon Browser UI, not raw KV/.dat — must be independently verified before treating as confirmed (lesson from fabricated journal-lock UI string earlier in C-370).
-  - If the two lineages are a known fork-recovery event already documented elsewhere, downgrade to documentation gap rather than incident.
-  - If disconnect is only in cold export synthetic chain vs hot KV, the finding reframes as "two hash semantics" not "broken canon."
+  - ~~If raw KV audit shows a single connected prev_seal_hash component~~ — **RESOLVED FALSE** (2026-07-13): three components + orphan.
+  - If the two lineages are a known fork-recovery event already documented elsewhere, downgrade to documentation gap rather than incident — **PENDING governance answer (item 5)**.
+  - Hot vs cold hash semantics distinction remains valid: verify-dat-chain.js validates synthetic export only, not hot KV continuity.
 ```
 
 ---
@@ -83,11 +85,11 @@ PR #380's `.dat` export reported **CHAIN VALID** for 194 blocks. It is not yet c
 
 | # | Action | Tool / source | Status |
 |---|--------|---------------|--------|
-| 1 | Verify Chain A ↔ Chain B disconnect in **raw KV**, not UI | `npx tsx scripts/audit-seal-hash-lineage.ts` (requires `.env.local` KV creds) | **PENDING** — operator run |
-| 2 | Collision audit (block_number winners, hash divergence) | `npx tsx scripts/audit-reserve-block-collisions.ts` | Existing; run against prod KV |
+| 1 | Verify Chain A ↔ Chain B disconnect in **raw KV**, not UI | `npx tsx scripts/audit-seal-hash-lineage.ts` (requires `.env.local` KV creds) | **DONE** — `multiple_lineages: true`, 3 components; see [findings](./FINDINGS_C-370_chain-continuity-kv-audit.md) |
+| 2 | Collision audit (block_number winners, hash divergence) | `npx tsx scripts/audit-reserve-block-collisions.ts` | **DONE** — 119 collisions, all hash-divergent, all dual-quorum |
 | 3 | Confirm what `verify-dat-chain.js` validated | `Mobius-Substrate/scripts/verify-dat-chain.js` on `canon/reserve-blocks/` | **DONE** — see findings below |
-| 4 | Confirm Jun 30 bulk re-attestation cluster | Lineage audit `reattest_clusters` + `cron/reattest-seals` logs | **PENDING** — operator run |
-| 5 | Document known fork/reset at C-359 if intentional | Cycle journals, EPICON events, operator memory | **PENDING** |
+| 4 | Confirm Jun 30 bulk re-attestation cluster | Lineage audit `reattest_clusters` + `cron/reattest-seals` logs | **PARTIAL** — KV cluster at `2026-06-30T20` (283 seals, seq 1–194) confirmed via lineage audit; **`cron/reattest-seals` production logs not yet cited** |
+| 5 | Document known fork/reset at C-359 if intentional | Cycle journals, EPICON events, operator memory | **PENDING** — **governance decision required** |
 
 ---
 
@@ -137,6 +139,45 @@ Whether that reset was **documented and intentional** is an open governance ques
 
 ---
 
+## Confirmed KV audit findings (2026-07-13)
+
+*Source: GitHub Actions workflow on production KV. Full detail in [`FINDINGS_C-370_chain-continuity-kv-audit.md`](./FINDINGS_C-370_chain-continuity-kv-audit.md).*
+
+### Finding 6: `multiple_lineages: true` — three hot-KV components
+
+| Component | Genesis | Tip | Seals | Seq range | Cycles | Fountain |
+|-----------|---------|-----|-------|-----------|--------|----------|
+| Orphan fragment | **none** | `seal-C-332-194` | 153 | 42–194 | C-308→C-332 | activating |
+| Chain B | `seal-C-332-001` | `seal-C-358-131` | 131 | 1–131 | C-332→C-358 | activating |
+| Chain C | `seal-C-359-001` | `seal-C-370-029` | 29 | 1–29 | C-359→C-370 | pending |
+
+`genesis_count: 2` plus one orphan fragment without genesis. `seal-C-308-042` has `orphan_prev` — its `prev_seal_hash` matches no attested seal.
+
+The custodian's Canon Browser observation is **confirmed and understated**: not two disconnected chains, but **two genesis-rooted chains plus an orphan fragment** whose origin has vanished from the attested set.
+
+### Finding 7: 119 hash-divergent collisions, all dual-quorum
+
+- `raw_attested_count: 313`, `unique_block_count: 194`, `collision_count: 119`
+- **`hash_divergent_collisions: 119`** — every collision has different `seal_hash` values
+- **Every pair:** `kept_quorum: 5` AND `dropped_quorum: 5` — both sides fully sentinel-signed at different times (often weeks apart)
+- `alert: true` at `alert_threshold: 0` — P0 hold condition
+
+Example block #1: kept `seal-C-359-001` (Jul 1) vs dropped `seal-C-332-001` (Jun 5).
+
+This is not retry/resend noise. The sealing pipeline fully validated and quorum-attested the same `block_number` twice as separate, complete events.
+
+### Finding 8: MIC / reward reconciliation is an open governance question
+
+If MIC was credited or reward-accounted against any of the 119 dropped sealing events before the pipeline reset, reconciliation status is unknown. This requires human custodian review — not a dedup rule in code.
+
+### Finding 9: Bulk re-attestation cluster — KV evidence only (item 4 partial)
+
+`reattest_clusters[0]`: `2026-06-30T20`, 283 seals, sequence 1–194, cycles C-308→C-358. Corroborates custodian observation of near-identical `attested_at` on blocks 113–131.
+
+**Not yet closed:** checklist item 4 also requires `cron/reattest-seals` production logs (`app/api/cron/reattest-seals/route.ts`). The lineage audit workflow does not fetch those logs; operator should paste Vercel/runtime log evidence from the Jun 30 window before marking item 4 DONE.
+
+---
+
 ## Explicit non-recommendation
 
 This handoff does **not** recommend:
@@ -147,7 +188,7 @@ This handoff does **not** recommend:
 
 Per Canon law: *"No rollback without proof, operator consent, and preserved incident history."*
 
-**Next responsible step: operator-run KV audits (items 1, 2, 4), then ATLAS/AUREA review with JSON artifacts.**
+**Next responsible step: governance decision (item 5) — was C-359 restart + orphan fragment documented/intentional? Hold export/dedup (#380/#598) until answered.**
 
 ---
 
@@ -182,6 +223,7 @@ npx tsx scripts/audit-reserve-block-collisions.ts --json | tee /tmp/collision-au
 
 | Artifact | Path |
 |----------|------|
+| **KV audit findings (confirmed)** | `docs/epicon/cycles/C-370/FINDINGS_C-370_chain-continuity-kv-audit.md` |
 | Collision audit | `docs/epicon/cycles/C-370/AUDIT_C-370_reserve-block-collisions.md` |
 | Prime count clarification | `Mobius-Substrate/docs/epicon/cycles/C-368/C368-PR7_prime-count-clarification.md` |
 | Cold canon verify | `Mobius-Substrate/scripts/verify-dat-chain.js` |
@@ -190,4 +232,4 @@ npx tsx scripts/audit-reserve-block-collisions.ts --json | tee /tmp/collision-au
 
 ---
 
-*Filed 2026-07-12. "We heal as we walk." — Mobius Systems*
+*Filed 2026-07-12. KV audit confirmed 2026-07-13. "We heal as we walk." — Mobius Systems*
