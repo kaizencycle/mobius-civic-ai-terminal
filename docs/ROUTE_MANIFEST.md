@@ -71,6 +71,7 @@ Declare a tier in a route with: `export const tier = 'public';`
 | `/api/cron/swarm` | GET | cron |
 | `/api/cron/sweep` | GET, POST | cron |
 | `/api/cron/vault-attestation` | GET | cron |
+| `/api/cron/kv-watchdog` | GET, POST | cron |
 | `/api/cron/watchdog` | GET | cron |
 | `/api/debug/attestation-state` | GET | `untiered` |
 | `/api/debug/kv-inspect` | GET | `untiered` |
