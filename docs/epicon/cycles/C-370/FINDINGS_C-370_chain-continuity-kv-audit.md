@@ -86,7 +86,9 @@ This is the "new chain" (blocks 1–29) observed in Canon Browser.
 | `sequence_range` | 1–194 |
 | Cycles | C-308 → C-358 |
 
-Confirms bulk substrate re-attestation on Jun 30 — consistent with custodian observation of near-identical `attested_at` on blocks 113–131.
+Confirms a bulk `attested_at` cluster in production KV on Jun 30 — consistent with custodian observation of near-identical `attested_at` on blocks 113–131.
+
+**Caveat (checklist item 4 partial):** this is lineage-audit output only. Corroboration via `cron/reattest-seals` production logs is still required before item 4 can be marked DONE.
 
 ---
 

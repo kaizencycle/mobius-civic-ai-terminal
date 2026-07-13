@@ -88,7 +88,7 @@ PR #380's `.dat` export reported **CHAIN VALID** for 194 blocks. It is not yet c
 | 1 | Verify Chain A ↔ Chain B disconnect in **raw KV**, not UI | `npx tsx scripts/audit-seal-hash-lineage.ts` (requires `.env.local` KV creds) | **DONE** — `multiple_lineages: true`, 3 components; see [findings](./FINDINGS_C-370_chain-continuity-kv-audit.md) |
 | 2 | Collision audit (block_number winners, hash divergence) | `npx tsx scripts/audit-reserve-block-collisions.ts` | **DONE** — 119 collisions, all hash-divergent, all dual-quorum |
 | 3 | Confirm what `verify-dat-chain.js` validated | `Mobius-Substrate/scripts/verify-dat-chain.js` on `canon/reserve-blocks/` | **DONE** — see findings below |
-| 4 | Confirm Jun 30 bulk re-attestation cluster | Lineage audit `reattest_clusters` + `cron/reattest-seals` logs | **DONE** — cluster at `2026-06-30T20`, 283 seals, seq 1–194 |
+| 4 | Confirm Jun 30 bulk re-attestation cluster | Lineage audit `reattest_clusters` + `cron/reattest-seals` logs | **PARTIAL** — KV cluster at `2026-06-30T20` (283 seals, seq 1–194) confirmed via lineage audit; **`cron/reattest-seals` production logs not yet cited** |
 | 5 | Document known fork/reset at C-359 if intentional | Cycle journals, EPICON events, operator memory | **PENDING** — **governance decision required** |
 
 ---
@@ -170,9 +170,11 @@ This is not retry/resend noise. The sealing pipeline fully validated and quorum-
 
 If MIC was credited or reward-accounted against any of the 119 dropped sealing events before the pipeline reset, reconciliation status is unknown. This requires human custodian review — not a dedup rule in code.
 
-### Finding 9: Bulk re-attestation cluster confirmed
+### Finding 9: Bulk re-attestation cluster — KV evidence only (item 4 partial)
 
 `reattest_clusters[0]`: `2026-06-30T20`, 283 seals, sequence 1–194, cycles C-308→C-358. Corroborates custodian observation of near-identical `attested_at` on blocks 113–131.
+
+**Not yet closed:** checklist item 4 also requires `cron/reattest-seals` production logs (`app/api/cron/reattest-seals/route.ts`). The lineage audit workflow does not fetch those logs; operator should paste Vercel/runtime log evidence from the Jun 30 window before marking item 4 DONE.
 
 ---
 

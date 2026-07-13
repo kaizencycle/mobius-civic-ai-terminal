@@ -44,7 +44,7 @@ GitHub Actions workflow ran successfully on production KV (`main` @ `194cfdb3`, 
 | `genesis_count` | 2 | Two independent genesis points, plus orphan fragment |
 | Lineage components | **3** | Orphan (seq 42–194, no genesis) + Chain B (C-332→C-358) + Chain C (C-359→C-370) |
 | `link_issues` | 1 (`orphan_prev`) | `seal-C-308-042` prev hash absent from all 313 attested seals |
-| `reattest_clusters` | 1 @ `2026-06-30T20` | 283 seals, seq 1–194 — bulk re-attestation confirmed |
+| `reattest_clusters` | 1 @ `2026-06-30T20` | 283 seals, seq 1–194 — KV cluster present; **cron/reattest-seals logs still pending** (item 4 partial) |
 | `hash_divergent_collisions` | **119** | Every collision has different seal hashes |
 | Dual-quorum | **119/119** | Both kept and dropped seals fully quorum-signed (5/5) |
 
