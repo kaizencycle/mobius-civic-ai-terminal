@@ -1,6 +1,6 @@
 # Cycle C-370 — Canon/Runtime Reconciliation
 
-**Status:** In progress — items 1–2 resolved; items 3–20 open  
+**Status:** In progress — **do not seal complete** (see [`AUDIT_C-370_status-prior-to-closing-seal.md`](./AUDIT_C-370_status-prior-to-closing-seal.md))  
 **Prior seal:** C-369 — DISPUTED
 
 ## Artifacts (read in order)
@@ -17,8 +17,9 @@
 | — | [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md) | Custodian position — C-359 not intentional; KV budget suspension |
 | — | [`GOVERNANCE_DECISION_C-370_chain-continuity.md`](./GOVERNANCE_DECISION_C-370_chain-continuity.md) | **PARTIAL** — Q2 resolved (infra); Q1 + Q3 OPEN |
 | — | [`NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md`](./NOTE_C-370_Q1_catalog-history-C307-C308-boundary.md) | Q1 evidence — catalog C-307→C-308 correlates with orphan block 42 |
-| — | [`EPICON_C-370_EVE_kv-watchdog-proposal_v1.md`](./EPICON_C-370_EVE_kv-watchdog-proposal_v1.md) | **Proposal** — EVE-owned KV/Upstash watchdog (Q2 fixes #1–#3 operationalization) |
-| — | [`EPICON_C-370_EVE_kv-watchdog-implementation_v1.md`](./EPICON_C-370_EVE_kv-watchdog-implementation_v1.md) | **Implementation intent** — ready; Q2 fixes + hard-stop gated out of scope |
+| — | [`AUDIT_C-370_status-prior-to-closing-seal.md`](./AUDIT_C-370_status-prior-to-closing-seal.md) | **Custodian audit** — ground truth before closing-seal decision; recommends DISPUTED/PARTIAL or C-371 carry-forward |
+| — | [`EPICON_C-370_EVE_kv-watchdog-proposal_v1.md`](./EPICON_C-370_EVE_kv-watchdog-proposal_v1.md) | **Proposal** — EVE-owned KV/Upstash watchdog |
+| — | [`EPICON_C-370_EVE_kv-watchdog-implementation_v1.md`](./EPICON_C-370_EVE_kv-watchdog-implementation_v1.md) | **Implementation** — shipped PR #615; hard-stop gated off |
 | — | [`MIC_RECONCILIATION_C-370_dropped-seals.md`](./MIC_RECONCILIATION_C-370_dropped-seals.md) | Q3 lookup checklist — 119 dropped seals |
 
 ## Operator actions (no code change)

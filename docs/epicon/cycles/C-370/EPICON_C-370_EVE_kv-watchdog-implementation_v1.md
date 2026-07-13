@@ -11,7 +11,7 @@ scope:
   system: "civic-ai-terminal"
   environment: "mainnet"
 epicon_type: "implementation-intent"
-status: "in_progress"
+status: "shipped"
 related_prs:
   - "https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/613"
   - "https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/615"
@@ -36,7 +36,7 @@ summary: "Implementation intent for EVE-attributed KV/Upstash watchdog (Option B
 
 # EPICON C-370 — EVE KV/Upstash Watchdog Implementation Intent
 
-**Status:** In progress — implementation PR [#615](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/615) (`cursor/eve-kv-watchdog-0e02`); pending merge and deploy
+**Status:** Shipped — PR [#615](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/615) merged; escalation hardening `94469ead` on `main`. Hard-stop sealing remains gated off.
 **Follows:** [`EPICON_C-370_EVE_kv-watchdog-proposal_v1.md`](./EPICON_C-370_EVE_kv-watchdog-proposal_v1.md) (proposal, PR #613)  
 **Architecture:** Option B — decoupled `/api/cron/kv-watchdog`, EVE-attributed, independent of `cycle-synthesize`
 
