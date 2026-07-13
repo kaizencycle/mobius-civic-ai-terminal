@@ -69,7 +69,7 @@ Jun 30 heartbeats show `primary_kv_suspended: false` (KV recovered by then), but
 
 ## Explicit non-recommendation
 
-This note does **not** resolve the hot-KV integrity incident (`multiple_lineages: true` remains confirmed). It records custodian position that the dual-chain state arose from **operational/pipeline failure**, not authorized governance reset. Export/dedup hold remains until MIC reconciliation and orphan fragment are addressed.
+This note does **not** resolve the hot-KV integrity incident (`multiple_lineages: true` remains confirmed). It records custodian position that the dual-chain state arose from **operational/pipeline failure**, not authorized governance reset. Export/dedup hold remains until **Q1** (orphan fragment) is answered, **Q2** is accepted/signed by the custodian, and **Q3** MIC reconciliation completes.
 
 ---
 
