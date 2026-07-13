@@ -35,6 +35,40 @@ function shouldPushEpicon(
   return Date.now() - new Date(prev.epicon_at).getTime() > ESCALATION_COOLDOWN_MS;
 }
 
+function isKvWatchdogTripwireResult(r: TrustTripwireResult): boolean {
+  return r.kind === 'watchdog_failed_checks' && r.evidence?.source === 'kv-watchdog';
+}
+
+function buildTripwireSnapshot(results: TrustTripwireResult[], timestamp: string): TrustTripwireSnapshot {
+  const tripwireCount = results.filter((r) => r.triggered).length;
+  const critical = results.some((r) => r.triggered && r.severity === 'critical');
+  return {
+    ok: tripwireCount === 0,
+    elevated: tripwireCount > 0,
+    critical,
+    tripwireCount,
+    results,
+    timestamp,
+  };
+}
+
+async function persistTripwireSnapshot(snapshot: TrustTripwireSnapshot): Promise<void> {
+  await Promise.all([
+    kvSet(KV_KEYS.TRIPWIRE_STATE, snapshot, KV_TTL_SECONDS.TRIPWIRE_STATE),
+    kvSet(KV_KEYS.TRIPWIRE_STATE_KV, snapshot, KV_TTL_SECONDS.TRIPWIRE_STATE),
+  ]).catch(() => {});
+}
+
+async function clearTripwireKvWatchdog(timestamp: string): Promise<boolean> {
+  const existing = await kvGet<TrustTripwireSnapshot>(KV_KEYS.TRIPWIRE_STATE);
+  const withoutKv = (existing?.results ?? []).filter((r) => !isKvWatchdogTripwireResult(r));
+  if (withoutKv.length === (existing?.results ?? []).length) {
+    return false;
+  }
+  await persistTripwireSnapshot(buildTripwireSnapshot(withoutKv, timestamp));
+  return true;
+}
+
 async function mergeTripwireKvWatchdog(
   report: KvWatchdogReport,
   operatorCycle: string,
@@ -68,25 +102,9 @@ async function mergeTripwireKvWatchdog(
   };
 
   const existing = await kvGet<TrustTripwireSnapshot>(KV_KEYS.TRIPWIRE_STATE);
-  const withoutKv = (existing?.results ?? []).filter(
-    (r) => !(r.kind === 'watchdog_failed_checks' && r.evidence?.source === 'kv-watchdog'),
-  );
+  const withoutKv = (existing?.results ?? []).filter((r) => !isKvWatchdogTripwireResult(r));
   const results = [...withoutKv, kvResult];
-  const tripwireCount = results.filter((r) => r.triggered).length;
-  const critical = results.some((r) => r.triggered && r.severity === 'critical');
-  const snapshot: TrustTripwireSnapshot = {
-    ok: tripwireCount === 0,
-    elevated: tripwireCount > 0,
-    critical,
-    tripwireCount,
-    results,
-    timestamp,
-  };
-
-  await Promise.all([
-    kvSet(KV_KEYS.TRIPWIRE_STATE, snapshot, KV_TTL_SECONDS.TRIPWIRE_STATE),
-    kvSet(KV_KEYS.TRIPWIRE_STATE_KV, snapshot, KV_TTL_SECONDS.TRIPWIRE_STATE),
-  ]).catch(() => {});
+  await persistTripwireSnapshot(buildTripwireSnapshot(results, timestamp));
 
   return true;
 }
@@ -112,28 +130,36 @@ export async function escalateKvWatchdogReport(
   let critical_alert_recorded = false;
 
   if (max === 'ok') {
+    tripwire_updated = await clearTripwireKvWatchdog(report.checked_at);
     await kvSet(ESCALATION_STATE_KEY, { severity: 'ok', at: report.checked_at }, 86400).catch(() => {});
     return { epicon_pushed, tripwire_updated, journal_pushed, critical_alert_recorded };
   }
 
   if (shouldPushEpicon(max, prev)) {
-    await pushLedgerEntry({
-      id: `kv-watchdog-${operatorCycle}-${Date.now()}`,
-      timestamp: report.checked_at,
-      author: 'EVE',
-      title: `KV Watchdog [${max}]: ${failedChecks.map((f) => f.check).join(', ')}`,
-      body: failedChecks.map((f) => `${f.check}: ${f.message}`).join('\n'),
-      type: 'epicon',
-      severity: EPICON_SEVERITY[max as Exclude<WatchdogSeverity, 'ok'>],
-      source: 'kv-watchdog',
-      tags: ['kv-watchdog', 'infra', operatorCycle, max],
-      verified: false,
-      category: 'watchdog',
-      status: 'committed',
-      agentOrigin: 'EVE',
-      cycle: operatorCycle,
-    });
-    epicon_pushed = true;
+    try {
+      await pushLedgerEntry({
+        id: `kv-watchdog-${operatorCycle}-${Date.now()}`,
+        timestamp: report.checked_at,
+        author: 'EVE',
+        title: `KV Watchdog [${max}]: ${failedChecks.map((f) => f.check).join(', ')}`,
+        body: failedChecks.map((f) => `${f.check}: ${f.message}`).join('\n'),
+        type: 'epicon',
+        severity: EPICON_SEVERITY[max as Exclude<WatchdogSeverity, 'ok'>],
+        source: 'kv-watchdog',
+        tags: ['kv-watchdog', 'infra', operatorCycle, max],
+        verified: false,
+        category: 'watchdog',
+        status: 'committed',
+        agentOrigin: 'EVE',
+        cycle: operatorCycle,
+      });
+      epicon_pushed = true;
+    } catch (err) {
+      console.error(
+        '[kv-watchdog] EPICON ledger push failed (continuing escalation):',
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   if (max === 'warning' || max === 'critical') {
