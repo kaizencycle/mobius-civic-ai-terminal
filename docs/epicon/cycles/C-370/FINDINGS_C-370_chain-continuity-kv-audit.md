@@ -150,7 +150,7 @@ Per Canon law and EPICON scope:
 
 - **No** agent-authored fix or rollback
 - **No** merge/hold verdict on Substrate #380 without governance answer
-- **No** further export/dedup work until MIC reconciliation and orphan fragment are addressed (reset question filed — not intentional per custodian)
+- **No** further export/dedup work until **Q1** (orphan fragment) is answered, **Q2** infra root-cause account is accepted/signed by the custodian, and **Q3** MIC reconciliation completes (reset question filed — not intentional per custodian; technical reconstruction pending Michael sign-off)
 
 ---
 

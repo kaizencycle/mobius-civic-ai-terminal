@@ -1,0 +1,73 @@
+/**
+ * GET/POST /api/cron/kv-watchdog
+ *
+ * EVE-attributed KV/Upstash watchdog (Option B — decoupled from cycle-synthesize).
+ * EPICON: EPICON_C-370_EVE_kv-watchdog-implementation_v1
+ *
+ * Schedule: every 10 minutes (vercel.json) — tighter than daily reserve-canon-integrity.
+ * Escalation: informational → EPICON; warning/critical → EPICON + Tripwire + EVE journal.
+ * Hard-stop sealing: NOT enabled (pending custodian sign-off).
+ */
+
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
+import { runKvHealthChecks } from '@/lib/watchdog/kvHealthChecks';
+import { escalateKvWatchdogReport } from '@/lib/watchdog/kvWatchdogEscalation';
+import { bearerMatchesToken } from '@/lib/vault-v2/auth';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const maxDuration = 60;
+
+export async function GET(request: NextRequest) {
+  const cronHeader = request.headers.get('x-vercel-cron');
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET ?? '';
+  const manuallyAuthed = bearerMatchesToken(authHeader, cronSecret);
+
+  if (!cronHeader && !manuallyAuthed) {
+    return NextResponse.json({ ok: false, error: 'Cron-only endpoint' }, { status: 403 });
+  }
+
+  try {
+    const operatorCycle = await resolveOperatorCycleId().catch(() => 'C-370');
+    const report = await runKvHealthChecks();
+    const escalation = await escalateKvWatchdogReport(report, operatorCycle);
+
+    const httpStatus = report.max_severity === 'critical' ? 409 : report.max_severity === 'warning' ? 207 : 200;
+
+    console.info('[kv-watchdog] run complete', {
+      cycle: operatorCycle,
+      max_severity: report.max_severity,
+      primary_kv_suspended: report.primary_kv_suspended,
+      escalation,
+    });
+
+    return NextResponse.json(
+      {
+        ok: report.max_severity === 'ok' || report.max_severity === 'informational',
+        agent: 'EVE',
+        epicon_id: 'EPICON_C-370_EVE_kv-watchdog-implementation_v1',
+        operator_cycle: operatorCycle,
+        report,
+        escalation,
+        hard_stop_enabled: false,
+      },
+      { status: httpStatus },
+    );
+  } catch (e) {
+    console.error('[kv-watchdog] run failed:', e instanceof Error ? e.message : e);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: e instanceof Error ? e.message : String(e),
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  return GET(request);
+}
