@@ -4,7 +4,7 @@
 **Task:** Corrected enumeration of blocks 1–41 using `LEGACY_SEAL_KV_RESET_IDS`  
 **Investigator:** ATLAS (Cursor agent)  
 **Date:** 2026-07-13  
-**Manifest:** [`artifacts/C-371/legacy-mic-tranche-lineage-manifest.json`](../../../artifacts/C-371/legacy-mic-tranche-lineage-manifest.json)  
+**Manifest:** [`artifacts/C-371/legacy-mic-tranche-lineage-manifest.json`](../../../../artifacts/C-371/legacy-mic-tranche-lineage-manifest.json)  
 **Amends:** [`FINDINGS_C-371_C307_predecessor-recovery.md`](./FINDINGS_C-371_C307_predecessor-recovery.md) § blocks 1–35 unavailable
 
 ---
@@ -17,7 +17,7 @@ Using that list:
 
 | Finding | Result |
 |---------|--------|
-| Legacy IDs 1–41 (49 list entries) in production KV | **49/49 present** (`status: promoted`) |
+| Legacy registry entries (`LEGACY_SEAL_KV_RESET_IDS`) in production KV | **49/49 present** (`status: promoted`) |
 | `hash_valid` on all | **true** |
 | Continuous `sequence` 1→41 chain (`seal-C-299-001` … `seal-C-307-041`) | **40/40 prev links intact** |
 | Boundary 41→42 (`seal-C-307-041` → `seal-C-308-042`) | **proven** (prior C-371 task) |
@@ -39,17 +39,18 @@ Early evolution (pre–C-293 “Reserve Block” rename):
 - Seal candidate formed per cycle
 - Multiple cycles each produced their own `…-001` genesis before continuous sequence numbering stabilized at `seal-C-299-001`
 
-**Example mapping (legacy list positions → seal IDs):**
+**Example mapping (registry list position vs reserve sequence):**
 
-| Block (list pos) | Seal ID | Notes |
-|------------------|---------|-------|
-| 1 | `seal-C-288-001` | First MIC tranche seal; also in Substrate archive |
-| 2 | `seal-C-292-001` | Cycle C-292 genesis |
-| … | … | Each `prev_seal_hash: null` |
-| 9 | `seal-C-299-001` | Start of **continuous** sequence 1→41 chain |
-| 10 | `seal-C-300-002` | `sequence: 2`, links to C-299-001 |
-| 41 | `seal-C-307-041` | `sequence: 41` |
-| 42 | `seal-C-308-042` | `status: attested`; links to 307-041 hash |
+| List pos | Reserve seq | Seal ID | Notes |
+|----------|-------------|---------|-------|
+| 1 | — | `seal-C-288-001` | Pre-continuous genesis; also in Substrate archive |
+| 2 | — | `seal-C-292-001` | Pre-continuous genesis (`prev_seal_hash: null`) |
+| … | — | … | Positions 3–8: same pattern |
+| 9 | 1 | `seal-C-299-001` | Start of **continuous** sequence 1→41 |
+| 10 | 2 | `seal-C-300-002` | Links to C-299-001 |
+| … | … | … | |
+| 49 | 41 | `seal-C-307-041` | Registry terminus; `sequence: 41` |
+| — | 42 | `seal-C-308-042` | **Not** in `LEGACY_SEAL_KV_RESET_IDS`; `status: attested` |
 
 ---
 

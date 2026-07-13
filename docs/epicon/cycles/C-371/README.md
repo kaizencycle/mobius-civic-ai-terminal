@@ -9,8 +9,8 @@
 | Document | Role |
 |----------|------|
 | [`FINDINGS_C-371_C307_predecessor-recovery.md`](./FINDINGS_C-371_C307_predecessor-recovery.md) | **P0 bounded search** — recover `seal-C-307-041`; hash comparison vs `seal-C-308-042.prev_seal_hash` |
-| [`artifacts/C-371/c307-predecessor-search-manifest.json`](../../../artifacts/C-371/c307-predecessor-search-manifest.json) | Machine-readable evidence manifest |
-| [`artifacts/C-371/seal-C-307-041.recovered.redacted.json`](../../../artifacts/C-371/seal-C-307-041.recovered.redacted.json) | Redacted structural extract (full body via read-only API) |
+| [`artifacts/C-371/c307-predecessor-search-manifest.json`](../../../../artifacts/C-371/c307-predecessor-search-manifest.json) | Machine-readable evidence manifest |
+| [`artifacts/C-371/seal-C-307-041.recovered.redacted.json`](../../../../artifacts/C-371/seal-C-307-041.recovered.redacted.json) | Redacted structural extract (full body via read-only API) |
 
 ## Forensic results (2026-07-13)
 
@@ -26,4 +26,7 @@
 | Document | Role |
 |----------|------|
 | [`FINDINGS_C-371_legacy-mic-tranche-lineage.md`](./FINDINGS_C-371_legacy-mic-tranche-lineage.md) | **Corrected** blocks 1–41 audit via `LEGACY_SEAL_KV_RESET_IDS` |
-| [`artifacts/C-371/legacy-mic-tranche-lineage-manifest.json`](../../../artifacts/C-371/legacy-mic-tranche-lineage-manifest.json) | Machine-readable legacy lineage summary |
+| [`artifacts/C-371/legacy-mic-tranche-lineage-manifest.json`](../../../../artifacts/C-371/legacy-mic-tranche-lineage-manifest.json) | Machine-readable legacy lineage summary |
+| [`NOTE_C-371_AUREA-legacy-lineage-synthesis.md`](./NOTE_C-371_AUREA-legacy-lineage-synthesis.md) | **AUREA confirmed** — canonical topology and status model |
+| [`VERIFICATION_C-371_adversarial-hash-check.md`](./VERIFICATION_C-371_adversarial-hash-check.md) | Independent re-verification (fresh API + double recompute) |
+| [`EPICON_C-371_PROPOSAL_lineage-audit-historical-index_v1.md`](./EPICON_C-371_PROPOSAL_lineage-audit-historical-index_v1.md) | Audit index correction proposal (not implemented) |
