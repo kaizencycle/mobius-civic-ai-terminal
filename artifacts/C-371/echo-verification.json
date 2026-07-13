@@ -1,0 +1,722 @@
+{
+  "summary": {
+    "verified_at": "2026-07-13T15:18:33.872Z",
+    "agent": "ECHO",
+    "legacy_kv_present": 49,
+    "legacy_kv_total": 49,
+    "wrong_pattern_404_count": 35,
+    "substrate_archive_count": 1,
+    "orphan_prev_reproduced_attested_only": true,
+    "audit_index_missing_seq_count": 25,
+    "boundary_checks": [
+      {
+        "seal_id": "seal-C-307-041",
+        "kv_present": true,
+        "status": "promoted",
+        "in_attested_default_index": false,
+        "in_audit_index_sample": false
+      },
+      {
+        "seal_id": "seal-C-308-042",
+        "kv_present": true,
+        "status": "attested",
+        "in_attested_default_index": false,
+        "in_audit_index_sample": false
+      },
+      {
+        "seal_id": "seal-C-332-194",
+        "kv_present": true,
+        "status": "attested",
+        "in_attested_default_index": true,
+        "in_audit_index_sample": true
+      }
+    ],
+    "echo_verdict": "INDEX_VISIBILITY_INCOMPLETE"
+  },
+  "addressing_false_negatives": [
+    {
+      "guessed_id": "seal-C-307-001",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-002",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-003",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-004",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-005",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-006",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-007",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-008",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-009",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-010",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-011",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-012",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-013",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-014",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-015",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-016",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-017",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-018",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-019",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-020",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-021",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-022",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-023",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-024",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-025",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-026",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-027",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-028",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-029",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-030",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-031",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-032",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-033",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-034",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-035",
+      "http_status": 404
+    }
+  ],
+  "index_visibility_false_negatives": [
+    {
+      "issue": "attested_only_orphan_prev",
+      "seal_id": "seal-C-308-042",
+      "reproduced": true,
+      "explanation": "C-370 lineage audit filters status===attested; predecessor seal-C-307-041 is promoted in same KV"
+    },
+    {
+      "issue": "audit_index_incomplete_for_seq_42_194",
+      "missing_sequence_count": 25,
+      "sample_missing": [
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146
+      ],
+      "explanation": "GET /api/vault/seal?scope=audit&limit=200 returns 200 of 356 total; not all seq 42-194 in one page"
+    }
+  ],
+  "legacy_surfaces": [
+    {
+      "seal_id": "seal-C-288-001",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": true,
+      "substrate_status": "quarantined",
+      "surface_mismatch": true
+    },
+    {
+      "seal_id": "seal-C-292-001",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-293-001",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-294-001",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-295-001",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-296-001",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-297-001",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-298-001",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-299-001",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-300-002",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-300-003",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-300-004",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-301-005",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-301-006",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-301-007",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-302-008",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-302-009",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-302-010",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-302-011",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-303-012",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-303-013",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-303-014",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-303-015",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-303-016",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-304-017",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-304-018",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-304-019",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-304-020",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-304-021",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-304-022",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-304-023",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-305-024",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-305-025",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-305-026",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-305-027",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-305-028",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-306-029",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-306-030",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-306-031",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-306-032",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-306-033",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-306-034",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-306-035",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-307-036",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-307-037",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-307-038",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-307-039",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-307-040",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    },
+    {
+      "seal_id": "seal-C-307-041",
+      "kv_direct": true,
+      "kv_status": "promoted",
+      "attested_index": false,
+      "promoted_registry": true,
+      "substrate_archive": false,
+      "substrate_status": null,
+      "surface_mismatch": false
+    }
+  ],
+  "wrong_pattern_sample": [
+    {
+      "guessed_id": "seal-C-307-001",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-002",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-003",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-004",
+      "http_status": 404
+    },
+    {
+      "guessed_id": "seal-C-307-005",
+      "http_status": 404
+    }
+  ]
+}

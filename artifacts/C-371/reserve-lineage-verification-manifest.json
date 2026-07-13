@@ -1,0 +1,99 @@
+{
+  "cycle": "C-371",
+  "verification_type": "multi_agent_historical_continuity",
+  "verified_at": "2026-07-13T15:19:00Z",
+  "agents": ["ZEUS", "JADE", "ECHO"],
+  "records_checked": 202,
+  "hash_valid": 202,
+  "invalid_hashes": [],
+  "genesis_records": [
+    "seal-C-288-001",
+    "seal-C-292-001",
+    "seal-C-293-001",
+    "seal-C-294-001",
+    "seal-C-295-001",
+    "seal-C-296-001",
+    "seal-C-297-001",
+    "seal-C-298-001"
+  ],
+  "continuous_lineages": [
+    {
+      "id": "legacy-mic-tranche",
+      "from": "seal-C-299-001",
+      "to": "seal-C-307-041",
+      "sequence_range": [1, 41],
+      "status_class": "promoted",
+      "prev_link_breaks": 0
+    },
+    {
+      "id": "reserve-block-attested-fragment",
+      "from": "seal-C-308-042",
+      "to": "seal-C-332-194",
+      "sequence_range": [42, 194],
+      "status_class": "attested",
+      "prev_link_breaks": 0
+    }
+  ],
+  "boundary": {
+    "seal_41": "seal-C-307-041",
+    "seal_42": "seal-C-308-042",
+    "prev_hash_match": true,
+    "cross_status": "promoted_to_attested"
+  },
+  "status_classes_seen": ["promoted", "attested"],
+  "storage_surfaces": [
+    "production_kv_direct",
+    "attested_default_index",
+    "audit_scope_index",
+    "substrate_seals_archive",
+    "legacy_registry_LEGACY_SEAL_KV_RESET_IDS"
+  ],
+  "missing_records": [],
+  "addressing_false_negatives": [
+    {
+      "pattern": "seal-C-307-{001..035}",
+      "result": "35/35 HTTP 404",
+      "cause": "IDs never existed; early blocks use changing cycle prefixes"
+    }
+  ],
+  "index_visibility_false_negatives": [
+    {
+      "issue": "attested_only_orphan_prev",
+      "seal_id": "seal-C-308-042",
+      "cause": "lib/dat/sealHashLineage.ts filters status===attested; predecessor is promoted in same KV"
+    },
+    {
+      "issue": "audit_index_pagination",
+      "missing_sequence_count": 25,
+      "cause": "GET /api/vault/seal?scope=audit&limit=200 returns 200 of 356; sequence-sorted partial sample fabricates prev breaks"
+    }
+  ],
+  "semantic_aliases": {
+    "tranche": "Reserve Block (C-293 rename; same 50 MIC parcel)",
+    "MIC tranche": "legacy promoted seal chain C-299..C-307",
+    "reserve parcel": "Vault v2 50-unit seal candidate",
+    "sealed reserve": "Seal object post-quorum",
+    "Reserve Block": "operator-facing C-293 term for same seal body"
+  },
+  "era_classification": {
+    "PRE_CONTINUOUS_MIC_TRANCHE_GENESIS_SET": "C-288..C-298",
+    "LEGACY_CONTINUOUS_MIC_TRANCHE_LINEAGE": "C-299..C-307",
+    "CONTINUOUS_RESERVE_BLOCK_LINEAGE": "C-308..C-332"
+  },
+  "zeus_verdict": "PASS_WITH_HISTORICAL_GENESIS_SET",
+  "jade_verdict": "SEMANTIC_RENAME_WITH_COMPATIBILITY",
+  "echo_verdict": "INDEX_VISIBILITY_INCOMPLETE",
+  "final_classification": "HISTORICAL_RESERVE_CONTINUITY_VERIFIED",
+  "quorum_notes": {
+    "zeus": "All 202 examined hashes and walk-order predecessor links pass",
+    "jade": "Terminology and era transitions reconciled; C-293 rename is compat additive",
+    "echo": "Prior false negatives explained by addressing and index filters; no true storage gap on authoritative IDs",
+    "pending_review": ["EVE constitutional boundary", "AUREA synthesis", "Custodian ratification"]
+  },
+  "artifacts": {
+    "zeus": "artifacts/C-371/zeus-verification.json",
+    "echo": "artifacts/C-371/echo-verification.json",
+    "zeus_script": "scripts/c371-zeus-verification.mjs",
+    "echo_script": "scripts/c371-echo-verification.mjs"
+  }
+}
