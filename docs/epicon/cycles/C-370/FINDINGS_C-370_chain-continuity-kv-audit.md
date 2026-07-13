@@ -130,13 +130,15 @@ Collisions span blocks 1–131. Blocks 132–194 have no collision pairs in the 
 
 ## Governance questions (for seal-quorum authority)
 
-1. **Was the C-359 chain restart intentional?** If yes, where is the documented fork/migration event? If no, the pipeline allowed re-sealing without uniqueness for 60+ cycles.
+1. **C-359 "reset" — custodian position: not intentional.** ZEUS verification catalog shows `latest_seal_id=seal-C-358-129` on 2026-06-30, then `latest_seal_id=null` by 2026-07-01T00:01Z, then forward sealing from `seal-C-359-002` onward with `vault_block_state=immortalized`. See [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md). **Revised root cause:** `LATEST_SEAL_KEY` continuity loss + missing `block_number` uniqueness — not authorized fork.
 
 2. **What happened to the origin of the orphan fragment?** `seal-C-308-042`'s `prev_seal_hash` points to a hash absent from all 313 attested seals — was prior history deleted, never attested, or lost during migration?
 
-3. **MIC / reward reconciliation:** 119 dropped seals reached full quorum before being discarded by export dedupe. Were rewards credited against those sealing events? Was accounting reconciled when the pipeline reset?
+3. **MIC / reward reconciliation:** 119 dropped seals reached full quorum before being discarded by export dedupe. Were rewards credited against those sealing events? Was accounting reconciled? **Requires explicit yes/no** — not left implicit.
 
 4. **Which layer is authoritative?** Hot KV `prev_seal_hash` (three components) vs cold `.dat` synthetic chain (one contiguous 1–194). Export synthesis stitches eras that hot storage does not connect.
+
+5. **Pipeline constraint gap (orthogonal to reset question):** Even if C-359 was not intentional, should `block_number` uniqueness and `LATEST_SEAL_KEY` preservation be enforced at seal formation regardless?
 
 ---
 
@@ -146,7 +148,7 @@ Per Canon law and EPICON scope:
 
 - **No** agent-authored fix or rollback
 - **No** merge/hold verdict on Substrate #380 without governance answer
-- **No** further export/dedup work until fork event is documented or incident is declared
+- **No** further export/dedup work until MIC reconciliation and orphan fragment are addressed (reset question filed — not intentional per custodian)
 
 ---
 
@@ -157,6 +159,7 @@ Per Canon law and EPICON scope:
 | Investigation handoff | [`HANDOFF_C-370_chain-continuity-audit.md`](./HANDOFF_C-370_chain-continuity-audit.md) |
 | Custodian reframe | [`NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md`](./NOTE_C-370_Michael-to-ATLAS_chain-continuity-reframe.md) |
 | Collision audit doc | [`AUDIT_C-370_reserve-block-collisions.md`](./AUDIT_C-370_reserve-block-collisions.md) |
+| Custodian: no intentional reset | [`NOTE_C-370_Michael-governance-no-reset.md`](./NOTE_C-370_Michael-governance-no-reset.md) |
 | Audit workflow | `.github/workflows/audit-reserve-block-lineage.yml` |
 | Lineage script | `scripts/audit-seal-hash-lineage.ts` |
 | Collision script | `scripts/audit-reserve-block-collisions.ts` |
