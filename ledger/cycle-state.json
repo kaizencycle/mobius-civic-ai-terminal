@@ -3,26 +3,22 @@
   "node_id": "mobius-terminal",
   "source": "snapshot-lite+vault+manifest",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
-  "cycle": "C-371",
-  "as_of": "2026-07-14T00:59:15.597Z",
-  "fetched_at": "2026-07-14T00:59:15.597Z",
-  "gi": 0.71,
+  "cycle": "C-372",
+  "as_of": "2026-07-14T04:08:52.262Z",
+  "fetched_at": "2026-07-14T04:08:52.328Z",
+  "gi": 0.63,
   "mode": "yellow",
   "degraded": true,
-  "gi_provenance": "live-compute",
-  "gi_verified": false,
+  "gi_provenance": "kv-live",
+  "gi_verified": true,
   "gi_readings": {
     "snapshot_lite": {
-      "value": 0.71,
+      "value": 0.63,
       "field": "gi",
       "source": "snapshot-lite"
     },
     "memory_mode": null,
-    "vault_dashboard": {
-      "value": 0.71,
-      "field": "gi_current",
-      "source": "/api/vault/status"
-    }
+    "vault_dashboard": null
   },
   "memory_mode": null,
   "deployment": {
@@ -38,23 +34,13 @@
     "seals_unique_block_number": "Distinct block_number chain slots — cold canon unit of account. Requires KV collision audit; not computed in public workflow.",
     "gap_raw_vs_cold": "seals_raw minus manifest.total_blocks — upper-bound gap; true append gap uses deduped unique count."
   },
-  "hot": {
-    "seals_raw": 358,
-    "seals_unique_block_number": null,
-    "chain_tip": null,
-    "in_progress_mic": 37.589039,
-    "in_progress_block": 359,
-    "fountain_status": "locked",
-    "sustain_cycles_met": false,
-    "substrate_ok": true,
-    "source": "/api/vault/status"
-  },
+  "hot": null,
   "cold": {
     "manifest_blocks": 194,
     "manifest_mic": 9700,
     "chain_tip_hash": "sha256:2ccc5e411828b32927bd53842558dd8202b9395955668f75237b107539d25baa",
     "manifest_url": "https://raw.githubusercontent.com/kaizencycle/Mobius-Substrate/main/canon/reserve-blocks/MANIFEST.json",
-    "gap_raw_vs_cold": 164,
+    "gap_raw_vs_cold": null,
     "source": "Mobius-Substrate/canon/reserve-blocks/MANIFEST.json"
   },
   "repos": {
@@ -72,9 +58,7 @@
     }
   },
   "open_gates": [
-    "cold_canon_append_pending",
-    "sustain_not_wired",
-    "fountain_gi_below_threshold",
+    "vault_fetch_failed",
     "terminal_degraded"
   ]
 }
