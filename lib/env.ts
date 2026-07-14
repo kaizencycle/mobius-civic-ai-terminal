@@ -111,7 +111,8 @@ const serverSchema = z.object({
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
 
-  // Auto-Seal engine
+  // Auto-Seal engine / CPC canon anchor base (lib/cpc/hashAnchor.ts)
+  CPC_BASE_URL: z.string().optional(),
   SEAL_TOKEN: z.string().optional(),
   CIVIC_LEDGER_URL: z.string().optional(),
   KV_SOURCE_URL: z.string().optional(),

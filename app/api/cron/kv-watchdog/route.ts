@@ -6,14 +6,18 @@
  *
  * Schedule: every 10 minutes (vercel.json) — tighter than daily reserve-canon-integrity.
  * Escalation: informational → EPICON; warning/critical → EPICON + Tripwire + EVE journal.
- * Hard-stop sealing: NOT enabled (pending custodian sign-off).
+ * Hard-stop sealing: enabled via seal integrity gate when critical block_number_collisions
+ * (EPICON_C-372_GOVERNANCE_seal-attestation-flag_v1). Rollback: SEAL_INTEGRITY_GATE=off.
  */
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import { runKvHealthChecks } from '@/lib/watchdog/kvHealthChecks';
-import { escalateKvWatchdogReport } from '@/lib/watchdog/kvWatchdogEscalation';
+import {
+  escalateKvWatchdogReport,
+} from '@/lib/watchdog/kvWatchdogEscalation';
+import { clearSealIntegrityGateIfCollisionsResolved, getSealIntegrityGateState } from '@/lib/watchdog/sealIntegrityGate';
 import { bearerMatchesToken } from '@/lib/vault-v2/auth';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +38,8 @@ export async function GET(request: NextRequest) {
     const operatorCycle = await resolveOperatorCycleId().catch(() => 'C-370');
     const report = await runKvHealthChecks();
     const escalation = await escalateKvWatchdogReport(report, operatorCycle);
+    const gateCleared = await clearSealIntegrityGateIfCollisionsResolved(report);
+    const sealGate = await getSealIntegrityGateState();
 
     const httpStatus = report.max_severity === 'critical' ? 409 : report.max_severity === 'warning' ? 207 : 200;
 
@@ -52,7 +58,9 @@ export async function GET(request: NextRequest) {
         operator_cycle: operatorCycle,
         report,
         escalation,
+        seal_integrity_gate_cleared: gateCleared,
         hard_stop_enabled: false,
+        seal_integrity_gate_active: sealGate.active,
       },
       { status: httpStatus },
     );

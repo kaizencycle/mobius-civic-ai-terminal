@@ -1,6 +1,6 @@
 /**
  * GET/POST /api/cron/sweep — full micro-sensor sweep + GI + pulse (C-287).
- * Schedule: every 10 minutes in `vercel.json`. Lighter `/api/cron/heartbeat` stays at 5m.
+ * Schedule: every 30 minutes (vercel.json) — lighter `/api/cron/heartbeat` shares the same cadence.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
