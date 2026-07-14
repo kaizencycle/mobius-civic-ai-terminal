@@ -237,7 +237,7 @@ export function buildFlushIntentBlock({ cycle, seal_id, entry_count, parcel_hash
 \`\`\`intent
 epicon_id: EPICON_${cycle}_INFRA_journal-parcel-flush_v1
 ledger_id: kaizencycle
-scope: core,specs
+scope: infra
 mode: normal
 issued_at: ${issuedAt.toISOString()}
 expires_at: ${expiresAt.toISOString()}
