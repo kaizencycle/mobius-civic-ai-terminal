@@ -1,0 +1,114 @@
+{
+  "timestamp": "2026-07-14T18:00:24.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-372",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "atlas_integrity_status_divergence": "persistent",
+    "atlas_integrity_source_cached": "persistent",
+    "daedalus-cloudflare-radar_low": "persistent",
+    "gaia-openaq_low": "persistent",
+    "sustain_eligible_false": "resolved",
+    "tripwire_active": "resolved",
+    "gaia-usgs-water_failure": "resolved",
+    "journal_kv_write": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-372. vault_block_state=accumulating in_progress_pct=27% latest_seal_id=null.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-14T17-02-15Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.75 mode=yellow source=cached classification=STRESSED terminal_status=stressed; anomalies=[] (empty); flags kv_keys_ok=false kv_keys_all_ok=false sustain_eligible=true tripwire_active=false micro_operator_cycle_divergence=true integrity_source_cached=true; micro_composite=0.892 micro_cycle=C-306; degraded_agents=1 (GAIA); seed_result=200 OK (30s timeout, 60s retry); tripwire inactive (baseline since 17:01Z)."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.907 composite=0.907 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=0. Operator cycle C-372 diverges from micro C-306 (persistent). Low instruments: gaia-openaq score=0.75, daedalus-cloudflare-radar score=0.7. GAIA recovered (composite 0.917 errorCount=0) — prior gaia-usgs-water transient resolved. Agent composites: GAIA 0.917, HERMES 0.922, THEMIS 0.853, DAEDALUS 0.946, AUREA 0.889, ECHO 0.92."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true cycle=C-372 gi_age_seconds=1. signals: quality=0.79 freshness=1 stability=0.45 system=1. DIVERGES from ATLAS gi=0.75 mode=yellow source=cached terminal_status=stressed — regression from prior pass alignment."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent across passes despite kv_keys.ok=true, seed_result=200 OK. kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. micro cycle C-306 vs operator C-372. Micro snapshot fresh (cached=false) but cycle label stale."
+    },
+    {
+      "check": "ATLAS integrity_source_cached",
+      "result": "warn",
+      "detail": "ATLAS source=cached with integrity_source_cached=true while live integrity-status serves kv-live at gi=0.82. Catalog heartbeat may lag operator truth."
+    },
+    {
+      "check": "gi_layer_divergence",
+      "result": "warn",
+      "detail": "integrity-status 0.82 (green/nominal) vs micro composite 0.907 — spread ~0.09. ATLAS cached 0.75 adds third layer below live operator GI."
+    },
+    {
+      "check": "atlas_integrity_status_divergence",
+      "result": "fail",
+      "detail": "REGRESSION. ATLAS gi=0.75 mode=yellow stressed (cached) vs integrity-status gi=0.82 mode=green nominal (kv-live). Prior pass (12:01Z) had alignment at 0.71."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "pass",
+      "detail": "RESOLVED. ATLAS sustain_eligible=true (was false in prior passes). KV seed 200 OK."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "pass",
+      "detail": "RESOLVED. ATLAS tripwire.active=false level=none. integrity stability=0.45 still reflects historical tripwire dampening."
+    },
+    {
+      "check": "gaia-usgs-water instrument",
+      "result": "pass",
+      "detail": "RESOLVED. Prior transient failure absent; GAIA errorCount=0 composite 0.917."
+    },
+    {
+      "check": "daedalus-cloudflare-radar instrument",
+      "result": "warn",
+      "detail": "Persistent low score 0.7 on cloudflare-radar instrument."
+    },
+    {
+      "check": "gaia-openaq instrument",
+      "result": "warn",
+      "detail": "Persistent low score 0.75 on openaq instrument."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-372-cucv1b canonical=true mirrored_to_kv=true. KV mirror restored from prior pass regression."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "pass",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-372. vault_block_state=accumulating in_progress_pct=27% latest_seal_id=null (prior pass immortalized seal-C-372-001 at 75%). Aligns with integrity-status, not ATLAS cached heartbeat."
+    }
+  ],
+  "recommendation": "ATLAS cached heartbeat (0.75 yellow stressed) lags live integrity-status (0.82 green nominal) — reconcile before seal/GI decisions. Refresh micro cycle label to C-372. Investigate kv_keys_ok=false flag semantics. Deploy POST /api/vault/attest for C-298 quorum registration. Monitor daedalus-cloudflare-radar and gaia-openaq persistent low scores."
+}
