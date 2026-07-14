@@ -55,26 +55,4 @@ summary: "Withhold pass attestation on in-flight seal candidates while KV watchd
 
 ---
 
-```intent
-epicon_id: EPICON_C-372_GOVERNANCE_seal-attestation-flag_v1
-ledger_id: kaizencycle
-scope: governance
-mode: enforce
-issued_at: 2026-07-14T16:30:00Z
-expires_at: 2026-07-28T16:30:00Z
-justification:
-  VALUES INVOKED: integrity, witness, custodianship
-  REASONING: Withhold pass attestation on seal-C-372-002 and subsequent candidates while KV watchdog reports critical block_number_collisions. Sealing 298 entries into a namespace with active collision alerts risks repeating the C-370/C-371 chain-continuity incident with fresh quorum signatures. Custodian sign-off closes the C-370 open decision to defer hard-stop sealing.
-  ANCHORS:
-    - docs/epicon/cycles/C-372/EPICON_C-372_GOVERNANCE_seal-attestation-flag_v1.md
-    - docs/epicon/cycles/C-370/GOVERNANCE_DECISION_C-370_chain-continuity.md
-    - docs/epicon/cycles/C-370/EPICON_C-370_EVE_kv-watchdog-implementation_v1.md
-    - journal:EVE-C-372-1784043644374
-    - seal:seal-C-372-002
-  BOUNDARIES: Gate blocks pass verdicts and new candidate formation only. Flag and reject remain allowed. Does not mutate existing attested seals. Rollback via SEAL_INTEGRITY_GATE=off. Does not implement Q2 resilientSet/appendSealToChain fixes.
-  COUNTERFACTUAL: If Intent Publication Gate rejects this block, correct scope and I6 fields per EPICON-02 before merge.
-counterfactuals:
-  - If gate blocks finalization indefinitely, sentinels may attest flag until timeout; quarantine path remains available.
-  - If collision alert is stale KV artifact, clearing watchdog state unblocks without code deploy.
-  - If operator prefers manual flag-only without code gate, set SEAL_INTEGRITY_GATE=off and attest via /api/vault/seal/attest manually.
-```
+> **Intent publication:** Use the combined intent in `EPICON_C-372_INFRA_journal-dedupe-seal-integrity_v1.md` for PR #622. This file is component documentation only.

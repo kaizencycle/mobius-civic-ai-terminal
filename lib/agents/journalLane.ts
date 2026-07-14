@@ -324,3 +324,10 @@ export async function appendJournalLaneEntry(
 
   return { written: true, entry, canonQueued: Boolean(outboxItem) };
 }
+
+export function journalLaneKvTouched(
+  result: Awaited<ReturnType<typeof appendJournalLaneEntry>>,
+): boolean {
+  if (result.written) return true;
+  return result.reason === 'duplicate' || result.reason === 'suppressed';
+}

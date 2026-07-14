@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
-import { appendJournalLaneEntry, getJournalRedisClient } from '@/lib/agents/journalLane';
+import { appendJournalLaneEntry, getJournalRedisClient, journalLaneKvTouched } from '@/lib/agents/journalLane';
 import { writeToSubstrate } from '@/lib/substrate/client';
 import { decideWriteResult } from '@/lib/substrate/resilientWrite';
 import { isBudgetSuspensionError } from '@/lib/substrate/kv-errors';
@@ -661,7 +661,7 @@ export async function POST(request: NextRequest) {
         canon: false,
         ...(giAt !== undefined ? { gi_at_time: giAt } : {}),
       });
-      mirroredToKv = writeResult.written || writeResult.token === 'already_exists';
+      mirroredToKv = journalLaneKvTouched(writeResult);
     } catch (err) {
       if (isBudgetSuspensionError(err)) {
         kvSuspended = true;
