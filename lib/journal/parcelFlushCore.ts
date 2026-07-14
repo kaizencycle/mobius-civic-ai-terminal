@@ -7,6 +7,12 @@ import type { Seal } from '@/lib/vault-v2/types';
 import { listVaultDeposits } from '@/lib/vault/vault';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
 import { kvGet, kvLrange } from '@/lib/kv/store';
+import {
+  mergeRepoAndKvParcelTip,
+  readParcelChainTip,
+  withParcelFlushLock,
+  writeParcelChainTip,
+} from '@/lib/journal/parcelChainTip';
 
 const GENESIS_AGENTS = ['atlas', 'zeus', 'eve', 'hermes', 'aurea', 'jade', 'daedalus', 'echo'] as const;
 const KV_JOURNAL_LIST_READ_MAX = 500;
@@ -96,7 +102,7 @@ function resolveSealJournalEntries(
   return resolved;
 }
 
-export async function flushSealParcelToSubstrate(sealInput: Seal): Promise<FlushResult> {
+async function flushSealParcelToSubstrateUnlocked(sealInput: Seal): Promise<FlushResult> {
   const seal = (await getSeal(sealInput.seal_id)) ?? sealInput;
   if (seal.status !== 'attested') {
     throw new Error(`Seal ${seal.seal_id} status is ${seal.status} — only attested seals may flush`);
@@ -118,13 +124,9 @@ export async function flushSealParcelToSubstrate(sealInput: Seal): Promise<Flush
     );
   }
 
-  const {
-    GENESIS_PARCEL_HASH,
-    buildParcelFile,
-    compareParcelPaths,
-    formatParcelPath,
-    verifyParcelFileContent,
-  } = await import('../../scripts/lib/parcel-format.mjs');
+  const { buildParcelFile, formatParcelPath, verifyParcelFileContent } = await import(
+    '../../scripts/lib/parcel-format.mjs'
+  );
 
   const {
     buildFlushIntentBlock,
@@ -132,24 +134,17 @@ export async function flushSealParcelToSubstrate(sealInput: Seal): Promise<Flush
     ensureBranch,
     getBaseSha,
     getInstallationToken,
-    listCanonJournalParcels,
+    resolveChainTipParcelHash,
     putFile,
-    readRepoFile,
   } = await import('../../scripts/lib/daedalus-github.mjs');
 
   const token = await getInstallationToken();
   const baseBranch = 'main';
-  const paths = await listCanonJournalParcels(token, baseBranch);
-  let prevParcelHash = GENESIS_PARCEL_HASH;
-  if (paths.length > 0) {
-    paths.sort(compareParcelPaths);
-    const lastPath = paths[paths.length - 1];
-    const content = await readRepoFile(token, lastPath, baseBranch);
-    if (!content) throw new Error(`prev parcel ${lastPath} unreadable`);
-    const verdict = verifyParcelFileContent(content);
-    if (!verdict.ok) throw new Error(`prev parcel invalid: ${verdict.error}`);
-    prevParcelHash = verdict.parcelHash ?? GENESIS_PARCEL_HASH;
-  }
+  const [repoTip, kvTip] = await Promise.all([
+    resolveChainTipParcelHash(token, baseBranch),
+    readParcelChainTip(),
+  ]);
+  const prevParcelHash = await mergeRepoAndKvParcelTip(repoTip.hash, repoTip.path, kvTip);
 
   const cycle = seal.cycle_at_seal ?? 'unknown';
   const parcelPath = formatParcelPath(cycle, seal.sequence);
@@ -189,6 +184,14 @@ export async function flushSealParcelToSubstrate(sealInput: Seal): Promise<Flush
     draft: true,
   });
 
+  await writeParcelChainTip({
+    parcel_hash: built.parcelHash,
+    parcel_path: parcelPath,
+    seal_id: seal.seal_id,
+    branch,
+    updated_at: new Date().toISOString(),
+  });
+
   return {
     parcel_path: parcelPath,
     parcel_hash: built.parcelHash,
@@ -196,4 +199,8 @@ export async function flushSealParcelToSubstrate(sealInput: Seal): Promise<Flush
     pr_url: pr.html_url as string | undefined,
     pr_number: pr.number as number | undefined,
   };
+}
+
+export async function flushSealParcelToSubstrate(sealInput: Seal): Promise<FlushResult> {
+  return withParcelFlushLock(() => flushSealParcelToSubstrateUnlocked(sealInput));
 }

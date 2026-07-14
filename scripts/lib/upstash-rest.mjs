@@ -55,6 +55,10 @@ export async function kvGet(key) {
   return result;
 }
 
+export async function kvSet(key, value) {
+  await upstashCommand(['SET', key, JSON.stringify(value)]);
+}
+
 export async function kvLrange(key, start, stop) {
   const result = await upstashCommand(['LRANGE', key, String(start), String(stop)]);
   return Array.isArray(result) ? result : [];

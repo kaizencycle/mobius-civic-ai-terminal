@@ -214,6 +214,79 @@ export async function listCanonJournalParcels(token, ref = 'main') {
     .filter((p) => p.startsWith('canon/journal/') && p.endsWith('.jsonl'));
 }
 
+/** Open PRs whose head branch is a journal flush lane (`flush/C-*-parcel-*`). */
+export async function listOpenFlushPullRequests(token) {
+  const prs = [];
+  let page = 1;
+  while (page <= 5) {
+    const res = await githubRepoFetch(
+      token,
+      `/repos/${substrateRepo()}/pulls?state=open&per_page=100&page=${page}`,
+    );
+    if (!res.ok) break;
+    const batch = await res.json();
+    for (const pr of batch) {
+      const ref = pr.head?.ref ?? '';
+      if (ref.startsWith('flush/')) prs.push(pr);
+    }
+    if (batch.length < 100) break;
+    page += 1;
+  }
+  return prs;
+}
+
+/**
+ * Resolve cold-lane chain tip from merged main plus any open flush PR branches.
+ * Pending parcels must extend the chain before the next seal flush runs.
+ *
+ * @returns {{ hash: string, path: string|null, ref: string|null }}
+ */
+export async function resolveChainTipParcelHash(token, baseBranch = 'main') {
+  const { GENESIS_PARCEL_HASH, compareParcelPaths, verifyParcelFileContent } = await import(
+    './parcel-format.mjs'
+  );
+
+  const candidates = [];
+
+  async function collectFromRef(ref) {
+    const paths = await listCanonJournalParcels(token, ref);
+    for (const path of paths) {
+      const content = await readRepoFile(token, path, ref);
+      if (!content) continue;
+      const verdict = verifyParcelFileContent(content);
+      if (!verdict.ok || !verdict.parcelHash) continue;
+      candidates.push({ path, ref, hash: verdict.parcelHash });
+    }
+  }
+
+  await collectFromRef(baseBranch);
+  const openPrs = await listOpenFlushPullRequests(token);
+  for (const pr of openPrs) {
+    const ref = pr.head?.ref;
+    if (ref) await collectFromRef(ref);
+  }
+
+  if (candidates.length === 0) {
+    return { hash: GENESIS_PARCEL_HASH, path: null, ref: null };
+  }
+
+  candidates.sort((a, b) => compareParcelPaths(a.path, b.path));
+  const last = candidates[candidates.length - 1];
+  return { hash: last.hash, path: last.path, ref: last.ref };
+}
+
+/**
+ * prev_parcel_hash for the next parcel — repo tip (main + open flush PRs) plus optional KV witness.
+ */
+export async function resolvePrevParcelHash(token, baseBranch = 'main', kvTip = null) {
+  const repoTip = await resolveChainTipParcelHash(token, baseBranch);
+  if (!kvTip?.parcel_hash || !kvTip?.parcel_path) return repoTip.hash;
+  if (!repoTip.path) return kvTip.parcel_hash;
+
+  const { compareParcelPaths } = await import('./parcel-format.mjs');
+  return compareParcelPaths(repoTip.path, kvTip.parcel_path) >= 0 ? repoTip.hash : kvTip.parcel_hash;
+}
+
 export async function readRepoFile(token, path, ref = 'main') {
   const pathInUrl = path.split('/').map(encodeURIComponent).join('/');
   const res = await githubRepoFetch(

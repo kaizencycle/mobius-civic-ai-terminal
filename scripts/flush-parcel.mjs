@@ -14,27 +14,26 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import {
-  GENESIS_PARCEL_HASH,
   buildParcelFile,
-  compareParcelPaths,
   formatParcelPath,
   verifyParcelFileContent,
 } from './lib/parcel-format.mjs';
-import { kvConfigured, kvGet, kvKeys, kvLrange } from './lib/upstash-rest.mjs';
+import { kvConfigured, kvGet, kvKeys, kvLrange, kvSet } from './lib/upstash-rest.mjs';
 import {
   buildFlushIntentBlock,
   createPullRequest,
   ensureBranch,
   getBaseSha,
   getInstallationToken,
-  listCanonJournalParcels,
+  resolvePrevParcelHash,
   putFile,
-  readRepoFile,
   substrateRepo,
 } from './lib/daedalus-github.mjs';
 
 const GENESIS_AGENTS = ['atlas', 'zeus', 'eve', 'hermes', 'aurea', 'jade', 'daedalus', 'echo'];
 const KV_JOURNAL_LIST_READ_MAX = 500;
+/** Matches lib/kv/store.ts prefixKey('journal:parcel:chain_tip'). */
+const PARCEL_CHAIN_TIP_KEY = 'mobius:journal:parcel:chain_tip';
 
 function parseArgs(argv) {
   const args = {
@@ -106,9 +105,8 @@ async function loadAllJournalEntries() {
   if (keys.length === 0) {
     const prefixed = await kvKeys('mobius:journal:*', 200);
     for (const key of prefixed) {
-      const short = key.replace(/^mobius:/, '');
-      if (short.endsWith(':index')) continue;
-      const rows = await kvLrange(short, 0, KV_JOURNAL_LIST_READ_MAX - 1);
+      if (key.endsWith(':index')) continue;
+      const rows = await kvLrange(key, 0, KV_JOURNAL_LIST_READ_MAX - 1);
       extraRows.push(...rows);
     }
   } else {
@@ -170,20 +168,8 @@ function resolveSealJournalEntries(seal, allEntries, deposits) {
 }
 
 async function readPrevParcelHashFromRepo(token, baseBranch) {
-  const paths = await listCanonJournalParcels(token, baseBranch);
-  if (paths.length === 0) return GENESIS_PARCEL_HASH;
-
-  paths.sort(compareParcelPaths);
-  const lastPath = paths[paths.length - 1];
-  const content = await readRepoFile(token, lastPath, baseBranch);
-  if (!content) {
-    throw new Error(`prev parcel file ${lastPath} unreadable — aborting flush`);
-  }
-  const verdict = verifyParcelFileContent(content);
-  if (!verdict.ok) {
-    throw new Error(`prev parcel ${lastPath} invalid: ${verdict.error}`);
-  }
-  return verdict.parcelHash;
+  const kvTip = await kvGet(PARCEL_CHAIN_TIP_KEY);
+  return resolvePrevParcelHash(token, baseBranch, kvTip);
 }
 
 async function main() {
@@ -297,6 +283,14 @@ async function main() {
     base: args.base,
     body: prBody,
     draft: true,
+  });
+
+  await kvSet(PARCEL_CHAIN_TIP_KEY, {
+    parcel_hash: built.parcelHash,
+    parcel_path: parcelPath,
+    seal_id: seal.seal_id,
+    branch,
+    updated_at: new Date().toISOString(),
   });
 
   console.log(
