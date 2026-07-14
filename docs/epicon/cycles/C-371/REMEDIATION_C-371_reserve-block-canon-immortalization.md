@@ -92,14 +92,24 @@ curl -sS https://civic-protocol-core-ledger.onrender.com/api/canon/reserve-block
 
 ### Step 3 — Re-post hash anchors (idempotent)
 
-Re-run canon export **with CPC enabled** (or post anchors only from existing `.dat` files):
+**Option A — replay script (no KV re-export):**
 
 ```bash
-# From mobius-civic-ai-terminal — workflow or local:
+cd mobius-civic-ai-terminal
+CPC_BASE_URL=https://civic-protocol-core-ledger.onrender.com \
+AGENT_SERVICE_TOKEN=... \
+node scripts/replay-canon-anchors.mjs
+```
+
+Or GitHub Actions: **Replay Canon Anchors** workflow (`replay-canon-anchors.yml`) with `CPC_BASE_URL` + `AGENT_SERVICE_TOKEN` secrets set.
+
+**Option B — full canon export** (re-fetches KV; use only if cold files need refresh):
+
+```bash
 CPC_BASE_URL=https://civic-protocol-core-ledger.onrender.com \
 AGENT_SERVICE_TOKEN=... \
 npx tsx scripts/canonize-reserve-blocks.ts
-# Or GitHub Actions: reserve-block-canon-export.yml (ensure CPC_BASE_URL secret set; remove --skip-cpc if used)
+# Remove --skip-cpc from reserve-block-canon-export.yml if used via Actions
 ```
 
 Anchor endpoint is idempotent on same hash; 409 only on hash mismatch.

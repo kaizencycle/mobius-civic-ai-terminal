@@ -1,0 +1,43 @@
+name: Replay Canon Anchors
+
+# C-371: Post cold MANIFEST anchors to CPC after redeploy (no KV re-export).
+# Run manually after check_deploy_drift.py returns exit 0.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print payloads only (no CPC POST)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preflight CPC drift
+        run: |
+          curl -fsS -o /dev/null -w "manifest HTTP %{http_code}\n" \
+            "https://civic-protocol-core-ledger.onrender.com/api/canon/reserve-blocks/manifest" || true
+
+      - name: Replay anchors from Substrate MANIFEST
+        env:
+          CPC_BASE_URL: ${{ secrets.CPC_BASE_URL }}
+          AGENT_SERVICE_TOKEN: ${{ secrets.AGENT_SERVICE_TOKEN }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "${DRY_RUN:-false}" != "true" ]; then
+            [ -n "${CPC_BASE_URL:-}" ] || { echo "::error::CPC_BASE_URL secret required"; exit 1; }
+            [ -n "${AGENT_SERVICE_TOKEN:-}" ] || { echo "::error::AGENT_SERVICE_TOKEN secret required"; exit 1; }
+          fi
+          node scripts/replay-canon-anchors.mjs
