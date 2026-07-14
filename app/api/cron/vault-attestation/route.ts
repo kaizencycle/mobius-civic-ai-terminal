@@ -46,6 +46,7 @@ import { recordAttestation } from '@/lib/vault-v2/store';
 import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
 import {
   getSealIntegrityGateState,
+  sealIntegrityGatePassVerdict,
   sealIntegrityGateRationale,
 } from '@/lib/watchdog/sealIntegrityGate';
 import {
@@ -235,7 +236,7 @@ export async function GET(req: NextRequest) {
     for (const agent of SENTINEL_AGENTS) {
       if (candidate.attestations[agent]) continue;
       const attNow = new Date().toISOString();
-      const autoVerdict = sealGate.active ? 'flag' : 'pass';
+      const autoVerdict = sealIntegrityGatePassVerdict(sealGate);
       const att: SealAttestation = {
         agent,
         verdict: autoVerdict,
@@ -417,7 +418,12 @@ export async function GET(req: NextRequest) {
 
       // Back-attest quarantined seals whenever no candidate is forming.
       // C-298: runs regardless of vaultIdle so historical seals can clear.
-      if (quarantined_needing_reattestation.length > 0 && candidate_state !== 'forming-waiting') {
+      // C-372: skip pass back-attestation while seal integrity gate is active.
+      if (
+        !sealGate.active &&
+        quarantined_needing_reattestation.length > 0 &&
+        candidate_state !== 'forming-waiting'
+      ) {
         for (const sealDigest of quarantined_needing_reattestation) {
           for (const agent of SENTINEL_AGENTS) {
             const sealObj = quarantined.find((s: Seal) => s.seal_id === sealDigest.seal_id);

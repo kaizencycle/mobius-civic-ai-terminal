@@ -4,10 +4,18 @@
  *
  * EPICON: EPICON_C-372_GOVERNANCE_seal-attestation-flag_v1
  * Rollback: SEAL_INTEGRITY_GATE=off
+ *
+ * Live watchdog report (`watchdog:kv:last-report`) is authoritative when present;
+ * stale `watchdog:kv:critical-alert` is fallback only until the next watchdog run.
  */
 
-import { kvGet } from '@/lib/kv/store';
-import { WATCHDOG_CRITICAL_ALERT_KEY, type KvWatchdogFinding } from '@/lib/watchdog/kvHealthChecks';
+import { kvDel, kvGet } from '@/lib/kv/store';
+import {
+  WATCHDOG_CRITICAL_ALERT_KEY,
+  WATCHDOG_STATE_KEY,
+  type KvWatchdogFinding,
+  type KvWatchdogReport,
+} from '@/lib/watchdog/kvHealthChecks';
 
 export type SealIntegrityGateState = {
   active: boolean;
@@ -15,6 +23,7 @@ export type SealIntegrityGateState = {
   reasons: string[];
   alert_at: string | null;
   operator_cycle: string | null;
+  source: 'live-report' | 'stale-alert' | 'none';
 };
 
 export function isSealIntegrityGateEnabled(): boolean {
@@ -22,44 +31,82 @@ export function isSealIntegrityGateEnabled(): boolean {
   return raw !== 'off' && raw !== 'false' && raw !== '0';
 }
 
-function isCriticalCollisionFinding(finding: KvWatchdogFinding): boolean {
+export function isCriticalCollisionFinding(finding: KvWatchdogFinding): boolean {
   return finding.check === 'block_number_collisions' && finding.severity === 'critical' && !finding.ok;
+}
+
+export function findCriticalCollisionFindings(findings: KvWatchdogFinding[]): KvWatchdogFinding[] {
+  return findings.filter(isCriticalCollisionFinding);
+}
+
+export function shouldSealIntegrityGateBeActive(
+  liveReport: Pick<KvWatchdogReport, 'findings'> | null,
+  staleAlert: { at?: string; cycle?: string; findings?: KvWatchdogFinding[] } | null,
+): Pick<SealIntegrityGateState, 'active' | 'reasons' | 'alert_at' | 'operator_cycle' | 'source'> {
+  if (liveReport) {
+    const live = findCriticalCollisionFindings(liveReport.findings);
+    if (live.length > 0) {
+      return {
+        active: true,
+        reasons: live.map((f) => f.message),
+        alert_at: null,
+        operator_cycle: null,
+        source: 'live-report',
+      };
+    }
+    return { active: false, reasons: [], alert_at: null, operator_cycle: null, source: 'live-report' };
+  }
+
+  if (staleAlert?.findings?.length) {
+    const stale = findCriticalCollisionFindings(staleAlert.findings);
+    if (stale.length > 0) {
+      return {
+        active: true,
+        reasons: stale.map((f) => f.message),
+        alert_at: staleAlert.at ?? null,
+        operator_cycle: staleAlert.cycle ?? null,
+        source: 'stale-alert',
+      };
+    }
+  }
+
+  return { active: false, reasons: [], alert_at: null, operator_cycle: null, source: 'none' };
+}
+
+/** Clear stale critical-alert KV when the latest watchdog run shows collisions resolved. */
+export async function clearSealIntegrityGateIfCollisionsResolved(
+  report: Pick<KvWatchdogReport, 'findings'>,
+): Promise<boolean> {
+  if (findCriticalCollisionFindings(report.findings).length > 0) {
+    return false;
+  }
+  return kvDel(WATCHDOG_CRITICAL_ALERT_KEY);
 }
 
 export async function getSealIntegrityGateState(): Promise<SealIntegrityGateState> {
   const enabled = isSealIntegrityGateEnabled();
   if (!enabled) {
-    return { active: false, enabled: false, reasons: [], alert_at: null, operator_cycle: null };
-  }
-
-  const alert = await kvGet<{
-    at?: string;
-    cycle?: string;
-    findings?: KvWatchdogFinding[];
-  }>(WATCHDOG_CRITICAL_ALERT_KEY);
-
-  if (!alert?.findings?.length) {
-    return { active: false, enabled: true, reasons: [], alert_at: null, operator_cycle: null };
-  }
-
-  const collisionFindings = alert.findings.filter(isCriticalCollisionFinding);
-  if (collisionFindings.length === 0) {
     return {
       active: false,
-      enabled: true,
+      enabled: false,
       reasons: [],
-      alert_at: alert.at ?? null,
-      operator_cycle: alert.cycle ?? null,
+      alert_at: null,
+      operator_cycle: null,
+      source: 'none',
     };
   }
 
-  return {
-    active: true,
-    enabled: true,
-    reasons: collisionFindings.map((f) => f.message),
-    alert_at: alert.at ?? null,
-    operator_cycle: alert.cycle ?? null,
-  };
+  const [liveReport, staleAlert] = await Promise.all([
+    kvGet<KvWatchdogReport>(WATCHDOG_STATE_KEY),
+    kvGet<{ at?: string; cycle?: string; findings?: KvWatchdogFinding[] }>(WATCHDOG_CRITICAL_ALERT_KEY),
+  ]);
+
+  const resolved = shouldSealIntegrityGateBeActive(liveReport, staleAlert);
+  return { enabled: true, ...resolved };
+}
+
+export function sealIntegrityGatePassVerdict(gate: SealIntegrityGateState): 'pass' | 'flag' {
+  return gate.active ? 'flag' : 'pass';
 }
 
 export function sealIntegrityGateRationale(state: SealIntegrityGateState): string {

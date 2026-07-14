@@ -8,6 +8,7 @@ import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import type { EpiconLedgerFeedEntry } from '@/lib/epicon/ledgerFeedTypes';
 import { kvGet, kvSet, KV_KEYS, KV_TTL_SECONDS } from '@/lib/kv/store';
 import type { TrustTripwireResult, TrustTripwireSnapshot } from '@/lib/tripwire/types';
+import { clearSealIntegrityGateIfCollisionsResolved } from '@/lib/watchdog/sealIntegrityGate';
 import {
   SEVERITY_RANK,
   WATCHDOG_CRITICAL_ALERT_KEY,
@@ -131,6 +132,7 @@ export async function escalateKvWatchdogReport(
 
   if (max === 'ok') {
     tripwire_updated = await clearTripwireKvWatchdog(report.checked_at);
+    await clearSealIntegrityGateIfCollisionsResolved(report).catch(() => {});
     await kvSet(ESCALATION_STATE_KEY, { severity: 'ok', at: report.checked_at }, 86400).catch(() => {});
     return { epicon_pushed, tripwire_updated, journal_pushed, critical_alert_recorded };
   }
@@ -218,6 +220,8 @@ export async function escalateKvWatchdogReport(
     },
     86400,
   ).catch(() => {});
+
+  await clearSealIntegrityGateIfCollisionsResolved(report).catch(() => {});
 
   return { epicon_pushed, tripwire_updated, journal_pushed, critical_alert_recorded };
 }

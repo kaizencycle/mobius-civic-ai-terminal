@@ -110,6 +110,21 @@ export async function accrueDepositV2(args: {
     };
   }
 
+  const gate = await getSealIntegrityGateState();
+  if (gate.active) {
+    console.warn('[vault-v2] deposit candidate formation blocked — seal integrity gate active', {
+      reasons: gate.reasons,
+      cycle: args.cycle,
+    });
+    await setInProgressBalance(next);
+    return {
+      balance_after: next,
+      candidate_formed: null,
+      candidate_deferred: true,
+      overflow,
+    };
+  }
+
   const carried_forward =
     overflow > 0 && hashes.includes(args.content_signature)
       ? [args.content_signature]
