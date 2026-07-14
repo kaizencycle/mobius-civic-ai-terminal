@@ -37,6 +37,10 @@ import type {
 } from '@/lib/vault-v2/types';
 import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
+import {
+  getSealIntegrityGateState,
+  sealIntegrityGateRationale,
+} from '@/lib/watchdog/sealIntegrityGate';
 
 export const dynamic = 'force-dynamic';
 
@@ -133,6 +137,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: 'Attestation window closed (timeout reached)' },
       { status: 410 },
+    );
+  }
+
+  const sealGate = await getSealIntegrityGateState();
+  if (sealGate.active && submission.verdict === 'pass') {
+    return NextResponse.json(
+      {
+        error: 'Pass attestation withheld — seal integrity gate active',
+        gate: 'block_number_collisions',
+        rationale: sealIntegrityGateRationale(sealGate),
+        allowed_verdicts: ['flag', 'reject'],
+      },
+      { status: 423 },
     );
   }
 
