@@ -237,7 +237,7 @@ export function buildFlushIntentBlock({ cycle, seal_id, entry_count, parcel_hash
 \`\`\`intent
 epicon_id: EPICON_${cycle}_INFRA_journal-parcel-flush_v1
 ledger_id: kaizencycle
-scope: infra
+scope: core,specs
 mode: normal
 issued_at: ${issuedAt.toISOString()}
 expires_at: ${expiresAt.toISOString()}
@@ -250,7 +250,7 @@ justification:
     - .github/workflows/canon-journal-verify.yml
     - seal:${seal_id}
   BOUNDARIES: Additive lane only. Does not modify reserve block .dat canon. No bulk historical backfill. Rollback via JOURNAL_FLUSH=off or App revocation.
-  COUNTERFACTUAL: If seal_hash does not match quorum-attested seal on public endpoint, workflow fails closed.
+  COUNTERFACTUAL: If seal_hash does not match quorum-attested seal on public endpoint, Substrate workflow fails closed.
 counterfactuals:
   - If parcel_hash chain breaks, do not merge until operator reconciles prev_parcel_hash
   - If DAEDALUS App revoked, terminal logs loud failure; KV hot lane unchanged

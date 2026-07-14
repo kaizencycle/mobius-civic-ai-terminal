@@ -29,7 +29,7 @@ summary: "Additive cold-canon lane flushing sealed journal parcels from Upstash 
 ```intent
 epicon_id: EPICON_C-372_INFRA_journal-parcel-flush_v1
 ledger_id: kaizencycle
-scope: infra
+scope: core,specs
 mode: normal
 issued_at: 2026-07-14T17:00:00Z
 expires_at: 2026-10-12T17:00:00Z
@@ -43,7 +43,7 @@ justification:
     - .github/workflows/canon-journal-verify.yml
     - lib/journal/parcelFlush.ts
   BOUNDARIES: Reserve Block .dat lane out of scope. No bulk historical backfill. JOURNAL_FLUSH defaults off until operator verifies first manual flush. Rollback via JOURNAL_FLUSH=off or App installation revocation.
-  COUNTERFACTUAL: If seal_hash on parcel does not match quorum-attested public seal endpoint, Substrate workflow fails closed.
+  COUNTERFACTUAL: If Intent Publication Gate rejects scope or I6 fields, re-publish with core,specs scope and structured COUNTERFACTUAL before merge.
 counterfactuals:
   - If DAEDALUS App revoked, terminal logs loud failure; KV hot lane unchanged
   - If partial KV read during flush, abort — never write parcel with fewer entries than seal.source_entries
