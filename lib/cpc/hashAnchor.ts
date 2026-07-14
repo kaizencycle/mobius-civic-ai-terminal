@@ -10,6 +10,8 @@ import type { DatHashAnchorPayload, DatHashAnchorResponse } from '@/lib/dat/type
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 
+const CPC_LEDGER_HOST_FALLBACK = 'https://civic-protocol-core-ledger.onrender.com';
+
 export interface AnchorResult {
   success: boolean;
   action?: 'anchored' | 'idempotent';
@@ -17,17 +19,48 @@ export interface AnchorResult {
   retries?: number;
 }
 
-function cpcBaseUrl(): string {
-  return (
-    process.env.CPC_BASE_URL ??
-    process.env.CIVIC_LEDGER_URL ??
-    process.env.RENDER_LEDGER_URL ??
-    ''
-  ).replace(/\/$/, '');
+function normalizeHostBase(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  if (!trimmed) return '';
+
+  // CIVIC_LEDGER_URL is often a full attest path, not a host root.
+  if (trimmed.includes('/api/')) {
+    try {
+      return new URL(trimmed).origin;
+    } catch {
+      return trimmed.split('/api/')[0] ?? trimmed;
+    }
+  }
+
+  return trimmed;
+}
+
+/**
+ * Resolve CPC ledger host for canon reserve-block routes.
+ * Priority: CPC_BASE_URL → RENDER_LEDGER_URL → CIVIC_LEDGER_URL (origin) → public ledger URL.
+ */
+export function resolveCpcBaseUrl(): string {
+  const candidates = [
+    process.env.CPC_BASE_URL,
+    process.env.RENDER_LEDGER_URL,
+    process.env.CIVIC_LEDGER_URL,
+    process.env.NEXT_PUBLIC_CIVIC_LEDGER_URL,
+  ].filter(Boolean) as string[];
+
+  for (const raw of candidates) {
+    const base = normalizeHostBase(raw);
+    if (!base) continue;
+    if (base.includes('github.com') || base.includes('api.github.com')) {
+      continue;
+    }
+    return base;
+  }
+
+  return CPC_LEDGER_HOST_FALLBACK;
 }
 
 export async function postHashAnchor(payload: DatHashAnchorPayload): Promise<AnchorResult> {
-  const base = cpcBaseUrl();
+  const base = resolveCpcBaseUrl();
   const token = process.env.AGENT_SERVICE_TOKEN;
 
   if (!base) {
@@ -109,7 +142,7 @@ export interface CpcManifestResponse {
 }
 
 export async function fetchCpcManifest(): Promise<CpcManifestResponse | null> {
-  const base = cpcBaseUrl();
+  const base = resolveCpcBaseUrl();
   if (!base) return null;
 
   try {
