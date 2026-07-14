@@ -1,0 +1,120 @@
+{
+  "timestamp": "2026-07-14T00:03:29.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-371",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_layer_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "sustain_eligible_false": "persistent",
+    "daedalus-cloudflare-radar_low": "persistent",
+    "gaia-openaq_low": "persistent",
+    "gaia-noaa-alerts_low": "persistent",
+    "themis-govtrack_failure": "resolved",
+    "gaia-usgs-water_failure": "resolved",
+    "aurea-coingecko_failure": "resolved",
+    "journal_kv_write": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-371. vault_block_state=immortalized latest_seal_id=seal-C-371-033 latest_status=attested in_progress_pct=70%.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-13T23-04-57Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.82 mode=green source=kv classification=STRESSED terminal_status=nominal; anomalies=[] (empty); flags kv_keys_ok=false kv_keys_all_ok=false sustain_eligible=false tripwire_active=true micro_operator_cycle_divergence=true; micro_composite=0.893 micro_cycle=C-306; degraded_agents=0; seed_result=200 OK (60s retry); tripwire elevated Hormuz (active since 23:03Z)."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.897 composite=0.897 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=0. Operator cycle C-371 diverges from micro C-306 (persistent). Low: gaia-openaq score=0.75, daedalus-cloudflare-radar score=0.7, gaia-noaa-alerts score=0.6. All instruments primary (no failures). Agent composites: GAIA 0.868, HERMES 0.922, THEMIS 0.853, DAEDALUS 0.946, AUREA 0.889, ECHO 0.92."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true cycle=C-371 gi_age_seconds=19. signals: quality=0.77 freshness=1 stability=0.45 system=1. Aligns with ATLAS gi=0.82 within tolerance (~0.01)."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent across passes despite kv_keys.ok=true, seed_result=200 OK. kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. micro cycle C-306 vs operator C-371. Micro snapshot fresh (cached=false) but cycle label stale."
+    },
+    {
+      "check": "gi_layer_divergence",
+      "result": "warn",
+      "detail": "ATLAS 0.82 and integrity/quorum 0.81 align (~0.01). Micro composite 0.897 diverges ~0.09 from integrity layer due to C-306 cycle label and weighting differences."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=false — persistent. KV seed 200 OK but eligibility gate failed."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "warn",
+      "detail": "Persistent (re-elevated). ATLAS tripwire.active=true level=elevated Hormuz Transit Fee Risk at 23:03Z (was resolved at 18:02Z prior pass). integrity stability=0.45 consistent with active tripwire."
+    },
+    {
+      "check": "daedalus-cloudflare-radar instrument",
+      "result": "warn",
+      "detail": "Persistent low score 0.7 on cloudflare-radar instrument."
+    },
+    {
+      "check": "gaia-openaq instrument",
+      "result": "warn",
+      "detail": "Persistent low score 0.75 on openaq instrument."
+    },
+    {
+      "check": "gaia-noaa-alerts instrument",
+      "result": "warn",
+      "detail": "Low score 0.6 on NOAA active weather alerts — watch severity."
+    },
+    {
+      "check": "gaia-usgs-water instrument",
+      "result": "pass",
+      "detail": "Resolved. score=0.85 source=primary (was transient failure at 18:02Z pass)."
+    },
+    {
+      "check": "aurea-coingecko instrument",
+      "result": "pass",
+      "detail": "Resolved. score=0.85 source=primary (was transient failure at 18:02Z pass)."
+    },
+    {
+      "check": "themis-govtrack instrument",
+      "result": "pass",
+      "detail": "Resolved. score=0.85 source=primary."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "warn",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-371-191jmh canonical=true mirrored_to_kv=false kv_error=kv_write_failed."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "pass",
+      "detail": "quorum/state integrity.gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-371. vault_block_state=immortalized latest_seal_id=seal-C-371-033 latest_status=attested in_progress_pct=70%. Aligns with integrity-status and ATLAS within tolerance."
+    }
+  ],
+  "recommendation": "GI layer reconciled: ATLAS 0.82 and integrity 0.81 align (kv-live, not mock). Micro 0.897 diverges due to persistent C-306 cycle label. Refresh micro to C-371. Tripwire re-elevated (Hormuz) — stability=0.45. Reconcile kv_keys_ok=false flag semantics. sustain_eligible=false persistent. journal KV mirror write failed. Deploy POST /api/vault/attest for quorum registration."
+}
