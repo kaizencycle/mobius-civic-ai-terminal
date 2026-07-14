@@ -57,6 +57,7 @@ import {
   type SentinelQuorumState,
 } from '@/lib/mic/quorumTracker';
 import { kvGet, kvSet } from '@/lib/kv/store';
+import { dispatchJournalParcelFlush } from '@/lib/journal/parcelFlush';
 import { dispatchReserveBlockCanon } from '@/lib/vault-v2/reserveBlockDispatch';
 
 export const dynamic = 'force-dynamic';
@@ -287,7 +288,10 @@ export async function GET(req: NextRequest) {
           substrate_error: sealed.substrate_attestation_error ?? null,
         });
         // C-355: fire-and-forget .dat canon dispatch on attested seals
-        if (quorum1.decision === 'attested') dispatchReserveBlockCanon(sealed);
+        if (quorum1.decision === 'attested') {
+          dispatchReserveBlockCanon(sealed);
+          dispatchJournalParcelFlush(sealed);
+        }
       } else {
         // null means another cron/manual invocation raced and already finalized+cleared
         // the candidate. Benign race — log for visibility but don't mark report ok: false.
@@ -322,7 +326,10 @@ export async function GET(req: NextRequest) {
                 status: sealed.status,
               });
               // C-355: fire-and-forget .dat canon dispatch on attested seals
-              if (quorum2.decision === 'attested') dispatchReserveBlockCanon(sealed);
+              if (quorum2.decision === 'attested') {
+                dispatchReserveBlockCanon(sealed);
+                dispatchJournalParcelFlush(sealed);
+              }
             }
           } else {
             candidate_state = 'timeout-injected';

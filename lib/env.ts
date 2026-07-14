@@ -124,6 +124,13 @@ const serverSchema = z.object({
   GH_CACHE_BRANCH: z.string().optional(),
   GH_CACHE_PAT: z.string().optional(),
 
+  // C-372 journal parcel flush lane (KV → Substrate canon/journal/)
+  JOURNAL_FLUSH: z.string().optional(),
+  DAEDALUS_APP_ID: z.string().optional(),
+  DAEDALUS_APP_KEY: z.string().optional(),
+  MOBIUS_SUBSTRATE_GITHUB_REPO: z.string().optional(),
+  SUBSTRATE_GITHUB_TOKEN: z.string().optional(),
+
   // Logging (lib/log.ts)
   LOG_LEVEL: z.string().optional(),
   NODE_ENV: z.string().optional(),
