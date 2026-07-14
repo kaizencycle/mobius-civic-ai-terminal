@@ -45,6 +45,10 @@ import type { SealAttestation } from '@/lib/vault-v2/types';
 import { recordAttestation } from '@/lib/vault-v2/store';
 import { releaseReplayPressureForAttestedSeal } from '@/lib/mic/replayPressure';
 import {
+  getSealIntegrityGateState,
+  sealIntegrityGateRationale,
+} from '@/lib/watchdog/sealIntegrityGate';
+import {
   markAgentJournaled,
   registerSentinelAttestation,
   SENTINEL_QUORUM_AGENTS,
@@ -224,16 +228,20 @@ export async function GET(req: NextRequest) {
 
   // ── Step 1: process existing candidate ─────────────────────────
   let candidate = await getCandidate();
+  const sealGate = await getSealIntegrityGateState();
   if (candidate) {
     // Phase 3 quorum wiring: auto-attest any sentinel that hasn't voted yet.
     // Each cron tick fills missing slots so evaluateQuorum can finalize inline.
     for (const agent of SENTINEL_AGENTS) {
       if (candidate.attestations[agent]) continue;
       const attNow = new Date().toISOString();
+      const autoVerdict = sealGate.active ? 'flag' : 'pass';
       const att: SealAttestation = {
         agent,
-        verdict: 'pass',
-        rationale: buildBackAttestRationale(agent, candidate.seal_id),
+        verdict: autoVerdict,
+        rationale: sealGate.active
+          ? sealIntegrityGateRationale(sealGate)
+          : buildBackAttestRationale(agent, candidate.seal_id),
         gi_at_attestation: candidate.gi_at_seal,
         timestamp: attNow,
         signature: `cron-quorum::${agent}::${Date.now()}`,
@@ -334,6 +342,10 @@ export async function GET(req: NextRequest) {
 
   // ── Step 2: attempt next candidate if reserve is queued ────────
   if (candidate_state !== 'forming-waiting' && candidate_state !== 'timeout-injected') {
+    if (sealGate.active) {
+      autoSealReason = 'seal_integrity_gate_active_block_number_collisions';
+      errors.push('seal integrity gate: new candidate formation blocked (critical block_number_collisions)');
+    } else {
     try {
       const next = await tryFormNextCandidate({ cycle: currentCycle });
       if (next) {
@@ -349,6 +361,7 @@ export async function GET(req: NextRequest) {
     } catch (e) {
       errors.push(`next-candidate formation: ${e instanceof Error ? e.message : String(e)}`);
       autoSealReason = 'candidate_formation_error';
+    }
     }
   }
 

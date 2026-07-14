@@ -175,7 +175,7 @@ export async function escalateKvWatchdogReport(
         ? 'Primary KV may be suspended — chain continuity at risk (see C-370 Q2).'
         : 'Vault/KV integrity signals degraded; investigate before next seal formation.',
       recommendation:
-        'Review watchdog findings and GOVERNANCE_DECISION Q2 fixes. Hard-stop sealing is NOT enabled — pending custodian sign-off.',
+        'Review watchdog findings and GOVERNANCE_DECISION Q2 fixes. Pass attestations and new seal formation are blocked while critical block_number_collisions is active (SEAL_INTEGRITY_GATE).',
       confidence: max === 'critical' ? 0.85 : 0.72,
       derivedFrom: failedChecks.map((f) => `kv-watchdog:${f.check}`),
       relatedAgents: ['ATLAS', 'ZEUS'],
@@ -196,8 +196,9 @@ export async function escalateKvWatchdogReport(
         cycle: operatorCycle,
         findings: failedChecks,
         github_issue_requested: true,
-        hard_stop_enabled: false,
-        note: 'Custodian GitHub issue recommended; hard-stop sealing gated off pending sign-off.',
+        hard_stop_enabled: true,
+        seal_integrity_gate: true,
+        note: 'Pass attestations blocked via seal integrity gate when critical block_number_collisions is active.',
       },
       604800,
     ).catch(() => {});

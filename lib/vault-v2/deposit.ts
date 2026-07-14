@@ -34,6 +34,7 @@ import { VAULT_RESERVE_PARCEL_UNITS } from '@/lib/vault-v2/constants';
 import { formCandidate } from '@/lib/vault-v2/seal';
 import type { Mode, SealCandidate } from '@/lib/vault-v2/types';
 import { notifySentinelCouncilSealFormation } from '@/lib/vault-v2/sentinelCouncilNotify';
+import { getSealIntegrityGateState } from '@/lib/watchdog/sealIntegrityGate';
 
 const THRESHOLD = VAULT_RESERVE_PARCEL_UNITS;
 
@@ -163,6 +164,15 @@ export async function accrueDepositV2(args: {
  * triggers the NEXT candidate formation immediately.
  */
 export async function tryFormNextCandidate(args: { cycle: string }): Promise<SealCandidate | null> {
+  const gate = await getSealIntegrityGateState();
+  if (gate.active) {
+    console.warn('[vault-v2] candidate formation blocked — seal integrity gate active', {
+      reasons: gate.reasons,
+      cycle: args.cycle,
+    });
+    return null;
+  }
+
   const balance = await getInProgressBalance();
   if (balance < THRESHOLD) return null;
 

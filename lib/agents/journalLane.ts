@@ -1,4 +1,13 @@
 import { Redis } from '@upstash/redis';
+import {
+  attachDedupeMetadata,
+  bumpSuppressedEntry,
+  isJournalDedupeEnabled,
+  isJournalDedupeExempt,
+  journalContentHash,
+  journalDedupeKey,
+  type JournalDedupeState,
+} from '@/lib/agents/journalDedupe';
 import { enqueueJournalCanonWrite } from '@/lib/agents/journalCanonOutbox';
 import { bumpTerminalWatermark } from '@/lib/terminal/watermark';
 import type { SubstrateJournalWriteInput } from '@/lib/substrate/github-journal';
@@ -31,6 +40,11 @@ export type AgentJournalLaneEntry = {
   source: 'agent-journal';
   agentOrigin: string;
   tags?: string[];
+  dedupe?: {
+    content_hash: string;
+    suppressed_count: number;
+    last_seen_at: string;
+  };
   storage?: {
     hot: true;
     substrate: boolean;
@@ -134,22 +148,99 @@ function toSubstrateJournalInput(entry: AgentJournalLaneEntry, giAtTime?: number
   };
 }
 
+async function suppressDuplicateJournalEntry(
+  redis: Redis,
+  agent: string,
+  agentKey: string,
+  dedupeKey: string,
+  prior: JournalDedupeState,
+  seenAt: string,
+): Promise<AgentJournalLaneEntry | null> {
+  const rawHead = await redis.lindex(agentKey, 0);
+  if (rawHead === null) return null;
+
+  let head: AgentJournalLaneEntry;
+  try {
+    head = typeof rawHead === 'string'
+      ? (JSON.parse(rawHead) as AgentJournalLaneEntry)
+      : (rawHead as AgentJournalLaneEntry);
+  } catch {
+    return null;
+  }
+
+  if (head.id !== prior.entry_id) return null;
+
+  const updated = bumpSuppressedEntry(head, seenAt);
+  const packed = JSON.stringify(updated);
+  await redis.lset(agentKey, 0, packed);
+
+  const allHead = await redis.lindex(KEY_ALL, 0);
+  if (allHead !== null) {
+    try {
+      const parsedAll = typeof allHead === 'string'
+        ? (JSON.parse(allHead) as AgentJournalLaneEntry)
+        : (allHead as AgentJournalLaneEntry);
+      if (parsedAll.id === prior.entry_id) {
+        await redis.lset(KEY_ALL, 0, packed);
+      }
+    } catch {
+      // non-blocking mirror update
+    }
+  }
+
+  await redis.set(
+    dedupeKey,
+    {
+      hash: prior.hash,
+      entry_id: prior.entry_id,
+      suppressed_count: updated.dedupe.suppressed_count,
+      last_seen_at: seenAt,
+    },
+    { ex: IDEMPOTENCY_TTL_SECONDS },
+  );
+
+  return updated;
+}
+
 export async function appendJournalLaneEntry(
   redis: Redis,
   input: AgentJournalLaneInput,
-): Promise<{ written: true; entry: AgentJournalLaneEntry; canonQueued: boolean } | { written: false; reason: 'duplicate'; token: string }> {
+): Promise<
+  | { written: true; entry: AgentJournalLaneEntry; canonQueued: boolean }
+  | { written: false; reason: 'duplicate'; token: string }
+  | { written: false; reason: 'suppressed'; entry_id: string; suppressed_count: number }
+> {
   const agent = input.agent.trim().toUpperCase();
   const cycle = input.cycle.trim();
   const derivedFrom = normalizeDerivedFrom(input.derivedFrom);
   const token = idempotencyToken(agent, cycle, derivedFrom);
   const markerKey = `journal:idempotency:${token}`;
+  const seenAt = input.timestamp?.trim() || new Date().toISOString();
+  const agentKey = `journal:${agent.toLowerCase()}`;
 
   // Always refresh agent:meta so liveness checks reflect the current sweep cadence,
   // even when the full journal entry is deduplicated by the idempotency gate below.
   await redis.hset(`agent:meta:${agent.toLowerCase()}`, {
-    last_journal_at: new Date().toISOString(),
+    last_journal_at: seenAt,
     last_journal_cycle: cycle,
   });
+
+  if (isJournalDedupeEnabled() && !isJournalDedupeExempt(input)) {
+    const contentHash = journalContentHash(input);
+    const dedupeKey = journalDedupeKey(agent, input.category);
+    const prior = await redis.get<JournalDedupeState>(dedupeKey);
+    if (prior?.hash === contentHash && prior.entry_id) {
+      const updated = await suppressDuplicateJournalEntry(redis, agent, agentKey, dedupeKey, prior, seenAt);
+      if (updated) {
+        return {
+          written: false,
+          reason: 'suppressed',
+          entry_id: prior.entry_id,
+          suppressed_count: updated.dedupe?.suppressed_count ?? prior.suppressed_count + 1,
+        };
+      }
+    }
+  }
 
   const inserted = await redis.set(markerKey, '1', { nx: true, ex: IDEMPOTENCY_TTL_SECONDS });
 
@@ -158,11 +249,13 @@ export async function appendJournalLaneEntry(
   }
 
   const canonEnabled = input.canon !== false;
-  const entry: AgentJournalLaneEntry = {
+  const contentHash = journalContentHash(input);
+  const entry: AgentJournalLaneEntry = attachDedupeMetadata(
+    {
     id: input.id?.trim() || `journal-${agent}-${cycle}-${compactToken(token)}`,
     agent,
     cycle,
-    timestamp: input.timestamp?.trim() || new Date().toISOString(),
+    timestamp: seenAt,
     scope: input.scope.trim(),
     observation: input.observation.trim(),
     inference: input.inference.trim(),
@@ -181,10 +274,12 @@ export async function appendJournalLaneEntry(
       canonStatus: canonEnabled ? 'canon_pending' : 'canon_failed',
       canonicalPath: null,
     },
-  };
+    },
+    contentHash,
+    0,
+  );
 
   const packed = JSON.stringify(entry);
-  const agentKey = `journal:${agent.toLowerCase()}`;
 
   // Time-based rolling prune before hard count trim — prevents silent data loss
   await Promise.all([pruneStaleEntries(redis, KEY_ALL), pruneStaleEntries(redis, agentKey)]);
@@ -208,6 +303,20 @@ export async function appendJournalLaneEntry(
     last_journal_cycle: cycle,
     last_journal_at: entry.timestamp,
   });
+
+  if (isJournalDedupeEnabled() && !isJournalDedupeExempt(input)) {
+    const dedupeKey = journalDedupeKey(agent, input.category);
+    await redis.set(
+      dedupeKey,
+      {
+        hash: contentHash,
+        entry_id: entry.id,
+        suppressed_count: 0,
+        last_seen_at: entry.timestamp,
+      },
+      { ex: IDEMPOTENCY_TTL_SECONDS },
+    );
+  }
 
   const outboxItem = canonEnabled
     ? await enqueueJournalCanonWrite(redis, toSubstrateJournalInput(entry, input.gi_at_time))
