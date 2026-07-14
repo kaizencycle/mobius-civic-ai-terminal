@@ -4,33 +4,33 @@
   "source": "snapshot-lite+vault+manifest",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
   "cycle": "C-372",
-  "as_of": "2026-07-14T15:08:19.302Z",
-  "fetched_at": "2026-07-14T15:08:19.367Z",
-  "gi": 0.82,
-  "mode": "green",
+  "as_of": "2026-07-14T16:36:51.975Z",
+  "fetched_at": "2026-07-14T16:36:51.981Z",
+  "gi": 0.743,
+  "mode": "yellow",
   "degraded": true,
-  "gi_provenance": "kv-live",
+  "gi_provenance": "live-compute",
   "gi_verified": true,
   "gi_readings": {
     "snapshot_lite": {
-      "value": 0.82,
+      "value": 0.743,
       "field": "gi",
       "source": "snapshot-lite"
     },
     "memory_mode": null,
     "vault_dashboard": {
-      "value": 0.82,
+      "value": 0.743,
       "field": "gi_current",
       "source": "/api/vault/status"
     }
   },
   "memory_mode": null,
   "deployment": {
-    "commit_sha": "d8ead418bfc365931f0ae837616a235494b15709",
+    "commit_sha": "2554712d7e668722441148e0cfe3748d920d06cf",
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 2,
+    "total_ms": 49,
     "lane_ms": null
   },
   "counting_rules": {
@@ -39,15 +39,11 @@
     "gap_raw_vs_cold": "seals_raw minus manifest.total_blocks — upper-bound gap; true append gap uses deduped unique count."
   },
   "hot": {
-    "seals_raw": 359,
+    "seals_raw": 360,
     "seals_unique_block_number": null,
-    "chain_tip": {
-      "seal_id": "seal-C-372-001",
-      "cycle": "C-372",
-      "sequence": 1
-    },
-    "in_progress_mic": 1.994581,
-    "in_progress_block": 360,
+    "chain_tip": null,
+    "in_progress_mic": 7.645353,
+    "in_progress_block": 361,
     "fountain_status": "locked",
     "sustain_cycles_met": false,
     "substrate_ok": true,
@@ -58,12 +54,12 @@
     "manifest_mic": 9700,
     "chain_tip_hash": "sha256:2ccc5e411828b32927bd53842558dd8202b9395955668f75237b107539d25baa",
     "manifest_url": "https://raw.githubusercontent.com/kaizencycle/Mobius-Substrate/main/canon/reserve-blocks/MANIFEST.json",
-    "gap_raw_vs_cold": 165,
+    "gap_raw_vs_cold": 166,
     "source": "Mobius-Substrate/canon/reserve-blocks/MANIFEST.json"
   },
   "repos": {
     "terminal": {
-      "sha": "d8ead418bfc365931f0ae837616a235494b15709",
+      "sha": "2554712d7e668722441148e0cfe3748d920d06cf",
       "branch": "main",
       "source": "snapshot-lite.deployment"
     },
