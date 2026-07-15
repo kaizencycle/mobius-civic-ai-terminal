@@ -4,8 +4,8 @@
   "source": "snapshot-lite+vault+manifest",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
   "cycle": "C-373",
-  "as_of": "2026-07-15T19:14:17.870Z",
-  "fetched_at": "2026-07-15T19:14:17.930Z",
+  "as_of": "2026-07-15T20:28:09.856Z",
+  "fetched_at": "2026-07-15T20:28:09.859Z",
   "gi": 0.81,
   "mode": "green",
   "degraded": true,
@@ -22,11 +22,11 @@
   },
   "memory_mode": null,
   "deployment": {
-    "commit_sha": "827fd9c3302a641d2fe315aee1cdf89f1f432152",
+    "commit_sha": "09f1cabf6440582c606b02d0e68cba606d0cecad",
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 34,
+    "total_ms": 144,
     "lane_ms": null
   },
   "counting_rules": {
@@ -45,7 +45,7 @@
   },
   "repos": {
     "terminal": {
-      "sha": "827fd9c3302a641d2fe315aee1cdf89f1f432152",
+      "sha": "09f1cabf6440582c606b02d0e68cba606d0cecad",
       "branch": "main",
       "source": "snapshot-lite.deployment"
     },
