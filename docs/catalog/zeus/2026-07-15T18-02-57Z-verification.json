@@ -1,0 +1,108 @@
+{
+  "timestamp": "2026-07-15T18:02:57.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-373",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv-live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "sustain_eligible_false": "persistent",
+    "micro_gi_spread": "persistent",
+    "atlas_integrity_divergence": "persistent",
+    "daedalus-cloudflare-radar_low": "persistent",
+    "gaia-openaq_low": "persistent",
+    "gaia-usgs-water_failure": "transient",
+    "themis-datagov_failure": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-373. vault_block_state=candidate in_progress_pct=100% latest_seal_id=null attestations received=0 needed=5.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-15T17-04-51Z-atlas.json (latest)",
+      "result": "pass",
+      "detail": "gi=0.761 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[] (empty); flags kv_keys_ok=false sustain_eligible=false tripwire_active=true micro_operator_cycle_divergence implicit via micro_cycle C-306; micro_composite=0.871 micro_cycle=C-306; degraded_agents=0; seed_result=200 OK. Diverges from live integrity-status gi=0.81 green nominal."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.817 composite=0.817 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=1 errors=2. Operator cycle C-373 diverges from micro C-306 (persistent). Failed instruments: gaia-usgs-water score=0 error primary failed with retry; themis-datagov score=0 error primary and fallback both failed. Low instruments: gaia-openaq score=0.75, daedalus-cloudflare-radar score=0.7. GAIA composite 0.76 errorCount=1; THEMIS 0.745 errorCount=1."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true cycle=C-373 gi_age_seconds=44. signals quality=0.78 freshness=1 stability=0.45 system=1. stability=0.45 reflects active tripwire. Does not match latest ATLAS heartbeat gi=0.761 yellow stressed."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent across passes despite kv_keys.ok=true, seed_result=200 OK. kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. micro cycle C-306 vs operator C-373. Micro snapshot fresh (cached=false) but cycle label still stale."
+    },
+    {
+      "check": "gi_layer_alignment",
+      "result": "fail",
+      "detail": "ATLAS 0.761 yellow/stressed vs integrity-status 0.81 green/nominal — 0.049 divergence with conflicting mode labels. Micro 0.817 sits between layers. Quorum/state 0.81 green aligns with integrity-status not ATLAS."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "warn",
+      "detail": "Regressed. ATLAS sustain_eligible=false (was true at prior ZEUS pass 12:03Z) despite seed_result=200 OK and gi=0.761."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "warn",
+      "detail": "Reactivated. ATLAS tripwire.active=true level=elevated reason=Hormuz Transit Fee Risk (was false/none at prior ZEUS pass). integrity-status stability=0.45 consistent with active tripwire but mode still green/nominal."
+    },
+    {
+      "check": "gaia-usgs-water instrument",
+      "result": "warn",
+      "detail": "Transient failure. score=0 source=error latencyMs=10003 primary failed with retry. Was recovered score=0.85 at prior ZEUS pass."
+    },
+    {
+      "check": "themis-datagov instrument",
+      "result": "warn",
+      "detail": "Transient failure. score=0 source=error primary and fallback both failed."
+    },
+    {
+      "check": "daedalus-cloudflare-radar instrument",
+      "result": "warn",
+      "detail": "Persistent low score 0.7 on cloudflare-radar instrument."
+    },
+    {
+      "check": "gaia-openaq instrument",
+      "result": "warn",
+      "detail": "Persistent low score 0.75 on openaq instrument."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-373-12rl3i canonical=true mirrored_to_kv=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-373. vault_block_state=candidate in_progress_pct=100% latest_seal_id=null attestations received=0 needed=5. Aligns with integrity-status not ATLAS 0.761 yellow."
+    }
+  ],
+  "recommendation": "ATLAS heartbeat (0.761 yellow/stressed) and integrity-status (0.81 green/nominal) diverge while tripwire is elevated — reconcile GI sweep before operator trust. sustain_eligible regressed to false. Monitor gaia-usgs-water and themis-datagov instrument failures. Vault block at 100% candidate with 0/5 attestations; deploy POST /api/vault/attest for C-298 quorum. Watch gaia-openaq 0.75 and daedalus-cloudflare-radar 0.7."
+}
