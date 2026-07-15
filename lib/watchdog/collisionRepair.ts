@@ -5,10 +5,9 @@
 import type { Seal } from '@/lib/vault-v2/types';
 import { getSeal, listAllSeals } from '@/lib/vault-v2/store';
 import {
-  appendQuarantinedSealIds,
-  getCanonicalSealForBlock,
-  setCanonicalSealForBlock,
-} from '@/lib/watchdog/canonicalLineageIndex';
+  commitCollisionRepair,
+  prepareCollisionRepair,
+} from '@/lib/watchdog/collisionRepairTransaction';
 import { appendMutationJournal } from '@/lib/watchdog/mutationJournal';
 import { repairLatestSealPointer } from '@/lib/watchdog/latestSealPointerRepair';
 import {
@@ -111,103 +110,125 @@ export async function applyCollisionRepair(args: {
   }
   steps.push({ step: 'validate', ok: true, detail: 'receipt approved and KV snapshot matches' });
 
-  const existingCanonical = await getCanonicalSealForBlock(receipt.block_number);
-  if (existingCanonical === receipt.canonical_seal_id) {
-    steps.push({
-      step: 'canonical_block',
-      ok: true,
-      detail: `block ${receipt.block_number} already canonical → ${receipt.canonical_seal_id} (idempotent)`,
-    });
-  } else if (dry_run) {
-    steps.push({
-      step: 'canonical_block',
-      ok: true,
-      detail: `[dry-run] Would set block ${receipt.block_number} → ${receipt.canonical_seal_id}`,
-    });
-  } else {
-    const prior = await setCanonicalSealForBlock(receipt.block_number, receipt.canonical_seal_id);
-    await appendMutationJournal({
-      at: new Date().toISOString(),
-      operation: 'set_canonical_block',
+  const prepared = await prepareCollisionRepair({ receipt, seals });
+  if (!prepared.ok) {
+    for (const err of prepared.errors) {
+      steps.push({ step: 'prepare', ok: false, detail: err });
+    }
+    return {
+      ok: false,
+      dry_run,
       receipt_id: receipt.receipt_id,
-      before: prior,
-      after: receipt.canonical_seal_id,
-    });
-    steps.push({
-      step: 'canonical_block',
-      ok: true,
-      detail: `block ${receipt.block_number} canonical index updated`,
-    });
+      block_number: receipt.block_number,
+      steps,
+    };
   }
 
-  const quarantineIds = receipt.conflicting_seal_ids;
+  const plan = prepared.plan;
+  steps.push({
+    step: 'prepare',
+    ok: true,
+    detail: plan.already_applied
+      ? 'derived state already matches prepared plan (idempotent)'
+      : `prepared transaction → latest ${plan.next.latest_pointer}, block ${plan.block_number} → ${plan.next.canonical_block}`,
+  });
+
   if (dry_run) {
     steps.push({
-      step: 'quarantine',
+      step: 'commit',
       ok: true,
-      detail: `[dry-run] Would quarantine ${quarantineIds.length} conflicting seal(s)`,
+      detail: `[dry-run] Would commit collision_repair_transaction atomically`,
     });
-  } else {
-    const priorQuarantine = await appendQuarantinedSealIds(quarantineIds);
-    await appendMutationJournal({
-      at: new Date().toISOString(),
-      operation: 'quarantine_seal',
-      receipt_id: receipt.receipt_id,
-      before: priorQuarantine,
-      after: quarantineIds,
-    });
-    steps.push({
-      step: 'quarantine',
-      ok: true,
-      detail: `quarantined ${quarantineIds.length} conflicting seal(s) in derived index`,
-    });
-  }
-
-  let latest_pointer: Awaited<ReturnType<typeof repairLatestSealPointer>> | undefined;
-  if (args.repairLatestPointer !== false) {
-    const quarantined = new Set([...quarantineIds]);
-    latest_pointer = await repairLatestSealPointer({
+    const latest_pointer = await repairLatestSealPointer({
       seals,
-      quarantined,
-      dryRun: dry_run,
+      additionalQuarantineIds: receipt.conflicting_seal_ids,
+      dryRun: true,
+      expectedPreviousPointer: plan.before.latest_pointer,
+      pendingCanonical: new Map([[receipt.block_number, receipt.canonical_seal_id]]),
     });
     steps.push({
       step: 'latest_pointer',
       ok: latest_pointer.ok,
       detail: latest_pointer.message,
     });
-    if (!dry_run && latest_pointer.ok && latest_pointer.action === 'repaired') {
-      await appendMutationJournal({
-        at: new Date().toISOString(),
-        operation: 'repair_latest_pointer',
-        receipt_id: receipt.receipt_id,
-        before: latest_pointer.previous_pointer,
-        after: latest_pointer.new_pointer,
-      });
-    }
+    return {
+      ok: latest_pointer.ok,
+      dry_run,
+      receipt_id: receipt.receipt_id,
+      block_number: receipt.block_number,
+      steps,
+      latest_pointer,
+    };
   }
 
-  if (!dry_run) {
+  const commit = await commitCollisionRepair(plan);
+  if (!commit.ok) {
+    steps.push({
+      step: 'commit',
+      ok: false,
+      detail: `${commit.status} at ${commit.failure_step}: ${commit.detail}`,
+    });
     await appendMutationJournal({
       at: new Date().toISOString(),
-      operation: 'append_receipt',
+      operation: 'collision_repair_transaction',
       receipt_id: receipt.receipt_id,
-      before: receipt.resolution_status,
-      after: 'applied',
+      before: {
+        status: 'rolled_back',
+        failure_step: commit.failure_step,
+        restored: false,
+        before: plan.before,
+      },
+      after: plan.next,
     });
+    return {
+      ok: false,
+      dry_run,
+      receipt_id: receipt.receipt_id,
+      block_number: receipt.block_number,
+      steps,
+    };
+  }
+
+  const txStatus = commit.status === 'already_applied' ? 'already_applied' : 'committed';
+  steps.push({
+    step: 'commit',
+    ok: true,
+    detail: `collision_repair_transaction ${txStatus}`,
+  });
+
+  await appendMutationJournal({
+    at: new Date().toISOString(),
+    operation: 'collision_repair_transaction',
+    receipt_id: receipt.receipt_id,
+    before: {
+      status: txStatus,
+      before: plan.before,
+    },
+    after: plan.next,
+  });
+
+  const latest_pointer =
+    args.repairLatestPointer === false
+      ? undefined
+      : {
+          ok: true,
+          action: 'repaired' as const,
+          message: `LATEST_SEAL_KEY set in transaction → ${plan.next.latest_pointer}`,
+          previous_pointer: plan.before.latest_pointer,
+          new_pointer: plan.next.latest_pointer,
+          target_seal_id: plan.next.latest_pointer,
+        };
+
+  if (latest_pointer) {
     steps.push({
-      step: 'receipt_status',
+      step: 'latest_pointer',
       ok: true,
-      detail: 'application recorded in mutation journal (receipt remains append-only)',
+      detail: latest_pointer.message,
     });
   }
 
-  const ok =
-    steps.every((s) => s.ok) &&
-    (latest_pointer === undefined || latest_pointer.ok);
-
   return {
-    ok,
+    ok: true,
     dry_run,
     receipt_id: receipt.receipt_id,
     block_number: receipt.block_number,

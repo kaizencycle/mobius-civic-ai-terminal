@@ -22,6 +22,9 @@ import {
   scheduleBackupMirrorRawKey,
 } from '@/lib/kv/backup-redis';
 import { getUpstashRestCredentials } from '@/lib/kv/upstashEnv';
+import {
+  compareAndSetLatestSealIdOnRedis,
+} from '@/lib/vault-v2/latestSealCas';
 import type { Seal, SealAttestation, SealCandidate, SentinelAgent } from '@/lib/vault-v2/types';
 
 const BALANCE_KEY = 'vault:in_progress_balance';
@@ -225,7 +228,7 @@ export async function getLatestSealId(): Promise<string | null> {
 
 /**
  * Optimistic compare-and-set for vault:seal:latest (C-373 lineage recovery).
- * Fails closed when the current pointer differs from expectedCurrent.
+ * Uses atomic Redis Lua eval — not application-level read-then-write.
  */
 export async function compareAndSetLatestSealId(
   expectedCurrent: string | null,
@@ -233,17 +236,11 @@ export async function compareAndSetLatestSealId(
 ): Promise<{ ok: boolean; actual: string | null }> {
   const redis = getRedis();
   if (!redis) return { ok: false, actual: null };
-  const actual = await getLatestSealId();
-  if (actual !== expectedCurrent) {
-    return { ok: false, actual };
-  }
-  try {
-    await redis.set(LATEST_SEAL_KEY, nextSealId);
+  const result = await compareAndSetLatestSealIdOnRedis(redis, expectedCurrent, nextSealId);
+  if (result.ok) {
     mirrorRawSet(LATEST_SEAL_KEY, nextSealId);
-    return { ok: true, actual: nextSealId };
-  } catch {
-    return { ok: false, actual };
   }
+  return result;
 }
 
 export async function getLatestSeal(): Promise<Seal | null> {

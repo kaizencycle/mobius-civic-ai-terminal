@@ -7,10 +7,29 @@ import { kvGet, kvSet } from '@/lib/kv/store';
 export const MUTATION_JOURNAL_KEY = 'watchdog:collision:mutation-journal';
 
 export type MutationOperation =
+  | 'collision_repair_transaction'
   | 'set_canonical_block'
   | 'quarantine_seal'
   | 'repair_latest_pointer'
   | 'append_receipt';
+
+export type CollisionRepairTransactionJournal = {
+  operation: 'collision_repair_transaction';
+  receipt_id: string;
+  status: 'committed' | 'rolled_back' | 'already_applied';
+  failure_step?: string;
+  restored?: boolean;
+  before: {
+    canonical_block: string | null;
+    quarantine: string[];
+    latest_pointer: string | null;
+  };
+  after: {
+    canonical_block: string;
+    quarantine: string[];
+    latest_pointer: string;
+  };
+};
 
 export type MutationJournalEntry = {
   at: string;
