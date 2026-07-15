@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "./node_modules/.bin/tsx scripts/run-tests.ts"
+    "test": "./node_modules/.bin/tsx scripts/run-tests.ts",
+    "watchdog:collision-audit": "tsx scripts/watchdog-collision-audit.ts",
+    "watchdog:collision-repair": "tsx scripts/watchdog-collision-repair.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
