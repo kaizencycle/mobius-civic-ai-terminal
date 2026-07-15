@@ -82,4 +82,33 @@ describe('sealIntegrityGate', () => {
     assert.match(text, /block_number/);
     assert.match(text, /EPICON_C-372/);
   });
+
+  it('critical collision keeps gate active; resolved live report releases gate', () => {
+    const active = shouldSealIntegrityGateBeActive({ findings: [collisionCritical] }, null);
+    assert.strictEqual(active.active, true);
+
+    const released = shouldSealIntegrityGateBeActive({ findings: [collisionOk] }, {
+      at: '2026-07-14T10:00:00Z',
+      cycle: 'C-373',
+      findings: [collisionCritical],
+    });
+    assert.strictEqual(released.active, false);
+    assert.strictEqual(released.source, 'live-report');
+  });
+
+  it('stale critical alert cannot override clean live report', () => {
+    const resolved = shouldSealIntegrityGateBeActive(
+      { findings: [collisionOk] },
+      { at: '2026-07-14T10:00:00Z', cycle: 'C-373', findings: [collisionCritical] },
+    );
+    assert.strictEqual(resolved.active, false);
+    assert.strictEqual(resolved.source, 'live-report');
+  });
+
+  it('gate override remains explicit via SEAL_INTEGRITY_GATE=off', () => {
+    const prior = process.env.SEAL_INTEGRITY_GATE;
+    process.env.SEAL_INTEGRITY_GATE = 'off';
+    assert.strictEqual(isSealIntegrityGateEnabled(), false);
+    process.env.SEAL_INTEGRITY_GATE = prior;
+  });
 });
