@@ -1,6 +1,7 @@
 /**
  * Tiered escalation for EVE KV watchdog — EPICON entries, Tripwire, EVE journal.
- * Hard-stop sealing is NOT enabled (pending custodian sign-off per implementation intent).
+ * Hard-stop sealing is enabled via seal integrity gate when critical block_number_collisions
+ * (EPICON_C-372_GOVERNANCE_seal-attestation-flag_v1).
  */
 
 import { appendAgentJournalEntry } from '@/lib/agents/journal';
@@ -110,11 +111,17 @@ async function mergeTripwireKvWatchdog(
   return true;
 }
 
+export type KvWatchdogDependencyFailure = {
+  dependency: 'epicon_ledger' | 'eve_journal' | 'tripwire';
+  error: string;
+};
+
 export interface KvWatchdogEscalationResult {
   epicon_pushed: boolean;
   tripwire_updated: boolean;
   journal_pushed: boolean;
   critical_alert_recorded: boolean;
+  degraded_dependencies: KvWatchdogDependencyFailure[];
 }
 
 export async function escalateKvWatchdogReport(
@@ -129,12 +136,13 @@ export async function escalateKvWatchdogReport(
   let tripwire_updated = false;
   let journal_pushed = false;
   let critical_alert_recorded = false;
+  const degraded_dependencies: KvWatchdogDependencyFailure[] = [];
 
   if (max === 'ok') {
     tripwire_updated = await clearTripwireKvWatchdog(report.checked_at);
     await clearSealIntegrityGateIfCollisionsResolved(report).catch(() => {});
     await kvSet(ESCALATION_STATE_KEY, { severity: 'ok', at: report.checked_at }, 86400).catch(() => {});
-    return { epicon_pushed, tripwire_updated, journal_pushed, critical_alert_recorded };
+    return { epicon_pushed, tripwire_updated, journal_pushed, critical_alert_recorded, degraded_dependencies };
   }
 
   if (shouldPushEpicon(max, prev)) {
@@ -157,37 +165,46 @@ export async function escalateKvWatchdogReport(
       });
       epicon_pushed = true;
     } catch (err) {
-      console.error(
-        '[kv-watchdog] EPICON ledger push failed (continuing escalation):',
-        err instanceof Error ? err.message : err,
-      );
+      const error = err instanceof Error ? err.message : String(err);
+      degraded_dependencies.push({ dependency: 'epicon_ledger', error });
+      console.error('[kv-watchdog] EPICON ledger push failed (continuing escalation):', error);
     }
   }
 
   if (max === 'warning' || max === 'critical') {
-    tripwire_updated = await mergeTripwireKvWatchdog(report, operatorCycle, max);
+    try {
+      tripwire_updated = await mergeTripwireKvWatchdog(report, operatorCycle, max);
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      degraded_dependencies.push({ dependency: 'tripwire', error });
+      console.error('[kv-watchdog] Tripwire merge failed (continuing escalation):', error);
+    }
   }
 
   if (max === 'warning' || max === 'critical') {
-    await appendAgentJournalEntry({
-      agent: 'EVE',
-      cycle: operatorCycle,
-      observation: `KV watchdog ${max}: ${failedChecks.map((f) => f.check).join(', ')}.`,
-      inference: report.primary_kv_suspended
-        ? 'Primary KV may be suspended — chain continuity at risk (see C-370 Q2).'
-        : 'Vault/KV integrity signals degraded; investigate before next seal formation.',
-      recommendation:
-        'Review watchdog findings and GOVERNANCE_DECISION Q2 fixes. Pass attestations and new seal formation are blocked while critical block_number_collisions is active (SEAL_INTEGRITY_GATE).',
-      confidence: max === 'critical' ? 0.85 : 0.72,
-      derivedFrom: failedChecks.map((f) => `kv-watchdog:${f.check}`),
-      relatedAgents: ['ATLAS', 'ZEUS'],
-      status: 'committed',
-      category: 'alert',
-      severity: max === 'critical' ? 'critical' : 'elevated',
-    }).catch((err) => {
-      console.error('[kv-watchdog] EVE journal append failed:', err instanceof Error ? err.message : err);
-    });
-    journal_pushed = true;
+    try {
+      await appendAgentJournalEntry({
+        agent: 'EVE',
+        cycle: operatorCycle,
+        observation: `KV watchdog ${max}: ${failedChecks.map((f) => f.check).join(', ')}.`,
+        inference: report.primary_kv_suspended
+          ? 'Primary KV may be suspended — chain continuity at risk (see C-370 Q2).'
+          : 'Vault/KV integrity signals degraded; investigate before next seal formation.',
+        recommendation:
+          'Review watchdog findings and GOVERNANCE_DECISION Q2 fixes. Pass attestations and new seal formation are blocked while critical block_number_collisions is active (SEAL_INTEGRITY_GATE).',
+        confidence: max === 'critical' ? 0.85 : 0.72,
+        derivedFrom: failedChecks.map((f) => `kv-watchdog:${f.check}`),
+        relatedAgents: ['ATLAS', 'ZEUS'],
+        status: 'committed',
+        category: 'alert',
+        severity: max === 'critical' ? 'critical' : 'elevated',
+      });
+      journal_pushed = true;
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      degraded_dependencies.push({ dependency: 'eve_journal', error });
+      console.error('[kv-watchdog] EVE journal append failed:', error);
+    }
   }
 
   if (max === 'critical') {
@@ -223,5 +240,5 @@ export async function escalateKvWatchdogReport(
 
   await clearSealIntegrityGateIfCollisionsResolved(report).catch(() => {});
 
-  return { epicon_pushed, tripwire_updated, journal_pushed, critical_alert_recorded };
+  return { epicon_pushed, tripwire_updated, journal_pushed, critical_alert_recorded, degraded_dependencies };
 }
