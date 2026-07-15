@@ -223,6 +223,29 @@ export async function getLatestSealId(): Promise<string | null> {
   }
 }
 
+/**
+ * Optimistic compare-and-set for vault:seal:latest (C-373 lineage recovery).
+ * Fails closed when the current pointer differs from expectedCurrent.
+ */
+export async function compareAndSetLatestSealId(
+  expectedCurrent: string | null,
+  nextSealId: string,
+): Promise<{ ok: boolean; actual: string | null }> {
+  const redis = getRedis();
+  if (!redis) return { ok: false, actual: null };
+  const actual = await getLatestSealId();
+  if (actual !== expectedCurrent) {
+    return { ok: false, actual };
+  }
+  try {
+    await redis.set(LATEST_SEAL_KEY, nextSealId);
+    mirrorRawSet(LATEST_SEAL_KEY, nextSealId);
+    return { ok: true, actual: nextSealId };
+  } catch {
+    return { ok: false, actual };
+  }
+}
+
 export async function getLatestSeal(): Promise<Seal | null> {
   const id = await getLatestSealId();
   if (!id) return null;
