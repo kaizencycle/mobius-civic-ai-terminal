@@ -4,8 +4,8 @@
   "source": "snapshot-lite+vault+manifest",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
   "cycle": "C-373",
-  "as_of": "2026-07-15T08:02:48.818Z",
-  "fetched_at": "2026-07-15T08:02:48.908Z",
+  "as_of": "2026-07-15T10:13:00.490Z",
+  "fetched_at": "2026-07-15T10:13:00.493Z",
   "gi": 0.82,
   "mode": "green",
   "degraded": true,
@@ -18,11 +18,7 @@
       "source": "snapshot-lite"
     },
     "memory_mode": null,
-    "vault_dashboard": {
-      "value": 0.82,
-      "field": "gi_current",
-      "source": "/api/vault/status"
-    }
+    "vault_dashboard": null
   },
   "memory_mode": null,
   "deployment": {
@@ -30,7 +26,7 @@
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 7,
+    "total_ms": 102,
     "lane_ms": null
   },
   "counting_rules": {
@@ -38,23 +34,13 @@
     "seals_unique_block_number": "Distinct block_number chain slots — cold canon unit of account. Requires KV collision audit; not computed in public workflow.",
     "gap_raw_vs_cold": "seals_raw minus manifest.total_blocks — upper-bound gap; true append gap uses deduped unique count."
   },
-  "hot": {
-    "seals_raw": 360,
-    "seals_unique_block_number": null,
-    "chain_tip": null,
-    "in_progress_mic": 69.140132,
-    "in_progress_block": 361,
-    "fountain_status": "locked",
-    "sustain_cycles_met": false,
-    "substrate_ok": true,
-    "source": "/api/vault/status"
-  },
+  "hot": null,
   "cold": {
     "manifest_blocks": 194,
     "manifest_mic": 9700,
     "chain_tip_hash": "sha256:2ccc5e411828b32927bd53842558dd8202b9395955668f75237b107539d25baa",
     "manifest_url": "https://raw.githubusercontent.com/kaizencycle/Mobius-Substrate/main/canon/reserve-blocks/MANIFEST.json",
-    "gap_raw_vs_cold": 166,
+    "gap_raw_vs_cold": null,
     "source": "Mobius-Substrate/canon/reserve-blocks/MANIFEST.json"
   },
   "repos": {
@@ -72,9 +58,7 @@
     }
   },
   "open_gates": [
-    "cold_canon_append_pending",
-    "sustain_not_wired",
-    "fountain_gi_below_threshold",
+    "vault_fetch_failed",
     "terminal_degraded"
   ]
 }

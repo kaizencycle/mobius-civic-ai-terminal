@@ -5,10 +5,10 @@
 - **Cycle:** `C-373`
 - **GI:** `0.82` · **mode:** `green` · ⚠️ degraded
 - **Provenance:** `kv-live` (verified)
-- **Pulse fetched:** `2026-07-15T08:02:48.908Z`
+- **Pulse fetched:** `2026-07-15T10:13:00.493Z`
 - **Deployment:** `827fd9c3302a` (production)
-- **Reserve hot (raw):** `360` · **cold manifest:** `194` · **gap (raw−cold):** `166`
-- **Open gates:** `cold_canon_append_pending`, `sustain_not_wired`, `fountain_gi_below_threshold`, `terminal_degraded`
+- **Reserve hot (raw):** `n/a` · **cold manifest:** `194` · **gap (raw−cold):** `n/a`
+- **Open gates:** `vault_fetch_failed`, `terminal_degraded`
 
 > Generated from `ledger/cycle-state.json` (source: `snapshot-lite+vault+manifest`).
 > Live source of truth: [snapshot-lite](https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot-lite). Do not hand-edit this block.
