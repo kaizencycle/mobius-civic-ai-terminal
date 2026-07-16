@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-07-16T06:04:53.348Z",
+  "agent": "ATLAS",
+  "cycle": "C-374",
+  "gi": 0.82,
+  "gi_pre_seed": 0.82,
+  "gi_post_seed": 0.82,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 10,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-07-16T06:03:19.295Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK (30s timeout, 60s retry)",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.905,
+  "micro_cycle": "C-306",
+  "degraded_agents": 0,
+  "degraded_agent_names": [],
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "last_journal_cycle": "C-374",
+  "force_journal": false,
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-07-16T05:26:53.479Z"
+  },
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-374-fzx2ss",
+  "journal_ok": true
+}
