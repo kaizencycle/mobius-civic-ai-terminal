@@ -1,0 +1,98 @@
+{
+    "ok": true,
+    "lite": true,
+    "schema_version": "MOBIUS_SNAPSHOT_LITE_1",
+    "cycle": "C-373",
+    "scan_cycle": "C-373",
+    "timestamp": "2026-07-16T00:30:36.785Z",
+    "deployment": {
+        "commit_sha": "09f1cabf6440582c606b02d0e68cba606d0cecad",
+        "environment": "production"
+    },
+    "gi": 0.71,
+    "mode": "yellow",
+    "gi_source": "live",
+    "gi_provenance": "live-compute",
+    "gi_verified": true,
+    "gi_mirror_delta": 0,
+    "degraded": true,
+    "lanes": {
+        "kv": {
+            "ok": true,
+            "latency_ms": 4
+        },
+        "backup_redis": {
+            "configured": true,
+            "available": true,
+            "mirror_enabled": true,
+            "read_fallback_enabled": true,
+            "latency_ms": 2
+        },
+        "integrity": {
+            "ok": true,
+            "gi": 0.71,
+            "mode": "yellow",
+            "terminal_status": "stressed",
+            "source": "live",
+            "provenance": "live-compute",
+            "verified": false,
+            "mic_readiness_snapshot_source": "kv",
+            "freshness": "nominal",
+            "age_seconds": 1663
+        },
+        "signals": {
+            "ok": true,
+            "composite": 0.786,
+            "anomalies": 0,
+            "healthy": true,
+            "freshness": "nominal",
+            "age_seconds": 1627
+        },
+        "echo": {
+            "ok": true,
+            "cycle": "C-373",
+            "total_ingested": 14,
+            "healthy": true,
+            "freshness": "nominal",
+            "age_seconds": 1774
+        },
+        "tripwire": {
+            "ok": true,
+            "elevated": true,
+            "count": 1
+        },
+        "pulse": {
+            "ok": true,
+            "composite": 0.778,
+            "instruments": 40,
+            "anomalies": 0,
+            "freshness": "nominal"
+        }
+    },
+    "ipi": {
+        "score": 0,
+        "state": "stable",
+        "fountain_status": "confirmed",
+        "human_required": false,
+        "triggered_sentinels": [],
+        "components": {
+            "anomaly_density": 0.1,
+            "dissent": 0,
+            "volatility": 0,
+            "witness_lag": 0
+        },
+        "computed_at": "2026-07-16T00:30:36.785Z",
+        "ipi_data_insufficient": true
+    },
+    "heartbeat": {
+        "runtime": "2026-07-16T00:30:32.464Z",
+        "journal": "2026-07-16T00:30:32.465Z"
+    },
+    "meta": {
+        "total_ms": 17,
+        "kv_available": true,
+        "kv_bundle_mget": true,
+        "kv_cache_fresh": true,
+        "cycle_source": "calendar"
+    }
+}

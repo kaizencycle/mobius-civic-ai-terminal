@@ -1,0 +1,36 @@
+{
+  "schema_version": "C-373_PRE_REPAIR_WITNESS_1",
+  "cycle": "C-373",
+  "captured_by": "ATLAS",
+  "captured_at": "2026-07-16T00:31:30Z",
+  "purpose": "Immutable pre-repair production witness bundle (Lane B read-only). No KV mutation.",
+  "production_base_url": "https://mobius-civic-ai-terminal.vercel.app",
+  "artifacts": [
+    {
+      "file": "snapshot-lite-2026-07-16T003036Z.json",
+      "endpoint": "/api/terminal/snapshot-lite",
+      "response_timestamp": "2026-07-16T00:30:36.785Z",
+      "deployment_commit_sha": "09f1cabf6440582c606b02d0e68cba606d0cecad",
+      "notes": "Matches PR #624 merge commit on production."
+    },
+    {
+      "file": "vault-status-2026-07-16T003106Z.json",
+      "endpoint": "/api/vault/status",
+      "response_timestamp": "2026-07-16T00:31:06.836Z",
+      "notes": "latest_seal_id null; seals_count 360; integrity gate engaged context."
+    }
+  ],
+  "not_captured": [
+    "pnpm watchdog:collision-audit (requires production KV credentials)",
+    "vault:seal:latest raw KV",
+    "watchdog:canonical:quarantined",
+    "watchdog mutation journal head",
+    "authenticated kv-watchdog cron response"
+  ],
+  "collision_count_status": {
+    "c370_pair_count": 119,
+    "c373_watchdog_pair_count_observed": 125,
+    "semantics_document": "docs/epicon/cycles/C-373/AUDIT_C-373_collision-count-reconciliation.md",
+    "live_reproduction": "UNVERIFIED"
+  }
+}
