@@ -21,7 +21,8 @@
     }
   ],
   "not_captured": [
-    "pnpm watchdog:collision-audit (requires production KV credentials)",
+    "scripts/audit-reserve-block-collisions.ts --json (pair-count; validates live 125)",
+    "pnpm watchdog:collision-audit (group-count only; does not validate pair gate)",
     "vault:seal:latest raw KV",
     "watchdog:canonical:quarantined",
     "watchdog mutation journal head",

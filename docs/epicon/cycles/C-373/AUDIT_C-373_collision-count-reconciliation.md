@@ -11,7 +11,7 @@
 
 The **119** and **125** figures use the **same counting rule** (hash-divergent **collision pairs** via `analyzeReserveBlockCollisions`). They are **not** silently interchangeable with **collision group** counts from C-373 `buildCollisionAuditReport`.
 
-The +6 delta is **consistent with KV growth** between the C-370 audit snapshot and C-373 production watchdog observations. Exact seal-level proof requires an operator-run `pnpm watchdog:collision-audit` against production KV.
+The +6 delta is **consistent with KV growth** between the C-370 audit snapshot and C-373 production watchdog observations. Exact seal-level proof requires an operator-run **pair-count** audit (`scripts/audit-reserve-block-collisions.ts`) against production KV — not `watchdog:collision-audit`, which emits **group** counts only.
 
 **Verdict:** Counting semantics **resolved**. Absolute 125 reproduction **UNVERIFIED** until live KV audit.
 
@@ -19,13 +19,13 @@ The +6 delta is **consistent with KV growth** between the C-370 audit snapshot a
 
 ## Required comparison table
 
-| Artifact | Timestamp | Raw records | Collision groups | Hash-divergent groups | Counting rule |
-|----------|-----------|-------------|------------------|----------------------|---------------|
-| C-370 `collision-audit.json` (GH Actions) | 2026-07-13T00:00:13Z | 313 attested seals | 194 unique `block_number` | **119** (all groups hash-divergent; 2 seals/group → groups = pairs) | **Pair tournament:** `analyzeReserveBlockCollisions` — for each `block_number` with N attested seals, emits N−1 pairwise entries; `hash_divergent_collisions` = pairs where `seal_hashes_differ` |
-| C-370 FINDINGS doc | 2026-07-13 | 313 | 194 | 119 | Same as above; sourced from workflow artifact |
-| Production kv-watchdog (C-373 window) | ~2026-07-15 (custodian logs) | **UNVERIFIED** | **UNVERIFIED** | **125** hash-divergent pairs | Same function path: `checkBlockCollisions` → `analyzeReserveBlockCollisions` → `evidence.hash_divergent_collisions` |
-| C-373 `buildCollisionAuditReport` (PR #624 tooling) | N/A until operator run | — | `collision_group_count` | `hash_divergent_group_count` | **One row per `block_number` with ≥2 attested seals**; differs from pair count when N>2 |
-| Pre-repair `vault/status` witness | 2026-07-16T00:31:06Z | 360 `seals_count` / 319 examined attestation coverage | Not computed (public API) | Not computed | UI/dashboard aggregate — **not** a collision audit |
+| Artifact | Timestamp | Raw records | Unique `block_number` | Collision groups | Hash-divergent groups | Hash-divergent pairs | Counting rule |
+|----------|-----------|-------------|----------------------|------------------|----------------------|---------------------|---------------|
+| C-370 `collision-audit.json` (GH Actions) | 2026-07-13T00:00:13Z | 313 attested seals | **194** | **119** (blocks with ≥2 seals) | **119** (all groups hash-divergent) | **119** (`hash_divergent_collisions`) | **Pair tournament:** `analyzeReserveBlockCollisions` — N−1 pairwise entries per group; pairs where `seal_hashes_differ`. At C-370 every group had exactly 2 seals, so groups = pairs. |
+| C-370 FINDINGS doc | 2026-07-13 | 313 | 194 | 119 (inferred from `collision_count`) | 119 | 119 | Same as above; sourced from workflow artifact |
+| Production kv-watchdog (C-373 window) | ~2026-07-15 (custodian logs) | **UNVERIFIED** | **UNVERIFIED** | **UNVERIFIED** | **UNVERIFIED** | **125** (`evidence.hash_divergent_collisions`) | `checkBlockCollisions` → `analyzeReserveBlockCollisions` (pair count) |
+| C-373 `buildCollisionAuditReport` (PR #624 tooling) | N/A until operator run | — | `unique_block_count` | `collision_group_count` | `hash_divergent_group_count` | *not emitted* | **Group audit only** — one row per `block_number` with ≥2 seals; pair count requires `audit-reserve-block-collisions.ts` |
+| Pre-repair `vault/status` witness | 2026-07-16T00:31:06Z | 360 `seals_count` / 319 examined attestation coverage | Not computed | Not computed | Not computed | Not computed | UI/dashboard aggregate — **not** a collision audit |
 
 ---
 
@@ -78,7 +78,8 @@ Captured read-only at C-373 Lane B preflight:
 
 **Not captured (requires operator + KV creds):**
 
-- Full `pnpm watchdog:collision-audit` JSON
+- Pair-count export via `scripts/audit-reserve-block-collisions.ts --json` (validates live **125**)
+- Group-count export via `pnpm watchdog:collision-audit` (receipt tooling only — does **not** validate pair count)
 - `vault:seal:latest` raw KV value
 - `watchdog:canonical:quarantined` / mutation journal head
 - Live kv-watchdog response body (cron auth — HTTP 403 unauthenticated)
@@ -98,12 +99,24 @@ Captured read-only at C-373 Lane B preflight:
 
 ## Operator next step
 
+Use **two** exports — they answer different questions:
+
 ```bash
-# From mobius-civic-ai-terminal with production .env.local KV credentials
-pnpm watchdog:collision-audit -- --out artifacts/C-373/pre-repair/collision-audit-live.json
+# 1. PAIR COUNT — reproduces kv-watchdog hash_divergent_collisions (the live 125 gate)
+#    From mobius-civic-ai-terminal with production .env.local KV credentials:
+npx tsx scripts/audit-reserve-block-collisions.ts --json \
+  > artifacts/C-373/pre-repair/collision-pairs-live.json
+
+# Confirm: .hash_divergent_collisions in output (expect 125 if production unchanged)
+
+# 2. GROUP COUNT — C-373 receipt/repair tooling (does NOT validate the 125 pair gate)
+pnpm watchdog:collision-audit -- --out artifacts/C-373/pre-repair/collision-groups-live.json
+
+# Compare: .hash_divergent_group_count (groups) vs .hash_divergent_collisions (pairs)
+# If any block_number has N>2 attested seals, pair count > group count.
 ```
 
-Compare `hash_divergent_group_count` (groups) vs legacy pair export. Do **not** run `--apply` until receipts are approved (human + EVE + ZEUS).
+Do **not** run `watchdog:collision-repair --apply` until receipts are approved (human + EVE + ZEUS).
 
 ---
 
