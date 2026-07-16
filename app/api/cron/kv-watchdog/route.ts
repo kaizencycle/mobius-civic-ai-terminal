@@ -18,6 +18,7 @@ import {
   escalateKvWatchdogReport,
 } from '@/lib/watchdog/kvWatchdogEscalation';
 import { clearSealIntegrityGateIfCollisionsResolved, getSealIntegrityGateState } from '@/lib/watchdog/sealIntegrityGate';
+import { resolveKvWatchdogHttpOutcome } from '@/lib/watchdog/kvWatchdogHttpOutcome';
 import { bearerMatchesToken } from '@/lib/vault-v2/auth';
 
 export const dynamic = 'force-dynamic';
@@ -40,29 +41,45 @@ export async function GET(request: NextRequest) {
     const escalation = await escalateKvWatchdogReport(report, operatorCycle);
     const gateCleared = await clearSealIntegrityGateIfCollisionsResolved(report);
     const sealGate = await getSealIntegrityGateState();
-
-    const httpStatus = report.max_severity === 'critical' ? 409 : report.max_severity === 'warning' ? 207 : 200;
+    const http = resolveKvWatchdogHttpOutcome({
+      report,
+      sealGate,
+      degradedDependencies: escalation.degraded_dependencies,
+    });
 
     console.info('[kv-watchdog] run complete', {
       cycle: operatorCycle,
+      outcome: http.outcome,
+      http_status: http.http_status,
+      primary_reason: http.primary_reason,
+      collision_count: http.collision_count,
+      checks_complete: http.checks_complete,
       max_severity: report.max_severity,
       primary_kv_suspended: report.primary_kv_suspended,
+      seal_integrity_gate_active: sealGate.active,
+      degraded_dependencies: escalation.degraded_dependencies,
       escalation,
     });
 
     return NextResponse.json(
       {
-        ok: report.max_severity === 'ok' || report.max_severity === 'informational',
+        ok: http.outcome === 'ok' || http.outcome === 'informational',
         agent: 'EVE',
         epicon_id: 'EPICON_C-370_EVE_kv-watchdog-implementation_v1',
         operator_cycle: operatorCycle,
+        outcome: http.outcome,
+        http_status: http.http_status,
+        primary_reason: http.primary_reason,
+        collision_count: http.collision_count,
+        checks_complete: http.checks_complete,
         report,
         escalation,
         seal_integrity_gate_cleared: gateCleared,
-        hard_stop_enabled: false,
-        seal_integrity_gate_active: sealGate.active,
+        hard_stop_enabled: http.hard_stop_enabled,
+        seal_integrity_gate_active: http.seal_integrity_gate_active,
+        degraded_dependencies: http.degraded_dependencies,
       },
-      { status: httpStatus },
+      { status: http.http_status },
     );
   } catch (e) {
     console.error('[kv-watchdog] run failed:', e instanceof Error ? e.message : e);
