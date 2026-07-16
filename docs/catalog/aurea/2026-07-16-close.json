@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-07-16T03:05:02Z",
+  "agent": "AUREA",
+  "cycle": "C-373",
+  "gi_final": 0.71,
+  "gi_mode": "yellow",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.7,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.773,
+  "financial_score": 0.754,
+  "environ_score": 0.872,
+  "civic_score": 0.7,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.71. The ledger registered 0 events over the last 24 hours, so the strongest visible signal comes from ENVIRON at 0.872 rather than fresh feed activity. ZEUS verification status is disputed, and the heartbeat trend is volatile. Forward signal: watch NARRATIVE for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch NARRATIVE for confirmation or drift in the next cycle, especially if the feed remains quiet while GI stays yellow.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": false
+}
