@@ -1,13 +1,26 @@
 /**
  * OPT-06 (C-323): OG image for social sharing.
- * Uses next/og ImageResponse (included in Next.js 15, no extra dep).
+ * C-375: Bundle JetBrains Mono for ⌘ glyph (edge has no system monospace with ⌘).
  */
 
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
 
-export function GET() {
+const FONT_FAMILY = 'JetBrains Mono';
+
+async function loadOgFont(): Promise<ArrayBuffer> {
+  const fontUrl = new URL('./fonts/JetBrainsMono-Regular.woff2', import.meta.url);
+  const res = await fetch(fontUrl, { cache: 'force-cache' });
+  if (!res.ok) {
+    throw new Error(`OG font load failed: ${res.status}`);
+  }
+  return res.arrayBuffer();
+}
+
+export async function GET() {
+  const fontData = await loadOgFont();
+
   return new ImageResponse(
     (
       <div
@@ -19,7 +32,7 @@ export function GET() {
           width: '100%',
           height: '100%',
           background: '#020617',
-          fontFamily: 'monospace',
+          fontFamily: FONT_FAMILY,
           padding: 60,
         }}
       >
@@ -39,7 +52,7 @@ export function GET() {
               padding: '4px 10px',
               borderRadius: 4,
               fontSize: 20,
-              fontFamily: 'monospace',
+              fontFamily: FONT_FAMILY,
             }}
           >
             ⌘
@@ -50,7 +63,7 @@ export function GET() {
               fontSize: 28,
               fontWeight: 700,
               letterSpacing: '0.08em',
-              fontFamily: 'monospace',
+              fontFamily: FONT_FAMILY,
             }}
           >
             MOBIUS CIVIC TERMINAL
@@ -65,6 +78,7 @@ export function GET() {
             maxWidth: 700,
             lineHeight: 1.5,
             marginBottom: 40,
+            fontFamily: FONT_FAMILY,
           }}
         >
           Bloomberg-style civic command console — Global Integrity, EPICON ledger,
@@ -92,7 +106,7 @@ export function GET() {
                 padding: '6px 16px',
                 borderRadius: 4,
                 fontSize: 13,
-                fontFamily: 'monospace',
+                fontFamily: FONT_FAMILY,
                 letterSpacing: '0.12em',
               }}
             >
@@ -107,7 +121,7 @@ export function GET() {
             bottom: 28,
             color: '#334155',
             fontSize: 13,
-            fontFamily: 'monospace',
+            fontFamily: FONT_FAMILY,
             letterSpacing: '0.08em',
           }}
         >
@@ -118,6 +132,14 @@ export function GET() {
     {
       width: 1200,
       height: 630,
+      fonts: [
+        {
+          name: FONT_FAMILY,
+          data: fontData,
+          style: 'normal',
+          weight: 400,
+        },
+      ],
     },
   );
 }
