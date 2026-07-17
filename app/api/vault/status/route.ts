@@ -23,18 +23,22 @@ import { computeAttestationCoverage, attestationHeadlineSuffix } from '@/lib/vau
 import { isIdentityServiceConfigured, probeIdentityAttestAuth } from '@/lib/substrate/identityToken';
 import { getVaultDepositHashCoverage, getVaultStatusPayload } from '@/lib/vault/vault';
 import {
-  countAllSeals,
-  countSeals,
   getCandidate,
   getInProgressBalance,
   getLatestSeal,
-  listAllSeals,
+  getSealsByIds,
+  listAllSealIds,
+  listSealIds,
 } from '@/lib/vault-v2/store';
 import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
 import { loadQuorumState } from '@/lib/mic/quorumTracker';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
+const VAULT_STATUS_TIMEOUT_MS = 12_000;
+const VAULT_STATUS_SEAL_SCAN_LIMIT = 500;
 
 export async function OPTIONS(req: NextRequest) {
   const cors = handbookCorsHeaders(req.headers.get('origin'));
@@ -78,15 +82,20 @@ async function buildVaultStatus(req: NextRequest) {
     // non-fatal — quorum state will show as pending
   }
 
-  const [inProgressBalance, sealsCount, sealsAuditCount, latestSeal, candidate, allRecentSeals, quorumState] =
+  const [attestedIds, allIds] = await Promise.all([listSealIds(), listAllSealIds()]);
+  const sealsCount = attestedIds.length;
+  const sealsAuditCount = allIds.length;
+  const recentSealIds = allIds.slice(-VAULT_STATUS_SEAL_SCAN_LIMIT);
+
+  const [inProgressBalance, latestSeal, candidate, allRecentSeals, quorumState, hashCoverage, identityAuth] =
     await Promise.all([
       getInProgressBalance(),
-      countSeals(),
-      countAllSeals(),
       getLatestSeal(),
       getCandidate(),
-      listAllSeals(500),
+      getSealsByIds(recentSealIds).then((seals) => seals.reverse()),
       loadQuorumState(currentCycleForQuorum),
+      getVaultDepositHashCoverage(200),
+      probeIdentityAttestAuth(),
     ]);
 
   const quarantinedSeals = allRecentSeals.filter((s) => s.status === 'quarantined');
@@ -120,7 +129,6 @@ async function buildVaultStatus(req: NextRequest) {
     candidateInFlight: Boolean(candidate),
   });
 
-  const hashCoverage = await getVaultDepositHashCoverage(200);
   const latestImmortalized = Boolean(latestSeal?.substrate_attestation_id && latestSeal?.substrate_event_hash);
 
   // C-329: compute REAL substrate-attestation coverage.
@@ -129,10 +137,9 @@ async function buildVaultStatus(req: NextRequest) {
   // Also surface the scan scope vs total so consumers can see when we're capped.
   const attestedSeals = allRecentSeals.filter((s) => s.status === 'attested');
   const attestationCoverage = computeAttestationCoverage(attestedSeals);
-  const coverageScanLimit = 500;
+  const coverageScanLimit = VAULT_STATUS_SEAL_SCAN_LIMIT;
   const coverageIsCapped = sealsAuditCount > coverageScanLimit;
   const honestHeadline = seal_lane.headline + attestationHeadlineSuffix(attestationCoverage);
-  const identityAuth = await probeIdentityAttestAuth();
 
   const body = {
     ...v1,
@@ -267,19 +274,18 @@ export async function GET(req: NextRequest) {
   const cors = handbookCorsHeaders(req.headers.get('origin'));
   const logCtx = vaultLogContext(req);
   try {
-    // C-354: top-level timeout — vault makes many KV reads (listAllSeals, getVaultDepositHashCoverage,
-    // etc.) with no individual guards. On degraded KV these hang indefinitely, causing the vault
-    // UI to show "probing substrate…" forever. 6s gives cold Render dynos room to wake.
+    // C-354/C-375: top-level timeout — vault aggregates many KV reads. MGET batching and
+    // deduped index reads keep typical production under budget; 12s covers cold starts.
     return await Promise.race([
       buildVaultStatus(req),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('vault_status_timeout')), 6_000),
+        setTimeout(() => reject(new Error('vault_status_timeout')), VAULT_STATUS_TIMEOUT_MS),
       ),
     ]);
   } catch (err) {
     const isTimeout = err instanceof Error && err.message === 'vault_status_timeout';
     console.warn(
-      `[vault/status] ${isTimeout ? 'timed out after 6s' : 'error'} (${logCtx})`,
+      `[vault/status] ${isTimeout ? `timed out after ${VAULT_STATUS_TIMEOUT_MS / 1000}s` : 'error'} (${logCtx})`,
       isTimeout ? '' : err,
     );
     // Return 503 so response.ok is false — callers (vault-context, snapshot timedHandler)
