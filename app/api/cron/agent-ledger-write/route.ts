@@ -177,14 +177,24 @@ async function fetchZeusJournalIds(request: NextRequest, limit: number) {
 
   const response = await getLedgerZeus(new NextRequest(zeusUrl, { method: 'GET' }));
   const parsed = await parseResponseJson<ZeusResponse>(response);
-  const payload = parsed.ok ? parsed.data : null;
-  if (!parsed.ok || !response.ok || !payload?.ok) {
+  if (!parsed.ok) {
     return {
       ok: false as const,
-      error: payload?.error ?? parsed.error ?? 'agent_ledger_zeus_fetch_failed',
-      status: parsed.status || response.status,
+      error: parsed.error,
+      status: parsed.status,
       journalIds: [] as string[],
-      zeus: payload ?? {},
+      zeus: null,
+    };
+  }
+
+  const payload = parsed.data;
+  if (!response.ok || !payload?.ok) {
+    return {
+      ok: false as const,
+      error: payload?.error ?? 'agent_ledger_zeus_fetch_failed',
+      status: response.status,
+      journalIds: [] as string[],
+      zeus: payload ?? null,
     };
   }
 

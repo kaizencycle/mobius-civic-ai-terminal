@@ -9,12 +9,13 @@ import { nextWarningEscalationState } from '../../lib/log/warningEscalation';
 const THRESHOLD = 6;
 const FINGERPRINT = 'ledger-zeus-journal-non-json';
 
-let prev: { count: number; escalated?: boolean } | null = null;
+let prev: { count: number; escalated: boolean } | null = null;
 let escalatedAt: number | null = null;
 
 for (let i = 1; i <= THRESHOLD; i++) {
   const state = nextWarningEscalationState(prev, THRESHOLD);
-  prev = { count: state.count, escalated: prev?.escalated || state.escalated };
+  const priorEscalated: boolean = prev === null ? false : prev.escalated;
+  prev = { count: state.count, escalated: priorEscalated || state.escalated };
   if (state.escalated) {
     escalatedAt = i;
   }
