@@ -2,30 +2,46 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adaptAgentJournalToLedger, type AgentLedgerAdapterPreview, type AgentLedgerJournalEntry } from '@/lib/agents/ledger-adapter';
 import { verifyWithZeus } from '@/lib/agents/zeus-verification';
 import { parseResponseJson } from '@/lib/http/safeJson';
+import { clearWarningFingerprint, recordWarningFingerprint } from '@/lib/log/warningEscalation';
+import { GET as getJournal } from '@/app/api/agents/journal/route';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+const JOURNAL_NON_JSON_FINGERPRINT = 'ledger-zeus-journal-non-json';
+
 async function fetchJournal(request: NextRequest, limit: number) {
+  const invoker = request.headers.get('x-mobius-invoker') ?? 'ledger-zeus';
   const url = new URL('/api/agents/journal', request.nextUrl.origin);
   url.searchParams.set('mode', 'merged');
   url.searchParams.set('limit', String(limit));
 
-  const invoker = request.headers.get('x-mobius-invoker') ?? 'ledger-zeus';
-  const response = await fetch(url, {
-    cache: 'no-store',
+  // In-process journal handler — avoids self-HTTP that can return deployment HTML.
+  const innerRequest = new NextRequest(url, {
     headers: { 'x-mobius-invoker': invoker },
-    signal: AbortSignal.timeout(10_000),
   });
+  const response = await getJournal(innerRequest);
 
   const parsed = await parseResponseJson<{ ok?: boolean; entries?: AgentLedgerJournalEntry[] }>(response);
   if (!parsed.ok) {
+    const escalation = await recordWarningFingerprint(JOURNAL_NON_JSON_FINGERPRINT, {
+      threshold: 6,
+      context: {
+        invoker,
+        status: parsed.status,
+        error: parsed.error,
+        contentType: parsed.contentType,
+        preview: parsed.bodyPreview,
+      },
+    });
     console.warn('[ledger-zeus] journal fetch returned non-JSON', {
       invoker,
       status: parsed.status,
       error: parsed.error,
       contentType: parsed.contentType,
       preview: parsed.bodyPreview,
+      consecutive_failures: escalation.count,
+      escalated: escalation.escalated,
     });
     return {
       ok: false,
@@ -33,6 +49,8 @@ async function fetchJournal(request: NextRequest, limit: number) {
       entries: [] as AgentLedgerJournalEntry[],
     };
   }
+
+  await clearWarningFingerprint(JOURNAL_NON_JSON_FINGERPRINT);
 
   const payload = parsed.data;
   return {
