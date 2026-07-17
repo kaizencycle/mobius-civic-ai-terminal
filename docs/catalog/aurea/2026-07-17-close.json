@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-07-17T03:03:54.112Z",
+  "agent": "AUREA",
+  "cycle": "C-374",
+  "gi_final": 0.71,
+  "gi_mode": "yellow",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.64,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.748,
+  "financial_score": 0.709,
+  "environ_score": 0.789,
+  "civic_score": 0.7,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.71. The ledger registered 0 events over the last 24 hours, so the clearest visible signal is ENVIRON at 0.789 while the feed remains silent. ZEUS verification status is disputed, and the heartbeat trend is volatile. Forward signal: watch ENVIRON for confirmation or drift in the next cycle, especially whether air-quality and weather-alert stress widens.",
+  "forward_signal": "Watch ENVIRON for confirmation or drift in the next cycle, especially whether air-quality and weather-alert stress widens.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "ArXiv new submissions [elevated]",
+    "NOAA active weather alerts [watch]",
+    "OpenAQ air quality [watch]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": false
+}
