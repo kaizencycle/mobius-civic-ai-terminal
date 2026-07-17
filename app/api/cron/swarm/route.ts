@@ -1,5 +1,5 @@
 // C-306 PR-512: Swarm orchestrator cron — GET /api/cron/swarm
-// Schedule: */10 * * * * (every 10 minutes, same cadence as sweep)
+// Schedule: */30 * * * * (C-354 normalization — see vercel.json)
 //
 // Flow:
 //   1. Load signal snapshot from KV (written by /api/cron/sweep)
@@ -37,9 +37,16 @@ import {
   budgetRemaining,
   dailyLimitUsd,
 } from '@/lib/swarm/budget';
+import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 
 const CREDIT_EXHAUSTED_KEY = 'swarm:credit-exhausted:ts';
 const CREDIT_EXHAUSTED_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+const DEFAULT_MAX_TIER_GT1_PER_RUN = 2;
+
+function maxTierGt1PerRun(): number {
+  const raw = Number(process.env.SWARM_MAX_TIER_GT1_PER_RUN ?? DEFAULT_MAX_TIER_GT1_PER_RUN);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_MAX_TIER_GT1_PER_RUN;
+}
 
 async function isAtlasCreditExhausted(): Promise<boolean> {
   const ts = await kvGetRaw<number>(CREDIT_EXHAUSTED_KEY);
@@ -63,7 +70,7 @@ function getClient(): Anthropic | null {
   return new Anthropic({ apiKey: key });
 }
 
-async function loadSwarmSignals(): Promise<SwarmSignals> {
+async function loadSwarmSignals(cycleId: string): Promise<SwarmSignals> {
   const gi = await loadGIState();
   // Also pull the latest micro-signals cache for instrument error counts
   const micro = await kvGetRaw<{
@@ -82,7 +89,7 @@ async function loadSwarmSignals(): Promise<SwarmSignals> {
     instrumentCount: microData?.instrumentCount ?? 40,
     fallbacksUsed: microData?.fallbacksUsed ?? 0,
     tripwireActive: Boolean(tripwire?.elevated || tripwire?.critical),
-    cycleId: process.env.CURRENT_CYCLE ?? 'C-306',
+    cycleId,
   };
 }
 
@@ -142,7 +149,7 @@ async function callAgent(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.toLowerCase().includes('credit balance')) {
-      console.warn(`[swarm] ${agentId} credit exhausted — setting 1h cooldown`);
+      console.warn('[swarm] state: entering ATLAS credit cooldown (1h) — tier>1 agents will route to Haiku');
       await markCreditExhausted();
     }
     return {
@@ -158,7 +165,7 @@ export async function GET(request: NextRequest) {
   if (authErr) return authErr;
 
   const runStart = Date.now();
-  const cycle = process.env.CURRENT_CYCLE ?? 'C-306';
+  const cycle = await resolveOperatorCycleId();
 
   const client = getClient();
   if (!client) {
@@ -167,10 +174,11 @@ export async function GET(request: NextRequest) {
   }
 
   // 1. Load signals + budget + bus state
-  const [signals, budget, busState] = await Promise.all([
-    loadSwarmSignals(),
+  const [signals, budget, busState, prevHeartbeat] = await Promise.all([
+    loadSwarmSignals(cycle),
     loadBudget(),
     readAllBusEntries(Object.keys(ACTIVATION_CONDITIONS)),
+    kvGetRaw<{ creditExhausted?: boolean }>(SWARM_HEARTBEAT_KEY),
   ]);
 
   const remainingUsd = budgetRemaining(budget);
@@ -221,6 +229,11 @@ export async function GET(request: NextRequest) {
   // C-343: resolve the ATLAS credit-exhausted cooldown once per run and log a single
   // summary line, instead of warning per agent per cycle for the full 1h cooldown window.
   const creditExhausted = await isAtlasCreditExhausted();
+  if (creditExhausted && !prevHeartbeat?.creditExhausted) {
+    console.warn('[swarm] state: ATLAS credit cooldown active — tier>1 routing degraded');
+  } else if (!creditExhausted && prevHeartbeat?.creditExhausted) {
+    console.info('[swarm] state: exiting ATLAS credit cooldown — tier>1 routing restored');
+  }
   if (creditExhausted) {
     const downgraded = activated.filter((a) => a.tier > 1).map((a) => a.agentId);
     if (downgraded.length > 0) {
@@ -230,7 +243,21 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  for (const { agentId, tier } of activated) {
+  const tierGt1Cap = maxTierGt1PerRun();
+  let tierGt1Scheduled = 0;
+  const runQueue: { agentId: string; tier: number }[] = [];
+  for (const entry of activated.sort((a, b) => b.tier - a.tier)) {
+    if (entry.tier > 1) {
+      if (tierGt1Scheduled >= tierGt1Cap) {
+        skipped.push({ agentId: entry.agentId, reason: 'tier_gt1_cap_per_run' });
+        continue;
+      }
+      tierGt1Scheduled += 1;
+    }
+    runQueue.push(entry);
+  }
+
+  for (const { agentId, tier } of runQueue) {
     // Re-check budget before each call (prior calls reduce it)
     if (!canAfford(currentBudget, tier)) {
       skipped.push({ agentId, reason: 'budget_depleted_mid_run' });
@@ -280,6 +307,7 @@ export async function GET(request: NextRequest) {
   await kvSetRawKey(SWARM_HEARTBEAT_KEY, {
     lastRun: Date.now(),
     cycle,
+    creditExhausted,
     eligibleCount: activated.length,
     activatedCount: results.length,
     successCount,

@@ -130,7 +130,7 @@ async function loginOnce(email: string, password: string): Promise<string | null
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(12_000),
       cache: 'no-store',
     });
   } catch (err) {
@@ -307,6 +307,7 @@ export async function getAttestBearerToken(options?: AttestBearerOptions): Promi
   const bypassCache = options?.bypassCache === true;
 
   if (!bypassCache && memoryCache && memoryCache.expiresAt > Date.now()) {
+    console.info('[identity-token] cache_hit', { cache_hit: true, source: 'memory' });
     return memoryCache.token;
   }
 
@@ -314,6 +315,7 @@ export async function getAttestBearerToken(options?: AttestBearerOptions): Promi
     const kvCached = await readKvCache();
     if (kvCached && kvCached.expiresAt > Date.now()) {
       memoryCache = kvCached;
+      console.info('[identity-token] cache_hit', { cache_hit: true, source: 'kv' });
       return kvCached.token;
     }
   }
@@ -323,6 +325,7 @@ export async function getAttestBearerToken(options?: AttestBearerOptions): Promi
       inflight = null;
     });
   }
+  console.info('[identity-token] cache_hit', { cache_hit: false, source: 'login' });
   const minted = await inflight;
   // C-357: creds are configured — never send AGENT_SERVICE_TOKEN to introspect.
   return minted ?? '';
