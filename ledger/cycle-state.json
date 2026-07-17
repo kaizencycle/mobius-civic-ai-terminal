@@ -4,29 +4,33 @@
   "source": "snapshot-lite+vault+manifest",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
   "cycle": "C-375",
-  "as_of": "2026-07-17T15:10:31.656Z",
-  "fetched_at": "2026-07-17T15:10:31.660Z",
-  "gi": 0.63,
+  "as_of": "2026-07-17T16:35:12.692Z",
+  "fetched_at": "2026-07-17T16:35:12.696Z",
+  "gi": 0.772,
   "mode": "yellow",
   "degraded": true,
-  "gi_provenance": "kv-live",
+  "gi_provenance": "live-compute",
   "gi_verified": true,
   "gi_readings": {
     "snapshot_lite": {
-      "value": 0.63,
+      "value": 0.772,
       "field": "gi",
       "source": "snapshot-lite"
     },
     "memory_mode": null,
-    "vault_dashboard": null
+    "vault_dashboard": {
+      "value": 0.772,
+      "field": "gi_current",
+      "source": "/api/vault/status"
+    }
   },
   "memory_mode": null,
   "deployment": {
-    "commit_sha": "4ec90eaac24f62b4486daa8e28bf2764774f7c16",
+    "commit_sha": "10dfa4c4c0ace82f0d99bce1c50b614c7c6d26be",
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 19,
+    "total_ms": 27,
     "lane_ms": null
   },
   "counting_rules": {
@@ -34,18 +38,28 @@
     "seals_unique_block_number": "Distinct block_number chain slots — cold canon unit of account. Requires KV collision audit; not computed in public workflow.",
     "gap_raw_vs_cold": "seals_raw minus manifest.total_blocks — upper-bound gap; true append gap uses deduped unique count."
   },
-  "hot": null,
+  "hot": {
+    "seals_raw": 360,
+    "seals_unique_block_number": null,
+    "chain_tip": null,
+    "in_progress_mic": 300.308749,
+    "in_progress_block": 361,
+    "fountain_status": "locked",
+    "sustain_cycles_met": false,
+    "substrate_ok": true,
+    "source": "/api/vault/status"
+  },
   "cold": {
     "manifest_blocks": 194,
     "manifest_mic": 9700,
     "chain_tip_hash": "sha256:2ccc5e411828b32927bd53842558dd8202b9395955668f75237b107539d25baa",
     "manifest_url": "https://raw.githubusercontent.com/kaizencycle/Mobius-Substrate/main/canon/reserve-blocks/MANIFEST.json",
-    "gap_raw_vs_cold": null,
+    "gap_raw_vs_cold": 166,
     "source": "Mobius-Substrate/canon/reserve-blocks/MANIFEST.json"
   },
   "repos": {
     "terminal": {
-      "sha": "4ec90eaac24f62b4486daa8e28bf2764774f7c16",
+      "sha": "10dfa4c4c0ace82f0d99bce1c50b614c7c6d26be",
       "branch": "main",
       "source": "snapshot-lite.deployment"
     },
@@ -58,7 +72,9 @@
     }
   },
   "open_gates": [
-    "vault_fetch_failed",
+    "cold_canon_append_pending",
+    "sustain_not_wired",
+    "fountain_gi_below_threshold",
     "terminal_degraded"
   ]
 }
