@@ -260,12 +260,48 @@ export async function getSeal(seal_id: string): Promise<Seal | null> {
   }
 }
 
+function parseSealRaw(raw: unknown): Seal | null {
+  if (raw && typeof raw === 'object') return raw as Seal;
+  return parseMaybeJson<Seal>(raw);
+}
+
+/** Batch hydrate seals via one MGET round-trip (falls back per-key on miss). */
+export async function getSealsByIds(seal_ids: readonly string[]): Promise<Seal[]> {
+  if (seal_ids.length === 0) return [];
+
+  const keys = seal_ids.map((id) => sealKey(id));
+  const redis = getRedis();
+  let raws: unknown[];
+
+  if (redis) {
+    try {
+      const values = await redis.mget(...keys);
+      raws = Array.isArray(values) ? values : keys.map(() => null);
+    } catch {
+      raws = keys.map(() => null);
+    }
+  } else {
+    raws = keys.map(() => null);
+  }
+
+  const seals: Seal[] = [];
+  for (let i = 0; i < seal_ids.length; i++) {
+    let raw = raws[i];
+    if (raw === null || raw === undefined) {
+      raw = await rawGetWithFallback<Seal | string>(keys[i]!);
+    }
+    const seal = parseSealRaw(raw);
+    if (seal) seals.push(seal);
+  }
+  return seals;
+}
+
 export async function listSeals(limit = 50): Promise<Seal[]> {
   const ids = await listSealIds();
   if (ids.length === 0) return [];
   const recent = ids.slice(-limit);
-  const results = await Promise.all(recent.map((id) => getSeal(id)));
-  return results.filter((s): s is Seal => s !== null).reverse();
+  const seals = await getSealsByIds(recent);
+  return seals.reverse();
 }
 
 /** Newest-first list from the full audit index (includes quarantined/rejected). */
@@ -273,8 +309,8 @@ export async function listAllSeals(limit = 50): Promise<Seal[]> {
   const ids = await listAllSealIds();
   if (ids.length === 0) return [];
   const recent = ids.slice(-limit);
-  const results = await Promise.all(recent.map((id) => getSeal(id)));
-  return results.filter((s): s is Seal => s !== null).reverse();
+  const seals = await getSealsByIds(recent);
+  return seals.reverse();
 }
 
 async function appendSealIdToIndex(redis: Redis, key: string, seal_id: string): Promise<string[]> {
