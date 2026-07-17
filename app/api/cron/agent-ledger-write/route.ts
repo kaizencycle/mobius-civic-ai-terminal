@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { kvGet, kvSet, loadGIState } from '@/lib/kv/store';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
+import { parseResponseJson } from '@/lib/http/safeJson';
+import { GET as getLedgerZeus } from '@/app/api/agents/ledger-zeus/route';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -173,15 +175,16 @@ async function fetchZeusJournalIds(request: NextRequest, limit: number) {
   const zeusUrl = new URL('/api/agents/ledger-zeus', request.nextUrl.origin);
   zeusUrl.searchParams.set('limit', String(limit));
 
-  const response = await fetch(zeusUrl, { method: 'GET', cache: 'no-store' });
-  const payload = (await response.json()) as ZeusResponse;
-  if (!response.ok || !payload.ok) {
+  const response = await getLedgerZeus(new NextRequest(zeusUrl, { method: 'GET' }));
+  const parsed = await parseResponseJson<ZeusResponse>(response);
+  const payload = parsed.ok ? parsed.data : null;
+  if (!parsed.ok || !response.ok || !payload?.ok) {
     return {
       ok: false as const,
-      error: payload.error ?? 'agent_ledger_zeus_fetch_failed',
-      status: response.status,
+      error: payload?.error ?? parsed.error ?? 'agent_ledger_zeus_fetch_failed',
+      status: parsed.status || response.status,
       journalIds: [] as string[],
-      zeus: payload,
+      zeus: payload ?? {},
     };
   }
 
