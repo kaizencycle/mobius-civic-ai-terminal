@@ -10,7 +10,7 @@ export const runtime = 'edge';
 const FONT_FAMILY = 'JetBrains Mono';
 
 async function loadOgFont(): Promise<ArrayBuffer> {
-  const fontUrl = new URL('./fonts/JetBrainsMono-Regular.woff2', import.meta.url);
+  const fontUrl = new URL('./fonts/JetBrainsMono-Regular.ttf', import.meta.url);
   const res = await fetch(fontUrl, { cache: 'force-cache' });
   if (!res.ok) {
     throw new Error(`OG font load failed: ${res.status}`);

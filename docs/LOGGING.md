@@ -29,7 +29,7 @@ Production logs are the Terminal's self-report. Severity labels must track reali
 | ledger-zeus journal | In-process journal handler + fingerprint escalation |
 | identity-token | `cache_hit` / `source` logging on attest bearer path |
 | swarm | `*/30` cadence (vercel.json), tier>1 cap per run, cooldown state logs |
-| OG font | Bundled `app/api/og/fonts/JetBrainsMono-Regular.woff2` |
+| OG font | Bundled `app/api/og/fonts/JetBrainsMono-Regular.ttf` |
 
 ## Environment
 

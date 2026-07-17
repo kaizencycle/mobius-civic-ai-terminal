@@ -16,7 +16,7 @@
 | 2 ledger-zeus journal | **FIXED** | In-process `getJournal` in `ledger-zeus/route.ts`; `warningEscalation` at N=6 |
 | 3 identity-token cache | **INSTRUMENTED** | `cache_hit` + `source: memory\|kv\|login` in `getAttestBearerToken`; login timeout 12s |
 | 4 swarm cron | **NORMALIZED** | `resolveOperatorCycleId()`; tier>1 cap (`SWARM_MAX_TIER_GT1_PER_RUN`); cooldown state logs |
-| 5 OG font | **FIXED** | `app/api/og/fonts/JetBrainsMono-Regular.woff2` + `ImageResponse` fonts option |
+| 5 OG font | **FIXED** | `app/api/og/fonts/JetBrainsMono-Regular.ttf` + `ImageResponse` fonts option |
 
 ---
 
