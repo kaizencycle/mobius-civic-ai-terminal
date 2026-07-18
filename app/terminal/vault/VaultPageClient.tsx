@@ -121,6 +121,7 @@ type VaultPayload = {
   canonical_reserve_blocks?: number | null;
   canonical_count_status?: string;
   formation_status?: string;
+  deposit_activity_status?: string;
   seals_quarantined_count?: number;
 };
 
@@ -273,6 +274,9 @@ function ReserveBlockTruthPanel({
       {expanded && (
         <div className={`border-t px-3 py-2 text-slate-400 space-y-2 ${integrityHold ? 'border-rose-500/20' : 'border-violet-500/20'}`}>
           <p className="text-[10px] text-slate-200/90">{truth.operator_summary}</p>
+          {truth.deposit_activity_status && truth.deposit_activity_status !== 'active' ? (
+            <p className="text-[10px] text-amber-300">Deposit activity: {truth.deposit_activity_status.replace(/_/g, ' ').toUpperCase()}</p>
+          ) : null}
           <div className="grid gap-1 text-[10px] sm:grid-cols-2">
             <div>Vault records indexed: <span className="text-violet-200">{vaultRecords}</span></div>
             <div>Attested records examined: <span className="text-emerald-300">{attested}</span></div>
