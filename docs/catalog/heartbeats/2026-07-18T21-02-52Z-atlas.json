@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-07-18T21:02:52.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-376",
+  "gi": 0.768,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 3,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-07-18T21:02:51.899Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.854,
+  "micro_cycle": "C-306",
+  "degraded_agents": 2,
+  "degraded_agent_names": [
+    "GAIA",
+    "THEMIS"
+  ],
+  "terminal_status": "stressed",
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-07-18T20:05:29.315Z"
+  },
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-376-06cddn",
+  "journal_ok": true
+}
