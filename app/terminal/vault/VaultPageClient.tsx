@@ -71,6 +71,48 @@ type VaultPayload = {
     errored?: number;
     unattested?: number;
   };
+  reserve_block_truth?: {
+    vault_seal_index_count: number;
+    vault_audit_index_count: number;
+    attested_seals_examined: number;
+    collision_pair_count: number | null;
+    canonical_reserve_blocks: number | null;
+    canonical_lineage_status: string;
+    integrity_gate: {
+      enabled: boolean;
+      active: boolean;
+      hard_stop_enabled: boolean;
+      sealing_suspended: boolean;
+      reasons: string[];
+    };
+    deposits_active: boolean;
+    accumulator: {
+      in_progress_block_projected: number;
+      in_progress_balance: number;
+      block_size: number;
+      in_progress_pct: number;
+      remaining_to_next_block: number;
+      projection_note: string;
+      candidate_formation_blocked: boolean;
+    };
+    formation_status: string;
+    latest_canonical_seal_id: string | null;
+    headline: string;
+    operator_summary: string;
+  };
+  seal_integrity_gate?: {
+    enabled: boolean;
+    active: boolean;
+    hard_stop_enabled: boolean;
+    sealing_suspended: boolean;
+    reasons: string[];
+  };
+  operator_summary?: string;
+  collision_pair_count?: number | null;
+  canonical_reserve_blocks?: number | null;
+  canonical_lineage_status?: string;
+  formation_status?: string;
+  seals_quarantined_count?: number;
 };
 
 type ContributionAgentRow = {
@@ -164,7 +206,62 @@ function blockStatusClass(status: BlockRow['status']): string {
   }
 }
 
-function QuarantinePanel({ auditBlocks, sealedBlocks }: { auditBlocks: number; sealedBlocks: number }) {
+function IntegrityHoldPanel({
+  truth,
+  sealedBlocks,
+  attestedExamined,
+}: {
+  truth: NonNullable<VaultPayload['reserve_block_truth']>;
+  sealedBlocks: number;
+  attestedExamined: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const gate = truth.integrity_gate;
+  return (
+    <div className="mt-4 rounded border border-rose-500/35 bg-rose-500/5 font-mono text-xs">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between px-3 py-2 text-left"
+        onClick={() => setExpanded((prev) => !prev)}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.18em] text-rose-300">Integrity hold</span>
+          <span className="rounded border border-rose-500/40 bg-rose-500/10 px-1.5 py-0.5 text-[9px] text-rose-200">
+            {gate.active ? 'ENGAGED' : 'OFF'}
+          </span>
+        </div>
+        <span className="text-slate-400">{expanded ? '−' : '+'}</span>
+      </button>
+      {expanded && (
+        <div className="border-t border-rose-500/20 px-3 py-2 text-slate-400 space-y-1.5">
+          <p className="text-[10px] text-rose-100/90">{truth.operator_summary}</p>
+          <div className="grid gap-1 text-[10px] sm:grid-cols-2">
+            <div>Vault seal index records: <span className="text-violet-200">{truth.vault_seal_index_count}</span></div>
+            <div>Attested seals examined: <span className="text-emerald-300">{attestedExamined}</span></div>
+            <div>Canonical Reserve Blocks: <span className="text-amber-300">{truth.canonical_reserve_blocks ?? 'unresolved'}</span></div>
+            <div>Collision pairs: <span className="text-amber-300">{truth.collision_pair_count ?? '—'}</span></div>
+            <div>Current accumulator: <span className="text-cyan-200">{truth.accumulator.in_progress_balance.toFixed(2)} / {truth.accumulator.block_size} MIC</span></div>
+            <div>Integrity gate: <span className="text-rose-300">{gate.active ? 'ENGAGED' : 'OFF'}</span></div>
+            <div>Latest canonical seal: <span className="text-slate-300">{truth.latest_canonical_seal_id ?? 'unresolved'}</span></div>
+            <div>Formation: <span className="text-rose-200">{truth.formation_status}</span></div>
+          </div>
+          <p className="text-[9px] italic text-slate-500">{truth.accumulator.projection_note}</p>
+          {gate.reasons.length > 0 ? (
+            <div className="text-[9px] text-slate-500">
+              Gate reason: {gate.reasons[0]}
+            </div>
+          ) : null}
+          <div className="text-[10px] text-slate-500">
+            Seal index (attested): <span className="text-emerald-300">{sealedBlocks}</span>
+            {' · '}Do not conflate with reconciled canonical blocks while Track R reconciliation is pending.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuarantinePanel({ quarantinedCount, sealedBlocks }: { quarantinedCount: number; sealedBlocks: number }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="mt-4 rounded border border-amber-500/30 bg-amber-500/5 font-mono text-xs">
@@ -176,7 +273,7 @@ function QuarantinePanel({ auditBlocks, sealedBlocks }: { auditBlocks: number; s
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-[0.18em] text-amber-300">⚑ Quarantined Seals</span>
           <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-200">
-            {auditBlocks}
+            {quarantinedCount}
           </span>
         </div>
         <span className="text-slate-400">{expanded ? '−' : '+'}</span>
@@ -184,11 +281,11 @@ function QuarantinePanel({ auditBlocks, sealedBlocks }: { auditBlocks: number; s
       {expanded && (
         <div className="border-t border-amber-500/20 px-3 py-2 text-slate-400 space-y-1">
           <p className="text-[10px]">
-            These seals are in quarantine / audit state. They are fully attested (missing_agents: []) but
-            stuck pending the reattest-seals cron. Will auto-advance after Phase 15 fix deploys.
+            These seals carry quarantined status in KV (distinct from hash-divergent block_number collision pairs).
+            Inspect Canon for timeout/reject cause; reattest cron may advance when dependencies recover.
           </p>
           <div className="mt-2 text-[10px] text-slate-500">
-            Sealed & attested: <span className="text-emerald-300">{sealedBlocks}</span> · Quarantined: <span className="text-amber-300">{auditBlocks}</span>
+            Seal index (attested): <span className="text-emerald-300">{sealedBlocks}</span> · Quarantined seals: <span className="text-amber-300">{quarantinedCount}</span>
           </div>
         </div>
       )}
@@ -291,9 +388,14 @@ export default function VaultPageClient() {
   const giCur = data.gi_current;
   const v1Status = (data.status ?? 'sealed').toUpperCase();
   const fountain = (data.fountain_status ?? 'locked').toUpperCase();
-  const headline = data.vault_headline ?? block.label;
+  const headline = data.vault_headline ?? data.reserve_block_truth?.headline ?? block.label;
+  const operatorSummary = data.operator_summary ?? data.reserve_block_truth?.operator_summary;
+  const truth = data.reserve_block_truth;
+  const integrityHold = Boolean(truth?.integrity_gate.active ?? data.seal_integrity_gate?.active);
+  const attestedExamined = truth?.attested_seals_examined ?? data.substrate_attestation_coverage?.examined ?? block.sealed_blocks;
   const blockRows = buildBlockRows(block, Boolean(data.latest_block_immortalized));
   const auditOnlyBlocks = Math.max(0, block.audit_blocks - block.sealed_blocks);
+  const quarantinedCount = data.seals_quarantined_count ?? 0;
   const legacyOnlyBlocks = Math.max(0, block.completed_blocks_v1 - block.audit_blocks);
 
   return (
@@ -306,23 +408,35 @@ export default function VaultPageClient() {
         </div>
       </div>
 
-      <div className="mb-3 rounded border border-emerald-500/25 bg-slate-950/90 p-3 font-mono text-[11px] text-emerald-100/95">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-emerald-400/90">Reserve Block seal</div>
-        <p className="mt-1 leading-relaxed text-emerald-50/90">{headline}</p>
+      <div className={`mb-3 rounded border p-3 font-mono text-[11px] ${integrityHold ? 'border-rose-500/35 bg-slate-950/90 text-rose-50/95' : 'border-emerald-500/25 bg-slate-950/90 text-emerald-100/95'}`}>
+        <div className={`text-[10px] uppercase tracking-[0.18em] ${integrityHold ? 'text-rose-400/90' : 'text-emerald-400/90'}`}>
+          {integrityHold ? 'Reserve Block · integrity hold' : 'Reserve Block seal'}
+        </div>
+        <p className="mt-1 leading-relaxed">{headline}</p>
+        {operatorSummary ? <p className="mt-1 text-[10px] text-slate-400">{operatorSummary}</p> : null}
         <p className="mt-1 text-[10px] italic text-slate-500">{block.canon}</p>
       </div>
 
       <div className="rounded border border-violet-500/30 bg-slate-950/80 p-4 font-mono text-xs">
-        <div className="text-[11px] uppercase tracking-[0.2em] text-violet-300/90">Fountain / v1 gate · {v1Status}</div>
+        <div className="text-[11px] uppercase tracking-[0.2em] text-violet-300/90">
+          Fountain / v1 gate · {v1Status}
+          {integrityHold ? <span className="ml-2 text-rose-300/90">· SEALING SUSPENDED</span> : null}
+        </div>
         <div className="mt-2 text-[10px] text-slate-400">v1 cumulative (compat): {v1Bal.toFixed(2)} units · legacy parcels: {block.completed_blocks_v1}</div>
         <div className="mt-3 space-y-1 text-slate-400">
           <div>Sealed reserve total: <span className="text-violet-200">{sealedTotal.toFixed(2)}</span></div>
-          <div>Sealed & attested: <span className="text-emerald-300">{block.sealed_blocks}</span> blocks</div>
-          <div>Quarantined / audit: <span className="text-amber-300">{auditOnlyBlocks}</span> blocks · inspect Canon for timeout/reject cause</div>
+          <div>Vault seal index records: <span className="text-violet-200">{truth?.vault_seal_index_count ?? block.sealed_blocks}</span></div>
+          <div>Attested seals examined: <span className="text-emerald-300">{attestedExamined}</span></div>
+          <div>Canonical Reserve Blocks: <span className="text-amber-300">{data.canonical_reserve_blocks ?? truth?.canonical_reserve_blocks ?? 'unresolved'}</span></div>
+          <div>Collision pairs: <span className="text-amber-300">{data.collision_pair_count ?? truth?.collision_pair_count ?? '—'}</span></div>
+          <div>Quarantined seals (KV status): <span className="text-amber-300">{quarantinedCount}</span>{auditOnlyBlocks > 0 ? <span className="text-slate-500"> · audit-only delta: {auditOnlyBlocks}</span> : null}</div>
           <div>Legacy v1 parcels: <span className="text-slate-300">{block.completed_blocks_v1}</span>{legacyOnlyBlocks > 0 ? <span className="text-slate-500"> · {legacyOnlyBlocks} not represented in audit seals yet</span> : null}</div>
           <div>Current Block: <span className="text-violet-200">{blockBar} {inProg.toFixed(2)} / {cap.toFixed(2)} MIC</span></div>
-          <div>Block status: <span className="text-cyan-200">{block.label}</span></div>
-          <div>Fountain: <span className="text-amber-200/90">{fountain}</span>{data.reserve_block_lane ? <span className="text-slate-500"> · reserve_block_lane: {data.reserve_block_lane}</span> : null}</div>
+          <div>Block status: <span className="text-cyan-200">{block.label}</span>{integrityHold ? <span className="text-rose-300/90"> · projected block #{block.in_progress_block}</span> : null}</div>
+          <div>Fountain: <span className="text-amber-200/90">{fountain}</span>{data.reserve_block_lane ? <span className="text-slate-500"> · reserve_block_lane: {data.reserve_block_lane}</span> : null}{data.formation_status ? <span className="text-slate-500"> · formation: {data.formation_status}</span> : null}</div>
+          {integrityHold ? (
+            <div>Integrity gate: <span className="text-rose-300">ENGAGED</span>{data.seal_integrity_gate?.reasons?.[0] ? <span className="text-slate-500"> · {data.seal_integrity_gate.reasons[0]}</span> : null}</div>
+          ) : null}
           <div>GI threshold: {data.gi_threshold ?? 0.95} · Current: {giCur != null && Number.isFinite(giCur) ? giCur.toFixed(2) : '—'}{data.gi_threshold_met ? ' · GI gate met' : ''}</div>
           {/* OPT-17: visual sustain progress bar — 0/5 with fill */}
           <div className="space-y-1">
@@ -385,10 +499,13 @@ export default function VaultPageClient() {
         </div>
       </div>
 
-      {/* V-2: QuarantinePanel */}
-      {auditOnlyBlocks > 0 && (
-        <QuarantinePanel auditBlocks={auditOnlyBlocks} sealedBlocks={block.sealed_blocks} />
-      )}
+      {integrityHold && truth ? (
+        <IntegrityHoldPanel truth={truth} sealedBlocks={block.sealed_blocks} attestedExamined={attestedExamined} />
+      ) : null}
+
+      {quarantinedCount > 0 ? (
+        <QuarantinePanel quarantinedCount={quarantinedCount} sealedBlocks={block.sealed_blocks} />
+      ) : null}
 
       <GIPerceptionFountainPanel vaultFountainLane={data.fountain_status ?? data.reserve_block_lane} />
 
@@ -409,8 +526,8 @@ export default function VaultPageClient() {
                 <div className="h-1.5 overflow-hidden rounded bg-slate-800"><div className="h-full rounded transition-all duration-500" style={{ width: `${giCur != null ? Math.min(100, (giCur / giThresh) * 100) : 0}%`, background: giReady ? '#10b981' : '#f59e0b' }} /></div>
               </div>
               <div>
-                <div className="mb-1 flex items-center justify-between text-[10px]"><span className="text-slate-400">Next Reserve Block ≥ {cap.toFixed(0)} MIC</span><span className={reserveReady ? 'text-emerald-400' : 'text-amber-400'}>{reserveReady ? 'MET' : `need: ${reserveGap.toFixed(2)} more`}</span></div>
-                <div className="h-1.5 overflow-hidden rounded bg-slate-800"><div className="h-full rounded transition-all duration-500" style={{ width: `${blockPct}%`, background: reserveReady ? '#10b981' : '#a78bfa' }} /></div>
+                <div className="mb-1 flex items-center justify-between text-[10px]"><span className="text-slate-400">Next Reserve Block ≥ {cap.toFixed(0)} MIC</span><span className={integrityHold ? 'text-rose-400' : reserveReady ? 'text-emerald-400' : 'text-amber-400'}>{integrityHold ? 'SEALING SUSPENDED' : reserveReady ? 'MET' : `need: ${reserveGap.toFixed(2)} more`}</span></div>
+                <div className="h-1.5 overflow-hidden rounded bg-slate-800"><div className="h-full rounded transition-all duration-500" style={{ width: `${blockPct}%`, background: integrityHold ? '#f43f5e' : reserveReady ? '#10b981' : '#a78bfa' }} /></div>
               </div>
               <div className="flex items-center justify-between text-[10px]"><span className="text-slate-400">Sustain GI ≥ {giThresh} for {sustain} cycles</span><span className="text-slate-500">tracking (when wired)</span></div>
               <p className="mt-1 text-[9px] leading-relaxed text-slate-600">A <strong className="text-slate-500">Reserve Block</strong> can seal at 50 MIC without Fountain unlock. Fountain unlock still requires GI sustain and the v1 activating path — do not conflate &quot;Block sealed&quot; with &quot;Vault unsealed&quot; for payouts.</p>

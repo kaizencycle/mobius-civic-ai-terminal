@@ -43,7 +43,12 @@ export type VaultSealOneSemantics = {
   sustain_met: boolean;
   vault_status: 'sealed' | 'preview' | 'activating';
   reserve_lane: VaultReserveLaneStatus;
-  reserve_block_lane: 'accumulating' | 'block_ready' | 'sealing' | 'sealed_blocks';
+  reserve_block_lane:
+    | 'accumulating'
+    | 'block_ready'
+    | 'sealing'
+    | 'sealed_blocks'
+    | 'integrity_hold';
   fountain_lane: VaultFountainLaneStatus;
   headline: string;
   canon: string;
@@ -95,6 +100,7 @@ export function computeVaultSealLaneSemantics(args: {
   sustainCyclesRequired: number;
   v1Status: 'sealed' | 'preview' | 'activating';
   candidateInFlight: boolean;
+  sealIntegrityGateActive?: boolean;
 }): VaultSealOneSemantics {
   const reserve_threshold = VAULT_RESERVE_PARCEL_UNITS;
   const sealed_reserve_total = args.sealsCountAttested * reserve_threshold;
@@ -116,11 +122,16 @@ export function computeVaultSealLaneSemantics(args: {
   else if (args.v1Status === 'preview') fountain_lane = 'preview';
   else if (gi_threshold_met) fountain_lane = 'tracking';
 
+  const integrityHold = Boolean(args.sealIntegrityGateActive);
+
   let reserve_block_lane: VaultSealOneSemantics['reserve_block_lane'] = 'accumulating';
   let reserve_lane: VaultReserveLaneStatus = 'accumulating';
   if (args.candidateInFlight) {
     reserve_block_lane = 'sealing';
     reserve_lane = 'sealing';
+  } else if (integrityHold) {
+    reserve_block_lane = 'integrity_hold';
+    reserve_lane = reserve_threshold_met ? 'tranche_ready' : 'accumulating';
   } else if (reserve_threshold_met) {
     reserve_block_lane = 'block_ready';
     reserve_lane = 'tranche_ready';
@@ -130,9 +141,14 @@ export function computeVaultSealLaneSemantics(args: {
   }
 
   const headline = (() => {
+    if (integrityHold) {
+      return `Integrity hold — ${reserve_block.label} · sealing suspended pending lineage reconciliation`;
+    }
     if (args.candidateInFlight) return 'Reserve Block sealing in progress (council attestation)';
     if (reserve_block.sealed_blocks >= 1) {
-      return reserve_block.sealed_blocks === 1 ? 'Block 1 sealed — reserve proof attested' : `${reserve_block.sealed_blocks} Reserve Blocks sealed`;
+      return reserve_block.sealed_blocks === 1
+        ? 'Block 1 sealed — reserve proof attested'
+        : `${reserve_block.sealed_blocks} vault seal index records (canonical lineage not asserted here)`;
     }
     if (reserve_threshold_met) return `Reserve Block ${reserve_block.in_progress_block} ready to seal (50 MIC)`;
     return reserve_block.label;
