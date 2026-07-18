@@ -24,6 +24,8 @@ export type SealIntegrityGateState = {
   alert_at: string | null;
   operator_cycle: string | null;
   source: 'live-report' | 'stale-alert' | 'none';
+  /** Findings from the same source the gate used (live report, else stale alert). */
+  authoritative_findings: KvWatchdogFinding[] | null;
 };
 
 export function isSealIntegrityGateEnabled(): boolean {
@@ -37,6 +39,16 @@ export function isCriticalCollisionFinding(finding: KvWatchdogFinding): boolean 
 
 export function findCriticalCollisionFindings(findings: KvWatchdogFinding[]): KvWatchdogFinding[] {
   return findings.filter(isCriticalCollisionFinding);
+}
+
+/** Same findings source the gate uses: live report when present, else stale critical alert. */
+export function resolveAuthoritativeWatchdogFindings(
+  liveReport: Pick<KvWatchdogReport, 'findings'> | null,
+  staleAlert: { findings?: KvWatchdogFinding[] } | null,
+): KvWatchdogFinding[] | null {
+  if (liveReport) return liveReport.findings;
+  if (staleAlert?.findings?.length) return staleAlert.findings;
+  return null;
 }
 
 export function shouldSealIntegrityGateBeActive(
@@ -93,6 +105,7 @@ export async function getSealIntegrityGateState(): Promise<SealIntegrityGateStat
       alert_at: null,
       operator_cycle: null,
       source: 'none',
+      authoritative_findings: null,
     };
   }
 
@@ -102,7 +115,8 @@ export async function getSealIntegrityGateState(): Promise<SealIntegrityGateStat
   ]);
 
   const resolved = shouldSealIntegrityGateBeActive(liveReport, staleAlert);
-  return { enabled: true, ...resolved };
+  const authoritative_findings = resolveAuthoritativeWatchdogFindings(liveReport, staleAlert);
+  return { enabled: true, ...resolved, authoritative_findings };
 }
 
 export function sealIntegrityGatePassVerdict(gate: SealIntegrityGateState): 'pass' | 'flag' {

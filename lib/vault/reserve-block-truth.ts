@@ -80,6 +80,7 @@ export type ReserveBlockTruthSurface = {
     operator_cycle: string | null;
   };
   deposits_active: boolean;
+  deposit_activity_status: 'active' | 'degraded' | 'suspended';
   accumulator: {
     operational_slot_projected: number;
     /** @deprecated Use operational_slot_projected */
@@ -113,10 +114,49 @@ function collisionPairCountFromFindings(findings: KvWatchdogFinding[]): number |
   return critical.length;
 }
 
-/** Collision pairs from watchdog findings — independent of gate state. */
-export function extractCollisionPairCount(liveFindings?: KvWatchdogFinding[] | null): number | null {
-  if (!liveFindings?.length) return null;
-  return collisionPairCountFromFindings(liveFindings);
+/** Collision pairs from watchdog findings (live report or stale-alert fallback). */
+export function extractCollisionPairCount(findings?: KvWatchdogFinding[] | null): number | null {
+  if (!findings?.length) return null;
+  return collisionPairCountFromFindings(findings);
+}
+
+export type DepositActivityEvidence = {
+  primary_kv_suspended: boolean;
+  kv_reads_ok: boolean;
+};
+
+export function deriveDepositActivity(evidence: DepositActivityEvidence): {
+  deposits_active: boolean;
+  deposit_activity_status: ReserveBlockTruthSurface['deposit_activity_status'];
+} {
+  if (evidence.primary_kv_suspended) {
+    return { deposits_active: false, deposit_activity_status: 'suspended' };
+  }
+  if (!evidence.kv_reads_ok) {
+    return { deposits_active: false, deposit_activity_status: 'degraded' };
+  }
+  return { deposits_active: true, deposit_activity_status: 'active' };
+}
+
+function buildOperatorSummary(args: {
+  deposits_active: boolean;
+  deposit_activity_status: ReserveBlockTruthSurface['deposit_activity_status'];
+  sealing_suspended: boolean;
+  reserve_threshold_met: boolean;
+}): string {
+  if (!args.deposits_active) {
+    if (args.deposit_activity_status === 'suspended') {
+      return 'Primary KV suspended — deposits not durably recording · verify watchdog / Upstash health';
+    }
+    return 'Deposit write path degraded — verify KV connectivity before trusting accumulator';
+  }
+  if (args.sealing_suspended) {
+    return 'Deposits active · sealing suspended pending lineage reconciliation';
+  }
+  if (args.reserve_threshold_met) {
+    return 'Deposits active · formation permitted · canonical count requires reconciled evidence';
+  }
+  return 'Deposits active · accumulator advancing';
 }
 
 export function resolveCanonicalReserveBlockCount(evidence: CanonicalCountEvidence | null | undefined): {
@@ -203,12 +243,13 @@ export function computeReserveBlockTruthSurface(args: {
   candidate_in_flight: boolean;
   reserve_threshold_met: boolean;
   canonical_evidence?: CanonicalCountEvidence | null;
+  deposit_activity: DepositActivityEvidence;
 }): ReserveBlockTruthSurface {
   const gate = args.seal_integrity_gate;
   const sealing_suspended = gate.enabled && gate.active;
   const hard_stop_enabled = sealing_suspended;
   const candidate_formation_blocked = sealing_suspended;
-  const deposits_active = true;
+  const { deposits_active, deposit_activity_status } = deriveDepositActivity(args.deposit_activity);
 
   const canonical = resolveCanonicalReserveBlockCount(args.canonical_evidence);
   const canonical_reserve_blocks = canonical.count;
@@ -231,14 +272,21 @@ export function computeReserveBlockTruthSurface(args: {
     formation_status = 'accumulating';
   }
 
-  const operator_summary = sealing_suspended
-    ? 'Deposits active · sealing suspended pending lineage reconciliation'
-    : args.reserve_threshold_met
-      ? 'Deposits active · formation permitted · canonical count requires reconciled evidence'
-      : 'Deposits active · accumulator advancing';
+  const operator_summary = buildOperatorSummary({
+    deposits_active,
+    deposit_activity_status,
+    sealing_suspended,
+    reserve_threshold_met: args.reserve_threshold_met,
+  });
 
   const slot = args.reserve_block.in_progress_block;
   const headline = (() => {
+    if (!deposits_active) {
+      if (deposit_activity_status === 'suspended') {
+        return `KV suspended — accumulator reads may be stale · ${args.reserve_block.label}`;
+      }
+      return `Deposit path degraded — verify KV before trusting accumulator · ${args.reserve_block.label}`;
+    }
     if (sealing_suspended) {
       const collision =
         args.collision_pair_count != null ? ` · ${args.collision_pair_count} collision pair(s)` : '';
@@ -283,6 +331,7 @@ export function computeReserveBlockTruthSurface(args: {
       operator_cycle: gate.operator_cycle,
     },
     deposits_active,
+    deposit_activity_status,
     accumulator: {
       operational_slot_projected: slot,
       in_progress_block_projected: slot,

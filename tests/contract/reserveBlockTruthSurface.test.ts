@@ -11,7 +11,16 @@ import {
   resolveCanonicalReserveBlockCount,
 } from '@/lib/vault/reserve-block-truth';
 import type { SealIntegrityGateState } from '@/lib/watchdog/sealIntegrityGate';
+import { resolveAuthoritativeWatchdogFindings } from '@/lib/watchdog/sealIntegrityGate';
 import type { KvWatchdogFinding } from '@/lib/watchdog/kvHealthChecks';
+
+const collisionFinding: KvWatchdogFinding = {
+  check: 'block_number_collisions',
+  severity: 'critical',
+  ok: false,
+  message: '125 hash-divergent block_number collision(s) in attested KV',
+  evidence: { hash_divergent_collisions: 125, collision_count: 125 },
+};
 
 const gateEngaged: SealIntegrityGateState = {
   enabled: true,
@@ -20,6 +29,7 @@ const gateEngaged: SealIntegrityGateState = {
   alert_at: null,
   operator_cycle: 'C-373',
   source: 'live-report',
+  authoritative_findings: [collisionFinding],
 };
 
 const gateOff: SealIntegrityGateState = {
@@ -29,15 +39,10 @@ const gateOff: SealIntegrityGateState = {
   alert_at: null,
   operator_cycle: null,
   source: 'live-report',
+  authoritative_findings: [],
 };
 
-const collisionFinding: KvWatchdogFinding = {
-  check: 'block_number_collisions',
-  severity: 'critical',
-  ok: false,
-  message: '125 hash-divergent block_number collision(s) in attested KV',
-  evidence: { hash_divergent_collisions: 125, collision_count: 125 },
-};
+const healthyDepositActivity = { primary_kv_suspended: false, kv_reads_ok: true };
 
 const attestationCoverage = {
   examined: 319,
@@ -73,6 +78,7 @@ function productionLikeTruth(gate: SealIntegrityGateState) {
     candidate_in_flight: false,
     reserve_threshold_met: lane.reserve_threshold_met,
     canonical_evidence: null,
+    deposit_activity: healthyDepositActivity,
   });
 }
 
@@ -140,6 +146,7 @@ describe('reserveBlockTruthSurface', () => {
       candidate_in_flight: false,
       reserve_threshold_met: false,
       canonical_evidence: null,
+      deposit_activity: healthyDepositActivity,
     });
 
     assert.equal(lane.reserve_block_lane, 'sealed_blocks');
@@ -208,6 +215,7 @@ describe('reserveBlockTruthSurface', () => {
         latest_canonical_seal_id: 'seal-C-370-canonical',
         source: 'track-r-reconciliation-index',
       },
+      deposit_activity: healthyDepositActivity,
     });
 
     assert.equal(truth.canonical_reserve_blocks, 194);
@@ -229,6 +237,74 @@ describe('reserveBlockTruthSurface', () => {
     });
     assert.equal(lane.reserve_block_lane, 'integrity_hold');
     assert.match(lane.reserve_block.label, /Projected accumulator slot/);
+  });
+
+  it('extractCollisionPairCount uses stale-alert findings when live report absent', () => {
+    const staleFindings = resolveAuthoritativeWatchdogFindings(null, { findings: [collisionFinding] });
+    assert.equal(extractCollisionPairCount(staleFindings), 125);
+  });
+
+  it('deposits_active is false when primary KV suspended', () => {
+    const lane = computeVaultSealLaneSemantics({
+      inProgressBalance: 26.52,
+      sealsCountAttested: 360,
+      sealsAuditCount: 360,
+      giCurrent: 0.96,
+      giThreshold: 0.95,
+      sustainCyclesRequired: 5,
+      v1Status: 'sealed',
+      candidateInFlight: false,
+      sealIntegrityGateActive: true,
+    });
+
+    const truth = computeReserveBlockTruthSurface({
+      reserve_block: lane.reserve_block,
+      vault_seal_index_count: 360,
+      vault_audit_index_count: 360,
+      attestation_coverage: attestationCoverage,
+      seal_integrity_gate: gateEngaged,
+      collision_pair_count: 125,
+      candidate_in_flight: false,
+      reserve_threshold_met: lane.reserve_threshold_met,
+      canonical_evidence: null,
+      deposit_activity: { primary_kv_suspended: true, kv_reads_ok: true },
+    });
+
+    assert.equal(truth.deposits_active, false);
+    assert.equal(truth.deposit_activity_status, 'suspended');
+    assert.match(truth.operator_summary, /not durably recording/);
+    assert.doesNotMatch(truth.operator_summary, /Deposits active/);
+  });
+
+  it('deposits_active is false when KV reads fail', () => {
+    const lane = computeVaultSealLaneSemantics({
+      inProgressBalance: 0,
+      sealsCountAttested: 0,
+      sealsAuditCount: 0,
+      giCurrent: 0.96,
+      giThreshold: 0.95,
+      sustainCyclesRequired: 5,
+      v1Status: 'sealed',
+      candidateInFlight: false,
+      sealIntegrityGateActive: false,
+    });
+
+    const truth = computeReserveBlockTruthSurface({
+      reserve_block: lane.reserve_block,
+      vault_seal_index_count: 0,
+      vault_audit_index_count: 0,
+      attestation_coverage: attestationCoverage,
+      seal_integrity_gate: gateOff,
+      collision_pair_count: null,
+      candidate_in_flight: false,
+      reserve_threshold_met: false,
+      canonical_evidence: null,
+      deposit_activity: { primary_kv_suspended: false, kv_reads_ok: false },
+    });
+
+    assert.equal(truth.deposits_active, false);
+    assert.equal(truth.deposit_activity_status, 'degraded');
+    assert.match(truth.operator_summary, /degraded/);
   });
 
   it('projected slot uses index cardinality + 1, labeled operational not canonical', () => {

@@ -147,7 +147,7 @@ async function buildVaultStatus(req: NextRequest) {
     sealIntegrityGateActive: sealIntegrityGate.active,
   });
 
-  const collisionPairCount = extractCollisionPairCount(liveWatchdogReport?.findings ?? null);
+  const collisionPairCount = extractCollisionPairCount(sealIntegrityGate.authoritative_findings);
 
   const reserve_block_truth = computeReserveBlockTruthSurface({
     reserve_block: seal_lane.reserve_block,
@@ -159,6 +159,10 @@ async function buildVaultStatus(req: NextRequest) {
     candidate_in_flight: Boolean(candidate),
     reserve_threshold_met: seal_lane.reserve_threshold_met,
     canonical_evidence: null,
+    deposit_activity: {
+      primary_kv_suspended: liveWatchdogReport?.primary_kv_suspended ?? false,
+      kv_reads_ok: true,
+    },
   });
 
   const honestHeadline =
@@ -194,6 +198,7 @@ async function buildVaultStatus(req: NextRequest) {
     canonical_count_status: reserve_block_truth.canonical_count_status,
     canonical_lineage_status: reserve_block_truth.canonical_lineage_status,
     formation_status: reserve_block_truth.formation_status,
+    deposit_activity_status: reserve_block_truth.deposit_activity_status,
     // C-329: substrate-attestation coverage — the truth the old payload omitted.
     // `examined` covers attested seals only (quarantined/rejected never have substrate
     // attestation attempted). `scan_capped` is true when the vault exceeds the 500-seal

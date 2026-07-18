@@ -92,6 +92,7 @@ type VaultPayload = {
       reasons: string[];
     };
     deposits_active: boolean;
+    deposit_activity_status?: string;
     accumulator: {
       operational_slot_projected: number;
       in_progress_balance: number;
