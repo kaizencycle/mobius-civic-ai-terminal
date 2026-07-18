@@ -8,6 +8,7 @@ import {
   isSealIntegrityGateEnabled,
   sealIntegrityGatePassVerdict,
   sealIntegrityGateRationale,
+  resolveAuthoritativeWatchdogFindings,
   shouldSealIntegrityGateBeActive,
   type SealIntegrityGateState,
 } from '@/lib/watchdog/sealIntegrityGate';
@@ -63,8 +64,9 @@ describe('sealIntegrityGate', () => {
       alert_at: null,
       operator_cycle: 'C-372',
       source: 'live-report',
+      authoritative_findings: [collisionCritical],
     };
-    const off: SealIntegrityGateState = { ...on, active: false, source: 'none' };
+    const off: SealIntegrityGateState = { ...on, active: false, source: 'none', authoritative_findings: null };
     assert.strictEqual(sealIntegrityGatePassVerdict(on), 'flag');
     assert.strictEqual(sealIntegrityGatePassVerdict(off), 'pass');
   });
@@ -77,6 +79,7 @@ describe('sealIntegrityGate', () => {
       alert_at: '2026-07-14T15:00:00.000Z',
       operator_cycle: 'C-372',
       source: 'live-report',
+      authoritative_findings: [collisionCritical],
     };
     const text = sealIntegrityGateRationale(state);
     assert.match(text, /block_number/);
@@ -103,6 +106,18 @@ describe('sealIntegrityGate', () => {
     );
     assert.strictEqual(resolved.active, false);
     assert.strictEqual(resolved.source, 'live-report');
+  });
+
+  it('resolveAuthoritativeWatchdogFindings prefers live report over stale alert', () => {
+    const live = resolveAuthoritativeWatchdogFindings({ findings: [collisionOk] }, {
+      findings: [collisionCritical],
+    });
+    assert.deepEqual(live, [collisionOk]);
+  });
+
+  it('resolveAuthoritativeWatchdogFindings falls back to stale alert when live absent', () => {
+    const stale = resolveAuthoritativeWatchdogFindings(null, { findings: [collisionCritical] });
+    assert.deepEqual(stale, [collisionCritical]);
   });
 
   it('gate override remains explicit via SEAL_INTEGRITY_GATE=off', () => {

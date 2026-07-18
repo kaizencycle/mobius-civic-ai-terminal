@@ -20,6 +20,10 @@ import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
 import { computeAttestationCoverage, attestationHeadlineSuffix } from '@/lib/vault/attestation-coverage';
+import { computeReserveBlockTruthSurface, extractCollisionPairCount } from '@/lib/vault/reserve-block-truth';
+import { getSealIntegrityGateState } from '@/lib/watchdog/sealIntegrityGate';
+import { WATCHDOG_STATE_KEY, type KvWatchdogReport } from '@/lib/watchdog/kvHealthChecks';
+import { kvGet } from '@/lib/kv/store';
 import { isIdentityServiceConfigured, probeIdentityAttestAuth } from '@/lib/substrate/identityToken';
 import { getVaultDepositHashCoverage, getVaultStatusPayload } from '@/lib/vault/vault';
 import {
@@ -82,7 +86,12 @@ async function buildVaultStatus(req: NextRequest) {
     // non-fatal — quorum state will show as pending
   }
 
-  const [attestedIds, allIds] = await Promise.all([listSealIds(), listAllSealIds()]);
+  const [attestedIds, allIds, sealIntegrityGate, liveWatchdogReport] = await Promise.all([
+    listSealIds(),
+    listAllSealIds(),
+    getSealIntegrityGateState(),
+    kvGet<KvWatchdogReport>(WATCHDOG_STATE_KEY),
+  ]);
   const sealsCount = attestedIds.length;
   const sealsAuditCount = allIds.length;
   const recentSealIds = allIds.slice(-VAULT_STATUS_SEAL_SCAN_LIMIT);
@@ -117,6 +126,14 @@ async function buildVaultStatus(req: NextRequest) {
       ? `${quarantineCycles[quarantineCycles.length - 1]}–${quarantineCycles[0]}`
       : null;
 
+  const latestImmortalized = Boolean(latestSeal?.substrate_attestation_id && latestSeal?.substrate_event_hash);
+
+  // C-329: compute REAL substrate-attestation coverage.
+  const attestedSeals = allRecentSeals.filter((s) => s.status === 'attested');
+  const attestationCoverage = computeAttestationCoverage(attestedSeals);
+  const coverageScanLimit = VAULT_STATUS_SEAL_SCAN_LIMIT;
+  const coverageIsCapped = sealsAuditCount > coverageScanLimit;
+
   const seal_lane = computeVaultSealLaneSemantics({
     v1BalanceReserve: v1.balance_reserve,
     inProgressBalance,
@@ -127,19 +144,29 @@ async function buildVaultStatus(req: NextRequest) {
     sustainCyclesRequired: v1.sustain_cycles_required,
     v1Status: v1.status,
     candidateInFlight: Boolean(candidate),
+    sealIntegrityGateActive: sealIntegrityGate.active,
   });
 
-  const latestImmortalized = Boolean(latestSeal?.substrate_attestation_id && latestSeal?.substrate_event_hash);
+  const collisionPairCount = extractCollisionPairCount(sealIntegrityGate.authoritative_findings);
 
-  // C-329: compute REAL substrate-attestation coverage.
-  // Filter to 'attested' status only — quarantined/rejected seals never have
-  // substrate attestation attempted, so counting them as gaps is a false positive.
-  // Also surface the scan scope vs total so consumers can see when we're capped.
-  const attestedSeals = allRecentSeals.filter((s) => s.status === 'attested');
-  const attestationCoverage = computeAttestationCoverage(attestedSeals);
-  const coverageScanLimit = VAULT_STATUS_SEAL_SCAN_LIMIT;
-  const coverageIsCapped = sealsAuditCount > coverageScanLimit;
-  const honestHeadline = seal_lane.headline + attestationHeadlineSuffix(attestationCoverage);
+  const reserve_block_truth = computeReserveBlockTruthSurface({
+    reserve_block: seal_lane.reserve_block,
+    vault_seal_index_count: sealsCount,
+    vault_audit_index_count: sealsAuditCount,
+    attestation_coverage: attestationCoverage,
+    seal_integrity_gate: sealIntegrityGate,
+    collision_pair_count: collisionPairCount,
+    candidate_in_flight: Boolean(candidate),
+    reserve_threshold_met: seal_lane.reserve_threshold_met,
+    canonical_evidence: null,
+    deposit_activity: {
+      primary_kv_suspended: liveWatchdogReport?.primary_kv_suspended ?? false,
+      kv_reads_ok: true,
+    },
+  });
+
+  const honestHeadline =
+    reserve_block_truth.headline + attestationHeadlineSuffix(attestationCoverage);
 
   const body = {
     ...v1,
@@ -163,6 +190,15 @@ async function buildVaultStatus(req: NextRequest) {
     reserve_lane: seal_lane.reserve_lane,
     reserve_block_lane: seal_lane.reserve_block_lane,
     vault_headline: honestHeadline,
+    reserve_block_truth,
+    seal_integrity_gate: reserve_block_truth.integrity_gate,
+    operator_summary: reserve_block_truth.operator_summary,
+    collision_pair_count: reserve_block_truth.collision_pair_count,
+    canonical_reserve_blocks: reserve_block_truth.canonical_reserve_blocks,
+    canonical_count_status: reserve_block_truth.canonical_count_status,
+    canonical_lineage_status: reserve_block_truth.canonical_lineage_status,
+    formation_status: reserve_block_truth.formation_status,
+    deposit_activity_status: reserve_block_truth.deposit_activity_status,
     // C-329: substrate-attestation coverage — the truth the old payload omitted.
     // `examined` covers attested seals only (quarantined/rejected never have substrate
     // attestation attempted). `scan_capped` is true when the vault exceeds the 500-seal

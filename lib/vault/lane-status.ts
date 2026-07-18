@@ -43,7 +43,12 @@ export type VaultSealOneSemantics = {
   sustain_met: boolean;
   vault_status: 'sealed' | 'preview' | 'activating';
   reserve_lane: VaultReserveLaneStatus;
-  reserve_block_lane: 'accumulating' | 'block_ready' | 'sealing' | 'sealed_blocks';
+  reserve_block_lane:
+    | 'accumulating'
+    | 'block_ready'
+    | 'sealing'
+    | 'sealed_blocks'
+    | 'integrity_hold';
   fountain_lane: VaultFountainLaneStatus;
   headline: string;
   canon: string;
@@ -80,8 +85,8 @@ export function computeReserveBlockSummary(args: {
     in_progress_pct,
     remaining_to_next_block,
     // OPT-6 (C-293): include remaining-to-next so operators see the gap without computing it
-    label: `Block ${in_progress_block} in progress — ${in_progress_balance.toFixed(2)} / ${block_size.toFixed(0)} MIC (${in_progress_pct}%) · ${remaining_to_next_block.toFixed(2)} remaining`,
-    canon: 'One Reserve Block equals one 50-unit reserve parcel. Blocks can seal before the Fountain unlocks.',
+    label: `Projected accumulator slot ${in_progress_block} — ${in_progress_balance.toFixed(2)} / ${block_size.toFixed(0)} MIC (${in_progress_pct}%) · ${remaining_to_next_block.toFixed(2)} remaining`,
+    canon: 'Operational accumulator slot is projected from index cardinality — not a constitutionally adjudicated Reserve Block number until canonical sequencing is restored.',
   };
 }
 
@@ -95,6 +100,7 @@ export function computeVaultSealLaneSemantics(args: {
   sustainCyclesRequired: number;
   v1Status: 'sealed' | 'preview' | 'activating';
   candidateInFlight: boolean;
+  sealIntegrityGateActive?: boolean;
 }): VaultSealOneSemantics {
   const reserve_threshold = VAULT_RESERVE_PARCEL_UNITS;
   const sealed_reserve_total = args.sealsCountAttested * reserve_threshold;
@@ -116,11 +122,16 @@ export function computeVaultSealLaneSemantics(args: {
   else if (args.v1Status === 'preview') fountain_lane = 'preview';
   else if (gi_threshold_met) fountain_lane = 'tracking';
 
+  const integrityHold = Boolean(args.sealIntegrityGateActive);
+
   let reserve_block_lane: VaultSealOneSemantics['reserve_block_lane'] = 'accumulating';
   let reserve_lane: VaultReserveLaneStatus = 'accumulating';
   if (args.candidateInFlight) {
     reserve_block_lane = 'sealing';
     reserve_lane = 'sealing';
+  } else if (integrityHold) {
+    reserve_block_lane = 'integrity_hold';
+    reserve_lane = reserve_threshold_met ? 'tranche_ready' : 'accumulating';
   } else if (reserve_threshold_met) {
     reserve_block_lane = 'block_ready';
     reserve_lane = 'tranche_ready';
@@ -130,11 +141,18 @@ export function computeVaultSealLaneSemantics(args: {
   }
 
   const headline = (() => {
+    if (integrityHold) {
+      return `Integrity hold — ${reserve_block.label} · sealing suspended pending lineage reconciliation`;
+    }
     if (args.candidateInFlight) return 'Reserve Block sealing in progress (council attestation)';
     if (reserve_block.sealed_blocks >= 1) {
-      return reserve_block.sealed_blocks === 1 ? 'Block 1 sealed — reserve proof attested' : `${reserve_block.sealed_blocks} Reserve Blocks sealed`;
+      return reserve_block.sealed_blocks === 1
+        ? 'Block 1 sealed — reserve proof attested'
+        : `${reserve_block.sealed_blocks} vault seal index records (canonical lineage not asserted here)`;
     }
-    if (reserve_threshold_met) return `Reserve Block ${reserve_block.in_progress_block} ready to seal (50 MIC)`;
+    if (reserve_threshold_met) {
+      return `Projected accumulator slot ${reserve_block.in_progress_block} at threshold — ready to seal when formation permitted`;
+    }
     return reserve_block.label;
   })();
 
