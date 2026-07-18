@@ -3,9 +3,9 @@
   "node_id": "mobius-terminal",
   "source": "snapshot-lite+vault+manifest",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
-  "cycle": "C-375",
-  "as_of": "2026-07-18T01:03:18.087Z",
-  "fetched_at": "2026-07-18T01:03:18.093Z",
+  "cycle": "C-376",
+  "as_of": "2026-07-18T04:10:46.957Z",
+  "fetched_at": "2026-07-18T04:10:46.961Z",
   "gi": 0.81,
   "mode": "green",
   "degraded": true,
@@ -26,11 +26,11 @@
   },
   "memory_mode": null,
   "deployment": {
-    "commit_sha": "1ddea6435016c83d9c69f23b0b341f18094e13a9",
+    "commit_sha": "7083e9178b60248c7d3839ac1a5d925afd1dae2f",
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 19,
+    "total_ms": 21,
     "lane_ms": null
   },
   "counting_rules": {
@@ -42,7 +42,7 @@
     "seals_raw": 360,
     "seals_unique_block_number": null,
     "chain_tip": null,
-    "in_progress_mic": 335.478995,
+    "in_progress_mic": 345.699025,
     "in_progress_block": 361,
     "fountain_status": "locked",
     "sustain_cycles_met": false,
@@ -59,7 +59,7 @@
   },
   "repos": {
     "terminal": {
-      "sha": "1ddea6435016c83d9c69f23b0b341f18094e13a9",
+      "sha": "7083e9178b60248c7d3839ac1a5d925afd1dae2f",
       "branch": "main",
       "source": "snapshot-lite.deployment"
     },
