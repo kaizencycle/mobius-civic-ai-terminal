@@ -4,33 +4,33 @@
   "source": "snapshot-lite+vault+manifest",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
   "cycle": "C-375",
-  "as_of": "2026-07-17T23:36:54.759Z",
-  "fetched_at": "2026-07-17T23:36:54.759Z",
-  "gi": 0.75,
-  "mode": "yellow",
+  "as_of": "2026-07-18T01:03:18.087Z",
+  "fetched_at": "2026-07-18T01:03:18.093Z",
+  "gi": 0.81,
+  "mode": "green",
   "degraded": true,
-  "gi_provenance": "live-compute",
+  "gi_provenance": "kv-live",
   "gi_verified": true,
   "gi_readings": {
     "snapshot_lite": {
-      "value": 0.75,
+      "value": 0.81,
       "field": "gi",
       "source": "snapshot-lite"
     },
     "memory_mode": null,
     "vault_dashboard": {
-      "value": 0.75,
+      "value": 0.81,
       "field": "gi_current",
       "source": "/api/vault/status"
     }
   },
   "memory_mode": null,
   "deployment": {
-    "commit_sha": "10dfa4c4c0ace82f0d99bce1c50b614c7c6d26be",
+    "commit_sha": "1ddea6435016c83d9c69f23b0b341f18094e13a9",
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 25,
+    "total_ms": 19,
     "lane_ms": null
   },
   "counting_rules": {
@@ -42,7 +42,7 @@
     "seals_raw": 360,
     "seals_unique_block_number": null,
     "chain_tip": null,
-    "in_progress_mic": 328.113147,
+    "in_progress_mic": 335.478995,
     "in_progress_block": 361,
     "fountain_status": "locked",
     "sustain_cycles_met": false,
@@ -59,7 +59,7 @@
   },
   "repos": {
     "terminal": {
-      "sha": "10dfa4c4c0ace82f0d99bce1c50b614c7c6d26be",
+      "sha": "1ddea6435016c83d9c69f23b0b341f18094e13a9",
       "branch": "main",
       "source": "snapshot-lite.deployment"
     },
