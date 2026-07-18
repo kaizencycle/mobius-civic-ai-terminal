@@ -24,7 +24,7 @@ Gate state controls **formation permission**. Gate state does **not** adjudicate
 | `seals_count` is Vault index cardinality | **TRUE** | `/api/vault/status` → `vault_index_records` |
 | 360 equals canonical Reserve Blocks | **FALSE** | C-374/C-376 audits |
 | Gate engaged blocks formation | **TRUE** | `getSealIntegrityGateState()` + `deposit.ts` |
-| Deposits remain active | **TRUE** | Accumulator / `last_deposit` evidence |
+| Deposits remain active | **CONDITIONAL** | `deriveDepositActivity()` — false when `primary_kv_suspended` or KV reads fail |
 | Gate off proves every seal canonical | **FALSE** | `resolveCanonicalReserveBlockCount()` requires evidence |
 | Legacy tranche records are historical truth | **TRUE** | C-371 lineage evidence |
 | Legacy tranche records are automatically modern Reserve Blocks | **FALSE** | Protocol-era distinction in `historical_era_breakdown` |
@@ -47,3 +47,10 @@ Gate state controls **formation permission**. Gate state does **not** adjudicate
 6. Projected slot labeled operational, not canonical
 7. Contract tests reflect these semantics
 8. No production mutation · no gate disable
+
+## Related C-376 artifacts
+
+- [HANDOFF_C-376_ATLAS_terminal-log-triage.md](./HANDOFF_C-376_ATLAS_terminal-log-triage.md) — federation witness @ 2026-07-18T14:10Z
+- [README.md](./README.md) — cycle index
+
+**GI note:** Do not treat ATLAS heartbeat 0.91 as ledger-verified (handoff claim #11: DISPUTED).

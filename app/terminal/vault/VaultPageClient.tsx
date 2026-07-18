@@ -413,7 +413,7 @@ export default function VaultPageClient() {
         <div className="rounded border border-zinc-800 px-3 py-2 text-zinc-500 text-[10px] space-y-1">
           <div>Circuit breaker open · vault reads suspended until substrate responds.</div>
           <div>▸ Verify SUBSTRATE_TOKEN, TERMINAL_ID, TERMINAL_API_BASE in Vercel env vars.</div>
-          <div>▸ Check /api/vault/attest route exists in the deployed build.</div>
+          <div>▸ Quorum attestation: POST /api/vault/attest (alias) or /api/vault/seal/attest (canonical).</div>
         </div>
       </div>
     );
