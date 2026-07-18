@@ -34,3 +34,23 @@
 1. Re-capture 24h Vercel log export; compare error fingerprints vs baseline
 2. Apply `NODE_OPTIONS` on Vercel if DEP0169 persists
 3. Verify `[identity-token] cache_hit: true` dominance on kv-watchdog runs
+
+### Comparison methodology (C-375 addendum — deployment-ID filter)
+
+**Do not compare by time window alone.** Cron runs that straddle a deploy contaminate before/after sets in both directions.
+
+| Rule | Requirement |
+| --- | --- |
+| Cutover | Record merge SHA + first production deploy timestamp (PR #628 merged `1ddea643` at `2026-07-17T23:46:02Z`; deploy live ~`2026-07-17T23:50:00Z`) |
+| Before set | Entries with `deploymentId` = **previous** production deploy (e.g. `dpl_EPeNsBa9…`) **or** timestamp strictly before cutover |
+| After set | Every entry must carry the **new** `dpl_` ID from the post-merge deploy — reject stragglers on old ID even if timestamp is after cutover |
+| Measurement window | 24h clock starts at cutover, not at capture time |
+| DEP0169 lane | **UNVERIFIED** until after-set is filtered by new deploy ID **and** `NODE_OPTIONS=--disable-warning=DEP0169` is confirmed on Vercel |
+
+**Incident (2026-07-17):** A five-entry capture at 23:30–23:50 UTC showed ledger-zeus warnings on deployment `dpl_EPeNsBa9…` while build log cloned `1ddea643` and finished "Deploying outputs…" at 23:49:49 UTC. Verdict: **STALE** (old code's last gasps), not **FALSE** (fix failing). Witness Protocol §1 "both directions fail" — render behind main.
+
+Grab the new `dpl_` ID from the Vercel dashboard when it is the obvious latest production deployment; snapshot-lite exposes `commit_sha` only, not `deploymentId`.
+
+---
+
+| Lane 6 build-log KV noise | **FIXED** (this PR) | `rethrowIfDynamicServerUsage` in `lib/kv/store.ts`, `batchRead.ts`, `backup-redis.ts` |
