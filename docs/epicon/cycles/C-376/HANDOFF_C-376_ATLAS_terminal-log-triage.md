@@ -62,7 +62,7 @@ The hourly `kv-watchdog` 409 storm is **two stacked, correctly-behaving gates** 
 ## Blockers (ranked)
 
 **P0 — Vault triple-blocked**
-1. `POST /api/vault/attest` **404** — quorum cannot register (0/5). *Terminal PR #630 adds alias → `/api/vault/seal/attest`.*
+1. `POST /api/vault/attest` **404** — quorum cannot register (0/5). *Terminal PR #631 adds C-298 quorum route (`{agent,cycle,confidence,source}` → `mic:quorum:<cycle>`). Seal votes remain at `/api/vault/seal/attest`.*
 2. **125 collisions** — seal-integrity gate closed. Track R: 1/194 drafted.
 3. **GI < 0.95** — Fountain locked; `sustain_cycles_met: false`.
 
@@ -80,7 +80,7 @@ The hourly `kv-watchdog` 409 storm is **two stacked, correctly-behaving gates** 
 
 ## Recommended dispositions
 
-1. **Deploy attest endpoint** — alias at `/api/vault/attest` (PR #630). Verify GET 200; POST still gated.
+1. **Deploy attest endpoint** — C-298 quorum POST at `/api/vault/attest` (PR #631). Verify GET 200; POST accepts `{agent,cycle,confidence,source}` and writes `mic:quorum:<cycle>`.
 2. **Probe identity liveness** before reprovisioning service account.
 3. **Do not treat 0.91 as canonical** — hold GI DISPUTED until ledger-verified close.
 4. **Advance Track R** past block 1 (only path to open seal gate).
