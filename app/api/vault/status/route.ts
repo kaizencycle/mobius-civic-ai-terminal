@@ -147,10 +147,7 @@ async function buildVaultStatus(req: NextRequest) {
     sealIntegrityGateActive: sealIntegrityGate.active,
   });
 
-  const collisionPairCount = extractCollisionPairCount(
-    sealIntegrityGate,
-    liveWatchdogReport?.findings ?? null,
-  );
+  const collisionPairCount = extractCollisionPairCount(liveWatchdogReport?.findings ?? null);
 
   const reserve_block_truth = computeReserveBlockTruthSurface({
     reserve_block: seal_lane.reserve_block,
@@ -161,8 +158,7 @@ async function buildVaultStatus(req: NextRequest) {
     collision_pair_count: collisionPairCount,
     candidate_in_flight: Boolean(candidate),
     reserve_threshold_met: seal_lane.reserve_threshold_met,
-    latest_seal_id: latestSeal?.seal_id ?? null,
-    latest_canonical_seal_id: null,
+    canonical_evidence: null,
   });
 
   const honestHeadline =
@@ -195,6 +191,7 @@ async function buildVaultStatus(req: NextRequest) {
     operator_summary: reserve_block_truth.operator_summary,
     collision_pair_count: reserve_block_truth.collision_pair_count,
     canonical_reserve_blocks: reserve_block_truth.canonical_reserve_blocks,
+    canonical_count_status: reserve_block_truth.canonical_count_status,
     canonical_lineage_status: reserve_block_truth.canonical_lineage_status,
     formation_status: reserve_block_truth.formation_status,
     // C-329: substrate-attestation coverage — the truth the old payload omitted.

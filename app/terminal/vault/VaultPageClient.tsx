@@ -72,12 +72,18 @@ type VaultPayload = {
     unattested?: number;
   };
   reserve_block_truth?: {
-    vault_seal_index_count: number;
-    vault_audit_index_count: number;
-    attested_seals_examined: number;
+    vault_index_records: number;
+    vault_audit_index_records: number;
+    attested_records_examined: number;
     collision_pair_count: number | null;
     canonical_reserve_blocks: number | null;
-    canonical_lineage_status: string;
+    canonical_count_status: string;
+    historical_era_breakdown: {
+      pre_canon_records: { count: number | null; status: string; note?: string };
+      legacy_tranche_records: { count: number | null; status: string; note?: string };
+      modern_reserve_block_records: { count: number | null; status: string; note?: string };
+      alternate_or_collision_records: { count: number | null; status: string; note?: string };
+    };
     integrity_gate: {
       enabled: boolean;
       active: boolean;
@@ -87,7 +93,7 @@ type VaultPayload = {
     };
     deposits_active: boolean;
     accumulator: {
-      in_progress_block_projected: number;
+      operational_slot_projected: number;
       in_progress_balance: number;
       block_size: number;
       in_progress_pct: number;
@@ -99,6 +105,8 @@ type VaultPayload = {
     latest_canonical_seal_id: string | null;
     headline: string;
     operator_summary: string;
+    vault_seal_index_count?: number;
+    attested_seals_examined?: number;
   };
   seal_integrity_gate?: {
     enabled: boolean;
@@ -110,7 +118,7 @@ type VaultPayload = {
   operator_summary?: string;
   collision_pair_count?: number | null;
   canonical_reserve_blocks?: number | null;
-  canonical_lineage_status?: string;
+  canonical_count_status?: string;
   formation_status?: string;
   seals_quarantined_count?: number;
 };
@@ -191,6 +199,10 @@ function buildBlockRows(block: ReserveBlockSummary, latestImmortalized: boolean)
   return rows;
 }
 
+function blockRowLabel(row: BlockRow): string {
+  return row.status === 'in progress' ? `Projected slot ${row.id}` : `Block ${row.id}`;
+}
+
 function blockStatusClass(status: BlockRow['status']): string {
   switch (status) {
     case 'immortalized':
@@ -206,7 +218,27 @@ function blockStatusClass(status: BlockRow['status']): string {
   }
 }
 
-function IntegrityHoldPanel({
+function eraStatusLabel(status: string): string {
+  switch (status) {
+    case 'verified_historical_era':
+      return 'Verified historical era';
+    case 'reconciliation_pending':
+      return 'Reconciliation pending';
+    case 'unverified':
+      return 'Unverified';
+    case 'verified':
+      return 'Verified';
+    default:
+      return status.replace(/_/g, ' ');
+  }
+}
+
+function eraCountLabel(count: number | null | undefined): string {
+  if (count == null) return '—';
+  return String(count);
+}
+
+function ReserveBlockTruthPanel({
   truth,
   sealedBlocks,
   attestedExamined,
@@ -217,44 +249,50 @@ function IntegrityHoldPanel({
 }) {
   const [expanded, setExpanded] = useState(false);
   const gate = truth.integrity_gate;
+  const eras = truth.historical_era_breakdown;
+  const vaultRecords = truth.vault_index_records ?? truth.vault_seal_index_count ?? sealedBlocks;
+  const attested = truth.attested_records_examined ?? truth.attested_seals_examined ?? attestedExamined;
+  const integrityHold = gate.active;
+
   return (
-    <div className="mt-4 rounded border border-rose-500/35 bg-rose-500/5 font-mono text-xs">
+    <div className={`mt-4 rounded border font-mono text-xs ${integrityHold ? 'border-rose-500/35 bg-rose-500/5' : 'border-violet-500/30 bg-violet-500/5'}`}>
       <button
         type="button"
         className="flex w-full items-center justify-between px-3 py-2 text-left"
         onClick={() => setExpanded((prev) => !prev)}
       >
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-[0.18em] text-rose-300">Integrity hold</span>
-          <span className="rounded border border-rose-500/40 bg-rose-500/10 px-1.5 py-0.5 text-[9px] text-rose-200">
-            {gate.active ? 'ENGAGED' : 'OFF'}
+          <span className={`text-[10px] uppercase tracking-[0.18em] ${integrityHold ? 'text-rose-300' : 'text-violet-300'}`}>Reserve Block truth</span>
+          <span className={`rounded border px-1.5 py-0.5 text-[9px] ${integrityHold ? 'border-rose-500/40 bg-rose-500/10 text-rose-200' : 'border-violet-500/40 bg-violet-500/10 text-violet-200'}`}>
+            {truth.formation_status.replace(/_/g, ' ').toUpperCase()}
           </span>
         </div>
         <span className="text-slate-400">{expanded ? '−' : '+'}</span>
       </button>
       {expanded && (
-        <div className="border-t border-rose-500/20 px-3 py-2 text-slate-400 space-y-1.5">
-          <p className="text-[10px] text-rose-100/90">{truth.operator_summary}</p>
+        <div className={`border-t px-3 py-2 text-slate-400 space-y-2 ${integrityHold ? 'border-rose-500/20' : 'border-violet-500/20'}`}>
+          <p className="text-[10px] text-slate-200/90">{truth.operator_summary}</p>
           <div className="grid gap-1 text-[10px] sm:grid-cols-2">
-            <div>Vault seal index records: <span className="text-violet-200">{truth.vault_seal_index_count}</span></div>
-            <div>Attested seals examined: <span className="text-emerald-300">{attestedExamined}</span></div>
-            <div>Canonical Reserve Blocks: <span className="text-amber-300">{truth.canonical_reserve_blocks ?? 'unresolved'}</span></div>
-            <div>Collision pairs: <span className="text-amber-300">{truth.collision_pair_count ?? '—'}</span></div>
-            <div>Current accumulator: <span className="text-cyan-200">{truth.accumulator.in_progress_balance.toFixed(2)} / {truth.accumulator.block_size} MIC</span></div>
-            <div>Integrity gate: <span className="text-rose-300">{gate.active ? 'ENGAGED' : 'OFF'}</span></div>
-            <div>Latest canonical seal: <span className="text-slate-300">{truth.latest_canonical_seal_id ?? 'unresolved'}</span></div>
-            <div>Formation: <span className="text-rose-200">{truth.formation_status}</span></div>
+            <div>Vault records indexed: <span className="text-violet-200">{vaultRecords}</span></div>
+            <div>Attested records examined: <span className="text-emerald-300">{attested}</span></div>
+            <div>Collision pairs detected: <span className="text-amber-300">{truth.collision_pair_count ?? '—'}</span></div>
+            <div>Canonical Reserve Blocks: <span className="text-amber-300">{truth.canonical_reserve_blocks ?? 'Reconciliation pending'}</span></div>
+            <div>Latest canonical seal: <span className="text-slate-300">{truth.latest_canonical_seal_id ?? 'Unresolved'}</span></div>
+            <div>Current accumulation: <span className="text-cyan-200">{truth.accumulator.in_progress_balance.toFixed(2)} / {truth.accumulator.block_size} MIC</span></div>
+            <div>Projected slot: <span className="text-cyan-200">{truth.accumulator.operational_slot_projected}</span> <span className="text-slate-500">(operational)</span></div>
+            <div>Integrity gate: <span className={gate.active ? 'text-rose-300' : 'text-slate-300'}>{gate.active ? 'ENGAGED' : 'OFF'}</span></div>
+          </div>
+          <div className="pt-1 text-[10px] uppercase tracking-wide text-slate-500">Historical record classes</div>
+          <div className="grid gap-1 text-[10px] sm:grid-cols-2">
+            <div>Pre-canon parcels: <span className="text-slate-300">{eraCountLabel(eras.pre_canon_records.count)}</span> · <span className="text-slate-400">{eraStatusLabel(eras.pre_canon_records.status)}</span></div>
+            <div>Legacy MIC tranches: <span className="text-slate-300">{eraCountLabel(eras.legacy_tranche_records.count)}</span> · <span className="text-slate-400">{eraStatusLabel(eras.legacy_tranche_records.status)}</span></div>
+            <div>Modern Reserve Block records: <span className="text-slate-300">{eraCountLabel(eras.modern_reserve_block_records.count)}</span> · <span className="text-slate-400">{eraStatusLabel(eras.modern_reserve_block_records.status)}</span></div>
+            <div>Alternate / collision records: <span className="text-slate-300">{eraCountLabel(eras.alternate_or_collision_records.count)}</span> · <span className="text-slate-400">{eraStatusLabel(eras.alternate_or_collision_records.status)}</span></div>
           </div>
           <p className="text-[9px] italic text-slate-500">{truth.accumulator.projection_note}</p>
           {gate.reasons.length > 0 ? (
-            <div className="text-[9px] text-slate-500">
-              Gate reason: {gate.reasons[0]}
-            </div>
+            <div className="text-[9px] text-slate-500">Gate reason: {gate.reasons[0]}</div>
           ) : null}
-          <div className="text-[10px] text-slate-500">
-            Seal index (attested): <span className="text-emerald-300">{sealedBlocks}</span>
-            {' · '}Do not conflate with reconciled canonical blocks while Track R reconciliation is pending.
-          </div>
         </div>
       )}
     </div>
@@ -392,7 +430,7 @@ export default function VaultPageClient() {
   const operatorSummary = data.operator_summary ?? data.reserve_block_truth?.operator_summary;
   const truth = data.reserve_block_truth;
   const integrityHold = Boolean(truth?.integrity_gate.active ?? data.seal_integrity_gate?.active);
-  const attestedExamined = truth?.attested_seals_examined ?? data.substrate_attestation_coverage?.examined ?? block.sealed_blocks;
+  const attestedExamined = truth?.attested_records_examined ?? truth?.attested_seals_examined ?? data.substrate_attestation_coverage?.examined ?? block.sealed_blocks;
   const blockRows = buildBlockRows(block, Boolean(data.latest_block_immortalized));
   const auditOnlyBlocks = Math.max(0, block.audit_blocks - block.sealed_blocks);
   const quarantinedCount = data.seals_quarantined_count ?? 0;
@@ -425,14 +463,14 @@ export default function VaultPageClient() {
         <div className="mt-2 text-[10px] text-slate-400">v1 cumulative (compat): {v1Bal.toFixed(2)} units · legacy parcels: {block.completed_blocks_v1}</div>
         <div className="mt-3 space-y-1 text-slate-400">
           <div>Sealed reserve total: <span className="text-violet-200">{sealedTotal.toFixed(2)}</span></div>
-          <div>Vault seal index records: <span className="text-violet-200">{truth?.vault_seal_index_count ?? block.sealed_blocks}</span></div>
-          <div>Attested seals examined: <span className="text-emerald-300">{attestedExamined}</span></div>
-          <div>Canonical Reserve Blocks: <span className="text-amber-300">{data.canonical_reserve_blocks ?? truth?.canonical_reserve_blocks ?? 'unresolved'}</span></div>
+          <div>Vault records indexed: <span className="text-violet-200">{truth?.vault_index_records ?? truth?.vault_seal_index_count ?? block.sealed_blocks}</span></div>
+          <div>Attested records examined: <span className="text-emerald-300">{attestedExamined}</span></div>
+          <div>Canonical Reserve Blocks: <span className="text-amber-300">{data.canonical_reserve_blocks ?? truth?.canonical_reserve_blocks ?? 'Reconciliation pending'}</span></div>
           <div>Collision pairs: <span className="text-amber-300">{data.collision_pair_count ?? truth?.collision_pair_count ?? '—'}</span></div>
           <div>Quarantined seals (KV status): <span className="text-amber-300">{quarantinedCount}</span>{auditOnlyBlocks > 0 ? <span className="text-slate-500"> · audit-only delta: {auditOnlyBlocks}</span> : null}</div>
           <div>Legacy v1 parcels: <span className="text-slate-300">{block.completed_blocks_v1}</span>{legacyOnlyBlocks > 0 ? <span className="text-slate-500"> · {legacyOnlyBlocks} not represented in audit seals yet</span> : null}</div>
           <div>Current Block: <span className="text-violet-200">{blockBar} {inProg.toFixed(2)} / {cap.toFixed(2)} MIC</span></div>
-          <div>Block status: <span className="text-cyan-200">{block.label}</span>{integrityHold ? <span className="text-rose-300/90"> · projected block #{block.in_progress_block}</span> : null}</div>
+          <div>Block status: <span className="text-cyan-200">{block.label}</span>{integrityHold ? <span className="text-rose-300/90"> · projected slot #{truth?.accumulator.operational_slot_projected ?? block.in_progress_block} (operational)</span> : null}</div>
           <div>Fountain: <span className="text-amber-200/90">{fountain}</span>{data.reserve_block_lane ? <span className="text-slate-500"> · reserve_block_lane: {data.reserve_block_lane}</span> : null}{data.formation_status ? <span className="text-slate-500"> · formation: {data.formation_status}</span> : null}</div>
           {integrityHold ? (
             <div>Integrity gate: <span className="text-rose-300">ENGAGED</span>{data.seal_integrity_gate?.reasons?.[0] ? <span className="text-slate-500"> · {data.seal_integrity_gate.reasons[0]}</span> : null}</div>
@@ -491,7 +529,7 @@ export default function VaultPageClient() {
         <div className="space-y-1.5">
           {blockRows.map((row) => (
             <div key={`${row.id}-${row.status}`} className="flex items-center justify-between border-b border-slate-800/70 py-1 last:border-0">
-              <span className="text-slate-300">Block {row.id}</span>
+              <span className="text-slate-300">{blockRowLabel(row)}</span>
               <span className="text-slate-400">{row.amount.toFixed(2)} MIC</span>
               <span className={blockStatusClass(row.status)}>{row.status}</span>
             </div>
@@ -499,8 +537,8 @@ export default function VaultPageClient() {
         </div>
       </div>
 
-      {integrityHold && truth ? (
-        <IntegrityHoldPanel truth={truth} sealedBlocks={block.sealed_blocks} attestedExamined={attestedExamined} />
+      {truth ? (
+        <ReserveBlockTruthPanel truth={truth} sealedBlocks={block.sealed_blocks} attestedExamined={attestedExamined} />
       ) : null}
 
       {quarantinedCount > 0 ? (

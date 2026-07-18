@@ -85,8 +85,8 @@ export function computeReserveBlockSummary(args: {
     in_progress_pct,
     remaining_to_next_block,
     // OPT-6 (C-293): include remaining-to-next so operators see the gap without computing it
-    label: `Block ${in_progress_block} in progress — ${in_progress_balance.toFixed(2)} / ${block_size.toFixed(0)} MIC (${in_progress_pct}%) · ${remaining_to_next_block.toFixed(2)} remaining`,
-    canon: 'One Reserve Block equals one 50-unit reserve parcel. Blocks can seal before the Fountain unlocks.',
+    label: `Projected accumulator slot ${in_progress_block} — ${in_progress_balance.toFixed(2)} / ${block_size.toFixed(0)} MIC (${in_progress_pct}%) · ${remaining_to_next_block.toFixed(2)} remaining`,
+    canon: 'Operational accumulator slot is projected from index cardinality — not a constitutionally adjudicated Reserve Block number until canonical sequencing is restored.',
   };
 }
 
@@ -150,7 +150,9 @@ export function computeVaultSealLaneSemantics(args: {
         ? 'Block 1 sealed — reserve proof attested'
         : `${reserve_block.sealed_blocks} vault seal index records (canonical lineage not asserted here)`;
     }
-    if (reserve_threshold_met) return `Reserve Block ${reserve_block.in_progress_block} ready to seal (50 MIC)`;
+    if (reserve_threshold_met) {
+      return `Projected accumulator slot ${reserve_block.in_progress_block} at threshold — ready to seal when formation permitted`;
+    }
     return reserve_block.label;
   })();
 

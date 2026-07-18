@@ -3,50 +3,47 @@
 **Cycle:** C-376  
 **Type:** Fix  
 **Primary Area(s):** apps / packages  
-**Status:** OPEN — truth surface PR (does not disable `SEAL_INTEGRITY_GATE` or mutate production KV)
+**Status:** READY FOR PREFLIGHT — truth surface PR (does not disable `SEAL_INTEGRITY_GATE` or mutate production KV)
 
-## Verdict (Michael diagnosis — validated in code)
+## Constitutional rule
 
-The Reserve Block engine is **not dead**. MIC/deposit flow and accumulator advancement remain alive. The sealing boundary is **intentionally fail-closed** while hash-divergent `block_number_collisions` remain unreconciled (Track R).
-
-The Terminal was presenting **Vault seal-index cardinality** as “Reserve Blocks sealed,” which is no longer truthful after the C-370/C-373 collision audit.
-
-## Audit paths (8)
-
-| # | Question | Finding |
-|---|----------|---------|
-| 1 | Where does “360 Reserve Blocks sealed” come from? | `lib/vault/lane-status.ts` — `computeVaultSealLaneSemantics` headline used `sealed_blocks` (= `floor(sealsCountAttested)`). |
-| 2 | Where does “Sealed & attested: 360 blocks” come from? | `app/terminal/vault/VaultPageClient.tsx` — rendered `block.sealed_blocks` from `reserve_blocks_sealed ?? seals_count`. |
-| 3 | Does `reserve_block_lane: block_ready` ignore the gate? | **Yes (before C-376).** Threshold check did not consult `SEAL_INTEGRITY_GATE`. Fixed: `integrity_hold` when gate active. |
-| 4 | Can Block 361 reach 50 MIC while formation blocked? | **Yes.** `lib/vault-v2/deposit.ts` accrues `in_progress_balance`; gate blocks `formCandidate` only at threshold. |
-| 5 | Does UI expose `hard_stop_enabled` / collision state? | **Partial before C-376.** `/api/vault/status` now exposes `reserve_block_truth`, `seal_integrity_gate`, `collision_pair_count`. |
-| 6 | Why “Quarantined / audit: 0” with 125 collision pairs? | UI computed `audit_blocks - sealed_blocks` (index delta), **not** collision pairs. Collisions are duplicate `block_number` within attested seals. |
-| 7 | Should “Pending attestation” say reconciliation pending? | Headline/operator summary now: *Deposits active · sealing suspended pending lineage reconciliation* when gate engaged. |
-| 8 | Is block 361 `seals_count + 1`? | **Yes.** `computeReserveBlockSummary` — `in_progress_block = max(sealed, audit, v1) + 1`. Labeled as **projected** while gate engaged. |
-
-## API additions (`GET /api/vault/status`)
-
-- `reserve_block_truth` — structured truth surface
-- `seal_integrity_gate` — gate state mirror
-- `operator_summary` — one-line operator copy
-- `collision_pair_count`, `canonical_reserve_blocks`, `canonical_lineage_status`, `formation_status`
-
-## Explicit non-goals (this PR)
-
-- Do **not** disable `SEAL_INTEGRITY_GATE`
-- Do **not** apply Track R reconciliation receipts
-- Do **not** rewrite sealed bodies or hand-edit `cycle.json`
-
-## Operator copy (target)
+**Canon → Ledger → UI**
 
 ```
-Deposits active · sealing suspended pending lineage reconciliation
-
-Vault seal records:       360
-Attested seals examined:  319
-Canonical Reserve Blocks: unresolved
-Collision pairs:          125
-Current accumulator:      26.52 / 50 MIC
-Integrity gate:           ENGAGED
-Latest canonical seal:    unresolved
+canonical_reserve_blocks = records proven to belong to the reconciled canonical Reserve Block namespace
 ```
+
+Not vault seal-index cardinality. Not `seals_count` when `SEAL_INTEGRITY_GATE` is off.
+
+Gate state controls **formation permission**. Gate state does **not** adjudicate historical lineage.
+
+## Witness table
+
+| Claim | Verdict | Required evidence |
+|-------|---------|-------------------|
+| `seals_count` is Vault index cardinality | **TRUE** | `/api/vault/status` → `vault_index_records` |
+| 360 equals canonical Reserve Blocks | **FALSE** | C-374/C-376 audits |
+| Gate engaged blocks formation | **TRUE** | `getSealIntegrityGateState()` + `deposit.ts` |
+| Deposits remain active | **TRUE** | Accumulator / `last_deposit` evidence |
+| Gate off proves every seal canonical | **FALSE** | `resolveCanonicalReserveBlockCount()` requires evidence |
+| Legacy tranche records are historical truth | **TRUE** | C-371 lineage evidence |
+| Legacy tranche records are automatically modern Reserve Blocks | **FALSE** | Protocol-era distinction in `historical_era_breakdown` |
+| Current projected slot is constitutionally block 361 | **UNVERIFIED** | Reconciliation pending |
+| UI must render unresolved canon explicitly | **TRUE** | C-376 doctrine |
+
+## Canonical count invariant (ATLAS preflight)
+
+**Removed unsafe invariant:** gate-off must never imply `canonical_reserve_blocks = seals_count`.
+
+**Correct model:** `canonical_reserve_blocks` resolves only from `CanonicalCountEvidence` (Track R). Without evidence: `null` + `canonical_count_status: unresolved`.
+
+## Acceptance criteria
+
+1. Truth surface separates Vault records from canonical blocks
+2. Canonical count independent of integrity-gate state
+3. Gate-off ≠ `seals_count` → canonical
+4. Historical eras distinguishable (`historical_era_breakdown`)
+5. Unknown counts explicitly unknown (`null`, not `0`)
+6. Projected slot labeled operational, not canonical
+7. Contract tests reflect these semantics
+8. No production mutation · no gate disable
