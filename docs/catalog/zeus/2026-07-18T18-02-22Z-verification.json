@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-07-18T18:02:22.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-376",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "anomaly_persistence": {
+    "openaq_air_quality_elevated": "persistent",
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "sustain_eligible_false": "persistent",
+    "gaia-usgs-water_error": "persistent",
+    "daedalus-cloudflare-radar_low": "persistent",
+    "atlas_integrity_divergence": "persistent",
+    "gi_stressed_band": "persistent",
+    "themis_fallbacks": "persistent",
+    "aurea-coingecko_error": "transient",
+    "freshness_degraded": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed). quorum/state gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-376. vault_block_state=candidate in_progress_pct=100% latest_seal_id=null. stability=0.45 (tripwire suppressor).",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-18T17-03-48Z-atlas.json (latest)",
+      "result": "warn",
+      "detail": "gi=0.7 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[OpenAQ air quality [elevated]]; flags kv_keys_ok=false sustain_eligible=false tripwire_active=true micro_operator_cycle_divergence=true; micro_composite=0.902 micro_cycle=C-306; gi_pre_seed=0.7 gi_post_seed=0.7 (no seed degradation this pass); seed_result=200 OK. Tripwire elevated: Hormuz Transit Fee Risk."
+    },
+    {
+      "check": "GET /api/signals/micro (production https://terminal.mobius-substrate.com)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.864 composite=0.864 instrumentCount=40 cycle=C-306 cached=true fallbacksUsed=2 errors=2. gaia-openaq score=0.5 severity=elevated (persistent). gaia-usgs-water score=0 source=error (persistent, latencyMs=7205). aurea-coingecko score=0 source=error (new this pass). Low: daedalus-cloudflare-radar 0.7. Fallbacks: themis-datagov, themis-transparency-intl. Operator cycle C-376 diverges from micro C-306."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv gi_provenance=kv-live (not mock) degraded=true cycle=C-376 gi_age_seconds=26. signals quality=0.77 freshness=1.0 stability=0.45 system=1.0. Freshness recovered from 0.6 (prior pass). Stability degraded to 0.45 (tripwire suppressor)."
+    },
+    {
+      "check": "ATLAS anomaly: OpenAQ air quality [elevated]",
+      "result": "warn",
+      "detail": "Persistent. Live gaia-openaq score=0.5 source=primary — elevated air quality signal."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent. kv_keys.ok=true and seed_result=200 OK but kv_keys_ok=false and kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-376 vs live micro cycle=C-306."
+    },
+    {
+      "check": "ATLAS micro_composite vs live micro",
+      "result": "pass",
+      "detail": "ATLAS micro_composite=0.902 vs live micro gi=0.864 composite=0.864 at verification time (within tolerance; ATLAS overshoot +0.038)."
+    },
+    {
+      "check": "gi_layer_alignment",
+      "result": "fail",
+      "detail": "ATLAS 0.7 yellow/stressed vs integrity-status 0.81 green/nominal vs micro 0.864 — ATLAS diverges -0.11 below integrity-status and -0.164 below micro. Three-way GI disagreement across layers persists."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "warn",
+      "detail": "Persistent. ATLAS sustain_eligible=false blocks sustain pathway."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "warn",
+      "detail": "Persistent. ATLAS tripwire.active=true level=elevated reason=Hormuz Transit Fee Risk. integrity-status stability=0.45 reflects tripwire suppression."
+    },
+    {
+      "check": "gaia-usgs-water instrument",
+      "result": "fail",
+      "detail": "Persistent error. score=0 source=error latencyMs=7205 primary failed."
+    },
+    {
+      "check": "aurea-coingecko instrument",
+      "result": "warn",
+      "detail": "New error this pass. score=0 source=error latencyMs=36 — not present in prior ZEUS pass at 12:01 UTC. Monitor for persistence."
+    },
+    {
+      "check": "freshness signal",
+      "result": "pass",
+      "detail": "Resolved. integrity-status freshness=1.0 (was 0.6 at 12:01 UTC pass). Primary GI freshness suppressor cleared."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found; spec body {agent,cycle,confidence,source} not accepted on deployed surface at this path."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-376-0ix2tn canonical=true mirrored_to_kv=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "pass",
+      "detail": "quorum/state integrity.gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-376. vault_block_state=candidate in_progress_pct=100% latest_seal_id=null. Aligns with integrity-status; diverges from ATLAS 0.7 by +0.11."
+    }
+  ],
+  "recommendation": "Operator attention required: ATLAS reports STRESSED gi=0.7 while integrity-status and micro remain green/nominal band (0.81/0.864). Three-way GI divergence persists. Restore gaia-usgs-water instrument (persistent error). Investigate new aurea-coingecko error. Monitor Hormuz tripwire (elevated, stability=0.45). Freshness recovered to 1.0 — positive. Deploy POST /api/vault/attest for C-298 quorum (block 361 at 100% candidate, 0/5 attestations)."
+}
