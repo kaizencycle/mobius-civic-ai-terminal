@@ -40,6 +40,10 @@ Production logs are the Terminal's self-report. Severity labels must track reali
 | `SWARM_MAX_TIER_GT1_PER_RUN` | Cap Sonnet/Opus agents per swarm run (default `2`) |
 | `IDENTITY_JWT_CACHE_SECONDS` | KV/memory cache TTL for attest JWT (default `600`) |
 
+## Build-time witness (Lane 6)
+
+Next.js static generation may throw `DynamicServerError` (`digest: DYNAMIC_SERVER_USAGE`) when a page uses dynamic data — correct framework control-flow. The `[mobius-kv]` wrapper must **not** log these as `failed:` warnings during build; `lib/kv/dynamicServerUsage.ts` rethrows silently. Build logs are a witness channel with the same severity discipline as runtime.
+
 ## Restraint
 
 This document does not authorize changes to vault/status computation, seal lineage, integrity-gate logic, or identity-service deployment.

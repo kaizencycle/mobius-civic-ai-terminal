@@ -9,6 +9,7 @@
 
 import Redis from 'ioredis';
 import { shouldMirrorPrefixedFullKey, shouldMirrorRawKey } from '@/lib/kv/backupMirrorPolicy';
+import { rethrowIfDynamicServerUsage } from '@/lib/kv/dynamicServerUsage';
 
 let _backup: Redis | null | undefined;
 
@@ -182,6 +183,7 @@ export async function backupRawGet<T>(rawKey: string): Promise<T | null> {
     if (raw === null) return null;
     return parseBackupGet<T>(raw);
   } catch (err) {
+    rethrowIfDynamicServerUsage(err);
     console.warn(
       `[mobius-kv:backup] GET raw ${rawKey} failed:`,
       err instanceof Error ? err.message : err,
@@ -204,6 +206,7 @@ export async function backupRawLrange(rawKey: string, start: number, stop: numbe
     const rows = await client.lrange(rawKey, start, stop);
     return Array.isArray(rows) ? rows : [];
   } catch (err) {
+    rethrowIfDynamicServerUsage(err);
     console.warn(
       `[mobius-kv:backup] LRANGE ${rawKey} failed:`,
       err instanceof Error ? err.message : err,
@@ -227,6 +230,7 @@ function scheduleMirror(
       await ensureConnected(client);
       await fn(client);
     } catch (err) {
+      rethrowIfDynamicServerUsage(err);
       _backupPingHealthy = false;
       _backupPingAt = Date.now();
       console.warn(

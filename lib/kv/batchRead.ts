@@ -3,6 +3,7 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { rethrowIfDynamicServerUsage } from '@/lib/kv/dynamicServerUsage';
 
 let _redis: Redis | null = null;
 
@@ -39,6 +40,7 @@ export async function kvMgetPrefixedLogicalKeys(logicalKeys: readonly string[]):
     const values = await redis.mget(...keys);
     return Array.isArray(values) ? values : logicalKeys.map(() => null);
   } catch (err) {
+    rethrowIfDynamicServerUsage(err);
     console.warn('[mobius-kv] mget failed:', err instanceof Error ? err.message : err);
     return logicalKeys.map(() => null);
   }

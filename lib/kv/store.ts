@@ -41,6 +41,7 @@ import {
   scheduleBackupMirrorRawKey,
 } from '@/lib/kv/backup-redis';
 import { KV_TTL_SECONDS } from '@/lib/kv/kv-ttl';
+import { rethrowIfDynamicServerUsage } from '@/lib/kv/dynamicServerUsage';
 import {
   isKvCapacityOrTransportError,
   kvBridgeConfigured,
@@ -151,6 +152,7 @@ export async function kvGet<T>(key: string): Promise<T | null> {
     }
     return null;
   } catch (err) {
+    rethrowIfDynamicServerUsage(err);
     console.warn(`[mobius-kv] GET ${key} failed:`, err instanceof Error ? err.message : err);
     const fb = await backupPrefixedGet<T>(key);
     if (fb !== null) return fb;
@@ -186,6 +188,7 @@ export async function kvGetRaw<T>(rawKey: string): Promise<T | null> {
     }
     return null;
   } catch (err) {
+    rethrowIfDynamicServerUsage(err);
     console.warn(`[mobius-kv] GET raw ${rawKey} failed:`, err instanceof Error ? err.message : err);
     const fb = await backupRawGet<T>(rawKey);
     if (fb !== null) return fb;
@@ -228,6 +231,7 @@ export async function kvSet<T>(key: string, value: T, ttlSeconds?: number): Prom
     }
     return true;
   } catch (err) {
+    rethrowIfDynamicServerUsage(err);
     console.warn(`[mobius-kv] SET ${key} failed:`, err instanceof Error ? err.message : err);
     if (kvBridgeConfigured() && isKvCapacityOrTransportError(err)) {
       if (isVaultBalanceOrMetaKey(key)) {
@@ -288,6 +292,7 @@ export async function kvSetRawKey<T>(rawKey: string, value: T, ttlSeconds?: numb
     scheduleKvBridgeMirrorRaw(rawKey, value, ttlSeconds);
     return true;
   } catch (err) {
+    rethrowIfDynamicServerUsage(err);
     console.warn(`[mobius-kv] SET raw ${rawKey} failed:`, err instanceof Error ? err.message : err);
     if (kvBridgeConfigured() && isKvCapacityOrTransportError(err)) {
       const sym = rawRedisKeyToBridgeSymbol(rawKey);
@@ -311,6 +316,7 @@ export async function kvDel(key: string): Promise<boolean> {
     scheduleBackupMirrorRawDel(fullKey);
     return true;
   } catch (err) {
+    rethrowIfDynamicServerUsage(err);
     console.warn(`[mobius-kv] DEL ${key} failed:`, err instanceof Error ? err.message : err);
     return false;
   }
@@ -433,6 +439,7 @@ export async function kvLpushCapped(key: string, value: string, maxLen: number):
     await redis.ltrim(fullKey, 0, cap - 1);
     return true;
   } catch (err) {
+    rethrowIfDynamicServerUsage(err);
     console.warn(`[mobius-kv] LPUSH ${key} failed:`, err instanceof Error ? err.message : err);
     return false;
   }
@@ -942,6 +949,7 @@ export async function kvIncrByFloatRaw(rawKey: string, delta: number): Promise<n
   try {
     return await redis.incrbyfloat(rawKey, delta);
   } catch (err) {
+    rethrowIfDynamicServerUsage(err);
     console.warn(`[mobius-kv] INCRBYFLOAT ${rawKey} failed:`, err instanceof Error ? err.message : err);
     return null;
   }
@@ -954,6 +962,7 @@ export async function kvIncrByRaw(rawKey: string, delta: number): Promise<number
   try {
     return await redis.incrby(rawKey, delta);
   } catch (err) {
+    rethrowIfDynamicServerUsage(err);
     console.warn(`[mobius-kv] INCRBY ${rawKey} failed:`, err instanceof Error ? err.message : err);
     return null;
   }
