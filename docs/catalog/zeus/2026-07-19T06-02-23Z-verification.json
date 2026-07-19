@@ -1,0 +1,114 @@
+{
+  "timestamp": "2026-07-19T06:02:23.356Z",
+  "agent": "ZEUS",
+  "cycle": "C-377",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "sustain_eligible_false": "persistent",
+    "gaia-openaq_elevated": "persistent",
+    "daedalus-cloudflare-radar_low": "persistent",
+    "atlas_integrity_divergence": "persistent",
+    "gi_stressed_band": "persistent",
+    "gaia-usgs-water_error": "resolved",
+    "hermes-internet-archive_error": "transient",
+    "freshness_degraded": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": false,
+  "quorum_status": "POST /api/vault/attest HTTP 404 (not deployed on vercel.app or terminal.mobius-substrate.com). quorum/state gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-377. vault_block_state=candidate in_progress_pct=100% latest_seal_id=null. attestations received=0 needed=5.",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-19T05-02-04Z-atlas.json (latest)",
+      "result": "warn",
+      "detail": "gi=0.81 mode=green source=kv classification=STRESSED terminal_status=nominal; anomalies=[] (empty); flags kv_keys_ok=false sustain_eligible=false tripwire_active=true micro_operator_cycle_divergence=true; micro_composite=0.865 micro_cycle=C-306; seed_result=200 OK (60s retry). Tripwire elevated: Hormuz Transit Fee Risk."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.879 composite=0.879 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=1. gaia-openaq score=0.5 severity=watch (persistent). hermes-internet-archive score=0 source=error latencyMs=8001 (transient). Low: daedalus-cloudflare-radar 0.7. gaia-usgs-water recovered to 0.85 (was persistent error at prior pass). Operator cycle C-377 diverges from micro C-306."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.767 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live (not mock) degraded=true cycle=C-377 gi_age_seconds=75. signals quality=0.767 freshness=1.0 stability=1.0 system=1.0. Freshness nominal. Stability=1.0 (tripwire suppressor not active in this layer at verification time)."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent. kv_keys.ok=true and seed_result=200 OK but kv_keys_ok=false and kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-377 vs live micro cycle=C-306."
+    },
+    {
+      "check": "ATLAS micro_composite vs live micro",
+      "result": "pass",
+      "detail": "ATLAS micro_composite=0.865 vs live micro composite=0.879 at verification time (within tolerance; live +0.014)."
+    },
+    {
+      "check": "gi_layer_alignment",
+      "result": "fail",
+      "detail": "ATLAS 0.81 green/nominal vs integrity-status 0.767 yellow/stressed vs quorum/state 0.82 green/nominal vs micro 0.879 — four-way GI disagreement across layers persists. ATLAS overstates integrity-status by +0.043."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "warn",
+      "detail": "Persistent. ATLAS sustain_eligible=false blocks sustain pathway."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "warn",
+      "detail": "Persistent in ATLAS flags (tripwire.active=true level=elevated Hormuz Transit Fee Risk). integrity-status stability=1.0 at verification — suppressor alignment unclear across layers."
+    },
+    {
+      "check": "gaia-usgs-water instrument",
+      "result": "pass",
+      "detail": "Resolved. score=0.85 source=primary latencyMs=1103 — recovered from persistent error at prior ZEUS pass (00:01 UTC)."
+    },
+    {
+      "check": "hermes-internet-archive instrument",
+      "result": "warn",
+      "detail": "Transient error. score=0 source=error latencyMs=8001 primary failed (with retry). New failure not present at prior pass."
+    },
+    {
+      "check": "gaia-openaq instrument",
+      "result": "warn",
+      "detail": "Persistent elevated. score=0.5 source=primary — air quality signal in watch band."
+    },
+    {
+      "check": "freshness signal",
+      "result": "pass",
+      "detail": "Resolved. integrity-status freshness=1.0. Primary GI freshness suppressor cleared."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "fail",
+      "detail": "HTTP 404 Next.js not-found on both mobius-civic-ai-terminal.vercel.app and terminal.mobius-substrate.com; spec body {agent,cycle,confidence,source} not accepted on deployed surface."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-377-teyybu canonical=true mirrored_to_kv=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-377. vault_block_state=candidate in_progress_pct=100% latest_seal_id=null attestations 0/5. Aligns with ATLAS (+0.01) but diverges from integrity-status (-0.053) and micro (-0.059)."
+    }
+  ],
+  "recommendation": "Operator attention required: four-way GI divergence persists (ATLAS 0.81, quorum 0.82, integrity-status 0.767, micro 0.879). ATLAS reports green/nominal while integrity-status reports yellow/stressed for same cycle. Investigate hermes-internet-archive timeout (transient). Monitor gaia-openaq watch band. kv_keys_ok=false despite successful seed. Deploy POST /api/vault/attest for C-298 quorum (block 361 at 100% candidate, 0/5 attestations)."
+}
