@@ -13,6 +13,10 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
 import { analyzeReserveBlockCollisions } from '@/lib/dat/reserveBlockCollisions';
 import { resolveExportCycle } from '@/lib/dat/resolveExportCycle';
+import {
+  buildCollisionAffectedBlockSnapshot,
+  saveCollisionAffectedBlockSnapshot,
+} from '@/lib/vault/collision-affected-blocks';
 import { listAllSeals } from '@/lib/vault-v2/store';
 
 config({ path: '.env.local' });
@@ -20,21 +24,38 @@ config({ path: '.env.local' });
 async function main(): Promise<void> {
   const jsonOut = process.argv.includes('--json');
   const hashOnly = process.argv.includes('--hash-divergence-only');
+  const writeKv = process.argv.includes('--write-kv');
+  const baselineRunId = process.argv.find((a) => a.startsWith('--baseline-run-id='))?.split('=')[1];
   const operatorCycle = resolveExportCycle();
 
   const seals = await listAllSeals(10_000);
   const report = analyzeReserveBlockCollisions(seals);
+  const affectedSnapshot = buildCollisionAffectedBlockSnapshot({
+    report,
+    seals,
+    operator_cycle: operatorCycle,
+    baseline_run_id: baselineRunId,
+  });
 
   const hashDivergent = report.collisions.filter((c) => c.seal_hashes_differ);
   const rows = hashOnly ? hashDivergent : report.collisions;
 
   const payload = {
     operator_cycle: operatorCycle,
-    audited_at: new Date().toISOString(),
+    audited_at: affectedSnapshot.audited_at,
     ...report,
     hash_divergent_collisions: hashDivergent.length,
     collisions: rows,
+    collision_affected_blocks: affectedSnapshot,
   };
+
+  if (writeKv) {
+    await saveCollisionAffectedBlockSnapshot(affectedSnapshot);
+    console.error(
+      `Wrote collision affected-block set to KV (${affectedSnapshot.affected_block_numbers.length} blocks, ` +
+        `${affectedSnapshot.three_way_blocks.length} three-way)`,
+    );
+  }
 
   if (jsonOut) {
     console.log(JSON.stringify(payload, null, 2));
