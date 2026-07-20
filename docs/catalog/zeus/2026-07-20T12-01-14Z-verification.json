@@ -1,0 +1,114 @@
+{
+  "timestamp": "2026-07-20T12:01:14.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-378",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "sustain_eligible_false": "persistent",
+    "gi_below_floor": "persistent",
+    "integrity_source_cached": "persistent",
+    "gaia-openaq_elevated": "persistent",
+    "daedalus-cloudflare-radar_low": "persistent",
+    "atlas_integrity_divergence": "persistent",
+    "gi_stressed_band": "persistent",
+    "degraded_agents": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved completed_at=2026-07-20T06:02:23.998Z",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-20T11-04-07Z-atlas.json (latest)",
+      "result": "fail",
+      "detail": "gi=0.64 mode=yellow source=kv classification=CRITICAL terminal_status=stressed; anomalies=[] (empty); flags kv_keys_ok=false sustain_eligible=false tripwire_active=true gi_below_floor=true; micro_composite=0.903 micro_cycle=C-306; seed_result=200 OK (retry after 30s timeout); gi_pre_seed=0.64 gi_post_seed=0.64 (stable). degraded_agents=0. GI regressed from 0.71 (06:03Z sweep) to 0.64 CRITICAL."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.907 composite=0.907 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=0. gaia-openaq score=0.75 source=primary (persistent elevated). daedalus-cloudflare-radar score=0.7 (persistent low). Operator cycle C-378 diverges from micro C-306. Micro +0.004 drift from ATLAS sweep composite 0.903."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.71 mode=yellow terminal_status=stressed source=cached (not mock) degraded=true cycle=C-378 gi_age_seconds=3486 (~58min stale). signals quality=0.78 freshness=0.6 stability=0.45 system=1.0. Overstates ATLAS by +0.07; understates micro by -0.197."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent. kv_keys.ok=true and seed_result=200 OK but kv_keys_ok=false and kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-378 vs live micro cycle=C-306."
+    },
+    {
+      "check": "ATLAS micro_composite vs live micro",
+      "result": "pass",
+      "detail": "ATLAS micro_composite=0.903 vs live micro composite=0.907 at verification time (+0.004 drift within sweep window)."
+    },
+    {
+      "check": "gi_layer_alignment",
+      "result": "fail",
+      "detail": "ATLAS 0.64 CRITICAL vs integrity-status 0.71 cached/stressed vs quorum 0.71 live-compute/stressed vs micro 0.907 — four-way GI disagreement. ATLAS dropped -0.07 from prior sweep; integrity/quorum hold 0.71; micro overstates ATLAS by +0.267."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "warn",
+      "detail": "Persistent. ATLAS sustain_eligible=false blocks sustain pathway."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "warn",
+      "detail": "Persistent. ATLAS tripwire.active=true level=elevated reason=Hormuz Transit Fee Risk (last_updated 2026-07-20T10:01:09.514Z)."
+    },
+    {
+      "check": "gi_below_floor",
+      "result": "fail",
+      "detail": "Regression. ATLAS gi=0.64 classification=CRITICAL gi_below_floor=true (was resolved at 0.71 in 06:03Z sweep)."
+    },
+    {
+      "check": "degraded_agents",
+      "result": "pass",
+      "detail": "Resolved. ATLAS degraded_agents=0. Micro instruments gaia-openaq=0.75 elevated; daedalus-cloudflare-radar=0.7 low."
+    },
+    {
+      "check": "gaia-openaq instrument",
+      "result": "warn",
+      "detail": "Persistent elevated. score=0.75 source=primary — below nominal."
+    },
+    {
+      "check": "daedalus-cloudflare-radar instrument",
+      "result": "warn",
+      "detail": "Persistent low. score=0.7 source=primary — infrastructure status below nominal."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "pass",
+      "detail": "HTTP 200 quorum_status=achieved attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-378-s8vphc canonical=true mirrored_to_kv=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.71 mode=yellow terminal_status=stressed source=live-compute cycle=null. Diverges from ATLAS (-0.07); aligned with integrity-status; understates micro (-0.197). vault_block_state=null."
+    }
+  ],
+  "recommendation": "Operator attention required: ATLAS GI regressed to 0.64 CRITICAL (gi_below_floor=true) while integrity/quorum hold stale 0.71. integrity-status source=cached with gi_age_seconds=3486 undermines operator truth. Four-way GI misalignment persists. kv_keys_ok=false and sustain_eligible=false remain. Hormuz tripwire elevated. Reconcile ATLAS KV seed vs integrity cached layer. Vault quorum achieved 5/5."
+}
