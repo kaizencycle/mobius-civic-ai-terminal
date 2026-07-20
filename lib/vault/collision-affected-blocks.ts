@@ -1,14 +1,12 @@
 /**
  * C-377 — Collision-affected block set (read-only audit artifact).
  *
- * Membership is produced by `scripts/audit-reserve-block-collisions.ts` and
- * consumed by /api/vault/status + Vault UI. UI must never recompute contested
- * slots from index cardinality.
+ * Pure types + builders. KV load/save lives in collision-affected-blocks-store.ts
+ * (server-only). UI must never recompute contested slots from index cardinality.
  */
 
 import type { Seal } from '@/lib/vault-v2/types';
 import type { ReserveBlockCollisionReport } from '@/lib/dat/reserveBlockCollisions';
-import { kvGet, kvSet } from '@/lib/kv/store';
 
 export const COLLISION_AFFECTED_BLOCKS_KEY = 'watchdog:collision:affected-blocks';
 
@@ -75,23 +73,6 @@ export function buildCollisionAffectedBlockSnapshot(args: {
     three_way_blocks,
     seal_count_by_block,
   };
-}
-
-export async function loadCollisionAffectedBlockSnapshot(): Promise<CollisionAffectedBlockSnapshot | null> {
-  const stored = await kvGet<CollisionAffectedBlockSnapshot>(COLLISION_AFFECTED_BLOCKS_KEY);
-  if (!stored || stored.schema_version !== COLLISION_AFFECTED_BLOCKS_SCHEMA_VERSION) {
-    return null;
-  }
-  if (!Array.isArray(stored.affected_block_numbers)) {
-    return null;
-  }
-  return stored;
-}
-
-export async function saveCollisionAffectedBlockSnapshot(
-  snapshot: CollisionAffectedBlockSnapshot,
-): Promise<void> {
-  await kvSet(COLLISION_AFFECTED_BLOCKS_KEY, snapshot);
 }
 
 export function collisionAffectedSets(snapshot: CollisionAffectedBlockSnapshot | null | undefined): {

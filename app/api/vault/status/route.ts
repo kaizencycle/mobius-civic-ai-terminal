@@ -21,7 +21,7 @@ import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { computeVaultSealLaneSemantics } from '@/lib/vault/lane-status';
 import { computeAttestationCoverage, attestationHeadlineSuffix } from '@/lib/vault/attestation-coverage';
 import { computeReserveBlockTruthSurface, extractCollisionPairCount } from '@/lib/vault/reserve-block-truth';
-import { loadCollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affected-blocks';
+import { loadCollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affected-blocks-store';
 import { getSealIntegrityGateState } from '@/lib/watchdog/sealIntegrityGate';
 import { WATCHDOG_STATE_KEY, type KvWatchdogReport } from '@/lib/watchdog/kvHealthChecks';
 import { kvGet } from '@/lib/kv/store';

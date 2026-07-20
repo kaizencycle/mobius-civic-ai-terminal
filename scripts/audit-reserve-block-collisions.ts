@@ -15,8 +15,8 @@ import { analyzeReserveBlockCollisions } from '@/lib/dat/reserveBlockCollisions'
 import { resolveExportCycle } from '@/lib/dat/resolveExportCycle';
 import {
   buildCollisionAffectedBlockSnapshot,
-  saveCollisionAffectedBlockSnapshot,
 } from '@/lib/vault/collision-affected-blocks';
+import { saveCollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affected-blocks-store';
 import { listAllSeals } from '@/lib/vault-v2/store';
 
 config({ path: '.env.local' });
