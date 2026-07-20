@@ -4,6 +4,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Seal } from '@/lib/vault-v2/types';
+import { SENTINEL_AGENTS } from '@/lib/vault-v2/types';
 import { analyzeReserveBlockCollisions } from '@/lib/dat/reserveBlockCollisions';
 import {
   buildCollisionAffectedBlockSnapshot,
@@ -14,6 +15,17 @@ import { computeReserveBlockTruthSurface } from '@/lib/vault/reserve-block-truth
 import type { SealIntegrityGateState } from '@/lib/watchdog/sealIntegrityGate';
 
 function makeSeal(id: string, sequence: number, hash: string, cycle: string): Seal {
+  const attestations: Seal['attestations'] = {};
+  for (const agent of SENTINEL_AGENTS) {
+    attestations[agent] = {
+      agent,
+      signature: 'sig',
+      verdict: 'pass',
+      rationale: 'test',
+      gi_at_attestation: 0.8,
+      timestamp: '2026-07-01T00:00:00.000Z',
+    };
+  }
   return {
     seal_id: id,
     sequence,
@@ -21,17 +33,16 @@ function makeSeal(id: string, sequence: number, hash: string, cycle: string): Se
     cycle_at_seal: cycle,
     status: 'attested',
     sealed_at: '2026-07-01T00:00:00.000Z',
-    attestations: {
-      ATLAS: { signature: 'sig', attested_at: '2026-07-01T00:00:00.000Z' },
-      ZEUS: { signature: 'sig', attested_at: '2026-07-01T00:00:00.000Z' },
-      EVE: { signature: 'sig', attested_at: '2026-07-01T00:00:00.000Z' },
-      JADE: { signature: 'sig', attested_at: '2026-07-01T00:00:00.000Z' },
-      AUREA: { signature: 'sig', attested_at: '2026-07-01T00:00:00.000Z' },
-    },
-    mic_value: 50,
+    reserve: 50,
     gi_at_seal: 0.8,
+    mode_at_seal: 'green',
     source_entries: 1,
-    prev_hash: 'sha256:prev',
+    deposit_hashes: [],
+    prev_seal_hash: 'sha256:prev',
+    attestations,
+    fountain_status: 'pending',
+    fountain_emitted_at: null,
+    posture: null,
   };
 }
 
