@@ -1,0 +1,100 @@
+{
+  "timestamp": "2026-07-21T18:04:12.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-379",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gaia-usgs-water_elevated": "persistent",
+    "gaia-openaq_elevated": "persistent",
+    "daedalus-cloudflare-radar_low": "persistent",
+    "gaia-noaa-alerts_low": "persistent",
+    "themis-transparency-intl_critical": "transient",
+    "tripwire_active": "resolved",
+    "sustain_eligible_false": "resolved",
+    "gi_three_way_divergence": "transient",
+    "quorum_integrity_divergence": "resolved",
+    "atlas_integrity_divergence": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved completed_at=2026-07-21T04:31:25.567Z",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-21T18-03-41Z-atlas.json (latest)",
+      "result": "pass",
+      "detail": "gi=0.81 mode=green source=kv classification=STRESSED terminal_status=nominal; anomalies=[gaia-usgs-water elevated]; flags kv_keys_ok=false sustain_eligible=true tripwire_active=false micro_operator_cycle_divergence=true; micro_composite=0.902 micro_cycle=C-306; seed_result=200 OK (60s retry); degraded_agents=1 (GAIA). GI aligns with integrity-status layer."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.902 composite=0.902 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=0. Exact match to ATLAS micro_composite=0.902. gaia-usgs-water score=0.85 elevated (ATLAS anomaly confirmed). gaia-noaa-alerts score=0.6 low. gaia-openaq score=0.75 elevated. daedalus-cloudflare-radar score=0.7 low. themis-transparency-intl score=0.8 fallback — no longer flagged by ATLAS (transient). Operator cycle C-379 diverges from micro C-306."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv (not mock) degraded=true cycle=C-379 gi_age_seconds=36. Exact match to ATLAS gi=0.81. signals quality=0.77 freshness=1.0 stability=0.45 system=1.0. Micro overstates operator GI by +0.092."
+    },
+    {
+      "check": "gi_micro_operator_divergence",
+      "result": "warn",
+      "detail": "ATLAS/integrity gi=0.81 vs micro gi=0.902 (+0.092). Operator-facing GI layers agree; micro composite overstates by 9.2 points. Improved from 12:02Z three-way spread of 0.189."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent. kv_keys.ok=true and seed_result=200 OK but kv_keys_ok=false and kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-379 vs live micro cycle=C-306."
+    },
+    {
+      "check": "ATLAS anomaly: gaia-usgs-water",
+      "result": "warn",
+      "detail": "Persistent elevated. ATLAS severity=elevated; micro score=0.85 source=primary — confirmed present."
+    },
+    {
+      "check": "ATLAS anomaly: themis-transparency-intl",
+      "result": "pass",
+      "detail": "Transient. Was critical at 17:04Z sweep; absent from 18:03Z sweep. Micro still shows score=0.8 fallback but ATLAS no longer flags."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "pass",
+      "detail": "Resolved. ATLAS tripwire.active=false level=none. Was elevated (Hormuz) at 12:02Z pass. integrity stability=0.45 still suppressed."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "pass",
+      "detail": "Resolved. ATLAS sustain_eligible=true (was false at 06:03Z and 12:02Z passes)."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "pass",
+      "detail": "HTTP 200 quorum_status=achieved attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-379-cg7l2h canonical=true mirrored_to_kv=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "pass",
+      "detail": "quorum/state integrity.gi=0.81 mode=green terminal_status=nominal source=kv-live verified=false cycle=C-379 age_seconds=47. Aligns with ATLAS and integrity-status. Micro diverges by +0.092."
+    }
+  ],
+  "recommendation": "ATLAS and integrity-status GI aligned at 0.81 (green/nominal, kv source). Micro composite 0.902 overstates operator GI by +0.092 — use integrity-status for operator truth. kv_keys_ok=false flag contradiction persists despite successful seed. gaia-usgs-water elevated confirmed. THEMIS transparency critical anomaly resolved (transient). sustain_eligible=true, tripwire inactive. No EPICON candidates pending. Vault quorum achieved 5/5."
+}
