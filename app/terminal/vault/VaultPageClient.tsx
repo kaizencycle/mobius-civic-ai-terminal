@@ -5,6 +5,14 @@ import Link from 'next/link';
 import { AttestationStatus } from '@/components/vault/AttestationStatus';
 import { GIPerceptionFountainPanel } from '@/components/integrity/GIPerceptionFountainPanel';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { collisionAffectedSets } from '@/lib/vault/collision-affected-blocks';
+import type { CollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affected-blocks';
+import {
+  blockRowLabel,
+  blockStatusClass,
+  buildReserveBlockRows,
+  type BlockRow,
+} from '@/lib/vault/reserve-block-rows';
 
 type ReserveBlockSummary = {
   block_size: number;
@@ -76,6 +84,7 @@ type VaultPayload = {
     vault_audit_index_records: number;
     attested_records_examined: number;
     collision_pair_count: number | null;
+    collision_affected_blocks: CollisionAffectedBlockSnapshot | null;
     canonical_reserve_blocks: number | null;
     canonical_count_status: string;
     historical_era_breakdown: {
@@ -149,12 +158,6 @@ type ContributionsPayload = {
   };
 };
 
-type BlockRow = {
-  id: number;
-  amount: number;
-  status: 'attested' | 'immortalized' | 'quarantined audit' | 'legacy v1 parcel' | 'in progress';
-};
-
 function fallbackReserveBlock(data: VaultPayload): ReserveBlockSummary {
   const blockSize = data.reserve_block_size ?? data.activation_threshold ?? 50;
   const v1Balance = data.balance_reserve ?? 0;
@@ -176,48 +179,6 @@ function fallbackReserveBlock(data: VaultPayload): ReserveBlockSummary {
     label: data.reserve_block_label ?? `Block ${inProgressBlock} in progress — ${inProgress.toFixed(2)} / ${blockSize.toFixed(0)} MIC (${pct}%)`,
     canon: data.vault_canon ?? 'One Reserve Block equals one 50-unit reserve parcel.',
   };
-}
-
-function buildBlockRows(block: ReserveBlockSummary, latestImmortalized: boolean): BlockRow[] {
-  const maxCompleted = Math.max(block.audit_blocks, block.completed_blocks_v1, block.sealed_blocks);
-  const rows: BlockRow[] = [];
-  for (let i = 1; i <= maxCompleted; i += 1) {
-    const attested = i <= block.sealed_blocks;
-    const audited = i <= block.audit_blocks;
-    const isLatestAttested = attested && i === block.sealed_blocks;
-    rows.push({
-      id: i,
-      amount: block.block_size,
-      status: isLatestAttested && latestImmortalized
-        ? 'immortalized'
-        : attested
-          ? 'attested'
-          : audited
-            ? 'quarantined audit'
-            : 'legacy v1 parcel',
-    });
-  }
-  rows.push({ id: block.in_progress_block, amount: block.in_progress_balance, status: 'in progress' });
-  return rows;
-}
-
-function blockRowLabel(row: BlockRow): string {
-  return row.status === 'in progress' ? `Projected slot ${row.id}` : `Block ${row.id}`;
-}
-
-function blockStatusClass(status: BlockRow['status']): string {
-  switch (status) {
-    case 'immortalized':
-      return 'text-cyan-300';
-    case 'attested':
-      return 'text-emerald-300';
-    case 'quarantined audit':
-      return 'text-amber-300';
-    case 'in progress':
-      return 'text-cyan-300';
-    default:
-      return 'text-slate-400';
-  }
 }
 
 function eraStatusLabel(status: string): string {
@@ -281,6 +242,7 @@ function ReserveBlockTruthPanel({
             <div>Vault records indexed: <span className="text-violet-200">{vaultRecords}</span></div>
             <div>Attested records examined: <span className="text-emerald-300">{attested}</span></div>
             <div>Collision pairs detected: <span className="text-amber-300">{truth.collision_pair_count ?? '—'}</span></div>
+            <div>Contested block slots: <span className="text-amber-300">{truth.collision_affected_blocks?.affected_block_numbers.length ?? '—'}</span></div>
             <div>Canonical Reserve Blocks: <span className="text-amber-300">{truth.canonical_reserve_blocks ?? 'Reconciliation pending'}</span></div>
             <div>Latest canonical seal: <span className="text-slate-300">{truth.latest_canonical_seal_id ?? 'Unresolved'}</span></div>
             <div>Current accumulation: <span className="text-cyan-200">{truth.accumulator.in_progress_balance.toFixed(2)} / {truth.accumulator.block_size} MIC</span></div>
@@ -436,7 +398,15 @@ export default function VaultPageClient() {
   const truth = data.reserve_block_truth;
   const integrityHold = Boolean(truth?.integrity_gate.active ?? data.seal_integrity_gate?.active);
   const attestedExamined = truth?.attested_records_examined ?? truth?.attested_seals_examined ?? data.substrate_attestation_coverage?.examined ?? block.sealed_blocks;
-  const blockRows = buildBlockRows(block, Boolean(data.latest_block_immortalized));
+  const collisionSnapshot = truth?.collision_affected_blocks ?? null;
+  const collisionSets = collisionAffectedSets(collisionSnapshot);
+  const blockRows = buildReserveBlockRows({
+    block,
+    latestImmortalized: Boolean(data.latest_block_immortalized),
+    integrityHold,
+    collisionAffected: collisionSets?.affected,
+    threeWayBlocks: collisionSets?.threeWay,
+  });
   const auditOnlyBlocks = Math.max(0, block.audit_blocks - block.sealed_blocks);
   const quarantinedCount = data.seals_quarantined_count ?? 0;
   const legacyOnlyBlocks = Math.max(0, block.completed_blocks_v1 - block.audit_blocks);
@@ -531,6 +501,22 @@ export default function VaultPageClient() {
 
       <div className="mt-4 rounded border border-violet-500/25 bg-slate-950/70 p-4 font-mono text-xs">
         <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-violet-300/80">Reserve Block history</div>
+        {integrityHold ? (
+          <div className="mb-2 rounded border border-rose-500/25 bg-rose-500/5 px-2 py-1.5 text-[10px] text-rose-200/90">
+            Integrity hold — historical slots are <span className="text-violet-200">indexed</span> (KV record, canon pending).
+            {collisionSets ? (
+              <>
+                {' '}<span className="text-amber-200">{collisionSnapshot?.affected_block_numbers.length ?? 0} contested</span>
+                {collisionSnapshot?.three_way_blocks.length ? (
+                  <span className="text-orange-200"> · blocks {collisionSnapshot.three_way_blocks.join(', ')} three-way</span>
+                ) : null}
+                {' '}per collision audit.
+              </>
+            ) : (
+              <span className="text-slate-400"> Per-slot precision pending collision audit artifact on KV.</span>
+            )}
+          </div>
+        ) : null}
         <div className="space-y-1.5">
           {blockRows.map((row) => (
             <div key={`${row.id}-${row.status}`} className="flex items-center justify-between border-b border-slate-800/70 py-1 last:border-0">

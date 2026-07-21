@@ -8,6 +8,7 @@
  * Canon → Ledger → UI: UI must not derive canon from vault index cardinality.
  */
 
+import type { CollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affected-blocks';
 import type { AttestationCoverage } from '@/lib/vault/attestation-coverage';
 import type { ReserveBlockSummary } from '@/lib/vault/lane-status';
 import {
@@ -59,6 +60,8 @@ export type ReserveBlockTruthSurface = {
   vault_audit_index_records: number;
   attested_records_examined: number;
   collision_pair_count: number | null;
+  /** Read-only audit artifact; null when operator has not published affected-block set. */
+  collision_affected_blocks: CollisionAffectedBlockSnapshot | null;
   canonical_reserve_blocks: number | null;
   canonical_count_status: CanonicalCountStatus;
   /** @deprecated Use canonical_count_status — retained for one-cycle API compat. */
@@ -244,6 +247,7 @@ export function computeReserveBlockTruthSurface(args: {
   reserve_threshold_met: boolean;
   canonical_evidence?: CanonicalCountEvidence | null;
   deposit_activity: DepositActivityEvidence;
+  collision_affected_blocks?: CollisionAffectedBlockSnapshot | null;
 }): ReserveBlockTruthSurface {
   const gate = args.seal_integrity_gate;
   const sealing_suspended = gate.enabled && gate.active;
@@ -314,6 +318,7 @@ export function computeReserveBlockTruthSurface(args: {
     vault_audit_index_records: args.vault_audit_index_count,
     attested_records_examined: args.attestation_coverage.examined,
     collision_pair_count: args.collision_pair_count,
+    collision_affected_blocks: args.collision_affected_blocks ?? null,
     canonical_reserve_blocks,
     canonical_count_status,
     canonical_lineage_status: legacyLineageStatus(canonical_count_status),
