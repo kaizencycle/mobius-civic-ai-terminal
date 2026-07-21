@@ -1,0 +1,121 @@
+{
+  "timestamp": "2026-07-21T00:01:22.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-378",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "cached",
+  "anomaly_persistence": {
+    "GovTrack legislation feed": "persistent",
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gaia-usgs-water_failure": "transient",
+    "hermes-arxiv_failure": "resolved",
+    "tripwire_active": "resolved",
+    "gi_below_floor": "resolved",
+    "integrity_source_cached": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved completed_at=2026-07-20T06:02:23.998Z",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-20T23-03-23Z-atlas.json (latest)",
+      "result": "pass",
+      "detail": "gi=0.82 mode=green source=kv classification=STRESSED terminal_status=nominal; anomalies=[GovTrack legislation feed elevated/THEMIS]; flags kv_keys_ok=false sustain_eligible=true tripwire_active=false gi_below_floor=false integrity_source_cached=false; micro_composite=0.881 micro_cycle=C-306; seed_result=200 OK (60s retry); degraded_agents=1 (THEMIS). GI improved +0.19 from prior 18:01Z sweep (0.63)."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.885 composite=0.885 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=1. Close match to ATLAS micro_composite=0.881 (+0.004 drift). themis-govtrack score=0.85 primary. gaia-usgs-water score=0 source=error (new failure). hermes-arxiv score=0.9 recovered. gaia-openaq score=0.75 elevated. daedalus-cloudflare-radar score=0.7 low. Operator cycle C-378 diverges from micro C-306."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=cached (not mock) degraded=true cycle=C-378 gi_age_seconds=3469. Exact match to ATLAS gi=0.82. signals quality=0.77 freshness=0.6 stability=1.0 system=1.0. Micro overstates GI by +0.065 (expected composite gap)."
+    },
+    {
+      "check": "ATLAS anomaly: GovTrack legislation feed",
+      "result": "warn",
+      "detail": "Persistent. ATLAS flagged elevated/THEMIS. Live themis-govtrack score=0.85 source=primary — within nominal band but THEMIS agent composite 0.853 with 0 errors."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent. kv_keys.ok=true and seed_result=200 OK but kv_keys_ok=false and kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-378 vs live micro cycle=C-306."
+    },
+    {
+      "check": "ATLAS micro_composite vs live micro",
+      "result": "pass",
+      "detail": "ATLAS micro_composite=0.881 vs live micro composite=0.885 — +0.004 drift at verification time (within tolerance)."
+    },
+    {
+      "check": "gi_layer_alignment",
+      "result": "pass",
+      "detail": "ATLAS 0.82 kv/green vs integrity-status 0.82 cached/green vs quorum/state 0.82 live-compute/green — three-way GI alignment achieved. Micro 0.885 expected above GI composite."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "pass",
+      "detail": "Resolved. ATLAS sustain_eligible=true (was false in prior 18:01Z sweep)."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "pass",
+      "detail": "Resolved. ATLAS tripwire.active=false level=none — Hormuz tripwire cleared since prior sweep."
+    },
+    {
+      "check": "gi_below_floor",
+      "result": "pass",
+      "detail": "Resolved. ATLAS gi=0.82 gi_below_floor=false (was CRITICAL at 0.63 in prior sweep)."
+    },
+    {
+      "check": "gaia-usgs-water instrument",
+      "result": "warn",
+      "detail": "New transient failure. score=0 source=error primary failed (with retry) latencyMs=7053. Not present in prior ATLAS sweep."
+    },
+    {
+      "check": "hermes-arxiv instrument",
+      "result": "pass",
+      "detail": "Resolved. score=0.9 source=primary — recovered from error state in prior 18:01Z ZEUS sweep."
+    },
+    {
+      "check": "gaia-openaq instrument",
+      "result": "warn",
+      "detail": "Persistent elevated. score=0.75 source=primary — below nominal."
+    },
+    {
+      "check": "daedalus-cloudflare-radar instrument",
+      "result": "warn",
+      "detail": "Persistent low. score=0.7 source=primary — infrastructure status below nominal."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "pass",
+      "detail": "HTTP 200 quorum_status=achieved attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-378-hyry8c canonical=true mirrored_to_kv=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "pass",
+      "detail": "quorum/state integrity.gi=0.82 mode=green terminal_status=nominal source=live-compute verified=false cycle=C-378. Aligned with ATLAS and integrity-status. vault_block_state=candidate quorum_state=none in_progress_pct=100% latest_seal_id=null."
+    }
+  ],
+  "recommendation": "GI confirmed at 0.82 with three-way alignment (ATLAS/integrity/quorum). Monitor new gaia-usgs-water instrument failure. Reconcile persistent kv_keys_ok=false flag vs kv ok=true. GovTrack anomaly persistent but instrument within nominal band. No EPICON candidates pending. Vault quorum achieved 5/5."
+}
