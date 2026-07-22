@@ -1,0 +1,100 @@
+{
+  "timestamp": "2026-07-22T00:01:32.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-379",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok_false": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "sustain_eligible_false": "persistent",
+    "atlas_integrity_divergence": "persistent",
+    "gi_three_way_divergence": "persistent",
+    "gaia-noaa-alerts_error": "persistent",
+    "gaia-usgs-water_error": "persistent",
+    "gaia-openaq_elevated": "persistent",
+    "daedalus-cloudflare-radar_low": "persistent",
+    "atlas_mode_terminal_contradiction": "persistent",
+    "atlas_post_seed_gi_inflation": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved completed_at=2026-07-21T04:31:25.567Z",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-21T23-05-23Z-atlas.json (latest)",
+      "result": "warn",
+      "detail": "gi=0.91 mode=green source=kv gi_pre_seed=0.761 gi_post_seed=0.91 (+0.149 seed bump); classification=STRESSED terminal_status=stressed; anomalies=[]; kv_keys_ok=false sustain_eligible=false tripwire_active=true (elevated Hormuz); micro_composite=0.892 micro_cycle=C-306; seed_result=200 OK; degraded_agents=0. Green mode contradicts stressed terminal_status."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.865 composite=0.865 instrumentCount=40 cycle=C-306 cached=false fallbacksUsed=2 errors=2. GAIA errorCount=2: gaia-noaa-alerts score=0 source=error (primary and fallback both failed); gaia-usgs-water score=0 source=error (primary failed with retry). gaia-openaq score=0.75 elevated. daedalus-cloudflare-radar score=0.7 watch. Diverges from ATLAS micro_composite=0.892 by -0.027."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.74 mode=yellow terminal_status=stressed source=kv (not mock) degraded=true cycle=C-379 gi_age_seconds=63. signals quality=0.75 freshness=0.3 stability=1.0 information=0.3. ATLAS gi=0.91 exceeds integrity by +0.17 — largest divergence this cycle."
+    },
+    {
+      "check": "gi_three_way_divergence",
+      "result": "fail",
+      "detail": "ATLAS gi=0.91 vs integrity gi=0.74 vs micro gi=0.865 — spread 0.17. ATLAS post-seed inflation (0.761→0.91) not corroborated by live integrity-status. Operator-facing GI should use integrity-status (0.74 yellow/stressed), not ATLAS post-seed value."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent. kv_keys.ok=true and seed_result=200 OK but kv_keys_ok=false and kv_keys_all_ok=false in ATLAS flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-379 vs live micro cycle=C-306."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "warn",
+      "detail": "Persistent. ATLAS tripwire.active=true level=elevated (Hormuz Transit Fee Risk). Re-emerged after resolution at 18:04Z pass. integrity-status stability=1.0 — tripwire not reflected in operator GI signals layer."
+    },
+    {
+      "check": "ATLAS flag: sustain_eligible=false",
+      "result": "warn",
+      "detail": "Persistent. Re-emerged after resolution at 18:04Z pass (was true)."
+    },
+    {
+      "check": "GAIA instrument failures",
+      "result": "fail",
+      "detail": "gaia-noaa-alerts and gaia-usgs-water both score=0 source=error. Absent from ATLAS anomalies[] (empty array). GAIA agentComposite=0.704 errorCount=2."
+    },
+    {
+      "check": "ATLAS mode vs terminal_status contradiction",
+      "result": "warn",
+      "detail": "ATLAS reports mode=green with gi=0.91 but classification=STRESSED and terminal_status=stressed. Internal contradiction undermines GI trustworthiness."
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest (C-298 quorum registration)",
+      "result": "pass",
+      "detail": "HTTP 200 quorum_status=achieved attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-379-1cf4yo canonical=true mirrored_to_kv=true."
+    },
+    {
+      "check": "GET /api/quorum/state GI cross-check",
+      "result": "warn",
+      "detail": "quorum/state integrity.gi=0.74 mode=yellow terminal_status=stressed source=kv-live verified=false cycle=C-379. Aligns with integrity-status, not ATLAS gi=0.91."
+    }
+  ],
+  "recommendation": "GI disputed: ATLAS post-seed gi=0.91 not corroborated — use integrity-status gi=0.74 (yellow/stressed) as operator truth. Investigate ATLAS seed inflation (0.761→0.91). kv_keys_ok=false flag contradiction persists. GAIA NOAA/USGS instrument failures degrade micro but unflagged in ATLAS anomalies[]. Tripwire elevated (Hormuz) active; sustain_eligible=false. No EPICON candidates pending. Vault quorum achieved 5/5."
+}
