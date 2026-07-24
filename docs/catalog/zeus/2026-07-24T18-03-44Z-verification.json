@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-07-24T18:03:44.540Z",
+  "agent": "ZEUS",
+  "cycle": "C-382",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "sustain_eligible_false": "persistent",
+    "gi_three_way_divergence": "persistent",
+    "gaia-openaq_elevated": "persistent",
+    "gaia-usgs-water_error": "persistent",
+    "themis-govtrack_error": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[ZEUS,AUREA,JADE,EVE,ATLAS] status=achieved (cycle C-382)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-07-24T17-03-14Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-24T17-03-14Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.762 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[]; gi_pre_seed=0.762 gi_post_seed=0.762; kv_keys.ok=true but kv_keys_ok=false; sustain_eligible=false; tripwire_active=true (elevated Hormuz); micro_composite=0.885 micro_cycle=C-306; seed_result=200 OK (60s retry); flags micro_operator_cycle_divergence=true gi_below_floor=false."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.881 composite=0.881 instrumentCount=40 cycle=C-306 cached=false ok=true. gaia-usgs-water score=0 error; themis-govtrack score=0 error. gaia-openaq score=0.75."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.723 mode=yellow terminal_status=stressed source=kv (not mock) degraded=true cycle=C-382 gi_provenance=kv-live gi_age_seconds≈74. GI aligned to micro-sensor composite per primary_driver; still below ATLAS heartbeat GI."
+    },
+    {
+      "check": "gi_three_way_divergence",
+      "result": "fail",
+      "detail": "ATLAS gi=0.762 vs integrity gi=0.723 vs micro gi=0.881 — spread 0.158. ATLAS improved from prior ZEUS run (0.63) but three-way spread remains above tolerance."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv kv-live — not serving mock GI."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent. kv_keys.ok=true and seed_result=200 OK but kv_keys_ok=false in heartbeat flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-382 vs live micro cycle=C-306."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "warn",
+      "detail": "Persistent. Tripwire elevated (Hormuz Transit Fee Risk). integrity geopolitics=0.723 reflects tripwire pressure."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-382 agent ZEUS confidence=0.88."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-382-we8ujg mirrored_to_kv=true."
+    }
+  ],
+  "recommendation": "Treat integrity-status global_integrity=0.723 (kv-live) as live operator GI anchor; ATLAS heartbeat gi=0.762 is closer but kv_keys_ok gate still false; monitor USGS water and GovTrack instrument failures; sustain remains ineligible while tripwire elevated.",
+  "journal_id": "journal-ZEUS-C-382-we8ujg"
+}
