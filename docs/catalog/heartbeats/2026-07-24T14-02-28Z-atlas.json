@@ -1,0 +1,80 @@
+{
+  "timestamp": "2026-07-24T14:02:28.547Z",
+  "agent": "ATLAS",
+  "cycle": "C-382",
+  "gi": 0.82,
+  "gi_pre_seed": 0.82,
+  "gi_post_seed": 0.82,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "ArXiv new submissions",
+      "severity": "elevated",
+      "agent": "HERMES"
+    },
+    {
+      "label": "OpenLibrary API health",
+      "severity": "elevated",
+      "agent": "HERMES"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 4,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 2,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-07-24T14:03:20.110Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK (60s retry)",
+  "seed_notes": "Initial POST /api/admin/seed-kv timed out at 30s; retry at 60s succeeded.",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.867,
+  "micro_cycle": "C-306",
+  "degraded_agents": 1,
+  "degraded_agent_names": ["HERMES"],
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false,
+    "micro_operator_cycle_divergence": true
+  },
+  "last_journal_cycle": "C-382",
+  "current_cycle": "C-382",
+  "force_journal_cycle_mismatch": false,
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-07-24T14:02:22.093Z"
+  },
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-382-t1qa87",
+  "journal_ok": true,
+  "journal_canonical_status": true
+}
