@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-07-25T03:03:14Z",
+  "agent": "AUREA",
+  "cycle": "C-382",
+  "gi_final": 0.8,
+  "gi_mode": "green",
+  "gi_source": "kv",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.82
+  },
+  "overall_sentiment": 0.779,
+  "financial_score": 0.716,
+  "environ_score": 0.805,
+  "civic_score": 0.783,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.8. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL at 0.926. ZEUS verification status is disputed, and the heartbeat trend is flat. Forward signal: watch INFRASTR and GI convergence for confirmation or drift in the next cycle while the Hormuz tripwire stays elevated.",
+  "forward_signal": "Watch INFRASTR and GI convergence for confirmation or drift in the next cycle while the Hormuz tripwire stays elevated.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "flat",
+  "anomalies": [
+    "USGS water conditions [elevated]",
+    "ArXiv new submissions [elevated]",
+    "Congress.gov bill activity [elevated]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
