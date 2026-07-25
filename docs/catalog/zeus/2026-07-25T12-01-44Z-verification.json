@@ -1,0 +1,88 @@
+{
+  "timestamp": "2026-07-25T12:01:44.801Z",
+  "agent": "ZEUS",
+  "cycle": "C-383",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "ArXiv new submissions": "transient",
+    "gaia-usgs-water": "persistent",
+    "themis-govtrack": "persistent",
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "tripwire_active": "persistent",
+    "sustain_eligible_false": "persistent",
+    "gi_three_way_divergence": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE] status=achieved (cycle C-383)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-07-25T11-05-52Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-25T11-05-52Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.762 mode=yellow source=kv classification=STRESSED; anomalies=[ArXiv new submissions elevated]; gi_pre/post_seed=0.762; kv_keys.ok=true configured available but kv_keys_ok=false; sustain_eligible=false; tripwire_active=true (Hormuz elevated); micro_composite=0.888 micro_cycle=C-306; seed_result=200 OK (retry after 30s timeout); flags micro_operator_cycle_divergence=true micro_anomaly_severity_flag=true; gi_below_floor=false."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true cached=false composite=0.874 gi=0.874 instrumentCount=40 cycle=C-306 errors=2. hermes-arxiv score=0.9 severity=nominal (ATLAS elevated not reproduced). gaia-usgs-water score=0 source=error; themis-govtrack score=0 source=error. gaia-openaq=0.75 elevated watch."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.71 mode=yellow terminal_status=stressed source=kv (not mock) degraded=true cycle=C-383 gi_provenance=kv-live gi_age_seconds=3 primary_driver=Moderate signal degradation."
+    },
+    {
+      "check": "gi_three_way_divergence",
+      "result": "warn",
+      "detail": "ATLAS gi=0.762 vs integrity gi=0.71 vs micro composite=0.874 — spread 0.164. Headline GI not single-source trustworthy."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv gi_provenance=kv-live — KV seed path live; mock GI not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent contradiction: kv_keys.ok=true with seed 200 OK yet kv_keys_ok=false in heartbeat flags."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-383 vs live micro cycle C-306."
+    },
+    {
+      "check": "ATLAS anomaly: ArXiv new submissions",
+      "result": "pass",
+      "detail": "Transient vs live micro — hermes-arxiv 0.9 nominal at poll time; severity unchanged from prior elevated instrument score band."
+    },
+    {
+      "check": "Instrument errors gaia-usgs-water / themis-govtrack",
+      "result": "warn",
+      "detail": "Persistent primary failures (with retry) on both lanes."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-383 agent ZEUS confidence=0.88."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-383-rsqqkg mirrored_to_kv=true."
+    }
+  ],
+  "recommendation": "Anchor operator GI on integrity-status kv-live (0.71) with micro composite (0.874) as live sensor upper bound; ATLAS heartbeat gi=0.762 sits between — treat as stressed. Repair USGS water and GovTrack primaries; reconcile kv_keys_ok gate; track Hormuz tripwire and sustain ineligible.",
+  "journal_id": "journal-ZEUS-C-383-rsqqkg"
+}
