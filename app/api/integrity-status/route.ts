@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
-import { resolveEchoMicProvisionalFields } from '@/lib/integrity/economyMetrics';
 import { resolveGiChain } from '@/lib/gi/resolveGiChain';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { kvGet, kvSet } from '@/lib/kv/store';
@@ -72,9 +71,6 @@ export async function GET() {
   };
   const renderGicUrl = process.env.RENDER_GIC_URL;
 
-  // Resolve MIC totals once for all branches (Fix 4: async KV fallback)
-  const mic = await resolveEchoMicProvisionalFields();
-
   async function cacheAndReturn(result: Record<string, unknown>): Promise<NextResponse> {
     // Only cache non-degraded results — a transient Render GIC 5xx/timeout should not
     // be served as a 60s cache HIT to all clients after the upstream recovers.
@@ -89,7 +85,6 @@ export async function GET() {
       ok: true as const,
       degraded: true,
       ...mergedPayload,
-      ...mic,
       authority: buildAuthority(payload, false, false),
     });
   }
@@ -115,7 +110,6 @@ export async function GET() {
         ok: true as const,
         degraded: true,
         ...mergedPayload,
-        ...mic,
         authority: buildAuthority(payload, true, false),
       });
     }
@@ -137,7 +131,6 @@ export async function GET() {
     return cacheAndReturn({
       ok: true as const,
       ...mergedPayload,
-      ...mic,
       global_integrity: computedGi,
       raw_integrity: null,
       gi_floored: false,
@@ -153,7 +146,6 @@ export async function GET() {
       ok: true as const,
       degraded: true,
       ...mergedPayload,
-      ...mic,
       authority: buildAuthority(payload, true, false),
     });
   }

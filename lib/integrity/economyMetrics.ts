@@ -1,15 +1,27 @@
 /**
- * C-384 PR-4 — live MIC supply + MII baseline for integrity surfaces (no lib/mock fixtures).
+ * C-384 PR-4 — live MIC/MII metrics for integrity surfaces (no lib/mock fixtures).
+ *
+ * `mic_supply` = attested circulation supply (unavailable until a mint/seal source is wired).
+ * `totalMicProvisional` = ECHO reward accounting only (not supply).
  */
 
+import { currentCycleId } from '@/lib/eve/cycle-engine';
+import type { CycleIntegritySummary } from '@/lib/echo/integrity-engine';
 import { getEchoIntegrity } from '@/lib/echo/store';
 import { readMiiFeed } from '@/lib/kv/mii';
 import { kvGet } from '@/lib/kv/store';
 
 export type EconomyMetricSource = 'echo' | 'kv' | 'mii-feed' | 'unavailable';
 
+export type MicCycleTotalsKv = {
+  cycle?: string;
+  totalMicProvisional?: number;
+  totalMicMinted?: number;
+  updatedAt?: string;
+};
+
 export type MicSupplyResolved = {
-  mic_supply: number;
+  mic_supply: number | null;
   mic_supply_source: EconomyMetricSource;
 };
 
@@ -18,31 +30,62 @@ export type MiiBaselineResolved = {
   mii_baseline_source: EconomyMetricSource;
 };
 
-/** Provisional MIC totals: ECHO in-memory first, then KV `mic:cycle:totals`. */
-export async function resolveMicSupply(): Promise<MicSupplyResolved> {
-  const i = getEchoIntegrity();
-  const inMemory =
-    i && typeof i.totalMicProvisional === 'number' && i.totalMicProvisional > 0
-      ? i.totalMicProvisional
-      : i && typeof i.totalMicMinted === 'number' && i.totalMicMinted > 0
-        ? i.totalMicMinted
-        : 0;
+export type EchoMicProvisionalResolved = {
+  totalMicProvisional: number | null;
+  totalMicMinted: number | null;
+  mic_provisional_source: EconomyMetricSource;
+};
 
-  if (inMemory > 0) {
-    return { mic_supply: inMemory, mic_supply_source: 'echo' };
-  }
+/** Attested circulation MIC — not provisional ECHO rewards (see integrity-engine.ts). */
+export async function resolveMicSupply(): Promise<MicSupplyResolved> {
+  return { mic_supply: null, mic_supply_source: 'unavailable' };
+}
+
+export function provisionalFromEchoIntegrity(
+  integrity: CycleIntegritySummary | null,
+  cycleId: string,
+): EchoMicProvisionalResolved | null {
+  if (!integrity || integrity.cycleId !== cycleId) return null;
+  const v = integrity.totalMicProvisional ?? integrity.totalMicMinted ?? 0;
+  return {
+    totalMicProvisional: v,
+    totalMicMinted: integrity.totalMicMinted ?? v,
+    mic_provisional_source: 'echo',
+  };
+}
+
+export function provisionalFromKvTotals(
+  kv: MicCycleTotalsKv | null | undefined,
+  cycleId: string,
+): EchoMicProvisionalResolved | null {
+  if (!kv || kv.cycle !== cycleId) return null;
+  const v = kv.totalMicProvisional ?? kv.totalMicMinted ?? 0;
+  return {
+    totalMicProvisional: v,
+    totalMicMinted: kv.totalMicMinted ?? v,
+    mic_provisional_source: 'kv',
+  };
+}
+
+/** Provisional MIC reward totals for the current cycle only. */
+export async function resolveEchoMicProvisionalFields(): Promise<EchoMicProvisionalResolved> {
+  const cycleId = currentCycleId();
+  const fromEcho = provisionalFromEchoIntegrity(getEchoIntegrity(), cycleId);
+  if (fromEcho) return fromEcho;
 
   try {
-    const kv = await kvGet<{ totalMicProvisional?: number; totalMicMinted?: number }>('mic:cycle:totals');
-    const v = kv?.totalMicProvisional ?? kv?.totalMicMinted ?? 0;
-    if (v > 0) {
-      return { mic_supply: v, mic_supply_source: 'kv' };
-    }
+    const kv = await kvGet<MicCycleTotalsKv>('mic:cycle:totals');
+    const fromKv = provisionalFromKvTotals(kv, cycleId);
+    if (fromKv) return fromKv;
   } catch {
     // fall through
   }
 
-  return { mic_supply: 0, mic_supply_source: 'unavailable' };
+  return {
+    totalMicProvisional: null,
+    totalMicMinted: null,
+    mic_provisional_source: 'unavailable',
+  };
 }
 
 /** Mean of each agent's latest MII in the rolling feed; null when feed is empty. */
@@ -66,16 +109,21 @@ export async function resolveMiiBaseline(): Promise<MiiBaselineResolved> {
   }
 }
 
-export async function resolveIntegrityEconomyMetrics(): Promise<MicSupplyResolved & MiiBaselineResolved> {
-  const [mic, mii] = await Promise.all([resolveMicSupply(), resolveMiiBaseline()]);
-  return { ...mic, ...mii };
+export type IntegrityEconomySnapshot = MicSupplyResolved &
+  MiiBaselineResolved &
+  EchoMicProvisionalResolved;
+
+/** Single read snapshot for buildStatus + integrity-status (no split MIC fields). */
+export async function resolveIntegrityEconomySnapshot(): Promise<IntegrityEconomySnapshot> {
+  const [micSupply, mii, provisional] = await Promise.all([
+    resolveMicSupply(),
+    resolveMiiBaseline(),
+    resolveEchoMicProvisionalFields(),
+  ]);
+  return { ...micSupply, ...mii, ...provisional };
 }
 
-/** Same numeric fields as integrity-status MIC spread (shared with routes). */
-export async function resolveEchoMicProvisionalFields(): Promise<{
-  totalMicProvisional: number;
-  totalMicMinted: number;
-}> {
-  const { mic_supply } = await resolveMicSupply();
-  return { totalMicProvisional: mic_supply, totalMicMinted: mic_supply };
+/** @deprecated use resolveIntegrityEconomySnapshot */
+export async function resolveIntegrityEconomyMetrics(): Promise<IntegrityEconomySnapshot> {
+  return resolveIntegrityEconomySnapshot();
 }

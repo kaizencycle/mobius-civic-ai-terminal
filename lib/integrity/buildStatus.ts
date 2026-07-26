@@ -8,7 +8,7 @@ import { getGiMode } from '@/lib/gi/mode';
 import type { GIMode } from '@/lib/gi/mode';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getEchoEpicon } from '@/lib/echo/store';
-import { resolveIntegrityEconomyMetrics } from '@/lib/integrity/economyMetrics';
+import { resolveIntegrityEconomySnapshot } from '@/lib/integrity/economyMetrics';
 import { getHeartbeat } from '@/lib/runtime/heartbeat';
 import { getStalenessStatus } from '@/lib/runtime/staleness';
 import { scoreBatch } from '@/lib/echo/signal-engine';
@@ -57,8 +57,11 @@ export type IntegrityPayload = {
   mode: GIMode;
   mii_baseline: number | null;
   mii_baseline_source: string;
-  mic_supply: number;
+  mic_supply: number | null;
   mic_supply_source: string;
+  totalMicProvisional: number | null;
+  totalMicMinted: number | null;
+  mic_provisional_source: string;
   terminal_status: 'nominal' | 'stressed' | 'critical';
   primary_driver: string;
   summary: string;
@@ -75,7 +78,7 @@ export type IntegrityPayload = {
  *   2. local computation — fallback when KV is unreachable or GI_STATE key is missing/stale
  */
 export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
-  const economy = await resolveIntegrityEconomyMetrics();
+  const economy = await resolveIntegrityEconomySnapshot();
 
   // 1. Primary: read from KV when available
   if (isRedisAvailable()) {
@@ -116,6 +119,9 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
         mii_baseline_source: economy.mii_baseline_source,
         mic_supply: economy.mic_supply,
         mic_supply_source: economy.mic_supply_source,
+        totalMicProvisional: economy.totalMicProvisional,
+        totalMicMinted: economy.totalMicMinted,
+        mic_provisional_source: economy.mic_provisional_source,
         terminal_status: parseTerminalStatus(row.terminal_status)!,
         primary_driver:
           source === 'kv_carry_forward'
@@ -192,6 +198,9 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
     mii_baseline_source: economy.mii_baseline_source,
     mic_supply: economy.mic_supply,
     mic_supply_source: economy.mic_supply_source,
+    totalMicProvisional: economy.totalMicProvisional,
+    totalMicMinted: economy.totalMicMinted,
+    mic_provisional_source: economy.mic_provisional_source,
     terminal_status: computed.terminal_status,
     primary_driver: driver,
     summary: computed.summary,
