@@ -6,7 +6,11 @@ import assert from 'node:assert/strict';
 import { computeGI } from '../../lib/gi/compute.js';
 import { GI_MERGE_GATE_MINIMUM } from '../../lib/gi/gatePolicy.js';
 import { GI_FLOOR } from '../../lib/gi/disclosure.js';
-import { resolveGiForGate } from '../../scripts/ci/evaluate-gi-gate.mts';
+import {
+  mergeGateFailureMessage,
+  resolveGiForGate,
+  runMergeGateSelfTest,
+} from '../../scripts/ci/gi-gate-lib.mts';
 
 describe('GI merge gate (C-384 PR-3)', () => {
   it('merge minimum is tied to GI_FLOOR until R-1', () => {
@@ -37,8 +41,12 @@ describe('GI merge gate (C-384 PR-3)', () => {
     assert.equal(low.gi_floored, true);
   });
 
-  it('sub-minimum synthetic GI is rejected by threshold math', () => {
-    const synthetic = GI_MERGE_GATE_MINIMUM - 0.01;
-    assert.ok(synthetic < GI_MERGE_GATE_MINIMUM);
+  it('mergeGateFailureMessage encodes pass and fail', () => {
+    assert.ok(mergeGateFailureMessage(GI_MERGE_GATE_MINIMUM - 0.01, GI_MERGE_GATE_MINIMUM));
+    assert.equal(mergeGateFailureMessage(GI_MERGE_GATE_MINIMUM, GI_MERGE_GATE_MINIMUM), null);
+  });
+
+  it('runMergeGateSelfTest exercises failure and pass branches', () => {
+    runMergeGateSelfTest(GI_MERGE_GATE_MINIMUM);
   });
 });
