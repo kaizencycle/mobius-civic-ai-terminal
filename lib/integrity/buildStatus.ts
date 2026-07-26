@@ -8,7 +8,7 @@ import { getGiMode } from '@/lib/gi/mode';
 import type { GIMode } from '@/lib/gi/mode';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getEchoEpicon } from '@/lib/echo/store';
-import { integrityStatus } from '@/lib/mock/integrityStatus';
+import { resolveIntegrityEconomyMetrics } from '@/lib/integrity/economyMetrics';
 import { getHeartbeat } from '@/lib/runtime/heartbeat';
 import { getStalenessStatus } from '@/lib/runtime/staleness';
 import { scoreBatch } from '@/lib/echo/signal-engine';
@@ -55,8 +55,10 @@ export type IntegrityPayload = {
   raw_integrity: number | null;
   gi_floored: boolean;
   mode: GIMode;
-  mii_baseline: number;
+  mii_baseline: number | null;
+  mii_baseline_source: string;
   mic_supply: number;
+  mic_supply_source: string;
   terminal_status: 'nominal' | 'stressed' | 'critical';
   primary_driver: string;
   summary: string;
@@ -73,6 +75,8 @@ export type IntegrityPayload = {
  *   2. local computation — fallback when KV is unreachable or GI_STATE key is missing/stale
  */
 export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
+  const economy = await resolveIntegrityEconomyMetrics();
+
   // 1. Primary: read from KV when available
   if (isRedisAvailable()) {
     const cached = await loadGIState();
@@ -108,8 +112,10 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
         raw_integrity: disc.raw_integrity,
         gi_floored: disc.gi_floored,
         mode: parseGIMode(row.mode)!,
-        mii_baseline: integrityStatus.mii_baseline,
-        mic_supply: integrityStatus.mic_supply,
+        mii_baseline: economy.mii_baseline,
+        mii_baseline_source: economy.mii_baseline_source,
+        mic_supply: economy.mic_supply,
+        mic_supply_source: economy.mic_supply_source,
         terminal_status: parseTerminalStatus(row.terminal_status)!,
         primary_driver:
           source === 'kv_carry_forward'
@@ -182,8 +188,10 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
     raw_integrity: computed.raw_integrity,
     gi_floored: computed.gi_floored,
     mode: computed.mode,
-    mii_baseline: integrityStatus.mii_baseline,
-    mic_supply: integrityStatus.mic_supply,
+    mii_baseline: economy.mii_baseline,
+    mii_baseline_source: economy.mii_baseline_source,
+    mic_supply: economy.mic_supply,
+    mic_supply_source: economy.mic_supply_source,
     terminal_status: computed.terminal_status,
     primary_driver: driver,
     summary: computed.summary,
@@ -199,9 +207,19 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
   };
 }
 
-export async function getLiveIntegritySnapshot(): Promise<{ global_integrity: number; mii_baseline: number }> {
+export async function getLiveIntegritySnapshot(): Promise<{
+  global_integrity: number;
+  mii_baseline: number | null;
+  gi_source: IntegrityPayload['source'];
+  mii_source: string;
+}> {
   const p = await computeIntegrityPayload();
-  return { global_integrity: p.global_integrity, mii_baseline: p.mii_baseline };
+  return {
+    global_integrity: p.global_integrity,
+    mii_baseline: p.mii_baseline,
+    gi_source: p.source,
+    mii_source: p.mii_baseline_source,
+  };
 }
 
 /**

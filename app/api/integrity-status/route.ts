@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
-import { getEchoIntegrity } from '@/lib/echo/store';
+import { resolveEchoMicProvisionalFields } from '@/lib/integrity/economyMetrics';
 import { resolveGiChain } from '@/lib/gi/resolveGiChain';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { kvGet, kvSet } from '@/lib/kv/store';
@@ -12,27 +12,6 @@ const INTEGRITY_CACHE_KEY = 'cache:integrity-status';
 const INTEGRITY_CACHE_TTL = 60;
 
 export const dynamic = 'force-dynamic';
-
-// Fix 4: read MIC totals from KV when in-memory ECHO store is empty (cold start)
-async function echoMicProvisional(): Promise<{ totalMicProvisional: number; totalMicMinted: number }> {
-  const i = getEchoIntegrity();
-  const inMemory =
-    i && typeof i.totalMicProvisional === 'number' && i.totalMicProvisional > 0
-      ? i.totalMicProvisional
-      : i && typeof i.totalMicMinted === 'number' && i.totalMicMinted > 0
-        ? i.totalMicMinted
-        : 0;
-
-  if (inMemory > 0) return { totalMicProvisional: inMemory, totalMicMinted: inMemory };
-
-  try {
-    const kv = await kvGet<{ totalMicProvisional?: number; totalMicMinted?: number }>('mic:cycle:totals');
-    const v = kv?.totalMicProvisional ?? kv?.totalMicMinted ?? 0;
-    return { totalMicProvisional: v, totalMicMinted: v };
-  } catch {
-    return { totalMicProvisional: 0, totalMicMinted: 0 };
-  }
-}
 
 function buildAuthority(payload: Awaited<ReturnType<typeof computeIntegrityPayload>>, _renderEnabled: boolean, renderUsed: boolean) {
   const note =
@@ -94,7 +73,7 @@ export async function GET() {
   const renderGicUrl = process.env.RENDER_GIC_URL;
 
   // Resolve MIC totals once for all branches (Fix 4: async KV fallback)
-  const mic = await echoMicProvisional();
+  const mic = await resolveEchoMicProvisionalFields();
 
   async function cacheAndReturn(result: Record<string, unknown>): Promise<NextResponse> {
     // Only cache non-degraded results — a transient Render GIC 5xx/timeout should not
