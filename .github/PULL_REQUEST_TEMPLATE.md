@@ -8,7 +8,8 @@
 
 - **Cycle:** C-
 - **Type:** `fix` | `feat` | `chore` | `docs`
-- **Primary area:** `journal` | `epicon` | `signals` | `echo` | `ledger` | `agents` | `ui` | `infra` | `docs`
+- **Primary area (terminal):** `journal` | `epicon` | `signals` | `echo` | `ledger` | `agents` | `ui` | `infra` | `docs`
+- **EPICON scope (§3 — Intent Gate):** `docs` | `ci` | `core` | `infra` | `sentinels` | `labs` | `specs` — map terminal areas to these (e.g. `app/` / `lib/` → `core`, `.github/` → `ci`, `docs/epicon/` → `specs`)
 - **Files changed:** (list every file modified)
 - **Files deliberately NOT changed:** (list files in the same area you intentionally left alone)
 
@@ -31,35 +32,32 @@
 
 ---
 
-## 3. EPICON Intent
+## 3. EPICON Intent (Intent Publication Gate)
 
-```text
-epicon_id: EPICON_C-[CYCLE]_[area]_[short-description]
-scope: [area]
+The **Intent Publication Gate** (`epicon-guard.yml`) parses **only** fenced blocks labeled `intent` — not `text`, `markdown`, or prose. Fill every field below; `tests/fixtures/pr-template-intent-pass.md` is the CI golden example.
+
+**`epicon_id` format:** `EPICON_C-<cycle>_<scope>_<slug>_v1` (slug lowercase, `_v1` suffix required).
+
+```intent
+epicon_id: EPICON_C-[CYCLE]_[scope]_[short-slug]_v1
+ledger_id: kaizencycle
+scope: [docs|ci|core|infra|sentinels|labs|specs]
 mode: normal
-issued_at: [ISO timestamp]
+issued_at: [ISO-8601 UTC]
+expires_at: [ISO-8601 UTC, after issued_at]
 
 justification:
-  PROBLEM:
-    [What is broken or missing? Be specific. Include snapshot lane state or error text.]
+  VALUES INVOKED: [Mobius values this change invokes — e.g. Metric Humility, custodianship]
+  REASONING: [What is broken or missing, why now, what you will change — cite snapshot lanes or errors when relevant]
+  ANCHORS:
+    - [path or doc — at least two independent anchors]
+    - [path or doc]
+  BOUNDARIES: [What this PR does NOT touch; locked behaviors preserved]
+  COUNTERFACTUAL: [What would falsify this approach or force revert]
 
-  CONTEXT:
-    [Why does this matter now? Reference CURRENT_CYCLE.md if relevant.]
-
-  DECISION:
-    [What exactly is being changed and why this approach over alternatives.]
-
-  BOUNDARIES:
-    [What this PR does NOT touch. Be explicit about locked behaviors preserved.]
-
-  TRADEOFFS:
-    - Removed: [anything deleted or disabled]
-    - Kept: [locked behaviors confirmed preserved]
-    - Risk: [what could go wrong]
-
-  COUNTERFACTUALS:
-    - If [condition], then [corrective action]
-    - If [condition], then [corrective action]
+counterfactuals:
+  - If [condition], then [corrective action]
+  - If [condition], then [corrective action]
 ```
 
 ---
@@ -153,7 +151,7 @@ This PR was reviewed against the following stop conditions before submission:
 ## 9. Final Checklist
 
 - [ ] Risk tier correctly assessed
-- [ ] EPICON intent block completed with BOUNDARIES field
+- [ ] EPICON `intent` block completed (I6 keys + `counterfactuals` list; validates against `kaizencycle/epicon@v1`)
 - [ ] Locked behavior audit completed (all boxes checked or exceptions documented)
 - [ ] Rollback plan provided
 - [ ] I have read AGENTS.md, BUILD.md, and CURRENT_CYCLE.md before starting this PR
