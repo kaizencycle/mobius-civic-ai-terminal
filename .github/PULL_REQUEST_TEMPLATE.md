@@ -151,7 +151,7 @@ This PR was reviewed against the following stop conditions before submission:
 ## 9. Final Checklist
 
 - [ ] Risk tier correctly assessed
-- [ ] EPICON `intent` block completed (I6 keys + `counterfactuals` list; validates against `kaizencycle/epicon@v1`)
+- [ ] EPICON `intent` block completed (I6 keys + `counterfactuals` list; validates against pinned `kaizencycle/epicon` Guard)
 - [ ] Locked behavior audit completed (all boxes checked or exceptions documented)
 - [ ] Rollback plan provided
 - [ ] I have read AGENTS.md, BUILD.md, and CURRENT_CYCLE.md before starting this PR

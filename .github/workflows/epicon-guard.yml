@@ -30,6 +30,6 @@ jobs:
             echo "No base policy on ${base_sha}; Guard uses built-in deny-by-default registry"
           fi
 
-      - uses: kaizencycle/epicon@v1
+      - uses: kaizencycle/epicon@8af925208733aaf9668aaedc15bf2a65aab47f21
         with:
           mode: enforce
