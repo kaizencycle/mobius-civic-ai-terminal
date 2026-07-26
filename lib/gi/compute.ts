@@ -1,7 +1,7 @@
 import { getGiMode, type GIMode } from './mode';
+import { GI_FLOOR, disclosureFromComputed } from './disclosure';
 
 // C-305 OPT-08: floor prevents surfacing 0.000 to operator during degraded boot
-const GI_FLOOR = 0.60;
 
 type GIInput = {
   zeusScores: number[];
@@ -21,6 +21,7 @@ function avg(values: number[]) {
 export function computeGI(input: GIInput): {
   global_integrity: number;
   raw_integrity: number;
+  gi_floored: boolean;
   degraded: boolean;
   mode: GIMode;
   terminal_status: 'nominal' | 'stressed' | 'critical';
@@ -65,9 +66,10 @@ export function computeGI(input: GIInput): {
     0.20 * system;
 
   const degraded = raw_integrity < GI_FLOOR;
-  const global_integrity = degraded ? GI_FLOOR : raw_integrity;
+  const globalPublished = degraded ? GI_FLOOR : raw_integrity;
+  const disclosure = disclosureFromComputed(globalPublished, raw_integrity);
 
-  const mode = getGiMode(global_integrity);
+  const mode = getGiMode(disclosure.global_integrity);
 
   const terminal_status =
     mode === 'green' ? 'nominal' :
@@ -97,8 +99,9 @@ export function computeGI(input: GIInput): {
   }
 
   return {
-    global_integrity: Number(global_integrity.toFixed(2)),
-    raw_integrity: Number(raw_integrity.toFixed(2)),
+    global_integrity: disclosure.global_integrity,
+    raw_integrity: disclosure.raw_integrity!,
+    gi_floored: disclosure.gi_floored,
     degraded,
     mode,
     terminal_status,

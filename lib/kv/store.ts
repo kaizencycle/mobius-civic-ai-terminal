@@ -585,6 +585,9 @@ export async function loadSignalSnapshot(): Promise<SignalSnapshot | null> {
 
 export type GIState = {
   global_integrity: number;
+  /** Pre-floor GI when persisted (C-384); absent on legacy rows. */
+  raw_integrity?: number;
+  gi_floored?: boolean;
   mode: string;
   terminal_status: string;
   primary_driver: string;
@@ -630,8 +633,13 @@ function giStateFromGithubFederation(raw: unknown): GIState | null {
     system: typeof sig?.system === 'number' ? sig.system : 0.5,
   };
   const gws = o.gi_write_source;
+  const rawGi =
+    typeof o.raw_integrity === 'number' && Number.isFinite(o.raw_integrity) ? o.raw_integrity : undefined;
+  const gi_floored = typeof o.gi_floored === 'boolean' ? o.gi_floored : undefined;
   return {
     global_integrity: gi,
+    ...(rawGi !== undefined ? { raw_integrity: rawGi } : {}),
+    ...(gi_floored !== undefined ? { gi_floored } : {}),
     mode,
     terminal_status,
     primary_driver,

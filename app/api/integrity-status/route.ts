@@ -75,11 +75,16 @@ export async function GET() {
     ...(chain.gi !== null
       ? {
           global_integrity: chain.gi,
+          raw_integrity: chain.raw_integrity,
+          gi_floored: chain.gi_floored,
           mode: (chain.mode as typeof payload.mode) ?? payload.mode,
           terminal_status: (chain.terminal_status as typeof payload.terminal_status) ?? payload.terminal_status,
           timestamp: chain.timestamp ?? payload.timestamp,
         }
-      : {}),
+      : {
+          raw_integrity: payload.raw_integrity,
+          gi_floored: payload.gi_floored,
+        }),
     gi_provenance: chain.source,
     // gi_verified omitted from public surface — verification state is operator-only
     gi_degraded: chain.degraded,
@@ -155,6 +160,8 @@ export async function GET() {
       ...mergedPayload,
       ...mic,
       global_integrity: computedGi,
+      raw_integrity: null,
+      gi_floored: false,
       mode: remote.mode ?? mergedPayload.mode,
       summary: remote.summary ?? mergedPayload.summary,
       source: 'gic-indexer',

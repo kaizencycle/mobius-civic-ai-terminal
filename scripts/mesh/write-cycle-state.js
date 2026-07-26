@@ -150,7 +150,16 @@ const gapRawVsCold =
 const giReadings = {
   snapshot_lite:
     typeof snap.gi === 'number' && Number.isFinite(snap.gi)
-      ? { value: snap.gi, field: 'gi', source: 'snapshot-lite' }
+      ? {
+          value: snap.gi,
+          field: 'gi',
+          source: 'snapshot-lite',
+          raw_integrity:
+            typeof snap.raw_integrity === 'number' && Number.isFinite(snap.raw_integrity)
+              ? snap.raw_integrity
+              : null,
+          gi_floored: Boolean(snap.gi_floored),
+        }
       : null,
   memory_mode:
     memoryMode?.gi_value != null
@@ -173,6 +182,9 @@ const out = {
   as_of: new Date().toISOString(),
   fetched_at: new Date().toISOString(),
   gi: typeof snap.gi === 'number' && Number.isFinite(snap.gi) ? snap.gi : null,
+  raw_integrity:
+    typeof snap.raw_integrity === 'number' && Number.isFinite(snap.raw_integrity) ? snap.raw_integrity : null,
+  gi_floored: Boolean(snap.gi_floored),
   mode: typeof snap.mode === 'string' ? snap.mode : null,
   degraded: Boolean(snap.degraded),
   gi_provenance: typeof snap.gi_provenance === 'string' ? snap.gi_provenance : null,

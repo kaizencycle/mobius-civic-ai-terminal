@@ -155,6 +155,8 @@ export async function GET(req: NextRequest) {
       console.error('[terminal/snapshot-lite] GI resolve failed:', error);
       giResolved = {
         gi: null,
+        raw_integrity: null,
+        gi_floored: false,
         mode: 'yellow',
         source: 'null',
         gi_provenance: 'unknown',
@@ -224,6 +226,8 @@ export async function GET(req: NextRequest) {
     integrity: {
       ok: giResolved.gi !== null,
       gi: giResolved.gi ?? gi?.global_integrity ?? null,
+      raw_integrity: giResolved.raw_integrity,
+      gi_floored: giResolved.gi_floored,
       mode: (giResolved.mode as string | null) ?? gi?.mode ?? null,
       terminal_status: giResolved.terminal_status ?? gi?.terminal_status ?? null,
       source:
@@ -337,6 +341,8 @@ export async function GET(req: NextRequest) {
           environment: process.env.VERCEL_ENV ?? null,
         },
         gi: giResolved.gi ?? gi?.global_integrity ?? null,
+        raw_integrity: giResolved.raw_integrity,
+        gi_floored: giResolved.gi_floored,
         mode: modeStr,
         gi_source:
           giResolved.source === 'kv' ||
@@ -393,6 +399,8 @@ export async function GET(req: NextRequest) {
           environment: process.env.VERCEL_ENV ?? null,
         },
         gi: null,
+        raw_integrity: null,
+        gi_floored: false,
         mode: 'yellow',
         gi_source: 'null',
         gi_provenance: null,
@@ -410,6 +418,8 @@ export async function GET(req: NextRequest) {
           integrity: {
             ok: false,
             gi: null,
+            raw_integrity: null,
+            gi_floored: false,
             mode: null,
             terminal_status: 'stressed',
             source: 'null',
