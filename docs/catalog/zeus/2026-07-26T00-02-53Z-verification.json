@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-07-26T00:02:53.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-383",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "sustain_eligible_false": "persistent",
+    "tripwire_active": "persistent",
+    "gi_three_way_divergence": "persistent",
+    "gaia-usgs-water": "persistent",
+    "themis-govtrack": "persistent",
+    "hermes-arxiv": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-openaq": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE] status=achieved (cycle C-383)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-07-25T23-02-58Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-25T23-02-58Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.7 mode=yellow source=cached classification=STRESSED; anomalies=[USGS water elevated, ArXiv elevated]; gi_pre/post_seed=0.7/0.7; kv_keys.ok=true configured available but kv_keys_ok=false; sustain_eligible=false; micro_composite=0.87 micro_cycle=C-306; seed_result=200 OK (retry after 30s timeout); flags micro_anomaly_severity_flag kv_keys_ok=false tripwire_active=true micro_operator_cycle_divergence=true; tripwire Hormuz elevated active."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true cached=false composite=0.869 gi=0.869 instrumentCount=40 cycle=C-306 errors=2. gaia-usgs-water primary failed (with retry) severity elevated; themis-govtrack primary failed severity elevated; daedalus-cloudflare-radar=0.7 watch; gaia-openaq=0.75 nominal; hermes-arxiv=0.9 nominal (ATLAS elevated label not reproduced)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.775 mode=yellow terminal_status=stressed source=kv (not mock) degraded=true cycle=C-383 gi_provenance=kv-live gi_age_seconds=29 primary_driver=GI aligned to micro-sensor composite after sweep."
+    },
+    {
+      "check": "gi_three_way_divergence",
+      "result": "warn",
+      "detail": "ATLAS gi=0.7 vs integrity gi=0.775 vs micro composite=0.869 — spread 0.169. Headline GI not single-source trustworthy; ATLAS cached gi lags live integrity and micro."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv gi_provenance=kv-live — KV seed path live; mock GI not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok=false",
+      "result": "warn",
+      "detail": "Persistent contradiction: kv_keys.ok=true with seed 200 OK yet kv_keys_ok=false in heartbeat flags and kv_keys block."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-383 vs live micro cycle C-306."
+    },
+    {
+      "check": "Tripwire Hormuz elevated",
+      "result": "warn",
+      "detail": "Persistent elevated tripwire in ATLAS heartbeat; integrity geopolitics=0.775 reflects partial stress."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-383 agent ZEUS confidence=0.88."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-383-l22xjo mirrored_to_kv=true."
+    }
+  ],
+  "recommendation": "Anchor operator GI on integrity-status kv-live (0.775) with micro composite (0.869) as live sensor upper bound; do not treat ATLAS cached gi=0.7 as current truth. Reconcile kv_keys_ok gate and tripwire_active flag vs tripwire.active; track Hormuz tripwire, USGS/GovTrack instrument failures, and sustain ineligible.",
+  "journal_id": "journal-ZEUS-C-383-l22xjo"
+}
