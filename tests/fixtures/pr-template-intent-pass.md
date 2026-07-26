@@ -16,7 +16,7 @@ justification:
   REASONING: EPICON Guard reads only intent-fenced blocks; prose and generic text fences are invisible to the parser.
   ANCHORS:
     - .github/PULL_REQUEST_TEMPLATE.md §3
-    - kaizencycle/epicon@v1 src/validate.mjs (extractIntentBlocks, I6 justification keys)
+    - kaizencycle/epicon@8af925208733aaf9668aaedc15bf2a65aab47f21 src/validate.mjs (extractIntentBlocks, I6 justification keys)
   BOUNDARIES: Does not change runtime API behavior, KV schema, or auth paths.
   COUNTERFACTUAL: If this example fails validation, fix the template before merging any other lane.
 

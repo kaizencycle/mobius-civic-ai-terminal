@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: kaizencycle/epicon
-          ref: v1
+          ref: 8af925208733aaf9668aaedc15bf2a65aab47f21
           path: .epicon-guard
 
       - uses: actions/setup-node@v4
