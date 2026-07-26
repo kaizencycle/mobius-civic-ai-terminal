@@ -20,12 +20,15 @@ describe('PR template EPICON intent publication', () => {
   });
 
   it('golden fixture passes EPICON Guard validator', () => {
+    const epiconGuardPath =
+      process.env.EPICON_GUARD_PATH ||
+      join(repoRoot, '.epicon-guard');
     execSync('node scripts/validate-pr-template-intent.mjs', {
       cwd: repoRoot,
       stdio: 'inherit',
       env: {
         ...process.env,
-        EPICON_GUARD_PATH: process.env.EPICON_GUARD_PATH || join(repoRoot, '..', 'epicon'),
+        EPICON_GUARD_PATH: epiconGuardPath,
       },
     });
   });
