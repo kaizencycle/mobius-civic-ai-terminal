@@ -3,6 +3,7 @@
  */
 
 import { computeGI } from '@/lib/gi/compute';
+import { disclosureFromStored } from '@/lib/gi/disclosure';
 import { getGiMode } from '@/lib/gi/mode';
 import type { GIMode } from '@/lib/gi/mode';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
@@ -51,6 +52,8 @@ export type IntegrityPayload = {
   cycle: string;
   timestamp: string;
   global_integrity: number;
+  raw_integrity: number | null;
+  gi_floored: boolean;
   mode: GIMode;
   mii_baseline: number;
   mic_supply: number;
@@ -97,10 +100,13 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
     })();
     if (pick) {
       const { row, source } = pick;
+      const disc = disclosureFromStored(row);
       return {
         cycle: currentCycleId(),
         timestamp: row.timestamp,
-        global_integrity: row.global_integrity,
+        global_integrity: disc.global_integrity,
+        raw_integrity: disc.raw_integrity,
+        gi_floored: disc.gi_floored,
         mode: parseGIMode(row.mode)!,
         mii_baseline: integrityStatus.mii_baseline,
         mic_supply: integrityStatus.mic_supply,
@@ -153,6 +159,8 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
   if (isKv) {
     const giState: GIState = {
       global_integrity: computed.global_integrity,
+      raw_integrity: computed.raw_integrity,
+      gi_floored: computed.gi_floored,
       mode: computed.mode,
       terminal_status: computed.terminal_status,
       primary_driver: driver,
@@ -171,6 +179,8 @@ export async function computeIntegrityPayload(): Promise<IntegrityPayload> {
     cycle: currentCycleId(),
     timestamp: computed.timestamp,
     global_integrity: computed.global_integrity,
+    raw_integrity: computed.raw_integrity,
+    gi_floored: computed.gi_floored,
     mode: computed.mode,
     mii_baseline: integrityStatus.mii_baseline,
     mic_supply: integrityStatus.mic_supply,
@@ -252,8 +262,11 @@ export async function recomputeAndSaveGIState(): Promise<GIState | null> {
   const finalTerminalStatus: GIState['terminal_status'] =
     finalMode === 'green' ? 'nominal' : finalMode === 'yellow' ? 'stressed' : 'critical';
 
+  const published = Number(finalGi.toFixed(4));
   const giState: GIState & { gi_drop_count?: number } = {
-    global_integrity: Number(finalGi.toFixed(4)),
+    global_integrity: published,
+    raw_integrity: computed.raw_integrity,
+    gi_floored: computed.gi_floored || published > computed.raw_integrity + 0.0001,
     mode: finalMode,
     terminal_status: finalTerminalStatus,
     primary_driver: hysteresisDropCount > 0 && hysteresisDropCount < 3

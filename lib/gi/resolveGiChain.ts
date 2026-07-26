@@ -6,6 +6,7 @@
 
 import type { GIMode } from '@/lib/gi/mode';
 import { getGiMode } from '@/lib/gi/mode';
+import { disclosureFromStored } from '@/lib/gi/disclosure';
 import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
 import { loadGIState, loadGIStateCarry, type GIState } from '@/lib/kv/store';
 import { kvBridgeConfigured, kvBridgeRead } from '@/lib/kv/kvBridgeClient';
@@ -42,6 +43,8 @@ export type GiChainResolution = {
   /** OAA bridge row includes server `written_at`; we treat bridge-backed GI as verified for UI. */
   verified: boolean;
   degraded: boolean;
+  raw_integrity: number | null;
+  gi_floored: boolean;
   kv?: GIState | null;
 };
 
@@ -92,6 +95,28 @@ function parseGiStateValue(value: unknown): GIState | null {
   return value as GIState;
 }
 
+function withDisclosure(
+  row: GIState | null | undefined,
+  gi: number | null,
+  live?: { raw_integrity: number | null; gi_floored: boolean } | null,
+): { raw_integrity: number | null; gi_floored: boolean } {
+  if (live && typeof live.raw_integrity === 'number') {
+    return { raw_integrity: live.raw_integrity, gi_floored: live.gi_floored };
+  }
+  if (row) return disclosureFromStored(row);
+  if (gi !== null) return { raw_integrity: null, gi_floored: false };
+  return { raw_integrity: null, gi_floored: false };
+}
+
+function finish(
+  partial: Omit<GiChainResolution, 'raw_integrity' | 'gi_floored'>,
+  row?: GIState | null,
+  live?: { raw_integrity: number | null; gi_floored: boolean } | null,
+): GiChainResolution {
+  const disc = withDisclosure(row ?? partial.kv, partial.gi, live);
+  return { ...partial, ...disc };
+}
+
 export async function resolveGiChain(opts?: {
   micReadinessSnapshotRaw?: string | null;
   /** When provided (e.g. snapshot-lite MGET), avoids duplicate KV GETs for GI rows. */
@@ -107,54 +132,64 @@ export async function resolveGiChain(opts?: {
       // C-322: `loadGIState` may return GitHub `STATE/gi/latest.json` with `source: 'cached'`.
       // That is not live KV authority — do not emit kv-live / degraded:false.
       if (st.source === 'cached') {
-        return {
+        return finish(
+          {
+            gi,
+            mode: st.mode ?? null,
+            terminal_status: st.terminal_status ?? null,
+            primary_driver:
+              st.primary_driver && st.primary_driver.length > 0
+                ? `${st.primary_driver} · GitHub STATE cold tier (KV miss or outage; not live authority)`
+                : 'GI from GitHub STATE/gi/latest.json (federated read; not live KV)',
+            source: 'github-state-mirror',
+            source_legacy: 'github_state_mirror',
+            timestamp: st.timestamp,
+            age_seconds: ageSeconds(st.timestamp),
+            verified: false,
+            degraded: true,
+            kv: st,
+          },
+          st,
+        );
+      }
+      return finish(
+        {
           gi,
           mode: st.mode ?? null,
           terminal_status: st.terminal_status ?? null,
-          primary_driver:
-            st.primary_driver && st.primary_driver.length > 0
-              ? `${st.primary_driver} · GitHub STATE cold tier (KV miss or outage; not live authority)`
-              : 'GI from GitHub STATE/gi/latest.json (federated read; not live KV)',
-          source: 'github-state-mirror',
-          source_legacy: 'github_state_mirror',
+          primary_driver: st.primary_driver ?? null,
+          source: 'kv-live',
+          source_legacy: 'kv',
           timestamp: st.timestamp,
           age_seconds: ageSeconds(st.timestamp),
           verified: false,
-          degraded: true,
+          degraded: false,
           kv: st,
-        };
-      }
-      return {
-        gi,
-        mode: st.mode ?? null,
-        terminal_status: st.terminal_status ?? null,
-        primary_driver: st.primary_driver ?? null,
-        source: 'kv-live',
-        source_legacy: 'kv',
-        timestamp: st.timestamp,
-        age_seconds: ageSeconds(st.timestamp),
-        verified: false,
-        degraded: false,
-        kv: st,
-      };
+        },
+        st,
+      );
     }
   }
 
   try {
     const live = await computeIntegrityPayload();
-    return {
-      gi: live.global_integrity,
-      mode: live.mode,
-      terminal_status: live.terminal_status,
-      primary_driver: live.primary_driver,
-      source: 'live-compute',
-      source_legacy: 'live_compute',
-      timestamp: live.timestamp,
-      age_seconds: ageSeconds(live.timestamp),
-      verified: false,
-      degraded: false,
-      kv: st,
-    };
+    return finish(
+      {
+        gi: live.global_integrity,
+        mode: live.mode,
+        terminal_status: live.terminal_status,
+        primary_driver: live.primary_driver,
+        source: 'live-compute',
+        source_legacy: 'live_compute',
+        timestamp: live.timestamp,
+        age_seconds: ageSeconds(live.timestamp),
+        verified: false,
+        degraded: false,
+        kv: st,
+      },
+      st,
+      { raw_integrity: live.raw_integrity, gi_floored: live.gi_floored },
+    );
   } catch {
     // continue
   }
@@ -162,19 +197,22 @@ export async function resolveGiChain(opts?: {
   const carry = opts?.preloadedGi?.carry ?? (await loadGIStateCarry());
   if (carry && typeof carry.global_integrity === 'number' && Number.isFinite(carry.global_integrity)) {
     const gi = Math.max(0, Math.min(1, carry.global_integrity));
-    return {
-      gi,
-      mode: carry.mode ?? null,
-      terminal_status: carry.terminal_status ?? null,
-      primary_driver: `${carry.primary_driver ?? 'GI'} (carried forward; primary gi:latest missing or stale)`,
-      source: 'kv-carry',
-      source_legacy: 'kv_carry_forward',
-      timestamp: carry.timestamp,
-      age_seconds: ageSeconds(carry.timestamp),
-      verified: false,
-      degraded: true,
-      kv: st,
-    };
+    return finish(
+      {
+        gi,
+        mode: carry.mode ?? null,
+        terminal_status: carry.terminal_status ?? null,
+        primary_driver: `${carry.primary_driver ?? 'GI'} (carried forward; primary gi:latest missing or stale)`,
+        source: 'kv-carry',
+        source_legacy: 'kv_carry_forward',
+        timestamp: carry.timestamp,
+        age_seconds: ageSeconds(carry.timestamp),
+        verified: false,
+        degraded: true,
+        kv: st,
+      },
+      carry,
+    );
   }
 
   if (kvBridgeConfigured()) {
@@ -185,19 +223,22 @@ export async function resolveGiChain(opts?: {
         if (parsed && typeof parsed.global_integrity === 'number') {
           const gi = Math.max(0, Math.min(1, parsed.global_integrity));
           const ts = parsed.timestamp ?? row.written_at ?? null;
-          return {
-            gi,
-            mode: parsed.mode ?? modeFromGi(gi),
-            terminal_status: parsed.terminal_status ?? null,
-            primary_driver: parsed.primary_driver ?? 'GI from OAA KV bridge (last recorded)',
-            source: 'oaa-verified',
-            source_legacy: 'kv',
-            timestamp: ts,
-            age_seconds: ts ? ageSeconds(ts) : ageSeconds(row.written_at),
-            verified: true,
-            degraded: true,
-            kv: st,
-          };
+          return finish(
+            {
+              gi,
+              mode: parsed.mode ?? modeFromGi(gi),
+              terminal_status: parsed.terminal_status ?? null,
+              primary_driver: parsed.primary_driver ?? 'GI from OAA KV bridge (last recorded)',
+              source: 'oaa-verified',
+              source_legacy: 'kv',
+              timestamp: ts,
+              age_seconds: ts ? ageSeconds(ts) : ageSeconds(row.written_at),
+              verified: true,
+              degraded: true,
+              kv: st,
+            },
+            parsed,
+          );
         }
       }
     } catch {
@@ -210,22 +251,24 @@ export async function resolveGiChain(opts?: {
   if (snap) {
     const gi = snap.gi;
     const ts = snap.updatedAt ?? new Date().toISOString();
-    return {
-      gi,
-      mode: modeFromGi(gi),
-      terminal_status: null,
-      primary_driver: 'GI from MIC_READINESS_SNAPSHOT (readiness cache)',
-      source: 'readiness-fallback',
-      source_legacy: 'readiness_snapshot',
-      timestamp: ts,
-      age_seconds: ageSeconds(snap.updatedAt),
-      verified: false,
-      degraded: true,
-      kv: st,
-    };
+    return finish(
+      {
+        gi,
+        mode: modeFromGi(gi),
+        terminal_status: null,
+        primary_driver: 'GI from MIC_READINESS_SNAPSHOT (readiness cache)',
+        source: 'readiness-fallback',
+        source_legacy: 'readiness_snapshot',
+        timestamp: ts,
+        age_seconds: ageSeconds(snap.updatedAt),
+        verified: false,
+        degraded: true,
+        kv: st,
+      },
+    );
   }
 
-  return {
+  return finish({
     gi: null,
     mode: null,
     terminal_status: null,
@@ -237,5 +280,5 @@ export async function resolveGiChain(opts?: {
     verified: false,
     degraded: true,
     kv: st,
-  };
+  });
 }

@@ -27,6 +27,8 @@ export type ResolvedGi = {
   verified: boolean;
   degraded: boolean;
   age_seconds: number | null;
+  raw_integrity: number | null;
+  gi_floored: boolean;
   /** When `source === 'kv'`, the underlying row (for staleness / carry-forward flags). */
   kv?: GIState | null;
 };
@@ -72,6 +74,8 @@ export async function resolveGiForTerminal(opts?: {
     verified: chain.verified,
     degraded: chain.degraded,
     age_seconds: chain.age_seconds,
+    raw_integrity: chain.raw_integrity,
+    gi_floored: chain.gi_floored,
     kv: chain.kv,
   };
 }
