@@ -266,7 +266,7 @@ export async function recomputeAndSaveGIState(): Promise<GIState | null> {
   const giState: GIState & { gi_drop_count?: number } = {
     global_integrity: published,
     raw_integrity: computed.raw_integrity,
-    gi_floored: computed.gi_floored || published > computed.raw_integrity + 0.0001,
+    gi_floored: computed.gi_floored,
     mode: finalMode,
     terminal_status: finalTerminalStatus,
     primary_driver: hysteresisDropCount > 0 && hysteresisDropCount < 3

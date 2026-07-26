@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { computeGI } from '../../lib/gi/compute.js';
-import { disclosureFromStored, GI_FLOOR } from '../../lib/gi/disclosure.js';
+import { disclosureFromComputed, disclosureFromStored, GI_FLOOR } from '../../lib/gi/disclosure.js';
 
 const repoRoot = join(import.meta.dirname, '../..');
 
@@ -42,6 +42,13 @@ describe('raw_integrity disclosure (C-384 PR-2)', () => {
     );
     assert.match(src, /raw_integrity:\s*giResolved\.raw_integrity/);
     assert.match(src, /gi_floored:\s*giResolved\.gi_floored/);
+  });
+
+  it('disclosureFromComputed flags floor before two-decimal rounding', () => {
+    const disc = disclosureFromComputed(0.6, 0.597);
+    assert.equal(disc.global_integrity, 0.6);
+    assert.equal(disc.raw_integrity, 0.6);
+    assert.equal(disc.gi_floored, true);
   });
 
   it('legacy KV rows surface null raw until backfill', () => {

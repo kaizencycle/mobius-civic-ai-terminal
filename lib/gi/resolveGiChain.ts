@@ -95,25 +95,25 @@ function parseGiStateValue(value: unknown): GIState | null {
   return value as GIState;
 }
 
-function withDisclosure(
+const GI_ROW_MATCH_EPS = 0.001;
+
+function disclosureForRow(
+  selectedGi: number,
   row: GIState | null | undefined,
-  gi: number | null,
-  live?: { raw_integrity: number | null; gi_floored: boolean } | null,
 ): { raw_integrity: number | null; gi_floored: boolean } {
-  if (live && typeof live.raw_integrity === 'number') {
-    return { raw_integrity: live.raw_integrity, gi_floored: live.gi_floored };
+  if (!row) return { raw_integrity: null, gi_floored: false };
+  if (Math.abs(row.global_integrity - selectedGi) > GI_ROW_MATCH_EPS) {
+    return { raw_integrity: null, gi_floored: false };
   }
-  if (row) return disclosureFromStored(row);
-  if (gi !== null) return { raw_integrity: null, gi_floored: false };
-  return { raw_integrity: null, gi_floored: false };
+  return disclosureFromStored(row);
 }
+
+const NO_DISCLOSURE = { raw_integrity: null, gi_floored: false } as const;
 
 function finish(
   partial: Omit<GiChainResolution, 'raw_integrity' | 'gi_floored'>,
-  row?: GIState | null,
-  live?: { raw_integrity: number | null; gi_floored: boolean } | null,
+  disc: { raw_integrity: number | null; gi_floored: boolean },
 ): GiChainResolution {
-  const disc = withDisclosure(row ?? partial.kv, partial.gi, live);
   return { ...partial, ...disc };
 }
 
@@ -149,7 +149,7 @@ export async function resolveGiChain(opts?: {
             degraded: true,
             kv: st,
           },
-          st,
+          disclosureForRow(gi, st),
         );
       }
       return finish(
@@ -166,7 +166,7 @@ export async function resolveGiChain(opts?: {
           degraded: false,
           kv: st,
         },
-        st,
+        disclosureForRow(gi, st),
       );
     }
   }
@@ -187,8 +187,9 @@ export async function resolveGiChain(opts?: {
         degraded: false,
         kv: st,
       },
-      st,
-      { raw_integrity: live.raw_integrity, gi_floored: live.gi_floored },
+      typeof live.raw_integrity === 'number'
+        ? { raw_integrity: live.raw_integrity, gi_floored: live.gi_floored }
+        : NO_DISCLOSURE,
     );
   } catch {
     // continue
@@ -211,7 +212,7 @@ export async function resolveGiChain(opts?: {
         degraded: true,
         kv: st,
       },
-      carry,
+      disclosureForRow(gi, carry),
     );
   }
 
@@ -237,7 +238,7 @@ export async function resolveGiChain(opts?: {
               degraded: true,
               kv: st,
             },
-            parsed,
+            disclosureForRow(gi, parsed),
           );
         }
       }
@@ -265,20 +266,24 @@ export async function resolveGiChain(opts?: {
         degraded: true,
         kv: st,
       },
+      NO_DISCLOSURE,
     );
   }
 
-  return finish({
-    gi: null,
-    mode: null,
-    terminal_status: null,
-    primary_driver: null,
-    source: 'unknown',
-    source_legacy: 'null',
-    timestamp: null,
-    age_seconds: null,
-    verified: false,
-    degraded: true,
-    kv: st,
-  });
+  return finish(
+    {
+      gi: null,
+      mode: null,
+      terminal_status: null,
+      primary_driver: null,
+      source: 'unknown',
+      source_legacy: 'null',
+      timestamp: null,
+      age_seconds: null,
+      verified: false,
+      degraded: true,
+      kv: st,
+    },
+    NO_DISCLOSURE,
+  );
 }

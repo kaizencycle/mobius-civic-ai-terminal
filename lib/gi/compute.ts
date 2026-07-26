@@ -66,11 +66,8 @@ export function computeGI(input: GIInput): {
     0.20 * system;
 
   const degraded = raw_integrity < GI_FLOOR;
-  const global_integrity = degraded ? GI_FLOOR : raw_integrity;
-  const disclosure = disclosureFromComputed(
-    Number(global_integrity.toFixed(2)),
-    Number(raw_integrity.toFixed(2)),
-  );
+  const globalPublished = degraded ? GI_FLOOR : raw_integrity;
+  const disclosure = disclosureFromComputed(globalPublished, raw_integrity);
 
   const mode = getGiMode(disclosure.global_integrity);
 

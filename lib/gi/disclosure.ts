@@ -10,11 +10,14 @@ export type GiIntegrityDisclosure = {
   gi_floored: boolean;
 };
 
-export function disclosureFromComputed(global_integrity: number, raw_integrity: number): GiIntegrityDisclosure {
-  const gi_floored = raw_integrity < GI_FLOOR && global_integrity >= GI_FLOOR;
+export function disclosureFromComputed(publishedGlobal: number, rawIntegrity: number): GiIntegrityDisclosure {
+  const published = Number(publishedGlobal.toFixed(2));
+  const raw = Number(rawIntegrity.toFixed(2));
+  // Floor check uses unrounded raw so 0.595–0.599 still flags gi_floored when published is 0.60.
+  const gi_floored = rawIntegrity < GI_FLOOR && publishedGlobal >= GI_FLOOR - 1e-9;
   return {
-    global_integrity,
-    raw_integrity,
+    global_integrity: published,
+    raw_integrity: raw,
     gi_floored,
   };
 }
