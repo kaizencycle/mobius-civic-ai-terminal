@@ -1,11 +1,8 @@
 # STEP 0 — Read shared world state (C-274): GET https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot
-# (cycle, gi, anomalies, echo/epicon, sentiment, substrate.agents / substrate.latest). Do not duplicate USGS/CoinGecko/EONET fetches.
 # ═══════════════════════════════════════════════════════════════════════════════
-# GI Gate — Integrity Threshold Enforcement
-# ═══════════════════════════════════════════════════════════════════════════════
-# Adapted from kaizencycle/Mobius-Substrate gi-gate.yml
-# Calls the terminal's own /api/integrity-status endpoint during CI.
-# Blocks merge if GI drops below threshold.
+# GI Gate — Integrity Threshold Enforcement (C-384 PR-3)
+# Uses tsx + lib/gi/compute (no bare require, no constant 0.78 fallback).
+# Optional production check: set GI_GATE_SNAPSHOT_URL to snapshot-lite in scheduled workflows.
 # CC0 Public Domain
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -45,69 +42,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 10.28.0
 
       - name: Install deps
         run: pnpm install --no-frozen-lockfile
 
-      - name: Compute GI from local source
+      - name: GI gate self-test (sub-minimum fixture must fail threshold)
+        run: pnpm exec tsx scripts/ci/evaluate-gi-gate.mts --self-test
+
+      - name: Evaluate GI for merge gate
         id: gi
-        run: |
-          # Run GI computation using the terminal's own compute engine
-          GI=$(node -e "
-            try {
-              const { computeGI } = require('./lib/gi/compute');
-              const result = computeGI({
-                zeusScores: [0.8, 0.75, 0.85],
-                freshness: 'fresh',
-                tripwire: 'none',
-                activeAgents: 8
-              });
-              console.log(result.global_integrity);
-            } catch(e) {
-              // Fallback: read from mock
-              try {
-                const { integrityStatus } = require('./lib/mock/integrityStatus');
-                console.log(integrityStatus.global_integrity);
-              } catch(e2) {
-                console.log('0.78');
-              }
-            }
-          " 2>/dev/null || echo "0.78")
+        run: pnpm exec tsx scripts/ci/evaluate-gi-gate.mts
 
-          echo "gi=$GI" >> $GITHUB_OUTPUT
-          echo "GI score: $GI"
-
-      - name: Enforce GI threshold
+      - name: Enforce GI threshold (summary)
         env:
           GI_SCORE: ${{ steps.gi.outputs.gi }}
-          GI_MINIMUM: "0.60"
+          GI_SOURCE: ${{ steps.gi.outputs.source }}
         run: |
-          python3 - <<'PY'
-          import os, sys
-
-          gi = float(os.environ.get('GI_SCORE', '0'))
-          minimum = float(os.environ.get('GI_MINIMUM', '0.60'))
-
-          print(f"GI score:     {gi}")
-          print(f"GI minimum:   {minimum}")
-          print(f"GI mode:      {'green' if gi >= 0.80 else 'yellow' if gi >= 0.60 else 'red'}")
-
-          if gi < minimum:
-              print(f"::error::GI score ({gi}) is below minimum threshold ({minimum})")
-              print("")
-              print("## ❌ GI Gate Failed")
-              print(f"Global Integrity ({gi}) dropped below the merge threshold ({minimum}).")
-              print("Fix integrity issues before merging.")
-              sys.exit(1)
-          else:
-              print(f"✅ GI gate passed ({gi} >= {minimum})")
-          PY
+          echo "GI gate source: ${GI_SOURCE:-unknown}"
+          echo "GI score: ${GI_SCORE:-missing}"
+          if [ -z "${GI_SCORE}" ]; then
+            echo "::error::GI gate did not emit gi output"
+            exit 1
+          fi
