@@ -60,6 +60,7 @@ import {
   VAULT_BRIDGE_SYMBOL,
 } from '@/lib/kv/kvBridgeKeys';
 import { githubStateReadJson } from '@/lib/github-state-cache';
+import { CAS_NULL_SENTINEL } from '@/lib/vault-v2/latestSealCas';
 
 export { KV_TTL_SECONDS };
 
@@ -242,6 +243,96 @@ export async function kvSet<T>(key: string, value: T, ttlSeconds?: number): Prom
       return kvBridgeWrite(symbol, value, ttlSeconds);
     }
     return false;
+  }
+}
+
+/**
+ * Canonical JSON witness for compare-and-set (matches Upstash GET string form in Lua).
+ */
+export async function kvGetPrefixedCasWitness(key: string): Promise<string | null> {
+  const redis = getRedis();
+  if (!redis) {
+    const value = await kvGet<unknown>(key);
+    if (value === null || value === undefined) return null;
+    return typeof value === 'string' ? value : JSON.stringify(value);
+  }
+  try {
+    const fullKey = prefixKey(key);
+    const value = await redis.get<unknown>(fullKey);
+    if (value === null || value === undefined) return null;
+    return typeof value === 'string' ? value : JSON.stringify(value);
+  } catch (err) {
+    rethrowIfDynamicServerUsage(err);
+    return null;
+  }
+}
+
+const KV_JSON_CAS_SCRIPT = `
+local current = redis.call('GET', KEYS[1])
+if ARGV[1] == '${CAS_NULL_SENTINEL}' then
+  if current then return {0, current} end
+else
+  if current ~= ARGV[1] then return {0, current or ''} end
+end
+redis.call('SET', KEYS[1], ARGV[2], 'EX', tonumber(ARGV[3]))
+return {1, ARGV[2]}
+`;
+
+export type KvJsonCasResult = { ok: boolean; actual: string | null };
+
+function normalizeKvJsonCasActual(raw: unknown): string | null {
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'string') return raw;
+  return JSON.stringify(raw);
+}
+
+/**
+ * Atomic compare-and-set for prefixed JSON blobs (witness must match current GET).
+ */
+export async function kvCompareAndSetPrefixedJson(
+  key: string,
+  expectedWitness: string | null,
+  nextJson: string,
+  ttlSeconds: number,
+): Promise<KvJsonCasResult> {
+  const redis = getRedis();
+  const parsedNext = JSON.parse(nextJson) as unknown;
+
+  if (!redis) {
+    const witness = await kvGetPrefixedCasWitness(key);
+    const expected = expectedWitness;
+    if (expected === null) {
+      if (witness !== null) return { ok: false, actual: witness };
+    } else if (witness !== expected) {
+      return { ok: false, actual: witness };
+    }
+    const wrote = await kvSet(key, parsedNext, ttlSeconds);
+    return wrote ? { ok: true, actual: nextJson } : { ok: false, actual: witness };
+  }
+
+  try {
+    const fullKey = prefixKey(key);
+    const expectedArg = expectedWitness === null ? CAS_NULL_SENTINEL : expectedWitness;
+    const result = (await redis.eval(KV_JSON_CAS_SCRIPT, [fullKey], [
+      expectedArg,
+      nextJson,
+      String(ttlSeconds),
+    ])) as [number, string] | null;
+
+    if (!result || !Array.isArray(result) || result.length < 2) {
+      return { ok: false, actual: null };
+    }
+
+    const [status, actual] = result;
+    if (status === 1) {
+      scheduleBackupMirrorPrefixedKey(fullKey, parsedNext, ttlSeconds);
+      scheduleKvBridgeMirrorPrefixed(fullKey, parsedNext, ttlSeconds);
+      return { ok: true, actual: nextJson };
+    }
+    return { ok: false, actual: normalizeKvJsonCasActual(actual) };
+  } catch (err) {
+    rethrowIfDynamicServerUsage(err);
+    throw err;
   }
 }
 

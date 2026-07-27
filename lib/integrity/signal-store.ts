@@ -1,8 +1,15 @@
 import type { MobiusCivicIntegritySignal } from '@/lib/integrity-signal';
-import { KV_KEYS, kvGet, kvSet } from '@/lib/kv/store';
+import {
+  KV_KEYS,
+  kvCompareAndSetPrefixedJson,
+  kvGet,
+  kvGetPrefixedCasWitness,
+} from '@/lib/kv/store';
 import { KV_TTL_SECONDS } from '@/lib/kv/kv-ttl';
 
 let latestIntegritySignal: MobiusCivicIntegritySignal | null = null;
+
+const INTEGRITY_SIGNAL_CAS_ATTEMPTS = 5;
 
 export type IntegritySignalKvRow = {
   semantic_drift: number;
@@ -43,6 +50,57 @@ export function isIncomingIntegrityRowNewer(
   return incoming.signal_id >= existing.signal_id;
 }
 
+export function serializeIntegritySignalKvRow(row: IntegritySignalKvRow): string {
+  return JSON.stringify({
+    semantic_drift: row.semantic_drift,
+    timestamp: row.timestamp,
+    signal_id: row.signal_id,
+  });
+}
+
+function parseIntegritySignalKvWitness(witness: string | null): IntegritySignalKvRow | null {
+  if (!witness) return null;
+  try {
+    const parsed = JSON.parse(witness) as IntegritySignalKvRow;
+    if (typeof parsed.semantic_drift !== 'number' || !Number.isFinite(parsed.semantic_drift)) return null;
+    if (typeof parsed.timestamp !== 'string' || !parsed.timestamp.trim()) return null;
+    if (typeof parsed.signal_id !== 'string' || !parsed.signal_id.trim()) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function compareAndSetIntegritySignalDriftRow(
+  incoming: IntegritySignalKvRow,
+): Promise<'written' | 'skipped_stale'> {
+  const nextJson = serializeIntegritySignalKvRow(incoming);
+
+  for (let attempt = 0; attempt < INTEGRITY_SIGNAL_CAS_ATTEMPTS; attempt++) {
+    const witness = await kvGetPrefixedCasWitness(KV_KEYS.INTEGRITY_SIGNAL_LATEST);
+    const existing = parseIntegritySignalKvWitness(witness);
+    if (existing && !isIncomingIntegrityRowNewer(incoming, existing)) {
+      return 'skipped_stale';
+    }
+
+    const cas = await kvCompareAndSetPrefixedJson(
+      KV_KEYS.INTEGRITY_SIGNAL_LATEST,
+      witness,
+      nextJson,
+      KV_TTL_SECONDS.INTEGRITY_SIGNAL_LATEST,
+    );
+
+    if (cas.ok) return 'written';
+
+    const actualRow = parseIntegritySignalKvWitness(cas.actual);
+    if (actualRow && !isIncomingIntegrityRowNewer(incoming, actualRow)) {
+      return 'skipped_stale';
+    }
+  }
+
+  return 'skipped_stale';
+}
+
 export function setLatestIntegritySignal(signal: MobiusCivicIntegritySignal): void {
   latestIntegritySignal = signal;
 }
@@ -55,13 +113,7 @@ export async function persistIntegritySignalDriftToKv(
   const row = integritySignalDriftRow(signal);
   if (!row) return 'skipped_no_drift';
 
-  const existing = await loadPersistedIntegritySignalRow();
-  if (existing && !isIncomingIntegrityRowNewer(row, existing)) {
-    return 'skipped_stale';
-  }
-
-  await kvSet(KV_KEYS.INTEGRITY_SIGNAL_LATEST, row, KV_TTL_SECONDS.INTEGRITY_SIGNAL_LATEST);
-  return 'written';
+  return compareAndSetIntegritySignalDriftRow(row);
 }
 
 /**
