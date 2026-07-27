@@ -4,6 +4,7 @@ import { mockTripwire } from '@/lib/mock-data';
 import { liveEnvelope, mockEnvelope } from '@/lib/response-envelope';
 import { saveTripwireState, kvSet, kvSetRawKey, KV_KEYS } from '@/lib/kv/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { getServiceMutatingRouteAuthError } from '@/lib/security/mutatingRouteAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,12 +14,6 @@ type TripwireUpdatePayload = {
   agent: 'HERMES' | 'ZEUS' | 'ATLAS' | 'operator';
   severity: 'low' | 'medium' | 'high';
 };
-
-function authorized(request: NextRequest): boolean {
-  const secret = process.env.BACKFILL_SECRET;
-  if (!secret || !secret.trim()) return false;
-  return request.headers.get('authorization') === `Bearer ${secret}`;
-}
 
 function parsePayload(value: unknown): TripwireUpdatePayload | null {
   if (!value || typeof value !== 'object') return null;
@@ -90,9 +85,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!authorized(request)) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
+  const authError = getServiceMutatingRouteAuthError(request);
+  if (authError) return authError;
 
   const payload = parsePayload(await request.json().catch((): unknown => null));
   if (!payload) {
