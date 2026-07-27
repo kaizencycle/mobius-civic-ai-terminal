@@ -125,7 +125,7 @@ export async function GET() {
             letterSpacing: '0.08em',
           }}
         >
-          mobius-civic-ai-terminal.vercel.app · CC0 public domain
+          mobius-civic-ai-terminal.vercel.app · AGPL-3.0-or-later
         </div>
       </div>
     ),

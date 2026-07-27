@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: '%s | Mobius Terminal',
   },
   description:
-    'Bloomberg-style civic command console for monitoring Global Integrity, EPICON ledger events, AI agent status, and real-time signals from public APIs. Part of the Mobius Substrate governance infrastructure. CC0 public domain.',
+    'Bloomberg-style civic command console for monitoring Global Integrity, EPICON ledger events, AI agent status, and real-time signals from public APIs. Part of the Mobius Substrate governance infrastructure. Open source under AGPL-3.0-or-later.',
   keywords: [
     'civic AI',
     'AI governance',
@@ -32,8 +32,8 @@ export const metadata: Metadata = {
     'civic technology',
     'democratic accountability',
     'verifiable memory',
-    'public domain',
-    'CC0',
+    'AGPL',
+    'open source',
   ],
   authors: [
     { name: 'Michael Judan', url: 'https://michaeljudan.substack.com' },
