@@ -18,6 +18,7 @@ import {
 import {
   getLatestIntegritySignal,
   integritySignalDriftRow,
+  isIncomingIntegrityRowNewer,
   setLatestIntegritySignal,
 } from '../../lib/integrity/signal-store.ts';
 import type { MobiusCivicIntegritySignal } from '../../lib/integrity-signal.ts';
@@ -151,6 +152,21 @@ describe('server write circuit breaker (C-384 PR-6)', () => {
       },
     });
     assert.equal(row, null);
+  });
+
+  it('isIncomingIntegrityRowNewer rejects out-of-order drift rows', () => {
+    const newer = {
+      semantic_drift: 0.4,
+      timestamp: '2026-07-27T03:00:00.000Z',
+      signal_id: 'sig-b',
+    };
+    const older = {
+      semantic_drift: 0.9,
+      timestamp: '2026-07-27T02:00:00.000Z',
+      signal_id: 'sig-a',
+    };
+    assert.equal(isIncomingIntegrityRowNewer(older, newer), false);
+    assert.equal(isIncomingIntegrityRowNewer(newer, older), true);
   });
 
   it('pickAuthoritativeSemanticDrift keeps persisted high drift when local omits geo drift', () => {

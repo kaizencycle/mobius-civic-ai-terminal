@@ -10,6 +10,15 @@ export type IntegritySignalKvRow = {
   signal_id: string;
 };
 
+export type ApplyIntegritySignalResult =
+  | { ok: true; kvWritten: boolean }
+  | { ok: false; reason: 'kv_unavailable' | 'stale_signal' };
+
+export function integritySignalTimestampMs(timestamp: string): number {
+  const ms = new Date(timestamp).getTime();
+  return Number.isFinite(ms) ? ms : -1;
+}
+
 /** KV mirror only when geo semantic_drift is explicitly present (never coerce missing → 0). */
 export function integritySignalDriftRow(signal: MobiusCivicIntegritySignal): IntegritySignalKvRow | null {
   const raw = signal.layers?.geo_layer?.semantic_drift;
@@ -23,17 +32,62 @@ export function integritySignalDriftRow(signal: MobiusCivicIntegritySignal): Int
   };
 }
 
+export function isIncomingIntegrityRowNewer(
+  incoming: IntegritySignalKvRow,
+  existing: IntegritySignalKvRow,
+): boolean {
+  const inMs = integritySignalTimestampMs(incoming.timestamp);
+  const exMs = integritySignalTimestampMs(existing.timestamp);
+  if (inMs > exMs) return true;
+  if (inMs < exMs) return false;
+  return incoming.signal_id >= existing.signal_id;
+}
+
 export function setLatestIntegritySignal(signal: MobiusCivicIntegritySignal): void {
   latestIntegritySignal = signal;
 }
 
+export type PersistIntegrityDriftOutcome = 'written' | 'skipped_no_drift' | 'skipped_stale';
+
 export async function persistIntegritySignalDriftToKv(
   signal: MobiusCivicIntegritySignal,
-): Promise<boolean> {
+): Promise<PersistIntegrityDriftOutcome> {
   const row = integritySignalDriftRow(signal);
-  if (!row) return false;
+  if (!row) return 'skipped_no_drift';
+
+  const existing = await loadPersistedIntegritySignalRow();
+  if (existing && !isIncomingIntegrityRowNewer(row, existing)) {
+    return 'skipped_stale';
+  }
+
   await kvSet(KV_KEYS.INTEGRITY_SIGNAL_LATEST, row, KV_TTL_SECONDS.INTEGRITY_SIGNAL_LATEST);
-  return true;
+  return 'written';
+}
+
+/**
+ * Persist drift to KV (when present) before updating in-process head so serverless
+ * breaker reads stay aligned with this instance.
+ */
+export async function commitLatestIntegritySignal(
+  signal: MobiusCivicIntegritySignal,
+): Promise<ApplyIntegritySignalResult> {
+  const row = integritySignalDriftRow(signal);
+  if (!row) {
+    setLatestIntegritySignal(signal);
+    return { ok: true, kvWritten: false };
+  }
+
+  try {
+    const outcome = await persistIntegritySignalDriftToKv(signal);
+    if (outcome === 'skipped_stale') {
+      return { ok: false, reason: 'stale_signal' };
+    }
+    setLatestIntegritySignal(signal);
+    return { ok: true, kvWritten: true };
+  } catch (error) {
+    console.error('[integrity-signal] integrity:signal:latest KV persist failed', error);
+    return { ok: false, reason: 'kv_unavailable' };
+  }
 }
 
 export function getLatestIntegritySignal(): MobiusCivicIntegritySignal | null {
