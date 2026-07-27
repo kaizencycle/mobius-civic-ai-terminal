@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-07-27T13:03:09.067Z",
+  "agent": "ATLAS",
+  "cycle": "C-385",
+  "gi": 0.76,
+  "gi_pre_seed": 0.76,
+  "gi_post_seed": 0.76,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "gaia-usgs-water",
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 5,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-07-27T13:01:30.738Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "timeout then 200 OK (90s retry)",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "classification_pre_seed": "STRESSED",
+  "micro_composite": 0.89,
+  "micro_cycle": "C-306",
+  "degraded_agents": 0,
+  "last_journal_cycle": "C-385",
+  "current_cycle": "C-385",
+  "force_journal_cycle_mismatch": false,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "micro_operator_cycle_divergence": true
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-07-27T13:01:30.818Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-07-27T12:30:50.777Z"
+    },
+    "last_updated": "2026-07-27T13:01:30.818Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-385-w2r6ve",
+  "journal_ok": true,
+  "journal_canonical_status": true
+}
