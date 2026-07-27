@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-07-27T09:05:34.942Z",
+  "agent": "ATLAS",
+  "cycle": "C-385",
+  "gi": 0.83,
+  "gi_pre_seed": 0.773,
+  "gi_post_seed": 0.83,
+  "mode": "green",
+  "source": "live",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 5,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-07-27T09:05:52.386Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "30s timeout then 200 OK (90s retry)",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "classification_pre_seed": "STRESSED",
+  "micro_composite": 0.886,
+  "micro_cycle": "C-306",
+  "degraded_agents": 4,
+  "last_journal_cycle": "C-385",
+  "current_cycle": "C-385",
+  "force_journal_cycle_mismatch": false,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "micro_operator_cycle_divergence": true
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-07-27T09:05:52.461Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": true,
+      "level": "elevated",
+      "reason": "Hormuz Transit Fee Risk \u2014 Monitoring whether Iran formalizes transit fees and turns passage into an overt leverage instrument",
+      "last_updated": "2026-07-27T09:03:34.448Z"
+    },
+    "last_updated": "2026-07-27T09:05:52.461Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-385-mtwrpz",
+  "journal_ok": true,
+  "journal_canonical_status": true
+}
