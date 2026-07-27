@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { finalizeSeal } from '@/lib/seal/finalizeSeal';
-import { getServiceMutatingRouteAuthError } from '@/lib/security/mutatingRouteAuth';
+import { getServiceMutatingRouteWithBreakerError } from '@/lib/security/mutatingRouteAuth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  const authError = getServiceMutatingRouteAuthError(req);
+  const authError = await getServiceMutatingRouteWithBreakerError(req);
   if (authError) return authError;
 
   const body = (await req.json()) as { seal_id?: string };

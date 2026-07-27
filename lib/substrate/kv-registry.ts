@@ -16,6 +16,7 @@ export const KEY_TIERS: Record<string, KvTier> = {
   'mic:readiness:snapshot': 'derived',
   'mic:readiness:feed': 'derived',
   'signals:latest': 'derived',
+  'integrity:signal:latest': 'derived',
   'echo:state': 'derived',
   'tripwire:state': 'derived',
   'system:pulse': 'derived',

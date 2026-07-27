@@ -7,7 +7,7 @@ import {
   type MobiusCivicIntegritySignal,
   type SeoLayer,
 } from '@/lib/integrity-signal';
-import { setLatestIntegritySignal } from '@/lib/integrity/signal-store';
+import { commitLatestIntegritySignal } from '@/lib/integrity/signal-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -190,7 +190,20 @@ export async function POST(request: NextRequest) {
       cycle: cycleId,
     };
 
-    setLatestIntegritySignal(signal);
+    const committed = await commitLatestIntegritySignal(signal);
+    if (!committed.ok) {
+      const status = committed.reason === 'stale_signal' ? 409 : 503;
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            committed.reason === 'stale_signal'
+              ? 'integrity_signal_stale'
+              : 'integrity_signal_kv_unavailable',
+        },
+        { status },
+      );
+    }
 
     let epiconFlagged = false;
     if (integrityScore <= 0.5) {

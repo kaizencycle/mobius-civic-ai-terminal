@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { ReviewAgent, ReviewVerdict } from '@/lib/epicon/shards/compiler/types';
 import { getShardProposal, updateShardReview } from '@/lib/epicon/shards/store';
 import { toPublicShardProposal } from '@/lib/epicon/shards/sanitize';
-import { getServiceMutatingRouteAuthError } from '@/lib/security/mutatingRouteAuth';
+import { getServiceMutatingRouteWithBreakerError } from '@/lib/security/mutatingRouteAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +27,7 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const authError = getServiceMutatingRouteAuthError(request);
+  const authError = await getServiceMutatingRouteWithBreakerError(request);
   if (authError) return authError;
 
   try {

@@ -20,10 +20,20 @@ export const MUTATING_ROUTE_AUTH_CONTRACT: MutatingRouteContract[] = [
   { file: 'app/api/integrity/grade/requests/[id]/review/route.ts', auth: 'operator' },
 ];
 
+export const MUTATING_ROUTE_WRITE_BREAKER_CONTRACT: string[] = [
+  'app/api/epicon/shards/propose/route.ts',
+  'app/api/epicon/shards/[id]/review/route.ts',
+  'app/api/epicon/shards/[id]/commit/route.ts',
+  'app/api/seal/finalize/route.ts',
+  'app/api/seal/reattest/route.ts',
+  'app/api/integrity/grade/requests/route.ts',
+  'app/api/integrity/grade/requests/[id]/review/route.ts',
+];
+
 const AUTH_SNIPPET: Record<MutatingRouteAuthKind, RegExp> = {
   cron: /getCronMutatingRouteAuthError/,
-  service: /getServiceMutatingRouteAuthError/,
-  operator: /getOperatorOrServiceAuthError/,
+  service: /getService(?:MutatingRoute(?:WithBreaker|Auth)|OrOperatorWithBreaker)Error/,
+  operator: /getOperatorOrServiceWithBreakerError/,
 };
 
 export function postHandlerSource(fileContents: string): string {
