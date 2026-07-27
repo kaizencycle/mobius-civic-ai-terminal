@@ -30,6 +30,8 @@ license standard — aligns with C-360 ratified posture in
 ## Out of scope
 
 CC0 is not applied to source code in this sweep; it remains scoped to research/citation
-paths per C-360.
+paths per C-360. Public README, layout metadata, OG images, and Schema.org
+`SoftwareApplication` / FAQ JSON-LD must state AGPL; `Dataset` nodes may retain CC0 where
+they describe scoped open data feeds.
 
 **Report discloses; repo witnesses.**
