@@ -6,7 +6,10 @@ import { NextResponse } from 'next/server';
 
 import { C261_COVENANT } from '@/lib/constants/covenants';
 import { computeIntegrityPayload, type IntegrityPayload } from '@/lib/integrity/buildStatus';
-import { getLatestIntegritySignal } from '@/lib/integrity/signal-store';
+import {
+  getLatestIntegritySignal,
+  loadPersistedIntegritySignalDrift,
+} from '@/lib/integrity/signal-store';
 import {
   evaluateCircuitBreaker,
   type BreakerTripwireState,
@@ -71,10 +74,17 @@ export function isGiSnapshotTrustedForWrites(
   return Number.isFinite(age) && age >= 0 && age < GI_WRITE_MAX_AGE_MS;
 }
 
-export function detectSemanticDriftFromSignal(): boolean {
-  const driftScore = getLatestIntegritySignal()?.layers?.geo_layer?.semantic_drift;
-  if (typeof driftScore !== 'number') return false;
+export function semanticDriftScoreTrips(driftScore: number | null | undefined): boolean {
+  if (typeof driftScore !== 'number' || !Number.isFinite(driftScore)) return false;
   return driftScore >= GEO_SEMANTIC_DRIFT_TRIP_THRESHOLD;
+}
+
+/** In-process head (same instance) plus KV mirror for serverless cold starts. */
+export async function resolveSemanticDriftDetected(): Promise<boolean> {
+  const localDrift = getLatestIntegritySignal()?.layers?.geo_layer?.semantic_drift;
+  if (semanticDriftScoreTrips(localDrift)) return true;
+  const persisted = await loadPersistedIntegritySignalDrift();
+  return semanticDriftScoreTrips(persisted);
 }
 
 export function detectEpochGiDrop(currentGi: number, previousGi: number | null): boolean {
@@ -174,7 +184,7 @@ export async function evaluateServerWriteCircuitBreaker(): Promise<ServerWriteBr
   const payload = await computeIntegrityPayload();
   const gi = payload.global_integrity;
   const trend = await loadGiTrend();
-  const semanticDriftDetected = detectSemanticDriftFromSignal();
+  const semanticDriftDetected = await resolveSemanticDriftDetected();
   const epochDropTriggered = detectEpochGiDropFromTrend(trend, gi);
   const giProvenanceBlocked = !isGiSnapshotTrustedForWrites(payload);
   const tripwireState = await resolveBreakerTripwireState();
@@ -186,20 +196,32 @@ export async function evaluateServerWriteCircuitBreaker(): Promise<ServerWriteBr
 }
 
 export async function getServerWriteCircuitBreakerError(): Promise<NextResponse | null> {
-  const evaluation = await evaluateServerWriteCircuitBreaker();
-  if (evaluation.allowed) return null;
+  try {
+    const evaluation = await evaluateServerWriteCircuitBreaker();
+    if (evaluation.allowed) return null;
 
-  return NextResponse.json(
-    {
-      ok: false,
-      error: 'circuit_breaker_open',
-      stage: evaluation.stage,
-      gi: evaluation.gi,
-      below_protocol_lock: evaluation.belowProtocolLock,
-      epoch_drop: evaluation.epochDropTriggered,
-      gi_untrusted: evaluation.giProvenanceBlocked,
-      message: evaluation.message,
-    },
-    { status: 503 },
-  );
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'circuit_breaker_open',
+        stage: evaluation.stage,
+        gi: evaluation.gi,
+        below_protocol_lock: evaluation.belowProtocolLock,
+        epoch_drop: evaluation.epochDropTriggered,
+        gi_untrusted: evaluation.giProvenanceBlocked,
+        message: evaluation.message,
+      },
+      { status: 503 },
+    );
+  } catch (error) {
+    console.error('[circuit-breaker] evaluation failed', error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'circuit_breaker_unavailable',
+        message: 'Write circuit breaker could not evaluate integrity posture.',
+      },
+      { status: 503 },
+    );
+  }
 }

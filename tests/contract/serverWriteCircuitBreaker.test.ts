@@ -8,10 +8,11 @@ import {
   GI_PROTOCOL_EMERGENCY_LOCK,
   detectEpochGiDrop,
   detectEpochGiDropFromTrend,
-  detectSemanticDriftFromSignal,
   evaluateServerWriteFromInputs,
   isGiSnapshotTrustedForWrites,
+  resolveSemanticDriftDetected,
   resolveTrendEpochGiPair,
+  semanticDriftScoreTrips,
 } from '../../lib/gi/serverWriteCircuitBreaker.ts';
 import {
   getLatestIntegritySignal,
@@ -123,13 +124,15 @@ describe('server write circuit breaker (C-384 PR-6)', () => {
     assert.equal(evaluation.giProvenanceBlocked, true);
   });
 
-  it('detectSemanticDriftFromSignal reads latest JADE/HERMES geo_layer', () => {
+  it('resolveSemanticDriftDetected reads in-process and persisted KV drift', async () => {
     const prior = getLatestIntegritySignal();
     setLatestIntegritySignal(minimalSignal(0.75));
     try {
-      assert.equal(detectSemanticDriftFromSignal(), true);
+      assert.equal(await resolveSemanticDriftDetected(), true);
       setLatestIntegritySignal(minimalSignal(0.5));
-      assert.equal(detectSemanticDriftFromSignal(), false);
+      assert.equal(semanticDriftScoreTrips(0.75), true);
+      assert.equal(semanticDriftScoreTrips(0.5), false);
+      assert.equal(await resolveSemanticDriftDetected(), false);
     } finally {
       if (prior) setLatestIntegritySignal(prior);
     }

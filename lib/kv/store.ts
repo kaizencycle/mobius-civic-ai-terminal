@@ -506,6 +506,8 @@ export const KV_KEYS = {
   SUBSTRATE_RETRY_QUEUE: 'vault:substrate:retry_queue',
   /** Rolling list of last 48 GI readings for trend analysis (newest-first, capped at 48) */
   GI_TREND: 'gi:trend',
+  /** Latest integrity signal head (semantic drift) for cross-instance breaker */
+  INTEGRITY_SIGNAL_LATEST: 'integrity:signal:latest',
 } as const;
 
 // ── Signal snapshot persistence ──────────────────────────────

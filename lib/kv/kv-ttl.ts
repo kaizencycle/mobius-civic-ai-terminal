@@ -18,4 +18,6 @@ export const KV_TTL_SECONDS = {
   MIC_REPLAY_PRESSURE: 1_209_600,
   /** Agent fleet heartbeat (cron every 30m; TTL 3× interval) */
   HEARTBEAT: 5400,
+  /** Latest JADE/HERMES integrity signal geo semantic_drift for serverless breaker */
+  INTEGRITY_SIGNAL_LATEST: 14_400,
 } as const;

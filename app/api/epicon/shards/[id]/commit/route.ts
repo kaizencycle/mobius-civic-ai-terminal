@@ -11,10 +11,10 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const authError = await getServiceOrOperatorWithBreakerError(request);
-    if (authError) return authError;
+  const breakerError = await getServiceOrOperatorWithBreakerError(request);
+  if (breakerError) return breakerError;
 
+  try {
     const { id } = await context.params;
     if (!id) {
       return NextResponse.json({ ok: false, error: 'Missing id' }, { status: 400 });
