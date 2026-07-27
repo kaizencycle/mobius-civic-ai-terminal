@@ -2,11 +2,15 @@ import type { NextRequest } from 'next/server';
 import type { NextResponse } from 'next/server';
 
 import { auth } from '@/auth';
-import { getEveSynthesisAuthError, getServiceAuthError } from '@/lib/security/serviceAuth';
+import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
-/** Cron lane: Vercel cron headers, CRON_SECRET bearer, or configured service secrets. */
+/**
+ * Mutating cron lane (e.g. cycle-advance POST): configured service secrets only.
+ * Does not use {@link getEveSynthesisAuthError} — spoofable `x-vercel-cron-*` /
+ * User-Agent markers must not authorize ledger/cycle writes.
+ */
 export function getCronMutatingRouteAuthError(request: NextRequest): NextResponse | null {
-  return getEveSynthesisAuthError(request);
+  return getServiceAuthError(request);
 }
 
 /** Service lane: MOBIUS_SERVICE_SECRET, CRON_SECRET, RENDER_SCHEDULER_SECRET, BACKFILL_SECRET. */
