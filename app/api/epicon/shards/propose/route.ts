@@ -4,6 +4,7 @@ import { buildShardCandidate } from '@/lib/epicon/shards/buildCandidate';
 import { listDiscoverableCycles } from '@/lib/epicon/shards/discover';
 import { listShardProposals } from '@/lib/epicon/shards/store';
 import { toPublicShardProposal } from '@/lib/epicon/shards/sanitize';
+import { getServiceMutatingRouteAuthError } from '@/lib/security/mutatingRouteAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = getServiceMutatingRouteAuthError(request);
+  if (authError) return authError;
+
   try {
     const body = (await request.json()) as ProposeBody;
     const cycleId =

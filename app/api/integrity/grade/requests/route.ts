@@ -12,6 +12,7 @@ import {
 } from '@/lib/mfs/integrity-grade/create-request';
 import { listIntegrityGradeRequests } from '@/lib/mfs/integrity-grade/store';
 import { toPublicIntegrityGradeRequest } from '@/lib/mfs/integrity-grade/sanitize';
+import { getOperatorOrServiceAuthError } from '@/lib/security/mutatingRouteAuth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -35,6 +36,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await getOperatorOrServiceAuthError(request);
+  if (authError) return authError;
+
   try {
     const body = (await request.json()) as CreateBody;
     const walletId = typeof body.wallet_id === 'string' ? body.wallet_id.trim() : '';

@@ -16,7 +16,7 @@
  *   6. Writes a snapshot to docs/echo/
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import {
   currentCycleId,
   previousCycleId,
@@ -35,6 +35,7 @@ import {
   getEchoAlerts,
 } from '@/lib/echo/store';
 import { writeSnapshot } from '@/lib/echo/snapshot-writer';
+import { getCronMutatingRouteAuthError } from '@/lib/security/mutatingRouteAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,7 +61,10 @@ export async function GET() {
   });
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const authError = getCronMutatingRouteAuthError(request);
+  if (authError) return authError;
+
   const startTime = Date.now();
   const now = new Date();
 

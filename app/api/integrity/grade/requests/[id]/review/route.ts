@@ -18,6 +18,7 @@ import type {
   HumanReviewVerdict,
 } from '@/lib/mfs/integrity-grade/types';
 import { GRADE_REVIEW_AGENTS } from '@/lib/mfs/integrity-grade/types';
+import { getOperatorOrServiceAuthError } from '@/lib/security/mutatingRouteAuth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -46,6 +47,9 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  const authError = await getOperatorOrServiceAuthError(request);
+  if (authError) return authError;
+
   try {
     const { id } = await context.params;
     if (!id) {

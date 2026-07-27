@@ -1,9 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { finalizeSeal } from '@/lib/seal/finalizeSeal';
+import { getServiceMutatingRouteAuthError } from '@/lib/security/mutatingRouteAuth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  const authError = getServiceMutatingRouteAuthError(req);
+  if (authError) return authError;
+
   const body = (await req.json()) as { seal_id?: string };
   if (!body.seal_id) {
     return NextResponse.json({ ok: false, reason: 'missing_seal_id' }, { status: 400 });
