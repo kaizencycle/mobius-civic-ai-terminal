@@ -81,4 +81,10 @@ describe('mutating route auth (C-384 PR-5)', () => {
     assert.match(src, /getCronMutatingRouteAuthError[\s\S]*?return getServiceAuthError\(request\)/);
     assert.doesNotMatch(src, /return getEveSynthesisAuthError/);
   });
+
+  it('operator mutating auth uses getOperatorSession parity with journal canonize', () => {
+    const src = readRepoFile('lib/security/mutatingRouteAuth.ts');
+    assert.match(src, /getOperatorSession/);
+    assert.doesNotMatch(src, /\bauth\(\)/);
+  });
 });

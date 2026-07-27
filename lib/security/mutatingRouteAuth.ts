@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import type { NextResponse } from 'next/server';
 
-import { auth } from '@/auth';
+import { getOperatorSession } from '@/lib/auth/session';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
 /**
@@ -18,18 +18,14 @@ export function getServiceMutatingRouteAuthError(request: NextRequest): NextResp
   return getServiceAuthError(request);
 }
 
-/** Operator UI + automation: GitHub session (NextAuth) or service/cron secrets. */
+/** Operator UI + automation: full operator session (githubUsername + mobius_id) or service secrets. */
 export async function getOperatorOrServiceAuthError(request: NextRequest): Promise<NextResponse | null> {
   if (getServiceAuthError(request) === null) {
     return null;
   }
-  try {
-    const session = await auth();
-    if (session?.user) {
-      return null;
-    }
-  } catch {
-    // fall through to 401
+  const operator = await getOperatorSession();
+  if (operator) {
+    return null;
   }
   return getServiceAuthError(request);
 }
