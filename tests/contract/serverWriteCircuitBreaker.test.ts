@@ -10,6 +10,7 @@ import {
   detectEpochGiDropFromTrend,
   evaluateServerWriteFromInputs,
   isGiSnapshotTrustedForWrites,
+  pickAuthoritativeSemanticDrift,
   resolveSemanticDriftDetected,
   resolveTrendEpochGiPair,
   semanticDriftScoreTrips,
@@ -122,6 +123,22 @@ describe('server write circuit breaker (C-384 PR-6)', () => {
     const evaluation = evaluateServerWriteFromInputs(0.92, 'stable', { giProvenanceBlocked: true });
     assert.equal(evaluation.allowed, false);
     assert.equal(evaluation.giProvenanceBlocked, true);
+  });
+
+  it('pickAuthoritativeSemanticDrift prefers newest timestamp (stale KV vs recovered local)', () => {
+    const drift = pickAuthoritativeSemanticDrift(
+      { semantic_drift: 0.4, timestamp: '2026-07-27T02:00:00.000Z' },
+      { semantic_drift: 0.9, timestamp: '2026-07-27T01:00:00.000Z' },
+    );
+    assert.equal(semanticDriftScoreTrips(drift), false);
+  });
+
+  it('pickAuthoritativeSemanticDrift prefers newer KV over stale in-process high drift', () => {
+    const drift = pickAuthoritativeSemanticDrift(
+      { semantic_drift: 0.85, timestamp: '2026-07-27T01:00:00.000Z' },
+      { semantic_drift: 0.3, timestamp: '2026-07-27T02:00:00.000Z' },
+    );
+    assert.equal(semanticDriftScoreTrips(drift), false);
   });
 
   it('resolveSemanticDriftDetected reads in-process and persisted KV drift', async () => {

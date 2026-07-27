@@ -1,5 +1,4 @@
-import type { NextRequest } from 'next/server';
-import type { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
 import { getOperatorSession } from '@/lib/auth/session';
 import { getServerWriteCircuitBreakerError } from '@/lib/gi/serverWriteCircuitBreaker';
@@ -44,12 +43,24 @@ export async function getServiceMutatingRouteWithBreakerError(
 export async function getServiceOrOperatorWithBreakerError(
   request: NextRequest,
 ): Promise<NextResponse | null> {
-  const serviceOk = getServiceAuthError(request) === null;
-  if (!serviceOk) {
-    const operator = await getOperatorSession();
-    if (!operator) return getServiceAuthError(request);
+  try {
+    const serviceOk = getServiceAuthError(request) === null;
+    if (!serviceOk) {
+      const operator = await getOperatorSession();
+      if (!operator) return getServiceAuthError(request);
+    }
+    return await getServerWriteCircuitBreakerError();
+  } catch (error) {
+    console.error('[mutating-auth] service/operator breaker gate failed', error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'auth_gate_unavailable',
+        message: 'Could not verify operator or service credentials.',
+      },
+      { status: 503 },
+    );
   }
-  return getServerWriteCircuitBreakerError();
 }
 
 /** Operator mutating routes with server GI write circuit breaker (integrity grade). */

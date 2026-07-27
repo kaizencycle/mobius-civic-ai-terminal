@@ -8,7 +8,8 @@ import { C261_COVENANT } from '@/lib/constants/covenants';
 import { computeIntegrityPayload, type IntegrityPayload } from '@/lib/integrity/buildStatus';
 import {
   getLatestIntegritySignal,
-  loadPersistedIntegritySignalDrift,
+  loadPersistedIntegritySignalRow,
+  type IntegritySignalKvRow,
 } from '@/lib/integrity/signal-store';
 import {
   evaluateCircuitBreaker,
@@ -79,12 +80,39 @@ export function semanticDriftScoreTrips(driftScore: number | null | undefined): 
   return driftScore >= GEO_SEMANTIC_DRIFT_TRIP_THRESHOLD;
 }
 
-/** In-process head (same instance) plus KV mirror for serverless cold starts. */
+export type SemanticDriftReading = Pick<IntegritySignalKvRow, 'semantic_drift' | 'timestamp'>;
+
+function semanticDriftTimestampMs(timestamp: string): number {
+  const ms = new Date(timestamp).getTime();
+  return Number.isFinite(ms) ? ms : -1;
+}
+
+/** Newest timestamp wins between in-process JADE head and KV mirror (cross-instance recovery). */
+export function pickAuthoritativeSemanticDrift(
+  local: SemanticDriftReading | null,
+  persisted: SemanticDriftReading | null,
+): number | null {
+  if (!local && !persisted) return null;
+  if (!local) return persisted!.semantic_drift;
+  if (!persisted) return local.semantic_drift;
+  const localMs = semanticDriftTimestampMs(local.timestamp);
+  const persistedMs = semanticDriftTimestampMs(persisted.timestamp);
+  return localMs >= persistedMs ? local.semantic_drift : persisted.semantic_drift;
+}
+
 export async function resolveSemanticDriftDetected(): Promise<boolean> {
-  const localDrift = getLatestIntegritySignal()?.layers?.geo_layer?.semantic_drift;
-  if (semanticDriftScoreTrips(localDrift)) return true;
-  const persisted = await loadPersistedIntegritySignalDrift();
-  return semanticDriftScoreTrips(persisted);
+  const signal = getLatestIntegritySignal();
+  const rawLocal = signal?.layers?.geo_layer?.semantic_drift;
+  const local: SemanticDriftReading | null =
+    signal &&
+    typeof rawLocal === 'number' &&
+    Number.isFinite(rawLocal) &&
+    typeof signal.timestamp === 'string'
+      ? { semantic_drift: rawLocal, timestamp: signal.timestamp }
+      : null;
+  const persisted = await loadPersistedIntegritySignalRow();
+  const drift = pickAuthoritativeSemanticDrift(local, persisted);
+  return semanticDriftScoreTrips(drift);
 }
 
 export function detectEpochGiDrop(currentGi: number, previousGi: number | null): boolean {

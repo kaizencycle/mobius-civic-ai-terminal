@@ -12,10 +12,11 @@ export type IntegritySignalKvRow = {
 
 export function setLatestIntegritySignal(signal: MobiusCivicIntegritySignal): void {
   latestIntegritySignal = signal;
-  const drift = signal.layers?.geo_layer?.semantic_drift;
-  if (typeof drift !== 'number' || !Number.isFinite(drift)) return;
+  const raw = signal.layers?.geo_layer?.semantic_drift;
+  const semantic_drift =
+    typeof raw === 'number' && Number.isFinite(raw) ? raw : 0;
   const row: IntegritySignalKvRow = {
-    semantic_drift: drift,
+    semantic_drift,
     timestamp: signal.timestamp,
     signal_id: signal.signal_id,
   };
@@ -26,10 +27,17 @@ export function getLatestIntegritySignal(): MobiusCivicIntegritySignal | null {
   return latestIntegritySignal;
 }
 
-export async function loadPersistedIntegritySignalDrift(): Promise<number | null> {
+export async function loadPersistedIntegritySignalRow(): Promise<IntegritySignalKvRow | null> {
   const row = await kvGet<IntegritySignalKvRow>(KV_KEYS.INTEGRITY_SIGNAL_LATEST);
   if (!row || typeof row.semantic_drift !== 'number' || !Number.isFinite(row.semantic_drift)) {
     return null;
   }
-  return row.semantic_drift;
+  if (typeof row.timestamp !== 'string' || !row.timestamp.trim()) return null;
+  return row;
+}
+
+/** @deprecated Prefer loadPersistedIntegritySignalRow for timestamp-aware merge */
+export async function loadPersistedIntegritySignalDrift(): Promise<number | null> {
+  const row = await loadPersistedIntegritySignalRow();
+  return row?.semantic_drift ?? null;
 }
