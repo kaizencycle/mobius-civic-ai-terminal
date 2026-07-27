@@ -299,15 +299,8 @@ export async function kvCompareAndSetPrefixedJson(
   const parsedNext = JSON.parse(nextJson) as unknown;
 
   if (!redis) {
-    const witness = await kvGetPrefixedCasWitness(key);
-    const expected = expectedWitness;
-    if (expected === null) {
-      if (witness !== null) return { ok: false, actual: witness };
-    } else if (witness !== expected) {
-      return { ok: false, actual: witness };
-    }
-    const wrote = await kvSet(key, parsedNext, ttlSeconds);
-    return wrote ? { ok: true, actual: nextJson } : { ok: false, actual: witness };
+    // Primary Redis required for atomic CAS; bridge-only read paths cannot serialize writers.
+    return { ok: false, actual: await kvGetPrefixedCasWitness(key) };
   }
 
   try {

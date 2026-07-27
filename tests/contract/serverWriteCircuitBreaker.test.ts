@@ -17,6 +17,7 @@ import {
 } from '../../lib/gi/serverWriteCircuitBreaker.ts';
 import {
   getLatestIntegritySignal,
+  integrityDriftCasExhaustionOutcome,
   integritySignalDriftRow,
   isIncomingIntegrityRowNewer,
   setLatestIntegritySignal,
@@ -175,6 +176,20 @@ describe('server write circuit breaker (C-384 PR-6)', () => {
       timestamp: '2026-07-27T02:00:00.000Z',
     });
     assert.equal(semanticDriftScoreTrips(drift), true);
+  });
+
+  it('integrityDriftCasExhaustionOutcome treats contention as kv failure not stale', () => {
+    const incoming = {
+      semantic_drift: 0.9,
+      timestamp: '2026-07-27T03:00:00.000Z',
+      signal_id: 'sig-new',
+    };
+    const witness = JSON.stringify({
+      semantic_drift: 0.5,
+      timestamp: '2026-07-27T02:00:00.000Z',
+      signal_id: 'sig-old',
+    });
+    assert.equal(integrityDriftCasExhaustionOutcome(incoming, witness), 'cas_exhausted');
   });
 
   it('resolveSemanticDriftDetected reads in-process and persisted KV drift', async () => {

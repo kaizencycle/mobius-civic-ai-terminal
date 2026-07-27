@@ -73,7 +73,7 @@ function parseIntegritySignalKvWitness(witness: string | null): IntegritySignalK
 
 async function compareAndSetIntegritySignalDriftRow(
   incoming: IntegritySignalKvRow,
-): Promise<'written' | 'skipped_stale'> {
+): Promise<'written' | 'skipped_stale' | 'cas_exhausted'> {
   const nextJson = serializeIntegritySignalKvRow(incoming);
 
   for (let attempt = 0; attempt < INTEGRITY_SIGNAL_CAS_ATTEMPTS; attempt++) {
@@ -98,14 +98,31 @@ async function compareAndSetIntegritySignalDriftRow(
     }
   }
 
-  return 'skipped_stale';
+  const witness = await kvGetPrefixedCasWitness(KV_KEYS.INTEGRITY_SIGNAL_LATEST);
+  return integrityDriftCasExhaustionOutcome(incoming, witness);
+}
+
+/** Classify CAS loop exhaustion — stale only when KV head is newer than incoming. */
+export function integrityDriftCasExhaustionOutcome(
+  incoming: IntegritySignalKvRow,
+  witness: string | null,
+): 'skipped_stale' | 'cas_exhausted' {
+  const existing = parseIntegritySignalKvWitness(witness);
+  if (existing && !isIncomingIntegrityRowNewer(incoming, existing)) {
+    return 'skipped_stale';
+  }
+  return 'cas_exhausted';
 }
 
 export function setLatestIntegritySignal(signal: MobiusCivicIntegritySignal): void {
   latestIntegritySignal = signal;
 }
 
-export type PersistIntegrityDriftOutcome = 'written' | 'skipped_no_drift' | 'skipped_stale';
+export type PersistIntegrityDriftOutcome =
+  | 'written'
+  | 'skipped_no_drift'
+  | 'skipped_stale'
+  | 'cas_exhausted';
 
 export async function persistIntegritySignalDriftToKv(
   signal: MobiusCivicIntegritySignal,
@@ -133,6 +150,9 @@ export async function commitLatestIntegritySignal(
     const outcome = await persistIntegritySignalDriftToKv(signal);
     if (outcome === 'skipped_stale') {
       return { ok: false, reason: 'stale_signal' };
+    }
+    if (outcome === 'cas_exhausted') {
+      return { ok: false, reason: 'kv_unavailable' };
     }
     setLatestIntegritySignal(signal);
     return { ok: true, kvWritten: true };
