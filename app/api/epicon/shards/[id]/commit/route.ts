@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { commitShardCandidate, ShardCommitError } from '@/lib/epicon/shards/commit-candidate';
 import { getShardProposal, replaceShardProposal } from '@/lib/epicon/shards/store';
 import { toPublicShardProposal } from '@/lib/epicon/shards/sanitize';
-import { getOperatorSession } from '@/lib/auth/session';
-import { getServiceAuthError } from '@/lib/security/serviceAuth';
+import { getServiceOrOperatorWithBreakerError } from '@/lib/security/mutatingRouteAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,11 +12,8 @@ export async function POST(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const authError = getServiceAuthError(request);
-    const operator = await getOperatorSession();
-    if (authError && !operator) {
-      return authError;
-    }
+    const authError = await getServiceOrOperatorWithBreakerError(request);
+    if (authError) return authError;
 
     const { id } = await context.params;
     if (!id) {

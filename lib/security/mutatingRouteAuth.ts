@@ -40,6 +40,18 @@ export async function getServiceMutatingRouteWithBreakerError(
   return getServerWriteCircuitBreakerError();
 }
 
+/** Service or operator session (shard commit) with server GI write circuit breaker. */
+export async function getServiceOrOperatorWithBreakerError(
+  request: NextRequest,
+): Promise<NextResponse | null> {
+  const serviceOk = getServiceAuthError(request) === null;
+  if (!serviceOk) {
+    const operator = await getOperatorSession();
+    if (!operator) return getServiceAuthError(request);
+  }
+  return getServerWriteCircuitBreakerError();
+}
+
 /** Operator mutating routes with server GI write circuit breaker (integrity grade). */
 export async function getOperatorOrServiceWithBreakerError(
   request: NextRequest,

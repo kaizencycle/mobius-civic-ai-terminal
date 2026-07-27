@@ -10,6 +10,7 @@ import {
   detectEpochGiDropFromTrend,
   detectSemanticDriftFromSignal,
   evaluateServerWriteFromInputs,
+  isGiSnapshotTrustedForWrites,
   resolveTrendEpochGiPair,
 } from '../../lib/gi/serverWriteCircuitBreaker.ts';
 import {
@@ -89,12 +90,37 @@ describe('server write circuit breaker (C-384 PR-6)', () => {
     ];
     const pair = resolveTrendEpochGiPair(trend);
     assert.deepEqual(pair, { current: 0.71, previous: 0.76 });
-    assert.equal(detectEpochGiDropFromTrend(trend, 0.86), true);
+    assert.equal(detectEpochGiDropFromTrend(trend, 0.71), true);
+  });
+
+  it('stale trend does not block writes when live GI recovered vs prior epoch', () => {
+    const trend = [
+      { gi: 0.71, mode: 'live', timestamp: 't0', gi_verified: true },
+      { gi: 0.71, mode: 'live', timestamp: 't1', gi_verified: true },
+      { gi: 0.76, mode: 'live', timestamp: 't2', gi_verified: true },
+    ];
+    assert.equal(detectEpochGiDropFromTrend(trend, 0.9), false);
   });
 
   it('detectEpochGiDropFromTrend trips when live GI drops from trend head', () => {
     const trend = [{ gi: 0.9, mode: 'live', timestamp: 't0', gi_verified: true }];
     assert.equal(detectEpochGiDropFromTrend(trend, 0.84), true);
+  });
+
+  it('isGiSnapshotTrustedForWrites rejects mock, cached, and stale kv', () => {
+    const fresh = new Date().toISOString();
+    assert.equal(isGiSnapshotTrustedForWrites({ source: 'kv', timestamp: fresh }), true);
+    assert.equal(isGiSnapshotTrustedForWrites({ source: 'live', timestamp: fresh }), true);
+    assert.equal(isGiSnapshotTrustedForWrites({ source: 'cached', timestamp: fresh }), false);
+    assert.equal(isGiSnapshotTrustedForWrites({ source: 'mock', timestamp: fresh }), false);
+    const stale = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+    assert.equal(isGiSnapshotTrustedForWrites({ source: 'kv', timestamp: stale }), false);
+  });
+
+  it('gi provenance block pauses writes even when GI is high', () => {
+    const evaluation = evaluateServerWriteFromInputs(0.92, 'stable', { giProvenanceBlocked: true });
+    assert.equal(evaluation.allowed, false);
+    assert.equal(evaluation.giProvenanceBlocked, true);
   });
 
   it('detectSemanticDriftFromSignal reads latest JADE/HERMES geo_layer', () => {

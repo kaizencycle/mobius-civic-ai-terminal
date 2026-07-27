@@ -23,6 +23,7 @@ export const MUTATING_ROUTE_AUTH_CONTRACT: MutatingRouteContract[] = [
 export const MUTATING_ROUTE_WRITE_BREAKER_CONTRACT: string[] = [
   'app/api/epicon/shards/propose/route.ts',
   'app/api/epicon/shards/[id]/review/route.ts',
+  'app/api/epicon/shards/[id]/commit/route.ts',
   'app/api/seal/finalize/route.ts',
   'app/api/seal/reattest/route.ts',
   'app/api/integrity/grade/requests/route.ts',
@@ -31,7 +32,7 @@ export const MUTATING_ROUTE_WRITE_BREAKER_CONTRACT: string[] = [
 
 const AUTH_SNIPPET: Record<MutatingRouteAuthKind, RegExp> = {
   cron: /getCronMutatingRouteAuthError/,
-  service: /getServiceMutatingRoute(?:WithBreaker|Auth)Error/,
+  service: /getService(?:MutatingRoute(?:WithBreaker|Auth)|OrOperatorWithBreaker)Error/,
   operator: /getOperatorOrServiceWithBreakerError/,
 };
 
