@@ -16,7 +16,6 @@ import { EVE_LEDGER_SYNTHESIS_SOURCE, isEveSynthesisLedgerSource } from '@/lib/e
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { getMemoryLedgerEntries } from '@/lib/epicon/memoryLedgerFeed';
 import { getLiveIntegritySnapshot } from '@/lib/integrity/buildStatus';
-import { integrityStatus } from '@/lib/mock/integrityStatus';
 import { mockCivicAlerts } from '@/lib/terminal/mock';
 import type { CivicRadarAlert } from '@/lib/terminal/types';
 import { getTreasuryAlerts } from '@/lib/treasury/alerts';
@@ -39,8 +38,10 @@ export type EveGovernanceSynthesisInput = {
   committedAgentRows: EpiconLedgerFeedEntry[];
   tripwire: ReturnType<typeof getTripwireState>;
   civicAlerts: CivicRadarAlert[];
-  gi: number;
-  mii: number;
+  gi: number | null;
+  gi_provenance: string;
+  mii: number | null;
+  mii_provenance: string;
   treasuryStatus: string;
   treasuryTripwireCount: number;
   treasuryAlertCount: number;
@@ -86,7 +87,7 @@ export type EveSynthesisInputPublic = {
     last_updated: string;
   };
   civicRadarAlerts: Array<Pick<CivicRadarAlert, 'id' | 'title' | 'severity' | 'timestamp'>>;
-  integrity: { gi: number; mii: number };
+  integrity: { gi: number | null; mii: number | null; gi_provenance: string; mii_provenance: string };
   treasury: { status: string; tripwireCount: number; alertCount: number };
   narrativeClusterCount: number;
   external: { degraded: boolean; enrichmentPreview: string | null; sonarPreview: string | null };
@@ -122,7 +123,12 @@ export function buildNormalizedEveSynthesisInputSnapshot(
       severity: a.severity,
       timestamp: a.timestamp,
     })),
-    integrity: { gi: input.gi, mii: input.mii },
+    integrity: {
+      gi: input.gi,
+      mii: input.mii,
+      gi_provenance: input.gi_provenance,
+      mii_provenance: input.mii_provenance,
+    },
     treasury: {
       status: input.treasuryStatus,
       tripwireCount: input.treasuryTripwireCount,
@@ -209,6 +215,15 @@ function scoreToSeverity(score: number): Severity {
   return 'low';
 }
 
+function optionalScoreToSeverity(score: number | null): Severity {
+  if (score === null || !Number.isFinite(score)) return 'low';
+  return scoreToSeverity(score);
+}
+
+function formatIntegrityMetric(score: number | null): string {
+  return score === null || !Number.isFinite(score) ? 'n/a' : score.toFixed(2);
+}
+
 export function tensionFromHighestSeverity(highest: Severity): EveSynthesis['global_tension'] {
   if (highest === 'high') return 'high';
   if (highest === 'medium') return 'elevated';
@@ -233,7 +248,7 @@ export function cycleSynthesisIdempotencyTag(cycleId: string, windowBucket: stri
 }
 
 export function escalationFingerprint(input: EveGovernanceSynthesisInput): string {
-  const giBucket = Math.floor(input.gi * 50);
+  const giBucket = Math.floor((input.gi ?? 0) * 50);
   const tw = input.tripwire.level;
   const critRadar =
     input.civicAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length;
@@ -336,14 +351,18 @@ export async function gatherEveGovernanceSynthesisInput(
     // graceful degradation
   }
 
-  let gi = integrityStatus.global_integrity;
-  let mii = integrityStatus.mii_baseline;
+  let gi: number | null = null;
+  let giProvenance = 'unavailable';
+  let mii: number | null = null;
+  let miiProvenance = 'unavailable';
   try {
     const live = await getLiveIntegritySnapshot();
     gi = live.global_integrity;
+    giProvenance = live.gi_source;
     mii = live.mii_baseline;
+    miiProvenance = live.mii_source;
   } catch {
-    // keep mock baseline; synthesis still runs from substrate rows
+    // synthesis still runs from substrate rows without mock GI/MII fixtures
   }
 
   const echoEpicon = getEchoEpicon();
@@ -365,7 +384,9 @@ export async function gatherEveGovernanceSynthesisInput(
     tripwire,
     civicAlerts,
     gi,
+    gi_provenance: giProvenance,
     mii,
+    mii_provenance: miiProvenance,
     treasuryStatus,
     treasuryTripwireCount,
     treasuryAlertCount,
@@ -377,7 +398,7 @@ export async function gatherEveGovernanceSynthesisInput(
 }
 
 export function escalationWarranted(input: EveGovernanceSynthesisInput): boolean {
-  if (input.gi < GI_STRESS_THRESHOLD) return true;
+  if (input.gi !== null && input.gi < GI_STRESS_THRESHOLD) return true;
   if (input.tripwire.active) return true;
   if (
     input.tripwire.level === 'watch' ||
@@ -409,8 +430,8 @@ export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisI
   );
   const agentList = [...actorSet].sort();
 
-  const giSeverity = scoreToSeverity(input.gi);
-  const miiSeverity = scoreToSeverity(input.mii);
+  const giSeverity = optionalScoreToSeverity(input.gi);
+  const miiSeverity = optionalScoreToSeverity(input.mii);
   const tripwireSeverity: Severity =
     input.tripwire.level === 'high' ||
     input.tripwire.level === 'triggered' ||
@@ -433,11 +454,17 @@ export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisI
     combinedSeverity === 'high' ? 'high' : combinedSeverity === 'medium' ? 'medium' : 'low';
 
   const governancePosture: EveGovernanceSynthesisOutput['governancePosture'] =
-    input.gi < 0.65 ? 'critical' : input.gi < GI_STRESS_THRESHOLD ? 'stressed' : tripwireSeverity !== 'low' ? 'watch' : 'stable';
+    input.gi !== null && input.gi < 0.65
+      ? 'critical'
+      : input.gi !== null && input.gi < GI_STRESS_THRESHOLD
+        ? 'stressed'
+        : tripwireSeverity !== 'low'
+          ? 'watch'
+          : 'stable';
 
   const ethicsFlags: string[] = [];
   if (input.tripwire.active) ethicsFlags.push('active-tripwire');
-  if (input.gi < GI_STRESS_THRESHOLD) ethicsFlags.push('integrity-stress');
+  if (input.gi !== null && input.gi < GI_STRESS_THRESHOLD) ethicsFlags.push('integrity-stress');
   if (input.narrativeClusterCount >= NARRATIVE_CLUSTER_THRESHOLD) ethicsFlags.push('narrative-cluster-spike');
   if (input.externalDegraded) ethicsFlags.push('external-feed-degraded');
 
@@ -464,7 +491,7 @@ export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisI
   const governanceSummary =
     `Cycle ${input.cycleId} substrate: ${input.committedAgentRows.length} committed agent row(s) ` +
     `from ${agentList.length > 0 ? agentList.join(', ') : 'no agent authors in-window'}. ` +
-    `GI=${input.gi.toFixed(2)}, MII=${input.mii.toFixed(2)}. Treasury watch: ${input.treasuryStatus} ` +
+    `GI=${formatIntegrityMetric(input.gi)} (${input.gi_provenance}), MII=${formatIntegrityMetric(input.mii)} (${input.mii_provenance}). Treasury watch: ${input.treasuryStatus} ` +
     `(${input.treasuryTripwireCount} fiscal tripwire(s), ${input.treasuryAlertCount} alert(s)).`;
 
   const civicLine =
@@ -487,7 +514,7 @@ export function buildEveGovernanceSynthesisOutput(input: EveGovernanceSynthesisI
   }
 
   const summary = sanitizeTitle(
-    `${governancePosture.toUpperCase()} posture · ${agentList.length} agent lane(s) · GI ${input.gi.toFixed(2)}`,
+    `${governancePosture.toUpperCase()} posture · ${agentList.length} agent lane(s) · GI ${formatIntegrityMetric(input.gi)}`,
   );
 
   const reviewLine =
@@ -610,8 +637,10 @@ export type EveGovernanceSynthTrace = {
   committedAgentRows: number;
   tripwireLevel: string;
   civicAlertCount: number;
-  gi: number;
-  mii: number;
+  gi: number | null;
+  mii: number | null;
+  gi_provenance: string;
+  mii_provenance: string;
   treasuryStatus: string;
 };
 
@@ -622,6 +651,8 @@ function buildSynthTrace(input: EveGovernanceSynthesisInput): EveGovernanceSynth
     civicAlertCount: input.civicAlerts.length,
     gi: input.gi,
     mii: input.mii,
+    gi_provenance: input.gi_provenance,
+    mii_provenance: input.mii_provenance,
     treasuryStatus: input.treasuryStatus,
   };
 }
