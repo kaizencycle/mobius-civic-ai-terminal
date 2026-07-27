@@ -10,17 +10,30 @@ export type IntegritySignalKvRow = {
   signal_id: string;
 };
 
-export function setLatestIntegritySignal(signal: MobiusCivicIntegritySignal): void {
-  latestIntegritySignal = signal;
+/** KV mirror only when geo semantic_drift is explicitly present (never coerce missing → 0). */
+export function integritySignalDriftRow(signal: MobiusCivicIntegritySignal): IntegritySignalKvRow | null {
   const raw = signal.layers?.geo_layer?.semantic_drift;
-  const semantic_drift =
-    typeof raw === 'number' && Number.isFinite(raw) ? raw : 0;
-  const row: IntegritySignalKvRow = {
-    semantic_drift,
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null;
+  if (typeof signal.timestamp !== 'string' || !signal.timestamp.trim()) return null;
+  if (typeof signal.signal_id !== 'string' || !signal.signal_id.trim()) return null;
+  return {
+    semantic_drift: raw,
     timestamp: signal.timestamp,
     signal_id: signal.signal_id,
   };
-  void kvSet(KV_KEYS.INTEGRITY_SIGNAL_LATEST, row, KV_TTL_SECONDS.INTEGRITY_SIGNAL_LATEST).catch(() => {});
+}
+
+export function setLatestIntegritySignal(signal: MobiusCivicIntegritySignal): void {
+  latestIntegritySignal = signal;
+}
+
+export async function persistIntegritySignalDriftToKv(
+  signal: MobiusCivicIntegritySignal,
+): Promise<boolean> {
+  const row = integritySignalDriftRow(signal);
+  if (!row) return false;
+  await kvSet(KV_KEYS.INTEGRITY_SIGNAL_LATEST, row, KV_TTL_SECONDS.INTEGRITY_SIGNAL_LATEST);
+  return true;
 }
 
 export function getLatestIntegritySignal(): MobiusCivicIntegritySignal | null {

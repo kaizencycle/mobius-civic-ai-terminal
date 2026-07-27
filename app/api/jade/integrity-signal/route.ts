@@ -7,7 +7,7 @@ import {
   type MobiusCivicIntegritySignal,
   type SeoLayer,
 } from '@/lib/integrity-signal';
-import { setLatestIntegritySignal } from '@/lib/integrity/signal-store';
+import { persistIntegritySignalDriftToKv, setLatestIntegritySignal } from '@/lib/integrity/signal-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -191,6 +191,11 @@ export async function POST(request: NextRequest) {
     };
 
     setLatestIntegritySignal(signal);
+    try {
+      await persistIntegritySignalDriftToKv(signal);
+    } catch (error) {
+      console.error('[jade/integrity-signal] integrity:signal:latest KV persist failed', error);
+    }
 
     let epiconFlagged = false;
     if (integrityScore <= 0.5) {

@@ -17,6 +17,7 @@ import {
 } from '../../lib/gi/serverWriteCircuitBreaker.ts';
 import {
   getLatestIntegritySignal,
+  integritySignalDriftRow,
   setLatestIntegritySignal,
 } from '../../lib/integrity/signal-store.ts';
 import type { MobiusCivicIntegritySignal } from '../../lib/integrity-signal.ts';
@@ -139,6 +140,25 @@ describe('server write circuit breaker (C-384 PR-6)', () => {
       { semantic_drift: 0.3, timestamp: '2026-07-27T02:00:00.000Z' },
     );
     assert.equal(semanticDriftScoreTrips(drift), false);
+  });
+
+  it('integritySignalDriftRow skips KV row when semantic_drift is missing', () => {
+    const row = integritySignalDriftRow({
+      ...minimalSignal(0.5),
+      layers: {
+        ...minimalSignal(0.5).layers,
+        geo_layer: { ai_consensus: 'aligned', citation_count: 1, semantic_drift: Number.NaN },
+      },
+    });
+    assert.equal(row, null);
+  });
+
+  it('pickAuthoritativeSemanticDrift keeps persisted high drift when local omits geo drift', () => {
+    const drift = pickAuthoritativeSemanticDrift(null, {
+      semantic_drift: 0.85,
+      timestamp: '2026-07-27T02:00:00.000Z',
+    });
+    assert.equal(semanticDriftScoreTrips(drift), true);
   });
 
   it('resolveSemanticDriftDetected reads in-process and persisted KV drift', async () => {
