@@ -44,11 +44,8 @@ export async function getServiceOrOperatorWithBreakerError(
   request: NextRequest,
 ): Promise<NextResponse | null> {
   try {
-    const serviceOk = getServiceAuthError(request) === null;
-    if (!serviceOk) {
-      const operator = await getOperatorSession();
-      if (!operator) return getServiceAuthError(request);
-    }
+    const authErr = await getOperatorOrServiceAuthError(request);
+    if (authErr) return authErr;
     return await getServerWriteCircuitBreakerError();
   } catch (error) {
     console.error('[mutating-auth] service/operator breaker gate failed', error);

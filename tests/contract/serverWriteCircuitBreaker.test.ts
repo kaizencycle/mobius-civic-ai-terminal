@@ -10,6 +10,7 @@ import {
   detectEpochGiDropFromTrend,
   evaluateServerWriteFromInputs,
   isGiSnapshotTrustedForWrites,
+  mergeBreakerTripwireState,
   pickAuthoritativeSemanticDrift,
   resolveSemanticDriftDetected,
   resolveTrendEpochGiPair,
@@ -176,6 +177,12 @@ describe('server write circuit breaker (C-384 PR-6)', () => {
       timestamp: '2026-07-27T02:00:00.000Z',
     });
     assert.equal(semanticDriftScoreTrips(drift), true);
+  });
+
+  it('mergeBreakerTripwireState elevates watch to degraded when KV is elevated', () => {
+    assert.equal(mergeBreakerTripwireState('watch', true), 'degraded');
+    assert.equal(mergeBreakerTripwireState('watch', false), 'watch');
+    assert.equal(mergeBreakerTripwireState('stable', true), 'degraded');
   });
 
   it('integrityDriftCasExhaustionOutcome treats contention as kv failure not stale', () => {

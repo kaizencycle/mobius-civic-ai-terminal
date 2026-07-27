@@ -56,14 +56,21 @@ function mapRuntimeTripwireState(tw: ReturnType<typeof getTripwireState>): Break
   return 'stable';
 }
 
-/** Prefer in-process tripwire when set; otherwise persisted KV (with decay) for serverless cold starts. */
+/** Merge in-process and persisted KV tripwire; worst posture wins (degraded > watch > stable). */
+export function mergeBreakerTripwireState(
+  local: BreakerTripwireState,
+  persistedElevated: boolean,
+): BreakerTripwireState {
+  if (local === 'degraded' || persistedElevated) return 'degraded';
+  if (local === 'watch') return 'watch';
+  return 'stable';
+}
+
 export async function resolveBreakerTripwireState(): Promise<BreakerTripwireState> {
   const local = mapRuntimeTripwireState(getTripwireState());
-  if (local !== 'stable') return local;
-
   const persisted = await loadTripwireState();
-  if (persisted?.elevated && persisted.tripwireCount > 0) return 'degraded';
-  return 'stable';
+  const persistedElevated = Boolean(persisted?.elevated && persisted.tripwireCount > 0);
+  return mergeBreakerTripwireState(local, persistedElevated);
 }
 
 export function isGiSnapshotTrustedForWrites(
