@@ -1,12 +1,11 @@
-// ============================================================================
-// Mobius Terminal — Schema.org JSON-LD Structured Data
-// Serves SEO (crawlers), GEO (generative engines), and AEO (answer engines)
-// CC0 Public Domain
-// ============================================================================
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Application JSON-LD: AGPL for software/org; CC0 retained only on scoped Dataset nodes (C-360).
 
 import { CANONICAL_TERMINAL_ORIGIN } from '@/lib/site/canonicalUrl';
 
 const ORIGIN = CANONICAL_TERMINAL_ORIGIN;
+const AGPL_LICENSE_URL = 'https://www.gnu.org/licenses/agpl-3.0.html';
+const CC0_LICENSE_URL = 'https://creativecommons.org/publicdomain/zero/1.0/';
 
 export function MobiusStructuredData() {
   const jsonLd = {
@@ -19,7 +18,7 @@ export function MobiusStructuredData() {
         name: 'Mobius Substrate',
         url: ORIGIN,
         description:
-          'Mobius Substrate is civic AI governance infrastructure focused on integrity, verifiable memory, and democratic accountability. Released under CC0 public domain.',
+          'Mobius Substrate is civic AI governance infrastructure focused on integrity, verifiable memory, and democratic accountability. Application code is AGPL-3.0-or-later.',
         founder: {
           '@type': 'Person',
           name: 'Michael Judan',
@@ -55,7 +54,7 @@ export function MobiusStructuredData() {
         author: {
           '@id': `${ORIGIN}/#org`,
         },
-        license: 'https://creativecommons.org/publicdomain/zero/1.0/',
+        license: AGPL_LICENSE_URL,
         codeRepository: 'https://github.com/kaizencycle/mobius-civic-ai-terminal',
         programmingLanguage: ['TypeScript', 'React', 'Next.js'],
         softwareVersion: '0.1.0',
@@ -71,7 +70,7 @@ export function MobiusStructuredData() {
         description:
           'Real-time civic integrity signals from four micro sub-agents polling nine free public APIs: Open-Meteo weather, USGS earthquakes, Federal Register, data.gov, Hacker News, Wikipedia recent changes, GitHub API, npm registry, and terminal self-ping. Updated every 5-15 minutes. Normalized to 0-1 scale where 1 equals healthy.',
         url: `${ORIGIN}/api/signals/micro`,
-        license: 'https://creativecommons.org/publicdomain/zero/1.0/',
+        license: CC0_LICENSE_URL,
         creator: {
           '@id': `${ORIGIN}/#org`,
         },
@@ -110,7 +109,7 @@ export function MobiusStructuredData() {
         description:
           'Machine-readable health snapshots of the Mobius Civic AI Terminal, updated every 2 hours via GitHub Actions. Tracks codebase stats, integrity metrics, agent roster, API surface, and deployment state.',
         url: 'https://github.com/kaizencycle/mobius-civic-ai-terminal/tree/main/docs/catalog',
-        license: 'https://creativecommons.org/publicdomain/zero/1.0/',
+        license: CC0_LICENSE_URL,
         creator: {
           '@id': `${ORIGIN}/#org`,
         },
@@ -132,7 +131,7 @@ export function MobiusStructuredData() {
             name: 'What is the Mobius Civic AI Terminal?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'The Mobius Civic AI Terminal is a Bloomberg-style command console for civic AI governance. It monitors Global Integrity scores, EPICON ledger events, agent status across 8 canonical AI agents and 4 micro sub-agents, tripwire anomalies, and real-time signals from 9 public APIs. It is part of the Mobius Substrate infrastructure and released under CC0 public domain.',
+              text: 'The Mobius Civic AI Terminal is a Bloomberg-style command console for civic AI governance. It monitors Global Integrity scores, EPICON ledger events, agent status across 8 canonical AI agents and 4 micro sub-agents, tripwire anomalies, and real-time signals from 9 public APIs. It is part of the Mobius Substrate infrastructure; application source is AGPL-3.0-or-later.',
             },
           },
           {
@@ -172,7 +171,7 @@ export function MobiusStructuredData() {
             name: 'Is the Mobius Terminal open source?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'Yes. The Mobius Civic AI Terminal and the entire Mobius Substrate are released under CC0 1.0 Universal public domain dedication. The source code is available at github.com/kaizencycle/mobius-civic-ai-terminal. This was a deliberate choice to prevent institutional capture and ensure the infrastructure outlasts any individual.',
+              text: 'Yes. The Mobius Civic AI Terminal source code is open under AGPL-3.0-or-later (see LICENSE in the repository). Mobius Substrate aligns code licensing with AGPL under C-360; scoped public datasets may use CC0 where documented. Source: github.com/kaizencycle/mobius-civic-ai-terminal.',
             },
           },
         ],

@@ -366,12 +366,10 @@ The runtime cycle is derived from the terminal's deterministic cycle engine rath
 
 ## License
 
-**CC0 1.0 Universal — Public Domain Dedication**
+**GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)**
 
-This work is released to the public domain by Mobius Substrate and the kaizencycle organization under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/).
+Source code in this repository is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). See also [ETHICAL_ADDENDUM.md](ETHICAL_ADDENDUM.md) (non-binding civic intent; does not modify AGPL terms).
 
-No copyright or related rights are reserved. You may copy, modify, distribute, and use the work — even for commercial purposes — without asking permission.
+Handbook and documentation are [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) where not otherwise noted. Research citations and deliberately scoped public datasets (for example knowledge blocks and catalog signal snapshots) may be [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) per Mobius Substrate C-360 policy — that scope does **not** include application source code.
 
-This is a deliberate architectural choice: civic infrastructure must outlast any individual or institution.
-
-[![CC0](https://licensebuttons.net/p/zero/1.0/88x31.png)](https://creativecommons.org/publicdomain/zero/1.0/)
+[![AGPLv3](https://www.gnu.org/graphics/agplv3-88x31.png)](https://www.gnu.org/licenses/agpl-3.0.html)
