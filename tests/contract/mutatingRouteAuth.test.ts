@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   MUTATING_ROUTE_AUTH_CONTRACT,
+  MUTATING_ROUTE_WRITE_BREAKER_CONTRACT,
   postHandlerMatchesAuthContract,
 } from '../../lib/security/mutating-route-manifest.ts';
 import { getCronMutatingRouteAuthError } from '../../lib/security/mutatingRouteAuth.ts';
@@ -28,6 +29,13 @@ describe('mutating route auth (C-384 PR-5)', () => {
         postHandlerMatchesAuthContract(src, entry.auth),
         `POST handler in ${entry.file} must call get*MutatingRouteAuthError (${entry.auth})`,
       );
+    });
+  }
+
+  for (const rel of MUTATING_ROUTE_WRITE_BREAKER_CONTRACT) {
+    it(`${rel} POST wires server write circuit breaker`, () => {
+      const src = readRepoFile(rel);
+      assert.match(src, /WithBreakerError/);
     });
   }
 

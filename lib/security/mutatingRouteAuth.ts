@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import type { NextResponse } from 'next/server';
 
 import { getOperatorSession } from '@/lib/auth/session';
+import { getServerWriteCircuitBreakerError } from '@/lib/gi/serverWriteCircuitBreaker';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
 
 /**
@@ -28,4 +29,22 @@ export async function getOperatorOrServiceAuthError(request: NextRequest): Promi
     return null;
   }
   return getServiceAuthError(request);
+}
+
+/** Service mutating routes that must respect server GI write circuit breaker (seal, shards). */
+export async function getServiceMutatingRouteWithBreakerError(
+  request: NextRequest,
+): Promise<NextResponse | null> {
+  const authErr = getServiceMutatingRouteAuthError(request);
+  if (authErr) return authErr;
+  return getServerWriteCircuitBreakerError();
+}
+
+/** Operator mutating routes with server GI write circuit breaker (integrity grade). */
+export async function getOperatorOrServiceWithBreakerError(
+  request: NextRequest,
+): Promise<NextResponse | null> {
+  const authErr = await getOperatorOrServiceAuthError(request);
+  if (authErr) return authErr;
+  return getServerWriteCircuitBreakerError();
 }
