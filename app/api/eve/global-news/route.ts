@@ -10,7 +10,12 @@ import type { NextRequest } from 'next/server';
 import { after, NextResponse } from 'next/server';
 
 import { buildAndCommitEveInternalSynthesis } from '@/lib/eve/internal-synthesis';
-import { type EveSynthesis, fetchEveGlobalNews } from '@/lib/eve/global-news';
+import {
+  type EveSynthesis,
+  buildExternalSynthesisFromItems,
+  fetchEveGlobalNews,
+  maxGlobalTension,
+} from '@/lib/eve/global-news';
 import { triggerEveSynthesisPipelineAfterObservation } from '@/lib/eve/global-news-pipeline-trigger';
 import { mockEveNews } from '@/lib/mock-data';
 import { isFresh, liveEnvelope, mockEnvelope, staleCacheEnvelope } from '@/lib/response-envelope';
@@ -53,7 +58,10 @@ function scheduleSynthesisPipelineTrigger(baseUrl: string, request: NextRequest)
 }
 
 function combineWithInternal(
-  external: Pick<EveSynthesis, 'items' | 'pattern_notes' | 'global_tension'>,
+  external: Pick<
+    EveSynthesis,
+    'items' | 'pattern_notes' | 'global_tension' | 'independent_source_count'
+  >,
   internal: Awaited<ReturnType<typeof buildAndCommitEveInternalSynthesis>>,
 ): EveSynthesis {
   const byId = new Map<string, EveSynthesis['items'][number]>();
@@ -70,11 +78,12 @@ function combineWithInternal(
     timestamp: new Date().toISOString(),
     agent: 'EVE',
     total_items: items.length,
+    independent_source_count: external.independent_source_count,
     items,
     pattern_notes,
     dominant_region: internal.dominant_region,
     dominant_category: internal.dominant_category,
-    global_tension: internal.global_tension === 'high' ? 'high' : external.global_tension,
+    global_tension: maxGlobalTension(internal.global_tension, external.global_tension),
   };
 }
 
@@ -83,13 +92,11 @@ export async function GET(request: NextRequest) {
 
   if (cached && now - cached.ts < CACHE_TTL_MS) {
     const freshExternalItems = cached.data.items.filter((item) => isFresh(item.timestamp, FRESH_MS));
+    const external = buildExternalSynthesisFromItems(freshExternalItems);
     const internal = await buildAndCommitEveInternalSynthesis({
       externalItemCount: freshExternalItems.length,
     });
-    const combined = combineWithInternal(
-      { ...cached.data, items: freshExternalItems },
-      internal,
-    );
+    const combined = combineWithInternal(external, internal);
 
     scheduleSynthesisPipelineTrigger(serverBaseUrl(request), request);
 
@@ -114,10 +121,10 @@ export async function GET(request: NextRequest) {
     const synthesis = await fetchEveGlobalNews();
     const freshExternalItems = synthesis.items.filter((item) => isFresh(item.timestamp, FRESH_MS));
 
-    const freshSynthesis = {
-      ...synthesis,
-      total_items: freshExternalItems.length,
-      items: freshExternalItems,
+    const freshSynthesis: EveSynthesis = {
+      timestamp: synthesis.timestamp,
+      agent: 'EVE',
+      ...buildExternalSynthesisFromItems(freshExternalItems),
     };
     cached = { data: freshSynthesis, ts: now };
 
@@ -140,11 +147,13 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     if (cached) {
+      const freshExternalItems = cached.data.items.filter((item) => isFresh(item.timestamp, FRESH_MS));
+      const external = buildExternalSynthesisFromItems(freshExternalItems);
       const internal = await buildAndCommitEveInternalSynthesis({
-        externalItemCount: cached.data.items.length,
+        externalItemCount: freshExternalItems.length,
         externalDegradedReason: 'stale_cache_external',
       });
-      const combined = combineWithInternal(cached.data, internal);
+      const combined = combineWithInternal(external, internal);
       return NextResponse.json(
         {
           ok: true,
@@ -166,6 +175,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
       agent: 'EVE' as const,
       total_items: mockEveNews().length,
+      independent_source_count: 0,
       items: mockEveNews(),
       pattern_notes: ['No external live items available - EVE fallback engaged'],
       dominant_region: 'Global',

@@ -16,7 +16,14 @@ export type RawEvent = {
   summary: string;
   url: string;
   timestamp: string;
-  category: 'geopolitical' | 'market' | 'infrastructure' | 'governance';
+  category:
+    | 'geopolitical'
+    | 'market'
+    | 'infrastructure'
+    | 'governance'
+    | 'narrative'
+    | 'ethics'
+    | 'civic-risk';
   severity: 'low' | 'medium' | 'high';
   metadata: Record<string, unknown>;
 };

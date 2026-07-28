@@ -7,6 +7,7 @@
  *
  * Sources:
  * 1. Wikipedia Current Events via MediaWiki API (free, no auth)
+ * 2. GDELT Doc API (free, no auth) — parallel fetch; may return empty when upstream is degraded
  *
  * CC0 Public Domain
  */
@@ -23,6 +24,18 @@ export type NewsCategory =
 
 export type Severity = 'low' | 'medium' | 'high';
 
+export type NewsSourceType =
+  | 'wikipedia_current_events'
+  | 'gdelt_article'
+  | 'eve_internal_substrate'
+  | 'mock_fallback';
+
+/** Live public observation lanes counted toward C-386 external news quorum. */
+export const LIVE_EXTERNAL_NEWS_SOURCE_TYPES: ReadonlySet<NewsSourceType> = new Set([
+  'wikipedia_current_events',
+  'gdelt_article',
+]);
+
 export type EveNewsItem = {
   id: string;
   title: string;
@@ -34,12 +47,16 @@ export type EveNewsItem = {
   category: NewsCategory;
   severity: Severity;
   eve_tag: string;
+  source_type: NewsSourceType;
+  root_id: string;
 };
 
 export type EveSynthesis = {
   timestamp: string;
   agent: 'EVE';
   total_items: number;
+  /** Distinct live external roots (Wikipedia + GDELT only; excludes internal/mock lanes). */
+  independent_source_count: number;
   items: EveNewsItem[];
   pattern_notes: string[];
   dominant_region: string;
@@ -217,6 +234,24 @@ function normalizeDedupKey(value: string): string {
     .slice(0, 80);
 }
 
+/** Stable EveNewsItem.id / RawEvent.sourceId across GDELT reorder and re-fetch. */
+export function stableEveNewsItemId(rootId: string): string {
+  const compact = rootId
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 96);
+  return `eve-${compact}`;
+}
+
+/** Ingest/dedup key: Wikipedia uses full bullet (summary); GDELT uses headline. */
+export function eveStoryKeyFromItem(item: EveNewsItem): string {
+  if (item.source_type === 'wikipedia_current_events') {
+    return normalizeDedupKey(item.summary);
+  }
+  return normalizeDedupKey(item.title);
+}
+
 function categorizeHeadline(text: string): NewsCategory {
   const lower = text.toLowerCase();
 
@@ -386,14 +421,15 @@ async function fetchWikipediaCurrentEvents(): Promise<EveNewsItem[]> {
     if (text.length >= 30) items.push(text);
   }
 
-  return items.map((text, index) => {
+  return items.map((text) => {
     const category = categorizeHeadline(text);
     const region = inferRegion(text, 'Wikipedia');
     const severity = inferSeverity(text, category);
     const title = text.length > 120 ? `${text.slice(0, 117)}...` : text;
+    const rootId = `wiki:${year}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}:${normalizeDedupKey(text)}`;
 
     return {
-      id: `eve-wiki-${year}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}-${index}`,
+      id: stableEveNewsItemId(rootId),
       title,
       summary: text,
       url: 'https://en.wikipedia.org/wiki/Portal:Current_events',
@@ -403,6 +439,8 @@ async function fetchWikipediaCurrentEvents(): Promise<EveNewsItem[]> {
       category,
       severity,
       eve_tag: generateEveTag(text, category),
+      source_type: 'wikipedia_current_events',
+      root_id: rootId,
     };
   });
 }
@@ -426,14 +464,15 @@ async function fetchGDELTGlobal(): Promise<EveNewsItem[]> {
   const data = await fetchJson<{ articles?: GDELTArticle[] }>(url);
   const articles = data?.articles ?? [];
 
-  return articles.slice(0, 6).map((article, index) => {
+  return articles.slice(0, 6).map((article) => {
     const title = article.title?.trim() || 'Global event detected';
     const category = categorizeHeadline(title);
     const region = inferRegion(title, article.domain ?? '');
     const severity = inferSeverity(title, category);
+    const rootId = `gdelt:${(article.domain ?? 'unknown').toLowerCase()}:${normalizeDedupKey(title)}`;
 
     return {
-      id: `eve-gdelt-${index}-${normalizeDedupKey(title)}`,
+      id: stableEveNewsItemId(rootId),
       title,
       summary: article.domain
         ? `Global pattern via ${article.domain}. Cross-domain signal tracked by EVE.`
@@ -445,6 +484,8 @@ async function fetchGDELTGlobal(): Promise<EveNewsItem[]> {
       category,
       severity,
       eve_tag: generateEveTag(title, category),
+      source_type: 'gdelt_article',
+      root_id: rootId,
     };
   });
 }
@@ -520,20 +561,97 @@ function generatePatternNotes(items: EveNewsItem[]): string[] {
   return notes;
 }
 
-export async function fetchEveGlobalNews(): Promise<EveSynthesis> {
-  const [wiki] = await Promise.allSettled([fetchWikipediaCurrentEvents()]);
+const GLOBAL_TENSION_RANK: Record<EveSynthesis['global_tension'], number> = {
+  low: 0,
+  moderate: 1,
+  elevated: 2,
+  high: 3,
+};
 
-  const items: EveNewsItem[] = [
-    ...(wiki.status === 'fulfilled' ? wiki.value : []),
-  ];
+export function maxGlobalTension(
+  a: EveSynthesis['global_tension'],
+  b: EveSynthesis['global_tension'],
+): EveSynthesis['global_tension'] {
+  return GLOBAL_TENSION_RANK[a] >= GLOBAL_TENSION_RANK[b] ? a : b;
+}
 
+export type ExternalNewsSynthesisFields = Pick<
+  EveSynthesis,
+  | 'total_items'
+  | 'items'
+  | 'pattern_notes'
+  | 'dominant_region'
+  | 'dominant_category'
+  | 'global_tension'
+  | 'independent_source_count'
+>;
+
+/** Recompute external-lane synthesis fields from the exact item list served to clients. */
+export function buildExternalSynthesisFromItems(items: EveNewsItem[]): ExternalNewsSynthesisFields {
+  const regionCounts = new Map<string, number>();
+  const categoryCounts = new Map<NewsCategory, number>();
+
+  for (const item of items) {
+    regionCounts.set(item.region, (regionCounts.get(item.region) ?? 0) + 1);
+    categoryCounts.set(item.category, (categoryCounts.get(item.category) ?? 0) + 1);
+  }
+
+  const dominant_region =
+    [...regionCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Global';
+
+  const dominant_category =
+    [...categoryCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'geopolitical';
+
+  return {
+    total_items: items.length,
+    items,
+    pattern_notes: generatePatternNotes(items),
+    dominant_region,
+    dominant_category,
+    global_tension: computeGlobalTension(items),
+    independent_source_count: countExternalIndependentNewsRoots(items),
+  };
+}
+
+export function countIndependentNewsRoots(items: EveNewsItem[]): number {
+  const roots = new Set(items.map((item) => `${item.source_type}:${item.root_id}`));
+  return roots.size;
+}
+
+export function isLiveExternalNewsItem(item: EveNewsItem): boolean {
+  return LIVE_EXTERNAL_NEWS_SOURCE_TYPES.has(item.source_type);
+}
+
+export function countExternalIndependentNewsRoots(items: EveNewsItem[]): number {
+  return countIndependentNewsRoots(items.filter(isLiveExternalNewsItem));
+}
+
+function liveNewsDedupKey(item: EveNewsItem): string {
+  return `${item.source_type}:${normalizeDedupKey(item.title)}`;
+}
+
+export function dedupeLiveNewsItems(items: EveNewsItem[]): EveNewsItem[] {
   const seen = new Set<string>();
-  const deduped = items.filter((item) => {
-    const key = normalizeDedupKey(item.title);
+  return items.filter((item) => {
+    const key = liveNewsDedupKey(item);
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+export async function fetchEveGlobalNews(): Promise<EveSynthesis> {
+  const [wiki, gdelt] = await Promise.allSettled([
+    fetchWikipediaCurrentEvents(),
+    fetchGDELTGlobal(),
+  ]);
+
+  const items: EveNewsItem[] = [
+    ...(wiki.status === 'fulfilled' ? wiki.value : []),
+    ...(gdelt.status === 'fulfilled' ? gdelt.value : []),
+  ];
+
+  const deduped = dedupeLiveNewsItems(items);
 
   deduped.sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -541,30 +659,10 @@ export async function fetchEveGlobalNews(): Promise<EveSynthesis> {
 
   const finalItems = deduped.slice(0, 15);
 
-  const regionCounts = new Map<string, number>();
-  const categoryCounts = new Map<NewsCategory, number>();
-
-  for (const item of finalItems) {
-    regionCounts.set(item.region, (regionCounts.get(item.region) ?? 0) + 1);
-    categoryCounts.set(item.category, (categoryCounts.get(item.category) ?? 0) + 1);
-  }
-
-  const dominantRegion =
-    [...regionCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Global';
-
-  const dominantCategory =
-    [...categoryCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
-    'geopolitical';
-
   return {
     timestamp: nowIso(),
     agent: 'EVE',
-    total_items: finalItems.length,
-    items: finalItems,
-    pattern_notes: generatePatternNotes(finalItems),
-    dominant_region: dominantRegion,
-    dominant_category: dominantCategory,
-    global_tension: computeGlobalTension(finalItems),
+    ...buildExternalSynthesisFromItems(finalItems),
   };
 }
 
@@ -576,16 +674,16 @@ export function eveItemsToRawEvents(items: EveNewsItem[]): RawEvent[] {
     summary: `${item.eve_tag}. ${item.summary}`,
     url: item.url,
     timestamp: item.timestamp,
-    category:
-      item.category === 'ethics' || item.category === 'civic-risk'
-        ? 'governance'
-        : item.category,
+    category: item.category,
     severity: item.severity,
     metadata: {
       region: item.region,
       eve_tag: item.eve_tag,
       original_source: item.source,
       eve_category: item.category,
+      source_type: item.source_type,
+      root_id: item.root_id,
+      eve_story_key: eveStoryKeyFromItem(item),
     },
   }));
 }
