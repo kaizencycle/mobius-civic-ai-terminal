@@ -7,6 +7,7 @@
  *
  * Sources:
  * 1. Wikipedia Current Events via MediaWiki API (free, no auth)
+ * 2. GDELT Doc API (free, no auth) — parallel fetch; may return empty when upstream is degraded
  *
  * CC0 Public Domain
  */
@@ -23,6 +24,11 @@ export type NewsCategory =
 
 export type Severity = 'low' | 'medium' | 'high';
 
+export type NewsSourceType =
+  | 'wikipedia_current_events'
+  | 'gdelt_article'
+  | 'eve_internal_substrate';
+
 export type EveNewsItem = {
   id: string;
   title: string;
@@ -34,12 +40,15 @@ export type EveNewsItem = {
   category: NewsCategory;
   severity: Severity;
   eve_tag: string;
+  source_type: NewsSourceType;
+  root_id: string;
 };
 
 export type EveSynthesis = {
   timestamp: string;
   agent: 'EVE';
   total_items: number;
+  independent_source_count: number;
   items: EveNewsItem[];
   pattern_notes: string[];
   dominant_region: string;
@@ -391,6 +400,7 @@ async function fetchWikipediaCurrentEvents(): Promise<EveNewsItem[]> {
     const region = inferRegion(text, 'Wikipedia');
     const severity = inferSeverity(text, category);
     const title = text.length > 120 ? `${text.slice(0, 117)}...` : text;
+    const rootId = `wiki:${year}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}:${normalizeDedupKey(text)}`;
 
     return {
       id: `eve-wiki-${year}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}-${index}`,
@@ -403,6 +413,8 @@ async function fetchWikipediaCurrentEvents(): Promise<EveNewsItem[]> {
       category,
       severity,
       eve_tag: generateEveTag(text, category),
+      source_type: 'wikipedia_current_events',
+      root_id: rootId,
     };
   });
 }
@@ -431,6 +443,7 @@ async function fetchGDELTGlobal(): Promise<EveNewsItem[]> {
     const category = categorizeHeadline(title);
     const region = inferRegion(title, article.domain ?? '');
     const severity = inferSeverity(title, category);
+    const rootId = `gdelt:${(article.domain ?? 'unknown').toLowerCase()}:${normalizeDedupKey(title)}`;
 
     return {
       id: `eve-gdelt-${index}-${normalizeDedupKey(title)}`,
@@ -445,6 +458,8 @@ async function fetchGDELTGlobal(): Promise<EveNewsItem[]> {
       category,
       severity,
       eve_tag: generateEveTag(title, category),
+      source_type: 'gdelt_article',
+      root_id: rootId,
     };
   });
 }
@@ -520,11 +535,20 @@ function generatePatternNotes(items: EveNewsItem[]): string[] {
   return notes;
 }
 
+export function countIndependentNewsRoots(items: EveNewsItem[]): number {
+  const roots = new Set(items.map((item) => `${item.source_type}:${item.root_id}`));
+  return roots.size;
+}
+
 export async function fetchEveGlobalNews(): Promise<EveSynthesis> {
-  const [wiki] = await Promise.allSettled([fetchWikipediaCurrentEvents()]);
+  const [wiki, gdelt] = await Promise.allSettled([
+    fetchWikipediaCurrentEvents(),
+    fetchGDELTGlobal(),
+  ]);
 
   const items: EveNewsItem[] = [
     ...(wiki.status === 'fulfilled' ? wiki.value : []),
+    ...(gdelt.status === 'fulfilled' ? gdelt.value : []),
   ];
 
   const seen = new Set<string>();
@@ -560,6 +584,7 @@ export async function fetchEveGlobalNews(): Promise<EveSynthesis> {
     timestamp: nowIso(),
     agent: 'EVE',
     total_items: finalItems.length,
+    independent_source_count: countIndependentNewsRoots(finalItems),
     items: finalItems,
     pattern_notes: generatePatternNotes(finalItems),
     dominant_region: dominantRegion,
@@ -576,16 +601,15 @@ export function eveItemsToRawEvents(items: EveNewsItem[]): RawEvent[] {
     summary: `${item.eve_tag}. ${item.summary}`,
     url: item.url,
     timestamp: item.timestamp,
-    category:
-      item.category === 'ethics' || item.category === 'civic-risk'
-        ? 'governance'
-        : item.category,
+    category: item.category,
     severity: item.severity,
     metadata: {
       region: item.region,
       eve_tag: item.eve_tag,
       original_source: item.source,
       eve_category: item.category,
+      source_type: item.source_type,
+      root_id: item.root_id,
     },
   }));
 }

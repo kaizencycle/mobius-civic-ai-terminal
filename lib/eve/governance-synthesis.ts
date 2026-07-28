@@ -571,6 +571,8 @@ export function buildInternalPreviewFromInput(
       category: 'governance',
       severity: output.severity,
       eve_tag: 'Governance synthesis from committed substrate state',
+      source_type: 'eve_internal_substrate',
+      root_id: `internal:${cycleId.toLowerCase()}:governance`,
     },
     {
       id: `eve-internal-${cycleId.toLowerCase()}-civic-risk`,
@@ -585,6 +587,8 @@ export function buildInternalPreviewFromInput(
       category: 'civic-risk',
       severity: output.civicRiskLevel === 'high' ? 'high' : output.civicRiskLevel === 'medium' ? 'medium' : 'low',
       eve_tag: 'Civic-risk framing from internal signals',
+      source_type: 'eve_internal_substrate',
+      root_id: `internal:${cycleId.toLowerCase()}:civic-risk`,
     },
     {
       id: `eve-internal-${cycleId.toLowerCase()}-ethics`,
@@ -605,6 +609,8 @@ export function buildInternalPreviewFromInput(
             ? 'medium'
             : 'low',
       eve_tag: 'Ethics and bias-aware operator caution',
+      source_type: 'eve_internal_substrate',
+      root_id: `internal:${cycleId.toLowerCase()}:ethics`,
     },
   ];
 

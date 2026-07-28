@@ -1,0 +1,71 @@
+// C-386: EVE news provenance → ECHO integrity shard routing (Z-N4 witness).
+// Run: tsx tests/contract/eveNewsProvenance.test.ts
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+
+import { rateEvent } from '../../lib/echo/integrity-engine.ts';
+import type { EpiconItem } from '../../lib/terminal/types.ts';
+import {
+  countIndependentNewsRoots,
+  eveItemsToRawEvents,
+  type EveNewsItem,
+} from '../../lib/eve/global-news.ts';
+
+function sampleItem(overrides: Partial<EveNewsItem>): EveNewsItem {
+  return {
+    id: 'eve-test-1',
+    title: 'Test headline',
+    summary: 'Test summary body for integrity routing.',
+    url: 'https://example.com',
+    source: 'Test',
+    region: 'Global',
+    timestamp: new Date().toISOString(),
+    category: 'geopolitical',
+    severity: 'medium',
+    eve_tag: 'Test tag',
+    source_type: 'wikipedia_current_events',
+    root_id: 'wiki:2026-07-28:test-headline',
+    ...overrides,
+  };
+}
+
+const stubEpicon = (id: string): EpiconItem =>
+  ({
+    id,
+    title: 'stub',
+    summary: 'stub',
+    status: 'pending',
+    category: 'ethics',
+    confidenceTier: 2,
+    ownerAgent: 'ECHO',
+    sources: ['EVE / Test'],
+    timestamp: new Date().toISOString(),
+    trace: [],
+    feedSource: 'test',
+  }) as EpiconItem;
+
+describe('EVE news provenance (C-386)', () => {
+  it('countIndependentNewsRoots dedupes same source_type:root_id', () => {
+    const a = sampleItem({ root_id: 'r1' });
+    const b = sampleItem({ id: 'eve-test-2', root_id: 'r1' });
+    const c = sampleItem({ id: 'eve-test-3', source_type: 'gdelt_article', root_id: 'r1' });
+    assert.equal(countIndependentNewsRoots([a, b, c]), 2);
+  });
+
+  it('eveItemsToRawEvents preserves ethics and civic-risk categories (Z-N4)', () => {
+    const ethics = eveItemsToRawEvents([sampleItem({ category: 'ethics' })])[0]!;
+    const civic = eveItemsToRawEvents([sampleItem({ category: 'civic-risk' })])[0]!;
+
+    assert.equal(ethics.category, 'ethics');
+    assert.equal(civic.category, 'civic-risk');
+    assert.equal(ethics.metadata.source_type, 'wikipedia_current_events');
+    assert.ok(typeof ethics.metadata.root_id === 'string');
+
+    const ethicsRating = rateEvent(ethics, stubEpicon('ep-ethics'));
+    const civicRating = rateEvent(civic, stubEpicon('ep-civic'));
+
+    assert.equal(ethicsRating.shardType, 'stewardship');
+    assert.equal(civicRating.shardType, 'guardian');
+  });
+});
