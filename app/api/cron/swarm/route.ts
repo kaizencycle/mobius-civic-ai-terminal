@@ -82,6 +82,23 @@ function getOpenAICompatClient(): OpenAI | null {
   return new OpenAI({ apiKey: key, baseURL });
 }
 
+function resolveEffectiveProvider(
+  tier: number,
+  creditExhausted: boolean,
+): 'anthropic' | 'openai-compatible' {
+  const provider = TIER_PROVIDER[tier] ?? 'anthropic';
+  if (creditExhausted && tier > 1) return CREDIT_COOLDOWN_FALLBACK_PROVIDER;
+  return provider;
+}
+
+function isProviderConfigured(
+  provider: 'anthropic' | 'openai-compatible',
+  hasAnthropic: boolean,
+  hasOpenAICompat: boolean,
+): boolean {
+  return provider === 'anthropic' ? hasAnthropic : hasOpenAICompat;
+}
+
 async function loadSwarmSignals(cycleId: string): Promise<SwarmSignals> {
   const gi = await loadGIState();
   // Also pull the latest micro-signals cache for instrument error counts
@@ -115,7 +132,7 @@ async function callAgent(
 ): Promise<{ result: unknown; durationMs: number; error: string | null }> {
   const start = Date.now();
   const model = TIER_MODEL[tier] ?? TIER_MODEL[2];
-  const provider = TIER_PROVIDER[tier] ?? 'anthropic';
+  const effectiveProvider = resolveEffectiveProvider(tier, creditExhausted);
   const instruction = AGENT_INSTRUCTIONS[agentId];
   if (!instruction) {
     return { result: null, durationMs: 0, error: `no_instruction_for_${agentId}` };
@@ -132,9 +149,6 @@ async function callAgent(
   const effectiveModel = creditExhausted && tier > 1
     ? CREDIT_COOLDOWN_FALLBACK_MODEL
     : model;
-  const effectiveProvider = creditExhausted && tier > 1
-    ? CREDIT_COOLDOWN_FALLBACK_PROVIDER
-    : provider;
 
   const prompt = `${instruction}\n\nContext:\n${context}`;
 
@@ -286,6 +300,12 @@ export async function GET(request: NextRequest) {
       continue;
     }
 
+    const effectiveProvider = resolveEffectiveProvider(tier, creditExhausted);
+    if (!isProviderConfigured(effectiveProvider, hasAnthropic, hasOpenAICompat)) {
+      skipped.push({ agentId, reason: 'llm_provider_unavailable' });
+      continue;
+    }
+
     const { result, durationMs, error } = await callAgent(
       client,
       agentId,
@@ -310,8 +330,10 @@ export async function GET(request: NextRequest) {
     results.push(entry);
     tiersUsed.push(tier);
 
-    // Deduct from budget after each call
-    currentBudget = await recordSpend([tierCostUsd(tier)]);
+    // Deduct budget only after a successful provider call (no spend on missing client / failed attempts)
+    if (!error) {
+      currentBudget = await recordSpend([tierCostUsd(tier)]);
+    }
 
     if (error) {
       console.error(`[swarm] ${agentId} tier${tier} error: ${error}`);

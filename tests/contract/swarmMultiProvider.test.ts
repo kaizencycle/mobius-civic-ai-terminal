@@ -49,6 +49,8 @@ describe('swarm multi-provider dispatch (C-386)', () => {
     assert.doesNotMatch(src, /ANTHROPIC_API_KEY_missing/);
     assert.match(src, /CREDIT_COOLDOWN_FALLBACK_MODEL/);
     assert.match(src, /parseAgentJsonFromLlmText/);
+    assert.match(src, /llm_provider_unavailable/);
+    assert.match(src, /if \(!error\) \{\s*\n\s*currentBudget = await recordSpend/);
   });
 
   it('parses JSON from fenced and bare object shapes', () => {

@@ -56,6 +56,8 @@ Override model via env only if you also set `TIER_MODEL[1]` in code or fork — 
 - [x] Route source: OpenAI-compat + Anthropic branches  
 - [x] Gate: `no_llm_provider_configured` (not `ANTHROPIC_API_KEY_missing`)  
 - [x] Credit fallback constants wired in route  
+- [x] Agents skip with `llm_provider_unavailable` when effective provider key missing  
+- [x] `recordSpend` only on successful agent calls (no budget drain on failed/missing client)  
 - [x] JSON extraction (fenced + bare)  
 - [ ] Live smoke: one tier-1 agent against real DeepSeek (post-deploy, operator)
 
