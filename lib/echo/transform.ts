@@ -185,6 +185,14 @@ function normalizeText(text: string): string {
 }
 
 function deriveRawEventFingerprint(event: RawEvent): string {
+  const eveStoryKey =
+    typeof event.metadata?.eve_story_key === 'string' && event.metadata.eve_story_key.trim()
+      ? event.metadata.eve_story_key.trim().toLowerCase()
+      : '';
+  if (event.source.startsWith('EVE /') && eveStoryKey) {
+    return `eve-story|${event.category}|${eveStoryKey}`;
+  }
+
   const bucketMinutes = 10;
   const time = new Date(event.timestamp).getTime();
   const bucket = Number.isFinite(time) ? Math.floor(time / (bucketMinutes * 60 * 1000)) : event.timestamp;

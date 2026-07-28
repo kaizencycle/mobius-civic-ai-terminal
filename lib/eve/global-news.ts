@@ -234,6 +234,16 @@ function normalizeDedupKey(value: string): string {
     .slice(0, 80);
 }
 
+/** Stable EveNewsItem.id / RawEvent.sourceId across GDELT reorder and re-fetch. */
+export function stableEveNewsItemId(rootId: string): string {
+  const compact = rootId
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 96);
+  return `eve-${compact}`;
+}
+
 function categorizeHeadline(text: string): NewsCategory {
   const lower = text.toLowerCase();
 
@@ -403,7 +413,7 @@ async function fetchWikipediaCurrentEvents(): Promise<EveNewsItem[]> {
     if (text.length >= 30) items.push(text);
   }
 
-  return items.map((text, index) => {
+  return items.map((text) => {
     const category = categorizeHeadline(text);
     const region = inferRegion(text, 'Wikipedia');
     const severity = inferSeverity(text, category);
@@ -411,7 +421,7 @@ async function fetchWikipediaCurrentEvents(): Promise<EveNewsItem[]> {
     const rootId = `wiki:${year}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}:${normalizeDedupKey(text)}`;
 
     return {
-      id: `eve-wiki-${year}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}-${index}`,
+      id: stableEveNewsItemId(rootId),
       title,
       summary: text,
       url: 'https://en.wikipedia.org/wiki/Portal:Current_events',
@@ -446,7 +456,7 @@ async function fetchGDELTGlobal(): Promise<EveNewsItem[]> {
   const data = await fetchJson<{ articles?: GDELTArticle[] }>(url);
   const articles = data?.articles ?? [];
 
-  return articles.slice(0, 6).map((article, index) => {
+  return articles.slice(0, 6).map((article) => {
     const title = article.title?.trim() || 'Global event detected';
     const category = categorizeHeadline(title);
     const region = inferRegion(title, article.domain ?? '');
@@ -454,7 +464,7 @@ async function fetchGDELTGlobal(): Promise<EveNewsItem[]> {
     const rootId = `gdelt:${(article.domain ?? 'unknown').toLowerCase()}:${normalizeDedupKey(title)}`;
 
     return {
-      id: `eve-gdelt-${index}-${normalizeDedupKey(title)}`,
+      id: stableEveNewsItemId(rootId),
       title,
       summary: article.domain
         ? `Global pattern via ${article.domain}. Cross-domain signal tracked by EVE.`
@@ -651,6 +661,7 @@ export function eveItemsToRawEvents(items: EveNewsItem[]): RawEvent[] {
       eve_category: item.category,
       source_type: item.source_type,
       root_id: item.root_id,
+      eve_story_key: normalizeDedupKey(item.title),
     },
   }));
 }

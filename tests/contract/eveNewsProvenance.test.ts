@@ -5,6 +5,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { rateEvent } from '../../lib/echo/integrity-engine.ts';
+import { transformBatch } from '../../lib/echo/transform.ts';
 import type { EpiconItem } from '../../lib/terminal/types.ts';
 import {
   buildExternalSynthesisFromItems,
@@ -12,6 +13,7 @@ import {
   countIndependentNewsRoots,
   dedupeLiveNewsItems,
   eveItemsToRawEvents,
+  stableEveNewsItemId,
   type EveNewsItem,
 } from '../../lib/eve/global-news.ts';
 
@@ -75,6 +77,34 @@ describe('EVE news provenance (C-386)', () => {
     ]);
     assert.equal(kept.length, 2);
     assert.equal(countExternalIndependentNewsRoots(kept), 2);
+  });
+
+  it('stableEveNewsItemId is stable for the same GDELT root across list positions', () => {
+    const rootId = 'gdelt:reuters.com:ceasefire talks resume';
+    assert.equal(stableEveNewsItemId(rootId), stableEveNewsItemId(rootId));
+    assert.doesNotMatch(stableEveNewsItemId(rootId), /-\d+-/);
+  });
+
+  it('transformBatch dedupes same headline from Wikipedia and GDELT lanes', () => {
+    const title = 'Ceasefire talks resume at international summit';
+    const raw = eveItemsToRawEvents([
+      sampleItem({
+        title,
+        source_type: 'wikipedia_current_events',
+        root_id: `wiki:2026-07-28:${title.slice(0, 20)}`,
+        source: 'Wikipedia Current Events',
+      }),
+      sampleItem({
+        id: stableEveNewsItemId('gdelt:reuters.com:ceasefire talks resume'),
+        title,
+        source_type: 'gdelt_article',
+        root_id: 'gdelt:reuters.com:ceasefire talks resume at international summit',
+        source: 'GDELT / reuters.com',
+      }),
+    ]);
+    const result = transformBatch(raw);
+    assert.equal(result.epicon.length, 1);
+    assert.equal(result.duplicateSuppressedCount, 1);
   });
 
   it('buildExternalSynthesisFromItems recomputes tension from served items only', () => {
