@@ -17,8 +17,10 @@ describe('journal substrate attest scheduling (C-386)', () => {
   it('uses after() for writeToSubstrate on committed entries', () => {
     const src = readRepoFile('lib/agents/journal.ts');
     assert.match(src, /import\s*\{\s*after\s*\}\s*from\s*'next\/server'/);
-    assert.match(src, /after\(\(\)\s*=>\s*\n?\s*writeToSubstrate\(/);
-    assert.doesNotMatch(src, /void writeToSubstrate\(/);
+    assert.match(src, /function scheduleJournalLedgerAttest/);
+    assert.match(src, /try\s*\{[\s\S]*after\(work\)/);
+    assert.match(src, /catch\s*\{[\s\S]*work\(\)/);
+    assert.match(src, /scheduleJournalLedgerAttest\(attestWork\)/);
   });
 
   it('identity login allows longer cold-start window', () => {

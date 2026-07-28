@@ -8,7 +8,7 @@
 
 Committed journal entries call `writeToSubstrate` → `getAttestBearerToken` → identity login. That work was started with bare `void` and could be cut off when the cron route returned, producing `[identity-token] login network error` without matching `[journal] ledger attest failed` logs.
 
-**Fix:** wrap `writeToSubstrate` in Next.js `after()` from `next/server` (stable on Next 15.1.0; already used in `app/api/eve/global-news/route.ts` and `app/api/slack/agent/route.ts`).
+**Fix:** wrap `writeToSubstrate` in `scheduleJournalLedgerAttest()` — uses Next.js `after()` inside `try/catch`, falling back to immediate execution when `after()` is unavailable (no active request scope).
 
 **Secondary:** `loginOnce` fetch timeout 12s → 20s for Render cold-start (after lifetime is fixed first).
 

@@ -172,6 +172,14 @@ async function upsertIndex(agent: AgentName, cycle: string): Promise<void> {
   }
 }
 
+function scheduleJournalLedgerAttest(work: () => void): void {
+  try {
+    after(work);
+  } catch {
+    work();
+  }
+}
+
 export async function appendAgentJournalEntry(input: NewJournalEntryInput): Promise<AgentJournalEntry> {
   setJournalHeartbeat();
   const entry = buildAgentJournalEntry(input);
@@ -207,8 +215,8 @@ export async function appendAgentJournalEntry(input: NewJournalEntryInput): Prom
   if (entry.status === 'committed') {
     scheduleVaultDepositForJournal(entry);
 
-    after(() =>
-      writeToSubstrate({
+    const attestWork = () => {
+      void writeToSubstrate({
         agent: entry.agent,
         agentOrigin: entry.agentOrigin,
         cycle: entry.cycle,
@@ -222,8 +230,9 @@ export async function appendAgentJournalEntry(input: NewJournalEntryInput): Prom
         tags: [],
       }).catch((err) => {
         console.error(`[journal] ledger attest failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
-      }),
-    );
+      });
+    };
+    scheduleJournalLedgerAttest(attestWork);
 
     void pushLedgerEntry({
       id: entry.id,
