@@ -178,7 +178,10 @@ async function callAgent(
     return { result, durationMs: Date.now() - start, error: null };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.toLowerCase().includes('credit balance')) {
+    if (
+      effectiveProvider === 'anthropic' &&
+      msg.toLowerCase().includes('credit balance')
+    ) {
       console.warn(
         '[swarm] state: entering ATLAS credit cooldown (1h) — tier>1 agents will route to tier-1 openai-compatible fallback',
       );

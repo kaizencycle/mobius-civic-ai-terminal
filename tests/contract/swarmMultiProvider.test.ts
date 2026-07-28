@@ -51,6 +51,8 @@ describe('swarm multi-provider dispatch (C-386)', () => {
     assert.match(src, /parseAgentJsonFromLlmText/);
     assert.match(src, /llm_provider_unavailable/);
     assert.match(src, /if \(!error\) \{\s*\n\s*currentBudget = await recordSpend/);
+    assert.match(src, /effectiveProvider === 'anthropic'/);
+    assert.match(src, /markCreditExhausted\(\)/);
   });
 
   it('parses JSON from fenced and bare object shapes', () => {
