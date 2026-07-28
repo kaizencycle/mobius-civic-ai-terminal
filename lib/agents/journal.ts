@@ -1,3 +1,5 @@
+import { after } from 'next/server';
+
 import { kvGet, kvSet } from '@/lib/kv/store';
 import { AGENT_MANIFESTS, AGENT_ORDER, type AgentName } from '@/lib/agents/manifests';
 import type { AgentJournalCategory, AgentJournalEntry, AgentJournalSeverity, AgentJournalStatus } from '@/lib/terminal/types';
@@ -170,6 +172,42 @@ async function upsertIndex(agent: AgentName, cycle: string): Promise<void> {
   }
 }
 
+type PostResponseWork = () => void | Promise<void>;
+
+/** Extend invocation lifetime for post-response work; fallback when outside a request. */
+export function schedulePostResponseWork(work: PostResponseWork): void {
+  try {
+    after(work);
+  } catch {
+    void Promise.resolve(work());
+  }
+}
+
+function scheduleJournalLedgerAttest(work: PostResponseWork): void {
+  schedulePostResponseWork(work);
+}
+
+/** Fire-and-forget journal append that registers before the route returns. */
+export function scheduleAppendAgentJournalEntry(
+  input: NewJournalEntryInput,
+  onError?: (err: unknown) => void,
+): void {
+  schedulePostResponseWork(() =>
+    appendAgentJournalEntry(input)
+      .then(() => undefined)
+      .catch((err) => {
+      if (onError) {
+        onError(err);
+        return;
+      }
+      console.error(
+        '[journal] scheduled append failed:',
+        err instanceof Error ? err.message : err,
+      );
+    }),
+  );
+}
+
 export async function appendAgentJournalEntry(input: NewJournalEntryInput): Promise<AgentJournalEntry> {
   setJournalHeartbeat();
   const entry = buildAgentJournalEntry(input);
@@ -205,21 +243,25 @@ export async function appendAgentJournalEntry(input: NewJournalEntryInput): Prom
   if (entry.status === 'committed') {
     scheduleVaultDepositForJournal(entry);
 
-    void writeToSubstrate({
-      agent: entry.agent,
-      agentOrigin: entry.agentOrigin,
-      cycle: entry.cycle,
-      title: entry.inference,
-      summary: entry.observation,
-      category: mapCategoryToSubstrate(entry.category),
-      severity: entry.severity,
-      source: 'agent-journal',
-      confidence: entry.confidence,
-      derivedFrom: entry.derivedFrom,
-      tags: [],
-    }).catch((err) => {
-      console.error(`[journal] ledger attest failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
-    });
+    const attestWork = () =>
+      writeToSubstrate({
+        agent: entry.agent,
+        agentOrigin: entry.agentOrigin,
+        cycle: entry.cycle,
+        title: entry.inference,
+        summary: entry.observation,
+        category: mapCategoryToSubstrate(entry.category),
+        severity: entry.severity,
+        source: 'agent-journal',
+        confidence: entry.confidence,
+        derivedFrom: entry.derivedFrom,
+        tags: [],
+      })
+        .then(() => undefined)
+        .catch((err) => {
+          console.error(`[journal] ledger attest failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
+        });
+    scheduleJournalLedgerAttest(attestWork);
 
     void pushLedgerEntry({
       id: entry.id,

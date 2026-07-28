@@ -19,7 +19,7 @@ import {
   type EpiconCandidate,
 } from '@/lib/eve/synthesis-pipeline-store';
 import { getServiceAuthError } from '@/lib/security/serviceAuth';
-import { appendAgentJournalEntry } from '@/lib/agents/journal';
+import { scheduleAppendAgentJournalEntry } from '@/lib/agents/journal';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { drainReplayPressure } from '@/lib/mic/replayPressure';
 
@@ -89,7 +89,7 @@ function verifyEveSynthesisCandidateRecord(
     };
     updatePipelineCandidate(id, patch);
   }
-  void appendAgentJournalEntry({
+  scheduleAppendAgentJournalEntry({
     agent: 'ZEUS',
     cycle: currentCycleId(),
     observation: `Candidate ${id} reviewed with ${candidate.flags.length} flags at severity ${candidate.severity}.`,
@@ -102,7 +102,7 @@ function verifyEveSynthesisCandidateRecord(
     verifiedBy: verdict === 'contested' ? undefined : 'ZEUS',
     category: 'inference',
     severity: verdict === 'contested' ? 'elevated' : 'nominal',
-  }).catch(() => {});
+  });
   return NextResponse.json({
     ok: true,
     candidateId: id,
@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
       tags: ['zeus', 'verification', confirmed ? 'confirmed' : 'flagged'],
     }).catch(() => {});
 
-    void appendAgentJournalEntry({
+    scheduleAppendAgentJournalEntry({
       agent: 'ZEUS',
       cycle: currentCycleId(),
       observation: `EPICON ${body.epiconId} verification completed with outcome ${body.outcome}.`,
@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
       verifiedBy: 'ZEUS',
       category: 'recommendation',
       severity: body.outcome === 'miss' ? 'elevated' : 'nominal',
-    }).catch(() => {});
+    });
 
     return NextResponse.json({
       ok: true,

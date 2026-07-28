@@ -130,7 +130,7 @@ async function loginOnce(email: string, password: string): Promise<string | null
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(20_000),
       cache: 'no-store',
     });
   } catch (err) {
