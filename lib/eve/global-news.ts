@@ -27,7 +27,14 @@ export type Severity = 'low' | 'medium' | 'high';
 export type NewsSourceType =
   | 'wikipedia_current_events'
   | 'gdelt_article'
-  | 'eve_internal_substrate';
+  | 'eve_internal_substrate'
+  | 'mock_fallback';
+
+/** Live public observation lanes counted toward C-386 external news quorum. */
+export const LIVE_EXTERNAL_NEWS_SOURCE_TYPES: ReadonlySet<NewsSourceType> = new Set([
+  'wikipedia_current_events',
+  'gdelt_article',
+]);
 
 export type EveNewsItem = {
   id: string;
@@ -48,6 +55,7 @@ export type EveSynthesis = {
   timestamp: string;
   agent: 'EVE';
   total_items: number;
+  /** Distinct live external roots (Wikipedia + GDELT only; excludes internal/mock lanes). */
   independent_source_count: number;
   items: EveNewsItem[];
   pattern_notes: string[];
@@ -540,6 +548,28 @@ export function countIndependentNewsRoots(items: EveNewsItem[]): number {
   return roots.size;
 }
 
+export function isLiveExternalNewsItem(item: EveNewsItem): boolean {
+  return LIVE_EXTERNAL_NEWS_SOURCE_TYPES.has(item.source_type);
+}
+
+export function countExternalIndependentNewsRoots(items: EveNewsItem[]): number {
+  return countIndependentNewsRoots(items.filter(isLiveExternalNewsItem));
+}
+
+function liveNewsDedupKey(item: EveNewsItem): string {
+  return `${item.source_type}:${normalizeDedupKey(item.title)}`;
+}
+
+export function dedupeLiveNewsItems(items: EveNewsItem[]): EveNewsItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = liveNewsDedupKey(item);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export async function fetchEveGlobalNews(): Promise<EveSynthesis> {
   const [wiki, gdelt] = await Promise.allSettled([
     fetchWikipediaCurrentEvents(),
@@ -551,13 +581,7 @@ export async function fetchEveGlobalNews(): Promise<EveSynthesis> {
     ...(gdelt.status === 'fulfilled' ? gdelt.value : []),
   ];
 
-  const seen = new Set<string>();
-  const deduped = items.filter((item) => {
-    const key = normalizeDedupKey(item.title);
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const deduped = dedupeLiveNewsItems(items);
 
   deduped.sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -584,7 +608,7 @@ export async function fetchEveGlobalNews(): Promise<EveSynthesis> {
     timestamp: nowIso(),
     agent: 'EVE',
     total_items: finalItems.length,
-    independent_source_count: countIndependentNewsRoots(finalItems),
+    independent_source_count: countExternalIndependentNewsRoots(finalItems),
     items: finalItems,
     pattern_notes: generatePatternNotes(finalItems),
     dominant_region: dominantRegion,

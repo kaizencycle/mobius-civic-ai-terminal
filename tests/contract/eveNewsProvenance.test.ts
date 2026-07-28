@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 import { rateEvent } from '../../lib/echo/integrity-engine.ts';
 import type { EpiconItem } from '../../lib/terminal/types.ts';
 import {
+  countExternalIndependentNewsRoots,
   countIndependentNewsRoots,
+  dedupeLiveNewsItems,
   eveItemsToRawEvents,
   type EveNewsItem,
 } from '../../lib/eve/global-news.ts';
@@ -51,6 +53,27 @@ describe('EVE news provenance (C-386)', () => {
     const b = sampleItem({ id: 'eve-test-2', root_id: 'r1' });
     const c = sampleItem({ id: 'eve-test-3', source_type: 'gdelt_article', root_id: 'r1' });
     assert.equal(countIndependentNewsRoots([a, b, c]), 2);
+  });
+
+  it('countExternalIndependentNewsRoots excludes internal and mock lanes', () => {
+    const internal = sampleItem({ source_type: 'eve_internal_substrate', root_id: 'i1' });
+    const mock = sampleItem({ source_type: 'mock_fallback', root_id: 'm1' });
+    assert.equal(countExternalIndependentNewsRoots([internal, mock]), 0);
+  });
+
+  it('dedupeLiveNewsItems keeps same headline across Wikipedia and GDELT', () => {
+    const title = 'Ceasefire talks resume';
+    const kept = dedupeLiveNewsItems([
+      sampleItem({ title, source_type: 'wikipedia_current_events', root_id: 'w1' }),
+      sampleItem({
+        id: 'eve-test-gdelt',
+        title,
+        source_type: 'gdelt_article',
+        root_id: 'gdelt:example.com:ceasefire',
+      }),
+    ]);
+    assert.equal(kept.length, 2);
+    assert.equal(countExternalIndependentNewsRoots(kept), 2);
   });
 
   it('eveItemsToRawEvents preserves ethics and civic-risk categories (Z-N4)', () => {

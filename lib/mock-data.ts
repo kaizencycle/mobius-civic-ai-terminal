@@ -92,7 +92,7 @@ export function mockEveNews() {
       category: 'geopolitical' as const,
       severity: 'low' as const,
       eve_tag: 'Mock fallback active',
-      source_type: 'wikipedia_current_events' as const,
+      source_type: 'mock_fallback' as const,
       root_id: 'mock:live-feed-offline',
     },
     {
@@ -106,7 +106,7 @@ export function mockEveNews() {
       category: 'geopolitical' as const,
       severity: 'low' as const,
       eve_tag: 'Mock fallback active',
-      source_type: 'wikipedia_current_events' as const,
+      source_type: 'mock_fallback' as const,
       root_id: 'mock:reconnecting',
     },
     {
@@ -120,7 +120,7 @@ export function mockEveNews() {
       category: 'geopolitical' as const,
       severity: 'low' as const,
       eve_tag: 'Mock fallback active',
-      source_type: 'wikipedia_current_events' as const,
+      source_type: 'mock_fallback' as const,
       root_id: 'mock:awaiting-signal',
     },
   ];

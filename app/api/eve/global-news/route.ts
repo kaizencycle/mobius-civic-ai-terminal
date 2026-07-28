@@ -10,7 +10,11 @@ import type { NextRequest } from 'next/server';
 import { after, NextResponse } from 'next/server';
 
 import { buildAndCommitEveInternalSynthesis } from '@/lib/eve/internal-synthesis';
-import { type EveSynthesis, countIndependentNewsRoots, fetchEveGlobalNews } from '@/lib/eve/global-news';
+import {
+  type EveSynthesis,
+  countExternalIndependentNewsRoots,
+  fetchEveGlobalNews,
+} from '@/lib/eve/global-news';
 import { triggerEveSynthesisPipelineAfterObservation } from '@/lib/eve/global-news-pipeline-trigger';
 import { mockEveNews } from '@/lib/mock-data';
 import { isFresh, liveEnvelope, mockEnvelope, staleCacheEnvelope } from '@/lib/response-envelope';
@@ -70,7 +74,7 @@ function combineWithInternal(
     timestamp: new Date().toISOString(),
     agent: 'EVE',
     total_items: items.length,
-    independent_source_count: countIndependentNewsRoots(items),
+    independent_source_count: countExternalIndependentNewsRoots(external.items),
     items,
     pattern_notes,
     dominant_region: internal.dominant_region,
@@ -119,6 +123,7 @@ export async function GET(request: NextRequest) {
       ...synthesis,
       total_items: freshExternalItems.length,
       items: freshExternalItems,
+      independent_source_count: countExternalIndependentNewsRoots(freshExternalItems),
     };
     cached = { data: freshSynthesis, ts: now };
 
@@ -167,7 +172,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
       agent: 'EVE' as const,
       total_items: mockEveNews().length,
-      independent_source_count: countIndependentNewsRoots(mockEveNews()),
+      independent_source_count: 0,
       items: mockEveNews(),
       pattern_notes: ['No external live items available - EVE fallback engaged'],
       dominant_region: 'Global',
