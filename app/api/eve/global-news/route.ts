@@ -14,6 +14,7 @@ import {
   type EveSynthesis,
   buildExternalSynthesisFromItems,
   fetchEveGlobalNews,
+  maxGlobalTension,
 } from '@/lib/eve/global-news';
 import { triggerEveSynthesisPipelineAfterObservation } from '@/lib/eve/global-news-pipeline-trigger';
 import { mockEveNews } from '@/lib/mock-data';
@@ -82,7 +83,7 @@ function combineWithInternal(
     pattern_notes,
     dominant_region: internal.dominant_region,
     dominant_category: internal.dominant_category,
-    global_tension: internal.global_tension === 'high' ? 'high' : external.global_tension,
+    global_tension: maxGlobalTension(internal.global_tension, external.global_tension),
   };
 }
 

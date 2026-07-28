@@ -190,7 +190,7 @@ function deriveRawEventFingerprint(event: RawEvent): string {
       ? event.metadata.eve_story_key.trim().toLowerCase()
       : '';
   if (event.source.startsWith('EVE /') && eveStoryKey) {
-    return `eve-story|${event.category}|${eveStoryKey}`;
+    return `eve-story|${eveStoryKey}`;
   }
 
   const bucketMinutes = 10;

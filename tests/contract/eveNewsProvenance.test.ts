@@ -13,6 +13,8 @@ import {
   countIndependentNewsRoots,
   dedupeLiveNewsItems,
   eveItemsToRawEvents,
+  eveStoryKeyFromItem,
+  maxGlobalTension,
   stableEveNewsItemId,
   type EveNewsItem,
 } from '../../lib/eve/global-news.ts';
@@ -90,6 +92,7 @@ describe('EVE news provenance (C-386)', () => {
     const raw = eveItemsToRawEvents([
       sampleItem({
         title,
+        summary: title,
         source_type: 'wikipedia_current_events',
         root_id: `wiki:2026-07-28:${title.slice(0, 20)}`,
         source: 'Wikipedia Current Events',
@@ -105,6 +108,37 @@ describe('EVE news provenance (C-386)', () => {
     const result = transformBatch(raw);
     assert.equal(result.epicon.length, 1);
     assert.equal(result.duplicateSuppressedCount, 1);
+  });
+
+  it('transformBatch dedupes EVE rows with different categories but same story key', () => {
+    const fullBullet =
+      'International leaders announce a ceasefire framework after weeks of negotiations in the capital region with humanitarian corridors opening.';
+    const truncatedTitle = `${fullBullet.slice(0, 117)}...`;
+    const wikiItem = sampleItem({
+      title: truncatedTitle,
+      summary: fullBullet,
+      category: 'geopolitical',
+      source_type: 'wikipedia_current_events',
+      root_id: `wiki:2026-07-28:${fullBullet.slice(0, 30)}`,
+    });
+    const gdeltItem = sampleItem({
+      id: stableEveNewsItemId('gdelt:apnews.com:ceasefire framework'),
+      title: fullBullet,
+      summary: 'Global pattern via apnews.com.',
+      category: 'governance',
+      source_type: 'gdelt_article',
+      root_id: 'gdelt:apnews.com:international leaders announce ceasefire',
+      source: 'GDELT / apnews.com',
+    });
+    assert.equal(eveStoryKeyFromItem(wikiItem), eveStoryKeyFromItem(gdeltItem));
+    const result = transformBatch(eveItemsToRawEvents([wikiItem, gdeltItem]));
+    assert.equal(result.epicon.length, 1);
+  });
+
+  it('maxGlobalTension preserves internal elevated when external lane is empty', () => {
+    assert.equal(maxGlobalTension('elevated', 'low'), 'elevated');
+    assert.equal(maxGlobalTension('moderate', 'low'), 'moderate');
+    assert.equal(maxGlobalTension('high', 'elevated'), 'high');
   });
 
   it('buildExternalSynthesisFromItems recomputes tension from served items only', () => {

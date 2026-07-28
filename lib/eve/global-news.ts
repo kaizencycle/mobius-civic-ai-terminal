@@ -244,6 +244,14 @@ export function stableEveNewsItemId(rootId: string): string {
   return `eve-${compact}`;
 }
 
+/** Ingest/dedup key: Wikipedia uses full bullet (summary); GDELT uses headline. */
+export function eveStoryKeyFromItem(item: EveNewsItem): string {
+  if (item.source_type === 'wikipedia_current_events') {
+    return normalizeDedupKey(item.summary);
+  }
+  return normalizeDedupKey(item.title);
+}
+
 function categorizeHeadline(text: string): NewsCategory {
   const lower = text.toLowerCase();
 
@@ -553,6 +561,20 @@ function generatePatternNotes(items: EveNewsItem[]): string[] {
   return notes;
 }
 
+const GLOBAL_TENSION_RANK: Record<EveSynthesis['global_tension'], number> = {
+  low: 0,
+  moderate: 1,
+  elevated: 2,
+  high: 3,
+};
+
+export function maxGlobalTension(
+  a: EveSynthesis['global_tension'],
+  b: EveSynthesis['global_tension'],
+): EveSynthesis['global_tension'] {
+  return GLOBAL_TENSION_RANK[a] >= GLOBAL_TENSION_RANK[b] ? a : b;
+}
+
 export type ExternalNewsSynthesisFields = Pick<
   EveSynthesis,
   | 'total_items'
@@ -661,7 +683,7 @@ export function eveItemsToRawEvents(items: EveNewsItem[]): RawEvent[] {
       eve_category: item.category,
       source_type: item.source_type,
       root_id: item.root_id,
-      eve_story_key: normalizeDedupKey(item.title),
+      eve_story_key: eveStoryKeyFromItem(item),
     },
   }));
 }
