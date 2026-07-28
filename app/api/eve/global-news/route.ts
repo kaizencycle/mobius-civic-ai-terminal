@@ -12,7 +12,7 @@ import { after, NextResponse } from 'next/server';
 import { buildAndCommitEveInternalSynthesis } from '@/lib/eve/internal-synthesis';
 import {
   type EveSynthesis,
-  countExternalIndependentNewsRoots,
+  buildExternalSynthesisFromItems,
   fetchEveGlobalNews,
 } from '@/lib/eve/global-news';
 import { triggerEveSynthesisPipelineAfterObservation } from '@/lib/eve/global-news-pipeline-trigger';
@@ -57,7 +57,10 @@ function scheduleSynthesisPipelineTrigger(baseUrl: string, request: NextRequest)
 }
 
 function combineWithInternal(
-  external: Pick<EveSynthesis, 'items' | 'pattern_notes' | 'global_tension'>,
+  external: Pick<
+    EveSynthesis,
+    'items' | 'pattern_notes' | 'global_tension' | 'independent_source_count'
+  >,
   internal: Awaited<ReturnType<typeof buildAndCommitEveInternalSynthesis>>,
 ): EveSynthesis {
   const byId = new Map<string, EveSynthesis['items'][number]>();
@@ -74,7 +77,7 @@ function combineWithInternal(
     timestamp: new Date().toISOString(),
     agent: 'EVE',
     total_items: items.length,
-    independent_source_count: countExternalIndependentNewsRoots(external.items),
+    independent_source_count: external.independent_source_count,
     items,
     pattern_notes,
     dominant_region: internal.dominant_region,
@@ -88,13 +91,11 @@ export async function GET(request: NextRequest) {
 
   if (cached && now - cached.ts < CACHE_TTL_MS) {
     const freshExternalItems = cached.data.items.filter((item) => isFresh(item.timestamp, FRESH_MS));
+    const external = buildExternalSynthesisFromItems(freshExternalItems);
     const internal = await buildAndCommitEveInternalSynthesis({
       externalItemCount: freshExternalItems.length,
     });
-    const combined = combineWithInternal(
-      { ...cached.data, items: freshExternalItems },
-      internal,
-    );
+    const combined = combineWithInternal(external, internal);
 
     scheduleSynthesisPipelineTrigger(serverBaseUrl(request), request);
 
@@ -119,11 +120,10 @@ export async function GET(request: NextRequest) {
     const synthesis = await fetchEveGlobalNews();
     const freshExternalItems = synthesis.items.filter((item) => isFresh(item.timestamp, FRESH_MS));
 
-    const freshSynthesis = {
-      ...synthesis,
-      total_items: freshExternalItems.length,
-      items: freshExternalItems,
-      independent_source_count: countExternalIndependentNewsRoots(freshExternalItems),
+    const freshSynthesis: EveSynthesis = {
+      timestamp: synthesis.timestamp,
+      agent: 'EVE',
+      ...buildExternalSynthesisFromItems(freshExternalItems),
     };
     cached = { data: freshSynthesis, ts: now };
 
@@ -146,11 +146,13 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     if (cached) {
+      const freshExternalItems = cached.data.items.filter((item) => isFresh(item.timestamp, FRESH_MS));
+      const external = buildExternalSynthesisFromItems(freshExternalItems);
       const internal = await buildAndCommitEveInternalSynthesis({
-        externalItemCount: cached.data.items.length,
+        externalItemCount: freshExternalItems.length,
         externalDegradedReason: 'stale_cache_external',
       });
-      const combined = combineWithInternal(cached.data, internal);
+      const combined = combineWithInternal(external, internal);
       return NextResponse.json(
         {
           ok: true,

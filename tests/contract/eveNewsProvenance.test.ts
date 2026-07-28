@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { rateEvent } from '../../lib/echo/integrity-engine.ts';
 import type { EpiconItem } from '../../lib/terminal/types.ts';
 import {
+  buildExternalSynthesisFromItems,
   countExternalIndependentNewsRoots,
   countIndependentNewsRoots,
   dedupeLiveNewsItems,
@@ -74,6 +75,19 @@ describe('EVE news provenance (C-386)', () => {
     ]);
     assert.equal(kept.length, 2);
     assert.equal(countExternalIndependentNewsRoots(kept), 2);
+  });
+
+  it('buildExternalSynthesisFromItems recomputes tension from served items only', () => {
+    const highGeo = () =>
+      sampleItem({
+        id: `eve-high-${Math.random()}`,
+        severity: 'high',
+        category: 'geopolitical',
+      });
+    const full = buildExternalSynthesisFromItems([highGeo(), highGeo(), highGeo()]);
+    const trimmed = buildExternalSynthesisFromItems([sampleItem({ severity: 'low', category: 'market' })]);
+    assert.equal(full.global_tension, 'high');
+    assert.equal(trimmed.global_tension, 'low');
   });
 
   it('eveItemsToRawEvents preserves ethics and civic-risk categories (Z-N4)', () => {

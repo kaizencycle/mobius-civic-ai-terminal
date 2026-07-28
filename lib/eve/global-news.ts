@@ -543,6 +543,44 @@ function generatePatternNotes(items: EveNewsItem[]): string[] {
   return notes;
 }
 
+export type ExternalNewsSynthesisFields = Pick<
+  EveSynthesis,
+  | 'total_items'
+  | 'items'
+  | 'pattern_notes'
+  | 'dominant_region'
+  | 'dominant_category'
+  | 'global_tension'
+  | 'independent_source_count'
+>;
+
+/** Recompute external-lane synthesis fields from the exact item list served to clients. */
+export function buildExternalSynthesisFromItems(items: EveNewsItem[]): ExternalNewsSynthesisFields {
+  const regionCounts = new Map<string, number>();
+  const categoryCounts = new Map<NewsCategory, number>();
+
+  for (const item of items) {
+    regionCounts.set(item.region, (regionCounts.get(item.region) ?? 0) + 1);
+    categoryCounts.set(item.category, (categoryCounts.get(item.category) ?? 0) + 1);
+  }
+
+  const dominant_region =
+    [...regionCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Global';
+
+  const dominant_category =
+    [...categoryCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'geopolitical';
+
+  return {
+    total_items: items.length,
+    items,
+    pattern_notes: generatePatternNotes(items),
+    dominant_region,
+    dominant_category,
+    global_tension: computeGlobalTension(items),
+    independent_source_count: countExternalIndependentNewsRoots(items),
+  };
+}
+
 export function countIndependentNewsRoots(items: EveNewsItem[]): number {
   const roots = new Set(items.map((item) => `${item.source_type}:${item.root_id}`));
   return roots.size;
@@ -589,31 +627,10 @@ export async function fetchEveGlobalNews(): Promise<EveSynthesis> {
 
   const finalItems = deduped.slice(0, 15);
 
-  const regionCounts = new Map<string, number>();
-  const categoryCounts = new Map<NewsCategory, number>();
-
-  for (const item of finalItems) {
-    regionCounts.set(item.region, (regionCounts.get(item.region) ?? 0) + 1);
-    categoryCounts.set(item.category, (categoryCounts.get(item.category) ?? 0) + 1);
-  }
-
-  const dominantRegion =
-    [...regionCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Global';
-
-  const dominantCategory =
-    [...categoryCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
-    'geopolitical';
-
   return {
     timestamp: nowIso(),
     agent: 'EVE',
-    total_items: finalItems.length,
-    independent_source_count: countExternalIndependentNewsRoots(finalItems),
-    items: finalItems,
-    pattern_notes: generatePatternNotes(finalItems),
-    dominant_region: dominantRegion,
-    dominant_category: dominantCategory,
-    global_tension: computeGlobalTension(finalItems),
+    ...buildExternalSynthesisFromItems(finalItems),
   };
 }
 
