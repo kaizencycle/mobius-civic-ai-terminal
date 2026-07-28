@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceAuthError, serviceAuthorizationHeaderValue } from '@/lib/security/serviceAuth';
-import { appendAgentJournalEntry } from '@/lib/agents/journal';
+import { scheduleAppendAgentJournalEntry } from '@/lib/agents/journal';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { kvGet, kvSet, kvDel, kvSetRawKey, KV_KEYS, isRedisAvailable, KV_TTL_SECONDS } from '@/lib/kv/store';
@@ -278,7 +278,7 @@ export async function GET(request: NextRequest) {
     agentOrigin: 'ATLAS',
   }).catch(() => {});
 
-  void appendAgentJournalEntry({
+  scheduleAppendAgentJournalEntry({
     agent: 'ATLAS',
     cycle: currentCycleId(),
     observation: `Sentinel watchdog ran checks: ${actions.join(', ')}.`,
@@ -294,12 +294,12 @@ export async function GET(request: NextRequest) {
     status: 'committed',
     category: failed === 0 ? 'observation' : 'alert',
     severity: failed === 0 ? 'nominal' : 'elevated',
-  }).catch((err) => {
+  }, (err) => {
     console.error('[watchdog] ATLAS journal append failed:', err instanceof Error ? err.message : err);
   });
 
   if (trustSnapshot.elevated) {
-    void appendAgentJournalEntry({
+    scheduleAppendAgentJournalEntry({
       agent: 'ATLAS',
       cycle: currentCycleId(),
       observation: `Trust tripwires triggered: ${trustSnapshot.results.filter((result) => result.triggered).map((result) => result.kind).join(', ')}.`,
@@ -315,7 +315,7 @@ export async function GET(request: NextRequest) {
       status: 'committed',
       category: 'alert',
       severity: trustSnapshot.critical ? 'critical' : 'elevated',
-    }).catch((err) => {
+    }, (err) => {
       console.error('[watchdog] trust journal append failed:', err instanceof Error ? err.message : err);
     });
   }

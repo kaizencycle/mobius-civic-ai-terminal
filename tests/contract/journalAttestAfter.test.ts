@@ -14,13 +14,26 @@ function readRepoFile(rel: string): string {
 }
 
 describe('journal substrate attest scheduling (C-386)', () => {
-  it('uses after() for writeToSubstrate on committed entries', () => {
+  it('uses after() with promise-returning attest work', () => {
     const src = readRepoFile('lib/agents/journal.ts');
     assert.match(src, /import\s*\{\s*after\s*\}\s*from\s*'next\/server'/);
-    assert.match(src, /function scheduleJournalLedgerAttest/);
-    assert.match(src, /try\s*\{[\s\S]*after\(work\)/);
-    assert.match(src, /catch\s*\{[\s\S]*work\(\)/);
+    assert.match(src, /export function schedulePostResponseWork/);
+    assert.match(src, /export function scheduleAppendAgentJournalEntry/);
+    assert.match(src, /const attestWork = \(\) =>\s*\n\s*writeToSubstrate\(/);
     assert.match(src, /scheduleJournalLedgerAttest\(attestWork\)/);
+    assert.doesNotMatch(src, /const attestWork = \(\) => \{\s*\n\s*void writeToSubstrate/);
+  });
+
+  it('fire-and-forget routes use scheduleAppendAgentJournalEntry', () => {
+    for (const rel of [
+      'app/api/aurea/oversee/route.ts',
+      'app/api/cron/watchdog/route.ts',
+      'app/api/zeus/verify/route.ts',
+    ]) {
+      const src = readRepoFile(rel);
+      assert.match(src, /scheduleAppendAgentJournalEntry/);
+      assert.doesNotMatch(src, /void appendAgentJournalEntry/);
+    }
   });
 
   it('identity login allows longer cold-start window', () => {

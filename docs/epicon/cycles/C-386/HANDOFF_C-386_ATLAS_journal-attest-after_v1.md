@@ -41,6 +41,6 @@ Committed journal entries call `writeToSubstrate` → `getAttestBearerToken` →
 
 1. **PRE-FLIGHT:** `after()` confirmed stable; no config gate.
 2. **FILES:** `lib/agents/journal.ts`, `lib/substrate/identityToken.ts`, `tests/contract/journalAttestAfter.test.ts`.
-3. **PATCH:** `after(() => writeToSubstrate(...).catch(...))` replaces `void writeToSubstrate`.
+3. **PATCH:** `schedulePostResponseWork` + `scheduleAppendAgentJournalEntry`; attest returns `writeToSubstrate` promise (not `void`); fire-and-forget routes (`aurea/oversee`, `cron/watchdog`, `zeus/verify`) register append via `after()` before handler return.
 4. **TESTS:** Source contract asserts `after` + no bare `void writeToSubstrate`.
 5. **RECOMMENDATION:** PASS pending deploy smoke (watch for `[journal] ledger attest failed` or successful attest after kv-watchdog 409 ticks).
