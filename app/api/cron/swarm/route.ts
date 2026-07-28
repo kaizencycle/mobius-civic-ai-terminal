@@ -14,6 +14,7 @@ import type { NextRequest } from 'next/server';
 import { log } from '@/lib/log';
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { getEveSynthesisAuthError } from '@/lib/security/serviceAuth';
 import { loadGIState } from '@/lib/kv/store';
 import { kvGetRaw, kvSetRawKey } from '@/lib/kv/store';
@@ -21,8 +22,12 @@ import {
   ACTIVATION_CONDITIONS,
   AGENT_INSTRUCTIONS,
   TIER_MODEL,
+  TIER_PROVIDER,
+  CREDIT_COOLDOWN_FALLBACK_MODEL,
+  CREDIT_COOLDOWN_FALLBACK_PROVIDER,
   type SwarmSignals,
 } from '@/lib/swarm/activation';
+import { parseAgentJsonFromLlmText } from '@/lib/swarm/parseAgentResponse';
 import {
   readAllBusEntries,
   writeBusEntry,
@@ -70,6 +75,13 @@ function getClient(): Anthropic | null {
   return new Anthropic({ apiKey: key });
 }
 
+function getOpenAICompatClient(): OpenAI | null {
+  const key = process.env.OPENAI_COMPAT_API_KEY;
+  const baseURL = process.env.OPENAI_COMPAT_BASE_URL ?? 'https://api.deepseek.com';
+  if (!key) return null;
+  return new OpenAI({ apiKey: key, baseURL });
+}
+
 async function loadSwarmSignals(cycleId: string): Promise<SwarmSignals> {
   const gi = await loadGIState();
   // Also pull the latest micro-signals cache for instrument error counts
@@ -94,7 +106,7 @@ async function loadSwarmSignals(cycleId: string): Promise<SwarmSignals> {
 }
 
 async function callAgent(
-  client: Anthropic,
+  anthropicClient: Anthropic | null,
   agentId: string,
   tier: number,
   signals: SwarmSignals,
@@ -103,6 +115,7 @@ async function callAgent(
 ): Promise<{ result: unknown; durationMs: number; error: string | null }> {
   const start = Date.now();
   const model = TIER_MODEL[tier] ?? TIER_MODEL[2];
+  const provider = TIER_PROVIDER[tier] ?? 'anthropic';
   const instruction = AGENT_INSTRUCTIONS[agentId];
   if (!instruction) {
     return { result: null, durationMs: 0, error: `no_instruction_for_${agentId}` };
@@ -116,40 +129,45 @@ async function callAgent(
     timestamp: new Date().toISOString(),
   });
 
-  // C-343: credit-exhausted state is resolved once per run by the caller; the per-agent
-  // per-cycle "credit-exhausted fallback" warn (logged for every tier>1 agent during the
-  // whole 1h cooldown) is summarised in one line by GET() instead of spamming the stream.
   const effectiveModel = creditExhausted && tier > 1
-    ? TIER_MODEL[1] // fall back to Haiku when ATLAS credits are exhausted
+    ? CREDIT_COOLDOWN_FALLBACK_MODEL
     : model;
+  const effectiveProvider = creditExhausted && tier > 1
+    ? CREDIT_COOLDOWN_FALLBACK_PROVIDER
+    : provider;
+
+  const prompt = `${instruction}\n\nContext:\n${context}`;
 
   try {
-    const msg = await client.messages.create({
-      model: effectiveModel,
-      max_tokens: 512,
-      messages: [
-        {
-          role: 'user',
-          content: `${instruction}\n\nContext:\n${context}`,
-        },
-      ],
-    });
-
-    const text = msg.content.find((b) => b.type === 'text')?.text ?? '';
-    let result: unknown = null;
-    try {
-      // Extract JSON from the response (may be wrapped in ```json blocks)
-      const jsonMatch = text.match(/```json\s*([\s\S]*?)```/) ?? text.match(/({[\s\S]*})/);
-      result = jsonMatch ? JSON.parse(jsonMatch[1]) : JSON.parse(text);
-    } catch {
-      result = { raw: text };
+    let text = '';
+    if (effectiveProvider === 'anthropic') {
+      if (!anthropicClient) throw new Error('anthropic_client_unavailable');
+      const msg = await anthropicClient.messages.create({
+        model: effectiveModel,
+        max_tokens: 512,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      text = msg.content.find((b) => b.type === 'text')?.text ?? '';
+    } else {
+      const compatClient = getOpenAICompatClient();
+      if (!compatClient) throw new Error('openai_compat_client_unavailable');
+      const res = await compatClient.chat.completions.create({
+        model: effectiveModel,
+        max_tokens: 512,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      text = res.choices[0]?.message?.content ?? '';
     }
+
+    const result = parseAgentJsonFromLlmText(text);
 
     return { result, durationMs: Date.now() - start, error: null };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.toLowerCase().includes('credit balance')) {
-      console.warn('[swarm] state: entering ATLAS credit cooldown (1h) — tier>1 agents will route to Haiku');
+      console.warn(
+        '[swarm] state: entering ATLAS credit cooldown (1h) — tier>1 agents will route to tier-1 openai-compatible fallback',
+      );
       await markCreditExhausted();
     }
     return {
@@ -168,9 +186,13 @@ export async function GET(request: NextRequest) {
   const cycle = await resolveOperatorCycleId();
 
   const client = getClient();
-  if (!client) {
-    console.warn('[swarm] ANTHROPIC_API_KEY not set — swarm skipped');
-    return NextResponse.json({ ok: false, error: 'ANTHROPIC_API_KEY_missing', cycle });
+  const hasAnthropic = Boolean(client);
+  const hasOpenAICompat = Boolean(getOpenAICompatClient());
+  if (!hasAnthropic && !hasOpenAICompat) {
+    console.warn(
+      '[swarm] no LLM provider configured (ANTHROPIC_API_KEY / OPENAI_COMPAT_API_KEY both missing) — swarm skipped',
+    );
+    return NextResponse.json({ ok: false, error: 'no_llm_provider_configured', cycle });
   }
 
   // 1. Load signals + budget + bus state
@@ -238,7 +260,7 @@ export async function GET(request: NextRequest) {
     const downgraded = activated.filter((a) => a.tier > 1).map((a) => a.agentId);
     if (downgraded.length > 0) {
       console.warn(
-        `[swarm] ATLAS credits exhausted (cooldown active) — ${downgraded.length} tier>1 agent(s) routed to Haiku: ${downgraded.join(', ')}`,
+        `[swarm] ATLAS credits exhausted (cooldown active) — ${downgraded.length} tier>1 agent(s) routed to tier-1 fallback: ${downgraded.join(', ')}`,
       );
     }
   }

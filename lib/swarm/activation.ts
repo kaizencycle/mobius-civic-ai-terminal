@@ -1,5 +1,5 @@
 // C-306 PR-512: Agent activation conditions for the swarm cron.
-// Each entry defines when an agent fires and at which LLM tier (1=Haiku, 2=Sonnet, 3=Opus).
+// Each entry defines when an agent fires and at which LLM tier (1=light, 2=Sonnet, 3=Opus).
 
 import type { SwarmBusState } from './bus';
 
@@ -178,9 +178,21 @@ export const AGENT_INSTRUCTIONS: Record<string, string> = {
     'recommendation: string, confidence: 0-1 }',
 };
 
-// Tier → Claude model mapping
+// Tier → provider. 'anthropic' uses @anthropic-ai/sdk; 'openai-compatible' uses the openai SDK
+// at OPENAI_COMPAT_BASE_URL (DeepSeek, OpenRouter, Ollama/vLLM, etc.).
+export const TIER_PROVIDER: Record<number, 'anthropic' | 'openai-compatible'> = {
+  1: 'openai-compatible',
+  2: 'anthropic',
+  3: 'anthropic',
+};
+
+// Tier → model id (provider-specific)
 export const TIER_MODEL: Record<number, string> = {
-  1: 'claude-haiku-4-5-20251001',
+  1: 'deepseek-v4-flash',
   2: 'claude-sonnet-4-6',
   3: 'claude-opus-4-7',
 };
+
+// When Anthropic credit cooldown is active, tier>1 agents use this fallback (not TIER_MODEL[1]).
+export const CREDIT_COOLDOWN_FALLBACK_MODEL = 'deepseek-v4-flash';
+export const CREDIT_COOLDOWN_FALLBACK_PROVIDER: 'anthropic' | 'openai-compatible' = 'openai-compatible';
