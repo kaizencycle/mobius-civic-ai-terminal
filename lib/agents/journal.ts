@@ -1,3 +1,5 @@
+import { after } from 'next/server';
+
 import { kvGet, kvSet } from '@/lib/kv/store';
 import { AGENT_MANIFESTS, AGENT_ORDER, type AgentName } from '@/lib/agents/manifests';
 import type { AgentJournalCategory, AgentJournalEntry, AgentJournalSeverity, AgentJournalStatus } from '@/lib/terminal/types';
@@ -205,21 +207,23 @@ export async function appendAgentJournalEntry(input: NewJournalEntryInput): Prom
   if (entry.status === 'committed') {
     scheduleVaultDepositForJournal(entry);
 
-    void writeToSubstrate({
-      agent: entry.agent,
-      agentOrigin: entry.agentOrigin,
-      cycle: entry.cycle,
-      title: entry.inference,
-      summary: entry.observation,
-      category: mapCategoryToSubstrate(entry.category),
-      severity: entry.severity,
-      source: 'agent-journal',
-      confidence: entry.confidence,
-      derivedFrom: entry.derivedFrom,
-      tags: [],
-    }).catch((err) => {
-      console.error(`[journal] ledger attest failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
-    });
+    after(() =>
+      writeToSubstrate({
+        agent: entry.agent,
+        agentOrigin: entry.agentOrigin,
+        cycle: entry.cycle,
+        title: entry.inference,
+        summary: entry.observation,
+        category: mapCategoryToSubstrate(entry.category),
+        severity: entry.severity,
+        source: 'agent-journal',
+        confidence: entry.confidence,
+        derivedFrom: entry.derivedFrom,
+        tags: [],
+      }).catch((err) => {
+        console.error(`[journal] ledger attest failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
+      }),
+    );
 
     void pushLedgerEntry({
       id: entry.id,
