@@ -19,11 +19,12 @@ export interface BudgetState {
   lastUpdated: number;
 }
 
-// Approximate cost per 1k tokens (Haiku/Sonnet/Opus input+output blended)
+// Approximate blended cost per call (512 max output + typical prompt).
+// Tier 1: DeepSeek V4 Flash — $0.14/1M input (cache miss), $0.28/1M output (2026-07 docs).
 const TIER_COST_PER_CALL_USD: Record<number, number> = {
-  1: 0.002,  // Haiku  — light analysis
-  2: 0.008,  // Sonnet — standard council
-  3: 0.040,  // Opus   — deep adversarial / crosscheck
+  1: 0.00035, // ~2k in + ~256 out tokens at published flash rates
+  2: 0.008,   // Sonnet — standard council
+  3: 0.040,   // Opus   — deep adversarial / crosscheck
 };
 
 function todayUtc(): string {

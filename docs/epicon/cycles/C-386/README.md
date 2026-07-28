@@ -5,6 +5,7 @@
 | Artifact | Repo | Purpose |
 |----------|------|---------|
 | `HANDOFF_C-386_ZEUS_news-feed-provenance_v1.md` | terminal | ZEUS adversarial review for EVE global-news patch |
+| `HANDOFF_C-386_ATLAS_swarm-multi-provider_v1.md` | terminal | Tier-1 swarm → OpenAI-compatible (DeepSeek V4 Flash) |
 | Substrate `docs/epicon/cycles/C-386/` | Mobius-Substrate | ATLAS implementation + KV memory library |
 
 **Doctrine:** Evidentiary independence (quorum) is not agent headcount. News feed patch applies the same rule to `EveNewsItem.root_id` / `independent_source_count` before ECHO integrity scoring.
