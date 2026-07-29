@@ -1,7 +1,9 @@
 # C-386 — Vercel Web Analytics (terminal)
 
 **Status:** Implemented on branch `cursor/c386-vercel-web-analytics-0e02`  
-**Risk:** LOW — client-side page views / Web Vitals via `@vercel/analytics`; no auth or KV changes
+**Risk:** LOW — client-side **page views** (and custom events) via `@vercel/analytics`; no auth or KV changes
+
+**Not in this patch:** [Web Vitals](https://vercel.com/docs/speed-insights) / Core Web Vitals require `@vercel/speed-insights` and `<SpeedInsights />` separately from Web Analytics.
 
 ## Scope-guard note
 
