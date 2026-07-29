@@ -5,6 +5,7 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { MobiusStructuredData } from '@/components/seo/MobiusStructuredData';
 import SessionClientProvider from '@/components/auth/SessionClientProvider';
+import { Analytics } from '@vercel/analytics/next';
 import { CANONICAL_TERMINAL_ORIGIN } from '@/lib/site/canonicalUrl';
 
 export const viewport: Viewport = {
@@ -99,7 +100,10 @@ export default function RootLayout({
       <head>
         <MobiusStructuredData />
       </head>
-      <body className="font-sans"><SessionClientProvider>{children}</SessionClientProvider></body>
+      <body className="font-sans">
+        <SessionClientProvider>{children}</SessionClientProvider>
+        <Analytics />
+      </body>
     </html>
   );
 }
