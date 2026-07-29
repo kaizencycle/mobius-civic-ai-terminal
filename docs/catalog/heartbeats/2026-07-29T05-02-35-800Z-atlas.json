@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-07-29T05:02:35.800Z",
+  "agent": "ATLAS",
+  "cycle": "C-387",
+  "gi": 0.738,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 6,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-07-29T05:02:35.800Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.865,
+  "micro_cycle": "C-306",
+  "degraded_agents": 4,
+  "degraded_agent_names": [
+    "ATLAS",
+    "JADE",
+    "DAEDALUS",
+    "EVE"
+  ],
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false,
+    "micro_operator_cycle_divergence": true
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-07-29T05:02:35.863Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-07-29T05:01:34.398Z"
+    },
+    "last_updated": "2026-07-29T05:02:35.863Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "last_journal_cycle": "C-387",
+  "current_cycle": "C-387",
+  "force_journal_cycle_mismatch": false,
+  "gi_provenance": "kv-live",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-387-zo8svm",
+  "journal_ok": true,
+  "journal_canonical_status": true
+}
