@@ -155,6 +155,7 @@ async function run(req: NextRequest) {
     const council = await appendFullCouncilJournalPulse({
       cycle,
       gi,
+      giIsLive: gi !== null,
       source: 'cron',
     });
 

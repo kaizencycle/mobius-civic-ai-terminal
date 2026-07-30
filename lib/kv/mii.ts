@@ -21,7 +21,7 @@ export type MiiEntry = {
   gi: number;       // global integrity at time of write
   cycle: string;    // e.g. "C-279"
   timestamp: string; // ISO 8601
-  source: 'live';   // always "live", never "mock"
+  source: 'live' | 'fallback';
 };
 
 const FEED_KEY = 'mii:feed';
@@ -48,7 +48,7 @@ function isMiiEntry(value: unknown): value is MiiEntry {
     typeof v.gi === 'number' &&
     typeof v.cycle === 'string' &&
     typeof v.timestamp === 'string' &&
-    v.source === 'live'
+    (v.source === 'live' || v.source === 'fallback')
   );
 }
 
@@ -79,9 +79,12 @@ export async function writeMiiState(entry: MiiEntry): Promise<void> {
     const prevRaw = await redis.get<string>(key);
     if (prevRaw) {
       try {
-        const prev = JSON.parse(prevRaw) as { mii?: number };
+        const prev = JSON.parse(prevRaw) as { mii?: number; source?: MiiEntry['source'] };
         if (typeof prev.mii === 'number' && Number.isFinite(prev.mii)) {
-          if (Math.abs(prev.mii - entry.mii) < MII_DELTA_SKIP) {
+          const miiClose = Math.abs(prev.mii - entry.mii) < MII_DELTA_SKIP;
+          const prevSource = prev.source === 'fallback' ? 'fallback' : 'live';
+          const sameSource = prevSource === entry.source;
+          if (miiClose && sameSource) {
             return;
           }
         }

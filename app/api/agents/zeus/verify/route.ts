@@ -38,17 +38,19 @@ export async function POST(request: NextRequest) {
   }
 
   let gi = parsed.gi;
+  let giIsLive = parsed.giIsLive;
   try {
     const st = await loadGIState();
     if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
       gi = Math.max(0, Math.min(1, st.global_integrity));
+      giIsLive = true;
     }
   } catch {
     // use body gi
   }
 
   try {
-    const entry = await appendZeusCronJournal({ ...parsed, gi });
+    const entry = await appendZeusCronJournal({ ...parsed, gi, giIsLive });
     const ts = new Date().toISOString();
     await writeMiiState({
       agent: 'ZEUS',
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
       gi,
       cycle: parsed.cycle,
       timestamp: ts,
-      source: 'live',
+      source: giIsLive ? 'live' : 'fallback',
     });
     return NextResponse.json({
       ok: true,
@@ -65,6 +67,7 @@ export async function POST(request: NextRequest) {
       journal: entry,
       cycle: parsed.cycle,
       gi,
+      giIsLive,
       atlasEntry: parsed.atlasEntry ?? null,
       source: parsed.source,
     });

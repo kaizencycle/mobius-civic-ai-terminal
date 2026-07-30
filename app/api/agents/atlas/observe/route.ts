@@ -37,17 +37,19 @@ export async function POST(request: NextRequest) {
   }
 
   let gi = parsed.gi;
+  let giIsLive = parsed.giIsLive;
   try {
     const st = await loadGIState();
     if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
       gi = Math.max(0, Math.min(1, st.global_integrity));
+      giIsLive = true;
     }
   } catch (err) {
     console.warn('[atlas/observe] KV GI load failed, using body fallback:', err instanceof Error ? err.message : err);
   }
 
   try {
-    const entry = await appendAtlasCronJournal({ ...parsed, gi });
+    const entry = await appendAtlasCronJournal({ ...parsed, gi, giIsLive });
     const ts = new Date().toISOString();
     await writeMiiState({
       agent: 'ATLAS',
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
       gi,
       cycle: parsed.cycle,
       timestamp: ts,
-      source: 'live',
+      source: giIsLive ? 'live' : 'fallback',
     });
     return NextResponse.json({
       ok: true,
@@ -64,6 +66,7 @@ export async function POST(request: NextRequest) {
       journal: entry,
       cycle: parsed.cycle,
       gi,
+      giIsLive,
       source: parsed.source,
     });
   } catch (err) {
