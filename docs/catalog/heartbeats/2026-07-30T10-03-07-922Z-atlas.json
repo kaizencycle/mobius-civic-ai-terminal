@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-07-30T10:03:07.922Z",
+  "agent": "ATLAS",
+  "cycle": "C-388",
+  "gi": 0.63,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 5,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-07-30T10:02:35.044Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "CRITICAL",
+  "micro_composite": 0.91,
+  "micro_cycle": "C-306",
+  "degraded_agents": 0,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": true,
+    "micro_operator_cycle_divergence": true
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-07-30T10:02:35.107Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-07-30T09:05:34.016Z"
+    },
+    "last_updated": "2026-07-30T10:02:35.107Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "last_journal_cycle": "C-388",
+  "current_cycle": "C-388",
+  "force_journal_cycle_mismatch": false,
+  "gi_provenance": "kv-live",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-388-a8r98x",
+  "journal_ok": true,
+  "journal_canonical_status": false,
+  "degraded_agent_names": [],
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ]
+}
