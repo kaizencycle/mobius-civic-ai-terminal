@@ -43,6 +43,19 @@ function extractGiFromSynthesisPayload(payload: Record<string, unknown>): number
   return null;
 }
 
+async function resolveLiveGiForHeartbeat(payload: Record<string, unknown>): Promise<number | null> {
+  let giHb = extractGiFromSynthesisPayload(payload);
+  try {
+    const st = await loadGIState();
+    if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
+      giHb = Math.max(0, Math.min(1, st.global_integrity));
+    }
+  } catch {
+    // keep giHb from synthesis payload when present
+  }
+  return giHb;
+}
+
 async function fanOutSentinelCouncilAfterEve(
   request: NextRequest,
   cycleId: string,
@@ -183,9 +196,9 @@ export async function GET(request: NextRequest) {
     } catch (err) {
       console.error('[eve/cycle-synthesize] sentinel council cron follow-up failed:', err);
     }
-    const giCron = extractGiFromSynthesisPayload(payload as Record<string, unknown>);
-    if (giCron !== null) {
-      await writeSynthesisCronHeartbeatKv(giCron, cycleId);
+    const giHb = await resolveLiveGiForHeartbeat(payload as Record<string, unknown>);
+    if (giHb !== null) {
+      await writeSynthesisCronHeartbeatKv(giHb, cycleId);
     } else {
       console.warn('[cycle-synthesize] skipping heartbeat GI write — no live value resolved this cycle');
     }
@@ -281,15 +294,7 @@ export async function POST(request: NextRequest) {
       console.error('[eve/cycle-synthesize] sentinel council follow-up failed:', err);
     }
 
-    let giHb: number | null = extractGiFromSynthesisPayload(payload as Record<string, unknown>);
-    try {
-      const st = await loadGIState();
-      if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
-        giHb = Math.max(0, Math.min(1, st.global_integrity));
-      }
-    } catch {
-      // keep giHb from synthesis payload
-    }
+    const giHb = await resolveLiveGiForHeartbeat(payload as Record<string, unknown>);
     if (giHb !== null) {
       await writeSynthesisCronHeartbeatKv(giHb, cycleId);
     } else {

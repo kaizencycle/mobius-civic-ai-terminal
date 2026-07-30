@@ -57,11 +57,16 @@ describe('GI provenance (C-388)', () => {
     assert.equal(parseGiIsLiveFlag({ giIsLive: true }, false), true);
   });
 
-  it('cycle-synthesize skips heartbeat write when no live GI', () => {
+  it('cycle-synthesize resolves heartbeat GI from KV when trace missing', () => {
     const src = readRepoFile('app/api/eve/cycle-synthesize/route.ts');
+    assert.match(src, /resolveLiveGiForHeartbeat/);
     assert.match(src, /skipping heartbeat GI write/);
     assert.doesNotMatch(src, /writeSynthesisCronHeartbeatKv\(giHb \?\? 0\.74/);
-    assert.match(src, /giIsLive/);
+  });
+
+  it('appendAtlasCronJournal does not duplicate journal lane write', () => {
+    const src = readRepoFile('lib/agents/sentinel-cycle-journals.ts');
+    assert.doesNotMatch(src, /appendJournalLaneEntry/);
   });
 
   it('sentinel journals use giLabel in ATLAS and ZEUS observation text', () => {
