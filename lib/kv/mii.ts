@@ -21,7 +21,7 @@ export type MiiEntry = {
   gi: number;       // global integrity at time of write
   cycle: string;    // e.g. "C-279"
   timestamp: string; // ISO 8601
-  source: 'live';   // always "live", never "mock"
+  source: 'live' | 'fallback';
 };
 
 const FEED_KEY = 'mii:feed';

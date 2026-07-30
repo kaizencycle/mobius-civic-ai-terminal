@@ -30,6 +30,7 @@ import { loadGIState } from '@/lib/kv/store';
 import { writeMiiState } from '@/lib/kv/mii';
 import type { AgentJournalEntry } from '@/lib/terminal/types';
 import { writeSynthesisCronHeartbeatKv } from '@/lib/runtime/synthesis-cron-side-effects';
+import { GI_HEURISTIC_DEFAULT } from '@/lib/gi/provenance';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +49,8 @@ async function fanOutSentinelCouncilAfterEve(
   payload: Record<string, unknown>,
 ): Promise<void> {
   const giFromSynth = extractGiFromSynthesisPayload(payload);
-  const giVal = giFromSynth !== null ? giFromSynth : 0.74;
+  const giIsLive = giFromSynth !== null;
+  const giVal = giIsLive ? giFromSynth : GI_HEURISTIC_DEFAULT;
   const base = request.nextUrl.origin;
   const authHeader = serviceAuthorizationHeaderValue();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -57,7 +59,7 @@ async function fanOutSentinelCouncilAfterEve(
   const atlasRes = await fetch(`${base}/api/agents/atlas/observe`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ cycle: cycleId, gi: giVal, source: 'cron' }),
+    body: JSON.stringify({ cycle: cycleId, gi: giVal, giIsLive, source: 'cron' }),
     cache: 'no-store',
     signal: AbortSignal.timeout(20_000),
   });
@@ -70,6 +72,7 @@ async function fanOutSentinelCouncilAfterEve(
     body: JSON.stringify({
       cycle: cycleId,
       gi: giVal,
+      giIsLive,
       atlasEntry: atlasJournalId,
       source: 'cron',
     }),
@@ -80,18 +83,21 @@ async function fanOutSentinelCouncilAfterEve(
   const zeusJournalId = typeof zeusJson?.journalId === 'string' ? zeusJson.journalId : null;
 
   let giForSteward = giVal;
+  let giForStewardIsLive = giIsLive;
   try {
     const st = await loadGIState();
     if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
       giForSteward = Math.max(0, Math.min(1, st.global_integrity));
+      giForStewardIsLive = true;
     }
   } catch {
-    // keep giVal
+    // keep giVal / giIsLive
   }
 
   const stewardResult = await appendStewardCronJournals({
     cycle: cycleId,
     gi: giForSteward,
+    giIsLive: giForStewardIsLive,
     source: 'cron',
     zeusJournalId,
   });
@@ -178,8 +184,11 @@ export async function GET(request: NextRequest) {
       console.error('[eve/cycle-synthesize] sentinel council cron follow-up failed:', err);
     }
     const giCron = extractGiFromSynthesisPayload(payload as Record<string, unknown>);
-    const giHb = giCron !== null ? giCron : 0.74;
-    await writeSynthesisCronHeartbeatKv(giHb, cycleId);
+    if (giCron !== null) {
+      await writeSynthesisCronHeartbeatKv(giCron, cycleId);
+    } else {
+      console.warn('[cycle-synthesize] skipping heartbeat GI write — no live value resolved this cycle');
+    }
     return NextResponse.json(payload);
   }
 
@@ -247,14 +256,20 @@ export async function POST(request: NextRequest) {
     void (async () => {
       try {
         const giState = await loadGIState();
-        await writeMiiState({
-          agent: 'EVE',
-          mii: Number(eveMii.toFixed(4)),
-          gi: Number((giState?.global_integrity ?? 0.74).toFixed(4)),
-          cycle: cycleId,
-          timestamp: new Date().toISOString(),
-          source: 'live',
-        });
+        if (
+          giState &&
+          typeof giState.global_integrity === 'number' &&
+          Number.isFinite(giState.global_integrity)
+        ) {
+          await writeMiiState({
+            agent: 'EVE',
+            mii: Number(eveMii.toFixed(4)),
+            gi: Number(giState.global_integrity.toFixed(4)),
+            cycle: cycleId,
+            timestamp: new Date().toISOString(),
+            source: 'live',
+          });
+        }
       } catch (err) {
         console.error('[eve] mii write failed:', err instanceof Error ? err.message : err);
       }
@@ -266,7 +281,7 @@ export async function POST(request: NextRequest) {
       console.error('[eve/cycle-synthesize] sentinel council follow-up failed:', err);
     }
 
-    let giHb = extractGiFromSynthesisPayload(payload as Record<string, unknown>);
+    let giHb: number | null = extractGiFromSynthesisPayload(payload as Record<string, unknown>);
     try {
       const st = await loadGIState();
       if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
@@ -275,7 +290,11 @@ export async function POST(request: NextRequest) {
     } catch {
       // keep giHb from synthesis payload
     }
-    await writeSynthesisCronHeartbeatKv(giHb ?? 0.74, cycleId);
+    if (giHb !== null) {
+      await writeSynthesisCronHeartbeatKv(giHb, cycleId);
+    } else {
+      console.warn('[cycle-synthesize] skipping heartbeat GI write — no live value resolved this cycle');
+    }
 
     return NextResponse.json(payload);
   } catch (err) {

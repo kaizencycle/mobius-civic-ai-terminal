@@ -15,10 +15,11 @@ export async function POST() {
     kvGetSafe<GIState>('gi:latest'),
   ]);
   const cycle = kvCycle?.cycle ?? computeCurrentCycleId();
-  const gi = kvGi?.global_integrity ?? 0.75;
+  const giIsLive = typeof kvGi?.global_integrity === 'number' && Number.isFinite(kvGi.global_integrity);
+  const gi = giIsLive ? kvGi!.global_integrity : 0.75;
 
   try {
-    await appendZeusCronJournal({ cycle, gi, source: 'cron' });
+    await appendZeusCronJournal({ cycle, gi, giIsLive, source: 'cron' });
     return NextResponse.json({ ok: true, cycle });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'zeus_journal_failed';

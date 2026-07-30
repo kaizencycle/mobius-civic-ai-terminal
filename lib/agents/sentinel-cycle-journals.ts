@@ -10,6 +10,13 @@ import {
   markAgentJournaled,
   type SentinelQuorumAgent,
 } from '@/lib/mic/quorumTracker';
+import {
+  GI_HEURISTIC_DEFAULT,
+  clampGiForHeuristics,
+  giLabel,
+  parseGiField,
+  parseGiIsLiveFlag,
+} from '@/lib/gi/provenance';
 
 const QUORUM_AGENTS = new Set<string>(['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA']);
 
@@ -18,12 +25,14 @@ export type CronSentinelSource = 'cron' | 'post-eve-synthesis';
 export type AtlasObserveInput = {
   cycle: string;
   gi: number;
+  giIsLive: boolean;
   source: CronSentinelSource;
 };
 
 export type ZeusVerifyCronInput = {
   cycle: string;
   gi: number;
+  giIsLive: boolean;
   atlasEntry?: string | null;
   source: CronSentinelSource;
 };
@@ -34,8 +43,22 @@ export type StewardJournalResult = {
 };
 
 function clampGi(n: number): number {
-  if (!Number.isFinite(n)) return 0.74;
-  return Math.max(0, Math.min(1, n));
+  return clampGiForHeuristics(n);
+}
+
+async function writeMiiForEntry(entry: AgentJournalEntry, gi: number, giIsLive: boolean): Promise<void> {
+  try {
+    await writeMiiState({
+      agent: entry.agent,
+      mii: Number(entry.confidence.toFixed(4)),
+      gi,
+      cycle: entry.cycle,
+      timestamp: new Date().toISOString(),
+      source: giIsLive ? 'live' : 'fallback',
+    });
+  } catch (err) {
+    console.error(`[steward-journal] mii write failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
+  }
 }
 
 export async function summarizeMicroAnomalies(): Promise<{ count: number; labels: string[] }> {
@@ -65,19 +88,28 @@ export async function appendAtlasCronJournal(input: AtlasObserveInput): Promise<
   const entry = await appendAgentJournalEntry({
     agent: 'ATLAS',
     cycle: input.cycle,
-    observation: `ATLAS cycle observation (${input.source}) for ${input.cycle}. GI=${gi.toFixed(2)}. Micro snapshot anomalies: ${count}.`,
+    observation: `ATLAS cycle observation (${input.source}) for ${input.cycle}. GI=${giLabel(gi, input.giIsLive)}. Micro snapshot anomalies: ${count}.`,
     inference: `Signal surface review complete. ${labelText}`,
     recommendation:
       count > 0
         ? 'Prioritize corroboration on flagged micro-agent lanes and ensure ZEUS verification queue stays current.'
         : 'Maintain standard verification cadence; continue monitoring governance synthesis outputs.',
     confidence: Number((0.88 + gi * 0.08).toFixed(4)),
-    derivedFrom: ['signal-snapshot:kv', `eve-synthesis:${input.cycle}`, `source:${input.source}`, `gi:${gi.toFixed(2)}`],
+    derivedFrom: ['signal-snapshot:kv', `eve-synthesis:${input.cycle}`, `source:${input.source}`, `gi:${giLabel(gi, input.giIsLive)}`],
     relatedAgents: ['EVE', 'ZEUS'],
     status: 'committed',
     category: 'observation',
     severity: count > 3 ? 'elevated' : 'nominal',
   });
+  // C-293 OPT-4: also push to journal:all (Writer B list) so ATLAS appears in
+  // snapshot journal_summary.latest_agent_entries.
+  try {
+    const { appendJournalLaneEntry, getJournalRedisClient } = await import('@/lib/agents/journalLane');
+    const redis = getJournalRedisClient();
+    if (redis) await appendJournalLaneEntry(redis, entry);
+  } catch {
+    // non-blocking: lane write failure does not affect the core journal write
+  }
   return entry;
 }
 
@@ -88,7 +120,7 @@ export async function appendZeusCronJournal(input: ZeusVerifyCronInput): Promise
   return appendAgentJournalEntry({
     agent: 'ZEUS',
     cycle: input.cycle,
-    observation: `ZEUS verification pass (${input.source}) after EVE cycle synthesis for ${input.cycle}. GI=${gi.toFixed(2)}. ATLAS journal reference: ${atlasRef}.`,
+    observation: `ZEUS verification pass (${input.source}) after EVE cycle synthesis for ${input.cycle}. GI=${giLabel(gi, input.giIsLive)}. ATLAS journal reference: ${atlasRef}.`,
     inference:
       gi >= 0.72
         ? 'Global integrity within operational band; governance synthesis and ledger commits may proceed under standard gates.'
@@ -96,7 +128,7 @@ export async function appendZeusCronJournal(input: ZeusVerifyCronInput): Promise
     recommendation:
       'Continue ledger attestation with AGENT_SERVICE_TOKEN present; escalate contested rows before broad promotion.',
     confidence: Number((0.85 + gi * 0.06).toFixed(4)),
-    derivedFrom: ['eve-synthesis:verify', `atlas-journal:${atlasRef}`, `source:${input.source}`, `gi:${gi.toFixed(2)}`],
+    derivedFrom: ['eve-synthesis:verify', `atlas-journal:${atlasRef}`, `source:${input.source}`, `gi:${giLabel(gi, input.giIsLive)}`],
     relatedAgents: ['EVE', 'ATLAS'],
     status: 'committed',
     category: 'inference',
@@ -109,40 +141,25 @@ export function parseAtlasObserveBody(body: unknown): AtlasObserveInput | null {
   if (body === null || typeof body !== 'object') return null;
   const o = body as Record<string, unknown>;
   const cycle = typeof o.cycle === 'string' && o.cycle.trim() ? o.cycle.trim() : null;
-  const giRaw = o.gi;
-  const gi = typeof giRaw === 'number' && Number.isFinite(giRaw) ? giRaw : 0.74;
+  const { gi, giIsLive: parsedLive } = parseGiField(o.gi);
+  const giIsLive = parseGiIsLiveFlag(o, parsedLive);
   const sourceRaw = o.source;
   const source: CronSentinelSource = sourceRaw === 'cron' ? 'cron' : 'post-eve-synthesis';
   if (!cycle) return null;
-  return { cycle, gi, source };
+  return { cycle, gi, giIsLive, source };
 }
 
 export function parseZeusCronBody(body: unknown): ZeusVerifyCronInput | null {
   if (body === null || typeof body !== 'object') return null;
   const o = body as Record<string, unknown>;
   const cycle = typeof o.cycle === 'string' && o.cycle.trim() ? o.cycle.trim() : null;
-  const giRaw = o.gi;
-  const gi = typeof giRaw === 'number' && Number.isFinite(giRaw) ? giRaw : 0.74;
+  const { gi, giIsLive: parsedLive } = parseGiField(o.gi);
+  const giIsLive = parseGiIsLiveFlag(o, parsedLive);
   const atlasEntry = typeof o.atlasEntry === 'string' ? o.atlasEntry : null;
   const sourceRaw = o.source;
   const source: CronSentinelSource = sourceRaw === 'cron' ? 'cron' : 'post-eve-synthesis';
   if (!cycle) return null;
-  return { cycle, gi, atlasEntry, source };
-}
-
-async function writeMiiForEntry(entry: AgentJournalEntry, gi: number): Promise<void> {
-  try {
-    await writeMiiState({
-      agent: entry.agent,
-      mii: Number(entry.confidence.toFixed(4)),
-      gi,
-      cycle: entry.cycle,
-      timestamp: new Date().toISOString(),
-      source: 'live',
-    });
-  } catch (err) {
-    console.error(`[steward-journal] mii write failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
-  }
+  return { cycle, gi, giIsLive, atlasEntry, source };
 }
 
 async function markQuorumIfSentinel(entry: AgentJournalEntry): Promise<void> {
@@ -188,13 +205,16 @@ export async function appendEveCronJournal(input: {
 export async function appendFullCouncilJournalPulse(input: {
   cycle: string;
   gi?: number | null;
+  giIsLive?: boolean;
   source: CronSentinelSource;
-}): Promise<{ ok: boolean; entries: AgentJournalEntry[]; failedAgents: string[]; gi: number }> {
-  let gi = clampGi(typeof input.gi === 'number' ? input.gi : 0.74);
+}): Promise<{ ok: boolean; entries: AgentJournalEntry[]; failedAgents: string[]; gi: number; giIsLive: boolean }> {
+  let gi = clampGi(typeof input.gi === 'number' ? input.gi : GI_HEURISTIC_DEFAULT);
+  let giIsLive = typeof input.gi === 'number' && Number.isFinite(input.gi) && (input.giIsLive ?? true);
   try {
     const st = await loadGIState();
     if (st && typeof st.global_integrity === 'number' && Number.isFinite(st.global_integrity)) {
       gi = clampGi(st.global_integrity);
+      giIsLive = true;
     }
   } catch {
     // keep provided/default GI
@@ -207,7 +227,7 @@ export async function appendFullCouncilJournalPulse(input: {
   const run = async (agent: string, fn: () => Promise<AgentJournalEntry>) => {
     try {
       const entry = await fn();
-      await writeMiiForEntry(entry, gi);
+      await writeMiiForEntry(entry, gi, giIsLive);
       await markQuorumIfSentinel(entry);
       entries.push(entry);
     } catch (err) {
@@ -216,15 +236,16 @@ export async function appendFullCouncilJournalPulse(input: {
     }
   };
 
-  await run('ATLAS', () => appendAtlasCronJournal({ cycle: input.cycle, gi, source: input.source }));
+  await run('ATLAS', () => appendAtlasCronJournal({ cycle: input.cycle, gi, giIsLive, source: input.source }));
   const atlasRef = entries.find((entry) => entry.agent === 'ATLAS')?.id ?? null;
-  await run('ZEUS', () => appendZeusCronJournal({ cycle: input.cycle, gi, atlasEntry: atlasRef, source: input.source }));
+  await run('ZEUS', () => appendZeusCronJournal({ cycle: input.cycle, gi, giIsLive, atlasEntry: atlasRef, source: input.source }));
   const zeusRef = entries.find((entry) => entry.agent === 'ZEUS')?.id ?? null;
   await run('EVE', () => appendEveCronJournal({ cycle: input.cycle, gi, source: input.source, anomalies }));
 
   const stewards = await appendStewardCronJournals({
     cycle: input.cycle,
     gi,
+    giIsLive,
     source: input.source,
     zeusJournalId: zeusRef,
     anomalies,
@@ -232,7 +253,7 @@ export async function appendFullCouncilJournalPulse(input: {
   entries.push(...stewards.entries);
   failedAgents.push(...stewards.failedAgents);
 
-  return { ok: failedAgents.length === 0, entries, failedAgents, gi };
+  return { ok: failedAgents.length === 0, entries, failedAgents, gi, giIsLive };
 }
 
 /**
@@ -242,6 +263,7 @@ export async function appendFullCouncilJournalPulse(input: {
 export async function appendStewardCronJournals(input: {
   cycle: string;
   gi: number;
+  giIsLive: boolean;
   source: CronSentinelSource;
   zeusJournalId?: string | null;
   anomalies?: { count: number; labels: string[] };
@@ -259,7 +281,7 @@ export async function appendStewardCronJournals(input: {
   const appendOne = async (fn: () => Promise<AgentJournalEntry>, agent: string) => {
     try {
       const entry = await fn();
-      await writeMiiForEntry(entry, gi);
+      await writeMiiForEntry(entry, gi, input.giIsLive);
       await markQuorumIfSentinel(entry);
       written.push(entry);
     } catch (err) {
@@ -292,7 +314,7 @@ export async function appendStewardCronJournals(input: {
     agent: 'AUREA',
     cycle: input.cycle,
     observation: `AUREA strategic synthesis read (${input.source}) for ${input.cycle} after sentinel council journal pass.`,
-    inference: `GI ${gi.toFixed(2)} — consolidate governance posture with pending ledger promotions and ZEUS verification queue.`,
+    inference: `GI ${giLabel(gi, input.giIsLive)} — consolidate governance posture with pending ledger promotions and ZEUS verification queue.`,
     recommendation: 'Review multi-cycle trends at daily close; surface divergences between civic narrative and institutional lanes.',
     confidence: Number((0.84 + gi * 0.05).toFixed(4)),
     derivedFrom: ['sentinel-council:synthesis', `cycle:${input.cycle}`, `source:${input.source}`],
