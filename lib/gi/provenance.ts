@@ -37,7 +37,11 @@ export function parseOptionalGiField(giRaw: unknown): GiProvenance {
   return parseGiField(giRaw);
 }
 
-export function parseGiIsLiveFlag(body: Record<string, unknown>, fallback: boolean): boolean {
-  if (typeof body.giIsLive === 'boolean') return body.giIsLive;
-  return fallback;
+export function resolveGiProvenanceFromBody(body: Record<string, unknown>): GiProvenance {
+  const fromGi = parseGiField(body.gi);
+  if (typeof body.giIsLive === 'boolean') {
+    // Explicit flag may downgrade a numeric GI but cannot upgrade a missing/non-finite value.
+    return { gi: fromGi.gi, giIsLive: fromGi.giIsLive && body.giIsLive };
+  }
+  return fromGi;
 }

@@ -15,7 +15,7 @@ import {
   clampGiForHeuristics,
   giLabel,
   parseGiField,
-  parseGiIsLiveFlag,
+  resolveGiProvenanceFromBody,
 } from '@/lib/gi/provenance';
 
 const QUORUM_AGENTS = new Set<string>(['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA']);
@@ -132,8 +132,7 @@ export function parseAtlasObserveBody(body: unknown): AtlasObserveInput | null {
   if (body === null || typeof body !== 'object') return null;
   const o = body as Record<string, unknown>;
   const cycle = typeof o.cycle === 'string' && o.cycle.trim() ? o.cycle.trim() : null;
-  const { gi, giIsLive: parsedLive } = parseGiField(o.gi);
-  const giIsLive = parseGiIsLiveFlag(o, parsedLive);
+  const { gi, giIsLive } = resolveGiProvenanceFromBody(o);
   const sourceRaw = o.source;
   const source: CronSentinelSource = sourceRaw === 'cron' ? 'cron' : 'post-eve-synthesis';
   if (!cycle) return null;
@@ -144,8 +143,7 @@ export function parseZeusCronBody(body: unknown): ZeusVerifyCronInput | null {
   if (body === null || typeof body !== 'object') return null;
   const o = body as Record<string, unknown>;
   const cycle = typeof o.cycle === 'string' && o.cycle.trim() ? o.cycle.trim() : null;
-  const { gi, giIsLive: parsedLive } = parseGiField(o.gi);
-  const giIsLive = parseGiIsLiveFlag(o, parsedLive);
+  const { gi, giIsLive } = resolveGiProvenanceFromBody(o);
   const atlasEntry = typeof o.atlasEntry === 'string' ? o.atlasEntry : null;
   const sourceRaw = o.source;
   const source: CronSentinelSource = sourceRaw === 'cron' ? 'cron' : 'post-eve-synthesis';

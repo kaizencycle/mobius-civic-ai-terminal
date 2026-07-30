@@ -8,7 +8,7 @@ import {
   GI_UNAVAILABLE_LABEL,
   giLabel,
   parseGiField,
-  parseGiIsLiveFlag,
+  resolveGiProvenanceFromBody,
 } from '../../lib/gi/provenance';
 import {
   parseAtlasObserveBody,
@@ -48,13 +48,23 @@ describe('GI provenance (C-388)', () => {
     const live = parseAtlasObserveBody({ cycle: 'C-388', gi: 0.63, source: 'cron' });
     assert.ok(live);
     assert.equal(live!.giIsLive, true);
+
+    const falseUpgrade = parseAtlasObserveBody({ cycle: 'C-388', giIsLive: true, source: 'cron' });
+    assert.ok(falseUpgrade);
+    assert.equal(falseUpgrade!.giIsLive, false);
+    assert.equal(falseUpgrade!.gi, GI_HEURISTIC_DEFAULT);
+  });
+
+  it('resolveGiProvenanceFromBody cannot upgrade absent gi via flag', () => {
+    const resolved = resolveGiProvenanceFromBody({ giIsLive: true });
+    assert.equal(resolved.giIsLive, false);
+    assert.equal(resolved.gi, GI_HEURISTIC_DEFAULT);
   });
 
   it('parseZeusCronBody mirrors atlas gi provenance', () => {
     const parsed = parseZeusCronBody({ cycle: 'C-388', source: 'cron' });
     assert.ok(parsed);
     assert.equal(parsed!.giIsLive, false);
-    assert.equal(parseGiIsLiveFlag({ giIsLive: true }, false), true);
   });
 
   it('cycle-synthesize resolves heartbeat GI from KV when trace missing', () => {
@@ -67,6 +77,12 @@ describe('GI provenance (C-388)', () => {
   it('appendAtlasCronJournal does not duplicate journal lane write', () => {
     const src = readRepoFile('lib/agents/sentinel-cycle-journals.ts');
     assert.doesNotMatch(src, /appendJournalLaneEntry/);
+  });
+
+  it('mii feed accepts fallback provenance rows', () => {
+    const src = readRepoFile('lib/kv/mii.ts');
+    assert.match(src, /v\.source === 'live' \|\| v\.source === 'fallback'/);
+    assert.match(src, /provenanceUpgrade/);
   });
 
   it('sentinel journals use giLabel in ATLAS and ZEUS observation text', () => {
