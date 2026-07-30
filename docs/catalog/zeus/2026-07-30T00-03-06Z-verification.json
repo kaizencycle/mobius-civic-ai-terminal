@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-07-30T00:03:06.749Z",
+  "agent": "ZEUS",
+  "cycle": "C-387",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gaia-usgs-water": "persistent",
+    "gaia-openaq": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "sustain_eligible_false": "persistent",
+    "gi_triple_divergence": "resolved",
+    "themis-govtrack": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-387)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-07-30T00-02-38-580Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-30T00-02-38-580Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.92 mode=green source=kv classification=NOMINAL terminal_status=nominal; anomalies=[]; seed_result=200 OK; kv_keys.ok=true but kv_keys.kv_keys_ok=false; sustain_eligible=false; micro_composite=0.886 micro_cycle=C-306; flags micro_operator_cycle_divergence=true kv_keys_ok=false gi_below_floor=false tripwire_active=false; degraded_agents=4 (ATLAS,AUREA,JADE,DAEDALUS)."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.886 composite=0.886 instrumentCount=40 cycle=C-306 fallbacksUsed=2 cached=false errors=1 (gaia-usgs-water primary failed). Watch: gaia-openaq=0.75; daedalus-cloudflare-radar=0.7."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.92 mode=green terminal_status=nominal source=kv gi_provenance=kv-live degraded=true cycle=C-387 — aligns with ATLAS heartbeat gi=0.92."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "pass",
+      "detail": "ATLAS heartbeat gi=0.92 matches integrity-status gi=0.92; micro gi=0.886 within expected variance (cycle C-306)."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active; gi_origin=kv."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-387 vs live micro cycle C-306."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false — blocks sustain path despite nominal GI."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-387 agent ZEUS confidence=0.88 source=zeus-verification-pass."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-387-7fvggo mirrored_to_kv=true."
+    }
+  ],
+  "recommendation": "GI alignment restored between ATLAS and integrity-status (0.92). Remaining operator attention: fix kv_keys_ok probe contradiction; align micro operator cycle with C-387; investigate gaia-usgs-water primary failure; review sustain_eligible=false gate; monitor gaia-openaq and daedalus-cloudflare-radar lanes."
+}
