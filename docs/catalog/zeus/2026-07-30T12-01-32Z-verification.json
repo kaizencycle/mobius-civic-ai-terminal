@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-07-30T12:01:32.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-388",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "sustain_eligible_false": "persistent",
+    "gi_triple_divergence": "persistent",
+    "gi_below_floor": "persistent",
+    "tripwire_active": "resolved",
+    "gaia-openaq": "transient",
+    "themis-datagov": "transient",
+    "themis-transparency-intl": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ZEUS,ATLAS] status=achieved (cycle C-388)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-07-30T10-03-07-922Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-30T10-03-07-922Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.63 mode=yellow source=kv classification=CRITICAL terminal_status=stressed; anomalies=[]; seed_result=200 OK; kv_keys.ok=true but kv_keys.kv_keys_ok=false; sustain_eligible=false; micro_composite=0.91 micro_cycle=C-306; flags kv_keys_ok=false micro_operator_cycle_divergence=true gi_below_floor=true tripwire_active=false; degraded_agents=0."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.904 composite=0.904 instrumentCount=40 cycle=C-306 fallbacksUsed=2 cached=false errors=0. Watch: daedalus-cloudflare-radar=0.7, gaia-openaq=0.75, gaia-noaa-alerts=0.8. Fallbacks: themis-datagov=0.8, themis-transparency-intl=0.8."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.755 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live degraded=true cycle=C-388 — diverges from ATLAS gi=0.63 and micro gi=0.904."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "GI triple divergence: ATLAS heartbeat gi=0.63 (kv/CRITICAL) vs integrity-status gi=0.755 (kv) vs micro gi=0.904 (C-306). Delta ATLAS↔integrity=0.125, integrity↔micro=0.149, ATLAS↔micro=0.274."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active; gi_origin=kv."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-388 vs live micro cycle C-306."
+    },
+    {
+      "check": "ATLAS flag: gi_below_floor",
+      "result": "warn",
+      "detail": "Persistent. ATLAS gi=0.63 below floor threshold; classification=CRITICAL."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "pass",
+      "detail": "Resolved since prior run. ATLAS tripwire.active=false level=none; flags.tripwire_active=false."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false — blocks sustain path despite tripwire cleared."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-388 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ZEUS,ATLAS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-388-zbinrc mirrored_to_kv=true pending_immortalization=true (ledger 503 suspended)."
+    }
+  ],
+  "recommendation": "Quorum 5/5 achieved for C-388. GI triple divergence (0.63/0.755/0.904) requires operator reconciliation — ATLAS gi dropped to CRITICAL while micro remains healthy. Fix kv_keys_ok probe contradiction; align micro operator cycle with C-388; review gi_below_floor and sustain_eligible=false gates; monitor daedalus-cloudflare-radar and gaia-openaq lanes."
+}
