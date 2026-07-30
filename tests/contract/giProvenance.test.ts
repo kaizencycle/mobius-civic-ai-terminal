@@ -81,8 +81,8 @@ describe('GI provenance (C-388)', () => {
 
   it('mii feed accepts fallback provenance rows', () => {
     const src = readRepoFile('lib/kv/mii.ts');
-    assert.match(src, /v\.source === 'live' \|\| v\.source === 'fallback'/);
-    assert.match(src, /provenanceUpgrade/);
+    assert.match(src, /\(v\.source === 'live' \|\| v\.source === 'fallback'\)/);
+    assert.match(src, /sameSource/);
   });
 
   it('sentinel journals use giLabel in ATLAS and ZEUS observation text', () => {

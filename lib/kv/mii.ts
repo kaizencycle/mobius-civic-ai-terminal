@@ -48,7 +48,7 @@ function isMiiEntry(value: unknown): value is MiiEntry {
     typeof v.gi === 'number' &&
     typeof v.cycle === 'string' &&
     typeof v.timestamp === 'string' &&
-    v.source === 'live' || v.source === 'fallback'
+    (v.source === 'live' || v.source === 'fallback')
   );
 }
 
@@ -82,8 +82,9 @@ export async function writeMiiState(entry: MiiEntry): Promise<void> {
         const prev = JSON.parse(prevRaw) as { mii?: number; source?: MiiEntry['source'] };
         if (typeof prev.mii === 'number' && Number.isFinite(prev.mii)) {
           const miiClose = Math.abs(prev.mii - entry.mii) < MII_DELTA_SKIP;
-          const provenanceUpgrade = prev.source === 'fallback' && entry.source === 'live';
-          if (miiClose && !provenanceUpgrade) {
+          const prevSource = prev.source === 'fallback' ? 'fallback' : 'live';
+          const sameSource = prevSource === entry.source;
+          if (miiClose && sameSource) {
             return;
           }
         }
