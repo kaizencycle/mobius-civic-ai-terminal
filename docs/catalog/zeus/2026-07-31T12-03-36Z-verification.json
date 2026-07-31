@@ -1,0 +1,92 @@
+{
+  "timestamp": "2026-07-31T12:03:36.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-389",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "tripwire_active": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_triple_divergence": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-openaq": "persistent",
+    "gi_below_floor": "transient",
+    "sustain_eligible": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE] status=achieved (cycle C-389)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-07-31T11-05-07-426Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-31T11-05-07-426Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.63 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[] (empty); seed_result=200 OK; kv_keys.ok=true but kv_keys.kv_keys_ok=false; sustain_eligible=false; micro_composite=0.908 micro_cycle=C-306; flags kv_keys_ok=false tripwire_active=true gi_below_floor=true; degraded_agents=4 (ATLAS,AUREA,JADE,DAEDALUS); tripwire elevated Hormuz transit fee risk."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.906 composite=0.906 instrumentCount=40 cycle=C-306 fallbacksUsed=2 errors=0 cached=false. Watch-level: daedalus-cloudflare-radar=0.7, gaia-openaq=0.75. Fallbacks: themis-datagov=0.8, themis-transparency-intl=0.8."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.771 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live degraded=true cycle=C-389 stability=0.45 freshness=1 — diverges from ATLAS gi=0.63 by 0.141 and from micro gi=0.906 by 0.135."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "GI triple divergence persistent: ATLAS gi=0.63 (kv) vs integrity-status gi=0.771 (kv) vs micro gi=0.906 (C-306). Delta ATLAS↔integrity=0.141, integrity↔micro=0.135, ATLAS↔micro=0.276."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "warn",
+      "detail": "Persistent. tripwire.active=true level=elevated reason=Hormuz Transit Fee Risk; flags.tripwire_active=true; integrity stability=0.45."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-389 vs live micro cycle C-306."
+    },
+    {
+      "check": "ATLAS flag: gi_below_floor",
+      "result": "pass",
+      "detail": "Transient. ATLAS gi=0.63 was below floor at sweep time; live integrity gi=0.771 now above floor; gi_floored=false."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false — sustain gate not met."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-389 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-389-trbl6l mirrored_to_kv=true pending_immortalization=true (ledger 503 service suspended)."
+    }
+  ],
+  "recommendation": "Quorum 5/5 achieved for C-389. Operator attention required: GI triple divergence persists — reconcile KV GI (0.771) with micro composite (0.906). Persistent: kv_keys_ok probe contradiction, tripwire elevated (Hormuz transit fee risk), micro operator cycle divergence (C-389 vs C-306), sustain_eligible=false. Monitor daedalus-cloudflare-radar (0.7) and gaia-openaq (0.75). Ledger immortalization degraded (503 suspended)."
+}
