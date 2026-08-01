@@ -1,0 +1,84 @@
+{
+  "timestamp": "2026-08-01T20:01:48.838Z",
+  "agent": "ATLAS",
+  "cycle": "C-390",
+  "gi": 0.82,
+  "mode": "green",
+  "source": "cached",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 8,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-08-01T20:01:54.465Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.892,
+  "micro_cycle": "C-306",
+  "degraded_agents": 3,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": false,
+    "integrity_source_live": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-01T20:01:54.744Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-08-01T19:58:08.798Z"
+    },
+    "last_updated": "2026-08-01T20:01:54.744Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "last_journal_cycle": "C-390",
+  "current_cycle": "C-390",
+  "force_journal_cycle_mismatch": false,
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-390-6cjgns",
+  "journal_ok": true,
+  "journal_canonical": false,
+  "journal_substrate_error": "ledger 503 suspended",
+  "degraded_agent_names": [
+    "AUREA",
+    "JADE",
+    "DAEDALUS"
+  ],
+  "pre_seed_gi": 0.82,
+  "pre_seed_mode": "green",
+  "pre_seed_terminal_status": "nominal",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ]
+}
