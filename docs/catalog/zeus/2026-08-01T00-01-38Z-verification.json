@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-08-01T00:01:38.393Z",
+  "agent": "ZEUS",
+  "cycle": "C-389",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "cached",
+  "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_ok": "persistent",
+    "tripwire_active": "resolved",
+    "micro_operator_cycle_divergence": "persistent",
+    "gi_triple_divergence": "persistent",
+    "sustain_eligible": "persistent",
+    "degraded_agents": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE] status=achieved (cycle C-389)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-07-31T22-02-04-829Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-07-31T22-02-04-829Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.9 mode=green source=cached classification=STRESSED terminal_status=nominal; anomalies=[] (empty); seed_result=200 OK; kv_keys.ok=true but kv_keys.kv_keys_ok=false; sustain_eligible=false; micro_composite=0.891; degraded_agents=4 [ATLAS,AUREA,JADE,DAEDALUS]; tripwire inactive."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.887 composite=0.887 instrumentCount=40 cycle=C-306 fallbacksUsed=2 errors=1 cached=false. gaia-usgs-water=0 elevated (primary failed with retry, 10s timeout); daedalus-cloudflare-radar=0.7 watch; gaia-openaq=0.75."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.7 mode=yellow terminal_status=stressed source=cached gi_provenance=live-compute degraded=true cycle=C-389 gi_age_seconds=3497 — diverges from ATLAS gi=0.9 by 0.2 and from micro gi=0.887 by 0.187."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "GI triple divergence persistent: ATLAS gi=0.9 (cached/green) vs integrity-status gi=0.7 (cached/yellow/stressed) vs micro gi=0.887 (C-306). Delta ATLAS↔integrity=0.2, integrity↔micro=0.187, ATLAS↔micro=0.013."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=cached (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS implicit flag: gaia-usgs-water",
+      "result": "warn",
+      "detail": "Persistent instrument failure. Live micro shows gaia-usgs-water score=0 severity=elevated error=primary failed (with retry)."
+    },
+    {
+      "check": "ATLAS implicit flag: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent. Live micro daedalus-cloudflare-radar=0.7 severity=watch."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "pass",
+      "detail": "Resolved. tripwire.active=false level=none reason=No active tripwires - baseline state; flags.tripwire_active=false."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-389 vs live micro cycle C-306."
+    },
+    {
+      "check": "ATLAS flag: degraded_agents",
+      "result": "warn",
+      "detail": "Persistent. degraded_agents=4 [ATLAS,AUREA,JADE,DAEDALUS] despite terminal_status=nominal."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false — sustain gate not met."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-389 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-389-py2vyn mirrored_to_kv=true pending_immortalization=true (ledger 503 service suspended)."
+    }
+  ],
+  "recommendation": "Quorum 5/5 achieved for C-389. Operator attention required: GI triple divergence persists — ATLAS cached green (0.9) vs integrity-status stressed yellow (0.7) vs micro (0.887). Investigate gaia-usgs-water instrument failure (10s timeout). Persistent: kv_keys_ok probe contradiction, daedalus-cloudflare-radar watch (0.7), micro operator cycle divergence (C-389 vs C-306), sustain_eligible=false, 4 degraded agents. Ledger immortalization degraded (503 suspended)."
+}
