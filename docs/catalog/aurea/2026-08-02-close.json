@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-08-02T03:02:39.574Z",
+  "agent": "AUREA",
+  "cycle": "C-390",
+  "gi_final": 0.783,
+  "gi_mode": "yellow",
+  "gi_source": "cached",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.82
+  },
+  "overall_sentiment": 0.748,
+  "financial_score": 0.746,
+  "environ_score": 0.861,
+  "civic_score": 0.783,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.783. The ledger registered 0 events over the last 24 hours, and the EPICON feed remains degraded with ledger_circuit_open; the strongest visible signal is INSTITUTIONAL at 0.866. ZEUS verification status is disputed, and the heartbeat trend is falling. Forward signal: watch environmental feed recovery and the Hormuz tripwire for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch environmental feed recovery and the Hormuz tripwire for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "falling",
+  "anomalies": [
+    "USGS water conditions [elevated]",
+    "ArXiv new submissions [elevated]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
