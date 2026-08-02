@@ -1,0 +1,119 @@
+{
+  "timestamp": "2026-08-02T06:01:21.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-391",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "cached",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "degraded_agents": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "gaia-usgs-water": "resolved",
+    "gaia-nasa-eonet": "persistent",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "sustain_eligible": "resolved",
+    "gi_below_floor": "resolved",
+    "tripwire_active": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,ATLAS,ZEUS,EVE] status=achieved (cycle C-391)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-02T05-01-40Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-02T05-01-40Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.81 mode=green source=cached classification=STRESSED terminal_status=nominal; 1 anomaly (USGS water elevated); seed_result=200 OK; kv_keys.ok=true but kv_keys.kv_keys_ok=false; sustain_eligible=true; micro_composite=0.892; degraded_agents=2 [JADE,DAEDALUS]; tripwire inactive."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.859 composite=0.859 instrumentCount=40 cycle=C-306 fallbacksUsed=2 errors=2 cached=false. gaia-usgs-water=0.85 nominal; gaia-nasa-eonet=0 elevated; themis-govtrack=0 elevated; daedalus-cloudflare-radar=0.7 watch."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.791 mode=yellow terminal_status=stressed source=cached gi_provenance=live-compute degraded=true cycle=C-391 gi_age_seconds=3532 — diverges from ATLAS gi=0.81 (green) and micro gi=0.859 by 0.019 and 0.068 respectively."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "GI layer spread narrowed but persists: ATLAS gi=0.81 (cached/green/STRESSED) vs integrity-status gi=0.791 (cached/yellow/stressed) vs micro gi=0.859 (C-306). Delta ATLAS↔integrity=0.019, integrity↔micro=0.068, ATLAS↔micro=0.049."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=cached (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "pass",
+      "detail": "Resolved. tripwire.active=false level=none; flags.tripwire_active=false."
+    },
+    {
+      "check": "ATLAS flag: gi_below_floor",
+      "result": "pass",
+      "detail": "Resolved. integrity-status gi_floored=false."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-391 vs live micro cycle C-306."
+    },
+    {
+      "check": "ATLAS flag: sustain_eligible",
+      "result": "pass",
+      "detail": "Resolved. sustain_eligible=true (improved from prior pass)."
+    },
+    {
+      "check": "ATLAS anomaly: gaia-usgs-water",
+      "result": "pass",
+      "detail": "Resolved/transient. ATLAS flagged elevated; live micro shows gaia-usgs-water score=0.85 severity=nominal."
+    },
+    {
+      "check": "ATLAS implicit flag: gaia-nasa-eonet",
+      "result": "warn",
+      "detail": "Persistent on live micro. gaia-nasa-eonet score=0 severity=elevated (primary and fallback both failed)."
+    },
+    {
+      "check": "ATLAS implicit flag: themis-govtrack",
+      "result": "warn",
+      "detail": "Persistent on live micro. themis-govtrack score=0 severity=elevated (primary failed with retry)."
+    },
+    {
+      "check": "ATLAS implicit flag: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent. Live micro daedalus-cloudflare-radar=0.7 severity=watch."
+    },
+    {
+      "check": "ATLAS flag: degraded_agents",
+      "result": "warn",
+      "detail": "Persistent. degraded_agents=2 [JADE,DAEDALUS]."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-391 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,ATLAS,ZEUS,EVE]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-391-p0uci4 mirrored_to_kv=true pending_immortalization=true (ledger 503 service suspended)."
+    }
+  ],
+  "recommendation": "Quorum 5/5 achieved for C-391. Operator attention: kv_keys_ok probe contradiction persists despite successful seed. GI layer spread narrowed but integrity-status (yellow/stressed 0.791) diverges from ATLAS (green 0.81) and live micro (0.859). Monitor JADE/DAEDALUS degradation. gaia-nasa-eonet and themis-govtrack elevated on live micro. Ledger immortalization degraded (503 suspended)."
+}
