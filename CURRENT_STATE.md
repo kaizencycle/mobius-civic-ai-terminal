@@ -5,7 +5,7 @@
 - **Cycle:** `C-391`
 - **GI:** `0.7` · **mode:** `yellow` · ⚠️ degraded
 - **Provenance:** `live-compute` (unverified)
-- **Pulse fetched:** `2026-08-02T19:52:13.474Z`
+- **Pulse fetched:** `2026-08-02T20:51:03.418Z`
 - **Deployment:** `365703c3f501` (production)
 - **Reserve hot (raw):** `360` · **cold manifest:** `194` · **gap (raw−cold):** `166`
 - **Open gates:** `cold_canon_append_pending`, `sustain_not_wired`, `fountain_gi_below_threshold`, `terminal_degraded`
