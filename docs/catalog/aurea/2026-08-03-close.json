@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-08-03T03:02:07.478Z",
+  "agent": "AUREA",
+  "cycle": "C-391",
+  "gi_final": 0.71,
+  "gi_mode": "yellow",
+  "gi_source": "cached",
+  "gi_range_24h": {
+    "min": 0.64,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.746,
+  "financial_score": 0.749,
+  "environ_score": 0.839,
+  "civic_score": 0.779,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.71. The ledger registered 0 events over the last 24 hours while the EPICON feed remained degraded by a ledger 503, and the strongest visible domain signal was INSTITUTIONAL at 0.888. ZEUS verification status is disputed, and the heartbeat trend is rising even as the Hormuz tripwire remains elevated. Forward signal: watch institutional-market alignment and tripwire persistence for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch institutional-market alignment and tripwire persistence for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "rising",
+  "anomalies": [
+    "USGS water conditions [elevated]",
+    "ArXiv new submissions [elevated]",
+    "GovTrack legislation feed [elevated]",
+    "Cloudflare infrastructure status [watch]",
+    "CoinGecko market health (risk proxy) [elevated]"
+  ],
+  "quorum_attested": true
+}
