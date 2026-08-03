@@ -1,0 +1,119 @@
+{
+  "timestamp": "2026-08-03T00:02:21.329Z",
+  "agent": "ZEUS",
+  "cycle": "C-391",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "micro_operator_cycle_divergence": "persistent",
+    "themis-govtrack": "resolved",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-openaq": "persistent",
+    "gaia-usgs-water": "transient",
+    "tripwire_active": "persistent",
+    "degraded_agents": "persistent",
+    "sustain_eligible": "transient",
+    "gi_below_floor": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,ATLAS,ZEUS,EVE] status=achieved (cycle C-391)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-02T23-02-51Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-02T23-02-51Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.781 mode=yellow source=kv classification=STRESSED terminal_status=stressed; 0 explicit anomalies; seed_result=200 OK; kv_keys.ok=true but kv_keys.kv_keys_ok=false; sustain_eligible=false; micro_composite=0.879 micro_cycle=C-306; degraded_agents=3 [AUREA,JADE,DAEDALUS]; tripwire active elevated (Hormuz Transit Fee Risk); flags.micro_operator_cycle_divergence=true; journal_substrate_error ledger 503 suspended."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.89 composite=0.89 instrumentCount=40 cycle=C-306 fallbacksUsed=2 errors=1 cached=false. gaia-usgs-water score=0 error (primary failed); daedalus-cloudflare-radar=0.7; gaia-openaq=0.75; themis-govtrack=0.85 recovered."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.74 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live degraded=true cycle=C-391 gi_age_seconds=10 — diverges from ATLAS gi=0.781 and micro gi=0.89 by 0.041 and 0.15 respectively."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "GI triple-layer divergence persists: ATLAS gi=0.781 (kv/yellow/STRESSED) vs integrity-status gi=0.74 (kv/yellow/stressed) vs micro gi=0.89 (C-306 live). Delta ATLAS↔integrity=0.041, integrity↔micro=0.15, ATLAS↔micro=0.109."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "warn",
+      "detail": "Persistent/regressed. tripwire.active=true level=elevated reason=Hormuz Transit Fee Risk; flags.tripwire_active=true (was resolved at 12:00 ZEUS pass)."
+    },
+    {
+      "check": "ATLAS flag: gi_below_floor",
+      "result": "pass",
+      "detail": "Resolved. integrity-status gi_floored=false."
+    },
+    {
+      "check": "ATLAS flag: micro_operator_cycle_divergence",
+      "result": "warn",
+      "detail": "Persistent. Operator cycle C-391 vs live micro cycle C-306."
+    },
+    {
+      "check": "ATLAS flag: sustain_eligible",
+      "result": "warn",
+      "detail": "Regressed. sustain_eligible=false (was true at 12:00 ZEUS pass)."
+    },
+    {
+      "check": "ATLAS flag: degraded_agents",
+      "result": "warn",
+      "detail": "Regressed/persistent. degraded_agents=3 [AUREA,JADE,DAEDALUS] (was 0 at 12:00 ZEUS pass)."
+    },
+    {
+      "check": "live micro: themis-govtrack",
+      "result": "pass",
+      "detail": "Resolved. themis-govtrack score=0.85 source=primary (was score=0 error at 12:00 ZEUS pass)."
+    },
+    {
+      "check": "live micro: gaia-usgs-water",
+      "result": "warn",
+      "detail": "New transient error. gaia-usgs-water score=0 source=error primary failed (with retry) latencyMs=7229."
+    },
+    {
+      "check": "live micro: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent. Live micro daedalus-cloudflare-radar=0.7."
+    },
+    {
+      "check": "live micro: gaia-openaq",
+      "result": "warn",
+      "detail": "Persistent watch-level. gaia-openaq score=0.75."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-391 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,ATLAS,ZEUS,EVE]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-391-53ys8k mirrored_to_kv=true pending_immortalization=true (ledger 503 suspended)."
+    }
+  ],
+  "recommendation": "Quorum 5/5 achieved for C-391. Operator attention: STRESSED terminal with elevated Hormuz tripwire. kv_keys_ok probe contradiction persists despite successful seed. GI triple-layer divergence (0.74–0.89) — integrity-status lowest, live micro highest. degraded_agents regressed to 3. sustain_eligible regressed to false. Monitor gaia-usgs-water failure. Ledger substrate suspended (503) — immortalization degraded."
+}
