@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-08-04T03:04:15.414Z",
+  "agent": "AUREA",
+  "cycle": "C-392",
+  "gi_final": 0.764,
+  "gi_mode": "yellow",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.64,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.718,
+  "financial_score": 0.732,
+  "environ_score": 0.818,
+  "civic_score": 0.7,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.764. The ledger registered 0 events over the last 24 hours while the EPICON feed remained degraded by a 429, and the strongest visible domain signal was INSTITUTIONAL at 0.866. ZEUS verification status is disputed, and the heartbeat trend is volatile across the last three ATLAS closes. Forward signal: watch narrative coherence and infrastructure watch signals for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch narrative coherence and infrastructure watch signals for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "ArXiv new submissions [elevated]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
