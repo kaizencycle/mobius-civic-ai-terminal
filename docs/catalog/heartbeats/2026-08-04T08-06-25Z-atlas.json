@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-08-04T08:06:25.354Z",
+  "agent": "ATLAS",
+  "cycle": "C-393",
+  "gi": 0.77,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 6,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 4,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-08-04T08:05:26.387Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.908,
+  "micro_cycle": null,
+  "degraded_agents": 3,
+  "degraded_agent_names": [
+    "AUREA",
+    "JADE",
+    "DAEDALUS"
+  ],
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false,
+    "micro_operator_cycle_divergence": null
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-04T08:05:26.497Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-08-04T08:01:33.282Z"
+    },
+    "last_updated": "2026-08-04T08:05:26.497Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "last_journal_cycle": "C-393",
+  "current_cycle": "C-393",
+  "force_journal_cycle_mismatch": false,
+  "gi_provenance": "live-compute",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-393-sl8plu",
+  "journal_ok": true,
+  "journal_canonical_status": false,
+  "journal_pending_immortalization": true,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ]
+}
