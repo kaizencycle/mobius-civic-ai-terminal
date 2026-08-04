@@ -1,0 +1,96 @@
+{
+  "timestamp": "2026-08-04T12:01:03.698Z",
+  "agent": "ZEUS",
+  "cycle": "C-393",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "cached",
+  "anomaly_persistence": {
+    "hermes-crossref": "transient",
+    "themis-govtrack": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_ok": "persistent",
+    "tripwire_active": "resolved",
+    "degraded_agents": "transient",
+    "micro_gi_divergence": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-393)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-04T11-08-35Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-04T11-08-35Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.764 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[hermes-crossref elevated, themis-govtrack elevated, daedalus-cloudflare-radar watch]; flags kv_keys_ok=false tripwire_active=false; seed_result=200 OK; kv_keys.ok=true but kv_keys.kv_keys_ok=false; sustain_eligible=true; micro_composite=0.866; degraded_agents=3 (AUREA,JADE,DAEDALUS); tripwire inactive; gi_provenance=kv-live."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.905 composite=0.905 instrumentCount=40 errors=0 cached=false. All agent composites healthy (GAIA 0.917, HERMES 0.922, DAEDALUS 0.937, AUREA 0.889, ECHO 0.92, THEMIS 0.853). hermes-crossref=0.9 themis-govtrack=0.85 daedalus-cloudflare-radar=0.7."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.764 mode=yellow terminal_status=stressed source=cached degraded=true cycle=C-393 gi_provenance=live-compute — aligned with ATLAS gi=0.764. Stability signal=0.45 (degraded)."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "ATLAS gi=0.764 and integrity-status gi=0.764 aligned (yellow/stressed). Micro lane gi=0.905 diverges by +0.141 — operator GI understates micro composite health."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=cached (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS anomaly: hermes-crossref elevated",
+      "result": "pass",
+      "detail": "Transient. ATLAS flagged elevated; live micro hermes-crossref score=0.9 healthy — anomaly resolved since ATLAS sweep."
+    },
+    {
+      "check": "ATLAS anomaly: themis-govtrack elevated",
+      "result": "pass",
+      "detail": "Transient. ATLAS flagged elevated; live micro themis-govtrack score=0.85 healthy — anomaly resolved since ATLAS sweep."
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar watch",
+      "result": "warn",
+      "detail": "Persistent. daedalus-cloudflare-radar score=0.7 watch-level — confirmed in live micro."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: degraded_agents",
+      "result": "warn",
+      "detail": "Transient/contradicted. ATLAS reports degraded_agents=3 (AUREA,JADE,DAEDALUS) but live micro shows all agent composites healthy with errorCount=0."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "pass",
+      "detail": "Resolved. tripwire.active=false level=none — Hormuz elevated tripwire from prior cycle no longer active."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-393 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-393-9e6x6t mirrored_to_kv=true pending_immortalization=true (ledger 503 suspended — substrate degraded)."
+    }
+  ],
+  "recommendation": "Quorum 5/5 achieved for C-393. Operator attention: micro GI divergence persists — operator gi=0.764 vs micro gi=0.905 (delta +0.141). GI dropped from 0.81/green to 0.764/yellow since last ZEUS pass. Stability signal degraded at 0.45. kv_keys_ok probe contradiction persists despite successful seed. daedalus-cloudflare-radar watch 0.7 persistent. degraded_agents=3 on ATLAS contradicts live micro health — reconcile probe. Ledger substrate degraded (503) — immortalization pending."
+}
