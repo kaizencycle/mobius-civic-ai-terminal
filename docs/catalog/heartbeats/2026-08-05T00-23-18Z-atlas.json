@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-08-05T00:23:18.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-393",
+  "gi": 0.64,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "gaia-openaq",
+      "label": "OpenAQ air quality",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "critical"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_keys_ok": false,
+    "latencyMs": 9,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "timestamp": "2026-08-05T00:21:19.762Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": false,
+  "classification": "CRITICAL",
+  "micro_composite": 0.907,
+  "micro_cycle": "C-306",
+  "degraded_agents": 0,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-05T00:22:07.426Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": true,
+      "level": "elevated",
+      "reason": "Hormuz Transit Fee Risk \u2014 Monitoring whether Iran formalizes transit fees and turns passage into an overt leverage instrument",
+      "last_updated": "2026-08-05T00:15:39.325Z"
+    },
+    "last_updated": "2026-08-05T00:22:07.426Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "last_journal_cycle": "C-393",
+  "current_cycle": "C-393",
+  "force_journal_cycle_mismatch": false,
+  "gi_provenance": "kv-live",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-393-h2kbct",
+  "journal_ok": true,
+  "journal_canonical_status": false,
+  "journal_pending_immortalization": true,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ]
+}
