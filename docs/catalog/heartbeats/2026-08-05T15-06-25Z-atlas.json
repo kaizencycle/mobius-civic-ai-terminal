@@ -5,7 +5,23 @@
   "gi": 0.765,
   "mode": "yellow",
   "source": "kv",
-  "anomalies": [],
+  "anomalies": [
+    {
+      "source": "themis-datagov",
+      "label": "data.gov dataset freshness",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-github",
+      "label": "GitHub API rate limit health",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
   "kv_keys": {
     "ok": true,
     "available": true,
@@ -28,12 +44,12 @@
   "sustain_eligible": true,
   "classification": "STRESSED",
   "micro_composite": 0.849,
-  "degraded_agents": 2,
+  "degraded_agents": 3,
   "terminal_status": "stressed",
   "flags": {
     "integrity_source_mock": false,
     "integrity_source_kv": true,
-    "micro_anomaly_severity_flag": false,
+    "micro_anomaly_severity_flag": true,
     "kv_keys_ok": false,
     "kv_keys_all_ok": false,
     "tripwire_active": false
