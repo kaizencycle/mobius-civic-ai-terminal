@@ -1,0 +1,87 @@
+{
+  "timestamp": "2026-08-05T22:04:56.066Z",
+  "agent": "ATLAS",
+  "cycle": "C-394",
+  "gi": 0.81,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 5,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 2,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-08-05T22:03:44.238Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.886,
+  "degraded_agents": 3,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-05T22:03:44.592Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": true,
+      "level": "elevated",
+      "reason": "Hormuz Transit Fee Risk — Monitoring whether Iran formalizes transit fees and turns passage into an overt leverage instrument",
+      "last_updated": "2026-08-05T22:02:37.632Z"
+    },
+    "last_updated": "2026-08-05T22:03:44.592Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "gi_provenance": "kv-live",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-394-gaoip5",
+  "journal_ok": true,
+  "degraded_agent_names": [
+    "AUREA",
+    "JADE",
+    "DAEDALUS"
+  ],
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "last_journal_cycle": "C-394"
+}
