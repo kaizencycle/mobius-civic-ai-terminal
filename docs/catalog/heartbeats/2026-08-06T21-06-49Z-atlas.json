@@ -1,0 +1,103 @@
+{
+  "timestamp": "2026-08-06T21:06:49.714Z",
+  "agent": "ATLAS",
+  "cycle": "C-395",
+  "gi": 0.71,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "NOAA active weather alerts",
+      "severity": "elevated",
+      "source": "gaia-noaa-alerts"
+    },
+    {
+      "label": "OpenAQ air quality",
+      "severity": "elevated",
+      "source": "gaia-openaq"
+    },
+    {
+      "label": "USGS water conditions",
+      "severity": "critical",
+      "source": "gaia-usgs-water"
+    },
+    {
+      "label": "GovTrack legislation feed",
+      "severity": "critical",
+      "source": "themis-govtrack"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 12,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-08-06T21:05:12.457Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.86,
+  "micro_cycle": "C-306",
+  "degraded_agents": 2,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": true,
+    "micro_operator_cycle_divergence": true
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-06T21:05:18.183Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-08-06T21:04:40.929Z"
+    },
+    "last_updated": "2026-08-06T21:05:18.183Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "last_journal_cycle": "C-395",
+  "current_cycle": "C-395",
+  "force_journal_cycle_mismatch": false,
+  "gi_provenance": "kv-live",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-395-hxmufv",
+  "journal_ok": true,
+  "journal_canonical_status": false,
+  "degraded_agent_names": [
+    "GAIA",
+    "THEMIS"
+  ],
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ]
+}
