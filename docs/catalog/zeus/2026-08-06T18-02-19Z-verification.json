@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-08-06T18:02:19.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-395",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "themis-govtrack": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_ok": "persistent",
+    "degraded_agents": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-395)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-06T17-06-43Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-06T17-06-43Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.71 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[themis-govtrack elevated, daedalus-cloudflare-radar watch]; flags kv_keys_ok=false tripwire_active=false micro_anomaly_severity_flag=true; seed_result=200 OK (seeded GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT); kv_keys.ok=true but kv_keys.kv_keys_ok=false; sustain_eligible=false; micro_composite=0.883; degraded_agents=3 (AUREA,JADE,DAEDALUS); gi_provenance=kv-live."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.906 composite=0.906 instrumentCount=40 errors=0 cached=false. themis-govtrack score=0.85 primary recovered (was elevated at ATLAS 17:06Z). daedalus-cloudflare-radar score=0.7 watch persistent. gaia-usgs-water score=0.85 primary recovered. All agent composites errorCount=0."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.74 mode=yellow terminal_status=stressed source=kv degraded=true cycle=C-395 gi_provenance=kv-live. Freshness=0.3 (low), quality=0.76, stability=1.0. primary_driver=Moderate signal degradation. Improved from 0.63 at 12:03Z run but still below micro composite."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.71 (yellow/stressed) vs integrity-status gi=0.74 (yellow/stressed) vs micro gi=0.906 — three-way divergence +0.196 micro above ATLAS, +0.166 micro above integrity. ATLAS and integrity closer (+0.03) but both diverge sharply from live micro."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS anomaly: themis-govtrack elevated",
+      "result": "pass",
+      "detail": "Transient. ATLAS flagged elevated at 17:06Z; live micro at 18:02Z shows govtrack score=0.85 primary — recovered from prior failures (score=0 at 06:04Z and 12:03Z runs)."
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar watch",
+      "result": "warn",
+      "detail": "Persistent. Cloudflare infrastructure status score=0.7 watch-level — confirmed in live micro across multiple ZEUS passes."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: degraded_agents",
+      "result": "pass",
+      "detail": "Transient/stale. ATLAS reports degraded_agents=3 (AUREA,JADE,DAEDALUS) but live micro shows errorCount=0 across all six agents — instrument lane recovered since ATLAS sweep."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-395 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-395-fqke08 mirrored_to_kv=true pending_immortalization=true (ledger 503 suspended — substrate degraded)."
+    }
+  ],
+  "recommendation": "Quorum 5/5 maintained for C-395. Operator attention: three-way GI misalignment persists (ATLAS 0.71 / integrity 0.74 / micro 0.906); monitor cloudflare-radar watch (0.7 persistent); reconcile kv_keys_ok probe contradiction; integrity freshness=0.3 remains low despite instrument recovery. Ledger substrate degraded (503) — immortalization pending."
+}
