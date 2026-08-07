@@ -65,7 +65,7 @@
   "gi_provenance": "kv-live",
   "journal_status": 200,
   "journal_route": "agents/journal",
-  "journal_id": null,
+  "journal_id": "journal-ATLAS-C-396-6p9p19",
   "journal_ok": true,
   "journal_canonical_status": false,
   "degraded_agent_names": [],
