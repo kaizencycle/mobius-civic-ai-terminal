@@ -5,7 +5,7 @@
 - **Cycle:** `C-396`
 - **GI:** `0.9` · **mode:** `green` · ⚠️ degraded
 - **Provenance:** `kv-live` (verified)
-- **Pulse fetched:** `2026-08-07T17:10:24.737Z`
+- **Pulse fetched:** `2026-08-07T18:04:36.587Z`
 - **Deployment:** `365703c3f501` (production)
 - **Reserve hot (raw):** `360` · **cold manifest:** `194` · **gap (raw−cold):** `166`
 - **Open gates:** `cold_canon_append_pending`, `sustain_not_wired`, `fountain_gi_below_threshold`, `terminal_degraded`
