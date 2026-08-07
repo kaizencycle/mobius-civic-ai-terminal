@@ -1,0 +1,95 @@
+{
+  "timestamp": "2026-08-07T00:04:30.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-395",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "gaia-noaa-alerts": "transient",
+    "gaia-openaq": "persistent",
+    "themis-govtrack": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_ok": "persistent",
+    "degraded_agents": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-395)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-06T23-04-38Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-06T23-04-38Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.63 mode=yellow source=kv classification=CRITICAL terminal_status=stressed; anomalies=[gaia-noaa-alerts watch, gaia-openaq watch, themis-govtrack elevated, daedalus-cloudflare-radar watch]; flags kv_keys_ok=false tripwire_active=false micro_anomaly_severity_flag=true; seed_result=200 OK (seeded GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT); kv_keys.ok=true but kv_keys.kv_keys_ok=false; sustain_eligible=false; micro_composite=0.876; degraded_agents=3 (AUREA,JADE,DAEDALUS); gi_provenance=kv-live."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.856 composite=0.856 instrumentCount=40 errors=2 cached=false. gaia-noaa-alerts score=0.8 nominal (recovered from watch). gaia-openaq score=0.5 watch persistent. themis-govtrack score=0.85 nominal (recovered from elevated). daedalus-cloudflare-radar score=0.7 watch persistent. New failures: hermes-arxiv (elevated), aurea-coingecko (elevated)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.777 mode=yellow terminal_status=stressed source=kv degraded=true cycle=C-395 gi_provenance=live-compute. Freshness=1.0 (recovered), quality=0.777, stability=1.0. primary_driver=GI aligned to micro-sensor composite after sweep."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.63 (CRITICAL/stressed) vs integrity-status gi=0.777 (yellow/stressed) vs micro gi=0.856 — three-way divergence +0.226 micro above ATLAS, +0.079 micro above integrity. ATLAS snapshot stale relative to live lanes."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS anomaly: gaia-noaa-alerts watch",
+      "result": "pass",
+      "detail": "Transient. ATLAS flagged watch at 23:04Z; live micro at 00:04Z shows score=0.8 nominal — recovered."
+    },
+    {
+      "check": "ATLAS anomaly: gaia-openaq watch",
+      "result": "warn",
+      "detail": "Persistent. OpenAQ score=0.5 watch-level — confirmed in live micro, severity unchanged."
+    },
+    {
+      "check": "ATLAS anomaly: themis-govtrack elevated",
+      "result": "pass",
+      "detail": "Transient. ATLAS flagged elevated at 23:04Z; live micro at 00:04Z shows govtrack score=0.85 nominal — recovered."
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar watch",
+      "result": "warn",
+      "detail": "Persistent. Cloudflare infrastructure status score=0.7 watch-level — confirmed across multiple ZEUS passes."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: degraded_agents",
+      "result": "pass",
+      "detail": "Transient/stale. ATLAS reports degraded_agents=3 (AUREA,JADE,DAEDALUS) but live micro shows only HERMES errorCount=1 and AUREA errorCount=1 — JADE not in micro registry; instrument lane partially recovered."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-395 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-395-488rie mirrored_to_kv=true pending_immortalization=true (ledger 503 suspended — substrate degraded)."
+    }
+  ],
+  "recommendation": "Quorum 5/5 maintained for C-395. Operator attention: three-way GI misalignment persists (ATLAS 0.63 / integrity 0.777 / micro 0.856); triage hermes-arxiv and aurea-coingecko instrument failures; monitor openaq (0.5) and cloudflare-radar (0.7 persistent); reconcile kv_keys_ok probe contradiction. Ledger substrate degraded (503) — immortalization pending."
+}
