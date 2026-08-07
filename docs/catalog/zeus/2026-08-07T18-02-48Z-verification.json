@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-08-07T18:02:48.710Z",
+  "agent": "ZEUS",
+  "cycle": "C-396",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_ok": "persistent",
+    "tripwire_active": "resolved",
+    "hermes-arxiv": "resolved",
+    "gaia-usgs-water": "resolved",
+    "aurea-coingecko": "transient",
+    "classification_stressed_vs_mode": "persistent",
+    "atlas_integrity_gi_divergence": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-396)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-07T17-03-32Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-07T17-03-32Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.82 mode=green source=cached classification=STRESSED terminal_status=nominal; anomalies=[daedalus-cloudflare-radar watch]; flags kv_keys_ok=false tripwire_active=false micro_anomaly_severity_flag=false; seed_result=200 OK (seeded GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT); kv_keys.ok=true but kv_keys.kv_keys_ok=false; sustain_eligible=true; micro_composite=0.897 micro_cycle=C-306; degraded_agents=0; gi_provenance=live-compute."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.884 composite=0.884 instrumentCount=40 errors=1 cached=false. daedalus-cloudflare-radar score=0.7 watch — persistent. aurea-coingecko score=0 primary failed (with retry) — new this pass. gaia-usgs-water score=0.85 recovered. hermes-arxiv score=1 recovered. gaia-openaq score=0.75 nominal watch-level."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.93 mode=green terminal_status=nominal source=kv degraded=true cycle=C-396 gi_provenance=kv-live. Freshness=1.0 quality=0.79 stability=1.0. primary_driver=System operating within normal parameters."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.82 vs integrity-status gi=0.93 (+0.11 divergence) vs micro gi=0.884. ATLAS source=cached may be stale relative to live KV integrity lane. ATLAS micro_composite=0.897 vs live micro 0.884."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "pass",
+      "detail": "Resolved: tripwire active=false level=none — was elevated Hormuz at prior pass."
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch-level score=0.7 — confirmed in ATLAS anomalies and micro instruments."
+    },
+    {
+      "check": "aurea-coingecko instrument failure",
+      "result": "warn",
+      "detail": "New elevated failure — score=0 error=primary failed (with retry) latencyMs=12002; present in micro failedInstruments."
+    },
+    {
+      "check": "hermes-arxiv instrument recovery",
+      "result": "pass",
+      "detail": "Resolved since 12:03Z pass — hermes-arxiv now score=1 primary ok."
+    },
+    {
+      "check": "gaia-usgs-water instrument recovery",
+      "result": "pass",
+      "detail": "Resolved since 12:03Z pass — gaia-usgs-water now score=0.85 primary ok latencyMs=2403."
+    },
+    {
+      "check": "classification vs mode contradiction",
+      "result": "warn",
+      "detail": "Persistent: ATLAS classification=STRESSED with mode=green and terminal_status=nominal."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-396 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-396-esq22i mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Quorum 5/5 maintained for C-396. Operator attention: reconcile ATLAS cached gi (0.82) with live integrity-status (0.93) — 0.11 divergence suggests stale ATLAS snapshot. Persistent kv_keys_ok probe contradiction despite successful seed. Monitor new aurea-coingecko upstream failure. cloudflare-radar watch (0.7) remains nominal watch-level. Positive: tripwire, hermes-arxiv, and gaia-usgs-water recovered since prior pass."
+}
