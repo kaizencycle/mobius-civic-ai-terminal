@@ -1,0 +1,95 @@
+{
+  "timestamp": "2026-08-08T20:01:46.483Z",
+  "agent": "ATLAS",
+  "cycle": "C-397",
+  "gi": 0.83,
+  "mode": "green",
+  "source": "cached",
+  "anomalies": [
+    {
+      "source": "gaia-noaa-alerts",
+      "label": "NOAA active weather alerts",
+      "severity": "watch"
+    },
+    {
+      "source": "gaia-usgs-water",
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 46,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 0,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-08-08T20:00:45.327Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.882,
+  "degraded_agents": 3,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": false,
+    "integrity_source_live": false,
+    "integrity_source_cached": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-08T20:00:45.008Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-08-08T20:00:44.930Z"
+    },
+    "last_updated": "2026-08-08T20:00:45.008Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "gi_provenance": "live-compute",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-397-4x4e2s",
+  "journal_ok": true,
+  "journal_canonical_status": true,
+  "degraded_agent_names": [
+    "AUREA",
+    "JADE",
+    "DAEDALUS"
+  ],
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ]
+}
