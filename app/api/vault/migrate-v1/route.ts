@@ -7,16 +7,14 @@ import { log } from '@/lib/log';
 import { createHash } from 'crypto';
 import { kvGetRaw, kvSetRawKey, kvDel, kvInspectSamples } from '@/lib/kv/store';
 import { TERMINAL_REGISTRATION } from '@/lib/ledger';
+import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
+import {
+  isReservedVaultSealId,
+  parseV1SealRecord,
+  validateMigratableSealId,
+} from '@/lib/vault-v2/reservedSealIds';
 
 export const dynamic = 'force-dynamic';
-
-interface V1Seal {
-  hash: string;
-  cycle?: string;
-  createdAt?: number;
-  writtenAt?: number;
-  [key: string]: unknown;
-}
 
 export async function POST(req: Request) {
   let body: { sealId?: string; operatorNote?: string };
@@ -26,10 +24,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 });
   }
 
-  const { sealId, operatorNote } = body;
-  if (!sealId || typeof sealId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(sealId)) {
-    return NextResponse.json({ ok: false, error: 'sealId_required_alphanumeric' }, { status: 400 });
+  const { sealId: rawSealId, operatorNote } = body;
+  const idCheck = validateMigratableSealId(rawSealId);
+  if (!idCheck.ok) {
+    return NextResponse.json({ ok: false, error: idCheck.error }, { status: 400 });
   }
+  const sealId = idCheck.sealId;
 
   const CIVIC_LEDGER_URL = process.env.CIVIC_LEDGER_URL;
   if (!CIVIC_LEDGER_URL) {
@@ -37,22 +37,29 @@ export async function POST(req: Request) {
   }
 
   const v1Key = `vault:seal:${sealId}`;
-  const v1 = await kvGetRaw<V1Seal>(v1Key);
-  if (!v1) {
+  const v1raw = await kvGetRaw<unknown>(v1Key);
+  if (!v1raw) {
     return NextResponse.json({ ok: false, error: `seal_not_found: ${sealId}` }, { status: 404 });
   }
 
-  if ((v1 as Record<string, unknown>).schema_version) {
-    return NextResponse.json({
-      ok: false,
-      error: 'already_v2',
-      schema_version: (v1 as Record<string, unknown>).schema_version,
-      sealId,
-    }, { status: 409 });
+  const v1 = parseV1SealRecord(v1raw);
+  if (!v1) {
+    if (typeof v1raw === 'object' && v1raw !== null && (v1raw as Record<string, unknown>).schema_version) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'already_v2',
+          schema_version: (v1raw as Record<string, unknown>).schema_version,
+          sealId,
+        },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ ok: false, error: 'not_a_v1_seal_object' }, { status: 409 });
   }
 
   const ts = Date.now();
-  const cycle = process.env.CURRENT_CYCLE ?? 'C-305';
+  const cycle = await resolveOperatorCycleId();
 
   const v2Seal = {
     ...v1,
@@ -89,8 +96,8 @@ export async function POST(req: Request) {
         signal: AbortSignal.timeout(10_000),
       });
       if (!res.ok) {
-        const body = await res.text().catch(() => `HTTP ${res.status}`);
-        console.error(`[migrate-v1] substrate write failed for ${sealId}:`, body);
+        const resBody = await res.text().catch(() => `HTTP ${res.status}`);
+        console.error(`[migrate-v1] substrate write failed for ${sealId}:`, resBody);
       } else {
         substrateOk = true;
       }
@@ -112,9 +119,13 @@ export async function GET() {
   const v1Seals: string[] = [];
 
   for (const row of keys) {
+    const suffix = row.key.replace('vault:seal:', '');
+    if (isReservedVaultSealId(suffix)) {
+      continue;
+    }
     const data = row.sample as Record<string, unknown> | null;
     if (data && !data.schema_version) {
-      v1Seals.push(row.key.replace('vault:seal:', ''));
+      v1Seals.push(suffix);
     }
   }
 

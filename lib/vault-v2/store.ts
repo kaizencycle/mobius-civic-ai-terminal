@@ -219,7 +219,14 @@ export async function countAllSeals(): Promise<number> {
 export async function getLatestSealId(): Promise<string | null> {
   try {
     const raw = await rawGetWithFallback<string>(LATEST_SEAL_KEY);
-    if (typeof raw === 'string' && raw.length > 0) return raw;
+    if (typeof raw === 'string' && raw.length > 0 && raw.startsWith('seal-')) {
+      return raw;
+    }
+    if (raw !== null && raw !== undefined) {
+      console.warn(
+        '[vault-v2:store] vault:seal:latest is not a seal id string — pointer may be corrupted (see migrate-v1 reserved-key guard)',
+      );
+    }
     return null;
   } catch {
     return null;
