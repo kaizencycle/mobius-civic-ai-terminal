@@ -5,27 +5,48 @@
 
 ## One-time data repair (production)
 
-After deploying the migrate-v1 guard fix, reset the pointer to a bare seal id string:
+After **merge + deploy** of PR #648, reset the pointer to a bare seal id string.
+
+### Via Upstash Console / redis-cli / REST (direct SET)
+
+`@upstash/redis` JSON-encodes values on write and decodes on read — the same as `redis.set(LATEST_SEAL_KEY, seal.seal_id)` in `appendSealToChain`. When issuing a raw SET, store the JSON-encoded string form:
 
 ```bash
-# Upstash REST or redis-cli — value must be a JSON string, not an object
 SET vault:seal:latest "\"seal-C-372-002\""
+```
+
+### Via Node / `@upstash/redis` SDK — do not double-quote
+
+```ts
+await redis.set('vault:seal:latest', 'seal-C-372-002'); // SDK adds JSON quoting
+// WRONG: redis.set('vault:seal:latest', '"seal-C-372-002"'); // double-encoded
 ```
 
 Use the last attested seal in `vault:seals:index:attested` unless Track R adjudication selects a different canonical tip.
 
-Verify:
+Verify immediately after SET:
 
 ```bash
 GET vault:seal:latest
-# → "seal-C-372-002" (string)
+# → seal-C-372-002  (decoded string — not a JSON object with "0":"s",…)
 ```
 
-## Code fix (merged separately)
+`getLatestSealId()` after deploy requires `typeof raw === 'string' && raw.startsWith('seal-')`.
+
+## Code fix (PR #648 — not yet on main)
 
 - Reject reserved ids: `latest`, `candidate`
 - Runtime `parseV1SealRecord()` before spread — never cast plain strings to `V1Seal`
 - `migration_cycle` from `resolveOperatorCycleId()` instead of hardcoded `C-305`
+
+Contract tests: `pnpm exec tsx tests/contract/migrateV1Guard.test.ts` — **6/6 pass** (verified on branch).
+
+## Deployment sequence
+
+1. Merge and deploy **PR #648** (`mobius-civic-ai-terminal`)
+2. Manual `SET vault:seal:latest` (see above — mind SDK vs CLI encoding)
+3. `GET` verify → string `seal-C-372-002`, not object
+4. Allow `repairLatestSealPointer()` / watchdog CAS to resume (Track R lineage adjudication remains separate)
 
 ## Do not use
 
