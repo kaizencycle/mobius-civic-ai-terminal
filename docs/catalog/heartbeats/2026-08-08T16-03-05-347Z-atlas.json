@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-08-08T16:03:05.347Z",
+  "agent": "ATLAS",
+  "cycle": "C-397",
+  "gi": 0.78,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "gaia-usgs-water",
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 9,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-08-08T16:02:00.319Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.89,
+  "degraded_agents": 4,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-08T16:02:00.401Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-08-08T15:11:33.226Z"
+    },
+    "last_updated": "2026-08-08T16:02:00.401Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "gi_provenance": "kv-live",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-397-unreqq",
+  "journal_ok": true,
+  "journal_canonical_status": true,
+  "degraded_agent_names": [
+    "ATLAS",
+    "AUREA",
+    "JADE",
+    "DAEDALUS"
+  ],
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "pre_seed_gi": 0.78,
+  "pre_seed_mode": "yellow",
+  "pre_seed_terminal_status": "stressed"
+}
