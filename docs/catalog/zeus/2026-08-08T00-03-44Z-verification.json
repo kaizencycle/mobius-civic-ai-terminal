@@ -1,0 +1,114 @@
+{
+  "timestamp": "2026-08-08T00:03:44.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-396",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-noaa-alerts": "persistent",
+    "gaia-openaq": "persistent",
+    "gaia-usgs-water": "persistent",
+    "hermes-arxiv": "resolved",
+    "kv_keys_ok": "persistent",
+    "tripwire_active": "persistent",
+    "atlas_integrity_gi_divergence": "persistent",
+    "classification_critical_vs_integrity_nominal": "persistent",
+    "aurea-coingecko": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-396)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-07T23-03-14-642Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-07T23-03-14-642Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.63 mode=yellow source=kv classification=CRITICAL terminal_status=stressed; anomalies=[gaia-noaa-alerts watch, gaia-openaq elevated, gaia-usgs-water elevated, hermes-arxiv elevated, daedalus-cloudflare-radar watch]; flags kv_keys_ok=false tripwire_active=true micro_anomaly_severity_flag=true gi_below_floor=true; seed_result=200 OK; sustain_eligible=false; micro_composite=0.847; degraded_agents=3 (AUREA,JADE,DAEDALUS); tripwire Hormuz elevated."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.874 composite=0.874 instrumentCount=40 errors=1 cached=true cycle=C-306. daedalus-cloudflare-radar score=0.7 watch persistent. gaia-usgs-water score=0 error primary failed persistent. gaia-openaq score=0.5 watch. gaia-noaa-alerts score=0.6 watch. hermes-arxiv score=0.9 nominal recovered. aurea-coingecko score=0.85 recovered."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv degraded=true cycle=C-396 gi_provenance=kv-live. Freshness=0.6 quality=0.76 stability=1.0. Contradicts ATLAS stressed/CRITICAL snapshot."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.63 vs integrity-status gi=0.82 (+0.19 divergence) vs micro gi=0.874 (+0.244). ATLAS classification=CRITICAL terminal_status=stressed vs integrity terminal_status=nominal mode=green."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "warn",
+      "detail": "Persistent: tripwire active=true level=elevated reason=Hormuz Transit Fee Risk. integrity-status terminal_status=nominal despite tripwire."
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch-level score=0.7 — confirmed in ATLAS anomalies and micro instruments."
+    },
+    {
+      "check": "ATLAS anomaly: gaia-usgs-water",
+      "result": "warn",
+      "detail": "Persistent elevated — score=0 error=primary failed (with retry) latencyMs=7049; sole failedInstrument in micro."
+    },
+    {
+      "check": "ATLAS anomaly: gaia-openaq",
+      "result": "warn",
+      "detail": "Persistent — score=0.5 watch in micro; ATLAS flagged elevated severity."
+    },
+    {
+      "check": "ATLAS anomaly: gaia-noaa-alerts",
+      "result": "warn",
+      "detail": "Persistent watch — score=0.6 confirmed in micro."
+    },
+    {
+      "check": "ATLAS anomaly: hermes-arxiv",
+      "result": "pass",
+      "detail": "Resolved/transient — ATLAS flagged elevated at 23:03Z; micro now score=0.9 nominal."
+    },
+    {
+      "check": "aurea-coingecko recovery",
+      "result": "pass",
+      "detail": "Resolved since prior ZEUS pass (18:02Z) — now score=0.85 primary ok."
+    },
+    {
+      "check": "classification vs integrity contradiction",
+      "result": "fail",
+      "detail": "ATLAS classification=CRITICAL terminal_status=stressed mode=yellow vs integrity terminal_status=nominal mode=green."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-396 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-396-0k2udm mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Quorum 5/5 maintained for C-396. Operator attention: significant GI lane divergence — ATLAS CRITICAL snapshot (gi=0.63, stressed) vs integrity-status (gi=0.82, nominal green). Tripwire Hormuz elevated active in ATLAS; reconcile with integrity nominal status. Monitor persistent gaia-usgs-water upstream failure. cloudflare-radar, gaia-openaq, gaia-noaa-alerts remain watch-level. Positive: hermes-arxiv and aurea-coingecko recovered since prior passes."
+}
