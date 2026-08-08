@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-08-08T15:03:10.636Z",
+  "agent": "ATLAS",
+  "cycle": "C-397",
+  "gi": 0.77,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 6,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 2,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-08-08T15:03:10.636Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.908,
+  "degraded_agents": 4,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-08T15:03:10.691Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-08-08T14:47:52.277Z"
+    },
+    "last_updated": "2026-08-08T15:03:10.691Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "gi_provenance": "live-compute",
+  "journal_status": 200,
+  "journal_route": "atlas/observe",
+  "journal_id": "journal-ATLAS-C-397-mski7o8oim7l",
+  "journal_ok": true,
+  "journal_canonical_status": true,
+  "degraded_agent_names": [
+    "ATLAS",
+    "AUREA",
+    "JADE",
+    "DAEDALUS"
+  ],
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "pre_seed_gi": 0.71,
+  "pre_seed_mode": "yellow",
+  "pre_seed_terminal_status": "stressed"
+}
