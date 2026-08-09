@@ -1,0 +1,90 @@
+{
+  "timestamp": "2026-08-09T18:01:39.335Z",
+  "agent": "ZEUS",
+  "cycle": "C-398",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "cached",
+  "anomaly_persistence": {
+    "kv_keys_ok": "persistent",
+    "gaia-usgs-water": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "micro_cycle_lag": "persistent",
+    "atlas_integrity_gi_divergence": "persistent",
+    "tripwire_active": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-398)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-09T17-03-40-223Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-09T17-03-40-223Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.71 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[] (empty this pass); flags kv_keys_ok=false micro_anomaly_severity_flag=false integrity_source_kv=true; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; sustain_eligible=false; micro_composite=0.891; degraded_agents=0; gi_provenance=kv-live."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.887 composite=0.887 instrumentCount=40 errors=1 cached=false cycle=C-306 (stale vs C-398). gaia-usgs-water score=0 error=primary failed (with retry) latencyMs=10003 persistent. daedalus-cloudflare-radar score=0.7 watch persistent latencyMs=59. gaia-openaq score=0.75 elevated."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.91 mode=green terminal_status=nominal source=cached degraded=true cycle=C-398 gi_provenance=live-compute gi_age_seconds=3452 (~57min stale). authority.gi_origin=cached note=GI operating under degraded signal authority. primary_driver=carried forward; primary gi:latest stale or missing."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.71 (kv/yellow/stressed) vs integrity-status gi=0.91 (cached/green/nominal) delta=+0.20 — not aligned. Micro gi=0.887 (+0.177 vs ATLAS) on stale cycle C-306."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=cached (not mock) — KV seed failure mock path not active. However cached carry-forward with gi_age_seconds=3452 warrants operator review."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok contradiction",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS flag: tripwire_active",
+      "result": "pass",
+      "detail": "Resolved — tripwire active=false level=none reason=No active tripwires - baseline state."
+    },
+    {
+      "check": "gaia-usgs-water",
+      "result": "warn",
+      "detail": "Persistent elevated — score=0 error=primary failed (with retry) latencyMs=10003; upstream failure continues (not in ATLAS anomalies this pass)."
+    },
+    {
+      "check": "daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — score=0.7 latencyMs=59."
+    },
+    {
+      "check": "micro cycle lag",
+      "result": "warn",
+      "detail": "micro endpoint reports cycle=C-306 while integrity-status and ATLAS report C-398; cached=false but cycle stale."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-398 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-398-0isjb5 mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Quorum 5/5 maintained for C-398. Disputed due to +0.20 GI divergence: ATLAS kv-live gi=0.71 yellow/stressed vs integrity cached gi=0.91 green/nominal (gi_age_seconds=3452). Operator attention: reconcile GI authority between kv and cached paths; investigate integrity carry-forward staleness; address persistent gaia-usgs-water upstream failure and daedalus-cloudflare-radar watch; review kv_keys_ok=false flag semantics against successful seed."
+}
