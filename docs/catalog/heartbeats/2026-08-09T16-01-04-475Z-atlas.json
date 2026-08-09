@@ -30,7 +30,7 @@
     "timestamp": "2026-08-09T16:03:26.826Z"
   },
   "seed_attempted": true,
-  "seed_result": "error: This operation was aborted",
+  "seed_result": "200 OK — seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
   "sustain_eligible": false,
   "classification": "STRESSED",
   "micro_composite": 0.908,
@@ -76,7 +76,12 @@
     "JADE",
     "DAEDALUS"
   ],
-  "seed_seeded_keys": [],
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
   "last_journal_cycle": "C-398",
   "force_journal": false
 }
