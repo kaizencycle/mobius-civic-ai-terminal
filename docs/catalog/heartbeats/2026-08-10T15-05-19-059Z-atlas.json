@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-08-10T15:05:19.059Z",
+  "agent": "ATLAS",
+  "cycle": "C-399",
+  "gi": 0.74,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 5,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 4,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-08-10T15:04:01.458Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.904,
+  "degraded_agents": 2,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-10T15:04:01.541Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-08-10T14:44:02.078Z"
+    },
+    "last_updated": "2026-08-10T15:04:01.541Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-399-sqr3q6",
+  "journal_ok": true,
+  "journal_canonical_status": true,
+  "degraded_agent_names": [
+    "JADE",
+    "DAEDALUS"
+  ],
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "pre_seed_gi": 0.9,
+  "post_seed_kv_gi": 0.74,
+  "force_journal_cycle_mismatch": false,
+  "last_journal_cycle": "C-399",
+  "current_cycle": "C-399",
+  "gi_provenance": "kv-live"
+}
