@@ -1,0 +1,96 @@
+{
+  "timestamp": "2026-08-10T06:03:42.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-399",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "gaia-noaa-alerts": "persistent",
+    "kv_keys_ok": "persistent",
+    "micro_cycle_lag": "persistent",
+    "themis-govtrack": "resolved",
+    "gaia-usgs-water": "resolved",
+    "daedalus-cloudflare-radar": "resolved",
+    "tripwire_active": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-399)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-10T05-02-47-802Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-10T05-02-47-802Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.82 mode=green source=cached classification=STRESSED terminal_status=nominal; anomalies=[gaia-noaa-alerts watch]; flags kv_keys_ok=false tripwire_active=false; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; sustain_eligible=true; micro_composite=0.885; degraded_agents=0; gi_provenance=live-compute; post_seed_kv_gi=0.92."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.902 composite=0.902 instrumentCount=40 errors=0 cached=false cycle=C-306 (stale vs C-399). gaia-noaa-alerts score=0.6 severity=watch persistent. daedalus-cloudflare-radar score=0.7 nominal. themis-govtrack score=0.85 recovered. gaia-usgs-water score=0.85 recovered."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv degraded=true cycle=C-399 gi_provenance=kv-live gi_age_seconds=45. authority.gi_origin=kv note=Primary GI is being served from KV-backed state."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "pass",
+      "detail": "ATLAS gi=0.82 (cached/green) vs integrity-status gi=0.81 (kv/green) delta=0.01 — aligned within tolerance. Micro gi=0.902 on stale cycle C-306; not used as authority for this pass."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS anomaly: gaia-noaa-alerts",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch; micro score=0.6 severity=watch still present."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "warn",
+      "detail": "Transient since ATLAS sweep — ATLAS heartbeat tripwire active=false; live /api/tripwire/status at 06:03:42Z active=true level=elevated (Hormuz Transit Fee Risk). New condition since 05:02Z sweep."
+    },
+    {
+      "check": "themis-govtrack",
+      "result": "pass",
+      "detail": "Resolved — score=0.85 latencyMs=447; prior failure no longer present."
+    },
+    {
+      "check": "gaia-usgs-water",
+      "result": "pass",
+      "detail": "Resolved — score=0.85 latencyMs=2904; upstream failure cleared."
+    },
+    {
+      "check": "micro cycle lag",
+      "result": "warn",
+      "detail": "micro endpoint reports cycle=C-306 while integrity-status and ATLAS report C-399; cached=false but cycle stale."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-399 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-399-cbef7r mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Quorum 5/5 maintained for C-399. GI confirmed between ATLAS (0.82) and integrity KV (0.81). Monitor gaia-noaa-alerts watch (persistent low severity). Tripwire elevated since ATLAS sweep — operator may want next ATLAS pass to capture. Review kv_keys_ok=false flag semantics. Address micro cycle lag C-306 vs C-399 when convenient."
+}
