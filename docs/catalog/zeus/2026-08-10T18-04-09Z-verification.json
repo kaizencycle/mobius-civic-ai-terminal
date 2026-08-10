@@ -1,0 +1,90 @@
+{
+  "timestamp": "2026-08-10T18:04:09.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-399",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_ok": "persistent",
+    "micro_cycle_lag": "persistent",
+    "tripwire_active": "resolved",
+    "themis-govtrack": "transient",
+    "gi_drift": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-399)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-10T17-04-28-288Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-10T17-04-28-288Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.82 mode=green source=kv classification=STRESSED terminal_status=nominal; anomalies=[daedalus-cloudflare-radar watch]; flags kv_keys_ok=false tripwire_active=true; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; sustain_eligible=false; micro_composite=0.907; degraded_agents=4 [HERMES,EVE,JADE,DAEDALUS]; gi_provenance=kv-live."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.877 composite=0.877 instrumentCount=40 errors=1 cached=false cycle=C-306 (stale vs C-399). daedalus-cloudflare-radar score=0.7 severity=watch persistent. themis-govtrack score=0 error=primary failed (with retry). gaia-nasa-eonet score=0.65 severity=watch."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.762 mode=yellow terminal_status=stressed source=kv degraded=true cycle=C-399 gi_provenance=kv-live gi_age_seconds=40. authority.gi_origin=kv note=Primary GI is being served from KV-backed state."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.82 (kv/green) vs integrity-status gi=0.762 (kv/yellow) delta=0.058 — drift exceeds tolerance. Mode shifted green→yellow since ATLAS sweep. Micro gi=0.877 on stale cycle C-306."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch; micro score=0.7 severity=watch still present."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "pass",
+      "detail": "Resolved since ATLAS sweep — ATLAS heartbeat tripwire active=true level=elevated (Hormuz Transit Fee Risk); live /api/tripwire/status at 18:03:48Z active=false level=none."
+    },
+    {
+      "check": "themis-govtrack",
+      "result": "warn",
+      "detail": "Transient new failure — score=0 error=primary failed (with retry) latencyMs=8002; not in ATLAS anomaly list at 17:04Z sweep."
+    },
+    {
+      "check": "micro cycle lag",
+      "result": "warn",
+      "detail": "micro endpoint reports cycle=C-306 while integrity-status and ATLAS report C-399; cached=false."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-399 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-399-7frp72 mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Quorum 5/5 maintained for C-399. GI drift disputed: ATLAS sweep reported 0.82/green but live integrity KV now 0.762/yellow/stressed — operator should confirm sweep-to-live alignment. Monitor daedalus-cloudflare-radar watch (persistent). Tripwire elevated at ATLAS sweep now resolved. Investigate themis-govtrack new failure. Review kv_keys_ok=false flag semantics. Address micro cycle lag C-306 vs C-399."
+}
