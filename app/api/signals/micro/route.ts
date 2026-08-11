@@ -7,6 +7,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { SIGNAL_REGISTRY, AGENT_WEIGHTS } from '@/lib/signals/registry';
 import { fetchAllInstruments, type InstrumentResult } from '@/lib/signals/fetcher';
 import { kvGet, kvSet } from '@/lib/kv/store';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -188,7 +189,7 @@ export async function GET(req: NextRequest) {
       .filter((i) => i.source === 'error')
       .map((i) => ({ id: i.id, agent: i.agent, error: i.error ?? 'unknown' })),
     generatedAt: Date.now(),
-    cycle: process.env.CURRENT_CYCLE ?? 'C-306',
+    cycle: process.env.CURRENT_CYCLE ?? currentCycleId(),
     // Legacy compat
     composite: gi,
     agents,
