@@ -1,0 +1,96 @@
+{
+  "timestamp": "2026-08-11T12:03:26.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-400",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "daedalus-cloudflare-radar": "persistent",
+    "echo-dataverse": "persistent",
+    "gaia-usgs-water": "persistent",
+    "kv_keys_ok": "persistent",
+    "micro_cycle_lag": "persistent",
+    "tripwire_active": "resolved",
+    "gi_drift": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-400)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-11T11-05-09-435Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-11T11-05-09-435Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.71 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[daedalus-cloudflare-radar watch, echo-dataverse elevated]; flags kv_keys_ok=false tripwire_active=true; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; sustain_eligible=false; micro_composite=0.891; degraded_agents=1 [ECHO]."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.875 composite=0.875 instrumentCount=40 errors=2 cached=true cycle=C-306 (stale vs C-400). daedalus-cloudflare-radar score=0.7 persistent watch. echo-dataverse score=0 error=primary failed (with retry) persistent elevated. gaia-usgs-water score=0 error=primary failed (with retry) persistent elevated — not in ATLAS anomaly list at 11:05Z sweep. ECHO agent composite=0.739 errors=1."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.92 mode=green terminal_status=nominal source=kv degraded=true cycle=C-400 gi_provenance=kv-live gi_age_seconds=36. authority.gi_origin=kv note=Primary GI is being served from KV-backed state."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.71 (kv/yellow/STRESSED at 11:05Z sweep) vs integrity-status gi=0.92 (kv/green/nominal) delta=0.21 — significant drift within same cycle C-400. Micro gi=0.875 on stale cycle C-306 cached=true."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch; micro score=0.7 still present."
+    },
+    {
+      "check": "ATLAS anomaly: echo-dataverse",
+      "result": "warn",
+      "detail": "Persistent elevated — ATLAS flagged elevated; micro score=0 error=primary failed (with retry); ECHO agent degraded."
+    },
+    {
+      "check": "gaia-usgs-water",
+      "result": "warn",
+      "detail": "Persistent elevated — score=0 error=primary failed (with retry); not in ATLAS anomaly list at 11:05Z sweep."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "pass",
+      "detail": "Resolved — ATLAS heartbeat tripwire active=true level=elevated Hormuz; live /api/tripwire/status active=false level=none baseline state."
+    },
+    {
+      "check": "micro cycle lag",
+      "result": "warn",
+      "detail": "micro endpoint reports cycle=C-306 while integrity-status and ATLAS report C-400; cached=true."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-400 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-400-1jvs7f mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Quorum 5/5 maintained for C-400. GI disputed: ATLAS sweep reported 0.71/yellow/STRESSED but live integrity KV now 0.92/green/nominal — significant recovery within cycle (delta=0.21). Monitor persistent echo-dataverse elevated and gaia-usgs-water failure. ECHO agent degraded. tripwire resolved since ATLAS sweep. Address micro cycle lag C-306 vs C-400. Review kv_keys_ok=false flag semantics. sustain_eligible=false at ATLAS sweep — operator should confirm sustain gate criteria."
+}
