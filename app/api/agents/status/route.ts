@@ -8,6 +8,7 @@ import {
   mockEnvelope,
   staleCacheEnvelope,
 } from '@/lib/response-envelope';
+import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import { readAgentJournals } from '@/lib/substrate/github-reader';
 import type { SubstrateJournalEntry } from '@/lib/substrate/github-journal';
 import type { TrustTripwireSnapshot } from '@/lib/tripwire/types';
@@ -193,19 +194,79 @@ async function loadLatestJournalByAgent(
   return Object.fromEntries(pairs);
 }
 
+const CYCLE_ID_PATTERN = /^C-\d+$/;
+
+function parseCycleId(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return CYCLE_ID_PATTERN.test(trimmed) ? trimmed : null;
+}
+
+function maxJournalCycle(
+  journalByAgent: Record<string, { entry: SubstrateJournalEntry | null; meta: AgentMeta }>,
+): string | null {
+  let best: string | null = null;
+  let bestNum = -1;
+  for (const { entry, meta } of Object.values(journalByAgent)) {
+    const candidate = parseCycleId(meta.last_journal_cycle) ?? parseCycleId(entry?.cycle);
+    if (!candidate) continue;
+    const num = Number.parseInt(candidate.slice(2), 10);
+    if (Number.isFinite(num) && num > bestNum) {
+      bestNum = num;
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+async function resolveAgentStatusCycle(input: {
+  heartbeat: HeartbeatPayload | null;
+  giState: GiStatePayload | null;
+  operatorCycle: string | null;
+  journalByAgent: Record<string, { entry: SubstrateJournalEntry | null; meta: AgentMeta }>;
+}): Promise<string> {
+  const fromHeartbeat =
+    parseCycleId(input.heartbeat?.cycle) ?? parseCycleId(input.heartbeat?.cycleId);
+  if (fromHeartbeat && fromHeartbeat !== 'unknown') return fromHeartbeat;
+
+  const fromOperator = parseCycleId(input.operatorCycle);
+  if (fromOperator) return fromOperator;
+
+  try {
+    const resolved = parseCycleId(await resolveOperatorCycleId());
+    if (resolved) return resolved;
+  } catch {
+    // fall through to journal evidence
+  }
+
+  const fromJournal = maxJournalCycle(input.journalByAgent);
+  if (fromJournal) return fromJournal;
+
+  const fromGi = parseCycleId(input.giState?.cycle) ?? parseCycleId(input.giState?.cycleId);
+  if (fromGi) return fromGi;
+
+  return fromHeartbeat ?? 'unknown';
+}
+
 export async function GET() {
   const redis = getKvRedis();
   try {
-    const [rawHeartbeat, giState, journalByAgent, trustTripwire] = await Promise.all([
+    const [rawHeartbeat, giState, operatorCycle, journalByAgent, trustTripwire] = await Promise.all([
       kvGet<HeartbeatPayload | string>(KV_KEYS.HEARTBEAT),
       kvGet<GiStatePayload>(KV_KEYS.GI_STATE),
+      kvGet<string>(KV_KEYS.CURRENT_CYCLE),
       loadLatestJournalByAgent(redis),
       kvGet<TrustTripwireSnapshot>(KV_KEYS.TRIPWIRE_STATE_KV),
     ]);
 
     const heartbeat = parseHeartbeat(rawHeartbeat);
     const timestamp = heartbeat?.timestamp ?? new Date().toISOString();
-    const cycle = heartbeat?.cycle ?? heartbeat?.cycleId ?? giState?.cycle ?? giState?.cycleId ?? 'unknown';
+    const cycle = await resolveAgentStatusCycle({
+      heartbeat,
+      giState,
+      operatorCycle: typeof operatorCycle === 'string' ? operatorCycle : null,
+      journalByAgent,
+    });
 
     staleSnapshot = { cycle, timestamp };
 

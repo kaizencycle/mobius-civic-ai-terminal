@@ -557,15 +557,50 @@ function normalizeAgentsLane(leaf: SnapshotLeaf): SnapshotLaneState {
     };
   }
   const agents = row.agents;
-  const n = Array.isArray(agents) ? agents.length : 0;
+  const list = Array.isArray(agents) ? agents : [];
+  const n = list.length;
+  if (n === 0) {
+    return {
+      key: 'agents',
+      ok: true,
+      state: 'empty',
+      statusCode: leaf.status,
+      message: 'Roster empty',
+      lastUpdated,
+      fallbackMode: 'empty',
+    };
+  }
+
+  let contested = 0;
+  let active = 0;
+  for (const agent of list) {
+    const rowAgent = asRecord(agent);
+    const liveness = String(rowAgent?.liveness ?? rowAgent?.status ?? '').toUpperCase();
+    if (liveness === 'CONTESTED') contested += 1;
+    else if (liveness === 'ACTIVE') active += 1;
+  }
+
+  if (contested > 0) {
+    const activeLabel = active > 0 ? `${active} active · ${contested} contested` : `${contested} contested`;
+    return {
+      key: 'agents',
+      ok: true,
+      state: 'degraded',
+      statusCode: leaf.status,
+      message: activeLabel,
+      lastUpdated,
+      fallbackMode: 'live',
+    };
+  }
+
   return {
     key: 'agents',
     ok: true,
-    state: n === 0 ? 'empty' : 'healthy',
+    state: 'healthy',
     statusCode: leaf.status,
-    message: n === 0 ? 'Roster empty' : `${n} agent(s) in roster`,
+    message: `${n} agent(s) in roster`,
     lastUpdated,
-    fallbackMode: n === 0 ? 'empty' : 'live',
+    fallbackMode: 'live',
   };
 }
 
