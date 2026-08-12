@@ -1,10 +1,13 @@
 # C-400 Vault Seal Pointer Repair — Operator Witness
 
+**Document class:** Operator witness journal (Lane B) — **not** an EPICON/ledger-attested fact.  
 **Cycle:** C-400  
-**Seal:** C-400–VAULT–REPAIR–001  
+**Operator witness label:** C-400–VAULT–REPAIR–001 (repo-local identifier only; no ledger entry linked here)  
 **Date:** 2026-08-12  
 **Authority:** Mobius Custodian (kaizencycle)  
 **Operator surface:** Cloud Agent (Cursor) + Upstash REST  
+
+> **Fact-rail boundary (AGENTS.md):** Reasoning and operator testimony belong in journals/witness docs. Facts belong in EPICON / ledger-attested flows. This file records **captured command output** and **operator testimony** from a production repair. It does **not** claim an attested EPICON id, signature, or ledger content hash. EPICON promotion of this repair, if required, is a separate filing step.
 
 ---
 
@@ -68,11 +71,14 @@ The extra JSON escaping is correct for raw REST `SET` (SDK would use `redis.set(
 
 ---
 
-## Live Terminal API confirmation
+## Live Terminal API confirmation (excerpt)
 
-**Endpoint:** `GET https://terminal.mobius-substrate.com/api/vault/status`
+**Endpoint:** `GET https://terminal.mobius-substrate.com/api/vault/status`  
+**Capture time:** 2026-08-12 (post-repair)
 
-**Observed (2026-08-12):**
+The route (`app/api/vault/status/route.ts`) spreads the v1 payload and appends dozens of v2 fields (`reserve_block_truth`, `gi_resolution`, lane semantics, etc.). The object below is a **reduced excerpt** of fields relevant to pointer repair — **not** the raw endpoint response.
+
+**Excerpt (three fields):**
 
 ```json
 {
@@ -82,14 +88,26 @@ The extra JSON escaping is correct for raw REST `SET` (SDK would use `redis.set(
 }
 ```
 
+**Reproduce full capture:**
+
+```bash
+curl -sS https://terminal.mobius-substrate.com/api/vault/status | jq .
+```
+
+Store the complete JSON if filing to EPICON/ledger; do not treat this excerpt as the full runtime artifact.
+
 ---
 
-## Custodian attestation
+## Operator witness statement
 
-- Pre-repair corruption witnessed before any write.
+Operator testimony (not ledger-attested):
+
+- Pre-repair corruption witnessed via Upstash REST `GET` before any write.
 - Repair used human-approved target seal `seal-C-372-002` (last attested tip per runbook).
-- Post-repair GET and Terminal API both confirm pointer resolution.
+- Post-repair Upstash REST `GET` and Terminal API excerpt both show pointer resolution.
 - Production secrets were not committed; local `.env.production.local` removed after operation.
+
+**Not claimed here:** EPICON intent id, journal mirror id, attestation signature, or ledger content hash for the repair itself.
 
 ---
 
