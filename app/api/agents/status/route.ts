@@ -202,19 +202,26 @@ function parseCycleId(value: unknown): string | null {
   return CYCLE_ID_PATTERN.test(trimmed) ? trimmed : null;
 }
 
+function cycleNumber(cycleId: string): number {
+  return Number.parseInt(cycleId.slice(2), 10);
+}
+
+function newerCycle(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  return cycleNumber(a) >= cycleNumber(b) ? a : b;
+}
+
 function maxJournalCycle(
   journalByAgent: Record<string, { entry: SubstrateJournalEntry | null; meta: AgentMeta }>,
 ): string | null {
   let best: string | null = null;
-  let bestNum = -1;
   for (const { entry, meta } of Object.values(journalByAgent)) {
-    const candidate = parseCycleId(meta.last_journal_cycle) ?? parseCycleId(entry?.cycle);
-    if (!candidate) continue;
-    const num = Number.parseInt(candidate.slice(2), 10);
-    if (Number.isFinite(num) && num > bestNum) {
-      bestNum = num;
-      best = candidate;
-    }
+    const candidate = newerCycle(
+      parseCycleId(meta.last_journal_cycle),
+      parseCycleId(entry?.cycle),
+    );
+    best = newerCycle(best, candidate);
   }
   return best;
 }
@@ -225,9 +232,15 @@ async function resolveAgentStatusCycle(input: {
   operatorCycle: string | null;
   journalByAgent: Record<string, { entry: SubstrateJournalEntry | null; meta: AgentMeta }>;
 }): Promise<string> {
+  const heartbeatFresh = Boolean(
+    input.heartbeat?.timestamp && isFresh(input.heartbeat.timestamp, HEARTBEAT_FRESH_MS),
+  );
   const fromHeartbeat =
     parseCycleId(input.heartbeat?.cycle) ?? parseCycleId(input.heartbeat?.cycleId);
-  if (fromHeartbeat && fromHeartbeat !== 'unknown') return fromHeartbeat;
+
+  if (heartbeatFresh && fromHeartbeat && fromHeartbeat !== 'unknown') {
+    return fromHeartbeat;
+  }
 
   const fromOperator = parseCycleId(input.operatorCycle);
   if (fromOperator) return fromOperator;
@@ -245,7 +258,9 @@ async function resolveAgentStatusCycle(input: {
   const fromGi = parseCycleId(input.giState?.cycle) ?? parseCycleId(input.giState?.cycleId);
   if (fromGi) return fromGi;
 
-  return fromHeartbeat ?? 'unknown';
+  if (fromHeartbeat && fromHeartbeat !== 'unknown') return fromHeartbeat;
+
+  return 'unknown';
 }
 
 export async function GET() {
