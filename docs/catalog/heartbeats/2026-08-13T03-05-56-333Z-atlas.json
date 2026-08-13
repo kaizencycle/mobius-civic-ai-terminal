@@ -1,0 +1,104 @@
+{
+  "timestamp": "2026-08-13T03:05:56.333Z",
+  "agent": "ATLAS",
+  "cycle": "C-401",
+  "gi": 0.78,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "gaia-noaa-alerts",
+      "label": "NOAA active weather alerts",
+      "severity": "watch"
+    },
+    {
+      "source": "gaia-usgs-water",
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    },
+    {
+      "source": "echo-dataverse",
+      "label": "Harvard Dataverse research health",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 5,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 2,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-08-13T03:04:59.167Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.877,
+  "degraded_agents": 3,
+  "degraded_agent_names": [
+    "ATLAS",
+    "JADE",
+    "DAEDALUS"
+  ],
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-13T03:04:59.247Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-08-13T03:04:59.240Z"
+    },
+    "last_updated": "2026-08-13T03:04:59.247Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "last_journal_cycle": "C-401",
+  "current_cycle": "C-401",
+  "force_journal_cycle_mismatch": false,
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-401-83cw2w",
+  "journal_ok": true,
+  "journal_canonical": true,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "post_seed_gi": 0.78,
+  "post_seed_mode": "yellow"
+}
