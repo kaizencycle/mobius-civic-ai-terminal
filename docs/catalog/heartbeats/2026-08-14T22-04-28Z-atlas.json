@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-08-14T22:04:28.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-403",
+  "gi": 0.784,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 6,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 7,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-08-14T22:04:28.862Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.889,
+  "degraded_agents": 0,
+  "degraded_agent_names": [],
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "kv_keys_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-14T22:04:28.922Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-08-14T22:00:06.921Z"
+    },
+    "last_updated": "2026-08-14T22:04:28.922Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "last_journal_cycle": "C-403",
+  "current_cycle": "C-403",
+  "force_journal_cycle_mismatch": false,
+  "pre_seed_gi": 0.784,
+  "pre_seed_mode": "yellow",
+  "post_seed_gi": 0.784,
+  "post_seed_mode": "yellow",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "seed_http": "200",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-403-nysdo7",
+  "journal_ok": true,
+  "journal_canonical": true
+}
