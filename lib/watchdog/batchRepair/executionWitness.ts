@@ -19,7 +19,7 @@ export type LiveSealWitnessExport = {
   schema_version: '1.0';
   capture_id: string;
   exported_at: string;
-  authenticated_read: true;
+  authenticated_read: boolean;
   export_source: string;
   /** Seal IDs that must appear in records with status match — from pinned witness universe. */
   expected_seal_ids: string[];

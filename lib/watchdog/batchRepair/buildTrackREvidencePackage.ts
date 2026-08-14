@@ -73,7 +73,9 @@ export async function buildTrackREvidencePackage(
     pinned_block_numbers: pinnedBlocks,
     live_snapshot: input.collision_affected_blocks,
     live_source: input.collision_affected_blocks_source,
+    capture_observed_at: input.captured_at,
     collision_pair_count_live: (input.observed.historical_collision_pairs as number | null) ?? null,
+    operator_cycle: (input.observed.cycle as string | null) ?? null,
   });
 
   const lineage_snapshot_hash = computeLineageSnapshotHash({
@@ -120,6 +122,9 @@ export async function buildTrackREvidencePackage(
     verification_errors: ['manifest unavailable for live witness export'],
     expected_universe_count: 0,
     export_source: 'unavailable',
+    primary_read_count: 0,
+    fallback_read_count: 0,
+    uses_fixture_pinned_hashes: false,
   };
 
   if (input.manifest) {

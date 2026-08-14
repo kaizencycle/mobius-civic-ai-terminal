@@ -272,6 +272,46 @@ function parseSealRaw(raw: unknown): Seal | null {
   return parseMaybeJson<Seal>(raw);
 }
 
+export type PrimarySealReadResult = {
+  seal_id: string;
+  seal: Seal | null;
+  provenance: 'primary' | 'missing';
+};
+
+/** Primary Upstash MGET only — no backup Redis fallback (Track R attestation reads). */
+export async function getSealsByIdsPrimaryOnly(
+  seal_ids: readonly string[],
+): Promise<PrimarySealReadResult[]> {
+  if (seal_ids.length === 0) return [];
+
+  const keys = seal_ids.map((id) => sealKey(id));
+  const redis = getRedis();
+  let raws: unknown[];
+
+  if (redis) {
+    try {
+      const values = await redis.mget(...keys);
+      raws = Array.isArray(values) ? values : keys.map(() => null);
+    } catch {
+      raws = keys.map(() => null);
+    }
+  } else {
+    raws = keys.map(() => null);
+  }
+
+  return seal_ids.map((seal_id, i) => {
+    const raw = raws[i];
+    if (raw === null || raw === undefined) {
+      return { seal_id, seal: null, provenance: 'missing' as const };
+    }
+    const seal = parseSealRaw(raw);
+    if (!seal) {
+      return { seal_id, seal: null, provenance: 'missing' as const };
+    }
+    return { seal_id, seal, provenance: 'primary' as const };
+  });
+}
+
 /** Batch hydrate seals via one MGET round-trip (falls back per-key on miss). */
 export async function getSealsByIds(seal_ids: readonly string[]): Promise<Seal[]> {
   if (seal_ids.length === 0) return [];

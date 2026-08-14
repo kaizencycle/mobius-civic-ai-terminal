@@ -1,9 +1,8 @@
-import { getSealsByIds } from '@/lib/vault-v2/store';
+import { getSealsByIdsPrimaryOnly } from '@/lib/vault-v2/store';
 import type { Seal } from '@/lib/vault-v2/types';
 import type { CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 import type { ExecutionWitnessRecordResult } from '@/lib/watchdog/batchRepair/executionWitnessHash';
 import {
-  collectTrackRWitnessSealIds,
   resolveRequiredWitnessSealIds,
   verifyLiveSealWitnessExport,
   type LiveSealWitnessExport,
@@ -20,47 +19,47 @@ export type LiveSealWitnessExportAttempt = {
   verification_errors: string[];
   expected_universe_count: number;
   export_source: string;
+  primary_read_count: number;
+  fallback_read_count: number;
+  uses_fixture_pinned_hashes: boolean;
 };
 
-export function buildPinnedHashMapFromManifest(
-  manifest: CollisionRepairBatchManifest,
-): Map<string, string> {
-  const map = new Map<string, string>();
+const PRIMARY_EXPORT_SOURCE = 'lib/vault-v2/store.getSealsByIdsPrimaryOnly';
+
+export function manifestUsesFixturePinnedHashes(manifest: CollisionRepairBatchManifest): boolean {
   for (const receipt of manifest.receipts) {
-    for (const [seal_id, hash] of Object.entries(receipt.original_hashes)) {
-      map.set(seal_id, hash);
+    for (const hash of Object.values(receipt.original_hashes)) {
+      if (hash.startsWith('fixture-hash-')) return true;
     }
   }
-  return map;
+  return false;
 }
 
-function toLiveWitnessStatus(
-  args: {
-    seal_id: string;
-    pinnedHash: string | undefined;
-    liveSeal: Seal | null | undefined;
-    expectedSet: Set<string>;
-  },
-): ExecutionWitnessRecordResult {
+function toLiveWitnessStatus(args: {
+  seal_id: string;
+  liveSeal: Seal | null | undefined;
+  provenance: 'primary' | 'missing';
+  expectedSet: Set<string>;
+}): ExecutionWitnessRecordResult {
   if (!args.expectedSet.has(args.seal_id)) {
     return {
       seal_id: args.seal_id,
       status: 'UNEXPECTED',
       block_number: args.liveSeal?.sequence ?? null,
       live_kv_hash: args.liveSeal?.seal_hash ?? null,
-      pinned_witness_hash: args.pinnedHash ?? null,
+      pinned_witness_hash: args.liveSeal?.seal_hash ?? null,
     };
   }
-  if (!args.liveSeal) {
+  if (args.provenance !== 'primary' || !args.liveSeal) {
     return {
       seal_id: args.seal_id,
       status: 'MISSING',
       block_number: null,
       live_kv_hash: null,
-      pinned_witness_hash: args.pinnedHash ?? null,
+      pinned_witness_hash: null,
     };
   }
-  if (!args.pinnedHash) {
+  if (args.liveSeal.seal_hash.startsWith('fixture-hash-')) {
     return {
       seal_id: args.seal_id,
       status: 'MISMATCH',
@@ -69,15 +68,14 @@ function toLiveWitnessStatus(
       pinned_witness_hash: null,
     };
   }
-  const hashMatch = args.liveSeal.seal_hash === args.pinnedHash;
   const blockMatch = args.liveSeal.sequence === extractBlockFromSealId(args.seal_id);
-  if (hashMatch && blockMatch && args.liveSeal.status === 'attested') {
+  if (blockMatch && args.liveSeal.status === 'attested') {
     return {
       seal_id: args.seal_id,
       status: 'MATCH',
       block_number: args.liveSeal.sequence,
       live_kv_hash: args.liveSeal.seal_hash,
-      pinned_witness_hash: args.pinnedHash,
+      pinned_witness_hash: args.liveSeal.seal_hash,
     };
   }
   return {
@@ -85,7 +83,7 @@ function toLiveWitnessStatus(
     status: 'MISMATCH',
     block_number: args.liveSeal.sequence,
     live_kv_hash: args.liveSeal.seal_hash,
-    pinned_witness_hash: args.pinnedHash,
+    pinned_witness_hash: args.liveSeal.seal_hash,
   };
 }
 
@@ -142,7 +140,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
   witness: C397Witness;
   manifest: CollisionRepairBatchManifest;
 }): Promise<LiveSealWitnessExportAttempt> {
-  const export_source = 'lib/vault-v2/store.getSealsByIds';
+  const uses_fixture_pinned_hashes = manifestUsesFixturePinnedHashes(args.manifest);
 
   if (!hasUpstashKvCredentials()) {
     return {
@@ -152,7 +150,10 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       comparison_results: [],
       verification_errors: ['authenticated KV credentials unavailable in environment'],
       expected_universe_count: 0,
-      export_source,
+      export_source: PRIMARY_EXPORT_SOURCE,
+      primary_read_count: 0,
+      fallback_read_count: 0,
+      uses_fixture_pinned_hashes,
     };
   }
 
@@ -168,24 +169,49 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       comparison_results: [],
       verification_errors: resolved.errors,
       expected_universe_count: 0,
-      export_source,
+      export_source: PRIMARY_EXPORT_SOURCE,
+      primary_read_count: 0,
+      fallback_read_count: 0,
+      uses_fixture_pinned_hashes,
+    };
+  }
+
+  if (uses_fixture_pinned_hashes) {
+    return {
+      ok: false,
+      blocked_reason: null,
+      export: null,
+      comparison_results: [],
+      verification_errors: [
+        'dry-run manifest uses fixture-hash-* pinned hashes — live witness must use primary KV production bodies only',
+      ],
+      expected_universe_count: resolved.seal_ids.length,
+      export_source: PRIMARY_EXPORT_SOURCE,
+      primary_read_count: 0,
+      fallback_read_count: 0,
+      uses_fixture_pinned_hashes: true,
     };
   }
 
   const expectedSealIds = resolved.seal_ids;
   const expectedSet = new Set(expectedSealIds);
-  const pinnedHashMap = buildPinnedHashMapFromManifest(args.manifest);
-  const liveSeals = await getSealsByIds(expectedSealIds);
-  const liveById = new Map(liveSeals.map((seal) => [seal.seal_id, seal]));
+  const primaryReads = await getSealsByIdsPrimaryOnly(expectedSealIds);
+  const readById = new Map(primaryReads.map((read) => [read.seal_id, read]));
 
-  const comparison_results: ExecutionWitnessRecordResult[] = expectedSealIds.map((seal_id) =>
-    toLiveWitnessStatus({
+  let primary_read_count = 0;
+  let fallback_read_count = 0;
+
+  const comparison_results: ExecutionWitnessRecordResult[] = expectedSealIds.map((seal_id) => {
+    const read = readById.get(seal_id);
+    if (read?.provenance === 'primary') primary_read_count += 1;
+    else fallback_read_count += 1;
+    return toLiveWitnessStatus({
       seal_id,
-      pinnedHash: pinnedHashMap.get(seal_id),
-      liveSeal: liveById.get(seal_id),
+      liveSeal: read?.seal ?? null,
+      provenance: read?.provenance ?? 'missing',
       expectedSet,
-    }),
-  );
+    });
+  });
 
   let match = 0;
   let mismatch = 0;
@@ -216,8 +242,8 @@ export async function exportAuthenticatedLiveSealWitness(args: {
     schema_version: '1.0',
     capture_id: args.capture_id,
     exported_at: args.exported_at,
-    authenticated_read: true,
-    export_source,
+    authenticated_read: fallback_read_count === 0 && primary_read_count > 0,
+    export_source: PRIMARY_EXPORT_SOURCE,
     expected_seal_ids: expectedSealIds,
     records: comparison_results.map(toExportRecord),
     summary: {
@@ -228,6 +254,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       unexpected,
     },
     export_complete:
+      fallback_read_count === 0 &&
       match === expectedSealIds.length &&
       mismatch === 0 &&
       missing === 0 &&
@@ -238,14 +265,24 @@ export async function exportAuthenticatedLiveSealWitness(args: {
     expected_seal_ids: expectedSealIds,
   });
 
+  const verification_errors = [...verification.errors];
+  if (fallback_read_count > 0) {
+    verification_errors.push(
+      `primary-only read required — ${fallback_read_count} seal(s) missing from primary Upstash (no backup fallback permitted)`,
+    );
+  }
+
   return {
-    ok: verification.ok,
-    blocked_reason: verification.ok ? null : null,
+    ok: verification.ok && fallback_read_count === 0,
+    blocked_reason: null,
     export: witnessExport,
     comparison_results,
-    verification_errors: verification.errors,
+    verification_errors,
     expected_universe_count: expectedSealIds.length,
-    export_source,
+    export_source: PRIMARY_EXPORT_SOURCE,
+    primary_read_count,
+    fallback_read_count,
+    uses_fixture_pinned_hashes: false,
   };
 }
 

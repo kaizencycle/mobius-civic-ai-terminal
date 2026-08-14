@@ -18,11 +18,21 @@ export function resolveTrackRExecutiveStatus(args: {
   if (!args.dryRunOk) return 'BLOCKED';
   if (args.materialDrift.some((d) => d.severity === 'material')) return 'BLOCKED';
   if (!args.affectedBlockComparison.live_artifact_present) return 'BLOCKED';
+  if (args.affectedBlockComparison.live_artifact_stale) return 'BLOCKED';
   if (!args.affectedBlockComparison.set_match) return 'BLOCKED';
 
   if (args.liveWitnessAttempt.blocked_reason === 'BLOCKED_AUTHENTICATED_LIVE_WITNESS_UNAVAILABLE') {
     return 'BLOCKED_AUTHENTICATED_LIVE_WITNESS_UNAVAILABLE';
   }
+
+  if (
+    args.liveWitnessAttempt.export &&
+    (!args.liveWitnessAttempt.ok || args.liveWitnessAttempt.verification_errors.length > 0)
+  ) {
+    return 'BLOCKED';
+  }
+
+  if (!args.liveWitnessAttempt.ok) return 'BLOCKED';
 
   if (args.governance131.status === 'quarantine') return 'QUARANTINE';
   if (args.boundary131Metric === 'pass') return 'QUARANTINE';
@@ -35,7 +45,6 @@ export function resolveTrackRExecutiveStatus(args: {
     return 'READY_FOR_ZEUS_EVE_REVIEW';
   }
 
-  if (!args.liveWitnessAttempt.ok) return 'CLARIFY';
   if (!args.governance131.ok) return 'CLARIFY';
 
   return 'CLARIFY';

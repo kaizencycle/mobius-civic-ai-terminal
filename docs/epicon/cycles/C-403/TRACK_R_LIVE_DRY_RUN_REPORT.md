@@ -1,7 +1,7 @@
 # Track R Live Dry-Run Report (C-403)
 
-**Capture ID:** `track-r-c403-2026-08-14T1835Z`  
-**Captured:** 2026-08-14T18:35:09.139Z  
+**Capture ID:** `track-r-c403-2026-08-14T1854Z`  
+**Captured:** 2026-08-14T18:54:01.927Z  
 **Executive status:** **BLOCKED**  
 **Execution authorized:** **NOT AUTHORIZED**  
 **Production mutation:** **NONE**
@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Single capture (`track-r-c403-2026-08-14T1835Z`). Dry-run only. **Semantic manifest hash** excludes volatile telemetry. Snapshot split: **lineage** (CAS gate) vs **telemetry** (informational). Positions 132–194 are **verified_unattached** — no fabricated 131→132 edge.
+Single capture (`track-r-c403-2026-08-14T1854Z`). Dry-run only. **Semantic manifest hash** excludes volatile telemetry. Snapshot split: **lineage** (CAS gate) vs **telemetry** (informational). Positions 132–194 are **verified_unattached** — no fabricated 131→132 edge.
 
 Fail-closed corrections (post PR #654): process exit code matches executive status; affected-block set compared exactly (not collision count alone); authenticated live witness export attempted when credentials available.
 
@@ -20,11 +20,11 @@ Fail-closed corrections (post PR #654): process exit code matches executive stat
 
 | Field | Observed |
 |---|---|
-| Capture ID | `track-r-c403-2026-08-14T1835Z` |
-| Lineage snapshot hash | `486c9be868d2b89a54e1d3cef39501be2f842f39d819196ea26174fcbf16b115` |
-| Telemetry snapshot hash | `c07e7874b85a16afb14097ed37e0a72d6367d6457ac5020b56966d909b468ff0` |
+| Capture ID | `track-r-c403-2026-08-14T1854Z` |
+| Lineage snapshot hash | `cf94116d04eec4f2b88161c142b0bbf26d3bbf734d637d888389f8f1df55e6cc` |
+| Telemetry snapshot hash | `22bf33b5d82acdb5f01d3912a2b79794432df4bd37bd5d79a56823a5b1b0910a` |
 | Execution witness hash | `n/a` |
-| Unsealed accumulator | ~2555.447427 MIC |
+| Unsealed accumulator | ~2555.744033 MIC |
 | Collision pairs | 125 |
 | Affected block set match | false |
 | Integrity gate | active |
@@ -189,11 +189,11 @@ Accumulator drift is **telemetry only** — must not block lineage CAS.
 
 | Field | Value |
 |---|---|
-| Authenticated read | true |
+| Authenticated read | false |
 | Export complete | false |
 | Expected universe | 248 |
 | Blocked reason | none |
-| Summary | {"total":248,"match":0,"mismatch":0,"missing":248,"unexpected":0} |
+| Summary | n/a |
 
 See `artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json`.
 

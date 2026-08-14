@@ -1,8 +1,8 @@
 # EVE Attestation Template — Track R Batch (UNSIGNED)
 
-**Capture ID:** `track-r-c403-2026-08-14T1835Z`  
+**Capture ID:** `track-r-c403-2026-08-14T1854Z`  
 **Semantic manifest hash:** `27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa`  
-**Lineage snapshot hash:** `486c9be868d2b89a54e1d3cef39501be2f842f39d819196ea26174fcbf16b115`  
+**Lineage snapshot hash:** `cf94116d04eec4f2b88161c142b0bbf26d3bbf734d637d888389f8f1df55e6cc`  
 **Execution witness hash:** `TBD`  
 **Rollback manifest hash:** `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d`
 

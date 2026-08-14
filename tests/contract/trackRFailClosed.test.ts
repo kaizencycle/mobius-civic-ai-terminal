@@ -14,6 +14,7 @@ import {
   assessGovernance131Cutoff,
   verifyLiveSealWitnessExport,
   collectTrackRWitnessSealIds,
+  manifestUsesFixturePinnedHashes,
   loadWitnessFromFile,
   loadResolutionTableFromFile,
   buildFixtureSealsFromWitness,
@@ -29,13 +30,14 @@ import type { CollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affec
 const FIXTURE_DIR = join(process.cwd(), 'docs/epicon/cycles/C-403/fixtures');
 const WITNESS_PATH = join(FIXTURE_DIR, 'C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json');
 const TABLE_PATH = join(FIXTURE_DIR, 'C403_COLLISION_RESOLUTION_TABLE.pin.json');
-const CREATED_AT = '2026-08-14T00:00:00.000Z';
+const CREATED_AT = '2026-08-14T12:00:00.000Z';
 const PINNED_WITNESS = loadWitnessFromFile(WITNESS_PATH);
 
-function liveSnapshot(blocks: number[]): CollisionAffectedBlockSnapshot {
+function liveSnapshot(blocks: number[], audited_at = CREATED_AT): CollisionAffectedBlockSnapshot {
   return {
     schema_version: '1.0',
-    audited_at: CREATED_AT,
+    audited_at,
+    operator_cycle: 'C-403',
     hash_divergent_pair_count: 125,
     unique_block_count: blocks.length,
     raw_attested_count: 500,
@@ -43,6 +45,30 @@ function liveSnapshot(blocks: number[]): CollisionAffectedBlockSnapshot {
     three_way_blocks: [],
     seal_count_by_block: Object.fromEntries(blocks.map((b) => [String(b), 2])),
   };
+}
+
+function governance131Pass() {
+  return {
+    ok: true,
+    status: 'pass' as const,
+    errors: [] as string[],
+    promoted_through_position: 131 as const,
+    proposed_latest_canonical_seal_id: 'seal-C-358-131',
+    boundary_131_132: 'pending_track_r_step_8' as const,
+    positions_132_194_status: 'verified_unattached' as const,
+  };
+}
+
+function affectedBlockComparisonPass() {
+  const pinned = PINNED_WITNESS.contested_block_numbers;
+  return compareAffectedBlockSets({
+    pinned_block_numbers: pinned,
+    live_snapshot: liveSnapshot([...pinned]),
+    live_source: 'https://example.com/api/vault/status',
+    capture_observed_at: CREATED_AT,
+    collision_pair_count_live: 125,
+    operator_cycle: 'C-403',
+  });
 }
 
 describe('trackRFailClosed C-403', () => {
@@ -61,17 +87,36 @@ describe('trackRFailClosed C-403', () => {
     assert.equal(resolveTrackRProcessExitCode('PASS'), 0);
   });
 
-  it('affected-block: exact set match passes', () => {
+  it('affected-block: exact set match passes when artifact is fresh', () => {
     const pinned = PINNED_WITNESS.contested_block_numbers;
     const result = compareAffectedBlockSets({
       pinned_block_numbers: pinned,
       live_snapshot: liveSnapshot([...pinned]),
       live_source: 'https://example.com/api/vault/status',
+      capture_observed_at: CREATED_AT,
       collision_pair_count_live: 125,
+      operator_cycle: 'C-403',
     });
     assert.equal(result.set_match, true);
+    assert.equal(result.live_artifact_fresh, true);
+    assert.equal(result.live_artifact_stale, false);
     assert.deepEqual(result.missing_from_live, []);
     assert.deepEqual(result.unexpected_in_live, []);
+  });
+
+  it('affected-block: stale artifact fails closed even when set would match', () => {
+    const pinned = PINNED_WITNESS.contested_block_numbers;
+    const result = compareAffectedBlockSets({
+      pinned_block_numbers: pinned,
+      live_snapshot: liveSnapshot([...pinned], '2026-08-01T00:00:00.000Z'),
+      live_source: 'https://example.com/api/vault/status',
+      capture_observed_at: CREATED_AT,
+      collision_pair_count_live: 125,
+      operator_cycle: 'C-403',
+    });
+    assert.equal(result.set_match, false);
+    assert.equal(result.live_artifact_stale, true);
+    assert.ok(result.errors.some((e) => e.includes('stale')));
   });
 
   it('affected-block: missing artifact fails closed', () => {
@@ -79,18 +124,21 @@ describe('trackRFailClosed C-403', () => {
       pinned_block_numbers: PINNED_WITNESS.contested_block_numbers,
       live_snapshot: null,
       live_source: null,
+      capture_observed_at: CREATED_AT,
     });
     assert.equal(result.set_match, false);
     assert.ok(result.errors.some((e) => e.includes('missing')));
   });
 
-  it('affected-block: set mismatch returns non-zero executive status', () => {
+  it('affected-block: set mismatch returns BLOCKED executive status', () => {
     const pinned = PINNED_WITNESS.contested_block_numbers;
     const tampered = [...pinned.slice(0, pinned.length - 1), 999];
     const comparison = compareAffectedBlockSets({
       pinned_block_numbers: pinned,
       live_snapshot: liveSnapshot(tampered),
       live_source: 'test',
+      capture_observed_at: CREATED_AT,
+      collision_pair_count_live: 125,
     });
     assert.equal(comparison.set_match, false);
     const status = resolveTrackRExecutiveStatus({
@@ -106,20 +154,72 @@ describe('trackRFailClosed C-403', () => {
         verification_errors: [],
         expected_universe_count: 0,
         export_source: 'test',
+        primary_read_count: 0,
+        fallback_read_count: 0,
+        uses_fixture_pinned_hashes: false,
       },
-      governance131: {
-        ok: true,
-        status: 'pass',
-        errors: [],
-        promoted_through_position: 131,
-        proposed_latest_canonical_seal_id: 'seal-C-358-131',
-        boundary_131_132: 'pending_track_r_step_8',
-        positions_132_194_status: 'verified_unattached',
-      },
+      governance131: governance131Pass(),
       boundary131Metric: 'pending_track_r_step_8',
     });
     assert.equal(status, 'BLOCKED');
     assert.equal(resolveTrackRProcessExitCode(status), 1);
+  });
+
+  it('failed live witness verification returns BLOCKED not CLARIFY', () => {
+    const comparison = affectedBlockComparisonPass();
+    const status = resolveTrackRExecutiveStatus({
+      fetchFailures: [],
+      dryRunOk: true,
+      materialDrift: [],
+      affectedBlockComparison: comparison,
+      liveWitnessAttempt: {
+        ok: false,
+        blocked_reason: null,
+        export: {
+          schema_version: '1.0',
+          capture_id: 'c',
+          exported_at: CREATED_AT,
+          authenticated_read: true,
+          export_source: 'lib/vault-v2/store.getSealsByIdsPrimaryOnly',
+          expected_seal_ids: ['seal-C-332-001'],
+          records: [
+            {
+              seal_id: 'seal-C-332-001',
+              block_number: 1,
+              status: 'missing',
+              pinned_witness_hash: null,
+              live_kv_hash: null,
+            },
+          ],
+          summary: { total: 1, match: 0, mismatch: 0, missing: 1, unexpected: 0 },
+          export_complete: false,
+        },
+        comparison_results: [],
+        verification_errors: ['expected seal seal-C-332-001 must have status match, got missing'],
+        expected_universe_count: 248,
+        export_source: 'lib/vault-v2/store.getSealsByIdsPrimaryOnly',
+        primary_read_count: 0,
+        fallback_read_count: 1,
+        uses_fixture_pinned_hashes: false,
+      },
+      governance131: governance131Pass(),
+      boundary131Metric: 'pending_track_r_step_8',
+    });
+    assert.equal(status, 'BLOCKED');
+    assert.equal(resolveTrackRProcessExitCode(status), 1);
+  });
+
+  it('dry-run manifest fixture hashes are detected and blocked for live witness', () => {
+    const witness = PINNED_WITNESS;
+    const table = loadResolutionTableFromFile(TABLE_PATH);
+    const seals = buildFixtureSealsFromWitness(witness, table);
+    const manifest = buildBatchManifest({
+      witness,
+      resolutionTable: table,
+      seals,
+      created_at: CREATED_AT,
+    });
+    assert.equal(manifestUsesFixturePinnedHashes(manifest), true);
   });
 
   it('witness export: empty export rejected', () => {

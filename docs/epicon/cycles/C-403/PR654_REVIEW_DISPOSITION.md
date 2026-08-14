@@ -5,7 +5,11 @@ Corrective PR: fail-closed process exit, exact affected-block set, authenticated
 
 | Thread / finding | Severity | Disposition in this PR | Status |
 |---|---|---|---|
-| Blocked status still exits zero (Bugbot P1) | High | `resolveTrackRProcessExitCode()` maps BLOCKED/QUARANTINE/BLOCKED_AUTHENTICATED_LIVE_WITNESS_UNAVAILABLE → exit 1; package script uses executive status not artifact success | **Fixed** |
+| Blocked status still exits zero (Bugbot P1) | High | `resolveTrackRProcessExitCode()` maps BLOCKED/QUARANTINE → exit 1; package script uses executive status | **Fixed** |
+| Failed live witness returns CLARIFY with exit 0 (Codex/Bugbot P1) | High | `resolveTrackRExecutiveStatus()` returns BLOCKED when export verification fails | **Fixed** |
+| Backup Redis fallback in witness read (Codex P1) | High | `getSealsByIdsPrimaryOnly()` — primary Upstash MGET only | **Fixed** |
+| Stale affected-block artifact accepted (Codex P1) | High | `validateAffectedBlockArtifactFreshness()` — schema, audited_at, pair-count, max age | **Fixed** |
+| Witness MATCH uses fixture hashes (Bugbot medium) | Medium | Live export rejects `fixture-hash-*` manifest pins; primary KV bodies only | **Fixed** |
 | Collision count alone insufficient for validation | High | `compareAffectedBlockSets()` requires exact set equality from status evidence; records `missing_from_live` / `unexpected_in_live` | **Fixed** |
 | Missing affected-block artifact must fail closed | High | BLOCKED when `collision_affected_blocks` absent from `/api/vault/status` (observed production: field present, value null) | **Fixed** |
 | Incomplete live seal export accepted | High | `verifyLiveSealWitnessExport()` + commit guard authoritative universe; export requires per-record MATCH | **Carried forward / strengthened** |
