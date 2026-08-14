@@ -2,7 +2,7 @@ import {
   resolveCanonicalSealIdForBlock,
   verifyBoundaryContinuity,
 } from '@/lib/watchdog/batchRepair/auditMetrics';
-import { liveSealsFromPrimaryReads } from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
+import { liveSealsFromPrimaryReads, validateCompletePrimarySealReads } from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
 import type { CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 import {
   getSealsByIdsPrimaryOnly,
@@ -27,9 +27,11 @@ async function findSingleAttestedSealAtBlockPrimaryOnly(
   const allIds = await listAllSealIdsPrimaryOnly();
   if (allIds.length === 0) return null;
 
-  const primaryReads = await getSealsByIdsPrimaryOnly(allIds);
-  const seals = liveSealsFromPrimaryReads(primaryReads);
-  const atBlock = seals.filter(
+  const batch = await getSealsByIdsPrimaryOnly(allIds);
+  const validated = validateCompletePrimarySealReads({ expected_ids: allIds, batch });
+  if (!validated.ok) return null;
+
+  const atBlock = validated.seals.filter(
     (seal) => seal.sequence === block_number && seal.status === 'attested',
   );
   if (atBlock.length === 1) return atBlock[0];
@@ -92,12 +94,16 @@ export async function loadLiveSealsForBoundary4142(args: {
   if (!block_42_id) {
     errors.push('block 42 canonical seal id required for live boundary evidence');
   } else if (!byId.has(block_42_id)) {
-    const reads = await getSealsByIdsPrimaryOnly([block_42_id]);
-    const supplemental = liveSealsFromPrimaryReads(reads)[0] ?? null;
-    if (supplemental) {
-      byId.set(supplemental.seal_id, supplemental);
+    const batch = await getSealsByIdsPrimaryOnly([block_42_id]);
+    if (batch.chunk_errors.length > 0) {
+      errors.push(...batch.chunk_errors);
     } else {
-      errors.push(`block 42 canonical seal ${block_42_id} missing from primary KV`);
+      const supplemental = liveSealsFromPrimaryReads(batch.reads)[0] ?? null;
+      if (supplemental) {
+        byId.set(supplemental.seal_id, supplemental);
+      } else {
+        errors.push(`block 42 canonical seal ${block_42_id} missing from primary KV`);
+      }
     }
   }
 

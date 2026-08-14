@@ -238,7 +238,25 @@ export async function exportAuthenticatedLiveSealWitness(args: {
 
   const expectedSealIds = resolved.seal_ids;
   const expectedSet = new Set(expectedSealIds);
-  const primaryReads = await getSealsByIdsPrimaryOnly(expectedSealIds);
+  const batch = await getSealsByIdsPrimaryOnly(expectedSealIds);
+  if (batch.chunk_errors.length > 0) {
+    return {
+      ok: false,
+      blocked_reason: 'BLOCKED_AUTHENTICATED_LIVE_WITNESS_UNAVAILABLE',
+      export: null,
+      comparison_results: [],
+      verification_errors: batch.chunk_errors,
+      expected_universe_count: expectedSealIds.length,
+      export_source: PRIMARY_EXPORT_SOURCE,
+      primary_read_count: 0,
+      fallback_read_count: 0,
+      uses_fixture_pinned_hashes,
+      kv_identity_ok: true,
+      live_seals: [],
+    };
+  }
+
+  const primaryReads = batch.reads;
   const live_seals = liveSealsFromPrimaryReads(primaryReads);
   const readById = new Map(primaryReads.map((read) => [read.seal_id, read]));
 
