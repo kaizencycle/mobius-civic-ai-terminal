@@ -9,7 +9,7 @@ import {
   COLLISION_AFFECTED_BLOCKS_SCHEMA_VERSION,
   type CollisionAffectedBlockSnapshot,
 } from '@/lib/vault/collision-affected-blocks';
-import { liveSealsFromPrimaryReads } from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
+import { validateCompletePrimarySealReads } from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
 import { getSealsByIdsPrimaryOnly, listAllSealIdsPrimaryOnly } from '@/lib/vault-v2/store';
 import type { Seal } from '@/lib/vault-v2/types';
 
@@ -60,13 +60,13 @@ export async function loadPrimaryAttestedSealsForCollisionAudit(): Promise<{
     return { seals: [], errors: ['primary KV audit index empty'] };
   }
 
-  const primaryReads = await getSealsByIdsPrimaryOnly(allIds);
-  const seals = liveSealsFromPrimaryReads(primaryReads);
-  if (seals.length === 0) {
-    return { seals: [], errors: ['primary KV returned zero readable attested seal bodies'] };
+  const batch = await getSealsByIdsPrimaryOnly(allIds);
+  const validated = validateCompletePrimarySealReads({ expected_ids: allIds, batch });
+  if (!validated.ok) {
+    return { seals: [], errors: validated.errors };
   }
 
-  return { seals, errors: [] };
+  return { seals: validated.seals, errors: [] };
 }
 
 /** Derive + persist contested-block set from primary Upstash seal scan (Option B observability). */

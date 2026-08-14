@@ -2,7 +2,7 @@ import {
   resolveCanonicalSealIdForBlock,
   verifyBoundaryContinuity,
 } from '@/lib/watchdog/batchRepair/auditMetrics';
-import { liveSealsFromPrimaryReads } from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
+import { liveSealsFromPrimaryReads, validateCompletePrimarySealReads } from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
 import type { CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 import {
   getSealsByIdsPrimaryOnly,
@@ -21,19 +21,52 @@ export type LiveBoundary4142Assessment = {
 
 export const LIVE_BOUNDARY_41_42_BLOCKS = [41, 42] as const;
 
-async function findSingleAttestedSealAtBlockPrimaryOnly(
-  block_number: number,
-): Promise<Seal | null> {
-  const allIds = await listAllSealIdsPrimaryOnly();
-  if (allIds.length === 0) return null;
-
-  const primaryReads = await getSealsByIdsPrimaryOnly(allIds);
-  const seals = liveSealsFromPrimaryReads(primaryReads);
-  const atBlock = seals.filter(
-    (seal) => seal.sequence === block_number && seal.status === 'attested',
+/** Resolve a clean-block attested seal from witness export first, then primary KV scan. */
+export async function resolveSupplementalAttestedSealAtBlockPrimaryOnly(args: {
+  block_number: number;
+  witness_live_seals: Seal[];
+}): Promise<{ seal: Seal | null; errors: string[] }> {
+  const fromWitness = args.witness_live_seals.filter(
+    (seal) => seal.sequence === args.block_number && seal.status === 'attested',
   );
-  if (atBlock.length === 1) return atBlock[0];
-  return null;
+  if (fromWitness.length === 1) {
+    return { seal: fromWitness[0], errors: [] };
+  }
+  if (fromWitness.length > 1) {
+    return {
+      seal: null,
+      errors: [`multiple attested witness seals at clean block ${args.block_number}`],
+    };
+  }
+
+  const allIds = await listAllSealIdsPrimaryOnly();
+  if (allIds.length === 0) {
+    return { seal: null, errors: ['primary KV audit index empty'] };
+  }
+
+  const batch = await getSealsByIdsPrimaryOnly(allIds);
+  const validated = validateCompletePrimarySealReads({ expected_ids: allIds, batch });
+  if (!validated.ok) {
+    return { seal: null, errors: validated.errors };
+  }
+
+  const atBlock = validated.seals.filter(
+    (seal) => seal.sequence === args.block_number && seal.status === 'attested',
+  );
+  if (atBlock.length === 1) {
+    return { seal: atBlock[0], errors: [] };
+  }
+  if (atBlock.length > 1) {
+    return {
+      seal: null,
+      errors: [`multiple attested primary KV seals at clean block ${args.block_number}`],
+    };
+  }
+
+  return {
+    seal: null,
+    errors: [`single attested primary KV seal required at clean block ${args.block_number}`],
+  };
 }
 
 /** Augment witness export seals with primary-only bodies required for 41→42 continuity. */
@@ -69,12 +102,15 @@ export async function loadLiveSealsForBoundary4142(args: {
   });
 
   if (!block_41_id && args.clean_block_numbers.includes(41)) {
-    const block41Seal = await findSingleAttestedSealAtBlockPrimaryOnly(41);
-    if (block41Seal) {
-      block_41_id = block41Seal.seal_id;
-      byId.set(block41Seal.seal_id, block41Seal);
+    const block41Lookup = await resolveSupplementalAttestedSealAtBlockPrimaryOnly({
+      block_number: 41,
+      witness_live_seals: args.witness_live_seals,
+    });
+    if (block41Lookup.seal) {
+      block_41_id = block41Lookup.seal.seal_id;
+      byId.set(block41Lookup.seal.seal_id, block41Lookup.seal);
     } else {
-      errors.push('single attested primary KV seal required at clean block 41');
+      errors.push(...block41Lookup.errors);
     }
   }
 
@@ -92,12 +128,16 @@ export async function loadLiveSealsForBoundary4142(args: {
   if (!block_42_id) {
     errors.push('block 42 canonical seal id required for live boundary evidence');
   } else if (!byId.has(block_42_id)) {
-    const reads = await getSealsByIdsPrimaryOnly([block_42_id]);
-    const supplemental = liveSealsFromPrimaryReads(reads)[0] ?? null;
-    if (supplemental) {
-      byId.set(supplemental.seal_id, supplemental);
+    const batch = await getSealsByIdsPrimaryOnly([block_42_id]);
+    if (batch.chunk_errors.length > 0) {
+      errors.push(...batch.chunk_errors);
     } else {
-      errors.push(`block 42 canonical seal ${block_42_id} missing from primary KV`);
+      const supplemental = liveSealsFromPrimaryReads(batch.reads)[0] ?? null;
+      if (supplemental) {
+        byId.set(supplemental.seal_id, supplemental);
+      } else {
+        errors.push(`block 42 canonical seal ${block_42_id} missing from primary KV`);
+      }
     }
   }
 

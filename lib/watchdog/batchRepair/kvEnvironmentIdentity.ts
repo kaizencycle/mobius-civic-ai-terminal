@@ -1,4 +1,5 @@
 import type { Seal } from '@/lib/vault-v2/types';
+import type { PrimarySealBatchRead, PrimarySealReadResult } from '@/lib/vault-v2/store';
 import {
   getLatestSealIdPrimaryOnly,
   getSealsByIdsPrimaryOnly,
@@ -88,14 +89,15 @@ export async function verifyProductionKvEnvironmentIdentity(args?: {
 }): Promise<ProductionKvIdentityCheck> {
   const anchors = args?.anchors ?? TRACK_R_PRODUCTION_KV_ANCHORS;
 
-  const [latestSealId, attestedIds, auditIds, probeReads] = await Promise.all([
+  const [latestSealId, attestedIds, auditIds, probeBatch] = await Promise.all([
     getLatestSealIdPrimaryOnly(),
     listSealIdsPrimaryOnly(),
     listAllSealIdsPrimaryOnly(),
     getSealsByIdsPrimaryOnly([anchors.probe_seal_id]),
   ]);
 
-  const probeRead = probeReads[0];
+  const identityTransportErrors = [...probeBatch.chunk_errors];
+  const probeRead = probeBatch.reads[0];
   const probeSeal = probeRead?.provenance === 'primary' ? probeRead.seal : null;
 
   const observed: ProductionKvIdentityCheck['observed'] = {
@@ -103,24 +105,66 @@ export async function verifyProductionKvEnvironmentIdentity(args?: {
     latest_seal_hash: probeSeal?.seal_id === anchors.latest_seal_id ? probeSeal.seal_hash : null,
     attested_index_count: attestedIds.length,
     audit_index_count: auditIds.length,
-    probe_seal_found: probeSeal != null,
+    probe_seal_found: probeSeal != null && identityTransportErrors.length === 0,
     probe_seal_hash: probeSeal?.seal_hash ?? null,
   };
 
   if (latestSealId && latestSealId !== anchors.probe_seal_id) {
-    const latestReads = await getSealsByIdsPrimaryOnly([latestSealId]);
-    const latestSeal = latestReads[0]?.provenance === 'primary' ? latestReads[0].seal : null;
+    const latestBatch = await getSealsByIdsPrimaryOnly([latestSealId]);
+    identityTransportErrors.push(...latestBatch.chunk_errors);
+    const latestSeal =
+      latestBatch.reads[0]?.provenance === 'primary' ? latestBatch.reads[0].seal : null;
     if (latestSeal) {
       observed.latest_seal_hash = latestSeal.seal_hash;
     }
   }
 
-  return verifyProductionKvIdentityAgainstAnchors({ anchors, observed });
+  const check = verifyProductionKvIdentityAgainstAnchors({ anchors, observed });
+  if (identityTransportErrors.length > 0) {
+    return {
+      ...check,
+      ok: false,
+      blocked_reason: 'BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH',
+      errors: [...identityTransportErrors, ...check.errors],
+    };
+  }
+
+  return check;
 }
 
-export function liveSealsFromPrimaryReads(
-  reads: Awaited<ReturnType<typeof getSealsByIdsPrimaryOnly>>,
-): Seal[] {
+export function validateCompletePrimarySealReads(args: {
+  expected_ids: readonly string[];
+  batch: PrimarySealBatchRead;
+}): { ok: boolean; errors: string[]; seals: Seal[] } {
+  const errors = [...args.batch.chunk_errors];
+  const readById = new Map(args.batch.reads.map((read) => [read.seal_id, read]));
+  let missing_count = 0;
+
+  for (const seal_id of args.expected_ids) {
+    const read = readById.get(seal_id);
+    if (!read || read.provenance !== 'primary' || read.seal == null) {
+      missing_count += 1;
+    }
+  }
+
+  if (missing_count > 0) {
+    errors.push(
+      `primary KV incomplete seal hydration: ${missing_count}/${args.expected_ids.length} indexed bodies missing from primary Upstash`,
+    );
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, errors, seals: [] };
+  }
+
+  return {
+    ok: true,
+    errors: [],
+    seals: liveSealsFromPrimaryReads(args.batch.reads),
+  };
+}
+
+export function liveSealsFromPrimaryReads(reads: PrimarySealReadResult[]): Seal[] {
   return reads
     .filter((read) => read.provenance === 'primary' && read.seal != null)
     .map((read) => read.seal as Seal);

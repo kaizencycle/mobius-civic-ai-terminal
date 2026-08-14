@@ -329,38 +329,62 @@ export type PrimarySealReadResult = {
   provenance: 'primary' | 'missing';
 };
 
+export type PrimarySealBatchRead = {
+  reads: PrimarySealReadResult[];
+  chunk_errors: string[];
+};
+
+/** Upstash REST MGET payload limits — batch large witness/collision reads. */
+export const PRIMARY_SEAL_MGET_CHUNK_SIZE = 40;
+
 /** Primary Upstash MGET only — no backup Redis fallback (Track R attestation reads). */
 export async function getSealsByIdsPrimaryOnly(
   seal_ids: readonly string[],
-): Promise<PrimarySealReadResult[]> {
-  if (seal_ids.length === 0) return [];
+): Promise<PrimarySealBatchRead> {
+  if (seal_ids.length === 0) return { reads: [], chunk_errors: [] };
 
-  const keys = seal_ids.map((id) => sealKey(id));
   const redis = getRedis();
-  let raws: unknown[];
+  const results: PrimarySealReadResult[] = [];
+  const chunk_errors: string[] = [];
 
-  if (redis) {
-    try {
-      const values = await redis.mget(...keys);
-      raws = Array.isArray(values) ? values : keys.map(() => null);
-    } catch {
+  for (let offset = 0; offset < seal_ids.length; offset += PRIMARY_SEAL_MGET_CHUNK_SIZE) {
+    const chunkIds = seal_ids.slice(offset, offset + PRIMARY_SEAL_MGET_CHUNK_SIZE);
+    const keys = chunkIds.map((id) => sealKey(id));
+    let raws: unknown[];
+
+    if (redis) {
+      try {
+        const values = await redis.mget(...keys);
+        raws = Array.isArray(values) ? values : keys.map(() => null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        chunk_errors.push(
+          `primary MGET chunk offset ${offset} size ${chunkIds.length} failed: ${message}`,
+        );
+        raws = keys.map(() => null);
+      }
+    } else {
+      chunk_errors.push('primary Upstash Redis client unavailable');
       raws = keys.map(() => null);
     }
-  } else {
-    raws = keys.map(() => null);
+
+    for (let i = 0; i < chunkIds.length; i++) {
+      const seal_id = chunkIds[i]!;
+      const raw = raws[i];
+      if (raw === null || raw === undefined) {
+        results.push({ seal_id, seal: null, provenance: 'missing' });
+        continue;
+      }
+      const seal = parseSealRaw(raw);
+      if (!seal) {
+        results.push({ seal_id, seal: null, provenance: 'missing' });
+        continue;
+      }
+      results.push({ seal_id, seal, provenance: 'primary' });
+    }
   }
 
-  return seal_ids.map((seal_id, i) => {
-    const raw = raws[i];
-    if (raw === null || raw === undefined) {
-      return { seal_id, seal: null, provenance: 'missing' as const };
-    }
-    const seal = parseSealRaw(raw);
-    if (!seal) {
-      return { seal_id, seal: null, provenance: 'missing' as const };
-    }
-    return { seal_id, seal, provenance: 'primary' as const };
-  });
+  return { reads: results, chunk_errors };
 }
 
 /** Batch hydrate seals via one MGET round-trip (falls back per-key on miss). */

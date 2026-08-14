@@ -117,6 +117,7 @@ export async function buildTrackREvidencePackage(
   const affectedBlockEvidence = await loadAuthoritativeLiveAffectedBlockEvidence({
     capture_observed_at: input.captured_at,
     operator_cycle: (input.observed.cycle as string | null) ?? null,
+    collision_pair_count_live: (input.observed.historical_collision_pairs as number | null) ?? null,
   });
 
   const affectedBlockComparison = compareAffectedBlockSets({

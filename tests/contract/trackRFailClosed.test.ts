@@ -20,6 +20,7 @@ import {
   TRACK_R_PRODUCTION_KV_ANCHORS,
   buildProductionKvIdentityReceipt,
   assessLiveBoundary4142,
+  resolveSupplementalAttestedSealAtBlockPrimaryOnly,
   loadWitnessFromFile,
   loadResolutionTableFromFile,
   buildFixtureSealsFromWitness,
@@ -476,6 +477,22 @@ describe('trackRFailClosed C-403', () => {
     assert.equal(boundary.status, 'pass');
     assert.equal(boundary.canonical_block_41, block41.seal_id);
     assert.equal(boundary.canonical_block_42, block42Id ?? null);
+  });
+
+  it('resolveSupplementalAttestedSealAtBlockPrimaryOnly prefers witness export for clean block 41', async () => {
+    const witness = PINNED_WITNESS;
+    const table = loadResolutionTableFromFile(TABLE_PATH);
+    const seals = buildFixtureSealsFromWitness(witness, table);
+    const block41 = seals.find((s) => s.sequence === 41 && s.status === 'attested');
+    assert.ok(block41);
+
+    const lookup = await resolveSupplementalAttestedSealAtBlockPrimaryOnly({
+      block_number: 41,
+      witness_live_seals: seals,
+    });
+
+    assert.equal(lookup.seal?.seal_id, block41.seal_id);
+    assert.deepEqual(lookup.errors, []);
   });
 
   it('successful affected-block derivation notes do not force set_match false', () => {
