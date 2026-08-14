@@ -72,17 +72,19 @@ async function main(): Promise<void> {
     console.log('Metrics:', JSON.stringify(result.report.metrics, null, 2));
     console.log(`\nManifest hash: ${result.report.manifest_hash}`);
     console.log(`Report hash: ${dryRunReportHash(result.report)}`);
-
-    const outPath =
-      out ?? 'docs/epicon/cycles/C-403/fixtures/C403_BATCH_DRY_RUN_REPORT.sample.json';
-    writeFileSync(outPath, `${JSON.stringify(result.report, null, 2)}\n`);
-    console.log(`\nWrote sample report: ${outPath}`);
   }
 
   if (!result.ok) {
     console.error('\nDry-run FAILED:');
     for (const err of result.errors) console.error(`  - ${err}`);
     process.exit(1);
+  }
+
+  if (result.report) {
+    const outPath =
+      out ?? 'docs/epicon/cycles/C-403/fixtures/C403_BATCH_DRY_RUN_REPORT.sample.json';
+    writeFileSync(outPath, `${JSON.stringify(result.report, null, 2)}\n`);
+    console.log(`\nWrote sample report: ${outPath}`);
   }
 
   console.log('\nDry-run OK. Zero writes. Execution remains disabled.');

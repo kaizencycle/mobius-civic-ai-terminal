@@ -1,4 +1,5 @@
 import type { CollisionRepairBatchManifest, StagedLineageView } from '@/lib/watchdog/batchRepair/types';
+import { verifyManifestHash } from '@/lib/watchdog/batchRepair/buildBatchManifest';
 import { stableStringify } from '@/lib/watchdog/batchRepair/stableHash';
 
 export const LINEAGE_ACTIVE_VERSION_KEY = 'watchdog:lineage:active_version';
@@ -39,6 +40,40 @@ export class InMemoryLineageStore implements LineageStore {
   snapshot(): Map<string, string> {
     return new Map(this.data);
   }
+}
+
+export function verifyStagedVersionComplete(args: {
+  store: LineageStore;
+  repair_id: string;
+  expected_manifest_hash?: string;
+}): { ok: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const manifestKey = versionedManifestKey(args.repair_id);
+  const canonicalKey = versionedCanonicalKey(args.repair_id);
+  const quarantineKey = versionedQuarantineKey(args.repair_id);
+
+  const manifestRaw = args.store.get(manifestKey);
+  const canonicalRaw = args.store.get(canonicalKey);
+  const quarantineRaw = args.store.get(quarantineKey);
+
+  if (!manifestRaw) errors.push(`staged manifest key missing: ${manifestKey}`);
+  if (!canonicalRaw) errors.push(`staged canonical key missing: ${canonicalKey}`);
+  if (!quarantineRaw) errors.push(`staged quarantine key missing: ${quarantineKey}`);
+
+  if (manifestRaw && args.expected_manifest_hash) {
+    try {
+      const parsed = JSON.parse(manifestRaw) as CollisionRepairBatchManifest;
+      if (!verifyManifestHash(parsed)) {
+        errors.push('staged manifest checksum verification failed');
+      } else if (parsed.manifest_hash !== args.expected_manifest_hash) {
+        errors.push('staged manifest hash does not match expected');
+      }
+    } catch {
+      errors.push('staged manifest is not valid JSON');
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
 }
 
 export function stageVersionedLineage(args: {
@@ -101,7 +136,17 @@ export function activateVersionPointer(args: {
   store: LineageStore;
   repair_id: string;
   expected_active_version: string | null;
+  expected_manifest_hash?: string;
 }): { ok: boolean; detail: string } {
+  const staged = verifyStagedVersionComplete({
+    store: args.store,
+    repair_id: args.repair_id,
+    expected_manifest_hash: args.expected_manifest_hash,
+  });
+  if (!staged.ok) {
+    return { ok: false, detail: staged.errors.join('; ') };
+  }
+
   const current = args.store.get(LINEAGE_ACTIVE_VERSION_KEY);
   if (current !== args.expected_active_version) {
     return {

@@ -27,12 +27,19 @@ import {
   TRACK_R_HISTORICAL_CONFLICT_PAIRS,
   TRACK_R_QUARANTINED_CONFLICTING_SEALS,
 } from '@/lib/watchdog/batchRepair';
+import { hashObject } from '@/lib/watchdog/batchRepair/stableHash';
+import type { CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 import { verifyKvSnapshotUnchanged, sealReceipt, verifyReceiptHash } from '@/lib/watchdog/reconciliationReceipt';
 
 const FIXTURE_DIR = join(process.cwd(), 'docs/epicon/cycles/C-403/fixtures');
 const WITNESS_PATH = join(FIXTURE_DIR, 'C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json');
 const TABLE_PATH = join(FIXTURE_DIR, 'C403_COLLISION_RESOLUTION_TABLE.pin.json');
 const CREATED_AT = '2026-08-14T00:00:00.000Z';
+
+function resealManifest(manifest: CollisionRepairBatchManifest): CollisionRepairBatchManifest {
+  const { manifest_hash, ...body } = manifest;
+  return { ...manifest, manifest_hash: hashObject(body as unknown as Record<string, unknown>) };
+}
 
 function loadFixtures() {
   const witness = loadWitnessFromFile(WITNESS_PATH);
@@ -157,14 +164,14 @@ describe('batchCollisionRepair C-403', () => {
 
   it('13. missing EVE approval blocks commit', () => {
     const { manifest } = loadFixtures();
-    const approved = structuredClone(manifest);
+    const approved = resealManifest(structuredClone(manifest));
     approved.zeus_verdict = 'approved';
     const guard = assertBatchCommitAllowed({
       manifest: approved,
       dry_run: false,
       execution_feature_flag_enabled: true,
       explicit_operator_command: true,
-      approved_manifest_hash: manifest.manifest_hash,
+      approved_manifest_hash: approved.manifest_hash,
       fresh_kv_snapshot_matches: true,
       integrity_gate_active: true,
       mutation_journal_available: true,
@@ -176,7 +183,7 @@ describe('batchCollisionRepair C-403', () => {
 
   it('14. missing human approval blocks commit', () => {
     const { manifest } = loadFixtures();
-    const approved = structuredClone(manifest);
+    const approved = resealManifest(structuredClone(manifest));
     approved.zeus_verdict = 'approved';
     approved.eve_verdict = 'approved';
     const guard = assertBatchCommitAllowed({
@@ -184,7 +191,7 @@ describe('batchCollisionRepair C-403', () => {
       dry_run: false,
       execution_feature_flag_enabled: true,
       explicit_operator_command: true,
-      approved_manifest_hash: manifest.manifest_hash,
+      approved_manifest_hash: approved.manifest_hash,
       fresh_kv_snapshot_matches: true,
       integrity_gate_active: true,
       mutation_journal_available: true,
@@ -196,7 +203,7 @@ describe('batchCollisionRepair C-403', () => {
 
   it('15. wrong manifest hash blocks commit', () => {
     const { manifest } = loadFixtures();
-    const approved = structuredClone(manifest);
+    const approved = resealManifest(structuredClone(manifest));
     approved.zeus_verdict = 'approved';
     approved.eve_verdict = 'approved';
     approved.human_approval = 'approved';
@@ -212,6 +219,35 @@ describe('batchCollisionRepair C-403', () => {
       rollback_plan_verified: true,
     });
     assert.equal(guard.ok, false);
+  });
+
+  it('15b. tampered manifest contents with stale hash blocks commit', () => {
+    const { manifest } = loadFixtures();
+    const tampered = structuredClone(manifest);
+    tampered.zeus_verdict = 'approved';
+    tampered.eve_verdict = 'approved';
+    tampered.human_approval = 'approved';
+    const guard = assertBatchCommitAllowed({
+      manifest: tampered,
+      dry_run: false,
+      execution_feature_flag_enabled: true,
+      explicit_operator_command: true,
+      approved_manifest_hash: manifest.manifest_hash,
+      fresh_kv_snapshot_matches: true,
+      integrity_gate_active: true,
+      mutation_journal_available: true,
+      rollback_plan_verified: true,
+    });
+    assert.equal(guard.ok, false);
+    assert.ok(guard.errors.some((e) => e.includes('tampered manifest contents')));
+  });
+
+  it('15c. extra canonical assignment fails validation', () => {
+    const { manifest, table } = loadFixtures();
+    const tampered = structuredClone(manifest);
+    tampered.canonical_assignments['999'] = 'seal-extra';
+    const result = validateBatchManifest({ manifest: tampered, resolutionTable: table });
+    assert.equal(result.ok, false);
   });
 
   it('16. dry run performs zero writes', async () => {
@@ -244,17 +280,27 @@ describe('batchCollisionRepair C-403', () => {
   });
 
   it('19. repeated approved activation is idempotent', () => {
+    const { manifest, witness } = loadFixtures();
     const store = new InMemoryLineageStore();
+    stageVersionedLineage({
+      manifest,
+      clean_block_numbers: witness.clean_block_numbers,
+      derived_latest_canonical_seal_id: null,
+      store,
+      write: true,
+    });
     const first = activateVersionPointer({
       store,
       repair_id: TRACK_R_BATCH_REPAIR_ID,
       expected_active_version: null,
+      expected_manifest_hash: manifest.manifest_hash,
     });
     assert.equal(first.ok, true);
     const second = activateVersionPointer({
       store,
       repair_id: TRACK_R_BATCH_REPAIR_ID,
       expected_active_version: TRACK_R_BATCH_REPAIR_ID,
+      expected_manifest_hash: manifest.manifest_hash,
     });
     assert.equal(second.ok, true);
     assert.equal(store.get('watchdog:lineage:active_version'), TRACK_R_BATCH_REPAIR_ID);
@@ -262,6 +308,14 @@ describe('batchCollisionRepair C-403', () => {
 
   it('20. partial staging cannot activate', () => {
     const store = new InMemoryLineageStore();
+    const unstaged = activateVersionPointer({
+      store,
+      repair_id: TRACK_R_BATCH_REPAIR_ID,
+      expected_active_version: null,
+    });
+    assert.equal(unstaged.ok, false);
+    assert.ok(unstaged.detail.includes('missing'));
+
     const result = activateVersionPointer({
       store,
       repair_id: 'partial-version',
@@ -270,9 +324,16 @@ describe('batchCollisionRepair C-403', () => {
     assert.equal(result.ok, false);
   });
 
-  it('21. 41->42 boundary expectation is must_pass', () => {
+  it('21. 41->42 boundary continuity verified from staged seals', async () => {
     const { manifest } = loadFixtures();
     assert.equal(manifest.boundary_expectations['41->42'], 'must_pass');
+    const result = await executeBatchDryRun({
+      witnessPath: WITNESS_PATH,
+      resolutionTablePath: TABLE_PATH,
+      created_at: CREATED_AT,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.report?.metrics.boundary_41_42, 'pass');
   });
 
   it('22. 131->132 is pending not falsely passed', () => {

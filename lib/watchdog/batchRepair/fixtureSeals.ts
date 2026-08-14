@@ -1,4 +1,5 @@
 import type { Seal } from '@/lib/vault-v2/types';
+import { wireFixturePrevLinks } from '@/lib/watchdog/batchRepair/auditMetrics';
 import type { C397Witness, CollisionResolutionTable } from '@/lib/watchdog/batchRepair/witnessResolution';
 import { groupWitnessCollisions } from '@/lib/watchdog/batchRepair/witnessResolution';
 
@@ -75,6 +76,8 @@ export function buildFixtureSealsFromWitness(
       }),
     );
   }
+
+  wireFixturePrevLinks({ seals, witness, resolutionTable });
 
   return seals.sort((a, b) => a.sequence - b.sequence || a.seal_id.localeCompare(b.seal_id));
 }

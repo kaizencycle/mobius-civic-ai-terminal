@@ -1,11 +1,11 @@
 import type { Seal } from '@/lib/vault-v2/types';
 import { prepareCollisionRepair } from '@/lib/watchdog/collisionRepairTransaction';
-import { newestResolvedCanonicalSeal } from '@/lib/watchdog/canonicalLineageResolve';
 import { buildBatchManifest } from '@/lib/watchdog/batchRepair/buildBatchManifest';
 import {
   computeBatchAdjudicationMetrics,
   deriveLatestCanonicalSeal,
 } from '@/lib/watchdog/batchRepair/auditMetrics';
+import { prepareCollisionRepairOverlay } from '@/lib/watchdog/batchRepair/prepareOverlay';
 import { buildRollbackPlan } from '@/lib/watchdog/batchRepair/rollbackPlan';
 import {
   canGuaranteeAtomicActivation,
@@ -62,56 +62,24 @@ export function simulateBatchPrepare(args: {
   for (const [block, seal_id] of Object.entries(args.manifest.canonical_assignments)) {
     pendingCanonical.set(Number(block), seal_id);
   }
-  const effectiveQuarantine = new Set(args.manifest.quarantined_seal_ids);
+  const persistedCanonical = new Map<number, string | null>();
+  const persistedQuarantine: string[] = [];
   const failed_blocks: number[] = [];
 
   for (const receipt of [...args.manifest.receipts].sort(
     (a, b) => a.block_number - b.block_number,
   )) {
-    const prepared = awaitPrepareSimulation({
+    const prepared = prepareCollisionRepairOverlay({
       receipt,
       seals: args.seals,
+      persistedCanonical,
+      persistedQuarantine,
       pendingCanonical,
-      effectiveQuarantine,
     });
     if (!prepared.ok) failed_blocks.push(receipt.block_number);
   }
 
   return { ok: failed_blocks.length === 0, failed_blocks };
-}
-
-function awaitPrepareSimulation(args: {
-  receipt: CollisionRepairBatchManifest['receipts'][number];
-  seals: Seal[];
-  pendingCanonical: Map<number, string>;
-  effectiveQuarantine: Set<string>;
-}): { ok: boolean } {
-  // Inline simulation matching prepareCollisionRepair overlay semantics
-  const canonicalIndex = new Map<number, string | null>();
-  const byBlock = new Map<number, Seal[]>();
-  for (const seal of args.seals) {
-    if (seal.status !== 'attested') continue;
-    const group = byBlock.get(seal.sequence) ?? [];
-    group.push(seal);
-    byBlock.set(seal.sequence, group);
-  }
-  for (const block_number of byBlock.keys()) {
-    if (args.pendingCanonical.has(block_number)) {
-      canonicalIndex.set(block_number, args.pendingCanonical.get(block_number)!);
-    } else {
-      canonicalIndex.set(block_number, null);
-    }
-  }
-
-  const { target, unresolved_blocks } = newestResolvedCanonicalSeal({
-    seals: args.seals,
-    quarantined: args.effectiveQuarantine,
-    canonicalIndex,
-    pendingCanonical: args.pendingCanonical,
-  });
-
-  if (unresolved_blocks.length > 0 || !target) return { ok: false };
-  return { ok: true };
 }
 
 export async function executeBatchDryRun(input: BatchDryRunInput): Promise<BatchDryRunResult> {
@@ -171,8 +139,13 @@ export async function executeBatchDryRun(input: BatchDryRunInput): Promise<Batch
     witness,
     manifest,
     staged,
+    seals,
     clean_positions_modified: 0,
   });
+
+  if (metrics.boundary_41_42 !== 'pass') {
+    errors.push(`boundary 41->42 continuity check failed (got ${metrics.boundary_41_42})`);
+  }
 
   if (metrics.unresolved_collision_positions !== 0) {
     errors.push(

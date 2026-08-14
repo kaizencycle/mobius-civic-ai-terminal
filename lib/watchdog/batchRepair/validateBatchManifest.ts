@@ -46,6 +46,11 @@ export function validateBatchManifest(args: {
   if (manifest.canonical_assignment_count !== TRACK_R_CANONICAL_ASSIGNMENT_COUNT) {
     errors.push(`canonical_assignment_count must be ${TRACK_R_CANONICAL_ASSIGNMENT_COUNT}`);
   }
+  if (Object.keys(manifest.canonical_assignments).length !== TRACK_R_CANONICAL_ASSIGNMENT_COUNT) {
+    errors.push(
+      `canonical_assignments must contain exactly ${TRACK_R_CANONICAL_ASSIGNMENT_COUNT} entries, got ${Object.keys(manifest.canonical_assignments).length}`,
+    );
+  }
   if (manifest.clean_position_count !== TRACK_R_CLEAN_POSITION_COUNT) {
     errors.push(`clean_position_count must be ${TRACK_R_CLEAN_POSITION_COUNT}`);
   }
@@ -81,6 +86,18 @@ export function validateBatchManifest(args: {
       if (conflicting_id === receipt.canonical_seal_id) {
         errors.push(`canonical seal ${receipt.canonical_seal_id} also listed as conflicting`);
       }
+    }
+  }
+
+  for (const blockStr of Object.keys(manifest.canonical_assignments)) {
+    const block = Number(blockStr);
+    if (!receiptBlocks.has(block)) {
+      errors.push(`canonical assignment for block ${blockStr} has no matching receipt`);
+    }
+  }
+  for (const block of receiptBlocks) {
+    if (!(block in manifest.canonical_assignments)) {
+      errors.push(`receipt for block ${block} has no canonical assignment`);
     }
   }
 

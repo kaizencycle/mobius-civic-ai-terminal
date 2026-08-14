@@ -4,6 +4,7 @@ export * from '@/lib/watchdog/batchRepair/witnessResolution';
 export * from '@/lib/watchdog/batchRepair/fixtureSeals';
 export * from '@/lib/watchdog/batchRepair/buildBatchManifest';
 export * from '@/lib/watchdog/batchRepair/validateBatchManifest';
+export * from '@/lib/watchdog/batchRepair/prepareOverlay';
 export * from '@/lib/watchdog/batchRepair/auditMetrics';
 export * from '@/lib/watchdog/batchRepair/versionedStaging';
 export * from '@/lib/watchdog/batchRepair/commitGuard';

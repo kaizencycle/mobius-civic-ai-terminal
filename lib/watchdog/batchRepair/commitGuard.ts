@@ -1,4 +1,5 @@
 import type { BatchCommitGuardInput } from '@/lib/watchdog/batchRepair/types';
+import { verifyManifestHash } from '@/lib/watchdog/batchRepair/buildBatchManifest';
 
 export const BATCH_EXECUTION_FEATURE_FLAG = 'TRACK_R_BATCH_EXECUTION_ENABLED';
 
@@ -12,6 +13,10 @@ export function assertBatchCommitAllowed(input: BatchCommitGuardInput): {
   errors: string[];
 } {
   const errors: string[] = [];
+
+  if (!verifyManifestHash(input.manifest)) {
+    errors.push('manifest_hash verification failed (tampered manifest contents)');
+  }
 
   if (input.dry_run !== false) {
     errors.push('dry_run must be false for commit');
