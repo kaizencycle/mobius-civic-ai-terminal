@@ -1,13 +1,13 @@
 {
   "schema": "TRACK_R_LIVE_DRY_RUN_PACKAGE_v2",
-  "capture_id": "track-r-c403-2026-08-14T1716Z",
-  "captured_at": "2026-08-14T17:16:09.335Z",
+  "capture_id": "track-r-c403-2026-08-14T1725Z",
+  "captured_at": "2026-08-14T17:25:52.814Z",
   "executive_status": "CLARIFY",
   "execution_authorized": false,
   "production_mutation_performed": false,
   "snapshot_identity": {
-    "lineage_snapshot_hash": "3d383f13871e888d95c914b17ba3994770cd5130e8fecf5a0fa515bf154100d8",
-    "telemetry_snapshot_hash": "c4f53191b6efdbdacc3785d432a73243e3839de5cce58cb8fbf0a2fca2e710b8",
+    "lineage_snapshot_hash": "14c4af426af7d660f77a144ba4edbfc9285fa1bc2219bb08561a7c0b04e25dfb",
+    "telemetry_snapshot_hash": "605edbb303db3ecf2614b4e6f757ac1ce09ce57a053fb4be702365f00be5d1d8",
     "note": "Only lineage_snapshot_hash gates CAS execution; telemetry drift is informational."
   },
   "deployment_sha": {
@@ -16,13 +16,13 @@
     "note": "Public endpoints do not expose Vercel git SHA; verify via deployment dashboard before execution."
   },
   "observed_baseline": {
-    "capture_id": "track-r-c403-2026-08-14T1716Z",
+    "capture_id": "track-r-c403-2026-08-14T1725Z",
     "capture_sources": {
       "vault_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/status",
       "seal_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/seal-status",
       "health": "https://mobius-civic-ai-terminal.vercel.app/api/health"
     },
-    "captured_at": "2026-08-14T17:16:09.335Z",
+    "captured_at": "2026-08-14T17:25:52.814Z",
     "environment": "cursor-cloud-agent",
     "pr653_merge_sha": "100d2c4ab3559f0b7b59d6e888d74792e0b61ea2",
     "deployment_sha_public": null,
@@ -38,7 +38,7 @@
     "reserve_block_lane": "integrity_hold",
     "candidate_formation_blocked": true,
     "candidate_in_flight": false,
-    "unsealed_accumulator_mic": 2550.042192,
+    "unsealed_accumulator_mic": 2550.836233,
     "integrity_gate_reasons": [
       "125 hash-divergent block_number collision(s) in attested KV"
     ],
@@ -146,9 +146,9 @@
     "eve_verdict": "pending",
     "human_approval": "pending",
     "required_hashes": {
-      "capture_id": "track-r-c403-2026-08-14T1716Z",
-      "lineage_snapshot_hash": "3d383f13871e888d95c914b17ba3994770cd5130e8fecf5a0fa515bf154100d8",
-      "telemetry_snapshot_hash": "c4f53191b6efdbdacc3785d432a73243e3839de5cce58cb8fbf0a2fca2e710b8",
+      "capture_id": "track-r-c403-2026-08-14T1725Z",
+      "lineage_snapshot_hash": "14c4af426af7d660f77a144ba4edbfc9285fa1bc2219bb08561a7c0b04e25dfb",
+      "telemetry_snapshot_hash": "605edbb303db3ecf2614b4e6f757ac1ce09ce57a053fb4be702365f00be5d1d8",
       "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
       "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d"
     }

@@ -274,7 +274,7 @@ async function main(): Promise<void> {
     witness_audit_hash,
     resolution_table_hash,
     active_lineage_version: null,
-    expected_canonical_pointer: TRACK_R_GOVERNANCE_DISPOSITION.proposed_latest_canonical_seal_id,
+    live_canonical_pointer: null,
   });
 
   const telemetry_snapshot_hash = computeTelemetrySnapshotHash({

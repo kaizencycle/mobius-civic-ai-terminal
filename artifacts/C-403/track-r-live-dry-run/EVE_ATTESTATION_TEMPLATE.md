@@ -1,8 +1,8 @@
 # EVE Attestation Template — Track R Batch (UNSIGNED)
 
-**Capture ID:** `track-r-c403-2026-08-14T1716Z`  
+**Capture ID:** `track-r-c403-2026-08-14T1725Z`  
 **Semantic manifest hash:** `27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa`  
-**Lineage snapshot hash:** `3d383f13871e888d95c914b17ba3994770cd5130e8fecf5a0fa515bf154100d8`  
+**Lineage snapshot hash:** `14c4af426af7d660f77a144ba4edbfc9285fa1bc2219bb08561a7c0b04e25dfb`  
 **Rollback manifest hash:** `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d`
 
 ## Constitutional scope checklist

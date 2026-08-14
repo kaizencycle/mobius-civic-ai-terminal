@@ -1,7 +1,7 @@
 # Track R Live Dry-Run Report (C-403)
 
-**Capture ID:** `track-r-c403-2026-08-14T1716Z`  
-**Captured:** 2026-08-14T17:16:09.335Z  
+**Capture ID:** `track-r-c403-2026-08-14T1725Z`  
+**Captured:** 2026-08-14T17:25:52.814Z  
 **Executive status:** **CLARIFY**  
 **Execution authorized:** **NOT AUTHORIZED**  
 **Production mutation:** **NONE**
@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Single capture (`track-r-c403-2026-08-14T1716Z`). Dry-run only. **Semantic manifest hash** excludes volatile telemetry. Snapshot split: **lineage** (CAS gate) vs **telemetry** (informational). Positions 132–194 are **verified_unattached** — no fabricated 131→132 edge.
+Single capture (`track-r-c403-2026-08-14T1725Z`). Dry-run only. **Semantic manifest hash** excludes volatile telemetry. Snapshot split: **lineage** (CAS gate) vs **telemetry** (informational). Positions 132–194 are **verified_unattached** — no fabricated 131→132 edge.
 
 ---
 
@@ -18,10 +18,10 @@ Single capture (`track-r-c403-2026-08-14T1716Z`). Dry-run only. **Semantic manif
 
 | Field | Observed |
 |---|---|
-| Capture ID | `track-r-c403-2026-08-14T1716Z` |
-| Lineage snapshot hash | `3d383f13871e888d95c914b17ba3994770cd5130e8fecf5a0fa515bf154100d8` |
-| Telemetry snapshot hash | `c4f53191b6efdbdacc3785d432a73243e3839de5cce58cb8fbf0a2fca2e710b8` |
-| Unsealed accumulator | ~2550.042192 MIC |
+| Capture ID | `track-r-c403-2026-08-14T1725Z` |
+| Lineage snapshot hash | `14c4af426af7d660f77a144ba4edbfc9285fa1bc2219bb08561a7c0b04e25dfb` |
+| Telemetry snapshot hash | `605edbb303db3ecf2614b4e6f757ac1ce09ce57a053fb4be702365f00be5d1d8` |
+| Unsealed accumulator | ~2550.836233 MIC |
 | Collision pairs | 125 |
 | Integrity gate | active |
 
