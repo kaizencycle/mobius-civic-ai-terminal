@@ -13,6 +13,8 @@ export const TRACK_R_PRODUCTION_KV_ANCHORS = {
   attested_index_count: 360,
   audit_index_count: 360,
   probe_seal_id: 'seal-C-372-002',
+  collision_pair_count: 125,
+  integrity_gate_active: true,
 } as const;
 
 export type ProductionKvAnchorInput = {
@@ -21,6 +23,8 @@ export type ProductionKvAnchorInput = {
   attested_index_count: number;
   audit_index_count: number;
   probe_seal_id: string;
+  collision_pair_count: number;
+  integrity_gate_active: boolean;
 };
 
 export type ProductionKvIdentityCheck = {
