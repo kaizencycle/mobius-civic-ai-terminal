@@ -1,20 +1,118 @@
 {
   "schema": "TRACK_R_LIVE_DRY_RUN_PACKAGE_v3",
-  "capture_id": "track-r-c403-2026-08-14T1920Z",
-  "captured_at": "2026-08-14T19:20:00.526Z",
-  "executive_status": "BLOCKED",
+  "capture_id": "track-r-c403-2026-08-14T1952Z",
+  "captured_at": "2026-08-14T19:52:59.351Z",
+  "executive_status": "BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH",
   "process_exit_code": 1,
   "execution_authorized": false,
   "production_mutation_performed": false,
+  "capture_mode": "production_witness_read_only",
+  "kv_identity_receipt": {
+    "schema_version": "1.0",
+    "environment_label": "production-witness-capture-read-only",
+    "reader_implementation": "lib/watchdog/batchRepair/kvEnvironmentIdentity.ts",
+    "reader_version": "C-403-handoff-v1",
+    "retrieved_at": "2026-08-14T19:52:59.351Z",
+    "anchor_results": [
+      {
+        "anchor": "latest_seal_id",
+        "expected": "seal-C-372-002",
+        "observed": null,
+        "match": false,
+        "source": "primary_kv"
+      },
+      {
+        "anchor": "latest_seal_hash",
+        "expected": "e19e9e44b32503a77b0c646b91a6780ffe9c42eafc3dad29e7758619b7500ef5",
+        "observed": null,
+        "match": false,
+        "source": "primary_kv"
+      },
+      {
+        "anchor": "attested_index_count",
+        "expected": 360,
+        "observed": 0,
+        "match": false,
+        "source": "primary_kv"
+      },
+      {
+        "anchor": "audit_index_count",
+        "expected": 360,
+        "observed": 0,
+        "match": false,
+        "source": "primary_kv"
+      },
+      {
+        "anchor": "probe_seal_found",
+        "expected": true,
+        "observed": false,
+        "match": false,
+        "source": "primary_kv"
+      },
+      {
+        "anchor": "probe_seal_hash",
+        "expected": "e19e9e44b32503a77b0c646b91a6780ffe9c42eafc3dad29e7758619b7500ef5",
+        "observed": null,
+        "match": false,
+        "source": "primary_kv"
+      },
+      {
+        "anchor": "collision_pair_count",
+        "expected": 125,
+        "observed": 125,
+        "match": true,
+        "source": "production_api"
+      },
+      {
+        "anchor": "integrity_gate_active",
+        "expected": true,
+        "observed": true,
+        "match": true,
+        "source": "production_api"
+      },
+      {
+        "anchor": "api_latest_attested_seal",
+        "expected": "seal-C-372-002",
+        "observed": "seal-C-372-002",
+        "match": true,
+        "source": "production_api"
+      },
+      {
+        "anchor": "api_attested_seal_index",
+        "expected": 360,
+        "observed": 360,
+        "match": true,
+        "source": "production_api"
+      }
+    ],
+    "api_cross_check": {
+      "fetched_at": "2026-08-14T19:52:59.351Z",
+      "base_url": "https://mobius-civic-ai-terminal.vercel.app",
+      "latest_attested_seal": "seal-C-372-002",
+      "attested_seal_index": 360,
+      "historical_collision_pairs": 125,
+      "integrity_gate_active": true,
+      "collision_affected_blocks_present": false
+    },
+    "identity_status": "BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH",
+    "identity_hash": "44081062a4e83431ce49616cd6438ccc06ef8f78c16fa78340d0fc379b54ffdc",
+    "errors": [
+      "latest seal id mismatch: expected seal-C-372-002, observed null",
+      "latest seal hash mismatch: expected e19e9e44b32503a77b0c646b91a6780ffe9c42eafc3dad29e7758619b7500ef5, observed null",
+      "attested index count mismatch: expected 360, observed 0",
+      "audit index count mismatch: expected 360, observed 0",
+      "probe seal seal-C-372-002 not found in primary KV"
+    ]
+  },
   "attestation_hashes": {
     "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
-    "lineage_snapshot_hash": "2fba50aa07d4b79ba7891626b58a0be425088adc50ce3d48598ad894555cb8e7",
+    "lineage_snapshot_hash": "080cfc83d3b9515209fe8280e7477171cd977e02879a125b751dd94fcf576507",
     "execution_witness_hash": null,
     "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d"
   },
   "snapshot_identity": {
-    "lineage_snapshot_hash": "2fba50aa07d4b79ba7891626b58a0be425088adc50ce3d48598ad894555cb8e7",
-    "telemetry_snapshot_hash": "20a7cb5f4a9f5d08d1735d9417104f0413c8f78eac1288712e26fb827f84e076",
+    "lineage_snapshot_hash": "080cfc83d3b9515209fe8280e7477171cd977e02879a125b751dd94fcf576507",
+    "telemetry_snapshot_hash": "aab76e13df17485c9cfa375deef6ad219eba259fc85718b79f796a4160d042c0",
     "execution_witness_hash": null,
     "note": "Four-object ZEUS/EVE packet: semantic manifest, lineage snapshot, execution witness, rollback manifest."
   },
@@ -25,14 +123,14 @@
     "note": "Public endpoints do not expose Vercel git SHA; verify via deployment dashboard before execution."
   },
   "observed_baseline": {
-    "capture_id": "track-r-c403-2026-08-14T1920Z",
+    "capture_id": "track-r-c403-2026-08-14T1952Z",
     "capture_sources": {
       "vault_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/status",
       "seal_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/seal-status",
       "health": "https://mobius-civic-ai-terminal.vercel.app/api/health"
     },
-    "captured_at": "2026-08-14T19:20:00.526Z",
-    "environment": "cursor-cloud-agent",
+    "captured_at": "2026-08-14T19:52:59.351Z",
+    "environment": "production-witness-capture-read-only",
     "pr653_merge_sha": "100d2c4ab3559f0b7b59d6e888d74792e0b61ea2",
     "deployment_sha_public": null,
     "cycle": "C-403",
@@ -48,7 +146,7 @@
     "reserve_block_lane": "integrity_hold",
     "candidate_formation_blocked": true,
     "candidate_in_flight": false,
-    "unsealed_accumulator_mic": 2556.656328,
+    "unsealed_accumulator_mic": 2557.878102,
     "integrity_gate_reasons": [
       "125 hash-divergent block_number collision(s) in attested KV"
     ],
@@ -86,7 +184,7 @@
     {
       "field": "unsealed_accumulator_mic_approx",
       "expected": 2547.905162,
-      "observed": 2556.656328,
+      "observed": 2557.878102,
       "severity": "info"
     }
   ],
@@ -229,15 +327,15 @@
     "errors": [
       "live affected-block artifact missing from authoritative watchdog/status evidence",
       "missing_from_live: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131",
-      "primary KV audit index empty — cannot derive live affected-block set",
+      "primary KV audit index empty",
       "watchdog primary KV affected-block snapshot missing — deriving from vault seal scan"
     ]
   },
   "affected_block_evidence": {
     "source": null,
-    "derived_from_primary_kv": true,
+    "derived_from_primary_kv": false,
     "errors": [
-      "primary KV audit index empty — cannot derive live affected-block set"
+      "primary KV audit index empty"
     ],
     "status_api_collision_affected_blocks": null
   },
@@ -345,7 +443,7 @@
     }
   },
   "reproducibility": {
-    "command": "pnpm track-r:live-dry-run-package",
+    "command": "pnpm track-r:production-capture",
     "fixture_dry_run": "pnpm watchdog:batch-collision-repair",
     "contract_tests": "pnpm exec tsx tests/contract/batchCollisionRepair.test.ts && pnpm exec tsx tests/contract/trackRFailClosed.test.ts",
     "typecheck": "pnpm exec tsc --noEmit",
@@ -356,12 +454,13 @@
     "eve_verdict": "pending",
     "human_approval": "pending",
     "required_hashes": {
-      "capture_id": "track-r-c403-2026-08-14T1920Z",
+      "capture_id": "track-r-c403-2026-08-14T1952Z",
       "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
-      "lineage_snapshot_hash": "2fba50aa07d4b79ba7891626b58a0be425088adc50ce3d48598ad894555cb8e7",
+      "lineage_snapshot_hash": "080cfc83d3b9515209fe8280e7477171cd977e02879a125b751dd94fcf576507",
       "execution_witness_hash": null,
       "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d",
-      "telemetry_snapshot_hash": "20a7cb5f4a9f5d08d1735d9417104f0413c8f78eac1288712e26fb827f84e076"
+      "telemetry_snapshot_hash": "aab76e13df17485c9cfa375deef6ad219eba259fc85718b79f796a4160d042c0",
+      "production_kv_identity_receipt_hash": "44081062a4e83431ce49616cd6438ccc06ef8f78c16fa78340d0fc379b54ffdc"
     }
   },
   "explicit_no_production_change": "No Redis/KV mutation, canonical promotion, integrity-gate clearing, candidate formation, or sealing occurred."
