@@ -1,5 +1,6 @@
 import type { SealCollisionResolutionReceipt } from '@/lib/watchdog/reconciliationReceipt';
 import type { LiveSealWitnessExport } from '@/lib/watchdog/batchRepair/executionWitness';
+import type { C397Witness } from '@/lib/watchdog/batchRepair/witnessResolution';
 
 export const BATCH_MANIFEST_SCHEMA_VERSION = '1.0' as const;
 
@@ -122,6 +123,10 @@ export type BatchCommitGuardInput = {
   /** Informational telemetry drift — logged but not a commit blocker. */
   telemetry_snapshot_hash?: string | null;
   live_seal_witness_export?: LiveSealWitnessExport | null;
+  /** Pinned witness used to derive authoritative seal universe — must match manifest source_audit_hash. */
+  pinned_witness?: C397Witness;
+  /** Optional override when witness already resolved; commit guard requires one of pinned_witness or this. */
+  required_witness_seal_ids?: readonly string[];
   integrity_gate_active: boolean;
   mutation_journal_available: boolean;
   rollback_plan_verified: boolean;

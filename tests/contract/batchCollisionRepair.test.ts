@@ -45,6 +45,7 @@ const FIXTURE_DIR = join(process.cwd(), 'docs/epicon/cycles/C-403/fixtures');
 const WITNESS_PATH = join(FIXTURE_DIR, 'C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json');
 const TABLE_PATH = join(FIXTURE_DIR, 'C403_COLLISION_RESOLUTION_TABLE.pin.json');
 const CREATED_AT = '2026-08-14T00:00:00.000Z';
+const PINNED_WITNESS = loadWitnessFromFile(WITNESS_PATH);
 
 function resealManifest(manifest: CollisionRepairBatchManifest): CollisionRepairBatchManifest {
   const { manifest_hash, ...body } = manifest;
@@ -57,6 +58,7 @@ const COMMIT_GUARD_BASE = {
   explicit_operator_command: true,
   fresh_lineage_snapshot_hash_matches: true,
   live_seal_witness_export: null,
+  pinned_witness: PINNED_WITNESS,
   integrity_gate_active: true,
   mutation_journal_available: true,
   rollback_plan_verified: true,
@@ -570,7 +572,56 @@ describe('batchCollisionRepair C-403', () => {
       summary: { total: expected.length, match: expected.length, mismatch: 0, missing: 0 },
       export_complete: true,
     };
-    assert.equal(verifyLiveSealWitnessExport(exportOk).ok, true);
+    assert.equal(
+      verifyLiveSealWitnessExport(exportOk, { expected_seal_ids: expected }).ok,
+      true,
+    );
+  });
+
+  it('30d. partial witness export cannot clear commit gate', () => {
+    const { manifest, witness } = loadFixtures();
+    const partial = collectTrackRWitnessSealIds(witness).slice(0, 2);
+    const approved = resealManifest(structuredClone(manifest));
+    approved.zeus_verdict = 'approved';
+    approved.eve_verdict = 'approved';
+    approved.human_approval = 'approved';
+
+    const partialExport: LiveSealWitnessExport = {
+      schema_version: '1.0',
+      capture_id: 'capture-partial',
+      exported_at: '2026-08-14T00:00:00.000Z',
+      authenticated_read: true,
+      export_source: 'test-kv-read',
+      expected_seal_ids: partial,
+      records: partial.map((seal_id) => ({
+        seal_id,
+        block_number: null,
+        status: 'match' as const,
+        pinned_witness_hash: 'hash-a',
+        live_kv_hash: 'hash-a',
+      })),
+      summary: { total: partial.length, match: partial.length, mismatch: 0, missing: 0 },
+      export_complete: true,
+    };
+
+    assert.equal(verifyLiveSealWitnessExport(partialExport, { expected_seal_ids: partial }).ok, true);
+
+    const guard = assertBatchCommitAllowed({
+      ...COMMIT_GUARD_BASE,
+      manifest: approved,
+      approved_manifest_hash: approved.manifest_hash,
+      live_seal_witness_export: partialExport,
+      pinned_witness: witness,
+    });
+    assert.equal(guard.ok, false);
+    assert.ok(
+      guard.errors.some(
+        (e) =>
+          e.includes('authoritative pinned witness universe') ||
+          e.includes('expected_seal_ids') ||
+          e.includes('records.length'),
+      ),
+    );
   });
 
   it('31. lineage and telemetry snapshot hashes diverge when accumulator drifts', () => {

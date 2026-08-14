@@ -1,5 +1,8 @@
 import type { BatchCommitGuardInput } from '@/lib/watchdog/batchRepair/types';
-import { verifyLiveSealWitnessExport } from '@/lib/watchdog/batchRepair/executionWitness';
+import {
+  resolveRequiredWitnessSealIds,
+  verifyLiveSealWitnessExport,
+} from '@/lib/watchdog/batchRepair/executionWitness';
 import { verifyManifestHash } from '@/lib/watchdog/batchRepair/semanticManifest';
 
 export const BATCH_EXECUTION_FEATURE_FLAG = 'TRACK_R_BATCH_EXECUTION_ENABLED';
@@ -46,9 +49,33 @@ export function assertBatchCommitAllowed(input: BatchCommitGuardInput): {
     errors.push('fresh lineage snapshot hash does not match manifest attestation');
   }
 
-  const witnessCheck = verifyLiveSealWitnessExport(input.live_seal_witness_export);
-  if (!witnessCheck.ok) {
-    errors.push(...witnessCheck.errors);
+  let requiredWitnessSealIds: string[] | undefined = input.required_witness_seal_ids
+    ? [...input.required_witness_seal_ids]
+    : undefined;
+
+  if (input.pinned_witness) {
+    const resolved = resolveRequiredWitnessSealIds({
+      witness: input.pinned_witness,
+      manifest: input.manifest,
+    });
+    if (!resolved.ok) {
+      errors.push(...resolved.errors);
+    } else {
+      requiredWitnessSealIds = resolved.seal_ids;
+    }
+  }
+
+  if (!requiredWitnessSealIds?.length) {
+    errors.push(
+      'pinned_witness matching manifest source_audit_hash (or required_witness_seal_ids) required for commit gate',
+    );
+  } else {
+    const witnessCheck = verifyLiveSealWitnessExport(input.live_seal_witness_export, {
+      expected_seal_ids: requiredWitnessSealIds,
+    });
+    if (!witnessCheck.ok) {
+      errors.push(...witnessCheck.errors);
+    }
   }
 
   if (!input.integrity_gate_active) {

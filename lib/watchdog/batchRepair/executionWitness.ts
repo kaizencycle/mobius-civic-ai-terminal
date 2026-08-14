@@ -1,4 +1,9 @@
-import { groupWitnessCollisions, type C397Witness } from '@/lib/watchdog/batchRepair/witnessResolution';
+import {
+  computeWitnessAuditHash,
+  groupWitnessCollisions,
+  type C397Witness,
+} from '@/lib/watchdog/batchRepair/witnessResolution';
+import type { CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 
 export type LiveSealWitnessRecordStatus = 'match' | 'mismatch' | 'missing';
 
@@ -79,7 +84,22 @@ export function verifyLiveSealWitnessExport(
     errors.push('live seal witness export incomplete — not all Track R seal bodies exported');
   }
 
-  const expectedSealIds = [...(args?.expected_seal_ids ?? witnessExport.expected_seal_ids ?? [])].sort();
+  const authoritativeIds = args?.expected_seal_ids
+    ? [...args.expected_seal_ids].sort()
+    : null;
+  const declaredIds = [...(witnessExport.expected_seal_ids ?? [])].sort();
+
+  if (authoritativeIds) {
+    if (declaredIds.length === 0) {
+      errors.push('export must declare expected_seal_ids matching authoritative pinned witness universe');
+    } else if (JSON.stringify(declaredIds) !== JSON.stringify(authoritativeIds)) {
+      errors.push(
+        `export expected_seal_ids (${declaredIds.length}) must match authoritative pinned witness universe (${authoritativeIds.length})`,
+      );
+    }
+  }
+
+  const expectedSealIds = authoritativeIds ?? declaredIds;
   if (expectedSealIds.length === 0) {
     errors.push('live seal witness export must declare expected_seal_ids with at least one seal');
   }
@@ -187,4 +207,21 @@ export function collectTrackRWitnessSealIds(witness: C397Witness): string[] {
     }
   }
   return [...ids].sort();
+}
+
+/** Resolve authoritative witness seal universe for commit — must match manifest source_audit_hash. */
+export function resolveRequiredWitnessSealIds(args: {
+  witness: C397Witness;
+  manifest: Pick<CollisionRepairBatchManifest, 'source_audit_hash'>;
+}): { ok: true; seal_ids: string[] } | { ok: false; errors: string[] } {
+  const witnessHash = computeWitnessAuditHash(args.witness);
+  if (witnessHash !== args.manifest.source_audit_hash) {
+    return {
+      ok: false,
+      errors: [
+        `pinned witness audit hash ${witnessHash} does not match manifest source_audit_hash ${args.manifest.source_audit_hash}`,
+      ],
+    };
+  }
+  return { ok: true, seal_ids: collectTrackRWitnessSealIds(args.witness) };
 }
