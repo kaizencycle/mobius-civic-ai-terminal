@@ -5,7 +5,7 @@ import {
 } from '@/lib/watchdog/batchRepair/witnessResolution';
 import type { CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 
-export type LiveSealWitnessRecordStatus = 'match' | 'mismatch' | 'missing';
+export type LiveSealWitnessRecordStatus = 'match' | 'mismatch' | 'missing' | 'unexpected';
 
 export type LiveSealWitnessRecord = {
   seal_id: string;
@@ -29,6 +29,7 @@ export type LiveSealWitnessExport = {
     match: number;
     mismatch: number;
     missing: number;
+    unexpected: number;
   };
   export_complete: boolean;
 };
@@ -42,6 +43,7 @@ function summarizeRecords(records: LiveSealWitnessRecord[]): LiveSealWitnessExpo
   let match = 0;
   let mismatch = 0;
   let missing = 0;
+  let unexpected = 0;
   for (const record of records) {
     switch (record.status) {
       case 'match':
@@ -53,13 +55,16 @@ function summarizeRecords(records: LiveSealWitnessRecord[]): LiveSealWitnessExpo
       case 'missing':
         missing += 1;
         break;
+      case 'unexpected':
+        unexpected += 1;
+        break;
       default: {
         const _exhaustive: never = record.status;
         throw new Error(`unknown witness record status: ${String(_exhaustive)}`);
       }
     }
   }
-  return { total: records.length, match, mismatch, missing };
+  return { total: records.length, match, mismatch, missing, unexpected };
 }
 
 /**
@@ -123,6 +128,9 @@ export function verifyLiveSealWitnessExport(
   if (summary.missing !== computedSummary.missing) {
     errors.push('summary.missing does not match records');
   }
+  if (summary.unexpected !== computedSummary.unexpected) {
+    errors.push('summary.unexpected does not match records');
+  }
   if (summary.total <= 0) {
     errors.push('live seal witness export summary.total must be greater than zero');
   }
@@ -157,6 +165,9 @@ export function verifyLiveSealWitnessExport(
         if (record.live_kv_hash) {
           errors.push(`missing record ${record.seal_id} must not include live_kv_hash`);
         }
+        break;
+      case 'unexpected':
+        errors.push(`unexpected seal ${record.seal_id} in export records`);
         break;
       default: {
         const _exhaustive: never = record.status;
@@ -193,6 +204,9 @@ export function verifyLiveSealWitnessExport(
   }
   if (summary.missing > 0) {
     errors.push(`live seal witness export has ${summary.missing} missing seals`);
+  }
+  if (summary.unexpected > 0) {
+    errors.push(`live seal witness export has ${summary.unexpected} unexpected seals`);
   }
 
   return { ok: errors.length === 0, errors };

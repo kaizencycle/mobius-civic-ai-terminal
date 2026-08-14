@@ -19,6 +19,9 @@ export type LineageSnapshotInput = {
   active_lineage_version: string | null;
   /** Live KV canonical pointer observation only — null when unresolved. Not a repair proposal. */
   live_canonical_pointer: string | null;
+  pinned_affected_block_numbers_hash: string;
+  live_affected_block_numbers_hash: string | null;
+  affected_block_set_match: boolean;
 };
 
 /** Operational telemetry — informational only; must not gate CAS execution. */

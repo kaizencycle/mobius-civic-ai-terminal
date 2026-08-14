@@ -544,7 +544,7 @@ describe('batchCollisionRepair C-403', () => {
       export_source: 'test',
       expected_seal_ids: [],
       records: [],
-      summary: { total: 0, match: 0, mismatch: 0, missing: 0 },
+      summary: { total: 0, match: 0, mismatch: 0, missing: 0, unexpected: 0 },
       export_complete: true,
     };
     const result = verifyLiveSealWitnessExport(emptyExport);
@@ -569,7 +569,7 @@ describe('batchCollisionRepair C-403', () => {
         pinned_witness_hash: 'hash-a',
         live_kv_hash: 'hash-a',
       })),
-      summary: { total: expected.length, match: expected.length, mismatch: 0, missing: 0 },
+      summary: { total: expected.length, match: expected.length, mismatch: 0, missing: 0, unexpected: 0 },
       export_complete: true,
     };
     assert.equal(
@@ -600,7 +600,7 @@ describe('batchCollisionRepair C-403', () => {
         pinned_witness_hash: 'hash-a',
         live_kv_hash: 'hash-a',
       })),
-      summary: { total: partial.length, match: partial.length, mismatch: 0, missing: 0 },
+      summary: { total: partial.length, match: partial.length, mismatch: 0, missing: 0, unexpected: 0 },
       export_complete: true,
     };
 
@@ -643,6 +643,9 @@ describe('batchCollisionRepair C-403', () => {
       resolution_table_hash: 'def',
       active_lineage_version: null,
       live_canonical_pointer: null,
+      pinned_affected_block_numbers_hash: 'pinned-hash',
+      live_affected_block_numbers_hash: 'live-hash',
+      affected_block_set_match: true,
     };
 
     const lineageA = computeLineageSnapshotHash(lineageBase);
