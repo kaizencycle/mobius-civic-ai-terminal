@@ -1,0 +1,98 @@
+{
+  "timestamp": "2026-08-14T17:03:59.931Z",
+  "agent": "ATLAS",
+  "cycle": "C-403",
+  "gi": 0.92,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "gaia-noaa-alerts",
+      "label": "NOAA active weather alerts",
+      "severity": "watch"
+    },
+    {
+      "source": "hermes-arxiv",
+      "label": "ArXiv new submissions",
+      "severity": "elevated"
+    },
+    {
+      "source": "echo-dataverse",
+      "label": "Harvard Dataverse research health",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 12,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 2,
+      "error": null
+    },
+    "kv_keys_ok": false,
+    "timestamp": "2026-08-14T17:03:59.069Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": true,
+  "classification": "NOMINAL",
+  "micro_composite": 0.867,
+  "degraded_agents": 0,
+  "degraded_agent_names": [],
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-14T17:02:12.354Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-08-14T16:59:46.579Z"
+    },
+    "last_updated": "2026-08-14T17:02:12.354Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "last_journal_cycle": "C-403",
+  "current_cycle": "C-403",
+  "force_journal_cycle_mismatch": false,
+  "pre_seed_gi": 0.92,
+  "pre_seed_mode": "green",
+  "post_seed_gi": 0.92,
+  "post_seed_mode": "green",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "seed_http": "200",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": null,
+  "journal_ok": false,
+  "journal_canonical": true
+}
