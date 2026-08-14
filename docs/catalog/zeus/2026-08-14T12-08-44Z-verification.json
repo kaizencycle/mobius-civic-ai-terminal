@@ -1,0 +1,100 @@
+{
+  "timestamp": "2026-08-14T12:08:44.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-403",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "gaia-noaa-alerts": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "echo-dataverse": "persistent",
+    "kv_keys_ok": "persistent",
+    "gi_below_floor": "resolved",
+    "tripwire_active": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-403)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-14T11-13-25Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-14T11-13-25Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.9 mode=green source=kv classification=NOMINAL terminal_status=nominal; anomalies=[gaia-noaa-alerts watch, daedalus-cloudflare-radar watch, echo-dataverse elevated]; flags kv_keys_ok=false tripwire_active=true gi_below_floor=false; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; post_seed_gi=0.9 post_seed_mode=green; sustain_eligible=false; micro_composite=0.889; degraded_agents=2 [AUREA,JADE]; tripwire elevated Hormuz Transit Fee Risk."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.892 composite=0.892 instrumentCount=40 cached=false cycle=C-403 aligned. gaia-noaa-alerts score=0.6 watch persistent (worsened from 0.8 prior pass). daedalus-cloudflare-radar score=0.7 watch persistent. echo-dataverse score=0.3 persistent elevated. gaia-openaq score=0.75 also degraded."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.8 mode=green terminal_status=nominal source=kv degraded=true cycle=C-403 gi_provenance=live-compute gi_age_seconds=378. authority.gi_origin=kv kv_backed=true. Not mock."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "ATLAS gi=0.9 mode=green (kv, NOMINAL, 11:13Z) vs integrity-status gi=0.8 mode=green vs live micro gi=0.892 — ATLAS and micro aligned within 0.008; integrity-status lags both by 0.09–0.092."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active. kv_backed=true."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS anomaly: gaia-noaa-alerts",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch at sweep; live micro score=0.6 still watch (severity worsened from 0.8 prior pass)."
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch at sweep; live micro score=0.7 still watch."
+    },
+    {
+      "check": "ATLAS anomaly: echo-dataverse",
+      "result": "warn",
+      "detail": "Persistent elevated — ATLAS flagged elevated; micro score=0.3 still degraded."
+    },
+    {
+      "check": "ATLAS flag: gi_below_floor",
+      "result": "pass",
+      "detail": "Resolved — ATLAS flags gi_below_floor=false at gi=0.9."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "warn",
+      "detail": "Persistent — ATLAS flags tripwire_active=true level=elevated Hormuz Transit Fee Risk."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "pass",
+      "detail": "sustain_eligible=false at ATLAS sweep — sustain gate not eligible."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-403 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-403-ms406s mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Quorum 5/5 achieved for C-403 — seal complete. GI partially disputed: ATLAS (0.9) and micro (0.892) aligned within tolerance; integrity-status (0.8) lags by ~0.09. gaia-noaa-alerts worsened to 0.6 (from 0.8 prior pass). echo-dataverse (0.3), daedalus-cloudflare-radar (0.7) remain degraded. kv_keys_ok=false flag persists despite successful seed. Hormuz tripwire elevated persistent. sustain_eligible=false — sustain gate remains closed. Reconcile integrity-status lane with ATLAS/micro composite."
+}
