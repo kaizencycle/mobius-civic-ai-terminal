@@ -3,48 +3,48 @@
   "environment_label": "production-witness-capture-read-only",
   "reader_implementation": "lib/watchdog/batchRepair/kvEnvironmentIdentity.ts",
   "reader_version": "C-403-handoff-v1",
-  "retrieved_at": "2026-08-14T19:52:59.351Z",
+  "retrieved_at": "2026-08-14T23:24:27.582Z",
   "anchor_results": [
     {
       "anchor": "latest_seal_id",
       "expected": "seal-C-372-002",
-      "observed": null,
-      "match": false,
+      "observed": "seal-C-372-002",
+      "match": true,
       "source": "primary_kv"
     },
     {
       "anchor": "latest_seal_hash",
       "expected": "e19e9e44b32503a77b0c646b91a6780ffe9c42eafc3dad29e7758619b7500ef5",
-      "observed": null,
-      "match": false,
+      "observed": "e19e9e44b32503a77b0c646b91a6780ffe9c42eafc3dad29e7758619b7500ef5",
+      "match": true,
       "source": "primary_kv"
     },
     {
       "anchor": "attested_index_count",
       "expected": 360,
-      "observed": 0,
-      "match": false,
+      "observed": 360,
+      "match": true,
       "source": "primary_kv"
     },
     {
       "anchor": "audit_index_count",
       "expected": 360,
-      "observed": 0,
-      "match": false,
+      "observed": 360,
+      "match": true,
       "source": "primary_kv"
     },
     {
       "anchor": "probe_seal_found",
       "expected": true,
-      "observed": false,
-      "match": false,
+      "observed": true,
+      "match": true,
       "source": "primary_kv"
     },
     {
       "anchor": "probe_seal_hash",
       "expected": "e19e9e44b32503a77b0c646b91a6780ffe9c42eafc3dad29e7758619b7500ef5",
-      "observed": null,
-      "match": false,
+      "observed": "e19e9e44b32503a77b0c646b91a6780ffe9c42eafc3dad29e7758619b7500ef5",
+      "match": true,
       "source": "primary_kv"
     },
     {
@@ -77,7 +77,7 @@
     }
   ],
   "api_cross_check": {
-    "fetched_at": "2026-08-14T19:52:59.351Z",
+    "fetched_at": "2026-08-14T23:24:27.582Z",
     "base_url": "https://mobius-civic-ai-terminal.vercel.app",
     "latest_attested_seal": "seal-C-372-002",
     "attested_seal_index": 360,
@@ -85,13 +85,7 @@
     "integrity_gate_active": true,
     "collision_affected_blocks_present": false
   },
-  "identity_status": "BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH",
-  "identity_hash": "44081062a4e83431ce49616cd6438ccc06ef8f78c16fa78340d0fc379b54ffdc",
-  "errors": [
-    "latest seal id mismatch: expected seal-C-372-002, observed null",
-    "latest seal hash mismatch: expected e19e9e44b32503a77b0c646b91a6780ffe9c42eafc3dad29e7758619b7500ef5, observed null",
-    "attested index count mismatch: expected 360, observed 0",
-    "audit index count mismatch: expected 360, observed 0",
-    "probe seal seal-C-372-002 not found in primary KV"
-  ]
+  "identity_status": "PRODUCTION_KV_IDENTITY_CONFIRMED",
+  "identity_hash": "fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e",
+  "errors": []
 }

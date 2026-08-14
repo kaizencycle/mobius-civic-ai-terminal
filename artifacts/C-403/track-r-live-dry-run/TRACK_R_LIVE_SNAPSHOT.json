@@ -1,11 +1,11 @@
 {
-  "capture_id": "track-r-c403-2026-08-14T1952Z",
+  "capture_id": "track-r-c403-2026-08-14T2324Z",
   "capture_sources": {
     "vault_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/status",
     "seal_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/seal-status",
     "health": "https://mobius-civic-ai-terminal.vercel.app/api/health"
   },
-  "captured_at": "2026-08-14T19:52:59.351Z",
+  "captured_at": "2026-08-14T23:24:27.582Z",
   "environment": "production-witness-capture-read-only",
   "pr653_merge_sha": "100d2c4ab3559f0b7b59d6e888d74792e0b61ea2",
   "deployment_sha_public": null,
@@ -22,14 +22,14 @@
   "reserve_block_lane": "integrity_hold",
   "candidate_formation_blocked": true,
   "candidate_in_flight": false,
-  "unsealed_accumulator_mic": 2557.878102,
+  "unsealed_accumulator_mic": 2567.71386,
   "integrity_gate_reasons": [
     "125 hash-divergent block_number collision(s) in attested KV"
   ],
   "seal_integrity_gate_source": "live-report",
   "latest_sealed_at": null,
-  "gi_current": 0.82,
-  "health_status": "degraded",
+  "gi_current": 0.9,
+  "health_status": "operational",
   "kv_available": true,
   "collision_affected_blocks_source": null,
   "fetch_failures": []
