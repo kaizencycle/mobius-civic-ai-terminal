@@ -9,6 +9,7 @@ import {
   hashAffectedBlockNumbers,
   resolveTrackRProcessExitCode,
   resolveTrackRExecutiveStatus,
+  filterExecutiveMaterialDrift,
   computeExecutionWitnessHash,
   buildExecutionWitnessHashPayload,
   assessGovernance131Cutoff,
@@ -508,6 +509,66 @@ describe('trackRFailClosed C-403', () => {
     assert.equal(comparison.set_match, true);
     comparison.errors.push('[info] watchdog primary KV affected-block snapshot missing — deriving from vault seal scan');
     assert.equal(comparison.set_match, true);
+  });
+
+  it('filterExecutiveMaterialDrift suppresses public API contested count when KV set matches', () => {
+    const comparison = affectedBlockComparisonPass();
+    const filtered = filterExecutiveMaterialDrift(
+      [
+        {
+          field: 'contested_block_positions',
+          expected: 123,
+          observed: null,
+          severity: 'material',
+        },
+      ],
+      comparison,
+    );
+    assert.deepEqual(filtered, []);
+  });
+
+  it('public API contested_block_positions drift does not block when authenticated KV set matches', () => {
+    const status = resolveTrackRExecutiveStatus(
+      executiveStatusArgs({
+        materialDrift: filterExecutiveMaterialDrift(
+          [
+            {
+              field: 'contested_block_positions',
+              expected: 123,
+              observed: null,
+              severity: 'material',
+            },
+          ],
+          affectedBlockComparisonPass(),
+        ),
+        liveWitnessAttempt: {
+          ok: true,
+          blocked_reason: null,
+          export: {
+            schema_version: '1.0',
+            capture_id: 'c',
+            exported_at: CREATED_AT,
+            authenticated_read: true,
+            export_source: 'test',
+            expected_seal_ids: ['seal-C-332-001'],
+            records: [],
+            summary: { total: 248, match: 248, mismatch: 0, missing: 0, unexpected: 0 },
+            export_complete: true,
+          },
+          comparison_results: [],
+          verification_errors: [],
+          expected_universe_count: 248,
+          export_source: 'test',
+          primary_read_count: 248,
+          fallback_read_count: 0,
+          uses_fixture_pinned_hashes: false,
+          kv_identity_ok: true,
+          live_seals: [],
+        },
+      }),
+    );
+    assert.equal(status, 'READY_FOR_ZEUS_EVE_REVIEW');
+    assert.equal(resolveTrackRProcessExitCode(status), 0);
   });
 
   it('process exit: new BLOCKED_* and QUARANTINE_* executive statuses return non-zero', () => {

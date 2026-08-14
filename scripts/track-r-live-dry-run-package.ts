@@ -195,7 +195,8 @@ function compareBaseline(
       field: 'contested_block_positions',
       expected: HANDOFF_BASELINE.contested_block_positions,
       observed: null,
-      severity: 'material',
+      severity: 'info',
+      // Public status API may omit collision_affected_blocks; executive gate uses authenticated KV set match.
     });
   }
   check('uncontested_positions', observed.uncontested_positions);
