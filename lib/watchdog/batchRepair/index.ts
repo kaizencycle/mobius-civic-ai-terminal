@@ -10,3 +10,6 @@ export * from '@/lib/watchdog/batchRepair/versionedStaging';
 export * from '@/lib/watchdog/batchRepair/commitGuard';
 export * from '@/lib/watchdog/batchRepair/rollbackPlan';
 export * from '@/lib/watchdog/batchRepair/dryRunExecutor';
+export * from '@/lib/watchdog/batchRepair/semanticManifest';
+export * from '@/lib/watchdog/batchRepair/snapshotIdentity';
+export * from '@/lib/watchdog/batchRepair/executionWitness';

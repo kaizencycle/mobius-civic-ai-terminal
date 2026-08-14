@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import {
   buildBatchManifest,
   verifyManifestHash,
+  computeManifestHash,
   validateBatchManifest,
   executeBatchDryRun,
   demonstrateSingleReceiptCircularDependency,
@@ -29,8 +30,10 @@ import {
   TRACK_R_CONTESTED_POSITIONS,
   TRACK_R_HISTORICAL_CONFLICT_PAIRS,
   TRACK_R_QUARANTINED_CONFLICTING_SEALS,
+  TRACK_R_GOVERNANCE_DISPOSITION,
+  computeLineageSnapshotHash,
+  computeTelemetrySnapshotHash,
 } from '@/lib/watchdog/batchRepair';
-import { hashObject } from '@/lib/watchdog/batchRepair/stableHash';
 import type { CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 import type { Seal } from '@/lib/vault-v2/types';
 import { verifyKvSnapshotUnchanged, sealReceipt, verifyReceiptHash } from '@/lib/watchdog/reconciliationReceipt';
@@ -42,8 +45,19 @@ const CREATED_AT = '2026-08-14T00:00:00.000Z';
 
 function resealManifest(manifest: CollisionRepairBatchManifest): CollisionRepairBatchManifest {
   const { manifest_hash, ...body } = manifest;
-  return { ...manifest, manifest_hash: hashObject(body as unknown as Record<string, unknown>) };
+  return { ...manifest, manifest_hash: computeManifestHash(body) };
 }
+
+const COMMIT_GUARD_BASE = {
+  dry_run: false as const,
+  execution_feature_flag_enabled: true,
+  explicit_operator_command: true,
+  fresh_lineage_snapshot_hash_matches: true,
+  live_seal_witness_export_verified: true,
+  integrity_gate_active: true,
+  mutation_journal_available: true,
+  rollback_plan_verified: true,
+};
 
 function loadFixtures() {
   const witness = loadWitnessFromFile(WITNESS_PATH);
@@ -152,15 +166,9 @@ describe('batchCollisionRepair C-403', () => {
   it('12. missing ZEUS approval blocks commit', () => {
     const { manifest } = loadFixtures();
     const guard = assertBatchCommitAllowed({
+      ...COMMIT_GUARD_BASE,
       manifest,
-      dry_run: false,
-      execution_feature_flag_enabled: true,
-      explicit_operator_command: true,
       approved_manifest_hash: manifest.manifest_hash,
-      fresh_kv_snapshot_matches: true,
-      integrity_gate_active: true,
-      mutation_journal_available: true,
-      rollback_plan_verified: true,
     });
     assert.equal(guard.ok, false);
     assert.ok(guard.errors.some((e) => e.includes('ZEUS')));
@@ -171,15 +179,9 @@ describe('batchCollisionRepair C-403', () => {
     const approved = resealManifest(structuredClone(manifest));
     approved.zeus_verdict = 'approved';
     const guard = assertBatchCommitAllowed({
+      ...COMMIT_GUARD_BASE,
       manifest: approved,
-      dry_run: false,
-      execution_feature_flag_enabled: true,
-      explicit_operator_command: true,
       approved_manifest_hash: approved.manifest_hash,
-      fresh_kv_snapshot_matches: true,
-      integrity_gate_active: true,
-      mutation_journal_available: true,
-      rollback_plan_verified: true,
     });
     assert.equal(guard.ok, false);
     assert.ok(guard.errors.some((e) => e.includes('EVE')));
@@ -191,15 +193,9 @@ describe('batchCollisionRepair C-403', () => {
     approved.zeus_verdict = 'approved';
     approved.eve_verdict = 'approved';
     const guard = assertBatchCommitAllowed({
+      ...COMMIT_GUARD_BASE,
       manifest: approved,
-      dry_run: false,
-      execution_feature_flag_enabled: true,
-      explicit_operator_command: true,
       approved_manifest_hash: approved.manifest_hash,
-      fresh_kv_snapshot_matches: true,
-      integrity_gate_active: true,
-      mutation_journal_available: true,
-      rollback_plan_verified: true,
     });
     assert.equal(guard.ok, false);
     assert.ok(guard.errors.some((e) => e.includes('human')));
@@ -212,35 +208,24 @@ describe('batchCollisionRepair C-403', () => {
     approved.eve_verdict = 'approved';
     approved.human_approval = 'approved';
     const guard = assertBatchCommitAllowed({
+      ...COMMIT_GUARD_BASE,
       manifest: approved,
-      dry_run: false,
-      execution_feature_flag_enabled: true,
-      explicit_operator_command: true,
       approved_manifest_hash: '0'.repeat(64),
-      fresh_kv_snapshot_matches: true,
-      integrity_gate_active: true,
-      mutation_journal_available: true,
-      rollback_plan_verified: true,
     });
     assert.equal(guard.ok, false);
   });
 
-  it('15b. tampered manifest contents with stale hash blocks commit', () => {
+  it('15b. tampered semantic manifest contents with stale hash blocks commit', () => {
     const { manifest } = loadFixtures();
     const tampered = structuredClone(manifest);
+    tampered.canonical_assignments['1'] = 'seal-tampered';
     tampered.zeus_verdict = 'approved';
     tampered.eve_verdict = 'approved';
     tampered.human_approval = 'approved';
     const guard = assertBatchCommitAllowed({
+      ...COMMIT_GUARD_BASE,
       manifest: tampered,
-      dry_run: false,
-      execution_feature_flag_enabled: true,
-      explicit_operator_command: true,
       approved_manifest_hash: manifest.manifest_hash,
-      fresh_kv_snapshot_matches: true,
-      integrity_gate_active: true,
-      mutation_journal_available: true,
-      rollback_plan_verified: true,
     });
     assert.equal(guard.ok, false);
     assert.ok(guard.errors.some((e) => e.includes('tampered manifest contents')));
@@ -344,7 +329,7 @@ describe('batchCollisionRepair C-403', () => {
     const manifestKey = `watchdog:lineage:version:${TRACK_R_BATCH_REPAIR_ID}:manifest`;
     const raw = store.get(manifestKey)!;
     const tampered = JSON.parse(raw);
-    tampered.zeus_verdict = 'approved';
+    tampered.canonical_assignments['1'] = 'seal-tampered';
     store.set(manifestKey, JSON.stringify(tampered));
 
     const result = activateVersionPointer({
@@ -493,5 +478,100 @@ describe('batchCollisionRepair C-403', () => {
       result.manifest?.historical_hash_divergent_pairs,
       TRACK_R_HISTORICAL_CONFLICT_PAIRS,
     );
+  });
+
+  it('27. semantic manifest hash stable across different created_at timestamps', () => {
+    const { witness, table, seals } = loadFixtures();
+    const early = buildBatchManifest({
+      witness,
+      resolutionTable: table,
+      seals,
+      created_at: '2026-08-14T00:00:00.000Z',
+    });
+    const late = buildBatchManifest({
+      witness,
+      resolutionTable: table,
+      seals,
+      created_at: '2026-08-14T23:59:59.999Z',
+    });
+    assert.equal(early.manifest_hash, late.manifest_hash);
+    assert.notEqual(early.created_at, late.created_at);
+  });
+
+  it('28. attestation verdict changes do not alter semantic manifest hash', () => {
+    const { manifest } = loadFixtures();
+    const approved = resealManifest(structuredClone(manifest));
+    approved.zeus_verdict = 'approved';
+    approved.eve_verdict = 'approved';
+    approved.human_approval = 'approved';
+    assert.equal(approved.manifest_hash, manifest.manifest_hash);
+  });
+
+  it('29. governance disposition records 131-only promotion and verified_unattached 132-194', () => {
+    const { manifest } = loadFixtures();
+    assert.deepEqual(manifest.governance_disposition, TRACK_R_GOVERNANCE_DISPOSITION);
+    assert.equal(manifest.governance_disposition.preserved_unattached.status, 'verified_unattached');
+    assert.equal(manifest.governance_disposition.boundary_131_132_edge, 'not_fabricated');
+  });
+
+  it('30. missing live seal witness export blocks commit', () => {
+    const { manifest } = loadFixtures();
+    const approved = resealManifest(structuredClone(manifest));
+    approved.zeus_verdict = 'approved';
+    approved.eve_verdict = 'approved';
+    approved.human_approval = 'approved';
+    const guard = assertBatchCommitAllowed({
+      ...COMMIT_GUARD_BASE,
+      manifest: approved,
+      approved_manifest_hash: approved.manifest_hash,
+      live_seal_witness_export_verified: false,
+    });
+    assert.equal(guard.ok, false);
+    assert.ok(guard.errors.some((e) => e.includes('live seal witness export')));
+  });
+
+  it('31. lineage and telemetry snapshot hashes diverge when accumulator drifts', () => {
+    const capture_id = 'capture-test-001';
+    const lineageBase = {
+      capture_id,
+      cycle: 'C-403',
+      latest_attested_seal: 'seal-C-372-002',
+      attested_seal_index: 360,
+      projected_next_sequence: 361,
+      historical_collision_pairs: 125,
+      contested_block_positions: 123,
+      uncontested_positions: 71,
+      canonical_reserve_blocks: null,
+      integrity_gate_active: true,
+      reserve_block_lane: 'integrity_hold',
+      candidate_formation_blocked: true,
+      witness_audit_hash: 'abc',
+      resolution_table_hash: 'def',
+      active_lineage_version: null,
+      expected_canonical_pointer: 'seal-C-358-131',
+    };
+
+    const lineageA = computeLineageSnapshotHash(lineageBase);
+    const lineageB = computeLineageSnapshotHash(lineageBase);
+    assert.equal(lineageA, lineageB);
+
+    const telemetryA = computeTelemetrySnapshotHash({
+      capture_id,
+      unsealed_accumulator_mic: 2549.119301,
+      gi_current: 0.95,
+      health_status: 'ok',
+      kv_available: true,
+      latest_sealed_at: '2026-08-14T17:00:00.000Z',
+    });
+    const telemetryB = computeTelemetrySnapshotHash({
+      capture_id,
+      unsealed_accumulator_mic: 2549.713264,
+      gi_current: 0.95,
+      health_status: 'ok',
+      kv_available: true,
+      latest_sealed_at: '2026-08-14T17:00:00.000Z',
+    });
+    assert.notEqual(telemetryA, telemetryB);
+    assert.notEqual(lineageA, telemetryA);
   });
 });

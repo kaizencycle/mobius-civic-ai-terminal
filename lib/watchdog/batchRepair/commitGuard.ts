@@ -1,5 +1,5 @@
 import type { BatchCommitGuardInput } from '@/lib/watchdog/batchRepair/types';
-import { verifyManifestHash } from '@/lib/watchdog/batchRepair/buildBatchManifest';
+import { verifyManifestHash } from '@/lib/watchdog/batchRepair/semanticManifest';
 
 export const BATCH_EXECUTION_FEATURE_FLAG = 'TRACK_R_BATCH_EXECUTION_ENABLED';
 
@@ -41,8 +41,13 @@ export function assertBatchCommitAllowed(input: BatchCommitGuardInput): {
   if (input.manifest.human_approval !== 'approved') {
     errors.push('human approval must be approved');
   }
-  if (!input.fresh_kv_snapshot_matches) {
-    errors.push('fresh KV snapshot does not match manifest');
+  if (!input.fresh_lineage_snapshot_hash_matches) {
+    errors.push('fresh lineage snapshot hash does not match manifest attestation');
+  }
+  if (!input.live_seal_witness_export_verified) {
+    errors.push(
+      'authenticated live seal witness export required — per-record body equality, not collision count alone',
+    );
   }
   if (!input.integrity_gate_active) {
     errors.push('integrity gate must be active before batch commit');
