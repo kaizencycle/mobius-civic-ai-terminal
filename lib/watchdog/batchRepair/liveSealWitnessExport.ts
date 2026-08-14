@@ -3,6 +3,7 @@ import {
   type PrimarySealReadResult,
 } from '@/lib/vault-v2/store';
 import type { Seal } from '@/lib/vault-v2/types';
+import { computeSealHash, verifySealHash } from '@/lib/vault-v2/seal';
 import type { CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 import type { ExecutionWitnessRecordResult } from '@/lib/watchdog/batchRepair/executionWitnessHash';
 import {
@@ -25,7 +26,10 @@ export type LiveSealWitnessExportAttempt = {
   blocked_reason: LiveWitnessBlockedReason | null;
   export: LiveSealWitnessExport | null;
   comparison_results: ExecutionWitnessRecordResult[];
+  /** Blocking verification failures only — must not include informational dry-run notes. */
   verification_errors: string[];
+  /** Informational audit notes (e.g. dry-run manifest fixture pins) — never fail-closed alone. */
+  verification_notes: string[];
   expected_universe_count: number;
   export_source: string;
   primary_read_count: number;
@@ -70,7 +74,23 @@ export function resolveLiveWitnessBlockedReason(args: {
   return null;
 }
 
-function toLiveWitnessStatus(args: {
+function recomputePinnedWitnessHash(seal: Seal): string {
+  return computeSealHash({
+    seal_id: seal.seal_id,
+    sequence: seal.sequence,
+    cycle_at_seal: seal.cycle_at_seal,
+    sealed_at: seal.sealed_at,
+    reserve: seal.reserve,
+    gi_at_seal: seal.gi_at_seal,
+    mode_at_seal: seal.mode_at_seal,
+    source_entries: seal.source_entries,
+    deposit_hashes: seal.deposit_hashes,
+    prev_seal_hash: seal.prev_seal_hash,
+  });
+}
+
+/** Compare one live primary KV seal body against an independent canonical hash expectation. */
+export function compareLiveSealWitnessRecord(args: {
   seal_id: string;
   liveSeal: Seal | null | undefined;
   provenance: PrimarySealReadResult['provenance'];
@@ -82,7 +102,7 @@ function toLiveWitnessStatus(args: {
       status: 'UNEXPECTED',
       block_number: args.liveSeal?.sequence ?? null,
       live_kv_hash: args.liveSeal?.seal_hash ?? null,
-      pinned_witness_hash: args.liveSeal?.seal_hash ?? null,
+      pinned_witness_hash: args.liveSeal ? recomputePinnedWitnessHash(args.liveSeal) : null,
     };
   }
   if (args.provenance !== 'primary' || !args.liveSeal) {
@@ -94,32 +114,48 @@ function toLiveWitnessStatus(args: {
       pinned_witness_hash: null,
     };
   }
-  if (args.liveSeal.seal_hash.startsWith('fixture-hash-')) {
+
+  const live_kv_hash = args.liveSeal.seal_hash;
+  const pinned_witness_hash = recomputePinnedWitnessHash(args.liveSeal);
+
+  if (live_kv_hash.startsWith('fixture-hash-')) {
     return {
       seal_id: args.seal_id,
       status: 'MISMATCH',
       block_number: args.liveSeal.sequence,
-      live_kv_hash: args.liveSeal.seal_hash,
-      pinned_witness_hash: null,
+      live_kv_hash,
+      pinned_witness_hash,
     };
   }
+
   const blockMatch = args.liveSeal.sequence === extractBlockFromSealId(args.seal_id);
-  if (blockMatch && args.liveSeal.status === 'attested') {
+  const hashValid = verifySealHash(args.liveSeal);
+  if (hashValid && blockMatch && args.liveSeal.status === 'attested') {
     return {
       seal_id: args.seal_id,
       status: 'MATCH',
       block_number: args.liveSeal.sequence,
-      live_kv_hash: args.liveSeal.seal_hash,
-      pinned_witness_hash: args.liveSeal.seal_hash,
+      live_kv_hash,
+      pinned_witness_hash,
     };
   }
+
   return {
     seal_id: args.seal_id,
     status: 'MISMATCH',
     block_number: args.liveSeal.sequence,
-    live_kv_hash: args.liveSeal.seal_hash,
-    pinned_witness_hash: args.liveSeal.seal_hash,
+    live_kv_hash,
+    pinned_witness_hash,
   };
+}
+
+function toLiveWitnessStatus(args: {
+  seal_id: string;
+  liveSeal: Seal | null | undefined;
+  provenance: PrimarySealReadResult['provenance'];
+  expectedSet: Set<string>;
+}): ExecutionWitnessRecordResult {
+  return compareLiveSealWitnessRecord(args);
 }
 
 function extractBlockFromSealId(seal_id: string): number | null {
@@ -185,6 +221,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       export: null,
       comparison_results: [],
       verification_errors: ['authenticated KV credentials unavailable in environment'],
+      verification_notes: [],
       expected_universe_count: 0,
       export_source: PRIMARY_EXPORT_SOURCE,
       primary_read_count: 0,
@@ -205,6 +242,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       export: null,
       comparison_results: [],
       verification_errors: identity.errors,
+      verification_notes: [],
       expected_universe_count: 0,
       export_source: PRIMARY_EXPORT_SOURCE,
       primary_read_count: 0,
@@ -226,6 +264,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       export: null,
       comparison_results: [],
       verification_errors: resolved.errors,
+      verification_notes: [],
       expected_universe_count: 0,
       export_source: PRIMARY_EXPORT_SOURCE,
       primary_read_count: 0,
@@ -246,6 +285,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       export: null,
       comparison_results: [],
       verification_errors: batch.chunk_errors,
+      verification_notes: [],
       expected_universe_count: expectedSealIds.length,
       export_source: PRIMARY_EXPORT_SOURCE,
       primary_read_count: 0,
@@ -332,9 +372,10 @@ export async function exportAuthenticatedLiveSealWitness(args: {
   });
 
   const verification_errors = [...verification.errors];
+  const verification_notes: string[] = [];
   if (uses_fixture_pinned_hashes) {
-    verification_errors.push(
-      'dry-run manifest contains fixture-hash-* receipt pins — live witness uses primary KV bodies only',
+    verification_notes.push(
+      'dry-run manifest receipt original_hashes use fixture-hash-* pins; live witness compares primary KV seal_hash against canonical recomputation',
     );
   }
   if (fallback_read_count > 0) {
@@ -357,6 +398,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
     export: witnessExport,
     comparison_results,
     verification_errors,
+    verification_notes,
     expected_universe_count: expectedSealIds.length,
     export_source: PRIMARY_EXPORT_SOURCE,
     primary_read_count,

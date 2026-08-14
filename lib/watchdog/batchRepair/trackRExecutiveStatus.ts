@@ -22,6 +22,7 @@ export function filterExecutiveMaterialDrift(
     if (item.severity !== 'material') return false;
     if (
       item.field === 'contested_block_positions' &&
+      item.observed === null &&
       affectedBlockComparison.set_match === true
     ) {
       return false;
@@ -93,7 +94,7 @@ export function resolveTrackRExecutiveStatus(args: {
 
   if (
     args.liveWitnessAttempt.export &&
-    (!args.liveWitnessAttempt.ok || args.liveWitnessAttempt.verification_errors.length > 0)
+    !args.liveWitnessAttempt.ok
   ) {
     return 'BLOCKED_LIVE_WITNESS_INCOMPLETE';
   }

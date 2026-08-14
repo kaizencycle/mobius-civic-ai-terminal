@@ -15,6 +15,7 @@ import {
   assessGovernance131Cutoff,
   verifyLiveSealWitnessExport,
   collectTrackRWitnessSealIds,
+  compareLiveSealWitnessRecord,
   manifestUsesFixturePinnedHashes,
   resolveLiveWitnessBlockedReason,
   verifyProductionKvIdentityAgainstAnchors,
@@ -33,6 +34,8 @@ import {
 } from '@/lib/watchdog/batchRepair';
 import type { LiveSealWitnessExport } from '@/lib/watchdog/batchRepair/executionWitness';
 import type { CollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affected-blocks';
+import { computeSealHash } from '@/lib/vault-v2/seal';
+import type { Seal } from '@/lib/vault-v2/types';
 
 const FIXTURE_DIR = join(process.cwd(), 'docs/epicon/cycles/C-403/fixtures');
 const WITNESS_PATH = join(FIXTURE_DIR, 'C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json');
@@ -141,6 +144,7 @@ function liveWitnessUnavailable() {
     export: null,
     comparison_results: [],
     verification_errors: [],
+    verification_notes: [],
     expected_universe_count: 0,
     export_source: 'test',
     primary_read_count: 0,
@@ -269,6 +273,7 @@ describe('trackRFailClosed C-403', () => {
         },
         comparison_results: [],
         verification_errors: ['expected seal seal-C-332-001 must have status match, got missing'],
+        verification_notes: [],
         expected_universe_count: 248,
         export_source: 'lib/vault-v2/store.getSealsByIdsPrimaryOnly',
         primary_read_count: 0,
@@ -326,6 +331,7 @@ describe('trackRFailClosed C-403', () => {
           export: null,
           comparison_results: [],
           verification_errors: [],
+    verification_notes: [],
           expected_universe_count: 248,
           export_source: 'test',
           primary_read_count: 248,
@@ -380,6 +386,7 @@ describe('trackRFailClosed C-403', () => {
           export: null,
           comparison_results: [],
           verification_errors: ['mismatch on seal-C-332-001'],
+          verification_notes: [],
           expected_universe_count: 248,
           export_source: 'test',
           primary_read_count: 247,
@@ -438,6 +445,7 @@ describe('trackRFailClosed C-403', () => {
           export: null,
           comparison_results: [],
           verification_errors: [],
+    verification_notes: [],
           expected_universe_count: 248,
           export_source: 'test',
           primary_read_count: 248,
@@ -527,6 +535,102 @@ describe('trackRFailClosed C-403', () => {
     assert.deepEqual(filtered, []);
   });
 
+  it('filterExecutiveMaterialDrift retains incorrect public contested count drift', () => {
+    const comparison = affectedBlockComparisonPass();
+    const filtered = filterExecutiveMaterialDrift(
+      [
+        {
+          field: 'contested_block_positions',
+          expected: 123,
+          observed: 125,
+          severity: 'material',
+        },
+      ],
+      comparison,
+    );
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0]?.observed, 125);
+  });
+
+  it('live witness record uses canonical recomputation instead of tautological live hash pin', () => {
+    const canonicalFields = {
+      seal_id: 'seal-C-332-001',
+      sequence: 1,
+      cycle_at_seal: 'C-332',
+      sealed_at: '2026-06-01T00:00:00.000Z',
+      reserve: 50 as const,
+      gi_at_seal: 0.95,
+      mode_at_seal: 'green' as const,
+      source_entries: 1,
+      deposit_hashes: [] as string[],
+      prev_seal_hash: null,
+    };
+    const validSeal: Seal = {
+      ...canonicalFields,
+      seal_hash: computeSealHash(canonicalFields),
+      attestations: {},
+      status: 'attested',
+      fountain_status: 'pending',
+      fountain_emitted_at: null,
+      posture: null,
+    };
+
+    const match = compareLiveSealWitnessRecord({
+      seal_id: validSeal.seal_id,
+      liveSeal: validSeal,
+      provenance: 'primary',
+      expectedSet: new Set([validSeal.seal_id]),
+    });
+    assert.equal(match.status, 'MATCH');
+    assert.equal(match.live_kv_hash, validSeal.seal_hash);
+    assert.equal(match.pinned_witness_hash, computeSealHash(canonicalFields));
+
+    const tampered: Seal = { ...validSeal, seal_hash: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' };
+    const mismatch = compareLiveSealWitnessRecord({
+      seal_id: tampered.seal_id,
+      liveSeal: tampered,
+      provenance: 'primary',
+      expectedSet: new Set([tampered.seal_id]),
+    });
+    assert.equal(mismatch.status, 'MISMATCH');
+    assert.notEqual(mismatch.pinned_witness_hash, mismatch.live_kv_hash);
+  });
+
+  it('dry-run manifest fixture note is informational when live witness ok', () => {
+    const status = resolveTrackRExecutiveStatus(
+      executiveStatusArgs({
+        liveWitnessAttempt: {
+          ok: true,
+          blocked_reason: null,
+          export: {
+            schema_version: '1.0',
+            capture_id: 'c',
+            exported_at: CREATED_AT,
+            authenticated_read: true,
+            export_source: 'test',
+            expected_seal_ids: ['seal-C-332-001'],
+            records: [],
+            summary: { total: 248, match: 248, mismatch: 0, missing: 0, unexpected: 0 },
+            export_complete: true,
+          },
+          comparison_results: [],
+          verification_errors: [],
+          verification_notes: [
+            'dry-run manifest receipt original_hashes use fixture-hash-* pins; live witness compares primary KV seal_hash against canonical recomputation',
+          ],
+          expected_universe_count: 248,
+          export_source: 'test',
+          primary_read_count: 248,
+          fallback_read_count: 0,
+          uses_fixture_pinned_hashes: true,
+          kv_identity_ok: true,
+          live_seals: [],
+        },
+      }),
+    );
+    assert.equal(status, 'READY_FOR_ZEUS_EVE_REVIEW');
+  });
+
   it('public API contested_block_positions drift does not block when authenticated KV set matches', () => {
     const status = resolveTrackRExecutiveStatus(
       executiveStatusArgs({
@@ -557,6 +661,7 @@ describe('trackRFailClosed C-403', () => {
           },
           comparison_results: [],
           verification_errors: [],
+    verification_notes: [],
           expected_universe_count: 248,
           export_source: 'test',
           primary_read_count: 248,
