@@ -18,6 +18,7 @@ import {
   resolveLiveWitnessBlockedReason,
   verifyProductionKvIdentityAgainstAnchors,
   TRACK_R_PRODUCTION_KV_ANCHORS,
+  buildProductionKvIdentityReceipt,
   assessLiveBoundary4142,
   loadWitnessFromFile,
   loadResolutionTableFromFile,
@@ -71,6 +72,63 @@ function liveBoundaryPass() {
     evidence_source: 'authenticated_primary_kv' as const,
     canonical_block_41: 'x',
     canonical_block_42: 'y',
+  };
+}
+
+function confirmedKvIdentityReceipt() {
+  return buildProductionKvIdentityReceipt({
+    environment_label: 'test',
+    retrieved_at: CREATED_AT,
+    kv_identity: {
+      ok: true,
+      blocked_reason: null,
+      errors: [],
+      observed: {
+        latest_seal_id: TRACK_R_PRODUCTION_KV_ANCHORS.latest_seal_id,
+        latest_seal_hash: TRACK_R_PRODUCTION_KV_ANCHORS.latest_seal_hash,
+        attested_index_count: TRACK_R_PRODUCTION_KV_ANCHORS.attested_index_count,
+        audit_index_count: TRACK_R_PRODUCTION_KV_ANCHORS.audit_index_count,
+        probe_seal_found: true,
+        probe_seal_hash: TRACK_R_PRODUCTION_KV_ANCHORS.latest_seal_hash,
+      },
+    },
+  });
+}
+
+function mismatchKvIdentityReceipt() {
+  const check = verifyProductionKvIdentityAgainstAnchors({
+    anchors: TRACK_R_PRODUCTION_KV_ANCHORS,
+    observed: {
+      latest_seal_id: 'seal-C-000-000',
+      latest_seal_hash: 'deadbeef',
+      attested_index_count: 0,
+      audit_index_count: 0,
+      probe_seal_found: false,
+      probe_seal_hash: null,
+    },
+  });
+  return buildProductionKvIdentityReceipt({
+    environment_label: 'test',
+    retrieved_at: CREATED_AT,
+    kv_identity: check,
+  });
+}
+
+function executiveStatusArgs(
+  overrides: Partial<Parameters<typeof resolveTrackRExecutiveStatus>[0]> = {},
+) {
+  return {
+    credentialsConfigured: true,
+    kvIdentityReceipt: confirmedKvIdentityReceipt(),
+    fetchFailures: [],
+    dryRunOk: true,
+    materialDrift: [],
+    affectedBlockComparison: affectedBlockComparisonPass(),
+    liveWitnessAttempt: liveWitnessUnavailable(),
+    governance131: governance131Pass(),
+    liveBoundary4142: liveBoundaryPass(),
+    boundary131Metric: 'pending_track_r_step_8',
+    ...overrides,
   };
 }
 
@@ -162,7 +220,7 @@ describe('trackRFailClosed C-403', () => {
     assert.ok(result.errors.some((e) => e.includes('missing')));
   });
 
-  it('affected-block: set mismatch returns BLOCKED executive status', () => {
+  it('affected-block: set mismatch returns QUARANTINE executive status', () => {
     const pinned = PINNED_WITNESS.contested_block_numbers;
     const tampered = [...pinned.slice(0, pinned.length - 1), 999];
     const comparison = compareAffectedBlockSets({
@@ -173,28 +231,19 @@ describe('trackRFailClosed C-403', () => {
       collision_pair_count_live: 125,
     });
     assert.equal(comparison.set_match, false);
-    const status = resolveTrackRExecutiveStatus({
-      fetchFailures: [],
-      dryRunOk: true,
-      materialDrift: [],
-      affectedBlockComparison: comparison,
-      liveWitnessAttempt: liveWitnessUnavailable(),
-      governance131: governance131Pass(),
-      liveBoundary4142: liveBoundaryPass(),
-      boundary131Metric: 'pending_track_r_step_8',
-    });
-    assert.equal(status, 'BLOCKED');
+    const status = resolveTrackRExecutiveStatus(
+      executiveStatusArgs({ affectedBlockComparison: comparison }),
+    );
+    assert.equal(status, 'QUARANTINE_LIVE_COLLISION_UNIVERSE_DRIFT');
     assert.equal(resolveTrackRProcessExitCode(status), 1);
   });
 
   it('failed live witness verification returns BLOCKED not CLARIFY', () => {
     const comparison = affectedBlockComparisonPass();
-    const status = resolveTrackRExecutiveStatus({
-      fetchFailures: [],
-      dryRunOk: true,
-      materialDrift: [],
-      affectedBlockComparison: comparison,
-      liveWitnessAttempt: {
+    const status = resolveTrackRExecutiveStatus(
+      executiveStatusArgs({
+        affectedBlockComparison: comparison,
+        liveWitnessAttempt: {
         ok: false,
         blocked_reason: 'BLOCKED_LIVE_WITNESS_INCOMPLETE',
         export: {
@@ -226,17 +275,8 @@ describe('trackRFailClosed C-403', () => {
         kv_identity_ok: true,
         live_seals: [],
       },
-      governance131: governance131Pass(),
-      liveBoundary4142: {
-        ok: false,
-        status: 'absent',
-        errors: ['authenticated live seal bodies required for boundary 41->42 verification'],
-        evidence_source: 'absent',
-        canonical_block_41: 'x',
-        canonical_block_42: 'y',
-      },
-      boundary131Metric: 'pending_track_r_step_8',
-    });
+      }),
+    );
     assert.equal(status, 'BLOCKED_LIVE_WITNESS_INCOMPLETE');
     assert.equal(resolveTrackRProcessExitCode(status), 1);
   });
@@ -266,56 +306,43 @@ describe('trackRFailClosed C-403', () => {
     });
     assert.equal(check.ok, false);
     assert.equal(check.blocked_reason, 'BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH');
-    const status = resolveTrackRExecutiveStatus({
-      fetchFailures: [],
-      dryRunOk: true,
-      materialDrift: [],
-      affectedBlockComparison: affectedBlockComparisonPass(),
-      liveWitnessAttempt: {
-        ...liveWitnessUnavailable(),
-        blocked_reason: 'BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH',
-        verification_errors: check.errors,
-      },
-      governance131: governance131Pass(),
-      liveBoundary4142: liveBoundaryPass(),
-      boundary131Metric: 'pending_track_r_step_8',
-    });
+    const status = resolveTrackRExecutiveStatus(
+      executiveStatusArgs({
+        kvIdentityReceipt: mismatchKvIdentityReceipt(),
+      }),
+    );
     assert.equal(status, 'BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH');
     assert.equal(resolveTrackRProcessExitCode(status), 1);
   });
 
   it('live boundary absent fails closed even when witness otherwise ok', () => {
-    const status = resolveTrackRExecutiveStatus({
-      fetchFailures: [],
-      dryRunOk: true,
-      materialDrift: [],
-      affectedBlockComparison: affectedBlockComparisonPass(),
-      liveWitnessAttempt: {
-        ok: true,
-        blocked_reason: null,
-        export: null,
-        comparison_results: [],
-        verification_errors: [],
-        expected_universe_count: 248,
-        export_source: 'test',
-        primary_read_count: 248,
-        fallback_read_count: 0,
-        uses_fixture_pinned_hashes: false,
-        kv_identity_ok: true,
-        live_seals: [],
-      },
-      governance131: governance131Pass(),
-      liveBoundary4142: {
-        ok: false,
-        status: 'absent',
-        errors: ['authenticated live seal bodies required for boundary 41->42 verification'],
-        evidence_source: 'absent',
-        canonical_block_41: null,
-        canonical_block_42: null,
-      },
-      boundary131Metric: 'pending_track_r_step_8',
-    });
-    assert.equal(status, 'BLOCKED');
+    const status = resolveTrackRExecutiveStatus(
+      executiveStatusArgs({
+        liveWitnessAttempt: {
+          ok: true,
+          blocked_reason: null,
+          export: null,
+          comparison_results: [],
+          verification_errors: [],
+          expected_universe_count: 248,
+          export_source: 'test',
+          primary_read_count: 248,
+          fallback_read_count: 0,
+          uses_fixture_pinned_hashes: false,
+          kv_identity_ok: true,
+          live_seals: [],
+        },
+        liveBoundary4142: {
+          ok: false,
+          status: 'absent',
+          errors: ['authenticated live seal bodies required for boundary 41->42 verification'],
+          evidence_source: 'absent',
+          canonical_block_41: null,
+          canonical_block_42: null,
+        },
+      }),
+    );
+    assert.equal(status, 'QUARANTINE_BOUNDARY_41_42_FAILURE');
   });
 
   it('empty authenticated datastore fails KV identity check', () => {
@@ -343,30 +370,25 @@ describe('trackRFailClosed C-403', () => {
       verification_ok: false,
     });
     assert.equal(reason, 'BLOCKED_LIVE_WITNESS_MISMATCH');
-    const status = resolveTrackRExecutiveStatus({
-      fetchFailures: [],
-      dryRunOk: true,
-      materialDrift: [],
-      affectedBlockComparison: affectedBlockComparisonPass(),
-      liveWitnessAttempt: {
-        ok: false,
-        blocked_reason: reason,
-        export: null,
-        comparison_results: [],
-        verification_errors: ['mismatch on seal-C-332-001'],
-        expected_universe_count: 248,
-        export_source: 'test',
-        primary_read_count: 247,
-        fallback_read_count: 0,
-        uses_fixture_pinned_hashes: false,
-        kv_identity_ok: true,
-        live_seals: [],
-      },
-      governance131: governance131Pass(),
-      liveBoundary4142: liveBoundaryPass(),
-      boundary131Metric: 'pending_track_r_step_8',
-    });
-    assert.equal(status, 'BLOCKED_LIVE_WITNESS_MISMATCH');
+    const status = resolveTrackRExecutiveStatus(
+      executiveStatusArgs({
+        liveWitnessAttempt: {
+          ok: false,
+          blocked_reason: reason,
+          export: null,
+          comparison_results: [],
+          verification_errors: ['mismatch on seal-C-332-001'],
+          expected_universe_count: 248,
+          export_source: 'test',
+          primary_read_count: 247,
+          fallback_read_count: 0,
+          uses_fixture_pinned_hashes: false,
+          kv_identity_ok: true,
+          live_seals: [],
+        },
+      }),
+    );
+    assert.equal(status, 'QUARANTINE_LIVE_WITNESS_MISMATCH');
   });
 
   it('live affected-block source absent blocks executive status', () => {
@@ -377,17 +399,10 @@ describe('trackRFailClosed C-403', () => {
       capture_observed_at: CREATED_AT,
     });
     comparison.errors.push('watchdog KV affected-block snapshot missing');
-    const status = resolveTrackRExecutiveStatus({
-      fetchFailures: [],
-      dryRunOk: true,
-      materialDrift: [],
-      affectedBlockComparison: comparison,
-      liveWitnessAttempt: liveWitnessUnavailable(),
-      governance131: governance131Pass(),
-      liveBoundary4142: liveBoundaryPass(),
-      boundary131Metric: 'pending_track_r_step_8',
-    });
-    assert.equal(status, 'BLOCKED');
+    const status = resolveTrackRExecutiveStatus(
+      executiveStatusArgs({ affectedBlockComparison: comparison }),
+    );
+    assert.equal(status, 'BLOCKED_LIVE_AFFECTED_BLOCK_SET_UNAVAILABLE');
     assert.equal(resolveTrackRProcessExitCode(status), 1);
   });
 
@@ -413,30 +428,26 @@ describe('trackRFailClosed C-403', () => {
     });
     assert.equal(boundary.ok, false);
     assert.notEqual(boundary.status, 'pass');
-    const status = resolveTrackRExecutiveStatus({
-      fetchFailures: [],
-      dryRunOk: true,
-      materialDrift: [],
-      affectedBlockComparison: affectedBlockComparisonPass(),
-      liveWitnessAttempt: {
-        ok: true,
-        blocked_reason: null,
-        export: null,
-        comparison_results: [],
-        verification_errors: [],
-        expected_universe_count: 248,
-        export_source: 'test',
-        primary_read_count: 248,
-        fallback_read_count: 0,
-        uses_fixture_pinned_hashes: false,
-        kv_identity_ok: true,
-        live_seals: seals,
-      },
-      governance131: governance131Pass(),
-      liveBoundary4142: boundary,
-      boundary131Metric: 'pending_track_r_step_8',
-    });
-    assert.equal(status, 'BLOCKED');
+    const status = resolveTrackRExecutiveStatus(
+      executiveStatusArgs({
+        liveWitnessAttempt: {
+          ok: true,
+          blocked_reason: null,
+          export: null,
+          comparison_results: [],
+          verification_errors: [],
+          expected_universe_count: 248,
+          export_source: 'test',
+          primary_read_count: 248,
+          fallback_read_count: 0,
+          uses_fixture_pinned_hashes: false,
+          kv_identity_ok: true,
+          live_seals: seals,
+        },
+        liveBoundary4142: boundary,
+      }),
+    );
+    assert.equal(status, 'QUARANTINE_BOUNDARY_41_42_FAILURE');
   });
 
   it('live boundary 41->42 passes without canonical assignment on clean block 41', () => {
@@ -482,10 +493,62 @@ describe('trackRFailClosed C-403', () => {
     assert.equal(comparison.set_match, true);
   });
 
-  it('process exit: new BLOCKED_* executive statuses return non-zero', () => {
+  it('process exit: new BLOCKED_* and QUARANTINE_* executive statuses return non-zero', () => {
     assert.equal(resolveTrackRProcessExitCode('BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH'), 1);
+    assert.equal(resolveTrackRProcessExitCode('BLOCKED_PRODUCTION_KV_CREDENTIALS_NOT_CONFIGURED'), 1);
+    assert.equal(resolveTrackRProcessExitCode('BLOCKED_LIVE_AFFECTED_BLOCK_SET_UNAVAILABLE'), 1);
     assert.equal(resolveTrackRProcessExitCode('BLOCKED_LIVE_WITNESS_INCOMPLETE'), 1);
-    assert.equal(resolveTrackRProcessExitCode('BLOCKED_LIVE_WITNESS_MISMATCH'), 1);
+    assert.equal(resolveTrackRProcessExitCode('QUARANTINE_LIVE_COLLISION_UNIVERSE_DRIFT'), 1);
+    assert.equal(resolveTrackRProcessExitCode('QUARANTINE_LIVE_WITNESS_MISMATCH'), 1);
+    assert.equal(resolveTrackRProcessExitCode('QUARANTINE_BOUNDARY_41_42_FAILURE'), 1);
+  });
+
+  it('missing credentials return BLOCKED_PRODUCTION_KV_CREDENTIALS_NOT_CONFIGURED', () => {
+    const status = resolveTrackRExecutiveStatus(
+      executiveStatusArgs({
+        credentialsConfigured: false,
+        kvIdentityReceipt: null,
+      }),
+    );
+    assert.equal(status, 'BLOCKED_PRODUCTION_KV_CREDENTIALS_NOT_CONFIGURED');
+  });
+
+  it('production KV identity receipt hash is stable for identical anchors', () => {
+    const receiptA = confirmedKvIdentityReceipt();
+    const receiptB = confirmedKvIdentityReceipt();
+    assert.equal(receiptA.identity_hash, receiptB.identity_hash);
+    assert.equal(receiptA.identity_status, 'PRODUCTION_KV_IDENTITY_CONFIRMED');
+    assert.ok(receiptA.identity_hash.length === 64);
+  });
+
+  it('execution witness hash payload binds production KV identity receipt hash', () => {
+    const payload = buildExecutionWitnessHashPayload({
+      schema_version: '1.0',
+      semantic_manifest_hash: 'm',
+      source_audit_hash: 's',
+      lineage_snapshot_hash: 'l',
+      expected_seal_ids: ['seal-a'],
+      per_record_results: [
+        {
+          seal_id: 'seal-a',
+          status: 'MATCH',
+          block_number: 1,
+          live_kv_hash: 'h',
+          pinned_witness_hash: 'h',
+        },
+      ],
+      live_affected_block_numbers: [1],
+      pinned_affected_block_numbers: [1],
+      export_source: 'test',
+      environment_identifier: 'env',
+      production_kv_identity_receipt_hash: confirmedKvIdentityReceipt().identity_hash,
+      active_lineage_version: null,
+      live_canonical_pointer: null,
+    });
+    assert.equal(
+      payload.production_kv_identity_receipt_hash,
+      confirmedKvIdentityReceipt().identity_hash,
+    );
   });
 
   it('dry-run manifest fixture hashes are detected (informational)', () => {
@@ -664,6 +727,7 @@ describe('trackRFailClosed C-403', () => {
       pinned_affected_block_numbers: PINNED_WITNESS.contested_block_numbers,
       export_source: 'test-kv',
       environment_identifier: 'test-env',
+      production_kv_identity_receipt_hash: confirmedKvIdentityReceipt().identity_hash,
       active_lineage_version: null,
       live_canonical_pointer: null,
     };
@@ -794,6 +858,7 @@ describe('trackRFailClosed C-403', () => {
       pinned_affected_block_numbers: [1],
       export_source: 'test',
       environment_identifier: 'env',
+      production_kv_identity_receipt_hash: null,
       active_lineage_version: null,
       live_canonical_pointer: null,
     });

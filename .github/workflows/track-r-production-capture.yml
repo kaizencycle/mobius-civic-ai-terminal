@@ -1,8 +1,8 @@
-# C-403 — Gated Track R production capture (Option A + B bootstrap)
+# C-403 — ATLAS × ZEUS production KV witness capture (read-only)
 #
 # Manual workflow_dispatch only. Requires production Upstash secrets.
-# Publishes primary-only affected-block snapshot, verifies KV identity anchors,
-# then runs the Track R evidence package. Fails closed on identity mismatch.
+# Proves production KV identity, derives live collision set, exports witness
+# universe, and emits fail-closed attestation packet. Production writes: FORBIDDEN.
 #
 # Required secrets:
 #   KV_REST_API_URL, KV_REST_API_TOKEN
@@ -15,10 +15,6 @@ name: Track R Production Capture
 on:
   workflow_dispatch:
     inputs:
-      skip_write_affected_blocks:
-        description: Skip publishing affected-block snapshot before capture
-        type: boolean
-        default: false
       base_url:
         description: Production base URL for public API baseline
         type: string
@@ -66,25 +62,22 @@ jobs:
             exit 1
           fi
 
-      - name: Run gated production capture
+      - name: Run read-only production witness capture
         env:
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          TRACK_R_CAPTURE_MODE: production_witness_read_only
         run: |
           set -euo pipefail
           export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           export KV_REST_API_TOKEN="$(printf '%s' "$KV_REST_API_TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-          args=(--base-url "${{ inputs.base_url }}")
-          if [ "${{ inputs.skip_write_affected_blocks }}" = "true" ]; then
-            args+=(--skip-write-affected-blocks)
-          fi
-          pnpm track-r:production-capture "${args[@]}"
+          pnpm track-r:production-capture --base-url "${{ inputs.base_url }}"
 
       - name: Summarize capture
         if: always()
         run: |
           {
-            echo "## Track R Production Capture"
+            echo "## Track R Production Capture (read-only)"
             echo ""
             if [ -f artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_DRY_RUN_PACKAGE.json ]; then
               python3 - <<'PY'
@@ -93,9 +86,14 @@ jobs:
           p = Path("artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_DRY_RUN_PACKAGE.json")
           d = json.loads(p.read_text())
           print(f"- **capture_id:** `{d.get('capture_id')}`")
+          print(f"- **capture_mode:** `{d.get('capture_mode')}`")
           print(f"- **executive_status:** `{d.get('executive_status')}`")
           print(f"- **process_exit_code:** `{d.get('process_exit_code')}`")
           print(f"- **execution_authorized:** `{d.get('execution_authorized')}`")
+          print(f"- **production_mutation_performed:** `{d.get('production_mutation_performed')}`")
+          receipt = d.get("kv_identity_receipt") or {}
+          print(f"- kv_identity_status: `{receipt.get('identity_status')}`")
+          print(f"- kv_identity_hash: `{receipt.get('identity_hash')}`")
           hashes = d.get("attestation_hashes") or {}
           print(f"- semantic_manifest_hash: `{hashes.get('semantic_manifest_hash')}`")
           print(f"- execution_witness_hash: `{hashes.get('execution_witness_hash')}`")
