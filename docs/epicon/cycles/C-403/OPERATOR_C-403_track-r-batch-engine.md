@@ -84,10 +84,12 @@ Post-repair metrics semantics (historical count **remains** 125):
 
 ```bash
 pnpm exec tsx tests/contract/batchCollisionRepair.test.ts
+pnpm exec tsx tests/contract/trackRFailClosed.test.ts
+pnpm exec tsx tests/contract/collisionAffectedBlockPersist.test.ts
 pnpm test
 ```
 
-28 contract tests cover receipt generation, quarantine, validation, commit guard, dry-run idempotency, boundaries, and rollback.
+Contract tests cover receipt generation, quarantine, validation, commit guard, dry-run idempotency, boundaries, rollback, fail-closed executive status, and production KV identity receipt.
 
 ---
 
@@ -110,29 +112,58 @@ Before any future production commit, all must pass:
 
 ---
 
-## Phase 4b — Production evidence capture (post PR #655)
+## Phase 4b — Production evidence capture (post PR #656, read-only)
 
-**Option B (automatic):** `kv-watchdog` cron refreshes `mobius:watchdog:collision:affected-blocks` from primary Upstash every 10 minutes when KV is healthy. `/api/vault/status` reads the snapshot via primary-only loader.
+**Option B (automatic observability):** `kv-watchdog` cron refreshes `watchdog:collision:affected-blocks` from primary Upstash every 10 minutes when KV is healthy (including cleared/empty snapshots when collisions resolve). `/api/vault/status` reads the snapshot via primary-only loader.
 
-**Option A (gated operator / GHA):**
+**Option A (gated operator / GHA — read-only witness capture):**
 
 ```bash
-# Local — requires production KV_REST_API_* in .env.local
+# Local — production KV_REST_API_* in .env.local (never commit)
 pnpm track-r:production-capture
 
-# GitHub Actions — workflow_dispatch
-# .github/workflows/track-r-production-capture.yml
+# GitHub Actions — workflow_dispatch (recommended)
+# Actions → Track R Production Capture → Run workflow
+# Requires repo secrets: KV_REST_API_URL, KV_REST_API_TOKEN
 ```
 
-Steps performed:
+Handoff: `docs/epicon/cycles/C-403/HANDOFF_C-403_PRODUCTION_KV_WITNESS_CAPTURE.md`
 
-1. Verify `TRACK_R_PRODUCTION_KV_ANCHORS` against connected primary KV
-2. Publish affected-block snapshot to primary KV (skip with `--skip-write-affected-blocks`)
-3. Run `track-r:live-dry-run-package` with authenticated primary reads
+Capture performs **zero production KV writes**. Steps:
 
-Success target: `executive_status: READY_FOR_ZEUS_EVE_REVIEW`, non-null `execution_witness_hash`, exit 0.
+1. Prove production KV identity (`TRACK_R_KV_IDENTITY_RECEIPT.json`)
+2. Load authoritative live affected-block set (watchdog snapshot → primary derivation)
+3. Export complete expected seal universe from primary KV
+4. Verify live boundary 41→42 and preserve 131 cutoff
+5. Emit four-object attestation packet (execution witness hash binds identity receipt)
+
+Success target:
+
+- `executive_status: READY_FOR_ZEUS_EVE_REVIEW`
+- `execution_witness_hash` non-null
+- `affected_block_comparison.set_match: true`
+- witness export: matched = expected universe, mismatched/missing/unexpected = 0
+- process exit 0
 
 Until then: **NOT AUTHORIZED** — do not enable execution flags.
+
+---
+
+## Phase 4c — Attestation PR (after READY only)
+
+Only when Phase 4b returns `READY_FOR_ZEUS_EVE_REVIEW`:
+
+1. Download GHA artifact `track-r-production-capture` (30-day retention).
+2. Open a **draft attestation PR** containing:
+   - `TRACK_R_KV_IDENTITY_RECEIPT.json`
+   - `TRACK_R_AFFECTED_BLOCK_COMPARISON.json`
+   - `TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json`
+   - `TRACK_R_LIVE_DRY_RUN_PACKAGE.json`
+   - Updated unsigned `ZEUS_ATTESTATION_TEMPLATE.md`, `EVE_ATTESTATION_TEMPLATE.md`, `HUMAN_EXECUTION_CHECKLIST.md`
+3. Route to ZEUS × EVE adjudication (`HANDOFF_C-403_ZEUS_EVE_track-r-batch-engine_v1.md`).
+4. Require explicit human consent checklist completion.
+
+Still **NOT AUTHORIZED** for Track R mutation until a separate one-shot execution handoff after ZEUS ADOPT + EVE ADOPT + human approval.
 
 ---
 
