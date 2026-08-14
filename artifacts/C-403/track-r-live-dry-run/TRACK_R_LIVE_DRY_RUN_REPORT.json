@@ -355,7 +355,7 @@
     "previous_active_version": null,
     "restore": {
       "active_lineage_version": null,
-      "latest_pointer": null,
+      "latest_pointer": "seal-C-372-002",
       "canonical_map_selection": "prior_active_version",
       "quarantine_view": "prior_active_version"
     },

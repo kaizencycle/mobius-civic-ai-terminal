@@ -1,4 +1,6 @@
 import type { SealCollisionResolutionReceipt } from '@/lib/watchdog/reconciliationReceipt';
+import type { LiveSealWitnessExport } from '@/lib/watchdog/batchRepair/executionWitness';
+import type { C397Witness } from '@/lib/watchdog/batchRepair/witnessResolution';
 
 export const BATCH_MANIFEST_SCHEMA_VERSION = '1.0' as const;
 
@@ -16,6 +18,18 @@ export const TRACK_R_CLEAN_POSITION_COUNT = 71 as const;
 export type BatchVerdict = 'pending' | 'approved' | 'challenged' | 'rejected';
 
 export type BoundaryExpectation = 'must_pass' | 'pending_track_r_step_8';
+
+export type TrackRGovernanceDisposition = {
+  promoted_canonical_through_position: 131;
+  proposed_latest_canonical_seal_id: string;
+  preserved_unattached: {
+    from_position: 132;
+    to_position: 194;
+    status: 'verified_unattached';
+  };
+  boundary_131_132_edge: 'not_fabricated';
+  requires_post_repair_audit_before_attach: true;
+};
 
 export type CollisionRepairBatchManifest = {
   schema_version: typeof BATCH_MANIFEST_SCHEMA_VERSION;
@@ -37,10 +51,12 @@ export type CollisionRepairBatchManifest = {
     '41->42': BoundaryExpectation;
     '131->132': BoundaryExpectation;
   };
+  governance_disposition: TrackRGovernanceDisposition;
   production_execution_enabled: false;
   zeus_verdict: BatchVerdict;
   eve_verdict: BatchVerdict;
   human_approval: BatchVerdict;
+  /** Receipt capture timestamp — excluded from manifest_hash (semantic payload only). */
   created_at: string;
   manifest_hash: string;
 };
@@ -102,7 +118,15 @@ export type BatchCommitGuardInput = {
   execution_feature_flag_enabled: boolean;
   explicit_operator_command: boolean;
   approved_manifest_hash?: string;
-  fresh_kv_snapshot_matches: boolean;
+  /** Lineage-only CAS gate — accumulator/GI drift must not block execution. */
+  fresh_lineage_snapshot_hash_matches: boolean;
+  /** Informational telemetry drift — logged but not a commit blocker. */
+  telemetry_snapshot_hash?: string | null;
+  live_seal_witness_export?: LiveSealWitnessExport | null;
+  /** Pinned witness used to derive authoritative seal universe — must match manifest source_audit_hash. */
+  pinned_witness?: C397Witness;
+  /** Optional override when witness already resolved; commit guard requires one of pinned_witness or this. */
+  required_witness_seal_ids?: readonly string[];
   integrity_gate_active: boolean;
   mutation_journal_available: boolean;
   rollback_plan_verified: boolean;

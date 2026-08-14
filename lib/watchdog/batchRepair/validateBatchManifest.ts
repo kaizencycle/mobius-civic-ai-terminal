@@ -8,7 +8,7 @@ import {
   TRACK_R_TOTAL_BLOCK_POSITIONS,
   type CollisionRepairBatchManifest,
 } from '@/lib/watchdog/batchRepair/types';
-import { verifyManifestHash } from '@/lib/watchdog/batchRepair/buildBatchManifest';
+import { verifyManifestHash } from '@/lib/watchdog/batchRepair/semanticManifest';
 import type { CollisionResolutionTable } from '@/lib/watchdog/batchRepair/witnessResolution';
 
 export type BatchValidationMode = 'dry_run' | 'commit';
@@ -117,6 +117,28 @@ export function validateBatchManifest(args: {
 
   if (manifest.boundary_expectations['131->132'] !== 'pending_track_r_step_8') {
     errors.push('boundary 131->132 must remain pending_track_r_step_8');
+  }
+
+  const disposition = manifest.governance_disposition;
+  if (disposition.promoted_canonical_through_position !== 131) {
+    errors.push('governance_disposition must promote canonical through position 131 only');
+  }
+  if (disposition.boundary_131_132_edge !== 'not_fabricated') {
+    errors.push('governance_disposition must not fabricate 131->132 edge');
+  }
+  if (disposition.preserved_unattached.status !== 'verified_unattached') {
+    errors.push('positions 132-194 must be marked verified_unattached');
+  }
+  if (
+    disposition.preserved_unattached.from_position !== 132 ||
+    disposition.preserved_unattached.to_position !== 194
+  ) {
+    errors.push('governance_disposition preserved_unattached range must be 132-194');
+  }
+  if (
+    manifest.canonical_assignments['131'] !== disposition.proposed_latest_canonical_seal_id
+  ) {
+    errors.push('proposed_latest_canonical_seal_id must match block 131 canonical assignment');
   }
 
   if (mode === 'commit') {

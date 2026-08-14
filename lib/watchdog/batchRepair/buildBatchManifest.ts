@@ -5,7 +5,7 @@ import {
   sealReceipt,
   type SealCollisionResolutionReceipt,
 } from '@/lib/watchdog/reconciliationReceipt';
-import { hashObject } from '@/lib/watchdog/batchRepair/stableHash';
+import { computeManifestHash } from '@/lib/watchdog/batchRepair/semanticManifest';
 import {
   TRACK_R_BATCH_CYCLE,
   TRACK_R_BATCH_REPAIR_ID,
@@ -17,6 +17,7 @@ import {
   TRACK_R_STRATEGY,
   TRACK_R_TOTAL_BLOCK_POSITIONS,
   type CollisionRepairBatchManifest,
+  type TrackRGovernanceDisposition,
 } from '@/lib/watchdog/batchRepair/types';
 import {
   collectQuarantinedSealIds,
@@ -27,6 +28,18 @@ import {
   type C397Witness,
   type CollisionResolutionTable,
 } from '@/lib/watchdog/batchRepair/witnessResolution';
+
+export const TRACK_R_GOVERNANCE_DISPOSITION: TrackRGovernanceDisposition = {
+  promoted_canonical_through_position: 131,
+  proposed_latest_canonical_seal_id: 'seal-C-358-131',
+  preserved_unattached: {
+    from_position: 132,
+    to_position: 194,
+    status: 'verified_unattached',
+  },
+  boundary_131_132_edge: 'not_fabricated',
+  requires_post_repair_audit_before_attach: true,
+};
 
 export function buildReceiptForContestedBlock(args: {
   witness: C397Witness;
@@ -80,6 +93,7 @@ export function buildBatchManifest(args: {
   repair_id?: string;
   cycle?: string;
   created_at?: string;
+  governance_disposition?: TrackRGovernanceDisposition;
 }): CollisionRepairBatchManifest {
   const cycle = args.cycle ?? TRACK_R_BATCH_CYCLE;
   const repair_id = args.repair_id ?? TRACK_R_BATCH_REPAIR_ID;
@@ -130,6 +144,7 @@ export function buildBatchManifest(args: {
       '41->42': 'must_pass',
       '131->132': 'pending_track_r_step_8',
     },
+    governance_disposition: args.governance_disposition ?? TRACK_R_GOVERNANCE_DISPOSITION,
     production_execution_enabled: false,
     zeus_verdict: 'pending',
     eve_verdict: 'pending',
@@ -137,11 +152,8 @@ export function buildBatchManifest(args: {
     created_at,
   };
 
-  const manifest_hash = hashObject(body as unknown as Record<string, unknown>);
+  const manifest_hash = computeManifestHash(body);
   return { ...body, manifest_hash };
 }
 
-export function verifyManifestHash(manifest: CollisionRepairBatchManifest): boolean {
-  const { manifest_hash, ...body } = manifest;
-  return hashObject(body as unknown as Record<string, unknown>) === manifest_hash;
-}
+export { verifyManifestHash } from '@/lib/watchdog/batchRepair/semanticManifest';
