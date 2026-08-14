@@ -1,8 +1,8 @@
 # Track R Live Dry-Run Report (C-403)
 
-**Capture ID:** `track-r-c403-2026-08-14T1725Z`  
-**Captured:** 2026-08-14T17:25:52.814Z  
-**Executive status:** **CLARIFY**  
+**Capture ID:** `track-r-c403-2026-08-14T1835Z`  
+**Captured:** 2026-08-14T18:35:09.139Z  
+**Executive status:** **BLOCKED**  
 **Execution authorized:** **NOT AUTHORIZED**  
 **Production mutation:** **NONE**
 
@@ -10,7 +10,9 @@
 
 ## 1. Summary
 
-Single capture (`track-r-c403-2026-08-14T1725Z`). Dry-run only. **Semantic manifest hash** excludes volatile telemetry. Snapshot split: **lineage** (CAS gate) vs **telemetry** (informational). Positions 132–194 are **verified_unattached** — no fabricated 131→132 edge.
+Single capture (`track-r-c403-2026-08-14T1835Z`). Dry-run only. **Semantic manifest hash** excludes volatile telemetry. Snapshot split: **lineage** (CAS gate) vs **telemetry** (informational). Positions 132–194 are **verified_unattached** — no fabricated 131→132 edge.
+
+Fail-closed corrections (post PR #654): process exit code matches executive status; affected-block set compared exactly (not collision count alone); authenticated live witness export attempted when credentials available.
 
 ---
 
@@ -18,18 +20,156 @@ Single capture (`track-r-c403-2026-08-14T1725Z`). Dry-run only. **Semantic manif
 
 | Field | Observed |
 |---|---|
-| Capture ID | `track-r-c403-2026-08-14T1725Z` |
-| Lineage snapshot hash | `14c4af426af7d660f77a144ba4edbfc9285fa1bc2219bb08561a7c0b04e25dfb` |
-| Telemetry snapshot hash | `605edbb303db3ecf2614b4e6f757ac1ce09ce57a053fb4be702365f00be5d1d8` |
-| Unsealed accumulator | ~2550.836233 MIC |
+| Capture ID | `track-r-c403-2026-08-14T1835Z` |
+| Lineage snapshot hash | `486c9be868d2b89a54e1d3cef39501be2f842f39d819196ea26174fcbf16b115` |
+| Telemetry snapshot hash | `c07e7874b85a16afb14097ed37e0a72d6367d6457ac5020b56966d909b468ff0` |
+| Execution witness hash | `n/a` |
+| Unsealed accumulator | ~2555.447427 MIC |
 | Collision pairs | 125 |
+| Affected block set match | false |
 | Integrity gate | active |
 
 ### Drift vs handoff
 
-_No drift._
+- **contested_block_positions**: material
+- **unsealed_accumulator_mic_approx**: info
 
 Accumulator drift is **telemetry only** — must not block lineage CAS.
+
+### Affected-block set comparison
+
+```json
+{
+  "set_match": false,
+  "missing_from_live": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128,
+    129,
+    130,
+    131
+  ],
+  "unexpected_in_live": [],
+  "duplicate_live_positions": []
+}
+```
 
 ---
 
@@ -47,7 +187,15 @@ Accumulator drift is **telemetry only** — must not block lineage CAS.
 
 ## 4. Execution witness
 
-Authenticated live KV seal body export: **NOT PERFORMED**. See `docs/epicon/cycles/C-403/TRACK_R_EXECUTION_WITNESS_REQUIREMENTS.md`.
+| Field | Value |
+|---|---|
+| Authenticated read | true |
+| Export complete | false |
+| Expected universe | 248 |
+| Blocked reason | none |
+| Summary | {"total":248,"match":0,"mismatch":0,"missing":248,"unexpected":0} |
+
+See `artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json`.
 
 ---
 

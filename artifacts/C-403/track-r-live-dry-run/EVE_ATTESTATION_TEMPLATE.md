@@ -1,8 +1,9 @@
 # EVE Attestation Template — Track R Batch (UNSIGNED)
 
-**Capture ID:** `track-r-c403-2026-08-14T1725Z`  
+**Capture ID:** `track-r-c403-2026-08-14T1835Z`  
 **Semantic manifest hash:** `27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa`  
-**Lineage snapshot hash:** `14c4af426af7d660f77a144ba4edbfc9285fa1bc2219bb08561a7c0b04e25dfb`  
+**Lineage snapshot hash:** `486c9be868d2b89a54e1d3cef39501be2f842f39d819196ea26174fcbf16b115`  
+**Execution witness hash:** `TBD`  
 **Rollback manifest hash:** `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d`
 
 ## Constitutional scope checklist
@@ -12,7 +13,8 @@
 - [ ] No fabricated continuity at 131→132 boundary
 - [ ] Historical evidence not erased (125 pairs auditable)
 - [ ] Manifest semantic hash stable across capture timestamps
-- [ ] Same semantic manifest hash as ZEUS attestation
+- [ ] Same four-hash packet as ZEUS attestation
+- [ ] Authenticated live witness binds repair to production KV (zero mismatch/missing)
 
 ## Verdict (do not pre-fill)
 
