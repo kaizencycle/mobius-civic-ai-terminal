@@ -40,8 +40,8 @@ export async function loadCollisionAffectedBlockSnapshotPrimaryOnly(): Promise<C
 
 export async function saveCollisionAffectedBlockSnapshot(
   snapshot: CollisionAffectedBlockSnapshot,
-): Promise<void> {
-  await kvSet(COLLISION_AFFECTED_BLOCKS_KEY, snapshot);
+): Promise<boolean> {
+  return kvSet(COLLISION_AFFECTED_BLOCKS_KEY, snapshot);
 }
 
 export type RefreshCollisionAffectedBlockSnapshotResult = {
@@ -92,16 +92,16 @@ export async function refreshCollisionAffectedBlockSnapshotFromPrimaryKv(args?: 
     audited_at: args?.audited_at,
   });
 
-  if (snapshot.affected_block_numbers.length === 0) {
+  const written = await saveCollisionAffectedBlockSnapshot(snapshot);
+  if (!written) {
     return {
       written: false,
       snapshot: null,
-      errors: ['primary KV derivation produced empty affected_block_numbers'],
+      errors: ['failed to persist affected-block snapshot to primary KV'],
       seal_count: loaded.seals.length,
     };
   }
 
-  await saveCollisionAffectedBlockSnapshot(snapshot);
   return {
     written: true,
     snapshot,

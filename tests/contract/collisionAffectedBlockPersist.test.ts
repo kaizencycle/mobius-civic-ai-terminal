@@ -9,6 +9,7 @@ import {
   buildFixtureSealsFromWitness,
   loadResolutionTableFromFile,
   loadWitnessFromFile,
+  shouldPreferWatchdogAffectedBlockSnapshot,
 } from '@/lib/watchdog/batchRepair';
 
 const FIXTURE_DIR = join(process.cwd(), 'docs/epicon/cycles/C-403/fixtures');
@@ -43,5 +44,43 @@ describe('collisionAffectedBlockPersist C-403', () => {
 
     assert.ok(snapshot.three_way_blocks.includes(1));
     assert.ok(snapshot.three_way_blocks.includes(2));
+  });
+
+  it('shouldPreferWatchdogAffectedBlockSnapshot rejects stale non-empty cache when derived is empty', () => {
+    const witness = loadWitnessFromFile(WITNESS_PATH);
+    const table = loadResolutionTableFromFile(TABLE_PATH);
+    const seals = buildFixtureSealsFromWitness(witness, table);
+    const stored = buildAffectedBlockSnapshotFromSeals({
+      seals,
+      operator_cycle: 'C-403',
+      audited_at: '2026-08-14T12:00:00.000Z',
+    });
+    const derivedEmpty = buildAffectedBlockSnapshotFromSeals({
+      seals: seals.filter((s) => s.status !== 'attested'),
+      operator_cycle: 'C-403',
+      audited_at: '2026-08-14T13:00:00.000Z',
+    });
+
+    assert.equal(stored.affected_block_numbers.length > 0, true);
+    assert.equal(derivedEmpty.affected_block_numbers.length, 0);
+    assert.equal(
+      shouldPreferWatchdogAffectedBlockSnapshot({ stored, derived: derivedEmpty }),
+      false,
+    );
+  });
+
+  it('buildAffectedBlockSnapshotFromSeals persists cleared snapshot shape when no collisions', () => {
+    const witness = loadWitnessFromFile(WITNESS_PATH);
+    const table = loadResolutionTableFromFile(TABLE_PATH);
+    const seals = buildFixtureSealsFromWitness(witness, table).filter((s) => s.status !== 'attested');
+    const cleared = buildAffectedBlockSnapshotFromSeals({
+      seals,
+      operator_cycle: 'C-403',
+      audited_at: '2026-08-14T13:00:00.000Z',
+    });
+
+    assert.deepEqual(cleared.affected_block_numbers, []);
+    assert.equal(cleared.hash_divergent_pair_count, 0);
+    assert.equal(cleared.schema_version, '1.0');
   });
 });

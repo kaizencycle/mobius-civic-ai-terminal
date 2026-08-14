@@ -21,6 +21,16 @@ export type LiveAffectedBlockEvidence = {
 const WATCHDOG_KV_SOURCE = 'kv:primary:mobius:watchdog:collision:affected-blocks';
 const PRIMARY_KV_DERIVED_SOURCE = 'kv:primary-vault-v2:derived-collision-affected-blocks';
 
+/** Non-empty watchdog snapshots are stale when primary derivation is now empty (post-clearance). */
+export function shouldPreferWatchdogAffectedBlockSnapshot(args: {
+  stored: CollisionAffectedBlockSnapshot | null;
+  derived: CollisionAffectedBlockSnapshot;
+}): boolean {
+  if (!args.stored || args.stored.affected_block_numbers.length === 0) return false;
+  if (args.derived.affected_block_numbers.length === 0) return false;
+  return true;
+}
+
 /** Load live contested-block set from production KV — never from pinned Track R fixture. */
 export async function loadAuthoritativeLiveAffectedBlockEvidence(args: {
   capture_observed_at: string;
@@ -39,24 +49,17 @@ export async function loadAuthoritativeLiveAffectedBlockEvidence(args: {
   }
 
   const stored = await loadCollisionAffectedBlockSnapshotPrimaryOnly();
-  if (stored && stored.affected_block_numbers.length > 0) {
-    return {
-      snapshot: stored,
-      source: WATCHDOG_KV_SOURCE,
-      derived_from_primary_kv: false,
-      errors: [],
-      notes,
-    };
-  }
-
-  if (stored && stored.affected_block_numbers.length === 0) {
-    notes.push('watchdog primary KV affected-block snapshot present but empty — deriving from vault seal scan');
-  } else {
-    notes.push('watchdog primary KV affected-block snapshot missing — deriving from vault seal scan');
-  }
-
   const loaded = await loadPrimaryAttestedSealsForCollisionAudit();
   if (loaded.errors.length > 0) {
+    if (stored && stored.affected_block_numbers.length > 0) {
+      return {
+        snapshot: stored,
+        source: WATCHDOG_KV_SOURCE,
+        derived_from_primary_kv: false,
+        errors: [],
+        notes,
+      };
+    }
     return {
       snapshot: null,
       source: null,
@@ -66,13 +69,33 @@ export async function loadAuthoritativeLiveAffectedBlockEvidence(args: {
     };
   }
 
-  const snapshot = buildAffectedBlockSnapshotFromSeals({
+  const derived = buildAffectedBlockSnapshotFromSeals({
     seals: loaded.seals,
     operator_cycle: args.operator_cycle ?? undefined,
     audited_at: args.capture_observed_at,
   });
 
-  if (snapshot.affected_block_numbers.length === 0) {
+  if (shouldPreferWatchdogAffectedBlockSnapshot({ stored, derived })) {
+    return {
+      snapshot: stored,
+      source: WATCHDOG_KV_SOURCE,
+      derived_from_primary_kv: false,
+      errors: [],
+      notes,
+    };
+  }
+
+  if (stored && stored.affected_block_numbers.length > 0 && derived.affected_block_numbers.length === 0) {
+    notes.push(
+      'watchdog primary KV affected-block snapshot stale (non-empty) — primary derivation now empty',
+    );
+  } else if (stored && stored.affected_block_numbers.length === 0) {
+    notes.push('watchdog primary KV affected-block snapshot present but empty — deriving from vault seal scan');
+  } else if (!stored) {
+    notes.push('watchdog primary KV affected-block snapshot missing — deriving from vault seal scan');
+  }
+
+  if (derived.affected_block_numbers.length === 0) {
     return {
       snapshot: null,
       source: null,
@@ -83,7 +106,7 @@ export async function loadAuthoritativeLiveAffectedBlockEvidence(args: {
   }
 
   return {
-    snapshot,
+    snapshot: derived,
     source: PRIMARY_KV_DERIVED_SOURCE,
     derived_from_primary_kv: true,
     errors: [],
