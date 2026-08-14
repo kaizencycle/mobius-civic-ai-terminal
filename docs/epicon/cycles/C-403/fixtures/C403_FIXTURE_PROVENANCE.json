@@ -1,0 +1,20 @@
+{
+  "schema_version": "C403_FIXTURE_PROVENANCE_1",
+  "cycle": "C-403",
+  "pinned_at": "2026-08-14T00:00:00.000Z",
+  "source_repository": "kaizencycle/Mobius-Substrate",
+  "source_commit_sha": "7956e7b9a34b91973c567fec77c9aed6d30839d8",
+  "artifacts": [
+    {
+      "file": "C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json",
+      "substrate_path": "docs/epicon/cycles/C-397/C397_RESERVE_BLOCK_COLLISION_WITNESS.json",
+      "sha256": "4099b5a48ab45ddc63f5e6294aedeadcd9daa9fbc25f4a7f71224a702bc82d1a"
+    },
+    {
+      "file": "C403_COLLISION_RESOLUTION_TABLE.pin.json",
+      "substrate_path": "docs/epicon/cycles/C-401/C401_COLLISION_RESOLUTION_TABLE.json",
+      "sha256": "90296f114733f07373c1d946d66ab634949ee32e731ff30efe7f78c76ae1f611"
+    }
+  ],
+  "note": "Immutable pinned copies for Terminal dry-run only. Do not mutate production KV from fixtures."
+}
