@@ -15,6 +15,7 @@ import {
   assessGovernance131Cutoff,
   verifyLiveSealWitnessExport,
   collectTrackRWitnessSealIds,
+  compareLiveSealWitnessRecord,
   manifestUsesFixturePinnedHashes,
   resolveLiveWitnessBlockedReason,
   verifyProductionKvIdentityAgainstAnchors,
@@ -33,6 +34,8 @@ import {
 } from '@/lib/watchdog/batchRepair';
 import type { LiveSealWitnessExport } from '@/lib/watchdog/batchRepair/executionWitness';
 import type { CollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affected-blocks';
+import { computeSealHash } from '@/lib/vault-v2/seal';
+import type { Seal } from '@/lib/vault-v2/types';
 
 const FIXTURE_DIR = join(process.cwd(), 'docs/epicon/cycles/C-403/fixtures');
 const WITNESS_PATH = join(FIXTURE_DIR, 'C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json');
@@ -549,7 +552,51 @@ describe('trackRFailClosed C-403', () => {
     assert.equal(filtered[0]?.observed, 125);
   });
 
-  it('dry-run fixture verification note does not block when live witness ok', () => {
+  it('live witness record uses canonical recomputation instead of tautological live hash pin', () => {
+    const canonicalFields = {
+      seal_id: 'seal-C-332-001',
+      sequence: 1,
+      cycle_at_seal: 'C-332',
+      sealed_at: '2026-06-01T00:00:00.000Z',
+      reserve: 50 as const,
+      gi_at_seal: 0.95,
+      mode_at_seal: 'green' as const,
+      source_entries: 1,
+      deposit_hashes: [] as string[],
+      prev_seal_hash: null,
+    };
+    const validSeal: Seal = {
+      ...canonicalFields,
+      seal_hash: computeSealHash(canonicalFields),
+      attestations: {},
+      status: 'attested',
+      fountain_status: 'pending',
+      fountain_emitted_at: null,
+      posture: null,
+    };
+
+    const match = compareLiveSealWitnessRecord({
+      seal_id: validSeal.seal_id,
+      liveSeal: validSeal,
+      provenance: 'primary',
+      expectedSet: new Set([validSeal.seal_id]),
+    });
+    assert.equal(match.status, 'MATCH');
+    assert.equal(match.live_kv_hash, validSeal.seal_hash);
+    assert.equal(match.pinned_witness_hash, computeSealHash(canonicalFields));
+
+    const tampered: Seal = { ...validSeal, seal_hash: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' };
+    const mismatch = compareLiveSealWitnessRecord({
+      seal_id: tampered.seal_id,
+      liveSeal: tampered,
+      provenance: 'primary',
+      expectedSet: new Set([tampered.seal_id]),
+    });
+    assert.equal(mismatch.status, 'MISMATCH');
+    assert.notEqual(mismatch.pinned_witness_hash, mismatch.live_kv_hash);
+  });
+
+  it('dry-run manifest fixture note is informational when live witness ok', () => {
     const status = resolveTrackRExecutiveStatus(
       executiveStatusArgs({
         liveWitnessAttempt: {
@@ -569,7 +616,7 @@ describe('trackRFailClosed C-403', () => {
           comparison_results: [],
           verification_errors: [],
           verification_notes: [
-            'dry-run manifest contains fixture-hash-* receipt pins — live witness uses primary KV bodies only',
+            'dry-run manifest receipt original_hashes use fixture-hash-* pins; live witness compares primary KV seal_hash against canonical recomputation',
           ],
           expected_universe_count: 248,
           export_source: 'test',
