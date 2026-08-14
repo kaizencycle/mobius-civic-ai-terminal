@@ -15,6 +15,10 @@ import {
   verifyLiveSealWitnessExport,
   collectTrackRWitnessSealIds,
   manifestUsesFixturePinnedHashes,
+  resolveLiveWitnessBlockedReason,
+  verifyProductionKvIdentityAgainstAnchors,
+  TRACK_R_PRODUCTION_KV_ANCHORS,
+  assessLiveBoundary4142,
   loadWitnessFromFile,
   loadResolutionTableFromFile,
   buildFixtureSealsFromWitness,
@@ -56,6 +60,34 @@ function governance131Pass() {
     proposed_latest_canonical_seal_id: 'seal-C-358-131',
     boundary_131_132: 'pending_track_r_step_8' as const,
     positions_132_194_status: 'verified_unattached' as const,
+  };
+}
+
+function liveBoundaryPass() {
+  return {
+    ok: true,
+    status: 'pass' as const,
+    errors: [] as string[],
+    evidence_source: 'authenticated_primary_kv' as const,
+    canonical_block_41: 'x',
+    canonical_block_42: 'y',
+  };
+}
+
+function liveWitnessUnavailable() {
+  return {
+    ok: false,
+    blocked_reason: 'BLOCKED_AUTHENTICATED_LIVE_WITNESS_UNAVAILABLE' as const,
+    export: null,
+    comparison_results: [],
+    verification_errors: [],
+    expected_universe_count: 0,
+    export_source: 'test',
+    primary_read_count: 0,
+    fallback_read_count: 0,
+    uses_fixture_pinned_hashes: false,
+    kv_identity_ok: false,
+    live_seals: [],
   };
 }
 
@@ -146,19 +178,9 @@ describe('trackRFailClosed C-403', () => {
       dryRunOk: true,
       materialDrift: [],
       affectedBlockComparison: comparison,
-      liveWitnessAttempt: {
-        ok: false,
-        blocked_reason: 'BLOCKED_AUTHENTICATED_LIVE_WITNESS_UNAVAILABLE',
-        export: null,
-        comparison_results: [],
-        verification_errors: [],
-        expected_universe_count: 0,
-        export_source: 'test',
-        primary_read_count: 0,
-        fallback_read_count: 0,
-        uses_fixture_pinned_hashes: false,
-      },
+      liveWitnessAttempt: liveWitnessUnavailable(),
       governance131: governance131Pass(),
+      liveBoundary4142: liveBoundaryPass(),
       boundary131Metric: 'pending_track_r_step_8',
     });
     assert.equal(status, 'BLOCKED');
@@ -174,12 +196,12 @@ describe('trackRFailClosed C-403', () => {
       affectedBlockComparison: comparison,
       liveWitnessAttempt: {
         ok: false,
-        blocked_reason: null,
+        blocked_reason: 'BLOCKED_LIVE_WITNESS_INCOMPLETE',
         export: {
           schema_version: '1.0',
           capture_id: 'c',
           exported_at: CREATED_AT,
-          authenticated_read: true,
+          authenticated_read: false,
           export_source: 'lib/vault-v2/store.getSealsByIdsPrimaryOnly',
           expected_seal_ids: ['seal-C-332-001'],
           records: [
@@ -200,16 +222,225 @@ describe('trackRFailClosed C-403', () => {
         export_source: 'lib/vault-v2/store.getSealsByIdsPrimaryOnly',
         primary_read_count: 0,
         fallback_read_count: 1,
-        uses_fixture_pinned_hashes: false,
+        uses_fixture_pinned_hashes: true,
+        kv_identity_ok: true,
+        live_seals: [],
       },
       governance131: governance131Pass(),
+      liveBoundary4142: {
+        ok: false,
+        status: 'absent',
+        errors: ['authenticated live seal bodies required for boundary 41->42 verification'],
+        evidence_source: 'absent',
+        canonical_block_41: 'x',
+        canonical_block_42: 'y',
+      },
+      boundary131Metric: 'pending_track_r_step_8',
+    });
+    assert.equal(status, 'BLOCKED_LIVE_WITNESS_INCOMPLETE');
+    assert.equal(resolveTrackRProcessExitCode(status), 1);
+  });
+
+  it('248 missing records map to BLOCKED_LIVE_WITNESS_INCOMPLETE', () => {
+    const reason = resolveLiveWitnessBlockedReason({
+      kv_identity_blocked: null,
+      summary: { total: 248, match: 0, mismatch: 0, missing: 248, unexpected: 0 },
+      export_complete: false,
+      fallback_read_count: 248,
+      verification_ok: false,
+    });
+    assert.equal(reason, 'BLOCKED_LIVE_WITNESS_INCOMPLETE');
+  });
+
+  it('production KV anchor mismatch returns BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH', () => {
+    const check = verifyProductionKvIdentityAgainstAnchors({
+      anchors: TRACK_R_PRODUCTION_KV_ANCHORS,
+      observed: {
+        latest_seal_id: 'seal-C-000-000',
+        latest_seal_hash: 'deadbeef',
+        attested_index_count: 0,
+        audit_index_count: 0,
+        probe_seal_found: false,
+        probe_seal_hash: null,
+      },
+    });
+    assert.equal(check.ok, false);
+    assert.equal(check.blocked_reason, 'BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH');
+    const status = resolveTrackRExecutiveStatus({
+      fetchFailures: [],
+      dryRunOk: true,
+      materialDrift: [],
+      affectedBlockComparison: affectedBlockComparisonPass(),
+      liveWitnessAttempt: {
+        ...liveWitnessUnavailable(),
+        blocked_reason: 'BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH',
+        verification_errors: check.errors,
+      },
+      governance131: governance131Pass(),
+      liveBoundary4142: liveBoundaryPass(),
+      boundary131Metric: 'pending_track_r_step_8',
+    });
+    assert.equal(status, 'BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH');
+    assert.equal(resolveTrackRProcessExitCode(status), 1);
+  });
+
+  it('live boundary absent fails closed even when witness otherwise ok', () => {
+    const status = resolveTrackRExecutiveStatus({
+      fetchFailures: [],
+      dryRunOk: true,
+      materialDrift: [],
+      affectedBlockComparison: affectedBlockComparisonPass(),
+      liveWitnessAttempt: {
+        ok: true,
+        blocked_reason: null,
+        export: null,
+        comparison_results: [],
+        verification_errors: [],
+        expected_universe_count: 248,
+        export_source: 'test',
+        primary_read_count: 248,
+        fallback_read_count: 0,
+        uses_fixture_pinned_hashes: false,
+        kv_identity_ok: true,
+        live_seals: [],
+      },
+      governance131: governance131Pass(),
+      liveBoundary4142: {
+        ok: false,
+        status: 'absent',
+        errors: ['authenticated live seal bodies required for boundary 41->42 verification'],
+        evidence_source: 'absent',
+        canonical_block_41: null,
+        canonical_block_42: null,
+      },
+      boundary131Metric: 'pending_track_r_step_8',
+    });
+    assert.equal(status, 'BLOCKED');
+  });
+
+  it('empty authenticated datastore fails KV identity check', () => {
+    const check = verifyProductionKvIdentityAgainstAnchors({
+      anchors: TRACK_R_PRODUCTION_KV_ANCHORS,
+      observed: {
+        latest_seal_id: null,
+        latest_seal_hash: null,
+        attested_index_count: 0,
+        audit_index_count: 0,
+        probe_seal_found: false,
+        probe_seal_hash: null,
+      },
+    });
+    assert.equal(check.ok, false);
+    assert.equal(check.blocked_reason, 'BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH');
+  });
+
+  it('hash mismatch maps to BLOCKED_LIVE_WITNESS_MISMATCH', () => {
+    const reason = resolveLiveWitnessBlockedReason({
+      kv_identity_blocked: null,
+      summary: { total: 248, match: 247, mismatch: 1, missing: 0, unexpected: 0 },
+      export_complete: false,
+      fallback_read_count: 0,
+      verification_ok: false,
+    });
+    assert.equal(reason, 'BLOCKED_LIVE_WITNESS_MISMATCH');
+    const status = resolveTrackRExecutiveStatus({
+      fetchFailures: [],
+      dryRunOk: true,
+      materialDrift: [],
+      affectedBlockComparison: affectedBlockComparisonPass(),
+      liveWitnessAttempt: {
+        ok: false,
+        blocked_reason: reason,
+        export: null,
+        comparison_results: [],
+        verification_errors: ['mismatch on seal-C-332-001'],
+        expected_universe_count: 248,
+        export_source: 'test',
+        primary_read_count: 247,
+        fallback_read_count: 0,
+        uses_fixture_pinned_hashes: false,
+        kv_identity_ok: true,
+        live_seals: [],
+      },
+      governance131: governance131Pass(),
+      liveBoundary4142: liveBoundaryPass(),
+      boundary131Metric: 'pending_track_r_step_8',
+    });
+    assert.equal(status, 'BLOCKED_LIVE_WITNESS_MISMATCH');
+  });
+
+  it('live affected-block source absent blocks executive status', () => {
+    const comparison = compareAffectedBlockSets({
+      pinned_block_numbers: PINNED_WITNESS.contested_block_numbers,
+      live_snapshot: null,
+      live_source: null,
+      capture_observed_at: CREATED_AT,
+    });
+    comparison.errors.push('watchdog KV affected-block snapshot missing');
+    const status = resolveTrackRExecutiveStatus({
+      fetchFailures: [],
+      dryRunOk: true,
+      materialDrift: [],
+      affectedBlockComparison: comparison,
+      liveWitnessAttempt: liveWitnessUnavailable(),
+      governance131: governance131Pass(),
+      liveBoundary4142: liveBoundaryPass(),
       boundary131Metric: 'pending_track_r_step_8',
     });
     assert.equal(status, 'BLOCKED');
     assert.equal(resolveTrackRProcessExitCode(status), 1);
   });
 
-  it('dry-run manifest fixture hashes are detected and blocked for live witness', () => {
+  it('live boundary 41->42 mismatch fails closed', () => {
+    const witness = PINNED_WITNESS;
+    const table = loadResolutionTableFromFile(TABLE_PATH);
+    const seals = buildFixtureSealsFromWitness(witness, table);
+    const manifest = buildBatchManifest({
+      witness,
+      resolutionTable: table,
+      seals,
+      created_at: CREATED_AT,
+    });
+    const boundary = assessLiveBoundary4142({
+      manifest,
+      live_seals: seals.filter((s) => s.sequence === 41),
+      clean_block_numbers: witness.clean_block_numbers,
+    });
+    assert.equal(boundary.ok, false);
+    assert.notEqual(boundary.status, 'pass');
+    const status = resolveTrackRExecutiveStatus({
+      fetchFailures: [],
+      dryRunOk: true,
+      materialDrift: [],
+      affectedBlockComparison: affectedBlockComparisonPass(),
+      liveWitnessAttempt: {
+        ok: true,
+        blocked_reason: null,
+        export: null,
+        comparison_results: [],
+        verification_errors: [],
+        expected_universe_count: 248,
+        export_source: 'test',
+        primary_read_count: 248,
+        fallback_read_count: 0,
+        uses_fixture_pinned_hashes: false,
+        kv_identity_ok: true,
+        live_seals: seals,
+      },
+      governance131: governance131Pass(),
+      liveBoundary4142: boundary,
+      boundary131Metric: 'pending_track_r_step_8',
+    });
+    assert.equal(status, 'BLOCKED');
+  });
+
+  it('process exit: new BLOCKED_* executive statuses return non-zero', () => {
+    assert.equal(resolveTrackRProcessExitCode('BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH'), 1);
+    assert.equal(resolveTrackRProcessExitCode('BLOCKED_LIVE_WITNESS_INCOMPLETE'), 1);
+    assert.equal(resolveTrackRProcessExitCode('BLOCKED_LIVE_WITNESS_MISMATCH'), 1);
+  });
+
+  it('dry-run manifest fixture hashes are detected (informational)', () => {
     const witness = PINNED_WITNESS;
     const table = loadResolutionTableFromFile(TABLE_PATH);
     const seals = buildFixtureSealsFromWitness(witness, table);

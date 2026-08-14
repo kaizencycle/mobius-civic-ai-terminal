@@ -150,6 +150,57 @@ export async function clearInProgressHashes(): Promise<void> {
 // Seal index + chain access
 // ────────────────────────────────────────────────────────────────
 
+async function readStringArrayKeyPrimaryOnly(key: string): Promise<string[]> {
+  const raw = await rawGetPrimaryOnly<string[] | string>(key);
+  if (Array.isArray(raw)) return raw;
+  const parsed = parseMaybeJson<string[]>(raw);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+async function rawGetPrimaryOnly<T>(key: string): Promise<unknown | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  try {
+    return await redis.get<T | string>(key);
+  } catch {
+    return null;
+  }
+}
+
+export async function getLatestSealIdPrimaryOnly(): Promise<string | null> {
+  try {
+    const raw = await rawGetPrimaryOnly<string>(LATEST_SEAL_KEY);
+    if (typeof raw === 'string' && raw.length > 0 && raw.startsWith('seal-')) {
+      return raw;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Attested index from primary Upstash only — no backup fallback or legacy migration writes. */
+export async function listSealIdsPrimaryOnly(): Promise<string[]> {
+  try {
+    const ids = await readStringArrayKeyPrimaryOnly(SEALS_INDEX_ATTESTED_KEY);
+    if (ids.length > 0) return ids;
+    return readStringArrayKeyPrimaryOnly(SEALS_INDEX_LEGACY_KEY);
+  } catch {
+    return [];
+  }
+}
+
+/** Audit index from primary Upstash only — no backup fallback or migration writes. */
+export async function listAllSealIdsPrimaryOnly(): Promise<string[]> {
+  try {
+    const ids = await readStringArrayKeyPrimaryOnly(SEALS_INDEX_ALL_KEY);
+    if (ids.length > 0) return ids;
+    return listSealIdsPrimaryOnly();
+  } catch {
+    return [];
+  }
+}
+
 async function readStringArrayKey(key: string): Promise<string[]> {
   try {
     const raw = await rawGetWithFallback<string[] | string>(key);

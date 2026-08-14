@@ -9,6 +9,12 @@ import {
   type ExecutionWitnessRecordResult,
 } from '@/lib/watchdog/batchRepair/executionWitnessHash';
 import {
+  TRACK_R_PRODUCTION_KV_ANCHORS,
+  type ProductionKvAnchorInput,
+} from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
+import { loadAuthoritativeLiveAffectedBlockEvidence } from '@/lib/watchdog/batchRepair/liveAffectedBlockEvidence';
+import { assessLiveBoundary4142 } from '@/lib/watchdog/batchRepair/liveBoundaryEvidence';
+import {
   exportAuthenticatedLiveSealWitness,
   redactLiveWitnessComparison,
 } from '@/lib/watchdog/batchRepair/liveSealWitnessExport';
@@ -23,7 +29,6 @@ import {
 import { resolveTrackRExecutiveStatus, type DriftItem } from '@/lib/watchdog/batchRepair/trackRExecutiveStatus';
 import type { BatchDryRunReport, CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 import type { C397Witness } from '@/lib/watchdog/batchRepair/witnessResolution';
-import { buildFixtureSealsFromWitness } from '@/lib/watchdog/batchRepair/fixtureSeals';
 import type { CollisionResolutionTable } from '@/lib/watchdog/batchRepair/witnessResolution';
 
 export type TrackREvidencePackageInput = {
@@ -37,8 +42,7 @@ export type TrackREvidencePackageInput = {
   resolution_table: CollisionResolutionTable;
   witness_audit_hash: string;
   resolution_table_hash: string;
-  collision_affected_blocks: CollisionAffectedBlockSnapshot | null;
-  collision_affected_blocks_source: string | null;
+  production_kv_anchors?: ProductionKvAnchorInput;
   dryRunOk: boolean;
   dryRunErrors: string[];
   manifest?: CollisionRepairBatchManifest;
@@ -53,8 +57,10 @@ export type TrackREvidencePackageResult = {
   lineage_snapshot_hash: string;
   telemetry_snapshot_hash: string;
   execution_witness_hash: string | null;
+  affected_block_evidence: Awaited<ReturnType<typeof loadAuthoritativeLiveAffectedBlockEvidence>>;
   affected_block_comparison: ReturnType<typeof compareAffectedBlockSets>;
   live_witness_attempt: Awaited<ReturnType<typeof exportAuthenticatedLiveSealWitness>>;
+  live_boundary_41_42: ReturnType<typeof assessLiveBoundary4142>;
   governance131: ReturnType<typeof assessGovernance131Cutoff>;
   redacted_witness_comparison: ExecutionWitnessRecordResult[];
   attestation_hashes: {
@@ -69,14 +75,25 @@ export async function buildTrackREvidencePackage(
   input: TrackREvidencePackageInput,
 ): Promise<TrackREvidencePackageResult> {
   const pinnedBlocks = input.witness.contested_block_numbers;
+
+  const affectedBlockEvidence = await loadAuthoritativeLiveAffectedBlockEvidence({
+    capture_observed_at: input.captured_at,
+    operator_cycle: (input.observed.cycle as string | null) ?? null,
+  });
+
   const affectedBlockComparison = compareAffectedBlockSets({
     pinned_block_numbers: pinnedBlocks,
-    live_snapshot: input.collision_affected_blocks,
-    live_source: input.collision_affected_blocks_source,
+    live_snapshot: affectedBlockEvidence.snapshot,
+    live_source: affectedBlockEvidence.source,
     capture_observed_at: input.captured_at,
     collision_pair_count_live: (input.observed.historical_collision_pairs as number | null) ?? null,
     operator_cycle: (input.observed.cycle as string | null) ?? null,
   });
+
+  if (affectedBlockEvidence.errors.length > 0) {
+    affectedBlockComparison.errors.push(...affectedBlockEvidence.errors);
+    affectedBlockComparison.set_match = false;
+  }
 
   const lineage_snapshot_hash = computeLineageSnapshotHash({
     capture_id: input.capture_id,
@@ -125,6 +142,8 @@ export async function buildTrackREvidencePackage(
     primary_read_count: 0,
     fallback_read_count: 0,
     uses_fixture_pinned_hashes: false,
+    kv_identity_ok: false,
+    live_seals: [],
   };
 
   if (input.manifest) {
@@ -134,15 +153,30 @@ export async function buildTrackREvidencePackage(
       environment_identifier: input.environment_identifier,
       witness: input.witness,
       manifest: input.manifest,
+      production_kv_anchors: input.production_kv_anchors ?? TRACK_R_PRODUCTION_KV_ANCHORS,
     });
   }
 
-  const fixtureSeals = buildFixtureSealsFromWitness(input.witness, input.resolution_table);
+  const liveBoundary4142 = input.manifest
+    ? assessLiveBoundary4142({
+        manifest: input.manifest,
+        live_seals: liveWitnessAttempt.live_seals,
+        clean_block_numbers: input.witness.clean_block_numbers,
+      })
+    : {
+        ok: false,
+        status: 'absent' as const,
+        errors: ['manifest unavailable for live boundary 41->42 assessment'],
+        evidence_source: 'absent' as const,
+        canonical_block_41: null,
+        canonical_block_42: null,
+      };
+
   const governance131 = input.manifest
     ? assessGovernance131Cutoff({
         manifest: input.manifest,
         live_witness_records: liveWitnessAttempt.comparison_results,
-        seals_for_boundary_check: fixtureSeals,
+        seals_for_boundary_check: liveWitnessAttempt.live_seals,
         clean_block_numbers: input.witness.clean_block_numbers,
       })
     : {
@@ -162,6 +196,7 @@ export async function buildTrackREvidencePackage(
     affectedBlockComparison,
     liveWitnessAttempt,
     governance131,
+    liveBoundary4142,
     boundary131Metric: input.report?.metrics.boundary_131_132 ?? 'unknown',
   });
 
@@ -194,8 +229,10 @@ export async function buildTrackREvidencePackage(
     lineage_snapshot_hash,
     telemetry_snapshot_hash,
     execution_witness_hash,
+    affected_block_evidence: affectedBlockEvidence,
     affected_block_comparison: affectedBlockComparison,
     live_witness_attempt: liveWitnessAttempt,
+    live_boundary_41_42: liveBoundary4142,
     governance131,
     redacted_witness_comparison,
     attestation_hashes: {

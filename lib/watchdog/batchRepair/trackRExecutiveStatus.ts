@@ -1,7 +1,11 @@
 import type { AffectedBlockSetComparison } from '@/lib/watchdog/batchRepair/affectedBlockComparison';
 import type { Governance131CutoffAssessment } from '@/lib/watchdog/batchRepair/governance131Cutoff';
+import type { LiveBoundary4142Assessment } from '@/lib/watchdog/batchRepair/liveBoundaryEvidence';
 import type { LiveSealWitnessExportAttempt } from '@/lib/watchdog/batchRepair/liveSealWitnessExport';
-import type { TrackRExecutiveStatus } from '@/lib/watchdog/batchRepair/processExitPolicy';
+import {
+  executiveStatusFromLiveWitnessBlockedReason,
+  type TrackRExecutiveStatus,
+} from '@/lib/watchdog/batchRepair/processExitPolicy';
 
 export type DriftItem = { field: string; expected: unknown; observed: unknown; severity: 'info' | 'material' };
 
@@ -12,6 +16,7 @@ export function resolveTrackRExecutiveStatus(args: {
   affectedBlockComparison: AffectedBlockSetComparison;
   liveWitnessAttempt: LiveSealWitnessExportAttempt;
   governance131: Governance131CutoffAssessment;
+  liveBoundary4142: LiveBoundary4142Assessment;
   boundary131Metric: string;
 }): TrackRExecutiveStatus {
   if (args.fetchFailures.length > 0) return 'BLOCKED';
@@ -21,18 +26,23 @@ export function resolveTrackRExecutiveStatus(args: {
   if (args.affectedBlockComparison.live_artifact_stale) return 'BLOCKED';
   if (!args.affectedBlockComparison.set_match) return 'BLOCKED';
 
-  if (args.liveWitnessAttempt.blocked_reason === 'BLOCKED_AUTHENTICATED_LIVE_WITNESS_UNAVAILABLE') {
-    return 'BLOCKED_AUTHENTICATED_LIVE_WITNESS_UNAVAILABLE';
+  if (args.liveWitnessAttempt.blocked_reason) {
+    return (
+      executiveStatusFromLiveWitnessBlockedReason(args.liveWitnessAttempt.blocked_reason) ??
+      'BLOCKED'
+    );
   }
 
   if (
     args.liveWitnessAttempt.export &&
     (!args.liveWitnessAttempt.ok || args.liveWitnessAttempt.verification_errors.length > 0)
   ) {
-    return 'BLOCKED';
+    return 'BLOCKED_LIVE_WITNESS_INCOMPLETE';
   }
 
-  if (!args.liveWitnessAttempt.ok) return 'BLOCKED';
+  if (!args.liveWitnessAttempt.ok) return 'BLOCKED_LIVE_WITNESS_INCOMPLETE';
+
+  if (args.liveBoundary4142.status !== 'pass') return 'BLOCKED';
 
   if (args.governance131.status === 'quarantine') return 'QUARANTINE';
   if (args.boundary131Metric === 'pass') return 'QUARANTINE';
@@ -40,7 +50,8 @@ export function resolveTrackRExecutiveStatus(args: {
   if (
     args.liveWitnessAttempt.ok &&
     args.governance131.ok &&
-    args.affectedBlockComparison.set_match
+    args.affectedBlockComparison.set_match &&
+    args.liveBoundary4142.ok
   ) {
     return 'READY_FOR_ZEUS_EVE_REVIEW';
   }

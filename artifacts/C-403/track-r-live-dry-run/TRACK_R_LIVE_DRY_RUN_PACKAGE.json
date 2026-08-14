@@ -1,20 +1,20 @@
 {
   "schema": "TRACK_R_LIVE_DRY_RUN_PACKAGE_v3",
-  "capture_id": "track-r-c403-2026-08-14T1854Z",
-  "captured_at": "2026-08-14T18:54:01.927Z",
+  "capture_id": "track-r-c403-2026-08-14T1859Z",
+  "captured_at": "2026-08-14T18:59:42.082Z",
   "executive_status": "BLOCKED",
   "process_exit_code": 1,
   "execution_authorized": false,
   "production_mutation_performed": false,
   "attestation_hashes": {
     "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
-    "lineage_snapshot_hash": "cf94116d04eec4f2b88161c142b0bbf26d3bbf734d637d888389f8f1df55e6cc",
+    "lineage_snapshot_hash": "c0a85b64c14d0931691260f221d93b6961cfb2bc277c71dd00fa6265832b59a4",
     "execution_witness_hash": null,
     "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d"
   },
   "snapshot_identity": {
-    "lineage_snapshot_hash": "cf94116d04eec4f2b88161c142b0bbf26d3bbf734d637d888389f8f1df55e6cc",
-    "telemetry_snapshot_hash": "22bf33b5d82acdb5f01d3912a2b79794432df4bd37bd5d79a56823a5b1b0910a",
+    "lineage_snapshot_hash": "c0a85b64c14d0931691260f221d93b6961cfb2bc277c71dd00fa6265832b59a4",
+    "telemetry_snapshot_hash": "5ea29a26a4e4af14245b417ffddf19c5a307d679e60b1a52afed1838ff8bdd7c",
     "execution_witness_hash": null,
     "note": "Four-object ZEUS/EVE packet: semantic manifest, lineage snapshot, execution witness, rollback manifest."
   },
@@ -25,13 +25,13 @@
     "note": "Public endpoints do not expose Vercel git SHA; verify via deployment dashboard before execution."
   },
   "observed_baseline": {
-    "capture_id": "track-r-c403-2026-08-14T1854Z",
+    "capture_id": "track-r-c403-2026-08-14T1859Z",
     "capture_sources": {
       "vault_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/status",
       "seal_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/seal-status",
       "health": "https://mobius-civic-ai-terminal.vercel.app/api/health"
     },
-    "captured_at": "2026-08-14T18:54:01.927Z",
+    "captured_at": "2026-08-14T18:59:42.082Z",
     "environment": "cursor-cloud-agent",
     "pr653_merge_sha": "100d2c4ab3559f0b7b59d6e888d74792e0b61ea2",
     "deployment_sha_public": null,
@@ -223,10 +223,24 @@
     "live_contested_count": null,
     "collision_pair_count_live": 125,
     "live_source": null,
+    "live_artifact_fresh": false,
+    "live_artifact_stale": false,
+    "audited_at": null,
     "errors": [
       "live affected-block artifact missing from authoritative watchdog/status evidence",
-      "missing_from_live: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131"
+      "missing_from_live: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131",
+      "watchdog KV affected-block snapshot missing — attempting primary KV derivation",
+      "primary KV audit index empty — cannot derive live affected-block set"
     ]
+  },
+  "affected_block_evidence": {
+    "source": null,
+    "derived_from_primary_kv": false,
+    "errors": [
+      "watchdog KV affected-block snapshot missing — attempting primary KV derivation",
+      "primary KV audit index empty — cannot derive live affected-block set"
+    ],
+    "status_api_collision_affected_blocks": null
   },
   "pinned_evidence": {
     "witness_path": "docs/epicon/cycles/C-403/fixtures/C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json",
@@ -242,13 +256,30 @@
     "authenticated_read": false,
     "export_complete": false,
     "export_source": "lib/vault-v2/store.getSealsByIdsPrimaryOnly",
-    "expected_universe_count": 248,
+    "expected_universe_count": 0,
     "summary": null,
     "verification_errors": [
-      "dry-run manifest uses fixture-hash-* pinned hashes — live witness must use primary KV production bodies only"
+      "latest seal id mismatch: expected seal-C-372-002, observed null",
+      "latest seal hash mismatch: expected e19e9e44b32503a77b0c646b91a6780ffe9c42eafc3dad29e7758619b7500ef5, observed null",
+      "attested index count mismatch: expected 360, observed 0",
+      "audit index count mismatch: expected 360, observed 0",
+      "probe seal seal-C-372-002 not found in primary KV"
     ],
-    "blocked_reason": null,
+    "blocked_reason": "BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH",
+    "kv_identity_ok": false,
+    "primary_read_count": 0,
+    "fallback_read_count": 0,
     "execution_witness_hash": null
+  },
+  "live_boundary_41_42": {
+    "ok": false,
+    "status": "absent",
+    "errors": [
+      "canonical assignments for blocks 41 and 42 required for live boundary evidence"
+    ],
+    "evidence_source": "absent",
+    "canonical_block_41": null,
+    "canonical_block_42": "seal-C-339-042"
   },
   "governance_disposition": {
     "promoted_canonical_through_position": 131,
@@ -324,12 +355,12 @@
     "eve_verdict": "pending",
     "human_approval": "pending",
     "required_hashes": {
-      "capture_id": "track-r-c403-2026-08-14T1854Z",
+      "capture_id": "track-r-c403-2026-08-14T1859Z",
       "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
-      "lineage_snapshot_hash": "cf94116d04eec4f2b88161c142b0bbf26d3bbf734d637d888389f8f1df55e6cc",
+      "lineage_snapshot_hash": "c0a85b64c14d0931691260f221d93b6961cfb2bc277c71dd00fa6265832b59a4",
       "execution_witness_hash": null,
       "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d",
-      "telemetry_snapshot_hash": "22bf33b5d82acdb5f01d3912a2b79794432df4bd37bd5d79a56823a5b1b0910a"
+      "telemetry_snapshot_hash": "5ea29a26a4e4af14245b417ffddf19c5a307d679e60b1a52afed1838ff8bdd7c"
     }
   },
   "explicit_no_production_change": "No Redis/KV mutation, canonical promotion, integrity-gate clearing, candidate formation, or sealing occurred."

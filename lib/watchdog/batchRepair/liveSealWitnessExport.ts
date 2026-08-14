@@ -1,19 +1,28 @@
-import { getSealsByIdsPrimaryOnly } from '@/lib/vault-v2/store';
+import {
+  getSealsByIdsPrimaryOnly,
+  type PrimarySealReadResult,
+} from '@/lib/vault-v2/store';
 import type { Seal } from '@/lib/vault-v2/types';
 import type { CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 import type { ExecutionWitnessRecordResult } from '@/lib/watchdog/batchRepair/executionWitnessHash';
+import {
+  liveSealsFromPrimaryReads,
+  verifyProductionKvEnvironmentIdentity,
+  type ProductionKvAnchorInput,
+} from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
 import {
   resolveRequiredWitnessSealIds,
   verifyLiveSealWitnessExport,
   type LiveSealWitnessExport,
   type LiveSealWitnessRecord,
 } from '@/lib/watchdog/batchRepair/executionWitness';
+import type { LiveWitnessBlockedReason } from '@/lib/watchdog/batchRepair/processExitPolicy';
 import type { C397Witness } from '@/lib/watchdog/batchRepair/witnessResolution';
 import { hasUpstashKvCredentials } from '@/lib/kv/upstashEnv';
 
 export type LiveSealWitnessExportAttempt = {
   ok: boolean;
-  blocked_reason: 'BLOCKED_AUTHENTICATED_LIVE_WITNESS_UNAVAILABLE' | null;
+  blocked_reason: LiveWitnessBlockedReason | null;
   export: LiveSealWitnessExport | null;
   comparison_results: ExecutionWitnessRecordResult[];
   verification_errors: string[];
@@ -22,6 +31,8 @@ export type LiveSealWitnessExportAttempt = {
   primary_read_count: number;
   fallback_read_count: number;
   uses_fixture_pinned_hashes: boolean;
+  kv_identity_ok: boolean;
+  live_seals: Seal[];
 };
 
 const PRIMARY_EXPORT_SOURCE = 'lib/vault-v2/store.getSealsByIdsPrimaryOnly';
@@ -35,10 +46,34 @@ export function manifestUsesFixturePinnedHashes(manifest: CollisionRepairBatchMa
   return false;
 }
 
+export function resolveLiveWitnessBlockedReason(args: {
+  kv_identity_blocked: LiveWitnessBlockedReason | null;
+  summary: LiveSealWitnessExport['summary'];
+  export_complete: boolean;
+  fallback_read_count: number;
+  verification_ok: boolean;
+}): LiveWitnessBlockedReason | null {
+  if (args.kv_identity_blocked) return args.kv_identity_blocked;
+  if (args.fallback_read_count > 0 || args.summary.mismatch > 0) {
+    return args.summary.mismatch > 0
+      ? 'BLOCKED_LIVE_WITNESS_MISMATCH'
+      : 'BLOCKED_LIVE_WITNESS_INCOMPLETE';
+  }
+  if (
+    args.summary.missing > 0 ||
+    args.summary.unexpected > 0 ||
+    !args.export_complete ||
+    !args.verification_ok
+  ) {
+    return 'BLOCKED_LIVE_WITNESS_INCOMPLETE';
+  }
+  return null;
+}
+
 function toLiveWitnessStatus(args: {
   seal_id: string;
   liveSeal: Seal | null | undefined;
-  provenance: 'primary' | 'missing';
+  provenance: PrimarySealReadResult['provenance'];
   expectedSet: Set<string>;
 }): ExecutionWitnessRecordResult {
   if (!args.expectedSet.has(args.seal_id)) {
@@ -139,6 +174,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
   environment_identifier: string;
   witness: C397Witness;
   manifest: CollisionRepairBatchManifest;
+  production_kv_anchors?: ProductionKvAnchorInput;
 }): Promise<LiveSealWitnessExportAttempt> {
   const uses_fixture_pinned_hashes = manifestUsesFixturePinnedHashes(args.manifest);
 
@@ -154,6 +190,28 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       primary_read_count: 0,
       fallback_read_count: 0,
       uses_fixture_pinned_hashes,
+      kv_identity_ok: false,
+      live_seals: [],
+    };
+  }
+
+  const identity = await verifyProductionKvEnvironmentIdentity({
+    anchors: args.production_kv_anchors,
+  });
+  if (!identity.ok) {
+    return {
+      ok: false,
+      blocked_reason: 'BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH',
+      export: null,
+      comparison_results: [],
+      verification_errors: identity.errors,
+      expected_universe_count: 0,
+      export_source: PRIMARY_EXPORT_SOURCE,
+      primary_read_count: 0,
+      fallback_read_count: 0,
+      uses_fixture_pinned_hashes,
+      kv_identity_ok: false,
+      live_seals: [],
     };
   }
 
@@ -173,29 +231,15 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       primary_read_count: 0,
       fallback_read_count: 0,
       uses_fixture_pinned_hashes,
-    };
-  }
-
-  if (uses_fixture_pinned_hashes) {
-    return {
-      ok: false,
-      blocked_reason: null,
-      export: null,
-      comparison_results: [],
-      verification_errors: [
-        'dry-run manifest uses fixture-hash-* pinned hashes — live witness must use primary KV production bodies only',
-      ],
-      expected_universe_count: resolved.seal_ids.length,
-      export_source: PRIMARY_EXPORT_SOURCE,
-      primary_read_count: 0,
-      fallback_read_count: 0,
-      uses_fixture_pinned_hashes: true,
+      kv_identity_ok: true,
+      live_seals: [],
     };
   }
 
   const expectedSealIds = resolved.seal_ids;
   const expectedSet = new Set(expectedSealIds);
   const primaryReads = await getSealsByIdsPrimaryOnly(expectedSealIds);
+  const live_seals = liveSealsFromPrimaryReads(primaryReads);
   const readById = new Map(primaryReads.map((read) => [read.seal_id, read]));
 
   let primary_read_count = 0;
@@ -238,27 +282,31 @@ export async function exportAuthenticatedLiveSealWitness(args: {
     }
   }
 
+  const summary = {
+    total: comparison_results.length,
+    match,
+    mismatch,
+    missing,
+    unexpected,
+  };
+
+  const export_complete =
+    fallback_read_count === 0 &&
+    match === expectedSealIds.length &&
+    mismatch === 0 &&
+    missing === 0 &&
+    unexpected === 0;
+
   const witnessExport: LiveSealWitnessExport = {
     schema_version: '1.0',
     capture_id: args.capture_id,
     exported_at: args.exported_at,
-    authenticated_read: fallback_read_count === 0 && primary_read_count > 0,
+    authenticated_read: identity.ok && export_complete,
     export_source: PRIMARY_EXPORT_SOURCE,
     expected_seal_ids: expectedSealIds,
     records: comparison_results.map(toExportRecord),
-    summary: {
-      total: comparison_results.length,
-      match,
-      mismatch,
-      missing,
-      unexpected,
-    },
-    export_complete:
-      fallback_read_count === 0 &&
-      match === expectedSealIds.length &&
-      mismatch === 0 &&
-      missing === 0 &&
-      unexpected === 0,
+    summary,
+    export_complete,
   };
 
   const verification = verifyLiveSealWitnessExport(witnessExport, {
@@ -266,15 +314,28 @@ export async function exportAuthenticatedLiveSealWitness(args: {
   });
 
   const verification_errors = [...verification.errors];
+  if (uses_fixture_pinned_hashes) {
+    verification_errors.push(
+      'dry-run manifest contains fixture-hash-* receipt pins — live witness uses primary KV bodies only',
+    );
+  }
   if (fallback_read_count > 0) {
     verification_errors.push(
       `primary-only read required — ${fallback_read_count} seal(s) missing from primary Upstash (no backup fallback permitted)`,
     );
   }
 
+  const blocked_reason = resolveLiveWitnessBlockedReason({
+    kv_identity_blocked: null,
+    summary,
+    export_complete,
+    fallback_read_count,
+    verification_ok: verification.ok,
+  });
+
   return {
-    ok: verification.ok && fallback_read_count === 0,
-    blocked_reason: null,
+    ok: verification.ok && fallback_read_count === 0 && blocked_reason === null,
+    blocked_reason,
     export: witnessExport,
     comparison_results,
     verification_errors,
@@ -282,7 +343,9 @@ export async function exportAuthenticatedLiveSealWitness(args: {
     export_source: PRIMARY_EXPORT_SOURCE,
     primary_read_count,
     fallback_read_count,
-    uses_fixture_pinned_hashes: false,
+    uses_fixture_pinned_hashes,
+    kv_identity_ok: true,
+    live_seals,
   };
 }
 

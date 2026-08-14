@@ -1,14 +1,18 @@
 {
-  "capture_id": "track-r-c403-2026-08-14T1854Z",
+  "capture_id": "track-r-c403-2026-08-14T1859Z",
   "executive_status": "BLOCKED",
   "authenticated_read": false,
   "export_complete": false,
-  "expected_universe_count": 248,
+  "expected_universe_count": 0,
   "summary": null,
   "verification_errors": [
-    "dry-run manifest uses fixture-hash-* pinned hashes — live witness must use primary KV production bodies only"
+    "latest seal id mismatch: expected seal-C-372-002, observed null",
+    "latest seal hash mismatch: expected e19e9e44b32503a77b0c646b91a6780ffe9c42eafc3dad29e7758619b7500ef5, observed null",
+    "attested index count mismatch: expected 360, observed 0",
+    "audit index count mismatch: expected 360, observed 0",
+    "probe seal seal-C-372-002 not found in primary KV"
   ],
-  "blocked_reason": null,
+  "blocked_reason": "BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH",
   "execution_witness_hash": null,
   "per_record_status_counts": {},
   "records": []

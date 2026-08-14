@@ -1,11 +1,11 @@
 {
-  "capture_id": "track-r-c403-2026-08-14T1854Z",
+  "capture_id": "track-r-c403-2026-08-14T1859Z",
   "capture_sources": {
     "vault_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/status",
     "seal_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/seal-status",
     "health": "https://mobius-civic-ai-terminal.vercel.app/api/health"
   },
-  "captured_at": "2026-08-14T18:54:01.927Z",
+  "captured_at": "2026-08-14T18:59:42.082Z",
   "environment": "cursor-cloud-agent",
   "pr653_merge_sha": "100d2c4ab3559f0b7b59d6e888d74792e0b61ea2",
   "deployment_sha_public": null,

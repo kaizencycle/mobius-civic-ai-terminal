@@ -335,8 +335,6 @@ async function main(): Promise<void> {
     resolution_table: table,
     witness_audit_hash,
     resolution_table_hash,
-    collision_affected_blocks: collisionAffectedBlocks,
-    collision_affected_blocks_source: collisionAffectedBlocks ? `${baseUrl}/api/vault/status` : null,
     dryRunOk: dryRun.ok,
     dryRunErrors: dryRun.errors,
     manifest,
@@ -350,7 +348,9 @@ async function main(): Promise<void> {
   const telemetry_snapshot_hash = evidence.telemetry_snapshot_hash;
   const execution_witness_hash = evidence.execution_witness_hash;
   const affectedBlockComparison = evidence.affected_block_comparison;
+  const affectedBlockEvidence = evidence.affected_block_evidence;
   const liveWitness = evidence.live_witness_attempt;
+  const liveBoundary4142 = evidence.live_boundary_41_42;
   const witnessSealIdCount = collectTrackRWitnessSealIds(witness).length;
 
   const packageJson = {
@@ -386,7 +386,16 @@ async function main(): Promise<void> {
       live_contested_count: affectedBlockComparison.live_contested_count,
       collision_pair_count_live: affectedBlockComparison.collision_pair_count_live,
       live_source: affectedBlockComparison.live_source,
+      live_artifact_fresh: affectedBlockComparison.live_artifact_fresh,
+      live_artifact_stale: affectedBlockComparison.live_artifact_stale,
+      audited_at: affectedBlockComparison.audited_at,
       errors: affectedBlockComparison.errors,
+    },
+    affected_block_evidence: {
+      source: affectedBlockEvidence.source,
+      derived_from_primary_kv: affectedBlockEvidence.derived_from_primary_kv,
+      errors: affectedBlockEvidence.errors,
+      status_api_collision_affected_blocks: collisionAffectedBlocks,
     },
     pinned_evidence: {
       witness_path: WITNESS_PATH,
@@ -406,8 +415,12 @@ async function main(): Promise<void> {
       summary: liveWitness.export?.summary ?? null,
       verification_errors: liveWitness.verification_errors,
       blocked_reason: liveWitness.blocked_reason,
+      kv_identity_ok: liveWitness.kv_identity_ok,
+      primary_read_count: liveWitness.primary_read_count,
+      fallback_read_count: liveWitness.fallback_read_count,
       execution_witness_hash,
     },
+    live_boundary_41_42: liveBoundary4142,
     governance_disposition: manifest?.governance_disposition ?? TRACK_R_GOVERNANCE_DISPOSITION,
     governance131_cutoff: evidence.governance131,
     repair_engine: {
