@@ -401,10 +401,15 @@ describe('trackRFailClosed C-403', () => {
       seals,
       created_at: CREATED_AT,
     });
+    const block41 = seals.find((s) => s.sequence === 41 && s.status === 'attested');
+    assert.ok(block41);
     const boundary = assessLiveBoundary4142({
       manifest,
-      live_seals: seals.filter((s) => s.sequence === 41),
+      live_seals: [block41],
       clean_block_numbers: witness.clean_block_numbers,
+      resolved_block_41_id: block41.seal_id,
+      resolved_block_42_id: manifest.canonical_assignments['42'] ?? null,
+      preload_errors: ['block 42 canonical seal body missing from primary KV'],
     });
     assert.equal(boundary.ok, false);
     assert.notEqual(boundary.status, 'pass');
@@ -432,6 +437,49 @@ describe('trackRFailClosed C-403', () => {
       boundary131Metric: 'pending_track_r_step_8',
     });
     assert.equal(status, 'BLOCKED');
+  });
+
+  it('live boundary 41->42 passes without canonical assignment on clean block 41', () => {
+    const witness = PINNED_WITNESS;
+    const table = loadResolutionTableFromFile(TABLE_PATH);
+    const seals = buildFixtureSealsFromWitness(witness, table);
+    const manifest = buildBatchManifest({
+      witness,
+      resolutionTable: table,
+      seals,
+      created_at: CREATED_AT,
+    });
+    assert.equal(manifest.canonical_assignments['41'], undefined);
+    const block41 = seals.find((s) => s.sequence === 41 && s.status === 'attested');
+    const block42Id = manifest.canonical_assignments['42'];
+    const block42 = seals.find((s) => s.seal_id === block42Id);
+    assert.ok(block41 && block42);
+    const boundary = assessLiveBoundary4142({
+      manifest,
+      live_seals: [block41, block42],
+      clean_block_numbers: witness.clean_block_numbers,
+      resolved_block_41_id: block41.seal_id,
+      resolved_block_42_id: block42.seal_id,
+    });
+    assert.equal(boundary.ok, true);
+    assert.equal(boundary.status, 'pass');
+    assert.equal(boundary.canonical_block_41, block41.seal_id);
+    assert.equal(boundary.canonical_block_42, block42Id ?? null);
+  });
+
+  it('successful affected-block derivation notes do not force set_match false', () => {
+    const pinned = PINNED_WITNESS.contested_block_numbers;
+    const comparison = compareAffectedBlockSets({
+      pinned_block_numbers: pinned,
+      live_snapshot: liveSnapshot([...pinned]),
+      live_source: 'kv:primary-vault-v2:derived-collision-affected-blocks',
+      capture_observed_at: CREATED_AT,
+      collision_pair_count_live: 125,
+      operator_cycle: 'C-403',
+    });
+    assert.equal(comparison.set_match, true);
+    comparison.errors.push('[info] watchdog primary KV affected-block snapshot missing — deriving from vault seal scan');
+    assert.equal(comparison.set_match, true);
   });
 
   it('process exit: new BLOCKED_* executive statuses return non-zero', () => {

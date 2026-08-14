@@ -13,7 +13,10 @@ import {
   type ProductionKvAnchorInput,
 } from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
 import { loadAuthoritativeLiveAffectedBlockEvidence } from '@/lib/watchdog/batchRepair/liveAffectedBlockEvidence';
-import { assessLiveBoundary4142 } from '@/lib/watchdog/batchRepair/liveBoundaryEvidence';
+import {
+  assessLiveBoundary4142,
+  loadLiveSealsForBoundary4142,
+} from '@/lib/watchdog/batchRepair/liveBoundaryEvidence';
 import {
   exportAuthenticatedLiveSealWitness,
   redactLiveWitnessComparison,
@@ -30,6 +33,7 @@ import { resolveTrackRExecutiveStatus, type DriftItem } from '@/lib/watchdog/bat
 import type { BatchDryRunReport, CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 import type { C397Witness } from '@/lib/watchdog/batchRepair/witnessResolution';
 import type { CollisionResolutionTable } from '@/lib/watchdog/batchRepair/witnessResolution';
+import type { Seal } from '@/lib/vault-v2/types';
 
 export type TrackREvidencePackageInput = {
   capture_id: string;
@@ -90,9 +94,16 @@ export async function buildTrackREvidencePackage(
     operator_cycle: (input.observed.cycle as string | null) ?? null,
   });
 
-  if (affectedBlockEvidence.errors.length > 0) {
+  if (!affectedBlockEvidence.snapshot) {
     affectedBlockComparison.errors.push(...affectedBlockEvidence.errors);
+    if (affectedBlockEvidence.notes.length > 0) {
+      affectedBlockComparison.errors.push(...affectedBlockEvidence.notes);
+    }
     affectedBlockComparison.set_match = false;
+  } else if (affectedBlockEvidence.notes.length > 0) {
+    affectedBlockComparison.errors.push(
+      ...affectedBlockEvidence.notes.map((note) => `[info] ${note}`),
+    );
   }
 
   const lineage_snapshot_hash = computeLineageSnapshotHash({
@@ -157,11 +168,28 @@ export async function buildTrackREvidencePackage(
     });
   }
 
+  const liveBoundarySeals = input.manifest
+    ? await loadLiveSealsForBoundary4142({
+        manifest: input.manifest,
+        witness_live_seals: liveWitnessAttempt.live_seals,
+        clean_block_numbers: input.witness.clean_block_numbers,
+        kv_identity_ok: liveWitnessAttempt.kv_identity_ok,
+      })
+    : {
+        seals: [] as Seal[],
+        block_41_id: null,
+        block_42_id: null,
+        errors: ['manifest unavailable for live boundary 41->42 assessment'],
+      };
+
   const liveBoundary4142 = input.manifest
     ? assessLiveBoundary4142({
         manifest: input.manifest,
-        live_seals: liveWitnessAttempt.live_seals,
+        live_seals: liveBoundarySeals.seals,
         clean_block_numbers: input.witness.clean_block_numbers,
+        resolved_block_41_id: liveBoundarySeals.block_41_id,
+        resolved_block_42_id: liveBoundarySeals.block_42_id,
+        preload_errors: liveBoundarySeals.errors,
       })
     : {
         ok: false,

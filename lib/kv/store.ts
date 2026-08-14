@@ -117,6 +117,28 @@ function prefixKey(key: string): string {
 // ── Core operations ──────────────────────────────────────────
 
 /**
+ * Primary Upstash GET only — no backup Redis, bridge, or in-memory fallback.
+ * Use for Track R attestation reads that must not treat stale backup data as live.
+ */
+export async function kvGetPrimaryOnly<T>(key: string): Promise<T | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  const fullKey = prefixKey(key);
+  try {
+    const value = await redis.get<T>(fullKey);
+    if (value !== null && value !== undefined) return value;
+    return null;
+  } catch (err) {
+    rethrowIfDynamicServerUsage(err);
+    console.warn(
+      `[mobius-kv] primary-only GET ${key} failed:`,
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
+}
+
+/**
  * Get a value from Redis. Returns null if not found or Redis unavailable.
  */
 export async function kvGet<T>(key: string): Promise<T | null> {

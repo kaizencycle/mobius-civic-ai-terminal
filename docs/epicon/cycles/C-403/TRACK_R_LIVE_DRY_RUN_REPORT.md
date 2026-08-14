@@ -1,7 +1,7 @@
 # Track R Live Dry-Run Report (C-403)
 
-**Capture ID:** `track-r-c403-2026-08-14T1859Z`  
-**Captured:** 2026-08-14T18:59:42.082Z  
+**Capture ID:** `track-r-c403-2026-08-14T1920Z`  
+**Captured:** 2026-08-14T19:20:00.526Z  
 **Executive status:** **BLOCKED**  
 **Execution authorized:** **NOT AUTHORIZED**  
 **Production mutation:** **NONE**
@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Single capture (`track-r-c403-2026-08-14T1859Z`). Dry-run only. **Semantic manifest hash** excludes volatile telemetry. Snapshot split: **lineage** (CAS gate) vs **telemetry** (informational). Positions 132–194 are **verified_unattached** — no fabricated 131→132 edge.
+Single capture (`track-r-c403-2026-08-14T1920Z`). Dry-run only. **Semantic manifest hash** excludes volatile telemetry. Snapshot split: **lineage** (CAS gate) vs **telemetry** (informational). Positions 132–194 are **verified_unattached** — no fabricated 131→132 edge.
 
 Fail-closed corrections (post PR #654): process exit code matches executive status; affected-block set compared exactly (not collision count alone); authenticated live witness export attempted when credentials available.
 
@@ -20,11 +20,11 @@ Fail-closed corrections (post PR #654): process exit code matches executive stat
 
 | Field | Observed |
 |---|---|
-| Capture ID | `track-r-c403-2026-08-14T1859Z` |
-| Lineage snapshot hash | `c0a85b64c14d0931691260f221d93b6961cfb2bc277c71dd00fa6265832b59a4` |
-| Telemetry snapshot hash | `5ea29a26a4e4af14245b417ffddf19c5a307d679e60b1a52afed1838ff8bdd7c` |
+| Capture ID | `track-r-c403-2026-08-14T1920Z` |
+| Lineage snapshot hash | `2fba50aa07d4b79ba7891626b58a0be425088adc50ce3d48598ad894555cb8e7` |
+| Telemetry snapshot hash | `20a7cb5f4a9f5d08d1735d9417104f0413c8f78eac1288712e26fb827f84e076` |
 | Execution witness hash | `n/a` |
-| Unsealed accumulator | ~2555.744033 MIC |
+| Unsealed accumulator | ~2556.656328 MIC |
 | Collision pairs | 125 |
 | Affected block set match | false |
 | Integrity gate | active |

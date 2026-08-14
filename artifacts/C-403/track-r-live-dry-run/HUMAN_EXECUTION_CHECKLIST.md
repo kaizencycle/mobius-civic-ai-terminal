@@ -4,8 +4,8 @@ Do **not** authorize production mutation until all items are checked.
 
 ## Required named approvals
 
-- [ ] Capture ID: `track-r-c403-2026-08-14T1859Z`
-- [ ] Lineage snapshot hash (CAS): `c0a85b64c14d0931691260f221d93b6961cfb2bc277c71dd00fa6265832b59a4`
+- [ ] Capture ID: `track-r-c403-2026-08-14T1920Z`
+- [ ] Lineage snapshot hash (CAS): `2fba50aa07d4b79ba7891626b58a0be425088adc50ce3d48598ad894555cb8e7`
 - [ ] Semantic manifest hash: `27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa`
 - [ ] Execution witness hash: `TBD`
 - [ ] Rollback manifest hash: `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d`

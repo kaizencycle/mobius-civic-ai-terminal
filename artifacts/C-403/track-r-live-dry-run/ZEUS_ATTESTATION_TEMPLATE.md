@@ -1,11 +1,11 @@
 # ZEUS Attestation Template — Track R Batch (UNSIGNED)
 
-**Capture ID:** `track-r-c403-2026-08-14T1859Z`  
+**Capture ID:** `track-r-c403-2026-08-14T1920Z`  
 **Semantic manifest hash:** `27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa`  
-**Lineage snapshot hash (CAS gate):** `c0a85b64c14d0931691260f221d93b6961cfb2bc277c71dd00fa6265832b59a4`  
+**Lineage snapshot hash (CAS gate):** `2fba50aa07d4b79ba7891626b58a0be425088adc50ce3d48598ad894555cb8e7`  
 **Execution witness hash:** `TBD`  
 **Rollback manifest hash:** `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d`  
-**Telemetry snapshot hash (informational):** `5ea29a26a4e4af14245b417ffddf19c5a307d679e60b1a52afed1838ff8bdd7c`
+**Telemetry snapshot hash (informational):** `20a7cb5f4a9f5d08d1735d9417104f0413c8f78eac1288712e26fb827f84e076`
 
 ## Verification checklist
 

@@ -3,7 +3,7 @@ import {
   buildCollisionAffectedBlockSnapshot,
   type CollisionAffectedBlockSnapshot,
 } from '@/lib/vault/collision-affected-blocks';
-import { loadCollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affected-blocks-store';
+import { loadCollisionAffectedBlockSnapshotPrimaryOnly } from '@/lib/vault/collision-affected-blocks-store';
 import {
   getSealsByIdsPrimaryOnly,
   listAllSealIdsPrimaryOnly,
@@ -15,65 +15,35 @@ export type LiveAffectedBlockEvidence = {
   snapshot: CollisionAffectedBlockSnapshot | null;
   source: string | null;
   derived_from_primary_kv: boolean;
+  /** Blocking failures only — must not invalidate a successful primary derivation. */
   errors: string[];
+  /** Informational audit trail (e.g. empty watchdog snapshot superseded by derivation). */
+  notes: string[];
 };
 
-const WATCHDOG_KV_SOURCE = 'kv:mobius:watchdog:collision:affected-blocks';
+const WATCHDOG_KV_SOURCE = 'kv:primary:mobius:watchdog:collision:affected-blocks';
 const PRIMARY_KV_DERIVED_SOURCE = 'kv:primary-vault-v2:derived-collision-affected-blocks';
 
-/** Load live contested-block set from production KV — never from pinned Track R fixture. */
-export async function loadAuthoritativeLiveAffectedBlockEvidence(args: {
+async function deriveAffectedBlockSnapshotFromPrimaryKv(args: {
   capture_observed_at: string;
   operator_cycle?: string | null;
-}): Promise<LiveAffectedBlockEvidence> {
+}): Promise<{
+  snapshot: CollisionAffectedBlockSnapshot | null;
+  errors: string[];
+}> {
   const errors: string[] = [];
-
-  if (!hasUpstashKvCredentials()) {
-    return {
-      snapshot: null,
-      source: null,
-      derived_from_primary_kv: false,
-      errors: ['authenticated KV credentials unavailable — cannot load live affected-block evidence'],
-    };
-  }
-
-  const stored = await loadCollisionAffectedBlockSnapshot();
-  if (stored && stored.affected_block_numbers.length > 0) {
-    return {
-      snapshot: stored,
-      source: WATCHDOG_KV_SOURCE,
-      derived_from_primary_kv: false,
-      errors,
-    };
-  }
-
-  if (stored && stored.affected_block_numbers.length === 0) {
-    errors.push('watchdog KV affected-block snapshot present but empty');
-  } else {
-    errors.push('watchdog KV affected-block snapshot missing — attempting primary KV derivation');
-  }
 
   const allIds = await listAllSealIdsPrimaryOnly();
   if (allIds.length === 0) {
     errors.push('primary KV audit index empty — cannot derive live affected-block set');
-    return {
-      snapshot: null,
-      source: null,
-      derived_from_primary_kv: false,
-      errors,
-    };
+    return { snapshot: null, errors };
   }
 
   const primaryReads = await getSealsByIdsPrimaryOnly(allIds);
   const seals = liveSealsFromPrimaryReads(primaryReads);
   if (seals.length === 0) {
     errors.push('primary KV returned zero readable seal bodies — cannot derive live affected-block set');
-    return {
-      snapshot: null,
-      source: null,
-      derived_from_primary_kv: false,
-      errors,
-    };
+    return { snapshot: null, errors };
   }
 
   const report = analyzeReserveBlockCollisions(seals);
@@ -86,18 +56,62 @@ export async function loadAuthoritativeLiveAffectedBlockEvidence(args: {
 
   if (snapshot.affected_block_numbers.length === 0) {
     errors.push('primary KV derivation produced empty affected_block_numbers');
+    return { snapshot: null, errors };
+  }
+
+  return { snapshot, errors: [] };
+}
+
+/** Load live contested-block set from production KV — never from pinned Track R fixture. */
+export async function loadAuthoritativeLiveAffectedBlockEvidence(args: {
+  capture_observed_at: string;
+  operator_cycle?: string | null;
+}): Promise<LiveAffectedBlockEvidence> {
+  const notes: string[] = [];
+
+  if (!hasUpstashKvCredentials()) {
     return {
       snapshot: null,
       source: null,
+      derived_from_primary_kv: false,
+      errors: ['authenticated KV credentials unavailable — cannot load live affected-block evidence'],
+      notes,
+    };
+  }
+
+  const stored = await loadCollisionAffectedBlockSnapshotPrimaryOnly();
+  if (stored && stored.affected_block_numbers.length > 0) {
+    return {
+      snapshot: stored,
+      source: WATCHDOG_KV_SOURCE,
+      derived_from_primary_kv: false,
+      errors: [],
+      notes,
+    };
+  }
+
+  if (stored && stored.affected_block_numbers.length === 0) {
+    notes.push('watchdog primary KV affected-block snapshot present but empty — deriving from vault seal scan');
+  } else {
+    notes.push('watchdog primary KV affected-block snapshot missing — deriving from vault seal scan');
+  }
+
+  const derived = await deriveAffectedBlockSnapshotFromPrimaryKv(args);
+  if (derived.snapshot) {
+    return {
+      snapshot: derived.snapshot,
+      source: PRIMARY_KV_DERIVED_SOURCE,
       derived_from_primary_kv: true,
-      errors,
+      errors: [],
+      notes,
     };
   }
 
   return {
-    snapshot,
-    source: PRIMARY_KV_DERIVED_SOURCE,
+    snapshot: null,
+    source: null,
     derived_from_primary_kv: true,
-    errors: errors.filter((e) => !e.includes('attempting primary KV derivation')),
+    errors: derived.errors,
+    notes,
   };
 }
