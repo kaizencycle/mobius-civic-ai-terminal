@@ -5,19 +5,26 @@ import type {
   CollisionRepairBatchManifest,
   StagedLineageView,
 } from '@/lib/watchdog/batchRepair/types';
-import type { C397Witness, CollisionResolutionTable } from '@/lib/watchdog/batchRepair/witnessResolution';
-import { extractCanonicalAssignments } from '@/lib/watchdog/batchRepair/witnessResolution';
+import type { C397Witness } from '@/lib/watchdog/batchRepair/witnessResolution';
+
+/** Deferred segment boundaries — must not be auto-wired in fixtures or reported as pass. */
+export const DEFERRED_BOUNDARY_EDGES: ReadonlyArray<readonly [number, number]> = [[131, 132]];
 
 export function resolveCanonicalSealIdForBlock(args: {
   block_number: number;
   canonical_assignments: Record<string, string>;
+  seals: Seal[];
   clean_block_numbers: number[];
 }): string | null {
   const assigned = args.canonical_assignments[String(args.block_number)];
   if (assigned) return assigned;
-  if (args.clean_block_numbers.includes(args.block_number)) {
-    return `seal-clean-b${args.block_number}`;
-  }
+
+  if (!args.clean_block_numbers.includes(args.block_number)) return null;
+
+  const attestedAtBlock = args.seals.filter(
+    (seal) => seal.sequence === args.block_number && seal.status === 'attested',
+  );
+  if (attestedAtBlock.length === 1) return attestedAtBlock[0].seal_id;
   return null;
 }
 
@@ -32,11 +39,13 @@ export function verifyBoundaryContinuity(args: {
   const fromId = resolveCanonicalSealIdForBlock({
     block_number: args.from_block,
     canonical_assignments: args.canonical_assignments,
+    seals: args.seals,
     clean_block_numbers: args.clean_block_numbers,
   });
   const toId = resolveCanonicalSealIdForBlock({
     block_number: args.to_block,
     canonical_assignments: args.canonical_assignments,
+    seals: args.seals,
     clean_block_numbers: args.clean_block_numbers,
   });
 
@@ -107,25 +116,31 @@ export function deriveLatestCanonicalSeal(
   return target?.seal_id ?? null;
 }
 
-export function wireFixturePrevLinks(args: {
+/**
+ * Fixture-only: align block 42 canonical prev to block 41 seal hash for the must_pass boundary.
+ * Does not rewire deferred boundaries (131->132) or global chain prev links.
+ */
+export function alignFixtureMustPassBoundary41To42(args: {
   seals: Seal[];
-  witness: C397Witness;
-  resolutionTable: CollisionResolutionTable;
+  canonical_assignments: Record<string, string>;
+  clean_block_numbers: number[];
 }): void {
-  const byId = new Map(args.seals.map((s) => [s.seal_id, s]));
+  const fromId = resolveCanonicalSealIdForBlock({
+    block_number: 41,
+    canonical_assignments: args.canonical_assignments,
+    seals: args.seals,
+    clean_block_numbers: args.clean_block_numbers,
+  });
+  const toId = args.canonical_assignments['42'];
+  if (!fromId || !toId) return;
 
-  for (const seal of args.seals) {
-    if (seal.sequence <= 1) continue;
-    const prevBlock = seal.sequence - 1;
-    const prevId = resolveCanonicalSealIdForBlock({
-      block_number: prevBlock,
-      canonical_assignments: extractCanonicalAssignments(args.resolutionTable),
-      clean_block_numbers: args.witness.clean_block_numbers,
-    });
-    if (!prevId) continue;
-    const prevSeal = byId.get(prevId);
-    if (prevSeal) {
-      seal.prev_seal_hash = prevSeal.seal_hash;
-    }
-  }
+  const fromSeal = args.seals.find((s) => s.seal_id === fromId);
+  const toSeal = args.seals.find((s) => s.seal_id === toId);
+  if (!fromSeal || !toSeal) return;
+
+  toSeal.prev_seal_hash = fromSeal.seal_hash;
+}
+
+export function isDeferredBoundaryEdge(from_block: number, to_block: number): boolean {
+  return DEFERRED_BOUNDARY_EDGES.some(([from, to]) => from === from_block && to === to_block);
 }

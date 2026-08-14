@@ -22,6 +22,9 @@ import {
   stageVersionedLineage,
   activateVersionPointer,
   buildRollbackPlan,
+  resolveCanonicalSealIdForBlock,
+  verifyBoundaryContinuity,
+  isDeferredBoundaryEdge,
   TRACK_R_BATCH_REPAIR_ID,
   TRACK_R_CONTESTED_POSITIONS,
   TRACK_R_HISTORICAL_CONFLICT_PAIRS,
@@ -29,6 +32,7 @@ import {
 } from '@/lib/watchdog/batchRepair';
 import { hashObject } from '@/lib/watchdog/batchRepair/stableHash';
 import type { CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
+import type { Seal } from '@/lib/vault-v2/types';
 import { verifyKvSnapshotUnchanged, sealReceipt, verifyReceiptHash } from '@/lib/watchdog/reconciliationReceipt';
 
 const FIXTURE_DIR = join(process.cwd(), 'docs/epicon/cycles/C-403/fixtures');
@@ -307,11 +311,13 @@ describe('batchCollisionRepair C-403', () => {
   });
 
   it('20. partial staging cannot activate', () => {
+    const { manifest } = loadFixtures();
     const store = new InMemoryLineageStore();
     const unstaged = activateVersionPointer({
       store,
       repair_id: TRACK_R_BATCH_REPAIR_ID,
       expected_active_version: null,
+      expected_manifest_hash: manifest.manifest_hash,
     });
     assert.equal(unstaged.ok, false);
     assert.ok(unstaged.detail.includes('missing'));
@@ -320,8 +326,90 @@ describe('batchCollisionRepair C-403', () => {
       store,
       repair_id: 'partial-version',
       expected_active_version: TRACK_R_BATCH_REPAIR_ID,
+      expected_manifest_hash: manifest.manifest_hash,
     });
     assert.equal(result.ok, false);
+  });
+
+  it('20b. staged tampered manifest checksum blocks activation', () => {
+    const { manifest, witness } = loadFixtures();
+    const store = new InMemoryLineageStore();
+    stageVersionedLineage({
+      manifest,
+      clean_block_numbers: witness.clean_block_numbers,
+      derived_latest_canonical_seal_id: null,
+      store,
+      write: true,
+    });
+    const manifestKey = `watchdog:lineage:version:${TRACK_R_BATCH_REPAIR_ID}:manifest`;
+    const raw = store.get(manifestKey)!;
+    const tampered = JSON.parse(raw);
+    tampered.zeus_verdict = 'approved';
+    store.set(manifestKey, JSON.stringify(tampered));
+
+    const result = activateVersionPointer({
+      store,
+      repair_id: TRACK_R_BATCH_REPAIR_ID,
+      expected_active_version: null,
+      expected_manifest_hash: manifest.manifest_hash,
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.detail.includes('checksum'));
+  });
+
+  it('20c. clean block seal resolved from evidence not hardcoded fixture id', () => {
+    const liveLikeSeal: Seal = {
+      seal_id: 'seal-C-308-041',
+      sequence: 41,
+      cycle_at_seal: 'C-308',
+      sealed_at: '2026-06-01T00:00:00.000Z',
+      reserve: 50,
+      gi_at_seal: 0.95,
+      mode_at_seal: 'green',
+      source_entries: 1,
+      deposit_hashes: [],
+      attestations: {},
+      status: 'attested',
+      fountain_status: 'pending',
+      fountain_emitted_at: null,
+      posture: null,
+      seal_hash: 'live-hash-41',
+      prev_seal_hash: 'live-hash-40',
+    };
+    const seals = [liveLikeSeal];
+    const id = resolveCanonicalSealIdForBlock({
+      block_number: 41,
+      canonical_assignments: {},
+      seals,
+      clean_block_numbers: [41],
+    });
+    assert.equal(id, 'seal-C-308-041');
+  });
+
+  it('20d. deferred 131->132 boundary prev not fabricated in fixtures', () => {
+    const { manifest, witness, seals } = loadFixtures();
+    assert.equal(isDeferredBoundaryEdge(131, 132), true);
+    const block131 = manifest.canonical_assignments['131'];
+    const block132 = resolveCanonicalSealIdForBlock({
+      block_number: 132,
+      canonical_assignments: manifest.canonical_assignments,
+      seals,
+      clean_block_numbers: witness.clean_block_numbers,
+    });
+    const seal131 = seals.find((s) => s.seal_id === block131);
+    const seal132 = seals.find((s) => s.seal_id === block132);
+    assert.ok(seal131 && seal132);
+    assert.notEqual(seal132.prev_seal_hash, seal131.seal_hash);
+    assert.equal(
+      verifyBoundaryContinuity({
+        seals,
+        canonical_assignments: manifest.canonical_assignments,
+        clean_block_numbers: witness.clean_block_numbers,
+        from_block: 131,
+        to_block: 132,
+      }),
+      'fail',
+    );
   });
 
   it('21. 41->42 boundary continuity verified from staged seals', async () => {

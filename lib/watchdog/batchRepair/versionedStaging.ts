@@ -45,7 +45,7 @@ export class InMemoryLineageStore implements LineageStore {
 export function verifyStagedVersionComplete(args: {
   store: LineageStore;
   repair_id: string;
-  expected_manifest_hash?: string;
+  expected_manifest_hash: string;
 }): { ok: boolean; errors: string[] } {
   const errors: string[] = [];
   const manifestKey = versionedManifestKey(args.repair_id);
@@ -60,7 +60,7 @@ export function verifyStagedVersionComplete(args: {
   if (!canonicalRaw) errors.push(`staged canonical key missing: ${canonicalKey}`);
   if (!quarantineRaw) errors.push(`staged quarantine key missing: ${quarantineKey}`);
 
-  if (manifestRaw && args.expected_manifest_hash) {
+  if (manifestRaw) {
     try {
       const parsed = JSON.parse(manifestRaw) as CollisionRepairBatchManifest;
       if (!verifyManifestHash(parsed)) {
@@ -136,7 +136,7 @@ export function activateVersionPointer(args: {
   store: LineageStore;
   repair_id: string;
   expected_active_version: string | null;
-  expected_manifest_hash?: string;
+  expected_manifest_hash: string;
 }): { ok: boolean; detail: string } {
   const staged = verifyStagedVersionComplete({
     store: args.store,
