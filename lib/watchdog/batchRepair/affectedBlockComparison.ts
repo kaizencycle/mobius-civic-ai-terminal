@@ -92,16 +92,6 @@ export function validateAffectedBlockArtifactFreshness(args: {
     );
   }
 
-  if (
-    args.operator_cycle &&
-    args.live_snapshot.operator_cycle &&
-    args.live_snapshot.operator_cycle !== args.operator_cycle
-  ) {
-    errors.push(
-      `operator_cycle mismatch: artifact ${args.live_snapshot.operator_cycle}, capture ${args.operator_cycle}`,
-    );
-  }
-
   const stale = errors.some((e) => e.includes('stale'));
   return { fresh: errors.length === 0, stale, errors };
 }

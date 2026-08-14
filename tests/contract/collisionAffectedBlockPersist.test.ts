@@ -53,7 +53,7 @@ describe('collisionAffectedBlockPersist C-403', () => {
     const stored = buildAffectedBlockSnapshotFromSeals({
       seals,
       operator_cycle: 'C-403',
-      audited_at: '2026-08-14T12:00:00.000Z',
+      audited_at: '2026-08-01T00:00:00.000Z',
     });
     const derivedEmpty = buildAffectedBlockSnapshotFromSeals({
       seals: seals.filter((s) => s.status !== 'attested'),
@@ -64,7 +64,38 @@ describe('collisionAffectedBlockPersist C-403', () => {
     assert.equal(stored.affected_block_numbers.length > 0, true);
     assert.equal(derivedEmpty.affected_block_numbers.length, 0);
     assert.equal(
-      shouldPreferWatchdogAffectedBlockSnapshot({ stored, derived: derivedEmpty }),
+      shouldPreferWatchdogAffectedBlockSnapshot({
+        stored,
+        derived: derivedEmpty,
+        capture_observed_at: '2026-08-14T12:00:00.000Z',
+        collision_pair_count_live: 125,
+      }),
+      false,
+    );
+  });
+
+  it('shouldPreferWatchdogAffectedBlockSnapshot rejects stale watchdog snapshot even when sets match', () => {
+    const witness = loadWitnessFromFile(WITNESS_PATH);
+    const table = loadResolutionTableFromFile(TABLE_PATH);
+    const seals = buildFixtureSealsFromWitness(witness, table);
+    const stored = buildAffectedBlockSnapshotFromSeals({
+      seals,
+      operator_cycle: 'C-370',
+      audited_at: '2026-08-01T00:00:00.000Z',
+    });
+    const derived = buildAffectedBlockSnapshotFromSeals({
+      seals,
+      operator_cycle: 'C-403',
+      audited_at: '2026-08-14T12:00:00.000Z',
+    });
+
+    assert.equal(
+      shouldPreferWatchdogAffectedBlockSnapshot({
+        stored,
+        derived,
+        capture_observed_at: '2026-08-14T12:00:00.000Z',
+        collision_pair_count_live: 125,
+      }),
       false,
     );
   });
