@@ -6,6 +6,7 @@
  */
 
 import type { Seal } from '@/lib/vault-v2/types';
+import { analyzeReserveBlockCollisions } from '@/lib/dat/reserveBlockCollisions';
 import type { ReserveBlockCollisionReport } from '@/lib/dat/reserveBlockCollisions';
 
 export const COLLISION_AFFECTED_BLOCKS_KEY = 'watchdog:collision:affected-blocks';
@@ -73,6 +74,23 @@ export function buildCollisionAffectedBlockSnapshot(args: {
     three_way_blocks,
     seal_count_by_block,
   };
+}
+
+/** Build affected-block snapshot from attested seal bodies (pure — no KV I/O). */
+export function buildAffectedBlockSnapshotFromSeals(args: {
+  seals: Seal[];
+  operator_cycle?: string;
+  baseline_run_id?: string;
+  audited_at?: string;
+}): CollisionAffectedBlockSnapshot {
+  const report = analyzeReserveBlockCollisions(args.seals);
+  return buildCollisionAffectedBlockSnapshot({
+    report,
+    seals: args.seals,
+    operator_cycle: args.operator_cycle,
+    baseline_run_id: args.baseline_run_id,
+    audited_at: args.audited_at,
+  });
 }
 
 export function collisionAffectedSets(snapshot: CollisionAffectedBlockSnapshot | null | undefined): {

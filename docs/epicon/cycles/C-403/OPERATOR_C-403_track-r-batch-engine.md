@@ -110,6 +110,32 @@ Before any future production commit, all must pass:
 
 ---
 
+## Phase 4b — Production evidence capture (post PR #655)
+
+**Option B (automatic):** `kv-watchdog` cron refreshes `mobius:watchdog:collision:affected-blocks` from primary Upstash every 10 minutes when KV is healthy. `/api/vault/status` reads the snapshot via primary-only loader.
+
+**Option A (gated operator / GHA):**
+
+```bash
+# Local — requires production KV_REST_API_* in .env.local
+pnpm track-r:production-capture
+
+# GitHub Actions — workflow_dispatch
+# .github/workflows/track-r-production-capture.yml
+```
+
+Steps performed:
+
+1. Verify `TRACK_R_PRODUCTION_KV_ANCHORS` against connected primary KV
+2. Publish affected-block snapshot to primary KV (skip with `--skip-write-affected-blocks`)
+3. Run `track-r:live-dry-run-package` with authenticated primary reads
+
+Success target: `executive_status: READY_FOR_ZEUS_EVE_REVIEW`, non-null `execution_witness_hash`, exit 0.
+
+Until then: **NOT AUTHORIZED** — do not enable execution flags.
+
+---
+
 ## Phase 5 — Future guarded execution (design only)
 
 Versioned staging keys (conceptual):

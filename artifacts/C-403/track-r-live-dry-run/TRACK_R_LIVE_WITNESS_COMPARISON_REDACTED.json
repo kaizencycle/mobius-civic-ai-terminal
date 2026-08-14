@@ -1,6 +1,6 @@
 {
-  "capture_id": "track-r-c403-2026-08-14T1920Z",
-  "executive_status": "BLOCKED",
+  "capture_id": "track-r-c403-2026-08-14T1952Z",
+  "executive_status": "BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH",
   "authenticated_read": false,
   "export_complete": false,
   "expected_universe_count": 0,

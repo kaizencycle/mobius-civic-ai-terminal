@@ -5,7 +5,7 @@
  * Usage:
  *   npx tsx scripts/audit-reserve-block-collisions.ts
  *   npx tsx scripts/audit-reserve-block-collisions.ts --json
- *   npx tsx scripts/audit-reserve-block-collisions.ts --hash-divergence-only
+ *   npx tsx scripts/audit-reserve-block-collisions.ts --write-kv --primary-only
  */
 
 import { config } from 'dotenv';
@@ -14,9 +14,12 @@ import { dirname } from 'path';
 import { analyzeReserveBlockCollisions } from '@/lib/dat/reserveBlockCollisions';
 import { resolveExportCycle } from '@/lib/dat/resolveExportCycle';
 import {
-  buildCollisionAffectedBlockSnapshot,
+  buildAffectedBlockSnapshotFromSeals,
 } from '@/lib/vault/collision-affected-blocks';
-import { saveCollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affected-blocks-store';
+import {
+  loadPrimaryAttestedSealsForCollisionAudit,
+  saveCollisionAffectedBlockSnapshot,
+} from '@/lib/vault/collision-affected-blocks-store';
 import { listAllSeals } from '@/lib/vault-v2/store';
 
 config({ path: '.env.local' });
@@ -25,13 +28,22 @@ async function main(): Promise<void> {
   const jsonOut = process.argv.includes('--json');
   const hashOnly = process.argv.includes('--hash-divergence-only');
   const writeKv = process.argv.includes('--write-kv');
+  const primaryOnly = process.argv.includes('--primary-only');
   const baselineRunId = process.argv.find((a) => a.startsWith('--baseline-run-id='))?.split('=')[1];
   const operatorCycle = resolveExportCycle();
 
-  const seals = await listAllSeals(10_000);
+  const seals = primaryOnly
+    ? (await loadPrimaryAttestedSealsForCollisionAudit()).seals
+    : await listAllSeals(10_000);
+  if (seals.length === 0) {
+    throw new Error(
+      primaryOnly
+        ? 'primary KV returned zero readable attested seal bodies'
+        : 'no seals returned from vault audit index',
+    );
+  }
   const report = analyzeReserveBlockCollisions(seals);
-  const affectedSnapshot = buildCollisionAffectedBlockSnapshot({
-    report,
+  const affectedSnapshot = buildAffectedBlockSnapshotFromSeals({
     seals,
     operator_cycle: operatorCycle,
     baseline_run_id: baselineRunId,

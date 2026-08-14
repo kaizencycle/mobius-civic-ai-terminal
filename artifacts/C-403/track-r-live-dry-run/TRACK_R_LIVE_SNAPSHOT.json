@@ -1,12 +1,12 @@
 {
-  "capture_id": "track-r-c403-2026-08-14T1920Z",
+  "capture_id": "track-r-c403-2026-08-14T1952Z",
   "capture_sources": {
     "vault_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/status",
     "seal_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/seal-status",
     "health": "https://mobius-civic-ai-terminal.vercel.app/api/health"
   },
-  "captured_at": "2026-08-14T19:20:00.526Z",
-  "environment": "cursor-cloud-agent",
+  "captured_at": "2026-08-14T19:52:59.351Z",
+  "environment": "production-witness-capture-read-only",
   "pr653_merge_sha": "100d2c4ab3559f0b7b59d6e888d74792e0b61ea2",
   "deployment_sha_public": null,
   "cycle": "C-403",
@@ -22,7 +22,7 @@
   "reserve_block_lane": "integrity_hold",
   "candidate_formation_blocked": true,
   "candidate_in_flight": false,
-  "unsealed_accumulator_mic": 2556.656328,
+  "unsealed_accumulator_mic": 2557.878102,
   "integrity_gate_reasons": [
     "125 hash-divergent block_number collision(s) in attested KV"
   ],

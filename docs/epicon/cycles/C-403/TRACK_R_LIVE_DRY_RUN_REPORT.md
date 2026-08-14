@@ -1,8 +1,8 @@
 # Track R Live Dry-Run Report (C-403)
 
-**Capture ID:** `track-r-c403-2026-08-14T1920Z`  
-**Captured:** 2026-08-14T19:20:00.526Z  
-**Executive status:** **BLOCKED**  
+**Capture ID:** `track-r-c403-2026-08-14T1952Z`  
+**Captured:** 2026-08-14T19:52:59.351Z  
+**Executive status:** **BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH**  
 **Execution authorized:** **NOT AUTHORIZED**  
 **Production mutation:** **NONE**
 
@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Single capture (`track-r-c403-2026-08-14T1920Z`). Dry-run only. **Semantic manifest hash** excludes volatile telemetry. Snapshot split: **lineage** (CAS gate) vs **telemetry** (informational). Positions 132–194 are **verified_unattached** — no fabricated 131→132 edge.
+Single capture (`track-r-c403-2026-08-14T1952Z`). Dry-run only. **Semantic manifest hash** excludes volatile telemetry. Snapshot split: **lineage** (CAS gate) vs **telemetry** (informational). Positions 132–194 are **verified_unattached** — no fabricated 131→132 edge.
 
 Fail-closed corrections (post PR #654): process exit code matches executive status; affected-block set compared exactly (not collision count alone); authenticated live witness export attempted when credentials available.
 
@@ -20,11 +20,11 @@ Fail-closed corrections (post PR #654): process exit code matches executive stat
 
 | Field | Observed |
 |---|---|
-| Capture ID | `track-r-c403-2026-08-14T1920Z` |
-| Lineage snapshot hash | `2fba50aa07d4b79ba7891626b58a0be425088adc50ce3d48598ad894555cb8e7` |
-| Telemetry snapshot hash | `20a7cb5f4a9f5d08d1735d9417104f0413c8f78eac1288712e26fb827f84e076` |
+| Capture ID | `track-r-c403-2026-08-14T1952Z` |
+| Lineage snapshot hash | `080cfc83d3b9515209fe8280e7477171cd977e02879a125b751dd94fcf576507` |
+| Telemetry snapshot hash | `aab76e13df17485c9cfa375deef6ad219eba259fc85718b79f796a4160d042c0` |
 | Execution witness hash | `n/a` |
-| Unsealed accumulator | ~2556.656328 MIC |
+| Unsealed accumulator | ~2557.878102 MIC |
 | Collision pairs | 125 |
 | Affected block set match | false |
 | Integrity gate | active |

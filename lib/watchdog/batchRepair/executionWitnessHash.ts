@@ -21,6 +21,7 @@ export type ExecutionWitnessHashInput = {
   pinned_affected_block_numbers: number[];
   export_source: string;
   environment_identifier: string;
+  production_kv_identity_receipt_hash: string | null;
   active_lineage_version: string | null;
   live_canonical_pointer: string | null;
 };
@@ -47,6 +48,7 @@ export function buildExecutionWitnessHashPayload(
     pinned_affected_block_numbers: [...input.pinned_affected_block_numbers].sort((a, b) => a - b),
     export_source: input.export_source,
     environment_identifier: input.environment_identifier,
+    production_kv_identity_receipt_hash: input.production_kv_identity_receipt_hash,
     active_lineage_version: input.active_lineage_version,
     live_canonical_pointer: input.live_canonical_pointer,
   };

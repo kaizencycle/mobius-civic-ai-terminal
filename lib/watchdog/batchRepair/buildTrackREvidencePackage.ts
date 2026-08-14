@@ -10,8 +10,15 @@ import {
 } from '@/lib/watchdog/batchRepair/executionWitnessHash';
 import {
   TRACK_R_PRODUCTION_KV_ANCHORS,
+  verifyProductionKvEnvironmentIdentity,
   type ProductionKvAnchorInput,
 } from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
+import {
+  buildProductionKvIdentityReceipt,
+  type ProductionApiCrossCheck,
+  type ProductionKvIdentityReceipt,
+} from '@/lib/watchdog/batchRepair/productionKvIdentityReceipt';
+import { hasUpstashKvCredentials } from '@/lib/kv/upstashEnv';
 import { loadAuthoritativeLiveAffectedBlockEvidence } from '@/lib/watchdog/batchRepair/liveAffectedBlockEvidence';
 import {
   assessLiveBoundary4142,
@@ -47,6 +54,8 @@ export type TrackREvidencePackageInput = {
   witness_audit_hash: string;
   resolution_table_hash: string;
   production_kv_anchors?: ProductionKvAnchorInput;
+  production_api_base_url?: string | null;
+  environment_label?: string;
   dryRunOk: boolean;
   dryRunErrors: string[];
   manifest?: CollisionRepairBatchManifest;
@@ -67,6 +76,8 @@ export type TrackREvidencePackageResult = {
   live_boundary_41_42: ReturnType<typeof assessLiveBoundary4142>;
   governance131: ReturnType<typeof assessGovernance131Cutoff>;
   redacted_witness_comparison: ExecutionWitnessRecordResult[];
+  kv_identity_receipt: ProductionKvIdentityReceipt | null;
+  credentials_configured: boolean;
   attestation_hashes: {
     semantic_manifest_hash: string | null;
     lineage_snapshot_hash: string;
@@ -79,6 +90,29 @@ export async function buildTrackREvidencePackage(
   input: TrackREvidencePackageInput,
 ): Promise<TrackREvidencePackageResult> {
   const pinnedBlocks = input.witness.contested_block_numbers;
+  const credentials_configured = hasUpstashKvCredentials();
+
+  let kv_identity_receipt: ProductionKvIdentityReceipt | null = null;
+  if (credentials_configured) {
+    const kv_identity = await verifyProductionKvEnvironmentIdentity({
+      anchors: input.production_kv_anchors,
+    });
+    const api_cross_check: ProductionApiCrossCheck = {
+      fetched_at: input.captured_at,
+      base_url: input.production_api_base_url ?? 'unknown',
+      latest_attested_seal: (input.observed.latest_attested_seal as string | null) ?? null,
+      attested_seal_index: (input.observed.attested_seal_index as number | null) ?? null,
+      historical_collision_pairs: (input.observed.historical_collision_pairs as number | null) ?? null,
+      integrity_gate_active: (input.observed.integrity_gate_active as boolean | null) ?? null,
+      collision_affected_blocks_present: input.observed.affected_block_numbers != null,
+    };
+    kv_identity_receipt = buildProductionKvIdentityReceipt({
+      environment_label: input.environment_label ?? input.environment_identifier,
+      retrieved_at: input.captured_at,
+      kv_identity,
+      api_cross_check,
+    });
+  }
 
   const affectedBlockEvidence = await loadAuthoritativeLiveAffectedBlockEvidence({
     capture_observed_at: input.captured_at,
@@ -218,6 +252,8 @@ export async function buildTrackREvidencePackage(
       };
 
   const executive_status = resolveTrackRExecutiveStatus({
+    credentialsConfigured: credentials_configured,
+    kvIdentityReceipt: kv_identity_receipt,
     fetchFailures: input.fetch_failures,
     dryRunOk: input.dryRunOk,
     materialDrift: input.drift.filter((d) => d.severity === 'material'),
@@ -245,6 +281,7 @@ export async function buildTrackREvidencePackage(
           pinned_affected_block_numbers: pinnedBlocks,
           export_source: liveWitnessAttempt.export_source,
           environment_identifier: input.environment_identifier,
+          production_kv_identity_receipt_hash: kv_identity_receipt?.identity_hash ?? null,
           active_lineage_version: null,
           live_canonical_pointer: null,
         })
@@ -263,6 +300,8 @@ export async function buildTrackREvidencePackage(
     live_boundary_41_42: liveBoundary4142,
     governance131,
     redacted_witness_comparison,
+    kv_identity_receipt,
+    credentials_configured,
     attestation_hashes: {
       semantic_manifest_hash: input.manifest?.manifest_hash ?? null,
       lineage_snapshot_hash,

@@ -9,7 +9,12 @@
  * Usage:
  *   pnpm track-r:live-dry-run-package
  *   pnpm track-r:live-dry-run-package --base-url https://mobius-civic-ai-terminal.vercel.app
+ *
+ * For production KV credentials, use `pnpm track-r:production-capture` instead.
  */
+
+import { config } from 'dotenv';
+config({ path: '.env.local' });
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -84,12 +89,14 @@ function buildCaptureId(isoTimestamp: string): string {
   return `track-r-c403-${isoTimestamp.replace(/[:.]/g, '').slice(0, 15)}Z`;
 }
 
-function parseArgs(argv: string[]): { baseUrl: string } {
+function parseArgs(argv: string[]): { baseUrl: string; productionCapture: boolean } {
   let baseUrl = DEFAULT_BASE;
+  let productionCapture = false;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--base-url' && argv[i + 1]) baseUrl = argv[++i].replace(/\/$/, '');
+    if (argv[i] === '--production-capture') productionCapture = true;
   }
-  return { baseUrl };
+  return { baseUrl, productionCapture };
 }
 
 async function fetchJson<T>(url: string): Promise<{ ok: boolean; status: number; data: T | null; error?: string }> {
@@ -205,10 +212,15 @@ function compareBaseline(
 const OUT_SCHEMA = 'TRACK_R_LIVE_DRY_RUN_PACKAGE_v3';
 
 async function main(): Promise<void> {
-  const { baseUrl } = parseArgs(process.argv.slice(2));
+  const { baseUrl, productionCapture } = parseArgs(process.argv.slice(2));
   const captured_at = new Date().toISOString();
   const capture_id = buildCaptureId(captured_at);
   const receipt_created_at = captured_at;
+  const environment_identifier = productionCapture
+    ? process.env.TRACK_R_CAPTURE_MODE === 'production_witness_read_only'
+      ? 'production-witness-capture-read-only'
+      : 'production-witness-capture'
+    : 'cursor-cloud-agent';
 
   mkdirSync(OUT_DIR, { recursive: true });
 
@@ -246,7 +258,7 @@ async function main(): Promise<void> {
       health: `${baseUrl}/api/health`,
     },
     captured_at,
-    environment: 'cursor-cloud-agent',
+    environment: environment_identifier,
     pr653_merge_sha: PR653_MERGE_SHA,
     deployment_sha_public: null as string | null,
     cycle: (ss.current_cycle as string) ?? (vs.cycle as string) ?? null,
@@ -327,7 +339,9 @@ async function main(): Promise<void> {
   const evidence = await buildTrackREvidencePackage({
     capture_id,
     captured_at,
-    environment_identifier: 'cursor-cloud-agent',
+    environment_identifier,
+    environment_label: environment_identifier,
+    production_api_base_url: baseUrl,
     observed: observed as Record<string, unknown>,
     drift,
     fetch_failures: failures,
@@ -341,6 +355,8 @@ async function main(): Promise<void> {
     report,
     rollback_hash,
   });
+
+  const kvIdentityReceipt = evidence.kv_identity_receipt;
 
   const status = evidence.executive_status;
   const process_exit_code = evidence.process_exit_code;
@@ -361,6 +377,8 @@ async function main(): Promise<void> {
     process_exit_code,
     execution_authorized: false,
     production_mutation_performed: false,
+    capture_mode: productionCapture ? 'production_witness_read_only' : 'standard_dry_run',
+    kv_identity_receipt: kvIdentityReceipt,
     attestation_hashes: evidence.attestation_hashes,
     snapshot_identity: {
       lineage_snapshot_hash,
@@ -464,7 +482,7 @@ async function main(): Promise<void> {
       },
     },
     reproducibility: {
-      command: 'pnpm track-r:live-dry-run-package',
+      command: productionCapture ? 'pnpm track-r:production-capture' : 'pnpm track-r:live-dry-run-package',
       fixture_dry_run: 'pnpm watchdog:batch-collision-repair',
       contract_tests: 'pnpm exec tsx tests/contract/batchCollisionRepair.test.ts && pnpm exec tsx tests/contract/trackRFailClosed.test.ts',
       typecheck: 'pnpm exec tsc --noEmit',
@@ -481,6 +499,7 @@ async function main(): Promise<void> {
         execution_witness_hash,
         rollback_manifest_hash: rollback_hash,
         telemetry_snapshot_hash,
+        production_kv_identity_receipt_hash: kvIdentityReceipt?.identity_hash ?? null,
       },
     },
     explicit_no_production_change:
@@ -488,6 +507,12 @@ async function main(): Promise<void> {
   };
 
   writeFileSync(join(OUT_DIR, 'TRACK_R_LIVE_SNAPSHOT.json'), `${JSON.stringify(observed, null, 2)}\n`);
+  if (kvIdentityReceipt) {
+    writeFileSync(
+      join(OUT_DIR, 'TRACK_R_KV_IDENTITY_RECEIPT.json'),
+      `${JSON.stringify(kvIdentityReceipt, null, 2)}\n`,
+    );
+  }
   writeFileSync(join(OUT_DIR, 'TRACK_R_LIVE_DRY_RUN_PACKAGE.json'), `${JSON.stringify(packageJson, null, 2)}\n`);
   writeFileSync(
     join(OUT_DIR, 'TRACK_R_AFFECTED_BLOCK_COMPARISON.json'),
@@ -710,20 +735,23 @@ function buildZeusTemplate(
 **Lineage snapshot hash (CAS gate):** \`${hashes.lineage_snapshot_hash}\`  
 **Execution witness hash:** \`${hashes.execution_witness_hash ?? 'TBD'}\`  
 **Rollback manifest hash:** \`${hashes.rollback_manifest_hash}\`  
+**Production KV identity receipt hash:** \`${hashes.production_kv_identity_receipt_hash ?? 'TBD'}\`  
 **Telemetry snapshot hash (informational):** \`${hashes.telemetry_snapshot_hash}\`
 
 ## Verification checklist
 
+- [ ] Production KV identity receipt confirms connected datastore matches production anchors
 - [ ] Semantic manifest hash recomputes identically (excludes created_at, verdicts, telemetry)
 - [ ] Exact live affected-block set matches pinned contested universe (not collision count alone)
 - [ ] Every collision represented (125 pairs; 123 contested positions)
 - [ ] 125 losing candidates quarantined, not erased
 - [ ] No fabricated 131→132 edge; 132–194 verified_unattached
-- [ ] Boundary 41→42 passes on seal evidence
+- [ ] Boundary 41→42 passes on authenticated production seal bodies
 - [ ] Lineage snapshot hash matches attestation (not full telemetry snapshot)
-- [ ] Execution witness hash recomputes from per-record live KV comparison
+- [ ] Execution witness hash recomputes from per-record live KV comparison + identity receipt hash
 - [ ] Live seal witness: matched = expected universe, mismatched = 0, missing = 0, unexpected = 0
 - [ ] Rollback restores precise pre-execution state
+- [ ] Capture performed read-only (zero production KV writes)
 
 ## Verdict (do not pre-fill)
 
@@ -753,17 +781,20 @@ function buildEveTemplate(
 **Semantic manifest hash:** \`${manifest?.manifest_hash ?? 'TBD'}\`  
 **Lineage snapshot hash:** \`${hashes.lineage_snapshot_hash}\`  
 **Execution witness hash:** \`${hashes.execution_witness_hash ?? 'TBD'}\`  
-**Rollback manifest hash:** \`${hashes.rollback_manifest_hash}\`
+**Rollback manifest hash:** \`${hashes.rollback_manifest_hash}\`  
+**Production KV identity receipt hash:** \`${hashes.production_kv_identity_receipt_hash ?? 'TBD'}\`
 
 ## Constitutional scope checklist
 
+- [ ] Production KV identity receipt proves authenticated reads against production anchors
 - [ ] Selection policy matches Track R canon (\`component_coherent_hybrid\`)
 - [ ] Promotion stops at position 131; 132–194 preserved unattached
 - [ ] No fabricated continuity at 131→132 boundary
 - [ ] Historical evidence not erased (125 pairs auditable)
 - [ ] Manifest semantic hash stable across capture timestamps
-- [ ] Same four-hash packet as ZEUS attestation
+- [ ] Same four-hash packet as ZEUS attestation (plus identity receipt hash in execution witness)
 - [ ] Authenticated live witness binds repair to production KV (zero mismatch/missing)
+- [ ] Witness capture performed read-only (zero production KV writes)
 
 ## Verdict (do not pre-fill)
 
@@ -794,6 +825,7 @@ Do **not** authorize production mutation until all items are checked.
 ## Required named approvals
 
 - [ ] Capture ID: \`${hashes.capture_id}\`
+- [ ] Production KV identity receipt hash: \`${hashes.production_kv_identity_receipt_hash ?? 'TBD'}\`
 - [ ] Lineage snapshot hash (CAS): \`${hashes.lineage_snapshot_hash}\`
 - [ ] Semantic manifest hash: \`${manifest?.manifest_hash ?? 'TBD'}\`
 - [ ] Execution witness hash: \`${hashes.execution_witness_hash ?? 'TBD'}\`
