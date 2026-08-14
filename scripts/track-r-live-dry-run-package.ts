@@ -9,7 +9,12 @@
  * Usage:
  *   pnpm track-r:live-dry-run-package
  *   pnpm track-r:live-dry-run-package --base-url https://mobius-civic-ai-terminal.vercel.app
+ *
+ * For production KV credentials, use `pnpm track-r:production-capture` instead.
  */
+
+import { config } from 'dotenv';
+config({ path: '.env.local' });
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

@@ -19,6 +19,7 @@ import {
 } from '@/lib/watchdog/kvWatchdogEscalation';
 import { clearSealIntegrityGateIfCollisionsResolved, getSealIntegrityGateState } from '@/lib/watchdog/sealIntegrityGate';
 import { resolveKvWatchdogHttpOutcome } from '@/lib/watchdog/kvWatchdogHttpOutcome';
+import { refreshCollisionAffectedBlockSnapshotFromPrimaryKv } from '@/lib/vault/collision-affected-blocks-store';
 import { bearerMatchesToken } from '@/lib/vault-v2/auth';
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,22 @@ export async function GET(request: NextRequest) {
   try {
     const operatorCycle = await resolveOperatorCycleId().catch(() => 'C-370');
     const report = await runKvHealthChecks();
+    let collision_affected_blocks_refresh: Awaited<
+      ReturnType<typeof refreshCollisionAffectedBlockSnapshotFromPrimaryKv>
+    > | null = null;
+
+    if (!report.primary_kv_suspended && !report.seals_skipped) {
+      collision_affected_blocks_refresh = await refreshCollisionAffectedBlockSnapshotFromPrimaryKv({
+        operator_cycle: operatorCycle,
+        audited_at: report.checked_at,
+      });
+      if (!collision_affected_blocks_refresh.written) {
+        console.warn('[kv-watchdog] affected-block snapshot refresh skipped', {
+          errors: collision_affected_blocks_refresh.errors,
+        });
+      }
+    }
+
     const escalation = await escalateKvWatchdogReport(report, operatorCycle);
     const gateCleared = await clearSealIntegrityGateIfCollisionsResolved(report);
     const sealGate = await getSealIntegrityGateState();
@@ -78,6 +95,7 @@ export async function GET(request: NextRequest) {
         hard_stop_enabled: http.hard_stop_enabled,
         seal_integrity_gate_active: http.seal_integrity_gate_active,
         degraded_dependencies: http.degraded_dependencies,
+        collision_affected_blocks_refresh,
       },
       { status: http.http_status },
     );

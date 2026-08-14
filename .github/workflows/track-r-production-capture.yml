@@ -1,0 +1,118 @@
+# C-403 — Gated Track R production capture (Option A + B bootstrap)
+#
+# Manual workflow_dispatch only. Requires production Upstash secrets.
+# Publishes primary-only affected-block snapshot, verifies KV identity anchors,
+# then runs the Track R evidence package. Fails closed on identity mismatch.
+#
+# Required secrets:
+#   KV_REST_API_URL, KV_REST_API_TOKEN
+#
+# Outputs (30-day retention):
+#   track-r-live-dry-run/ — evidence bundle for ZEUS × EVE review
+
+name: Track R Production Capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_write_affected_blocks:
+        description: Skip publishing affected-block snapshot before capture
+        type: boolean
+        default: false
+      base_url:
+        description: Production base URL for public API baseline
+        type: string
+        default: https://mobius-civic-ai-terminal.vercel.app
+
+permissions:
+  contents: read
+
+concurrency:
+  group: track-r-production-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout terminal
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Preflight KV secrets
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -z "${KV_REST_API_URL:-}" ] && missing+=("KV_REST_API_URL")
+          [ -z "${KV_REST_API_TOKEN:-}" ] && missing+=("KV_REST_API_TOKEN")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Run gated production capture
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          export KV_REST_API_TOKEN="$(printf '%s' "$KV_REST_API_TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          args=(--base-url "${{ inputs.base_url }}")
+          if [ "${{ inputs.skip_write_affected_blocks }}" = "true" ]; then
+            args+=(--skip-write-affected-blocks)
+          fi
+          pnpm track-r:production-capture "${args[@]}"
+
+      - name: Summarize capture
+        if: always()
+        run: |
+          {
+            echo "## Track R Production Capture"
+            echo ""
+            if [ -f artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_DRY_RUN_PACKAGE.json ]; then
+              python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_DRY_RUN_PACKAGE.json")
+          d = json.loads(p.read_text())
+          print(f"- **capture_id:** `{d.get('capture_id')}`")
+          print(f"- **executive_status:** `{d.get('executive_status')}`")
+          print(f"- **process_exit_code:** `{d.get('process_exit_code')}`")
+          print(f"- **execution_authorized:** `{d.get('execution_authorized')}`")
+          hashes = d.get("attestation_hashes") or {}
+          print(f"- semantic_manifest_hash: `{hashes.get('semantic_manifest_hash')}`")
+          print(f"- execution_witness_hash: `{hashes.get('execution_witness_hash')}`")
+          witness = d.get("execution_witness") or {}
+          print(f"- blocked_reason: `{witness.get('blocked_reason')}`")
+          comp = d.get("affected_block_comparison") or {}
+          print(f"- affected_block_set_match: `{comp.get('set_match')}`")
+          PY
+            else
+              echo "_No TRACK_R_LIVE_DRY_RUN_PACKAGE.json produced_"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Track R evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: track-r-production-capture
+          path: artifacts/C-403/track-r-live-dry-run/
+          retention-days: 30
