@@ -1,4 +1,5 @@
 import type { BatchCommitGuardInput } from '@/lib/watchdog/batchRepair/types';
+import { verifyLiveSealWitnessExport } from '@/lib/watchdog/batchRepair/executionWitness';
 import { verifyManifestHash } from '@/lib/watchdog/batchRepair/semanticManifest';
 
 export const BATCH_EXECUTION_FEATURE_FLAG = 'TRACK_R_BATCH_EXECUTION_ENABLED';
@@ -44,11 +45,12 @@ export function assertBatchCommitAllowed(input: BatchCommitGuardInput): {
   if (!input.fresh_lineage_snapshot_hash_matches) {
     errors.push('fresh lineage snapshot hash does not match manifest attestation');
   }
-  if (!input.live_seal_witness_export_verified) {
-    errors.push(
-      'authenticated live seal witness export required — per-record body equality, not collision count alone',
-    );
+
+  const witnessCheck = verifyLiveSealWitnessExport(input.live_seal_witness_export);
+  if (!witnessCheck.ok) {
+    errors.push(...witnessCheck.errors);
   }
+
   if (!input.integrity_gate_active) {
     errors.push('integrity gate must be active before batch commit');
   }

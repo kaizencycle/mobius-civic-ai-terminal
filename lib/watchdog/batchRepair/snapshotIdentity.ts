@@ -17,7 +17,8 @@ export type LineageSnapshotInput = {
   witness_audit_hash: string;
   resolution_table_hash: string;
   active_lineage_version: string | null;
-  expected_canonical_pointer: string | null;
+  /** Live KV canonical pointer observation only — null when unresolved. Not a repair proposal. */
+  live_canonical_pointer: string | null;
 };
 
 /** Operational telemetry — informational only; must not gate CAS execution. */

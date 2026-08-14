@@ -33,7 +33,10 @@ import {
   TRACK_R_GOVERNANCE_DISPOSITION,
   computeLineageSnapshotHash,
   computeTelemetrySnapshotHash,
+  verifyLiveSealWitnessExport,
+  collectTrackRWitnessSealIds,
 } from '@/lib/watchdog/batchRepair';
+import type { LiveSealWitnessExport } from '@/lib/watchdog/batchRepair/executionWitness';
 import type { CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 import type { Seal } from '@/lib/vault-v2/types';
 import { verifyKvSnapshotUnchanged, sealReceipt, verifyReceiptHash } from '@/lib/watchdog/reconciliationReceipt';
@@ -53,7 +56,7 @@ const COMMIT_GUARD_BASE = {
   execution_feature_flag_enabled: true,
   explicit_operator_command: true,
   fresh_lineage_snapshot_hash_matches: true,
-  live_seal_witness_export_verified: true,
+  live_seal_witness_export: null,
   integrity_gate_active: true,
   mutation_journal_available: true,
   rollback_plan_verified: true,
@@ -524,10 +527,50 @@ describe('batchCollisionRepair C-403', () => {
       ...COMMIT_GUARD_BASE,
       manifest: approved,
       approved_manifest_hash: approved.manifest_hash,
-      live_seal_witness_export_verified: false,
+      live_seal_witness_export: null,
     });
     assert.equal(guard.ok, false);
     assert.ok(guard.errors.some((e) => e.includes('live seal witness export')));
+  });
+
+  it('30b. empty witness export with export_complete true fails verification', () => {
+    const emptyExport: LiveSealWitnessExport = {
+      schema_version: '1.0',
+      capture_id: 'capture-empty',
+      exported_at: '2026-08-14T00:00:00.000Z',
+      authenticated_read: true,
+      export_source: 'test',
+      expected_seal_ids: [],
+      records: [],
+      summary: { total: 0, match: 0, mismatch: 0, missing: 0 },
+      export_complete: true,
+    };
+    const result = verifyLiveSealWitnessExport(emptyExport);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.includes('expected_seal_ids')));
+  });
+
+  it('30c. witness export requires per-record match for expected seal ids', () => {
+    const { witness } = loadFixtures();
+    const expected = collectTrackRWitnessSealIds(witness).slice(0, 2);
+    const exportOk: LiveSealWitnessExport = {
+      schema_version: '1.0',
+      capture_id: 'capture-ok',
+      exported_at: '2026-08-14T00:00:00.000Z',
+      authenticated_read: true,
+      export_source: 'test-kv-read',
+      expected_seal_ids: expected,
+      records: expected.map((seal_id) => ({
+        seal_id,
+        block_number: null,
+        status: 'match' as const,
+        pinned_witness_hash: 'hash-a',
+        live_kv_hash: 'hash-a',
+      })),
+      summary: { total: expected.length, match: expected.length, mismatch: 0, missing: 0 },
+      export_complete: true,
+    };
+    assert.equal(verifyLiveSealWitnessExport(exportOk).ok, true);
   });
 
   it('31. lineage and telemetry snapshot hashes diverge when accumulator drifts', () => {
@@ -548,7 +591,7 @@ describe('batchCollisionRepair C-403', () => {
       witness_audit_hash: 'abc',
       resolution_table_hash: 'def',
       active_lineage_version: null,
-      expected_canonical_pointer: 'seal-C-358-131',
+      live_canonical_pointer: null,
     };
 
     const lineageA = computeLineageSnapshotHash(lineageBase);

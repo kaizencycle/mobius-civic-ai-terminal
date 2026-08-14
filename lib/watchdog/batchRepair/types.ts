@@ -1,4 +1,5 @@
 import type { SealCollisionResolutionReceipt } from '@/lib/watchdog/reconciliationReceipt';
+import type { LiveSealWitnessExport } from '@/lib/watchdog/batchRepair/executionWitness';
 
 export const BATCH_MANIFEST_SCHEMA_VERSION = '1.0' as const;
 
@@ -120,7 +121,7 @@ export type BatchCommitGuardInput = {
   fresh_lineage_snapshot_hash_matches: boolean;
   /** Informational telemetry drift — logged but not a commit blocker. */
   telemetry_snapshot_hash?: string | null;
-  live_seal_witness_export_verified: boolean;
+  live_seal_witness_export?: LiveSealWitnessExport | null;
   integrity_gate_active: boolean;
   mutation_journal_available: boolean;
   rollback_plan_verified: boolean;

@@ -16,6 +16,8 @@ export type LiveSealWitnessExport = {
   exported_at: string;
   authenticated_read: true;
   export_source: string;
+  /** Seal IDs that must appear in records with status match — from pinned witness universe. */
+  expected_seal_ids: string[];
   records: LiveSealWitnessRecord[];
   summary: {
     total: number;
@@ -31,12 +33,37 @@ export type LiveSealWitnessVerification = {
   errors: string[];
 };
 
+function summarizeRecords(records: LiveSealWitnessRecord[]): LiveSealWitnessExport['summary'] {
+  let match = 0;
+  let mismatch = 0;
+  let missing = 0;
+  for (const record of records) {
+    switch (record.status) {
+      case 'match':
+        match += 1;
+        break;
+      case 'mismatch':
+        mismatch += 1;
+        break;
+      case 'missing':
+        missing += 1;
+        break;
+      default: {
+        const _exhaustive: never = record.status;
+        throw new Error(`unknown witness record status: ${String(_exhaustive)}`);
+      }
+    }
+  }
+  return { total: records.length, match, mismatch, missing };
+}
+
 /**
  * Execution-phase requirement: compare every Track R relevant live seal body against
  * the pinned witness. Collision count alone is insufficient for authorization.
  */
 export function verifyLiveSealWitnessExport(
   witnessExport: LiveSealWitnessExport | null | undefined,
+  args?: { expected_seal_ids?: string[] },
 ): LiveSealWitnessVerification {
   const errors: string[] = [];
 
@@ -51,11 +78,101 @@ export function verifyLiveSealWitnessExport(
   if (!witnessExport.export_complete) {
     errors.push('live seal witness export incomplete — not all Track R seal bodies exported');
   }
-  if (witnessExport.summary.mismatch > 0) {
-    errors.push(`live seal witness export has ${witnessExport.summary.mismatch} mismatches`);
+
+  const expectedSealIds = [...(args?.expected_seal_ids ?? witnessExport.expected_seal_ids ?? [])].sort();
+  if (expectedSealIds.length === 0) {
+    errors.push('live seal witness export must declare expected_seal_ids with at least one seal');
   }
-  if (witnessExport.summary.missing > 0) {
-    errors.push(`live seal witness export has ${witnessExport.summary.missing} missing seals`);
+
+  const records = witnessExport.records ?? [];
+  if (records.length === 0) {
+    errors.push('live seal witness export must include per-record body evidence');
+  }
+
+  const computedSummary = summarizeRecords(records);
+  const summary = witnessExport.summary;
+  if (summary.total !== computedSummary.total) {
+    errors.push('summary.total does not match records.length');
+  }
+  if (summary.match !== computedSummary.match) {
+    errors.push('summary.match does not match records');
+  }
+  if (summary.mismatch !== computedSummary.mismatch) {
+    errors.push('summary.mismatch does not match records');
+  }
+  if (summary.missing !== computedSummary.missing) {
+    errors.push('summary.missing does not match records');
+  }
+  if (summary.total <= 0) {
+    errors.push('live seal witness export summary.total must be greater than zero');
+  }
+
+  const recordById = new Map<string, LiveSealWitnessRecord>();
+  for (const record of records) {
+    if (!record.seal_id) {
+      errors.push('witness record missing seal_id');
+      continue;
+    }
+    if (recordById.has(record.seal_id)) {
+      errors.push(`duplicate witness record for seal ${record.seal_id}`);
+    }
+    recordById.set(record.seal_id, record);
+
+    switch (record.status) {
+      case 'match':
+        if (!record.pinned_witness_hash || !record.live_kv_hash) {
+          errors.push(`match record ${record.seal_id} missing pinned or live hash`);
+        } else if (record.pinned_witness_hash !== record.live_kv_hash) {
+          errors.push(`match record ${record.seal_id} hash inequality`);
+        }
+        break;
+      case 'mismatch':
+        if (!record.pinned_witness_hash || !record.live_kv_hash) {
+          errors.push(`mismatch record ${record.seal_id} missing pinned or live hash`);
+        } else if (record.pinned_witness_hash === record.live_kv_hash) {
+          errors.push(`mismatch record ${record.seal_id} hashes are equal`);
+        }
+        break;
+      case 'missing':
+        if (record.live_kv_hash) {
+          errors.push(`missing record ${record.seal_id} must not include live_kv_hash`);
+        }
+        break;
+      default: {
+        const _exhaustive: never = record.status;
+        errors.push(`unknown witness record status for ${record.seal_id}: ${String(_exhaustive)}`);
+      }
+    }
+  }
+
+  if (expectedSealIds.length > 0) {
+    if (records.length !== expectedSealIds.length) {
+      errors.push(
+        `records.length (${records.length}) must equal expected_seal_ids.length (${expectedSealIds.length})`,
+      );
+    }
+    for (const sealId of expectedSealIds) {
+      const record = recordById.get(sealId);
+      if (!record) {
+        errors.push(`expected seal ${sealId} missing from export records`);
+        continue;
+      }
+      if (record.status !== 'match') {
+        errors.push(`expected seal ${sealId} must have status match, got ${record.status}`);
+      }
+    }
+    for (const sealId of recordById.keys()) {
+      if (!expectedSealIds.includes(sealId)) {
+        errors.push(`unexpected seal ${sealId} in export records`);
+      }
+    }
+  }
+
+  if (summary.mismatch > 0) {
+    errors.push(`live seal witness export has ${summary.mismatch} mismatches`);
+  }
+  if (summary.missing > 0) {
+    errors.push(`live seal witness export has ${summary.missing} missing seals`);
   }
 
   return { ok: errors.length === 0, errors };

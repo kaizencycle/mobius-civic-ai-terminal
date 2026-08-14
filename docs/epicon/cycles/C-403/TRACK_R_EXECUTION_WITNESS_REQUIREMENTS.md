@@ -32,7 +32,7 @@ Before Track R batch commit, an operator with **authenticated read-only KV acces
 `assertBatchCommitAllowed` requires:
 
 - `fresh_lineage_snapshot_hash_matches: true` — CAS gate on lineage fields only
-- `live_seal_witness_export_verified: true` — authenticated export with zero mismatches/missing
+- `live_seal_witness_export` verified via `verifyLiveSealWitnessExport` — per-record body equality with `expected_seal_ids`, not collision count alone
 
 Accumulator drift (`telemetry_snapshot_hash`) remains **informational only** and must not block CAS.
 
