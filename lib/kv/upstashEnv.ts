@@ -13,3 +13,7 @@ export function getUpstashRestCredentials(): { url: string; token: string } | nu
   if (!url || !token) return null;
   return { url, token };
 }
+
+export function hasUpstashKvCredentials(): boolean {
+  return getUpstashRestCredentials() != null;
+}
