@@ -267,12 +267,23 @@
     "41->42": "must_pass",
     "131->132": "pending_track_r_step_8"
   },
+  "governance_disposition": {
+    "promoted_canonical_through_position": 131,
+    "proposed_latest_canonical_seal_id": "seal-C-358-131",
+    "preserved_unattached": {
+      "from_position": 132,
+      "to_position": 194,
+      "status": "verified_unattached"
+    },
+    "boundary_131_132_edge": "not_fabricated",
+    "requires_post_repair_audit_before_attach": true
+  },
   "production_execution_enabled": false,
   "zeus_verdict": "pending",
   "eve_verdict": "pending",
   "human_approval": "pending",
-  "created_at": "2026-08-14T17:00:00.000Z",
-  "manifest_hash": "2e3a6c98f88884a1ece052e5c9780862b26a97108bd3648409986d4b3d392075",
+  "created_at": "2026-08-14T17:16:09.335Z",
+  "manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
   "receipt_count": 123,
   "receipt_ids": [
     "rcpt-C-403-b001-batch",

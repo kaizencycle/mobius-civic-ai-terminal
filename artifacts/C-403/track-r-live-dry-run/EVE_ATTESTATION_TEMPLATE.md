@@ -1,17 +1,18 @@
 # EVE Attestation Template — Track R Batch (UNSIGNED)
 
-**Manifest hash (must match ZEUS):** `2e3a6c98f88884a1ece052e5c9780862b26a97108bd3648409986d4b3d392075`  
-**Snapshot hash:** `55ca67b53f30c4d3599ea0e26ceae07adba833537e79df3930fd90afc8040c12`  
+**Capture ID:** `track-r-c403-2026-08-14T1716Z`  
+**Semantic manifest hash:** `27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa`  
+**Lineage snapshot hash:** `3d383f13871e888d95c914b17ba3994770cd5130e8fecf5a0fa515bf154100d8`  
 **Rollback manifest hash:** `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d`
 
 ## Constitutional scope checklist
 
 - [ ] Selection policy matches Track R canon (`component_coherent_hybrid`)
-- [ ] Historical evidence not erased (125 pairs remain auditable)
-- [ ] Repair does not redefine prior attested events
-- [ ] Manifest scope does not exceed C-401 resolution table authority
-- [ ] Human operator can understand mutation + rollback
-- [ ] Same manifest hash as ZEUS attestation
+- [ ] Promotion stops at position 131; 132–194 preserved unattached
+- [ ] No fabricated continuity at 131→132 boundary
+- [ ] Historical evidence not erased (125 pairs auditable)
+- [ ] Manifest semantic hash stable across capture timestamps
+- [ ] Same semantic manifest hash as ZEUS attestation
 
 ## Verdict (do not pre-fill)
 
@@ -22,4 +23,4 @@
 
 **EVE signature / timestamp:** _pending_
 
-**Boundary 131→132 disposition required:** YES
+**Governance disposition:** promote through 131 only; 132–194 require post-repair audit before attach
