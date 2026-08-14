@@ -141,6 +141,7 @@ function liveWitnessUnavailable() {
     export: null,
     comparison_results: [],
     verification_errors: [],
+    verification_notes: [],
     expected_universe_count: 0,
     export_source: 'test',
     primary_read_count: 0,
@@ -269,6 +270,7 @@ describe('trackRFailClosed C-403', () => {
         },
         comparison_results: [],
         verification_errors: ['expected seal seal-C-332-001 must have status match, got missing'],
+        verification_notes: [],
         expected_universe_count: 248,
         export_source: 'lib/vault-v2/store.getSealsByIdsPrimaryOnly',
         primary_read_count: 0,
@@ -326,6 +328,7 @@ describe('trackRFailClosed C-403', () => {
           export: null,
           comparison_results: [],
           verification_errors: [],
+    verification_notes: [],
           expected_universe_count: 248,
           export_source: 'test',
           primary_read_count: 248,
@@ -380,6 +383,7 @@ describe('trackRFailClosed C-403', () => {
           export: null,
           comparison_results: [],
           verification_errors: ['mismatch on seal-C-332-001'],
+          verification_notes: [],
           expected_universe_count: 248,
           export_source: 'test',
           primary_read_count: 247,
@@ -438,6 +442,7 @@ describe('trackRFailClosed C-403', () => {
           export: null,
           comparison_results: [],
           verification_errors: [],
+    verification_notes: [],
           expected_universe_count: 248,
           export_source: 'test',
           primary_read_count: 248,
@@ -527,6 +532,58 @@ describe('trackRFailClosed C-403', () => {
     assert.deepEqual(filtered, []);
   });
 
+  it('filterExecutiveMaterialDrift retains incorrect public contested count drift', () => {
+    const comparison = affectedBlockComparisonPass();
+    const filtered = filterExecutiveMaterialDrift(
+      [
+        {
+          field: 'contested_block_positions',
+          expected: 123,
+          observed: 125,
+          severity: 'material',
+        },
+      ],
+      comparison,
+    );
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0]?.observed, 125);
+  });
+
+  it('dry-run fixture verification note does not block when live witness ok', () => {
+    const status = resolveTrackRExecutiveStatus(
+      executiveStatusArgs({
+        liveWitnessAttempt: {
+          ok: true,
+          blocked_reason: null,
+          export: {
+            schema_version: '1.0',
+            capture_id: 'c',
+            exported_at: CREATED_AT,
+            authenticated_read: true,
+            export_source: 'test',
+            expected_seal_ids: ['seal-C-332-001'],
+            records: [],
+            summary: { total: 248, match: 248, mismatch: 0, missing: 0, unexpected: 0 },
+            export_complete: true,
+          },
+          comparison_results: [],
+          verification_errors: [],
+          verification_notes: [
+            'dry-run manifest contains fixture-hash-* receipt pins — live witness uses primary KV bodies only',
+          ],
+          expected_universe_count: 248,
+          export_source: 'test',
+          primary_read_count: 248,
+          fallback_read_count: 0,
+          uses_fixture_pinned_hashes: true,
+          kv_identity_ok: true,
+          live_seals: [],
+        },
+      }),
+    );
+    assert.equal(status, 'READY_FOR_ZEUS_EVE_REVIEW');
+  });
+
   it('public API contested_block_positions drift does not block when authenticated KV set matches', () => {
     const status = resolveTrackRExecutiveStatus(
       executiveStatusArgs({
@@ -557,6 +614,7 @@ describe('trackRFailClosed C-403', () => {
           },
           comparison_results: [],
           verification_errors: [],
+    verification_notes: [],
           expected_universe_count: 248,
           export_source: 'test',
           primary_read_count: 248,

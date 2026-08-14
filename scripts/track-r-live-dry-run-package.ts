@@ -433,6 +433,7 @@ async function main(): Promise<void> {
       expected_universe_count: liveWitness.expected_universe_count,
       summary: liveWitness.export?.summary ?? null,
       verification_errors: liveWitness.verification_errors,
+      verification_notes: liveWitness.verification_notes,
       blocked_reason: liveWitness.blocked_reason,
       kv_identity_ok: liveWitness.kv_identity_ok,
       primary_read_count: liveWitness.primary_read_count,
@@ -530,6 +531,7 @@ async function main(): Promise<void> {
         expected_universe_count: liveWitness.expected_universe_count,
         summary: liveWitness.export?.summary ?? null,
         verification_errors: liveWitness.verification_errors,
+      verification_notes: liveWitness.verification_notes,
         blocked_reason: liveWitness.blocked_reason,
         execution_witness_hash,
         per_record_status_counts: evidence.redacted_witness_comparison.reduce(

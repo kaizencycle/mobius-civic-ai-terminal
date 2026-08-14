@@ -25,7 +25,10 @@ export type LiveSealWitnessExportAttempt = {
   blocked_reason: LiveWitnessBlockedReason | null;
   export: LiveSealWitnessExport | null;
   comparison_results: ExecutionWitnessRecordResult[];
+  /** Blocking verification failures only — must not include informational dry-run notes. */
   verification_errors: string[];
+  /** Informational audit notes (e.g. dry-run manifest fixture pins) — never fail-closed alone. */
+  verification_notes: string[];
   expected_universe_count: number;
   export_source: string;
   primary_read_count: number;
@@ -185,6 +188,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       export: null,
       comparison_results: [],
       verification_errors: ['authenticated KV credentials unavailable in environment'],
+      verification_notes: [],
       expected_universe_count: 0,
       export_source: PRIMARY_EXPORT_SOURCE,
       primary_read_count: 0,
@@ -205,6 +209,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       export: null,
       comparison_results: [],
       verification_errors: identity.errors,
+      verification_notes: [],
       expected_universe_count: 0,
       export_source: PRIMARY_EXPORT_SOURCE,
       primary_read_count: 0,
@@ -226,6 +231,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       export: null,
       comparison_results: [],
       verification_errors: resolved.errors,
+      verification_notes: [],
       expected_universe_count: 0,
       export_source: PRIMARY_EXPORT_SOURCE,
       primary_read_count: 0,
@@ -246,6 +252,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
       export: null,
       comparison_results: [],
       verification_errors: batch.chunk_errors,
+      verification_notes: [],
       expected_universe_count: expectedSealIds.length,
       export_source: PRIMARY_EXPORT_SOURCE,
       primary_read_count: 0,
@@ -332,8 +339,9 @@ export async function exportAuthenticatedLiveSealWitness(args: {
   });
 
   const verification_errors = [...verification.errors];
+  const verification_notes: string[] = [];
   if (uses_fixture_pinned_hashes) {
-    verification_errors.push(
+    verification_notes.push(
       'dry-run manifest contains fixture-hash-* receipt pins — live witness uses primary KV bodies only',
     );
   }
@@ -357,6 +365,7 @@ export async function exportAuthenticatedLiveSealWitness(args: {
     export: witnessExport,
     comparison_results,
     verification_errors,
+    verification_notes,
     expected_universe_count: expectedSealIds.length,
     export_source: PRIMARY_EXPORT_SOURCE,
     primary_read_count,

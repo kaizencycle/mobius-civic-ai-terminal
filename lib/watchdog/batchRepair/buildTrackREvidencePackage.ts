@@ -187,6 +187,7 @@ export async function buildTrackREvidencePackage(
     export: null,
     comparison_results: [],
     verification_errors: ['manifest unavailable for live witness export'],
+    verification_notes: [],
     expected_universe_count: 0,
     export_source: 'unavailable',
     primary_read_count: 0,
