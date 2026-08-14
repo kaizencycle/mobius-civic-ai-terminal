@@ -1,0 +1,123 @@
+{
+  "schema": "TRACK_R_LIVE_DRY_RUN_PACKAGE_v1",
+  "captured_at": "2026-08-14T17:02:13.939Z",
+  "executive_status": "CLARIFY",
+  "production_mutation_performed": false,
+  "snapshot_hash": "55ca67b53f30c4d3599ea0e26ceae07adba833537e79df3930fd90afc8040c12",
+  "deployment_sha": {
+    "pr653_merge_sha": "100d2c4ab3559f0b7b59d6e888d74792e0b61ea2",
+    "production_head_sha": null,
+    "note": "Public endpoints do not expose Vercel git SHA; verify via deployment dashboard before execution."
+  },
+  "observed_baseline": {
+    "capture_sources": {
+      "vault_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/status",
+      "seal_status": "https://mobius-civic-ai-terminal.vercel.app/api/vault/seal-status",
+      "health": "https://mobius-civic-ai-terminal.vercel.app/api/health"
+    },
+    "captured_at": "2026-08-14T17:02:13.939Z",
+    "environment": "cursor-cloud-agent",
+    "pr653_merge_sha": "100d2c4ab3559f0b7b59d6e888d74792e0b61ea2",
+    "deployment_sha_public": null,
+    "cycle": "C-403",
+    "latest_attested_seal": "seal-C-372-002",
+    "attested_seal_index": 360,
+    "projected_next_sequence": 361,
+    "historical_collision_pairs": 125,
+    "contested_block_positions": 123,
+    "uncontested_positions": 71,
+    "canonical_reserve_blocks": null,
+    "integrity_gate_active": true,
+    "reserve_block_lane": "integrity_hold",
+    "candidate_formation_blocked": true,
+    "candidate_in_flight": false,
+    "unsealed_accumulator_mic": 2549.713264,
+    "integrity_gate_reasons": [
+      "125 hash-divergent block_number collision(s) in attested KV"
+    ],
+    "seal_integrity_gate_source": "live-report",
+    "latest_sealed_at": null,
+    "gi_current": 0.92,
+    "health_status": "degraded",
+    "kv_available": true,
+    "fetch_failures": []
+  },
+  "handoff_baseline": {
+    "cycle": "C-403",
+    "latest_attested_seal": "seal-C-372-002",
+    "attested_seal_index": 360,
+    "projected_next_sequence": 361,
+    "historical_collision_pairs": 125,
+    "contested_block_positions": 123,
+    "uncontested_positions": 71,
+    "canonical_reserve_blocks": null,
+    "integrity_gate_active": true,
+    "reserve_block_lane": "integrity_hold",
+    "candidate_formation_blocked": true,
+    "candidate_in_flight": false,
+    "unsealed_accumulator_mic_approx": 2547.905162,
+    "pr653_merge_sha": "100d2c4ab3559f0b7b59d6e888d74792e0b61ea2"
+  },
+  "drift": [],
+  "pinned_evidence": {
+    "witness_path": "docs/epicon/cycles/C-403/fixtures/C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json",
+    "witness_audit_hash": "9196394bdbffe04e7a87d7cb2320b30b2e3c9cc07f24df9dfdfa7351b5dc6b87",
+    "resolution_table_path": "docs/epicon/cycles/C-403/fixtures/C403_COLLISION_RESOLUTION_TABLE.pin.json",
+    "resolution_table_hash": "d821c9ba7fc95b5c5055c8dce41170319c11ec89ba1486a69de90e347760c845",
+    "witness_matches_live_collision_count": true
+  },
+  "repair_engine": {
+    "repair_id": "track-r-c403-batch-001",
+    "version": "C-403 batch engine (PR #653)",
+    "dry_run_ok": true,
+    "dry_run_errors": [],
+    "circular_dependency": {
+      "fails_without_batch": true,
+      "detail": "unresolved collision blocks: 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131; no resolved canonical latest seal target after proposed quarantine"
+    },
+    "manifest_hash": "2e3a6c98f88884a1ece052e5c9780862b26a97108bd3648409986d4b3d392075",
+    "report_hash": "ad376f4c8d4ff36290ea9ee9798bcf386bfeb34e453feca7baa6df83b0bfbcac",
+    "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d",
+    "manifest_verified": true,
+    "validation": {
+      "ok": true,
+      "errors": []
+    }
+  },
+  "boundaries": {
+    "41->42": "pass",
+    "131->132": "pending_track_r_step_8",
+    "boundary_131_disposition": "REQUIRES_EXPLICIT_GOVERNANCE_DISPOSITION"
+  },
+  "lineage_roots": {
+    "before_root": {
+      "latest_attested_seal_id": "seal-C-372-002",
+      "canonical_reserve_blocks": null,
+      "active_lineage_version": null,
+      "integrity_gate_active": true
+    },
+    "proposed_after_root": {
+      "derived_latest_canonical_seal_id": "seal-C-358-131",
+      "expected_active_version_key": "watchdog:lineage:active_version",
+      "expected_version_prefix": "watchdog:lineage:version:track-r-c403-batch-001:"
+    }
+  },
+  "reproducibility": {
+    "command": "pnpm track-r:live-dry-run-package",
+    "fixture_dry_run": "pnpm watchdog:batch-collision-repair",
+    "contract_tests": "pnpm exec tsx tests/contract/batchCollisionRepair.test.ts",
+    "typecheck": "pnpm exec tsc --noEmit",
+    "build": "pnpm build"
+  },
+  "attestation_placeholders": {
+    "zeus_verdict": "pending",
+    "eve_verdict": "pending",
+    "human_approval": "pending",
+    "required_hashes": {
+      "snapshot_hash": "55ca67b53f30c4d3599ea0e26ceae07adba833537e79df3930fd90afc8040c12",
+      "manifest_hash": "2e3a6c98f88884a1ece052e5c9780862b26a97108bd3648409986d4b3d392075",
+      "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d"
+    }
+  },
+  "explicit_no_production_change": "No Redis/KV mutation, canonical promotion, integrity-gate clearing, candidate formation, or sealing occurred."
+}

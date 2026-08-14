@@ -1,0 +1,18 @@
+{
+  "repair_id": "track-r-c403-batch-001",
+  "previous_active_version": null,
+  "restore": {
+    "active_lineage_version": null,
+    "latest_pointer": "seal-C-372-002",
+    "canonical_map_selection": "prior_active_version",
+    "quarantine_view": "prior_active_version"
+  },
+  "preserves": [
+    "original seal records",
+    "receipts",
+    "batch manifests",
+    "mutation-journal evidence",
+    "prior lineage versions"
+  ],
+  "journals_required": true
+}

@@ -12,7 +12,8 @@
     "test": "./node_modules/.bin/tsx scripts/run-tests.ts",
     "watchdog:collision-audit": "tsx scripts/watchdog-collision-audit.ts",
     "watchdog:collision-repair": "tsx scripts/watchdog-collision-repair.ts",
-    "watchdog:batch-collision-repair": "tsx scripts/watchdog-batch-collision-repair.ts"
+    "watchdog:batch-collision-repair": "tsx scripts/watchdog-batch-collision-repair.ts",
+    "track-r:live-dry-run-package": "tsx scripts/track-r-live-dry-run-package.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
