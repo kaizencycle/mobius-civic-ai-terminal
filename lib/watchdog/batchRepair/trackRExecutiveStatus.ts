@@ -10,6 +10,26 @@ import {
 
 export type DriftItem = { field: string; expected: unknown; observed: unknown; severity: 'info' | 'material' };
 
+/**
+ * Public `/api/vault/status` may omit `collision_affected_blocks` while authenticated primary KV
+ * derivation still matches the pinned contested universe. Do not fail-closed on that telemetry gap.
+ */
+export function filterExecutiveMaterialDrift(
+  drift: DriftItem[],
+  affectedBlockComparison: AffectedBlockSetComparison,
+): DriftItem[] {
+  return drift.filter((item) => {
+    if (item.severity !== 'material') return false;
+    if (
+      item.field === 'contested_block_positions' &&
+      affectedBlockComparison.set_match === true
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export function resolveTrackRExecutiveStatus(args: {
   credentialsConfigured: boolean;
   kvIdentityReceipt: ProductionKvIdentityReceipt | null;

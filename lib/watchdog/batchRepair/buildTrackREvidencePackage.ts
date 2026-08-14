@@ -36,7 +36,11 @@ import {
   computeLineageSnapshotHash,
   computeTelemetrySnapshotHash,
 } from '@/lib/watchdog/batchRepair/snapshotIdentity';
-import { resolveTrackRExecutiveStatus, type DriftItem } from '@/lib/watchdog/batchRepair/trackRExecutiveStatus';
+import {
+  filterExecutiveMaterialDrift,
+  resolveTrackRExecutiveStatus,
+  type DriftItem,
+} from '@/lib/watchdog/batchRepair/trackRExecutiveStatus';
 import type { BatchDryRunReport, CollisionRepairBatchManifest } from '@/lib/watchdog/batchRepair/types';
 import type { C397Witness } from '@/lib/watchdog/batchRepair/witnessResolution';
 import type { CollisionResolutionTable } from '@/lib/watchdog/batchRepair/witnessResolution';
@@ -252,12 +256,17 @@ export async function buildTrackREvidencePackage(
         positions_132_194_status: 'verified_unattached' as const,
       };
 
+  const materialDrift = filterExecutiveMaterialDrift(
+    input.drift.filter((d) => d.severity === 'material'),
+    affectedBlockComparison,
+  );
+
   const executive_status = resolveTrackRExecutiveStatus({
     credentialsConfigured: credentials_configured,
     kvIdentityReceipt: kv_identity_receipt,
     fetchFailures: input.fetch_failures,
     dryRunOk: input.dryRunOk,
-    materialDrift: input.drift.filter((d) => d.severity === 'material'),
+    materialDrift,
     affectedBlockComparison,
     liveWitnessAttempt,
     governance131,
