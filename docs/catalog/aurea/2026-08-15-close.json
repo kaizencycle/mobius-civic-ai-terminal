@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-08-15T03:04:18.978Z",
+  "agent": "AUREA",
+  "cycle": "C-403",
+  "gi_final": 0.9,
+  "gi_mode": "green",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.755,
+    "max": 0.93
+  },
+  "overall_sentiment": 0.735,
+  "financial_score": 0.747,
+  "environ_score": 0.661,
+  "civic_score": 0.783,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.9. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL at 0.963 while live micro still flagged elevated ArXiv and Dataverse drift alongside a Cloudflare watch. ZEUS verification status is disputed, and the heartbeat trend is rising across a 24-hour GI range of 0.755 to 0.93. Forward signal: watch the narrative lane for confirmation that the green GI rebound is durable in the next cycle.",
+  "forward_signal": "Watch the narrative lane for confirmation that the green GI rebound is durable in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "rising",
+  "anomalies": [
+    "ArXiv new submissions [elevated]",
+    "Cloudflare infrastructure status [watch]",
+    "Harvard Dataverse research health [elevated]"
+  ],
+  "quorum_attested": true
+}
