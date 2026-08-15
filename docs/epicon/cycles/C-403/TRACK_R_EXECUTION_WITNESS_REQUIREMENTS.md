@@ -31,11 +31,13 @@ Before Track R batch commit, an operator with **authenticated read-only KV acces
 
 `assertBatchCommitAllowed` requires:
 
-- `fresh_lineage_snapshot_hash_matches: true` — CAS gate on lineage fields only
+- `fresh_lineage_snapshot_hash_matches: true` — CAS gate on lineage fields only (**caller-supplied boolean today**; apply path must recompute from authenticated production reads before apply — **not wired**)
 - `pinned_witness` matching `manifest.source_audit_hash` — authoritative seal universe (~248 IDs)
 - `live_seal_witness_export` verified via `verifyLiveSealWitnessExport` with that universe — per-record body equality, not collision count alone
 
 Accumulator drift (`telemetry_snapshot_hash`) remains **informational only** and must not block CAS.
+
+**Apply-path gap:** No production caller yet performs the second CAS read described in `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md`. Passing `pnpm track-r:execution-readiness` does not satisfy the apply-time check.
 
 ---
 
