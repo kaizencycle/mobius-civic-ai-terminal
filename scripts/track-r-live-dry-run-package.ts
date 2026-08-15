@@ -362,6 +362,7 @@ async function main(): Promise<void> {
   const status = evidence.executive_status;
   const process_exit_code = evidence.process_exit_code;
   const lineage_snapshot_hash = evidence.lineage_snapshot_hash;
+  const lineage_snapshot_hash_v2 = evidence.lineage_snapshot_hash_v2;
   const telemetry_snapshot_hash = evidence.telemetry_snapshot_hash;
   const execution_witness_hash = evidence.execution_witness_hash;
   const affectedBlockComparison = evidence.affected_block_comparison;
@@ -383,9 +384,10 @@ async function main(): Promise<void> {
     attestation_hashes: evidence.attestation_hashes,
     snapshot_identity: {
       lineage_snapshot_hash,
+      lineage_snapshot_hash_v2,
       telemetry_snapshot_hash,
       execution_witness_hash,
-      note: 'Four-object ZEUS/EVE packet: semantic manifest, lineage snapshot, execution witness, rollback manifest.',
+      note: 'Four-object ZEUS/EVE packet: semantic manifest, lineage snapshot, execution witness, rollback manifest. lineage_snapshot_hash_v2 is C-404 CAS-v2 material (capture_id/cycle excluded) recorded for post-merge production capture comparison; it does not gate execution_authorized or any v1 decision.',
     },
     deployment_sha: {
       pr653_merge_sha: PR653_MERGE_SHA,
@@ -606,6 +608,7 @@ async function main(): Promise<void> {
   console.log(`Process exit code: ${process_exit_code}`);
   console.log(`Capture ID: ${capture_id}`);
   console.log(`Lineage snapshot hash: ${lineage_snapshot_hash}`);
+  console.log(`Lineage snapshot hash (v2): ${lineage_snapshot_hash_v2}`);
   console.log(`Telemetry snapshot hash: ${telemetry_snapshot_hash}`);
   if (manifest) console.log(`Semantic manifest hash: ${manifest.manifest_hash}`);
   if (execution_witness_hash) console.log(`Execution witness hash: ${execution_witness_hash}`);

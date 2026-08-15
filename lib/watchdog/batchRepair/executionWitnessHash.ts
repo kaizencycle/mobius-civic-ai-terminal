@@ -57,3 +57,34 @@ export function buildExecutionWitnessHashPayload(
 export function computeExecutionWitnessHash(input: ExecutionWitnessHashInput): string {
   return hashObject(buildExecutionWitnessHashPayload(input) as Record<string, unknown>);
 }
+
+/**
+ * v2 execution-witness contract — see C-404 CAS-v2 repair. Binds explicitly
+ * to `lineage_snapshot_version: 'v2'` and a v2 lineage snapshot hash so a
+ * witness can never be silently paired with a lineage hash from the other
+ * domain; existing witness/manifest evidence fields are unchanged from v1.
+ */
+export const EXECUTION_WITNESS_LINEAGE_SNAPSHOT_VERSION_V2 = 'v2' as const;
+
+export type ExecutionWitnessHashInputV2 = Omit<ExecutionWitnessHashInput, 'lineage_snapshot_hash'> & {
+  lineage_snapshot_version: typeof EXECUTION_WITNESS_LINEAGE_SNAPSHOT_VERSION_V2;
+  /** Must be a hash produced by {@link computeLineageSnapshotHashV2}, not the v1 function. */
+  lineage_snapshot_hash_v2: string;
+};
+
+export function buildExecutionWitnessHashPayloadV2(
+  input: ExecutionWitnessHashInputV2,
+): Record<string, unknown> {
+  const { lineage_snapshot_hash_v2, lineage_snapshot_version, ...rest } = input;
+  return {
+    ...buildExecutionWitnessHashPayload({
+      ...rest,
+      lineage_snapshot_hash: lineage_snapshot_hash_v2,
+    }),
+    lineage_snapshot_version,
+  };
+}
+
+export function computeExecutionWitnessHashV2(input: ExecutionWitnessHashInputV2): string {
+  return hashObject(buildExecutionWitnessHashPayloadV2(input) as Record<string, unknown>);
+}
