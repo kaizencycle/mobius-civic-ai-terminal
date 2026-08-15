@@ -3,12 +3,13 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   verifyTrackRExecutionReadiness,
   resolveLiveAffectedBlockNumbersForCas,
+  validateRecordedHumanConsent,
   TRACK_R_GOVERNANCE_ATTESTATION_PATH,
   TRACK_R_IMMUTABLE_ARCHIVE,
 } from '@/lib/watchdog/batchRepair/verifyTrackRExecutionReadiness';
@@ -18,6 +19,10 @@ import { hashAffectedBlockNumbers } from '@/lib/watchdog/batchRepair';
 
 const GOVERNANCE = join(process.cwd(), TRACK_R_GOVERNANCE_ATTESTATION_PATH);
 const ARCHIVE = join(process.cwd(), TRACK_R_IMMUTABLE_ARCHIVE);
+const SIGNED_CONSENT = join(
+  process.cwd(),
+  'artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/HUMAN_CUSTODIAN_CONSENT_SIGNED.md',
+);
 
 function withTempGovernance(mutator: (path: string) => void): string {
   const dir = mkdtempSync(join(tmpdir(), 'track-r-governance-'));
@@ -28,7 +33,7 @@ function withTempGovernance(mutator: (path: string) => void): string {
 }
 
 describe('Track R execution readiness verification', () => {
-  it('returns awaiting_execution_handoff when governance and attestation pass (CAS probe skipped)', async () => {
+  it('returns consent_recorded_cas_required when consent is signed but CAS probe is skipped', async () => {
     const result = await verifyTrackRExecutionReadiness({
       archivePath: ARCHIVE,
       governancePath: GOVERNANCE,
@@ -37,23 +42,30 @@ describe('Track R execution readiness verification', () => {
     });
 
     assert.equal(result.capture_id, CAPTURE_0123Z_ID);
-    assert.equal(result.readiness_status, 'awaiting_execution_handoff');
+    assert.equal(result.readiness_status, 'consent_recorded_cas_required');
     assert.equal(result.execution_authorized, false);
-    assert.ok(
-      result.checks.some((row) => row.check === 'governance_zeus_adopt' && row.result === 'pass'),
-    );
-    assert.ok(
-      result.checks.some((row) => row.check === 'governance_eve_adopt' && row.result === 'pass'),
-    );
+    assert.equal(result.fresh_cas_match, null);
     assert.ok(
       result.checks.some((row) => row.check === 'governance_human_consent' && row.result === 'pass'),
     );
     assert.ok(
-      result.checks.some((row) => row.check === 'attestation_summary' && row.result === 'pass'),
-    );
-    assert.ok(
       result.checks.some((row) => row.check === 'fresh_cas_probe' && row.result === 'warn'),
     );
+  });
+
+  it('validates signed consent artifact bindings', () => {
+    const validation = validateRecordedHumanConsent({
+      verdict: {
+        verdict: 'CONSENT',
+        manifest_field: 'approved',
+        signed_at: '2026-08-15T14:07:00.000Z',
+        signed_attestation:
+          'artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/HUMAN_CUSTODIAN_CONSENT_SIGNED.md',
+      },
+    });
+
+    assert.equal(validation.ok, true);
+    assert.ok(existsSync(SIGNED_CONSENT));
   });
 
   it('never sets execution_authorized true', async () => {
@@ -129,6 +141,34 @@ describe('Track R execution readiness verification', () => {
     }
   });
 
+  it('returns blocked when consent verdict lacks signed attestation artifact', async () => {
+    const governancePath = withTempGovernance((path) => {
+      const governance = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+      const verdicts = governance.governance_verdicts as Record<string, Record<string, string>>;
+      verdicts.human_approval = {
+        verdict: 'CONSENT',
+        manifest_field: 'approved',
+        signed_at: '2026-08-15T14:07:00.000Z',
+      };
+      writeFileSync(path, `${JSON.stringify(governance, null, 2)}\n`);
+    });
+
+    try {
+      const result = await verifyTrackRExecutionReadiness({
+        archivePath: ARCHIVE,
+        governancePath,
+        probeFreshCas: false,
+      });
+
+      assert.equal(result.readiness_status, 'blocked');
+      assert.ok(
+        result.checks.some((row) => row.check === 'governance_human_consent' && row.result === 'fail'),
+      );
+    } finally {
+      rmSync(join(governancePath, '..'), { recursive: true, force: true });
+    }
+  });
+
   it('uses authoritative KV comparison blocks for CAS hash, not public surface', () => {
     const authoritative = [41, 42, 43];
     const publicSurface = [99, 100];
@@ -175,32 +215,6 @@ describe('Track R execution readiness verification', () => {
       });
 
       assert.equal(result.readiness_status, 'awaiting_human_consent');
-    } finally {
-      rmSync(join(governancePath, '..'), { recursive: true, force: true });
-    }
-  });
-
-  it('returns awaiting_execution_handoff when human consent is recorded', async () => {
-    const governancePath = withTempGovernance((path) => {
-      const governance = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
-      const verdicts = governance.governance_verdicts as Record<string, Record<string, string>>;
-      verdicts.human_approval = {
-        verdict: 'CONSENT',
-        manifest_field: 'approved',
-        signed_at: '2026-08-15T14:07:00.000Z',
-      };
-      writeFileSync(path, `${JSON.stringify(governance, null, 2)}\n`);
-    });
-
-    try {
-      const result = await verifyTrackRExecutionReadiness({
-        archivePath: ARCHIVE,
-        governancePath,
-        probeFreshCas: false,
-      });
-
-      assert.equal(result.readiness_status, 'awaiting_execution_handoff');
-      assert.equal(result.execution_authorized, false);
     } finally {
       rmSync(join(governancePath, '..'), { recursive: true, force: true });
     }
