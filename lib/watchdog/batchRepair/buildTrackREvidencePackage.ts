@@ -78,9 +78,11 @@ export type TrackREvidencePackageResult = {
    * v2 lineage snapshot hash (capture_id/cycle excluded — C-404 CAS-v2
    * repair). Recorded alongside the v1 hash so two production captures can
    * be diffed on v2 material without waiting for a v1 recapture; does not
-   * gate `executive_status` or any authorization decision.
+   * gate `executive_status` or any authorization decision. Null when the
+   * live lineage pointer observation could not be read — never a
+   * placeholder hash standing in for an unknown pointer state.
    */
-  lineage_snapshot_hash_v2: string;
+  lineage_snapshot_hash_v2: string | null;
   telemetry_snapshot_hash: string;
   execution_witness_hash: string | null;
   affected_block_evidence: Awaited<ReturnType<typeof loadAuthoritativeLiveAffectedBlockEvidence>>;
@@ -94,7 +96,7 @@ export type TrackREvidencePackageResult = {
   attestation_hashes: {
     semantic_manifest_hash: string | null;
     lineage_snapshot_hash: string;
-    lineage_snapshot_hash_v2: string;
+    lineage_snapshot_hash_v2: string | null;
     execution_witness_hash: string | null;
     rollback_manifest_hash: string | null;
   };
@@ -110,7 +112,13 @@ export async function buildTrackREvidencePackage(
   // v2-only: unlike v1 (which never resolved these and always hashed null —
   // preserved as-is below for Capture #5/#6 compatibility), v2 treats
   // active_lineage_version / live_canonical_pointer as production lineage,
-  // so it must hash the real live observation, not a hardcoded null.
+  // so it must hash the real live observation, not a hardcoded null. If the
+  // observation can't be read, v2LineagePointersOk stays false and the v2
+  // hash is left null rather than silently recording a placeholder that's
+  // indistinguishable from a genuine "no active lineage version" state —
+  // matching how computeFreshLineageSnapshotFromProduction refuses to hash
+  // on the same failure.
+  let v2LineagePointersOk = false;
   let v2LineagePointers = { active_lineage_version: null as string | null, live_canonical_pointer: null as string | null };
   if (credentials_configured) {
     const kv_identity = await verifyProductionKvEnvironmentIdentity({
@@ -133,6 +141,7 @@ export async function buildTrackREvidencePackage(
     });
 
     const lineagePointers = await loadLiveLineagePointerObservationsPrimaryOnly();
+    v2LineagePointersOk = lineagePointers.ok;
     v2LineagePointers = {
       active_lineage_version: lineagePointers.active_lineage_version,
       live_canonical_pointer: lineagePointers.live_canonical_pointer,
@@ -193,30 +202,36 @@ export async function buildTrackREvidencePackage(
     affected_block_set_match: affectedBlockComparison.set_match,
   });
 
-  const lineage_snapshot_hash_v2 = computeLineageSnapshotHashV2({
-    latest_attested_seal: (input.observed.latest_attested_seal as string | null) ?? null,
-    attested_seal_index: (input.observed.attested_seal_index as number | null) ?? null,
-    projected_next_sequence: (input.observed.projected_next_sequence as number | null) ?? null,
-    historical_collision_pairs: (input.observed.historical_collision_pairs as number | null) ?? null,
-    contested_block_positions:
-      affectedBlockComparison.live_contested_count ??
-      (input.observed.contested_block_positions as number | null) ??
-      0,
-    uncontested_positions: (input.observed.uncontested_positions as number | null) ?? 0,
-    canonical_reserve_blocks: input.observed.canonical_reserve_blocks ?? null,
-    integrity_gate_active: input.observed.integrity_gate_active as boolean | null,
-    reserve_block_lane: (input.observed.reserve_block_lane as string | null) ?? null,
-    candidate_formation_blocked: input.observed.candidate_formation_blocked as boolean | null,
-    witness_audit_hash: input.witness_audit_hash,
-    resolution_table_hash: input.resolution_table_hash,
-    active_lineage_version: v2LineagePointers.active_lineage_version,
-    live_canonical_pointer: v2LineagePointers.live_canonical_pointer,
-    pinned_affected_block_numbers_hash: hashAffectedBlockNumbers(pinnedBlocks),
-    live_affected_block_numbers_hash: affectedBlockComparison.live_block_numbers
-      ? hashAffectedBlockNumbers(affectedBlockComparison.live_block_numbers)
-      : null,
-    affected_block_set_match: affectedBlockComparison.set_match,
-  });
+  // Only compute a v2 hash when the live lineage pointer observation actually
+  // succeeded — hashing a placeholder null on a read failure would make that
+  // failure indistinguishable from a genuine "no active lineage version"
+  // production state, silently defeating the post-merge two-capture compare.
+  const lineage_snapshot_hash_v2 = v2LineagePointersOk
+    ? computeLineageSnapshotHashV2({
+        latest_attested_seal: (input.observed.latest_attested_seal as string | null) ?? null,
+        attested_seal_index: (input.observed.attested_seal_index as number | null) ?? null,
+        projected_next_sequence: (input.observed.projected_next_sequence as number | null) ?? null,
+        historical_collision_pairs: (input.observed.historical_collision_pairs as number | null) ?? null,
+        contested_block_positions:
+          affectedBlockComparison.live_contested_count ??
+          (input.observed.contested_block_positions as number | null) ??
+          0,
+        uncontested_positions: (input.observed.uncontested_positions as number | null) ?? 0,
+        canonical_reserve_blocks: input.observed.canonical_reserve_blocks ?? null,
+        integrity_gate_active: input.observed.integrity_gate_active as boolean | null,
+        reserve_block_lane: (input.observed.reserve_block_lane as string | null) ?? null,
+        candidate_formation_blocked: input.observed.candidate_formation_blocked as boolean | null,
+        witness_audit_hash: input.witness_audit_hash,
+        resolution_table_hash: input.resolution_table_hash,
+        active_lineage_version: v2LineagePointers.active_lineage_version,
+        live_canonical_pointer: v2LineagePointers.live_canonical_pointer,
+        pinned_affected_block_numbers_hash: hashAffectedBlockNumbers(pinnedBlocks),
+        live_affected_block_numbers_hash: affectedBlockComparison.live_block_numbers
+          ? hashAffectedBlockNumbers(affectedBlockComparison.live_block_numbers)
+          : null,
+        affected_block_set_match: affectedBlockComparison.set_match,
+      })
+    : null;
 
   const telemetry_snapshot_hash = computeTelemetrySnapshotHash({
     capture_id: input.capture_id,

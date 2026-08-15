@@ -117,16 +117,21 @@ export type LineageSnapshotV2Input = {
 };
 
 /**
- * Fields deliberately excluded from {@link LineageSnapshotV2Input} versus v1,
- * kept here only as a compile-time cross-check against drift in the type
- * above (see the `_excludedFromV2` assertion in snapshotIdentity.test.ts —
- * consumers should never import this type for hashing).
+ * Fields deliberately excluded from {@link LineageSnapshotV2Input} versus v1
+ * — `capture_id` and `cycle` — kept here only as a named compile-time
+ * reference; consumers should never import this type for hashing. See
+ * tests/contract/trackRLineageSnapshotV2.test.ts for the runtime proof that
+ * v2's input type carries neither field.
  */
 export type LineageSnapshotV1OnlyFields = Pick<LineageSnapshotInput, 'capture_id' | 'cycle'>;
 
 export function computeLineageSnapshotHashV2(input: LineageSnapshotV2Input): string {
+  // schema_domain is spread last so it can never be overridden by a
+  // same-named key on `input` — e.g. an unvalidated caller or an `as`-cast
+  // object carrying its own `schema_domain` — which would otherwise defeat
+  // the guarantee that a v1 digest can never be reinterpreted as v2.
   return hashObject({
-    schema_domain: LINEAGE_SNAPSHOT_DOMAIN_V2,
     ...input,
+    schema_domain: LINEAGE_SNAPSHOT_DOMAIN_V2,
   } as unknown as Record<string, unknown>);
 }

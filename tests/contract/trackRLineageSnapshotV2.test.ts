@@ -14,8 +14,37 @@ import {
   isSupportedLineageSnapshotVersion,
   hashAffectedBlockNumbers,
   loadWitnessFromFile,
+  loadResolutionTableFromFile,
+  buildTrackREvidencePackage,
+  computeWitnessAuditHash,
+  computeResolutionTableHash,
   type LineageSnapshotV2Input,
 } from '@/lib/watchdog/batchRepair';
+
+const KV_ENV_KEYS = [
+  'KV_REST_API_URL',
+  'KV_REST_API_TOKEN',
+  'UPSTASH_REDIS_REST_URL',
+  'UPSTASH_REDIS_REST_TOKEN',
+] as const;
+
+async function withKvCredentialsCleared<T>(fn: () => Promise<T>): Promise<T> {
+  const saved = Object.fromEntries(KV_ENV_KEYS.map((key) => [key, process.env[key]]));
+  for (const key of KV_ENV_KEYS) {
+    delete process.env[key];
+  }
+  try {
+    return await fn();
+  } finally {
+    for (const key of KV_ENV_KEYS) {
+      if (saved[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = saved[key];
+      }
+    }
+  }
+}
 
 const FIXTURE_DIR = join(process.cwd(), 'docs/epicon/cycles/C-403/fixtures');
 const WITNESS_PATH = join(FIXTURE_DIR, 'C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json');
@@ -370,5 +399,60 @@ describe('Track R lineage snapshot v2 — version safety guard', () => {
 
   it('LINEAGE_SNAPSHOT_DOMAIN_V2 is the exact domain identifier', () => {
     assert.equal(LINEAGE_SNAPSHOT_DOMAIN_V2, 'mobius.track-r.lineage-snapshot.v2');
+  });
+
+  it('a caller-supplied schema_domain key cannot override the v2 domain tag', () => {
+    // Simulates an unvalidated caller (JS, or an `as`-cast bypassing the
+    // LineageSnapshotV2Input type) smuggling its own schema_domain in.
+    const tampered = {
+      ...baseProductionLineage(),
+      schema_domain: 'not-the-real-domain',
+    } as unknown as LineageSnapshotV2Input;
+    const honest = computeLineageSnapshotHashV2(baseProductionLineage());
+    const withTamperedDomain = computeLineageSnapshotHashV2(tampered);
+    assert.equal(withTamperedDomain, honest);
+  });
+});
+
+describe('Track R lineage snapshot v2 — production capture pointer-read failure', () => {
+  const TABLE_PATH = join(FIXTURE_DIR, 'C403_COLLISION_RESOLUTION_TABLE.pin.json');
+  const RESOLUTION_TABLE = loadResolutionTableFromFile(TABLE_PATH);
+
+  it('does not record a placeholder v2 hash when the live lineage pointer cannot be read', async () => {
+    await withKvCredentialsCleared(async () => {
+      const result = await buildTrackREvidencePackage({
+        capture_id: 'test-capture',
+        captured_at: '2026-08-15T00:00:00.000Z',
+        environment_identifier: 'test-pointer-read-failure',
+        observed: {
+          cycle: 'C-404',
+          latest_attested_seal: 'seal-C-372-002',
+          attested_seal_index: 360,
+          projected_next_sequence: 361,
+          historical_collision_pairs: 125,
+          contested_block_positions: 123,
+          uncontested_positions: 71,
+          integrity_gate_active: true,
+        },
+        drift: [],
+        fetch_failures: [],
+        witness: PINNED_WITNESS,
+        resolution_table: RESOLUTION_TABLE,
+        witness_audit_hash: computeWitnessAuditHash(PINNED_WITNESS),
+        resolution_table_hash: computeResolutionTableHash(RESOLUTION_TABLE),
+        dryRunOk: true,
+        dryRunErrors: [],
+        rollback_hash: null,
+      });
+
+      // No KV credentials configured -> live pointer observation cannot be
+      // read -> v2 hash must be null, never a null/null placeholder hash.
+      assert.equal(result.lineage_snapshot_hash_v2, null);
+      assert.equal(result.attestation_hashes.lineage_snapshot_hash_v2, null);
+      // v1 is completely unaffected by the missing pointer read.
+      assert.equal(typeof result.lineage_snapshot_hash, 'string');
+      assert.ok(result.lineage_snapshot_hash.length === 64);
+      assert.equal(result.credentials_configured, false);
+    });
   });
 });
