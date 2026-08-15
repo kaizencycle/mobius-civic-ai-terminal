@@ -389,11 +389,14 @@ jobs:
           exit "$failed"
 
       - name: Commit CAS probe evidence
-        if: success() && github.ref == 'refs/heads/main'
+        # Only commit a full pre-mutation clearance record: both probes must have
+        # actually run against live CAS (not a single-probe or governance-only
+        # skip_cas_probe run), and both must have passed.
+        if: success() && github.ref == 'refs/heads/main' && inputs.probe == 'both' && !inputs.skip_cas_probe
         env:
           RUN_ID: ${{ github.run_id }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           dest="docs/epicon/cycles/C-404/cas-probes"
           mkdir -p "$dest"
           cp ./track-r-preflight-output/cas-probe-report.md "$dest/CAS-PROBE-${RUN_ID}.md"
@@ -408,4 +411,20 @@ jobs:
             exit 0
           fi
           git commit -m "evidence(c-404): Track R pre-mutation CAS probe results (run ${RUN_ID})"
-          git push origin HEAD:main
+
+          # main can move between checkout and here (e.g. publish-cycle-state.yml
+          # pushes every 10 minutes outside this workflow's concurrency group), so
+          # retry once against latest main before giving up.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}/3), rebasing onto latest origin/main..."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "::error::Rebase onto origin/main failed; evidence commit left local only."
+              exit 1
+            fi
+          done
+          echo "::error::Could not push evidence commit to main after retries."
+          exit 1
