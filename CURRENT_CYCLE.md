@@ -4,9 +4,9 @@
 
 - **Cycle:** `C-404`
 - **GI:** `0.74` · **mode:** `yellow` · ⚠️ degraded
-- **Provenance:** `live-compute` (verified)
-- **Pulse fetched:** `2026-08-15T21:31:22.784Z`
-- **Deployment:** `332739eb5dac` (production)
+- **Provenance:** `live-compute` (unverified)
+- **Pulse fetched:** `2026-08-15T21:52:42.248Z`
+- **Deployment:** `d9b2550c353c` (production)
 - **Reserve hot (raw):** `360` · **cold manifest:** `194` · **gap (raw−cold):** `166`
 - **Chain tip:** `seal-C-372-002` (seq `2`)
 - **Open gates:** `cold_canon_append_pending`, `sustain_not_wired`, `fountain_gi_below_threshold`, `terminal_degraded`
