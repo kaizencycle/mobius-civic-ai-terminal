@@ -41,6 +41,9 @@ const EXPECTED_V2_HASH = 'b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a
 const WITNESS_FIXTURE_PATH = 'docs/epicon/cycles/C-403/fixtures/C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json';
 /** Confirmed in scripts/track-r-live-dry-run-package.ts for TRACK_R_CAPTURE_MODE=production_witness_read_only. */
 const PRODUCTION_CAPTURE_ENVIRONMENT_IDENTIFIER = 'production-witness-capture-read-only';
+/** This script verifies specifically the C-404 Capture #8/#9 pair — capture-a must be #8, capture-b must be #9. */
+const EXPECTED_CAPTURE_ID_A = 'track-r-c403-2026-08-15T2012Z';
+const EXPECTED_CAPTURE_ID_B = 'track-r-c403-2026-08-15T2014Z';
 
 type Args = { captureA: string; captureB: string };
 
@@ -94,6 +97,18 @@ function verifyCapture(captureDir: string, pinnedBlocks: number[]): VerifyResult
   const affectedComparison = (pkg.affected_block_comparison ?? {}) as Record<string, unknown>;
   const attestationHashes = (pkg.attestation_hashes ?? {}) as Record<string, unknown>;
   const executionWitness = (pkg.execution_witness ?? {}) as Record<string, unknown>;
+  const kvIdentityReceipt = (pkg.kv_identity_receipt ?? {}) as Record<string, unknown>;
+  const attestationPlaceholders = (pkg.attestation_placeholders ?? {}) as Record<string, unknown>;
+  const requiredHashes = (attestationPlaceholders.required_hashes ?? {}) as Record<string, unknown>;
+
+  // attestation_hashes never carries this field — it lives on the archived
+  // KV identity receipt itself, with attestation_placeholders.required_hashes
+  // as a secondary cross-check. Confirmed by manual inspection of the real
+  // Capture #8/#9 packages (kaizencycle) and by Bugbot/Codex review on #673.
+  const kvIdentityReceiptHash =
+    (kvIdentityReceipt.identity_hash as string | null) ??
+    (requiredHashes.production_kv_identity_receipt_hash as string | null) ??
+    null;
 
   const missingFromLive = (affectedComparison.missing_from_live as unknown[] | undefined) ?? [];
   const unexpectedInLive = (affectedComparison.unexpected_in_live as unknown[] | undefined) ?? [];
@@ -146,15 +161,16 @@ function verifyCapture(captureDir: string, pinnedBlocks: number[]): VerifyResult
     detail: `stored=${storedV1} recomputed=${recomputedV1}`,
   });
 
-  // v2 excludes active_lineage_version/live_canonical_pointer from this
-  // reconstruction because the package does not store the raw live pointer
-  // observation separately from what went into the hash — if this matters,
-  // re-derive from lib/watchdog/batchRepair/liveLineagePointerObservations
-  // against a fresh KV read instead of trusting a package-stored value.
+  // v2 DOES include active_lineage_version/live_canonical_pointer in the
+  // hash (unlike v1's production-capture path, which hardcodes both to
+  // null and is left untouched above) — production capture hashes the real
+  // live pointer observation. Read it from the archived package rather than
+  // assuming null; both captures happening to show null/null does not mean
+  // the verifier should assume that instead of reading it.
   const recomputedV2 = computeLineageSnapshotHashV2({
     ...lineageInputCommon,
-    active_lineage_version: null,
-    live_canonical_pointer: null,
+    active_lineage_version: (observedBaseline.active_lineage_version as string | null) ?? null,
+    live_canonical_pointer: (observedBaseline.live_canonical_pointer as string | null) ?? null,
   });
   const storedV2 = (attestationHashes.lineage_snapshot_hash_v2 as string | null) ?? null;
   checks.push({
@@ -177,6 +193,37 @@ function verifyCapture(captureDir: string, pinnedBlocks: number[]): VerifyResult
     });
   } else {
     const records = (witnessComparison.records ?? []) as ExecutionWitnessRecordResult[];
+    const summary = (witnessComparison.summary ?? {}) as {
+      total?: number;
+      match?: number;
+      mismatch?: number;
+      missing?: number;
+      unexpected?: number;
+    };
+    const exportComplete = witnessComparison.export_complete === true;
+    const nonMatchRecords = records.filter((r) => r.status !== 'MATCH');
+    const summaryAllMatch =
+      typeof summary.total === 'number' &&
+      summary.total > 0 &&
+      summary.match === summary.total &&
+      (summary.mismatch ?? 0) === 0 &&
+      (summary.missing ?? 0) === 0 &&
+      (summary.unexpected ?? 0) === 0;
+    const witnessComplete =
+      records.length > 0 &&
+      exportComplete &&
+      summaryAllMatch &&
+      nonMatchRecords.length === 0 &&
+      records.length === summary.total;
+
+    checks.push({
+      check: 'witness_export_complete_and_fully_matched',
+      result: witnessComplete ? 'pass' : 'fail',
+      detail: witnessComplete
+        ? `export_complete=true, ${summary.match}/${summary.total} MATCH, 0 mismatch/missing/unexpected`
+        : `export_complete=${exportComplete}, summary=${JSON.stringify(summary)}, non-MATCH records=${nonMatchRecords.length} (${nonMatchRecords.map((r) => `${r.seal_id}:${r.status}`).join(', ') || 'none'})`,
+    });
+
     if (records.length === 0) {
       checks.push({
         check: 'v2_execution_witness_hash',
@@ -188,6 +235,18 @@ function verifyCapture(captureDir: string, pinnedBlocks: number[]): VerifyResult
         check: 'v2_execution_witness_hash',
         result: 'fail',
         detail: 'blocked by affected_block_set_reconstructable failure above',
+      });
+    } else if (!witnessComplete) {
+      checks.push({
+        check: 'v2_execution_witness_hash',
+        result: 'fail',
+        detail: 'blocked by witness_export_complete_and_fully_matched failure above — an incomplete or non-matching witness must not produce a hash recommended for governance signing',
+      });
+    } else if (!kvIdentityReceiptHash) {
+      checks.push({
+        check: 'v2_execution_witness_hash',
+        result: 'fail',
+        detail: 'production_kv_identity_receipt hash could not be resolved from kv_identity_receipt.identity_hash or attestation_placeholders.required_hashes — refusing to compute with a null identity binding',
       });
     } else {
       executionWitnessHashV2 = computeExecutionWitnessHashV2({
@@ -202,10 +261,9 @@ function verifyCapture(captureDir: string, pinnedBlocks: number[]): VerifyResult
         pinned_affected_block_numbers: pinnedBlocks,
         export_source: String(executionWitness.export_source ?? ''),
         environment_identifier: PRODUCTION_CAPTURE_ENVIRONMENT_IDENTIFIER,
-        production_kv_identity_receipt_hash:
-          (attestationHashes.production_kv_identity_receipt_hash as string | null) ?? null,
-        active_lineage_version: null,
-        live_canonical_pointer: null,
+        production_kv_identity_receipt_hash: kvIdentityReceiptHash,
+        active_lineage_version: (observedBaseline.active_lineage_version as string | null) ?? null,
+        live_canonical_pointer: (observedBaseline.live_canonical_pointer as string | null) ?? null,
       });
       checks.push({
         check: 'v2_execution_witness_hash',
@@ -254,14 +312,29 @@ function main(): void {
   printReport('Capture A', resultA);
   printReport('Capture B', resultB);
 
+  console.log('\n=== Capture identity ===');
+  const idsDistinct = resultA.captureId !== '' && resultB.captureId !== '' && resultA.captureId !== resultB.captureId;
+  const idsMatchExpected = resultA.captureId === EXPECTED_CAPTURE_ID_A && resultB.captureId === EXPECTED_CAPTURE_ID_B;
+  console.log(`Capture A ID: ${resultA.captureId} (expected ${EXPECTED_CAPTURE_ID_A})`);
+  console.log(`Capture B ID: ${resultB.captureId} (expected ${EXPECTED_CAPTURE_ID_B})`);
+  if (!idsDistinct) {
+    console.log('✗ [fail] capture-a and capture-b resolved to the same (or an empty) capture_id — this cannot be treated as two independent stability observations. Did you pass the same directory twice?');
+  } else if (!idsMatchExpected) {
+    console.log('✗ [fail] capture IDs are distinct but do not match the expected Capture #8/#9 IDs for this packet');
+  } else {
+    console.log('✓ [pass] capture-a is Capture #8, capture-b is Capture #9, and they are distinct');
+  }
+
   console.log('\n=== Cross-capture v2 stability ===');
   const v2Match =
+    idsDistinct &&
+    idsMatchExpected &&
     resultA.recomputed.lineage_snapshot_hash_v2 === resultB.recomputed.lineage_snapshot_hash_v2 &&
     resultA.recomputed.lineage_snapshot_hash_v2 === EXPECTED_V2_HASH;
   console.log(`Capture A v2: ${resultA.recomputed.lineage_snapshot_hash_v2}`);
   console.log(`Capture B v2: ${resultB.recomputed.lineage_snapshot_hash_v2}`);
   console.log(`Expected:     ${EXPECTED_V2_HASH}`);
-  console.log(v2Match ? '✓ [pass] capture8.v2 == capture9.v2 == expected' : '✗ [fail] v2 hashes do not all match');
+  console.log(v2Match ? '✓ [pass] capture8.v2 == capture9.v2 == expected' : '✗ [fail] v2 hashes do not all match, or capture identity check failed above');
 
   const anyFail =
     resultA.checks.some((c) => c.result === 'fail') ||
