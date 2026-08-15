@@ -121,17 +121,38 @@ export function classifyApplyCasProbeOutcome(
     };
   }
 
+  const failedChecks = applyCas.checks.filter((row) => row.result === 'fail');
+  const credentialsOnlyFailure =
+    failedChecks.length === 0 ||
+    failedChecks.every(
+      (row) =>
+        row.detail.toLowerCase().includes('credentials required') ||
+        row.detail.toLowerCase().includes('kv credentials required'),
+    );
+
   if (!hasUpstashKvCredentials()) {
+    if (credentialsOnlyFailure) {
+      return {
+        status: 'credentials_required',
+        detail: 'production KV credentials required for apply-time CAS recheck',
+      };
+    }
     return {
-      status: 'credentials_required',
-      detail: 'production KV credentials required for apply-time CAS recheck',
+      status: 'probe_incomplete',
+      detail: failedChecks[0]?.detail ?? 'apply-time CAS probe incomplete',
     };
   }
 
-  const failedCheck = applyCas.checks.find((row) => row.result === 'fail');
+  if (failedChecks.length > 0) {
+    return {
+      status: 'probe_incomplete',
+      detail: failedChecks[0].detail,
+    };
+  }
+
   return {
     status: 'probe_incomplete',
-    detail: failedCheck?.detail ?? 'apply-time CAS probe incomplete',
+    detail: 'apply-time CAS probe incomplete',
   };
 }
 
