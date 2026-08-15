@@ -2,59 +2,43 @@
 
 **Capture ID:** `track-r-c403-2026-08-14T2324Z`  
 **Captured:** 2026-08-14T23:24:27.582Z  
-**Executive status:** **READY_FOR_ZEUS_EVE_REVIEW**  
+**Executive status (capture #4):** `READY_FOR_ZEUS_EVE_REVIEW`  
 **Execution authorized:** **NOT AUTHORIZED**  
 **Production mutation:** **NONE**
 
-**GHA evidence run:** [Track R Production Capture #4](https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/31850223582) · commit `1eb07d0ee804cecb0f913c21d9975d4257b86ff5`
+**GHA evidence run:** [Track R Production Capture #4](https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/31850223582)
 
 ---
 
 ## 1. Summary
 
-Production read-only witness capture succeeded. Authenticated primary KV identity confirmed against production anchors. Live affected-block set matches pinned 123-position universe. Live seal witness export complete: **248/248 MATCH**, zero mismatch/missing/unexpected.
+Capture #4 succeeded as a **read-only production witness establishment run**: KV identity confirmed, affected-block set matched (123/123), live seal export complete (248/248), boundaries and governance 131 cutoff passed.
 
-Dry-run manifest receipt pins remain `fixture-hash-*` (expected for fixture-based dry run). Live witness compares each primary KV `seal_hash` against canonical recomputation (`verifySealHash`).
+This PR **commits the independent production seal hash pin** extracted from capture #4 (`C403_PRODUCTION_WITNESS_SEAL_HASHES.pin.json`, pin hash `3876419a…`). Future captures compare live KV hashes against that pin — not against recomputed self-expectations.
 
-Positions 132–194 remain **verified_unattached** — no fabricated 131→132 edge.
+**Attestation requires capture #5** after merge to validate pin-bound comparison before ZEUS × EVE × human ADOPT.
 
 ---
 
-## 2. Production snapshot
+## 2. Production snapshot (capture #4)
 
 | Field | Observed |
 |---|---|
-| Capture ID | `track-r-c403-2026-08-14T2324Z` |
 | Lineage snapshot hash (CAS gate) | `6ee3ef4c4b94e1aee77e60669ce7433bfd423fc9319eb259a6fbefb7fe406d2b` |
-| Telemetry snapshot hash (informational) | `fccff0811415de089e3e1003815a0370151b64fe5649d5ca353514fb3ab78fd3` |
-| Execution witness hash | `7ca4a19a33f21237698aa5aa5e615dfb954a20c7a5c01e53f7dc4a4907c23c31` |
-| Production KV identity receipt hash | `fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e` |
-| Unsealed accumulator | ~2567.71386 MIC |
-| Collision pairs | 125 |
+| Execution witness hash (capture #4) | `7ca4a19a33f21237698aa5aa5e615dfb954a20c7a5c01e53f7dc4a4907c23c31` |
+| Production KV identity receipt | `fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e` |
+| Production witness seal hash pin | `3876419a2ff46df126b0b956bca96ddfc21b45d5c9f1ab3d8e21bfaa4c5f9b5e` |
 | Affected block set match | true |
-| Integrity gate | active |
+| Live witness completeness | 248/248 primary reads |
 
-### Drift vs handoff (informational only)
+### Drift vs handoff (informational)
 
-- **contested_block_positions**: info (public API omits `collision_affected_blocks`; KV set match authoritative)
-- **unsealed_accumulator_mic_approx**: info (telemetry — does not block lineage CAS)
-
-### Affected-block set comparison
-
-```json
-{
-  "set_match": true,
-  "missing_from_live": [],
-  "unexpected_in_live": [],
-  "duplicate_live_positions": [],
-  "live_source": "kv:primary-vault-v2:derived-collision-affected-blocks",
-  "live_contested_count": 123
-}
-```
+- **contested_block_positions**: info (public API omits field; KV set match authoritative)
+- **unsealed_accumulator_mic_approx**: info (telemetry only)
 
 ---
 
-## 3. Four-object attestation packet
+## 3. Four-object attestation packet (capture #4 — re-validate on #5)
 
 | Object | Hash |
 |---|---|
@@ -63,27 +47,12 @@ Positions 132–194 remain **verified_unattached** — no fabricated 131→132 e
 | Execution witness | `7ca4a19a33f21237698aa5aa5e615dfb954a20c7a5c01e53f7dc4a4907c23c31` |
 | Rollback manifest | `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d` |
 
-Promoted through position **131** (`seal-C-358-131`). Positions **132–194**: verified_unattached. **131→132 edge**: not_fabricated.
+Promoted through position **131** only. Positions **132–194**: verified_unattached.
 
 ---
 
-## 4. Execution witness
-
-| Field | Value |
-|---|---|
-| Authenticated read | true |
-| Export complete | true |
-| Expected universe | 248 |
-| Summary | match=248, mismatch=0, missing=0, unexpected=0 |
-| Blocked reason | none |
-| Verification notes | dry-run manifest uses fixture-hash receipt pins; live witness uses canonical recomputation |
-
-See `artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json`.
-
----
-
-## 5. Execution authorization
+## 4. Execution authorization
 
 **Track R execution status: NOT AUTHORIZED.**
 
-This capture attests production lineage for ZEUS × EVE × human review. ZEUS ADOPT, EVE ADOPT, explicit human consent, and a separate one-shot execution handoff remain mandatory before any production KV mutation.
+Merge pin file → run capture #5 → ZEUS × EVE × human attestation on capture #5 packet only.

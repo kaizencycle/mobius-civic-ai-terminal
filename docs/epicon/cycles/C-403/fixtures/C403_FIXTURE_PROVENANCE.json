@@ -14,7 +14,14 @@
       "file": "C403_COLLISION_RESOLUTION_TABLE.pin.json",
       "substrate_path": "docs/epicon/cycles/C-401/C401_COLLISION_RESOLUTION_TABLE.json",
       "sha256": "90296f114733f07373c1d946d66ab634949ee32e731ff30efe7f78c76ae1f611"
+    },
+    {
+      "file": "C403_PRODUCTION_WITNESS_SEAL_HASHES.pin.json",
+      "source": "Track R Production Capture #4 authenticated primary KV export",
+      "established_by_capture_id": "track-r-c403-2026-08-14T2324Z",
+      "pin_hash": "3876419a2ff46df126b0b956bca96ddfc21b45d5c9f1ab3d8e21bfaa4c5f9b5e",
+      "seal_count": 248
     }
   ],
-  "note": "Immutable pinned copies for Terminal dry-run only. Do not mutate production KV from fixtures."
+  "note": "Fixture pins are dry-run only. Production witness seal hash pin is independent live-KV evidence — validate with capture #5 after pin merge."
 }

@@ -16,6 +16,12 @@
     "url": "https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/31850223582"
   },
   "attestation_handoff": "docs/epicon/cycles/C-403/HANDOFF_C-403_TRACK_R_ATTESTATION_capture-2324Z.md",
+  "production_witness_seal_hash_pin": {
+    "path": "docs/epicon/cycles/C-403/fixtures/C403_PRODUCTION_WITNESS_SEAL_HASHES.pin.json",
+    "pin_hash": "3876419a2ff46df126b0b956bca96ddfc21b45d5c9f1ab3d8e21bfaa4c5f9b5e",
+    "established_by_capture_id": "track-r-c403-2026-08-14T2324Z",
+    "validation_capture_required": true
+  },
   "required_hashes": {
     "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
     "lineage_snapshot_hash": "6ee3ef4c4b94e1aee77e60669ce7433bfd423fc9319eb259a6fbefb7fe406d2b",
