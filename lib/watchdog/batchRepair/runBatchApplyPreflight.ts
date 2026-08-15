@@ -110,13 +110,6 @@ export type ApplyCasProbeOutcome =
 export function classifyApplyCasProbeOutcome(
   applyCas: FreshLineageSnapshotFromProduction,
 ): ApplyCasProbeOutcome {
-  if (!hasUpstashKvCredentials()) {
-    return {
-      status: 'credentials_required',
-      detail: 'production KV credentials required for apply-time CAS recheck',
-    };
-  }
-
   if (applyCas.fresh_cas_match === true) {
     return { status: 'probe_ok' };
   }
@@ -125,6 +118,13 @@ export function classifyApplyCasProbeOutcome(
     return {
       status: 'cas_drift',
       detail: `attested=${applyCas.attested_lineage_snapshot_hash} fresh=${applyCas.fresh_lineage_snapshot_hash}`,
+    };
+  }
+
+  if (!hasUpstashKvCredentials()) {
+    return {
+      status: 'credentials_required',
+      detail: 'production KV credentials required for apply-time CAS recheck',
     };
   }
 

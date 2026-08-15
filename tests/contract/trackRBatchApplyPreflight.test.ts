@@ -146,6 +146,7 @@ describe('Track R batch apply preflight (apply-path CAS)', () => {
       mutation_journal_available: false,
       rollback_plan_verified: false,
       preflight_read_only: true,
+      fresh_lineage_snapshot_hash_matches: true,
       live_seal_witness_export: null,
     });
     assert.equal(guard.ok, false);
