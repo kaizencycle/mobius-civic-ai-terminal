@@ -397,12 +397,12 @@ jobs:
           dest="docs/epicon/cycles/C-404/cas-probes"
           mkdir -p "$dest"
           cp ./track-r-preflight-output/cas-probe-report.md "$dest/CAS-PROBE-${RUN_ID}.md"
-          [ -f ./track-r-preflight-output/execution-readiness.log ] && cp ./track-r-preflight-output/execution-readiness.log "$dest/readiness-${RUN_ID}.log"
-          [ -f ./track-r-preflight-output/batch-apply-preflight.log ] && cp ./track-r-preflight-output/batch-apply-preflight.log "$dest/preflight-${RUN_ID}.log"
+          [ -f ./track-r-preflight-output/execution-readiness.log ] && cp ./track-r-preflight-output/execution-readiness.log "$dest/readiness-${RUN_ID}.txt"
+          [ -f ./track-r-preflight-output/batch-apply-preflight.log ] && cp ./track-r-preflight-output/batch-apply-preflight.log "$dest/preflight-${RUN_ID}.txt"
 
           git config user.name "ATLAS CI"
           git config user.email "atlas@mobius-substrate.com"
-          git add "$dest"
+          git add -f "$dest"
           if git diff --cached --quiet; then
             echo "No evidence changes to commit."
             exit 0
