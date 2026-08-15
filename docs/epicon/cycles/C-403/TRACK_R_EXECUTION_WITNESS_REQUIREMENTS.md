@@ -17,7 +17,7 @@ Public APIs expose the live collision **count** (125 pairs) but not every seal b
 Before Track R batch commit, an operator with **authenticated read-only KV access** must:
 
 1. Export every seal body referenced by Track R (all witness collision candidates + canonical selections).
-2. Compare each live KV `seal_hash` against the pinned witness `original_hashes` / fixture evidence.
+2. Compare each live KV `seal_hash` against the committed production witness seal hash pin (`docs/epicon/cycles/C-403/fixtures/C403_PRODUCTION_WITNESS_SEAL_HASHES.pin.json`) established by an authenticated read-only capture.
 3. Produce a per-record equality report with status per seal:
    - `match` — live body hash equals pinned witness expectation
    - `mismatch` — live body differs from pinned witness

@@ -27,5 +27,6 @@ export * from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
 export * from '@/lib/watchdog/batchRepair/liveAffectedBlockEvidence';
 export * from '@/lib/watchdog/batchRepair/liveBoundaryEvidence';
 export * from '@/lib/watchdog/batchRepair/productionKvIdentityReceipt';
+export * from '@/lib/watchdog/batchRepair/productionWitnessSealHashPin';
 export * from '@/lib/watchdog/batchRepair/trackRExecutiveStatus';
 export * from '@/lib/watchdog/batchRepair/buildTrackREvidencePackage';

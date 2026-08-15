@@ -438,6 +438,9 @@ async function main(): Promise<void> {
       kv_identity_ok: liveWitness.kv_identity_ok,
       primary_read_count: liveWitness.primary_read_count,
       fallback_read_count: liveWitness.fallback_read_count,
+      comparison_mode: liveWitness.comparison_mode,
+      production_witness_seal_hash_pin_hash: liveWitness.production_witness_seal_hash_pin_hash,
+      production_witness_seal_hash_pin_capture_id: liveWitness.production_witness_seal_hash_pin_capture_id,
       execution_witness_hash,
     },
     live_boundary_41_42: liveBoundary4142,
@@ -502,6 +505,7 @@ async function main(): Promise<void> {
         rollback_manifest_hash: rollback_hash,
         telemetry_snapshot_hash,
         production_kv_identity_receipt_hash: kvIdentityReceipt?.identity_hash ?? null,
+        production_witness_seal_hash_pin_hash: liveWitness.production_witness_seal_hash_pin_hash,
       },
     },
     explicit_no_production_change:
@@ -531,8 +535,11 @@ async function main(): Promise<void> {
         expected_universe_count: liveWitness.expected_universe_count,
         summary: liveWitness.export?.summary ?? null,
         verification_errors: liveWitness.verification_errors,
-      verification_notes: liveWitness.verification_notes,
+        verification_notes: liveWitness.verification_notes,
         blocked_reason: liveWitness.blocked_reason,
+        comparison_mode: liveWitness.comparison_mode,
+        production_witness_seal_hash_pin_hash: liveWitness.production_witness_seal_hash_pin_hash,
+        production_witness_seal_hash_pin_capture_id: liveWitness.production_witness_seal_hash_pin_capture_id,
         execution_witness_hash,
         per_record_status_counts: evidence.redacted_witness_comparison.reduce(
           (acc, record) => {
@@ -710,6 +717,9 @@ ${JSON.stringify(
 | Export complete | ${args.liveWitness.export?.export_complete ?? false} |
 | Expected universe | ${args.liveWitness.expected_universe_count} |
 | Blocked reason | ${args.liveWitness.blocked_reason ?? 'none'} |
+| Comparison mode | ${args.liveWitness.comparison_mode} |
+| Production witness pin hash | ${args.liveWitness.production_witness_seal_hash_pin_hash ?? 'n/a'} |
+| Pin established by capture | ${args.liveWitness.production_witness_seal_hash_pin_capture_id ?? 'n/a'} |
 | Summary | ${args.liveWitness.export ? JSON.stringify(args.liveWitness.export.summary) : 'n/a'} |
 
 See \`artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json\`.
@@ -739,11 +749,14 @@ function buildZeusTemplate(
 **Execution witness hash:** \`${hashes.execution_witness_hash ?? 'TBD'}\`  
 **Rollback manifest hash:** \`${hashes.rollback_manifest_hash}\`  
 **Production KV identity receipt hash:** \`${hashes.production_kv_identity_receipt_hash ?? 'TBD'}\`  
+**Production witness seal hash pin:** \`${hashes.production_witness_seal_hash_pin_hash ?? 'TBD'}\`  
 **Telemetry snapshot hash (informational):** \`${hashes.telemetry_snapshot_hash}\`
 
 ## Verification checklist
 
 - [ ] Production KV identity receipt confirms connected datastore matches production anchors
+- [ ] Production witness seal hash pin loads and matches committed pin hash
+- [ ] Capture reaches \`READY_FOR_ZEUS_EVE_REVIEW\` with \`comparison_mode: pinned_production_witness_seal_hashes\`
 - [ ] Semantic manifest hash recomputes identically (excludes created_at, verdicts, telemetry)
 - [ ] Exact live affected-block set matches pinned contested universe (not collision count alone)
 - [ ] Every collision represented (125 pairs; 123 contested positions)
@@ -785,11 +798,13 @@ function buildEveTemplate(
 **Lineage snapshot hash:** \`${hashes.lineage_snapshot_hash}\`  
 **Execution witness hash:** \`${hashes.execution_witness_hash ?? 'TBD'}\`  
 **Rollback manifest hash:** \`${hashes.rollback_manifest_hash}\`  
-**Production KV identity receipt hash:** \`${hashes.production_kv_identity_receipt_hash ?? 'TBD'}\`
+**Production KV identity receipt hash:** \`${hashes.production_kv_identity_receipt_hash ?? 'TBD'}\`  
+**Production witness seal hash pin:** \`${hashes.production_witness_seal_hash_pin_hash ?? 'TBD'}\`
 
 ## Constitutional scope checklist
 
 - [ ] Production KV identity receipt proves authenticated reads against production anchors
+- [ ] Production witness seal hash pin loads and live comparison uses \`pinned_production_witness_seal_hashes\`
 - [ ] Selection policy matches Track R canon (\`component_coherent_hybrid\`)
 - [ ] Promotion stops at position 131; 132–194 preserved unattached
 - [ ] No fabricated continuity at 131→132 boundary
@@ -829,6 +844,7 @@ Do **not** authorize production mutation until all items are checked.
 
 - [ ] Capture ID: \`${hashes.capture_id}\`
 - [ ] Production KV identity receipt hash: \`${hashes.production_kv_identity_receipt_hash ?? 'TBD'}\`
+- [ ] Production witness seal hash pin hash: \`${hashes.production_witness_seal_hash_pin_hash ?? 'TBD'}\`
 - [ ] Lineage snapshot hash (CAS): \`${hashes.lineage_snapshot_hash}\`
 - [ ] Semantic manifest hash: \`${manifest?.manifest_hash ?? 'TBD'}\`
 - [ ] Execution witness hash: \`${hashes.execution_witness_hash ?? 'TBD'}\`
@@ -836,6 +852,7 @@ Do **not** authorize production mutation until all items are checked.
 - [ ] Promoted through position 131 only; 132–194 verified_unattached
 - [ ] Exact live affected-block set matches pinned universe
 - [ ] Authenticated live seal witness export (per-record equality, not count alone)
+- [ ] Package \`execution_witness.comparison_mode\` is \`pinned_production_witness_seal_hashes\`
 
 ## Governance gates
 

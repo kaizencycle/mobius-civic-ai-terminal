@@ -1,204 +1,58 @@
 # Track R Live Dry-Run Report (C-403)
 
-**Capture ID:** `track-r-c403-2026-08-14T1952Z`  
-**Captured:** 2026-08-14T19:52:59.351Z  
-**Executive status:** **BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH**  
+**Capture ID:** `track-r-c403-2026-08-14T2324Z`  
+**Captured:** 2026-08-14T23:24:27.582Z  
+**Executive status (capture #4):** `READY_FOR_ZEUS_EVE_REVIEW`  
 **Execution authorized:** **NOT AUTHORIZED**  
 **Production mutation:** **NONE**
+
+**GHA evidence run:** [Track R Production Capture #4](https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/31850223582)
 
 ---
 
 ## 1. Summary
 
-Single capture (`track-r-c403-2026-08-14T1952Z`). Dry-run only. **Semantic manifest hash** excludes volatile telemetry. Snapshot split: **lineage** (CAS gate) vs **telemetry** (informational). Positions 132–194 are **verified_unattached** — no fabricated 131→132 edge.
+Capture #4 succeeded as a **read-only production witness establishment run**: KV identity confirmed, affected-block set matched (123/123), live seal export complete (248/248), boundaries and governance 131 cutoff passed.
 
-Fail-closed corrections (post PR #654): process exit code matches executive status; affected-block set compared exactly (not collision count alone); authenticated live witness export attempted when credentials available.
+This PR **commits the independent production seal hash pin** extracted from capture #4 (`C403_PRODUCTION_WITNESS_SEAL_HASHES.pin.json`, pin hash `3876419a…`). Future captures compare live KV hashes against that pin — not against recomputed self-expectations.
+
+**Attestation requires capture #5** after merge to validate pin-bound comparison before ZEUS × EVE × human ADOPT.
 
 ---
 
-## 2. Production snapshot
+## 2. Production snapshot (capture #4)
 
 | Field | Observed |
 |---|---|
-| Capture ID | `track-r-c403-2026-08-14T1952Z` |
-| Lineage snapshot hash | `080cfc83d3b9515209fe8280e7477171cd977e02879a125b751dd94fcf576507` |
-| Telemetry snapshot hash | `aab76e13df17485c9cfa375deef6ad219eba259fc85718b79f796a4160d042c0` |
-| Execution witness hash | `n/a` |
-| Unsealed accumulator | ~2557.878102 MIC |
-| Collision pairs | 125 |
-| Affected block set match | false |
-| Integrity gate | active |
+| Lineage snapshot hash (CAS gate) | `6ee3ef4c4b94e1aee77e60669ce7433bfd423fc9319eb259a6fbefb7fe406d2b` |
+| Execution witness hash (capture #4) | `7ca4a19a33f21237698aa5aa5e615dfb954a20c7a5c01e53f7dc4a4907c23c31` |
+| Production KV identity receipt | `fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e` |
+| Production witness seal hash pin | `3876419a2ff46df126b0b956bca96ddfc21b45d5c9f1ab3d8e21bfaa4c5f9b5e` |
+| Affected block set match | true |
+| Live witness completeness | 248/248 primary reads |
 
-### Drift vs handoff
+### Drift vs handoff (informational)
 
-- **contested_block_positions**: material
-- **unsealed_accumulator_mic_approx**: info
-
-Accumulator drift is **telemetry only** — must not block lineage CAS.
-
-### Affected-block set comparison
-
-```json
-{
-  "set_match": false,
-  "missing_from_live": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    21,
-    22,
-    23,
-    24,
-    25,
-    26,
-    27,
-    28,
-    29,
-    30,
-    31,
-    32,
-    33,
-    42,
-    43,
-    44,
-    45,
-    46,
-    47,
-    48,
-    49,
-    50,
-    51,
-    52,
-    53,
-    54,
-    55,
-    56,
-    57,
-    58,
-    59,
-    60,
-    61,
-    62,
-    63,
-    64,
-    65,
-    66,
-    67,
-    68,
-    69,
-    70,
-    71,
-    72,
-    73,
-    74,
-    75,
-    76,
-    77,
-    78,
-    79,
-    80,
-    81,
-    82,
-    83,
-    84,
-    85,
-    86,
-    87,
-    88,
-    89,
-    90,
-    91,
-    92,
-    93,
-    94,
-    95,
-    96,
-    97,
-    98,
-    99,
-    100,
-    101,
-    102,
-    103,
-    104,
-    105,
-    106,
-    107,
-    108,
-    109,
-    110,
-    111,
-    112,
-    113,
-    114,
-    115,
-    116,
-    117,
-    118,
-    119,
-    120,
-    121,
-    122,
-    123,
-    124,
-    125,
-    126,
-    127,
-    128,
-    129,
-    130,
-    131
-  ],
-  "unexpected_in_live": [],
-  "duplicate_live_positions": []
-}
-```
+- **contested_block_positions**: info (public API omits field; KV set match authoritative)
+- **unsealed_accumulator_mic_approx**: info (telemetry only)
 
 ---
 
-## 3. Dry-run
+## 3. Four-object attestation packet (capture #4 — re-validate on #5)
 
-| Field | Value |
+| Object | Hash |
 |---|---|
-| Semantic manifest hash | `27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa` |
-| Rollback manifest hash | `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d` |
-| Promoted through | position 131 (`seal-C-358-131`) |
-| 132–194 | verified_unattached |
-| 131→132 edge | not_fabricated |
+| Semantic manifest | `27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa` |
+| Lineage snapshot | `6ee3ef4c4b94e1aee77e60669ce7433bfd423fc9319eb259a6fbefb7fe406d2b` |
+| Execution witness | `7ca4a19a33f21237698aa5aa5e615dfb954a20c7a5c01e53f7dc4a4907c23c31` |
+| Rollback manifest | `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d` |
+
+Promoted through position **131** only. Positions **132–194**: verified_unattached.
 
 ---
 
-## 4. Execution witness
-
-| Field | Value |
-|---|---|
-| Authenticated read | false |
-| Export complete | false |
-| Expected universe | 0 |
-| Blocked reason | BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH |
-| Summary | n/a |
-
-See `artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json`.
-
----
-
-## 5. Execution authorization
+## 4. Execution authorization
 
 **Track R execution status: NOT AUTHORIZED.**
+
+Merge pin file → run capture #5 → ZEUS × EVE × human attestation on capture #5 packet only.

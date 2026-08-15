@@ -16,6 +16,8 @@ import {
   verifyLiveSealWitnessExport,
   collectTrackRWitnessSealIds,
   compareLiveSealWitnessRecord,
+  loadProductionWitnessSealHashPin,
+  computeProductionWitnessSealHashPinHash,
   manifestUsesFixturePinnedHashes,
   resolveLiveWitnessBlockedReason,
   verifyProductionKvIdentityAgainstAnchors,
@@ -137,6 +139,23 @@ function executiveStatusArgs(
   };
 }
 
+function liveWitnessPinMeta(
+  overrides: Partial<{
+    production_witness_seal_hash_pin_hash: string | null;
+    production_witness_seal_hash_pin_capture_id: string | null;
+    comparison_mode: 'pinned_production_witness_seal_hashes' | 'unavailable';
+  }> = {},
+) {
+  return {
+    production_witness_seal_hash_pin_hash:
+      overrides.production_witness_seal_hash_pin_hash ??
+      '3876419a2ff46df126b0b956bca96ddfc21b45d5c9f1ab3d8e21bfaa4c5f9b5e',
+    production_witness_seal_hash_pin_capture_id:
+      overrides.production_witness_seal_hash_pin_capture_id ?? 'track-r-c403-2026-08-14T2324Z',
+    comparison_mode: overrides.comparison_mode ?? ('pinned_production_witness_seal_hashes' as const),
+  };
+}
+
 function liveWitnessUnavailable() {
   return {
     ok: false,
@@ -151,6 +170,9 @@ function liveWitnessUnavailable() {
     fallback_read_count: 0,
     uses_fixture_pinned_hashes: false,
     kv_identity_ok: false,
+    production_witness_seal_hash_pin_hash: null,
+    production_witness_seal_hash_pin_capture_id: null,
+    comparison_mode: 'unavailable' as const,
     live_seals: [],
   };
 }
@@ -280,6 +302,11 @@ describe('trackRFailClosed C-403', () => {
         fallback_read_count: 1,
         uses_fixture_pinned_hashes: true,
         kv_identity_ok: true,
+        ...liveWitnessPinMeta({
+          comparison_mode: 'unavailable',
+          production_witness_seal_hash_pin_hash: null,
+          production_witness_seal_hash_pin_capture_id: null,
+        }),
         live_seals: [],
       },
       }),
@@ -338,6 +365,7 @@ describe('trackRFailClosed C-403', () => {
           fallback_read_count: 0,
           uses_fixture_pinned_hashes: false,
           kv_identity_ok: true,
+          ...liveWitnessPinMeta(),
           live_seals: [],
         },
         liveBoundary4142: {
@@ -393,6 +421,7 @@ describe('trackRFailClosed C-403', () => {
           fallback_read_count: 0,
           uses_fixture_pinned_hashes: false,
           kv_identity_ok: true,
+          ...liveWitnessPinMeta(),
           live_seals: [],
         },
       }),
@@ -452,6 +481,7 @@ describe('trackRFailClosed C-403', () => {
           fallback_read_count: 0,
           uses_fixture_pinned_hashes: false,
           kv_identity_ok: true,
+          ...liveWitnessPinMeta(),
           live_seals: seals,
         },
         liveBoundary4142: boundary,
@@ -552,7 +582,7 @@ describe('trackRFailClosed C-403', () => {
     assert.equal(filtered[0]?.observed, 125);
   });
 
-  it('live witness record uses canonical recomputation instead of tautological live hash pin', () => {
+  it('live witness record compares live KV hash against committed production hash pin', () => {
     const canonicalFields = {
       seal_id: 'seal-C-332-001',
       sequence: 1,
@@ -574,16 +604,17 @@ describe('trackRFailClosed C-403', () => {
       fountain_emitted_at: null,
       posture: null,
     };
+    const pinned = new Map([[validSeal.seal_id, validSeal.seal_hash]]);
 
     const match = compareLiveSealWitnessRecord({
       seal_id: validSeal.seal_id,
       liveSeal: validSeal,
       provenance: 'primary',
       expectedSet: new Set([validSeal.seal_id]),
+      pinnedHashBySealId: pinned,
     });
     assert.equal(match.status, 'MATCH');
-    assert.equal(match.live_kv_hash, validSeal.seal_hash);
-    assert.equal(match.pinned_witness_hash, computeSealHash(canonicalFields));
+    assert.equal(match.pinned_witness_hash, validSeal.seal_hash);
 
     const tampered: Seal = { ...validSeal, seal_hash: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' };
     const mismatch = compareLiveSealWitnessRecord({
@@ -591,9 +622,21 @@ describe('trackRFailClosed C-403', () => {
       liveSeal: tampered,
       provenance: 'primary',
       expectedSet: new Set([tampered.seal_id]),
+      pinnedHashBySealId: pinned,
     });
     assert.equal(mismatch.status, 'MISMATCH');
     assert.notEqual(mismatch.pinned_witness_hash, mismatch.live_kv_hash);
+  });
+
+  it('production witness seal hash pin loads 248 independent expectations', () => {
+    const loaded = loadProductionWitnessSealHashPin({
+      expected_witness_audit_hash: '9196394bdbffe04e7a87d7cb2320b30b2e3c9cc07f24df9dfdfa7351b5dc6b87',
+    });
+    assert.equal(loaded.ok, true);
+    if (!loaded.ok) return;
+    assert.equal(loaded.pin.seal_count, 248);
+    assert.equal(loaded.pin.established_by_capture_id, 'track-r-c403-2026-08-14T2324Z');
+    assert.equal(loaded.pin_hash, '3876419a2ff46df126b0b956bca96ddfc21b45d5c9f1ab3d8e21bfaa4c5f9b5e');
   });
 
   it('dry-run manifest fixture note is informational when live witness ok', () => {
@@ -616,7 +659,7 @@ describe('trackRFailClosed C-403', () => {
           comparison_results: [],
           verification_errors: [],
           verification_notes: [
-            'dry-run manifest receipt original_hashes use fixture-hash-* pins; live witness compares primary KV seal_hash against canonical recomputation',
+            'dry-run manifest receipt original_hashes use fixture-hash-* pins; live witness compares primary KV seal_hash against committed production hash pin',
           ],
           expected_universe_count: 248,
           export_source: 'test',
@@ -624,6 +667,7 @@ describe('trackRFailClosed C-403', () => {
           fallback_read_count: 0,
           uses_fixture_pinned_hashes: true,
           kv_identity_ok: true,
+          ...liveWitnessPinMeta(),
           live_seals: [],
         },
       }),
@@ -668,6 +712,7 @@ describe('trackRFailClosed C-403', () => {
           fallback_read_count: 0,
           uses_fixture_pinned_hashes: false,
           kv_identity_ok: true,
+          ...liveWitnessPinMeta(),
           live_seals: [],
         },
       }),
@@ -678,6 +723,7 @@ describe('trackRFailClosed C-403', () => {
 
   it('process exit: new BLOCKED_* and QUARANTINE_* executive statuses return non-zero', () => {
     assert.equal(resolveTrackRProcessExitCode('BLOCKED_KV_ENVIRONMENT_IDENTITY_MISMATCH'), 1);
+    assert.equal(resolveTrackRProcessExitCode('BLOCKED_PINNED_WITNESS_HASH_PIN_UNAVAILABLE'), 1);
     assert.equal(resolveTrackRProcessExitCode('BLOCKED_PRODUCTION_KV_CREDENTIALS_NOT_CONFIGURED'), 1);
     assert.equal(resolveTrackRProcessExitCode('BLOCKED_LIVE_AFFECTED_BLOCK_SET_UNAVAILABLE'), 1);
     assert.equal(resolveTrackRProcessExitCode('BLOCKED_LIVE_WITNESS_INCOMPLETE'), 1);
