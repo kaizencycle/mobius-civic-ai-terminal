@@ -51,8 +51,8 @@ Immutable archive: `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/`
 | 5 | PR #661 disposition | `PR661_REVIEW_DISPOSITION.md` | ✅ B Ratify with notes — `2026-08-15T14:34:00.000Z` |
 | 6 | One-shot handoff record (non-executable) | `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md` | ✅ #667 |
 | 7 | Fresh pre-mutation CAS (final preflight) | `pnpm track-r:execution-readiness` → see CLI output below | ⬜ run only when mutation window imminent |
-| 8 | Apply-path CAS recheck wired in code | Future execution-handoff PR | ⬜ **not implemented** |
-| 9 | Explicit execution authorization + apply | Separate operator command + production-derived CAS + `TRACK_R_BATCH_EXECUTION_ENABLED=true` | ⛔ forbidden |
+| 8 | Apply-path CAS recheck wired in code | `pnpm track-r:batch-apply-preflight` | ✅ read-only preflight |
+| 9 | Explicit execution authorization + apply | Separate operator command + atomic KV apply | ⛔ forbidden |
 
 ---
 
@@ -89,9 +89,7 @@ Fresh CAS match: true
 
 Exit code **0**. Governance invariants (not CLI fields): no apply invoked; `execution_authorized` remains `false` in governance JSON.
 
-**Dual CAS (design requirement):** Operator probe (✅ implemented) → explicit authorization → apply path must re-read production and recompute CAS (⬜ **not implemented** — `commitGuard` accepts caller boolean only today). If either check differs → abort with zero writes; **Capture #6**.
-
-See `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md` § Implementation status.
+**Dual CAS (design requirement):** Operator probe (✅) → explicit authorization → apply path re-read (✅ `track-r:batch-apply-preflight`) → atomic mutate (⬜ not implemented). If either CAS check differs → abort with zero writes; **Capture #6**.
 
 If `readiness_status: cas_drift` → production lineage changed since capture #5. Run **Capture #6** before proceeding.
 
@@ -134,7 +132,8 @@ From `lib/watchdog/batchRepair/commitGuard.ts` (guard checks only; **apply calle
 2. ~~**Custodian disposition of #661**~~ ✅ B Ratify with notes — `2026-08-15T14:34:00.000Z`
 3. ~~**Non-executable one-shot handoff record**~~ ✅ `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md` (#667)
 4. **Run `pnpm track-r:execution-readiness`** with production KV credentials only when mutation window is imminent (final preflight)
-5. **Implement apply-path CAS recheck** in a future execution-handoff PR (production re-read → recompute hash → `commitGuard`; not wired today)
-6. If both CAS checks pass at apply time, **finalize explicit execution authorization** — one constrained mutation attempt, or abort with zero writes and Capture #6
+5. ~~**Implement apply-path CAS recheck**~~ ✅ `verifyFreshLineageSnapshotAtApply` + `pnpm track-r:batch-apply-preflight`
+6. When mutation window is imminent: run **both** `pnpm track-r:execution-readiness` and `pnpm track-r:batch-apply-preflight` with production KV credentials
+7. If both pass, **finalize explicit execution authorization** — one constrained mutation attempt (future atomic apply script), or abort with zero writes and Capture #6
 
 *"We heal as we walk." — Mobius Systems*

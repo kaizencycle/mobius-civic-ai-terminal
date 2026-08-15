@@ -18,8 +18,9 @@
 | 5 | PR #661 custodian disposition | ✅ B Ratify with notes — `2026-08-15T14:34:00.000Z` |
 | 6 | Non-executable handoff record | ✅ this document |
 | 7 | Operator readiness CAS probe | ⬜ run only when mutation window imminent |
-| 8 | Apply-path CAS recheck wired in code | ⬜ **not implemented** — see Implementation status |
-| 9 | Explicit execution authorization | ⛔ forbidden until #7 passes **and** #8 implemented |
+| 8 | Apply-path CAS recheck wired in code | ✅ `verifyFreshLineageSnapshotAtApply` + `assertBatchCommitAllowedAtApply` |
+| 9 | Explicit execution authorization | ⛔ forbidden until #7 passes at mutation window |
+| 10 | Production KV mutation + atomic apply | ⛔ not implemented — `activateVersionPointer` remains get+set |
 
 ---
 
@@ -56,9 +57,9 @@ Operator readiness probe (pnpm track-r:execution-readiness)     ← implemented
         ↓
 Explicit one-shot authorization recorded
         ↓
-Apply path re-reads production and recomputes lineage CAS      ← NOT IMPLEMENTED
+Apply path re-reads production and recomputes lineage CAS      ← ✅ wired (read-only preflight)
         ↓
-Compare-and-mutate (atomic where KV supports it)                ← NOT IMPLEMENTED
+Compare-and-mutate (atomic where KV supports it)                ← ⬜ NOT IMPLEMENTED
 ```
 
 If **either** check differs from the attested lineage snapshot hash → **abort with zero writes** and produce **Capture #6**.
@@ -68,11 +69,11 @@ If **either** check differs from the attested lineage snapshot hash → **abort 
 | Step | Status | Notes |
 |---|---|---|
 | Operator readiness probe | ✅ **Implemented** | `verifyTrackRExecutionReadiness()` + `pnpm track-r:execution-readiness` |
-| `commitGuard` apply-time CAS | ⬜ **Not implemented** | `assertBatchCommitAllowed()` accepts caller-supplied `fresh_lineage_snapshot_hash_matches` only; it does **not** read production or recompute the hash |
-| Production apply caller | ⬜ **Not implemented** | No repo caller wires live production re-read into `commitGuard` before apply |
-| Atomic KV mutation | ⬜ **Not implemented** | `activateVersionPointer()` performs separate get + set on the staging store interface, not an atomic Upstash CAS |
+| Apply-path CAS recheck | ✅ **Implemented** | `verifyFreshLineageSnapshotAtApply()` + `pnpm track-r:batch-apply-preflight` (read-only; zero writes) |
+| `commitGuard` wiring | ✅ **Implemented** | `assertBatchCommitAllowedAtApply()` — CAS boolean from production re-read only |
+| Production apply + atomic KV mutation | ⬜ **Not implemented** | No `--apply` script; `activateVersionPointer()` is get+set not atomic Upstash CAS |
 
-**Consequence:** This handoff record completes governance **prep** only. Final execution authorization remains **blocked** until a future execution-handoff PR implements apply-time production re-read + CAS comparison (or equivalent fail-closed wiring). Do not treat passing the readiness CLI as sufficient to apply.
+**Consequence:** Apply-path CAS recheck is wired and testable. Final execution authorization and production mutation remain **blocked** until explicit operator authorization and a future apply script with atomic KV writes.
 
 ### Operator readiness probe — expected CLI output
 
@@ -99,19 +100,27 @@ Process exit code: **0**.
 - No production apply script has been invoked (`production_mutation_performed` remains false by definition until apply)
 - `TRACK_R_GOVERNANCE_ATTESTATION_capture-0123Z.json` still has `execution_authorized: false`
 
-### commitGuard apply-time recheck (future — not wired today)
+### commitGuard apply-time recheck (wired — read-only preflight)
 
-When implemented, the apply path must **recompute** `fresh_lineage_snapshot_hash` from authenticated production reads and set `fresh_lineage_snapshot_hash_matches` from that computation — never from the readiness CLI output alone.
+The apply path uses `assertBatchCommitAllowedAtApply()`, which **requires** a production-derived `FreshLineageSnapshotFromProduction` result:
 
-Today, `lib/watchdog/batchRepair/commitGuard.ts` only checks the boolean field:
+```bash
+pnpm track-r:batch-apply-preflight
+```
 
-- `fresh_lineage_snapshot_hash_matches: true` (caller-supplied — **not** production-derived today)
-- `manifest_hash` verified
-- `zeus_verdict`, `eve_verdict`, `human_approval` all `approved`
-- Live seal witness export complete (248/248 universe)
-- `TRACK_R_BATCH_EXECUTION_ENABLED=true` + explicit operator command
-- Integrity gate active; rollback plan verified
-- `manifest.production_execution_enabled === false` until governance approves
+**Expected pass shape:**
+
+```text
+Preflight status: apply_preflight_pass
+Execution authorized: false
+Production mutation performed: false
+Apply-time CAS match: true
+Commit guard preflight: pass
+```
+
+Direct calls to `assertBatchCommitAllowed()` with a hand-supplied `fresh_lineage_snapshot_hash_matches` boolean **must not** be used at apply time — use `assertBatchCommitAllowedAtApply()` only.
+
+Production mutation remains forbidden. Atomic KV apply is not implemented.
 
 ---
 
@@ -140,7 +149,7 @@ Blocked until: (1) operator readiness probe passes at mutation window, **and** (
 **Operator command reference:** _pending_  
 **Readiness probe timestamp:** _pending_  
 **Readiness probe Fresh lineage CAS:** _pending_  
-**Apply-path CAS recheck implemented:** `false`  
+**Apply-path CAS recheck implemented:** `false` → **`true`** (read-only preflight; no KV writes)  
 **Apply-path CAS recheck timestamp:** _pending_
 
 ---
