@@ -50,8 +50,9 @@ Immutable archive: `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/`
 | 4 | Human custodian consent | `HUMAN_CUSTODIAN_CONSENT_SIGNED.md` | ✅ `2026-08-15T14:07:00Z` |
 | 5 | PR #661 disposition | `PR661_REVIEW_DISPOSITION.md` | ✅ B Ratify with notes — `2026-08-15T14:34:00.000Z` |
 | 6 | One-shot handoff record (non-executable) | `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md` | ✅ #667 |
-| 7 | Fresh pre-mutation CAS (final preflight) | `pnpm track-r:execution-readiness` → see pass shape below | ⬜ run only when mutation window imminent |
-| 8 | Explicit execution authorization + apply | Separate operator command + `commitGuard` CAS recheck + `TRACK_R_BATCH_EXECUTION_ENABLED=true` | ⛔ forbidden |
+| 7 | Fresh pre-mutation CAS (final preflight) | `pnpm track-r:execution-readiness` → see CLI output below | ⬜ run only when mutation window imminent |
+| 8 | Apply-path CAS recheck wired in code | Future execution-handoff PR | ⬜ **not implemented** |
+| 9 | Explicit execution authorization + apply | Separate operator command + production-derived CAS + `TRACK_R_BATCH_EXECUTION_ENABLED=true` | ⛔ forbidden |
 
 ---
 
@@ -76,29 +77,33 @@ pnpm track-r:execution-readiness --skip-cas-probe
 | `track-r:execution-readiness --skip-cas-probe` | Governance-only | `consent_recorded_cas_required` (exit 1) |
 | `track-r:execution-readiness` (production KV) | **Final preflight only** | See pass shape below |
 
-**Operator readiness probe pass shape** (not a durable permission token):
+**Operator readiness probe — expected CLI output** (not a durable permission token):
 
 ```text
-readiness_status: awaiting_execution_handoff
-fresh_cas_match: true
-fresh_lineage_cas: 3db4832725df8d3d49942e60dc9ddd00d436fdb741329362b6eb4d6753669af5
-execution_authorized: false
-production_mutation_performed: false
+Readiness status: awaiting_execution_handoff
+Execution authorized: false
+Attested lineage CAS: 3db4832725df8d3d49942e60dc9ddd00d436fdb741329362b6eb4d6753669af5
+Fresh lineage CAS: 3db4832725df8d3d49942e60dc9ddd00d436fdb741329362b6eb4d6753669af5
+Fresh CAS match: true
 ```
 
-**Dual CAS:** Operator probe → explicit authorization → `commitGuard` reads production again at apply. If either check differs → abort with zero writes; produce **Capture #6**.
+Exit code **0**. Governance invariants (not CLI fields): no apply invoked; `execution_authorized` remains `false` in governance JSON.
+
+**Dual CAS (design requirement):** Operator probe (✅ implemented) → explicit authorization → apply path must re-read production and recompute CAS (⬜ **not implemented** — `commitGuard` accepts caller boolean only today). If either check differs → abort with zero writes; **Capture #6**.
+
+See `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md` § Implementation status.
 
 If `readiness_status: cas_drift` → production lineage changed since capture #5. Run **Capture #6** before proceeding.
 
 ---
 
-## Commit guard requirements (future apply)
+## Commit guard requirements (future apply — partially implemented)
 
-From `lib/watchdog/batchRepair/commitGuard.ts`:
+From `lib/watchdog/batchRepair/commitGuard.ts` (guard checks only; **apply caller not wired**):
 
 - `manifest_hash` verified
 - `zeus_verdict`, `eve_verdict`, `human_approval` all `approved`
-- `fresh_lineage_snapshot_hash_matches: true`
+- `fresh_lineage_snapshot_hash_matches: true` — boolean field only today; **must be set from production re-read at apply time** (not yet implemented)
 - Live seal witness export complete (248/248 universe)
 - `TRACK_R_BATCH_EXECUTION_ENABLED=true` + explicit operator command
 - Integrity gate active; rollback plan verified
@@ -129,7 +134,7 @@ From `lib/watchdog/batchRepair/commitGuard.ts`:
 2. ~~**Custodian disposition of #661**~~ ✅ B Ratify with notes — `2026-08-15T14:34:00.000Z`
 3. ~~**Non-executable one-shot handoff record**~~ ✅ `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md` (#667)
 4. **Run `pnpm track-r:execution-readiness`** with production KV credentials only when mutation window is imminent (final preflight)
-5. If CAS matches, **finalize explicit execution authorization**; `commitGuard` must independently recheck CAS at apply
-6. One constrained mutation attempt — or abort with zero writes and Capture #6 if either CAS check differs
+5. **Implement apply-path CAS recheck** in a future execution-handoff PR (production re-read → recompute hash → `commitGuard`; not wired today)
+6. If both CAS checks pass at apply time, **finalize explicit execution authorization** — one constrained mutation attempt, or abort with zero writes and Capture #6
 
 *"We heal as we walk." — Mobius Systems*

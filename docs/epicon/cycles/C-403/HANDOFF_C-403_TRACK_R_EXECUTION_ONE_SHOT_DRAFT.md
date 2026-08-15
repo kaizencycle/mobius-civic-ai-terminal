@@ -2,7 +2,7 @@
 
 **Cycle:** C-403  
 **Capture ID:** `track-r-c403-2026-08-15T0123Z`  
-**Status:** **NOT AUTHORIZED** (non-executable handoff record complete)  
+**Status:** **NOT AUTHORIZED** (governance prep complete; apply-path CAS recheck **not implemented**)  
 **Purpose:** Completed shell for the separate one-shot execution path. This document does **not** authorize mutation.
 
 ---
@@ -18,7 +18,8 @@
 | 5 | PR #661 custodian disposition | ✅ B Ratify with notes — `2026-08-15T14:34:00.000Z` |
 | 6 | Non-executable handoff record | ✅ this document |
 | 7 | Operator readiness CAS probe | ⬜ run only when mutation window imminent |
-| 8 | Explicit execution authorization | ⛔ forbidden until #7 passes |
+| 8 | Apply-path CAS recheck wired in code | ⬜ **not implemented** — see Implementation status |
+| 9 | Explicit execution authorization | ⛔ forbidden until #7 passes **and** #8 implemented |
 
 ---
 
@@ -46,31 +47,34 @@ One constrained mutation attempt
 
 ---
 
-## Dual CAS model (required)
+## Dual CAS model (design requirement)
 
-The CLI readiness result is **not** a durable permission token. Two independent CAS checks:
+The CLI readiness result is **not** a durable permission token. Two independent CAS checks are **required before any production apply**:
 
 ```
-Operator readiness probe (pnpm track-r:execution-readiness)
+Operator readiness probe (pnpm track-r:execution-readiness)     ← implemented
         ↓
 Explicit one-shot authorization recorded
         ↓
-commitGuard reads production again at apply time
+Apply path re-reads production and recomputes lineage CAS      ← NOT IMPLEMENTED
         ↓
-Atomic compare-and-mutate
+Compare-and-mutate (atomic where KV supports it)                ← NOT IMPLEMENTED
 ```
 
 If **either** check differs from the attested lineage snapshot hash → **abort with zero writes** and produce **Capture #6**.
 
-### Operator readiness probe — required pass shape
+### Implementation status (operator truth)
 
-```text
-readiness_status: awaiting_execution_handoff
-fresh_cas_match: true
-fresh_lineage_cas: 3db4832725df8d3d49942e60dc9ddd00d436fdb741329362b6eb4d6753669af5
-execution_authorized: false
-production_mutation_performed: false
-```
+| Step | Status | Notes |
+|---|---|---|
+| Operator readiness probe | ✅ **Implemented** | `verifyTrackRExecutionReadiness()` + `pnpm track-r:execution-readiness` |
+| `commitGuard` apply-time CAS | ⬜ **Not implemented** | `assertBatchCommitAllowed()` accepts caller-supplied `fresh_lineage_snapshot_hash_matches` only; it does **not** read production or recompute the hash |
+| Production apply caller | ⬜ **Not implemented** | No repo caller wires live production re-read into `commitGuard` before apply |
+| Atomic KV mutation | ⬜ **Not implemented** | `activateVersionPointer()` performs separate get + set on the staging store interface, not an atomic Upstash CAS |
+
+**Consequence:** This handoff record completes governance **prep** only. Final execution authorization remains **blocked** until a future execution-handoff PR implements apply-time production re-read + CAS comparison (or equivalent fail-closed wiring). Do not treat passing the readiness CLI as sufficient to apply.
+
+### Operator readiness probe — expected CLI output
 
 Run locally from repo root with production KV credentials in `.env.local`:
 
@@ -78,11 +82,30 @@ Run locally from repo root with production KV credentials in `.env.local`:
 pnpm track-r:execution-readiness
 ```
 
-### commitGuard apply-time recheck
+**Required lines** (exact labels from `scripts/track-r-execution-readiness.ts`):
 
-From `lib/watchdog/batchRepair/commitGuard.ts`:
+```text
+Readiness status: awaiting_execution_handoff
+Execution authorized: false
+Attested lineage CAS: 3db4832725df8d3d49942e60dc9ddd00d436fdb741329362b6eb4d6753669af5
+Fresh lineage CAS: 3db4832725df8d3d49942e60dc9ddd00d436fdb741329362b6eb4d6753669af5
+Fresh CAS match: true
+```
 
-- `fresh_lineage_snapshot_hash_matches: true` (recomputed at apply, not copied from CLI output)
+Process exit code: **0**.
+
+**Governance invariants** (not printed by the CLI — operator confirms separately):
+
+- No production apply script has been invoked (`production_mutation_performed` remains false by definition until apply)
+- `TRACK_R_GOVERNANCE_ATTESTATION_capture-0123Z.json` still has `execution_authorized: false`
+
+### commitGuard apply-time recheck (future — not wired today)
+
+When implemented, the apply path must **recompute** `fresh_lineage_snapshot_hash` from authenticated production reads and set `fresh_lineage_snapshot_hash_matches` from that computation — never from the readiness CLI output alone.
+
+Today, `lib/watchdog/batchRepair/commitGuard.ts` only checks the boolean field:
+
+- `fresh_lineage_snapshot_hash_matches: true` (caller-supplied — **not** production-derived today)
 - `manifest_hash` verified
 - `zeus_verdict`, `eve_verdict`, `human_approval` all `approved`
 - Live seal witness export complete (248/248 universe)
@@ -107,15 +130,18 @@ Immutable archive: `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/`
 
 ---
 
-## Execution authorization block (DO NOT COMPLETE UNTIL CAS PASSES)
+## Execution authorization block (DO NOT COMPLETE)
+
+Blocked until: (1) operator readiness probe passes at mutation window, **and** (2) apply-path CAS recheck is implemented and wired.
 
 **Execution authorized:** `false`  
 **Authorized by:** _pending_  
 **Authorized at (UTC):** _pending_  
 **Operator command reference:** _pending_  
 **Readiness probe timestamp:** _pending_  
-**Readiness probe fresh_lineage_cas:** _pending_  
-**commitGuard pre-apply recheck timestamp:** _pending_
+**Readiness probe Fresh lineage CAS:** _pending_  
+**Apply-path CAS recheck implemented:** `false`  
+**Apply-path CAS recheck timestamp:** _pending_
 
 ---
 
