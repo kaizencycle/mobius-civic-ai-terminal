@@ -85,12 +85,14 @@ Rolling mirror (same capture #5 content): `artifacts/C-403/track-r-live-dry-run/
 
 1. **ZEUS** — ✅ ADOPT recorded `2026-08-15T13:28:00Z` — see `ZEUS_ATTESTATION_SIGNED.md` and `docs/catalog/zeus/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json`
 2. **EVE** — ✅ ADOPT recorded `2026-08-15T13:28:00Z` — see `EVE_ATTESTATION_SIGNED.md` and `docs/catalog/eve/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json`
-3. **Human custodian** — ⬜ pending — sign checklist bound to `track-r-c403-2026-08-15T0123Z` and hashes above.
+3. **Human custodian** — ⬜ pending — sign `HUMAN_CUSTODIAN_CONSENT_TEMPLATE.md` bound to `track-r-c403-2026-08-15T0123Z` and hashes above.
 
+Execution handoff: `HANDOFF_C-403_TRACK_R_EXECUTION_capture-0123Z.md`  
 Governance record: `docs/epicon/cycles/C-403/TRACK_R_GOVERNANCE_ATTESTATION_capture-0123Z.json`  
-Offline verification: `pnpm exec tsx scripts/track-r-capture-attestation-verify.ts`
+Offline verification: `pnpm track-r:capture-attestation-verify`  
+Execution readiness: `pnpm track-r:execution-readiness`
 
-**Track R execution remains NOT AUTHORIZED** until human custodian consent and separate execution handoff. Unsigned capture-time templates preserved at `ZEUS_ATTESTATION_TEMPLATE.md` / `EVE_ATTESTATION_TEMPLATE.md`.
+**Track R execution remains NOT AUTHORIZED** until human custodian consent and separate execution handoff. Unsigned capture-time templates preserved at `ZEUS_ATTESTATION_TEMPLATE.md` / `EVE_ATTESTATION_TEMPLATE.md` / `HUMAN_CUSTODIAN_CONSENT_TEMPLATE.md`.
 
 Operator scan record: `C-403_LIVE_SCAN_2026-08-15.md`
 
