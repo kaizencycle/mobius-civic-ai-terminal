@@ -33,3 +33,5 @@ export * from '@/lib/watchdog/batchRepair/trackRExecutiveStatus';
 export * from '@/lib/watchdog/batchRepair/buildTrackREvidencePackage';
 export * from '@/lib/watchdog/batchRepair/verifyTrackRCaptureAttestation';
 export * from '@/lib/watchdog/batchRepair/verifyTrackRExecutionReadiness';
+export * from '@/lib/watchdog/batchRepair/computeFreshLineageSnapshotFromProduction';
+export * from '@/lib/watchdog/batchRepair/runBatchApplyPreflight';

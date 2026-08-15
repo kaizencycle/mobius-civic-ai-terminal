@@ -35,7 +35,8 @@
     "track-r:live-dry-run-package": "tsx scripts/track-r-live-dry-run-package.ts",
     "track-r:production-capture": "tsx scripts/track-r-production-capture.ts",
     "track-r:capture-attestation-verify": "tsx scripts/track-r-capture-attestation-verify.ts",
-    "track-r:execution-readiness": "tsx scripts/track-r-execution-readiness.ts"
+    "track-r:execution-readiness": "tsx scripts/track-r-execution-readiness.ts",
+    "track-r:batch-apply-preflight": "tsx scripts/track-r-batch-apply-preflight.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
