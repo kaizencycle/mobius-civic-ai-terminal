@@ -14,10 +14,14 @@ This handoff defines the **separate one-shot execution path** after:
 
 1. Capture #5 pin-validated evidence (immutable archive)
 2. ZEUS ADOPT + EVE ADOPT (#664)
-3. Human custodian consent (pending)
-4. Fresh pre-mutation CAS match at execution time
+3. Human custodian consent (#666)
+4. PR #661 custodian disposition (governance debt)
+5. Non-executable one-shot handoff shell prepared (`HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md`)
+6. Fresh pre-mutation CAS match **immediately before** explicit execution authorization (time-sensitive)
 
 This document does **not** authorize mutation. It specifies the ordered gates and verification commands.
+
+**CAS timing rule:** Do not run the live CAS probe until #661 disposition and handoff shell prep are complete. A passing CAS is not a durable permission token — `commitGuard` must independently recheck production at apply time.
 
 ---
 
@@ -44,8 +48,10 @@ Immutable archive: `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/`
 | 2 | ZEUS ADOPT | `docs/catalog/zeus/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json` | ✅ #664 |
 | 3 | EVE ADOPT | `docs/catalog/eve/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json` | ✅ #664 |
 | 4 | Human custodian consent | `HUMAN_CUSTODIAN_CONSENT_SIGNED.md` | ✅ `2026-08-15T14:07:00Z` |
-| 5 | Fresh pre-mutation CAS | `pnpm track-r:execution-readiness` → `awaiting_execution_handoff` + `fresh_cas_match: true` | ⬜ required before execution handoff |
-| 6 | One-shot execution handoff | Separate operator command + `TRACK_R_BATCH_EXECUTION_ENABLED=true` | ⛔ forbidden |
+| 5 | PR #661 disposition | `PR661_REVIEW_DISPOSITION.md` | ⬜ custodian record required |
+| 6 | One-shot handoff shell (draft) | `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md` | ⬜ non-executable prep |
+| 7 | Fresh pre-mutation CAS (final preflight) | `pnpm track-r:execution-readiness` → see pass shape below | ⬜ run only when mutation window imminent |
+| 8 | Explicit execution authorization + apply | Separate operator command + `commitGuard` CAS recheck + `TRACK_R_BATCH_EXECUTION_ENABLED=true` | ⛔ forbidden |
 
 ---
 
@@ -62,13 +68,25 @@ pnpm track-r:execution-readiness
 pnpm track-r:execution-readiness --skip-cas-probe
 ```
 
-### Expected results before any execution authorization
+### Expected results
 
-| Command | Expected |
-|---|---|
-| `track-r:capture-attestation-verify` | `verification_status: adopt_ready` |
-| `track-r:execution-readiness --skip-cas-probe` | `consent_recorded_cas_required` when consent is signed |
-| `track-r:execution-readiness` (production KV) | `awaiting_execution_handoff` + `fresh_cas_match: true` |
+| Command | When | Expected |
+|---|---|---|
+| `track-r:capture-attestation-verify` | Anytime (offline) | `verification_status: adopt_ready` |
+| `track-r:execution-readiness --skip-cas-probe` | Governance-only | `consent_recorded_cas_required` (exit 1) |
+| `track-r:execution-readiness` (production KV) | **Final preflight only** | See pass shape below |
+
+**Operator readiness probe pass shape** (not a durable permission token):
+
+```text
+readiness_status: awaiting_execution_handoff
+fresh_cas_match: true
+fresh_lineage_cas: 3db4832725df8d3d49942e60dc9ddd00d436fdb741329362b6eb4d6753669af5
+execution_authorized: false
+production_mutation_performed: false
+```
+
+**Dual CAS:** Operator probe → explicit authorization → `commitGuard` reads production again at apply. If either check differs → abort with zero writes; produce **Capture #6**.
 
 If `readiness_status: cas_drift` → production lineage changed since capture #5. Run **Capture #6** before proceeding.
 
@@ -99,16 +117,19 @@ From `lib/watchdog/batchRepair/commitGuard.ts`:
 
 ---
 
-## Governance debt (disposition before execution)
+## Governance debt (disposition before CAS probe)
 
-- PR #661 (EP-3 pin establishment) merged without recorded custodian approval review — disposition required.
+- PR #661 (EP-3 pin establishment) merged without recorded custodian approval review — complete `PR661_REVIEW_DISPOSITION.md` before the time-sensitive CAS probe.
 
 ---
 
-## Next operator actions
+## Next operator actions (corrected order)
 
 1. ~~Human custodian signs consent bound to capture #5 hash packet~~ ✅ `2026-08-15T14:07:00Z`
-2. Run `pnpm track-r:execution-readiness` with production KV credentials immediately before execution handoff.
-3. If CAS matches (`fresh_cas_match: true`), issue separate one-shot execution authorization (future PR / operator command only).
+2. **Custodian disposition of #661** — ratify / ratify with notes / reject (`PR661_REVIEW_DISPOSITION.md`)
+3. **Prepare non-executable one-shot handoff shell** — review `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md`
+4. **Run `pnpm track-r:execution-readiness`** with production KV credentials only when mutation window is imminent (final preflight)
+5. If CAS matches, **finalize explicit execution authorization**; `commitGuard` must independently recheck CAS at apply
+6. One constrained mutation attempt — or abort with zero writes and Capture #6 if either CAS check differs
 
 *"We heal as we walk." — Mobius Systems*
