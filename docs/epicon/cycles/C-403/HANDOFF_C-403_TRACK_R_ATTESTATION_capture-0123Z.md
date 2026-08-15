@@ -87,6 +87,10 @@ Prior pin-establishment handoff: `HANDOFF_C-403_TRACK_R_ATTESTATION_capture-2324
 
 Verdict fields remain **pending**. This PR does not record ADOPT signatures. **Track R execution remains NOT AUTHORIZED** until signed ADOPT + separate execution handoff.
 
+**Governance PR:** [#663](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/663) (draft attestation bundle — merge after ZEUS/EVE/human review, not before).
+
+Operator scan record: `C-403_LIVE_SCAN_2026-08-15.md`
+
 ---
 
 ## Explicit prohibitions
