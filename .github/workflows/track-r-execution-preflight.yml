@@ -1,0 +1,310 @@
+# C-403 / C-404 — Track R execution preflight probes (read-only)
+#
+# Mobile-friendly workflow_dispatch for operator CAS probes at the mutation window.
+# Uses production Upstash secrets — no .env.local required on device.
+#
+# Probes (zero writes; execution_authorized remains false):
+#   1. pnpm track-r:execution-readiness
+#   2. pnpm track-r:batch-apply-preflight
+#
+# Required secrets:
+#   KV_REST_API_URL, KV_REST_API_TOKEN
+#
+# Expected pass (mutation window, live CAS aligned):
+#   Probe 1 → Readiness status: awaiting_execution_handoff, Fresh CAS match: true
+#   Probe 2 → Preflight status: apply_preflight_pass, Commit guard preflight: pass
+#
+# Track R production mutation remains NOT AUTHORIZED until explicit custodian authorization.
+
+name: Track R Execution Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      probe:
+        description: Which read-only probe to run
+        type: choice
+        options:
+          - both
+          - execution-readiness
+          - batch-apply-preflight
+        default: both
+      base_url:
+        description: Production base URL for public API baseline
+        type: string
+        default: https://mobius-civic-ai-terminal.vercel.app
+      skip_cas_probe:
+        description: Governance-only readiness (skip live CAS probe)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: track-r-execution-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout terminal
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Preflight KV secrets
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -z "${KV_REST_API_URL:-}" ] && missing+=("KV_REST_API_URL")
+          [ -z "${KV_REST_API_TOKEN:-}" ] && missing+=("KV_REST_API_TOKEN")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            echo "Configure at https://github.com/kaizencycle/mobius-civic-ai-terminal/settings/secrets/actions"
+            exit 1
+          fi
+
+      - name: Validate workflow inputs
+        env:
+          TRACK_R_BASE_URL: ${{ inputs.base_url }}
+        run: |
+          set -euo pipefail
+          case "$TRACK_R_BASE_URL" in
+            https://*) ;;
+            *)
+              echo "::error::base_url must be an https URL"
+              exit 1
+              ;;
+          esac
+
+      - name: Prepare probe output directory
+        run: mkdir -p ./track-r-preflight-output
+
+      - name: Run execution readiness probe
+        if: inputs.probe == 'both' || inputs.probe == 'execution-readiness'
+        id: readiness
+        continue-on-error: true
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.KV_REST_API_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          TRACK_R_BASE_URL: ${{ inputs.base_url }}
+          TRACK_R_SKIP_CAS_PROBE: ${{ inputs.skip_cas_probe }}
+        run: |
+          set -uo pipefail
+          export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          export KV_REST_API_TOKEN="$(printf '%s' "$KV_REST_API_TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          export UPSTASH_REDIS_REST_URL="$KV_REST_API_URL"
+          export UPSTASH_REDIS_REST_TOKEN="$KV_REST_API_TOKEN"
+
+          cmd=(pnpm track-r:execution-readiness --base-url "$TRACK_R_BASE_URL")
+          if [ "$TRACK_R_SKIP_CAS_PROBE" = "true" ]; then
+            cmd+=(--skip-cas-probe)
+          fi
+
+          set +e
+          "${cmd[@]}" 2>&1 | tee ./track-r-preflight-output/execution-readiness.log
+          exit_code="${PIPESTATUS[0]}"
+          set -e
+          echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
+          exit "${exit_code}"
+
+      - name: Run batch apply preflight probe
+        if: inputs.probe == 'both' || inputs.probe == 'batch-apply-preflight'
+        id: apply_preflight
+        continue-on-error: true
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.KV_REST_API_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          TRACK_R_BASE_URL: ${{ inputs.base_url }}
+        run: |
+          set -uo pipefail
+          export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          export KV_REST_API_TOKEN="$(printf '%s' "$KV_REST_API_TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          export UPSTASH_REDIS_REST_URL="$KV_REST_API_URL"
+          export UPSTASH_REDIS_REST_TOKEN="$KV_REST_API_TOKEN"
+
+          set +e
+          pnpm track-r:batch-apply-preflight --base-url "$TRACK_R_BASE_URL" 2>&1 | tee ./track-r-preflight-output/batch-apply-preflight.log
+          exit_code="${PIPESTATUS[0]}"
+          set -e
+          echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
+          exit "${exit_code}"
+
+      - name: Summarize probe results
+        if: always()
+        env:
+          PROBE: ${{ inputs.probe }}
+          READINESS_EXIT: ${{ steps.readiness.outputs.exit_code }}
+          PREFLIGHT_EXIT: ${{ steps.apply_preflight.outputs.exit_code }}
+          TRACK_R_BASE_URL: ${{ inputs.base_url }}
+          TRACK_R_SKIP_CAS_PROBE: ${{ inputs.skip_cas_probe }}
+        run: |
+          {
+            echo "## Track R execution preflight (read-only)"
+            echo ""
+            echo "- **probe:** \`${PROBE}\`"
+            echo "- **base_url:** \`${TRACK_R_BASE_URL}\`"
+            echo "- **skip_cas_probe:** \`${TRACK_R_SKIP_CAS_PROBE}\`"
+            echo "- **execution_authorized:** \`false\` (probes never authorize mutation)"
+            echo ""
+            echo "### How to run from mobile"
+            echo ""
+            echo "GitHub → **Actions** → **Track R Execution Preflight** → **Run workflow**"
+            echo ""
+            echo "Select branch \`main\` (after merge) or the active Track R branch."
+            echo "Use **both** at the mutation window unless you only need governance checks."
+            echo ""
+            echo "### Expected pass shapes"
+            echo ""
+            echo "| Probe | Pass signal |"
+            echo "|---|---|"
+            echo "| execution-readiness | \`Readiness status: awaiting_execution_handoff\`, \`Fresh CAS match: true\` |"
+            echo "| batch-apply-preflight | \`Preflight status: apply_preflight_pass\`, \`Commit guard preflight: pass\` |"
+            echo ""
+            echo "### Results"
+            echo ""
+
+            summarize_log() {
+              local label="$1"
+              local path="$2"
+              local exit_code="$3"
+              echo "#### ${label}"
+              echo ""
+              if [ ! -f "$path" ]; then
+                echo "_Not run_"
+                echo ""
+                return
+              fi
+              echo "- exit_code: \`${exit_code:-unknown}\`"
+              for key in \
+                "Capture ID:" \
+                "Readiness status:" \
+                "Preflight status:" \
+                "Execution authorized:" \
+                "Production mutation performed:" \
+                "Attested lineage CAS:" \
+                "Fresh lineage CAS:" \
+                "Fresh CAS match:" \
+                "Apply-time CAS match:" \
+                "Commit guard preflight:"
+              do
+                value="$(grep -m1 "^${key}" "$path" | sed "s/^${key}[[:space:]]*//")"
+                if [ -n "$value" ]; then
+                  echo "- ${key} \`${value}\`"
+                fi
+              done
+              echo ""
+              echo "<details><summary>Failed checks</summary>"
+              echo ""
+              if grep -q -E '^✗ \[fail\]' "$path" 2>/dev/null; then
+                grep -E '^✗ \[fail\]' "$path" | head -20
+              else
+                echo "_None logged_"
+              fi
+              echo ""
+              echo "</details>"
+              echo ""
+            }
+
+            if [ "$PROBE" = "both" ] || [ "$PROBE" = "execution-readiness" ]; then
+              summarize_log "Probe 1 — execution-readiness" "./track-r-preflight-output/execution-readiness.log" "$READINESS_EXIT"
+            fi
+            if [ "$PROBE" = "both" ] || [ "$PROBE" = "batch-apply-preflight" ]; then
+              summarize_log "Probe 2 — batch-apply-preflight" "./track-r-preflight-output/batch-apply-preflight.log" "$PREFLIGHT_EXIT"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload probe logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: track-r-execution-preflight
+          path: track-r-preflight-output/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Assert probes passed
+        if: always()
+        env:
+          PROBE: ${{ inputs.probe }}
+          READINESS_EXIT: ${{ steps.readiness.outputs.exit_code }}
+          PREFLIGHT_EXIT: ${{ steps.apply_preflight.outputs.exit_code }}
+          TRACK_R_SKIP_CAS_PROBE: ${{ inputs.skip_cas_probe }}
+        run: |
+          set -euo pipefail
+          failed=0
+
+          log_field() {
+            local path="$1"
+            local prefix="$2"
+            grep -m1 "^${prefix}" "$path" | sed "s/^${prefix}[[:space:]]*//"
+          }
+
+          if [ "$PROBE" = "both" ] || [ "$PROBE" = "execution-readiness" ]; then
+            readiness_log="./track-r-preflight-output/execution-readiness.log"
+            if [ "${READINESS_EXIT:-missing}" != "0" ]; then
+              echo "::error::execution-readiness probe failed (exit ${READINESS_EXIT:-missing})"
+              failed=1
+            elif [ ! -f "$readiness_log" ]; then
+              echo "::error::execution-readiness log missing"
+              failed=1
+            else
+              readiness_status="$(log_field "$readiness_log" "Readiness status:")"
+              fresh_cas_match="$(log_field "$readiness_log" "Fresh CAS match:")"
+              if [ "$TRACK_R_SKIP_CAS_PROBE" = "true" ]; then
+                if [ "$readiness_status" != "awaiting_human_consent" ] && [ "$readiness_status" != "awaiting_execution_handoff" ]; then
+                  echo "::error::execution-readiness governance mode expected awaiting_human_consent or awaiting_execution_handoff, got ${readiness_status:-missing}"
+                  failed=1
+                fi
+              else
+                if [ "$readiness_status" != "awaiting_execution_handoff" ]; then
+                  echo "::error::execution-readiness expected Readiness status: awaiting_execution_handoff, got ${readiness_status:-missing}"
+                  failed=1
+                fi
+                if [ "$fresh_cas_match" != "true" ]; then
+                  echo "::error::execution-readiness expected Fresh CAS match: true, got ${fresh_cas_match:-missing}"
+                  failed=1
+                fi
+              fi
+            fi
+          fi
+
+          if [ "$PROBE" = "both" ] || [ "$PROBE" = "batch-apply-preflight" ]; then
+            preflight_log="./track-r-preflight-output/batch-apply-preflight.log"
+            if [ "${PREFLIGHT_EXIT:-missing}" != "0" ]; then
+              echo "::error::batch-apply-preflight probe failed (exit ${PREFLIGHT_EXIT:-missing})"
+              failed=1
+            elif [ ! -f "$preflight_log" ]; then
+              echo "::error::batch-apply-preflight log missing"
+              failed=1
+            else
+              preflight_status="$(log_field "$preflight_log" "Preflight status:")"
+              if [ "$preflight_status" != "apply_preflight_pass" ]; then
+                echo "::error::batch-apply-preflight expected Preflight status: apply_preflight_pass, got ${preflight_status:-missing}"
+                failed=1
+              fi
+            fi
+          fi
+
+          exit "$failed"
