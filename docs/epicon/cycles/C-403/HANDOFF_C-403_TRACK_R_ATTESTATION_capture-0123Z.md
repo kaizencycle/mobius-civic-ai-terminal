@@ -81,15 +81,16 @@ Rolling mirror (same capture #5 content): `artifacts/C-403/track-r-live-dry-run/
 
 ---
 
-## Attestation workflow (unsigned — do not pre-fill verdicts)
+## Attestation workflow
 
-1. **ZEUS** — Recompute capture #5 four-hash packet + pin hash + identity receipt; verify 248/248 pinned MATCH and `comparison_mode`.
-2. **EVE** — Constitutional scope review on capture #5 packet.
-3. **Human custodian** — Sign checklist bound to `track-r-c403-2026-08-15T0123Z` and hashes above.
+1. **ZEUS** — ✅ ADOPT recorded `2026-08-15T13:28:00Z` — see `ZEUS_ATTESTATION_SIGNED.md` and `docs/catalog/zeus/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json`
+2. **EVE** — ✅ ADOPT recorded `2026-08-15T13:28:00Z` — see `EVE_ATTESTATION_SIGNED.md` and `docs/catalog/eve/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json`
+3. **Human custodian** — ⬜ pending — sign checklist bound to `track-r-c403-2026-08-15T0123Z` and hashes above.
 
-Verdict fields remain **pending**. This PR does not record ADOPT signatures. **Track R execution remains NOT AUTHORIZED** until signed ADOPT + separate execution handoff.
+Governance record: `docs/epicon/cycles/C-403/TRACK_R_GOVERNANCE_ATTESTATION_capture-0123Z.json`  
+Offline verification: `pnpm exec tsx scripts/track-r-capture-attestation-verify.ts`
 
-**Governance PR:** [#663](https://github.com/kaizencycle/mobius-civic-ai-terminal/pull/663) (draft attestation bundle — merge after ZEUS/EVE/human review, not before).
+**Track R execution remains NOT AUTHORIZED** until human custodian consent and separate execution handoff. Unsigned capture-time templates preserved at `ZEUS_ATTESTATION_TEMPLATE.md` / `EVE_ATTESTATION_TEMPLATE.md`.
 
 Operator scan record: `C-403_LIVE_SCAN_2026-08-15.md`
 

@@ -695,8 +695,8 @@
     "build": "pnpm build"
   },
   "attestation_placeholders": {
-    "zeus_verdict": "pending",
-    "eve_verdict": "pending",
+    "zeus_verdict": "approved",
+    "eve_verdict": "approved",
     "human_approval": "pending",
     "required_hashes": {
       "capture_id": "track-r-c403-2026-08-15T0123Z",

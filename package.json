@@ -33,7 +33,8 @@
     "watchdog:collision-repair": "tsx scripts/watchdog-collision-repair.ts",
     "watchdog:batch-collision-repair": "tsx scripts/watchdog-batch-collision-repair.ts",
     "track-r:live-dry-run-package": "tsx scripts/track-r-live-dry-run-package.ts",
-    "track-r:production-capture": "tsx scripts/track-r-production-capture.ts"
+    "track-r:production-capture": "tsx scripts/track-r-production-capture.ts",
+    "track-r:capture-attestation-verify": "tsx scripts/track-r-capture-attestation-verify.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
