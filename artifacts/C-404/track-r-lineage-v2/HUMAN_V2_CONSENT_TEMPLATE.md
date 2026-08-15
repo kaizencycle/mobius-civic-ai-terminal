@@ -4,9 +4,12 @@
 
 > **THIS TEMPLATE IS UNSIGNED.** It records what a future consent, if given,
 > must bind to. It is not itself a consent. Do not sign until ZEUS and EVE
-> have both independently ADOPTed using the templates in this directory, and
-> until the currently-BLOCKED v2 execution-witness recomputation (see
-> `TRACK_R_V2_VERIFICATION_STATUS.md`) has been completed.
+> have both independently ADOPTed using the templates in this directory.
+> The v2 execution-witness hash below was computed by the custodian
+> (kaizencycle) running the reviewed verifier tool against the real
+> extracted artifacts — see `TRACK_R_V2_VERIFICATION_STATUS.md` for the
+> provenance chain. Verbatim raw-artifact archival is still outstanding;
+> confirm it is complete before signing.
 
 ---
 
@@ -21,7 +24,7 @@ A signed consent using this template binds to, and only to:
   - `lineage_snapshot_version`: `v2`
   - `lineage_snapshot_hash`: `b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb`
   - `semantic_manifest_hash`: `27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa`
-  - `execution_witness_hash` (v2): **not yet computed — must be filled in before signing**
+  - `execution_witness_hash` (v2): `e08999decbcdaaac06d91a9a11f06e6737756a646800db90ad8e57b865c1ccf1`
   - `rollback_manifest_hash`: `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d`
 - **Exact Track R repair manifest** in force at the time of signing (unchanged by this packet)
 - **One-shot mutation scope** — a single, non-repeating authorization; does not carry forward to any future capture

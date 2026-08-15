@@ -9,10 +9,12 @@
 > constitutional/scope review is a separate, independent act.
 
 > **Before beginning:** `TRACK_R_V2_VERIFICATION_STATUS.md` in this
-> directory lists what this packet could and could not independently verify
-> (network policy blocked the raw artifact download this session). EVE's
-> hash-packet agreement with ZEUS (item 10 below) depends on ZEUS having
-> completed the currently-BLOCKED v2 execution-witness recomputation first.
+> directory has the complete v2 hash packet, computed by the custodian
+> (kaizencycle) running the reviewed `pnpm track-r:capture-v2-stability-verify`
+> tool against the real extracted artifacts. This session never directly
+> read the raw artifact bytes itself — see that doc's provenance note. The
+> one remaining gap is verbatim raw-artifact archival, not the hash packet
+> itself.
 
 ---
 
@@ -25,11 +27,11 @@
 | 3 | Canonical reclassification does not rewrite seal bodies | No seal bodies are touched by this packet |
 | 4 | Repair authority ends at position 131 | Unchanged from prior governance — not modified here |
 | 5 | Positions 132–194 remain verified but unattached | Unchanged from prior governance — not modified here |
-| 6 | Boundary 131→132 remains `pending_track_r_step_8` | Not independently re-checked against Capture #9's raw data this session (blocked — see status doc) |
+| 6 | Boundary 131→132 remains `pending_track_r_step_8` | Not independently re-checked against Capture #9's raw data this session, and outside the scope of the custodian's verifier run |
 | 7 | Human consent remains mandatory | The human consent template in this directory is unsigned; no consent is recorded by this packet |
 | 8 | Integrity-gate clearing is not pre-authorized | This packet does not touch `commitGuard`, feature flags, or any gate |
 | 9 | Sequence 361 is not promoted | Not touched by this packet |
-| 10 | Exact agreement with ZEUS on the v2 hash packet | **Cannot be completed until ZEUS's v2 execution-witness recomputation (currently BLOCKED) is done** |
+| 10 | Exact agreement with ZEUS on the v2 hash packet | The complete packet is now available for both ZEUS and EVE to check against: `lineage_snapshot_hash (v2): b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb`, `execution_witness_hash (v2): e08999decbcdaaac06d91a9a11f06e6737756a646800db90ad8e57b865c1ccf1`, `semantic_manifest_hash: 27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa`, `rollback_manifest_hash: 0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d`, `production_kv_identity_receipt_hash: fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e` |
 
 ## Verdict
 

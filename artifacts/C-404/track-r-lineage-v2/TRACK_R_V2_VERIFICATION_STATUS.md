@@ -1,91 +1,89 @@
 # Track R Capture #9 v2 Governance Packet — Verification Status
 
 **Cycle:** C-404
-**Status:** PARTIAL — independently verified where possible; some Phase 1/3 steps BLOCKED by sandbox network policy, not fabricated
+**Status:** CUSTODIAN-VERIFIED — the complete v2 hash packet has been computed and reported PASS; only verbatim raw-artifact archival remains outstanding (see below)
 **Production mutation:** FORBIDDEN (unaffected by this status)
 **Track R execution:** NOT AUTHORIZED (unaffected by this status)
 
-This document exists because the session that assembled this packet could not
-download the two Track R Production Capture artifact ZIPs — Azure blob
-storage (`productionresultssa4.blob.core.windows.net`,
-`productionresultssa15.blob.core.windows.net`) is not reachable through this
-session's network egress policy (HTTP 403 policy denial on CONNECT, not a
-transient failure). Per this environment's own operating guidance: *"Do not
-retry or route around it — report the blocked host."*
+This packet went through two stages:
 
-Rather than fabricate the parts that require the artifact contents, this
-packet is honest about exactly what is and isn't independently confirmed.
+1. **Session-side verification** — the session that first assembled this
+   packet could not download the two Track R Production Capture artifact
+   ZIPs itself (Azure blob storage, `productionresultssa4/15.blob.core.windows.net`,
+   returned an HTTP 403 policy denial through this session's network egress
+   policy — not a transient failure). It confirmed everything possible from
+   GitHub's own API and Actions job logs instead, and left the rest
+   explicitly BLOCKED rather than fabricate it. `scripts/track-r-capture-v2-stability-verify.ts`
+   was written for, but not run against, real data at that stage.
+2. **Custodian-side verification (this update)** — kaizencycle downloaded
+   both artifacts directly, and after two rounds of review found and the
+   session fixed five real bugs in the verifier script (wrong KV-identity-hash
+   field path, hardcoded-null lineage pointers, a witness-completeness check
+   that didn't actually check completeness, and a cross-capture check that
+   didn't require the two capture IDs to differ — see PR #673's review
+   history), ran the corrected `pnpm track-r:capture-v2-stability-verify`
+   against the real extracted artifacts, and reported a full **PASS** with
+   the complete v2 hash packet below. This session did not independently
+   re-run the tool against the raw bytes — the values below are the
+   custodian's reported tool output, not this session's own file read.
+   That provenance distinction is preserved throughout this document.
 
 ---
 
-## ✅ Independently verified (from GitHub's own API and Actions job logs — not just the handoff text)
+## ✅ Verified
 
-These were pulled directly from GitHub via `mcp__github__get_job_logs` and
-`mcp__github__actions_list`, which are authoritative, server-recorded sources
-independent of the ATLAS × Cursor handoff that requested this packet:
+| Check | Result | Source |
+|---|---|---|
+| Both runs completed successfully | ✅ run 31906059559 and 31906143684, both `conclusion: success` | GitHub Actions job logs (session-verified) |
+| Both ran against commit `daeec8f3adb2716879ef773e5d9a63905f402050` | ✅ | GitHub Actions job logs (session-verified) |
+| Distinct capture IDs (`...2012Z` / `...2014Z`) | ✅ PASS | `track-r-capture-v2-stability-verify` (custodian-run) |
+| Artifact #8 digest | ✅ `sha256:f94f0a1ac86e7d0ecde553b492680a79130250abb95302dccb8362b9dd9f732c` | GitHub `upload-artifact@v4` log line (session-verified) |
+| Artifact #9 digest | ✅ `sha256:5a4e344a706a431892f650c63dc48d7cbaf953bdb20e5a16ba6f66d7d1da4b6d` | GitHub `upload-artifact@v4` log line (session-verified) |
+| v1 lineage hashes differ (Capture #8 `416ef085...`, Capture #9 `1e6810b7...`) | ✅ confirmed different — this IS the v1 defect, expected | GitHub job logs (session-verified) |
+| **CAS-v2 lineage stability** (Capture #8 v2 == Capture #9 v2) | ✅ PASS — `b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb` on both | `track-r-capture-v2-stability-verify` (custodian-run); also matches the session's earlier console-log confirmation |
+| Affected-block exact-set comparison | ✅ PASS | `track-r-capture-v2-stability-verify` (custodian-run) |
+| Witness export completeness | ✅ PASS — `export_complete: true` | `track-r-capture-v2-stability-verify` (custodian-run) |
+| Witness comparison | ✅ **248/248 MATCH**, 0 mismatch, 0 missing, 0 unexpected | `track-r-capture-v2-stability-verify` (custodian-run) |
+| KV identity binding present | ✅ PASS | `track-r-capture-v2-stability-verify` (custodian-run) |
+| **Capture #9 v2 execution-witness hash** | ✅ `e08999decbcdaaac06d91a9a11f06e6737756a646800db90ad8e57b865c1ccf1` | `track-r-capture-v2-stability-verify` (custodian-run) — this is the value the earlier BLOCKED status could not produce. Computed only for Capture #9 (the governance candidate); the tool computes a v2 execution-witness hash per capture independently, but does **not** cross-compare Capture #8's and Capture #9's execution-witness hashes against each other anywhere in `main()` — see the caveat immediately below. |
+| Production KV identity hash | ✅ `fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e` | `track-r-capture-v2-stability-verify` (custodian-run) — matches historical Capture #5's KV identity hash |
+| Semantic manifest hash | ✅ `27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa` | `track-r-capture-v2-stability-verify` (custodian-run) + session-verified via job logs — matches historical Capture #5 |
+| Rollback manifest hash | ✅ `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d` | `track-r-capture-v2-stability-verify` (custodian-run) + session-verified via job logs — matches historical Capture #5 |
+| `execution_authorized: false` (both captures) | ✅ | GitHub job logs (session-verified) |
+| Live lineage-pointer observation succeeded rather than falling back to placeholder null | ✅ | Both session-side inference (non-null v2 hash printed) and now confirmed by the custodian-run verifier reading real `observed_baseline.active_lineage_version`/`.live_canonical_pointer` values |
+| `production_mutation_performed: false` | ✅ high-confidence by code inspection — hardcoded in `buildTrackREvidencePackage`; the script performs no writes | Code review, not a runtime read |
 
-| Check | Result |
+> **Caveat on execution-witness stability:** `scripts/track-r-capture-v2-stability-verify.ts`'s
+> `main()` cross-compares the two captures' **lineage** hashes
+> (`resultA.recomputed.lineage_snapshot_hash_v2 === resultB.recomputed.lineage_snapshot_hash_v2`)
+> but never cross-compares their **execution-witness** hashes against each
+> other — each capture's `v2_execution_witness_hash` is computed
+> independently inside `verifyCapture()`, with no pairwise check anywhere in
+> the script. This is consistent with the packet's design (only Capture #9,
+> the governance candidate, needs a retained v2 execution-witness hash — see
+> `execution_witness_hash_v2_note` in both `GITHUB_PROVENANCE.json` files),
+> but it means **no claim of "execution-witness stability across Capture #8
+> and #9" should be read into this table** — only the single value above,
+> Capture #9's own hash, was produced and verified against the tool's
+> internal gating (witness completeness + KV identity binding), not against
+> Capture #8's.
+
+## ⛔ Still outstanding
+
+| Item | Status |
 |---|---|
-| Both runs completed successfully | ✅ run 31906059559 and 31906143684, both `conclusion: success` |
-| Both ran against commit `daeec8f3adb2716879ef773e5d9a63905f402050` | ✅ confirmed in both job logs' `git log -1 --format=%H` output |
-| Capture #8 v2 lineage hash | ✅ `b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb` (console output) |
-| Capture #9 v2 lineage hash | ✅ `b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb` (console output) |
-| **Capture #8 v2 == Capture #9 v2** | ✅ **identical**, matching the handoff's claim exactly |
-| Capture #8 v1 lineage hash | ✅ `416ef085c9261a66c0838c653becbe28cfc7f1de716fbfcd3e56856398bd7f92` |
-| Capture #9 v1 lineage hash | ✅ `1e6810b7bb72e56468db67d4de304e425adf5d20bfe47cf8269240303d1230bb` |
-| v1 hashes differ (expected, documents the v1 defect persists historically) | ✅ confirmed different |
-| Artifact #8 digest | ✅ `sha256:f94f0a1ac86e7d0ecde553b492680a79130250abb95302dccb8362b9dd9f732c` — matches GitHub's own `upload-artifact@v4` log line exactly |
-| Artifact #9 digest | ✅ `sha256:5a4e344a706a431892f650c63dc48d7cbaf953bdb20e5a16ba6f66d7d1da4b6d` — matches GitHub's own `upload-artifact@v4` log line exactly |
-| Both: `execution_authorized: false` | ✅ printed by the capture script in both job logs |
-| Both: `affected_block_set_match: true` | ✅ printed by the capture script in both job logs |
-| Both: `Live witness ok: true` | ✅ printed by the capture script in both job logs |
-| Both: `executive_status: READY_FOR_ZEUS_EVE_REVIEW` | ✅ printed by the capture script in both job logs |
-| Both: semantic manifest hash identical to each other and to historical Capture #5 (`27c94b0f5b4e...`) | ✅ printed by the capture script in both job logs |
-| Both: rollback manifest hash identical to each other and to historical Capture #5 (`0a61a3ff9cd9...`) | ✅ printed by the capture script in both job logs |
-| Live lineage-pointer observation succeeded (item 12) rather than falling back to a placeholder null | ✅ **inferred with high confidence**: `buildTrackREvidencePackage` (merged in PR #672) sets `lineage_snapshot_hash_v2` to `null` specifically when the live-pointer read fails or credentials are unavailable. Both runs printed a real 64-hex-char v2 hash, not `null` — so the pointer read must have succeeded in both. |
-
-## ⛔ BLOCKED — requires the raw artifact ZIP, not available in this session
-
-| Check | Why it's blocked |
-|---|---|
-| Artifact ZIP byte-for-byte digest verification against local download | Cannot download the ZIP — network policy denial. GitHub's own recorded digest (above) is the closest available substitute; it is authoritative but was not independently recomputed here from bytes. |
-| Recompute stored v1 lineage hash from raw `observed_baseline` fields | Requires `TRACK_R_LIVE_DRY_RUN_PACKAGE.json` inside the ZIP. |
-| Recompute stored v2 lineage hash from raw `observed_baseline` fields | Same — requires the ZIP. (The printed console value above is trusted as the script's own direct output, but was not re-derived from first principles here.) |
-| **v2 execution-witness hash** (Phase 3) | The capture script does not currently print a v2 execution-witness hash — only a v1 one, which the handoff explicitly warns is not valid for v2 governance. Recomputing `computeExecutionWitnessHashV2` requires `per_record_results`, live/pinned affected-block numbers, `export_source`, and `environment_identifier`, all only available inside the ZIP. **Not fabricated.** |
-| Exact witness match/mismatch/missing/unexpected counts | Only in the raw package JSON. |
-| KV identity status/hash string | Printed only to the GitHub Step Summary (rendered client-side, not retrievable via this session's log/API access), not to the job log. |
-| `production_mutation_performed: false` as a directly-observed value | Not printed to the job log. High-confidence by code inspection (the field is hardcoded `false` in `buildTrackREvidencePackage`/`buildTrackREvidencePackage` result type and the script never performs writes), but not independently read from this run's output. |
-| Exact affected-block-set hash, 123-position count, 125-collision-pair count, seal-index state, projected next sequence, active-lineage version, live canonical pointer | All inside the raw package JSON only. |
-| Verbatim artifact archival (Phase 2) | Cannot copy files this session never had. `history/capture-2012Z/` and `history/capture-2014Z/` contain `GITHUB_PROVENANCE.json` — a provenance record built from GitHub API/log data — instead of the verbatim artifact. |
+| **Verbatim raw-artifact archival** | Not done. `history/capture-2012Z/` and `history/capture-2014Z/` still contain only `GITHUB_PROVENANCE.json` provenance records, not the actual artifact file contents (`TRACK_R_LIVE_DRY_RUN_PACKAGE.json`, `TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json`, etc.) — this session has still never received the raw files themselves, only reported tool output. Whoever holds the extracted artifacts should copy them in verbatim to fully close this out. |
+| Independent session-side re-verification | The values above come from the custodian running the (now-fixed, twice-reviewed) verifier tool and reporting its output — a legitimate and now well-tested verification path, but this session has not independently read the raw bytes itself. If that matters for a given reviewer's bar, re-run `pnpm track-r:capture-v2-stability-verify` yourself against the artifacts and compare. |
 
 ---
 
 ## What this means for governance
 
-**This packet is not yet ready for ZEUS/EVE adoption.** The two most
-consequential unknowns are:
-
-1. The v2 execution-witness hash has not been computed for either capture —
-   ZEUS/EVE cannot verify "Capture #9's complete v2 hash packet" without it.
-2. The full witness completeness and exact-123-position affected-set claims
-   are corroborated only by the capture script's own summary line
-   (`affected_block_set_match: true`), not independently re-derived from the
-   per-record data.
-
-**To complete this packet:**
-
-1. Someone (or a session) with artifact-download access should fetch
-   `track-r-production-capture.zip` for run 31906059559 and run 31906143684.
-2. Run `scripts/track-r-capture-v2-stability-verify.ts` (added in this PR)
-   against both extracted `TRACK_R_LIVE_DRY_RUN_PACKAGE.json` files. It
-   recomputes v1 and v2 lineage hashes from the stored `observed_baseline`
-   and asserts `capture8.v2 == capture9.v2 == b5f781f6...ef9fb`, and computes
-   the v2 execution-witness hash via `computeExecutionWitnessHashV2`.
-3. Replace the two `GITHUB_PROVENANCE.json` files with the verbatim artifact
-   contents (keep the provenance files too, as a record of what this session
-   was able to confirm independently).
-4. Only then should ZEUS and EVE begin their independent review using the
-   templates in this directory.
+The complete v2 hash packet for Capture #9 is now available, and ZEUS/EVE
+review can proceed using the templates in this directory. The one remaining
+gap (verbatim artifact archival) does not block starting that review — the
+hash packet itself is what governance adjudicates — but should be closed
+before this candidate is treated as fully immutable-archived.
 
 ---
 

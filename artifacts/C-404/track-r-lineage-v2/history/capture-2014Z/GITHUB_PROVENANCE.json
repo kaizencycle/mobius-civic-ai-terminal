@@ -32,8 +32,18 @@
     "live_witness_ok": true
   },
   "execution_witness_hash_v1_warning": "This is the v1 execution-witness hash only. It MUST NOT be used as the v2 governance witness — the v2 execution-witness contract binds lineage_snapshot_version:'v2' plus the v2 lineage hash, which this hash does not.",
-  "execution_witness_hash_v2": null,
-  "execution_witness_hash_v2_note": "Not printed by the capture script (buildTrackREvidencePackage/track-r-live-dry-run-package.ts compute a v2 LINEAGE hash but do not yet compute or print a v2 EXECUTION-WITNESS hash). Recomputing it via computeExecutionWitnessHashV2 requires per-record witness results, live/pinned affected-block numbers, export_source, and environment_identifier from the raw TRACK_R_LIVE_DRY_RUN_PACKAGE.json inside the artifact ZIP, which this session could not download. NOT FABRICATED — left null pending artifact access. Per the C-404 Capture #9 handoff: 'If the Capture #9 package does not contain enough information to recompute the v2 execution-witness hash, stop and report the missing field. Do not fabricate it.' This is that stop condition.",
+  "execution_witness_hash_v2": "e08999decbcdaaac06d91a9a11f06e6737756a646800db90ad8e57b865c1ccf1",
+  "execution_witness_hash_v2_note": "Computed via computeExecutionWitnessHashV2 by pnpm track-r:capture-v2-stability-verify (scripts/track-r-capture-v2-stability-verify.ts, fixed per PR #673 review), run by the custodian (kaizencycle) against the real extracted artifact — not run directly by this session, which never received the raw files. The tool refuses to compute this value unless the witness comparison is fully complete and matched (248/248, 0 mismatch/missing/unexpected) and the KV identity hash resolves, so a PASS here implies both. Binds lineage_snapshot_version:'v2' and lineage_snapshot_hash b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb per the v2 execution-witness contract.",
+  "witness_comparison_v2_confirmed": {
+    "export_complete": true,
+    "match": 248,
+    "total": 248,
+    "mismatch": 0,
+    "missing": 0,
+    "unexpected": 0,
+    "source": "custodian-run pnpm track-r:capture-v2-stability-verify"
+  },
+  "production_kv_identity_receipt_hash": "fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e",
   "artifact": {
     "artifact_id": 9252398658,
     "artifact_name": "track-r-production-capture",
