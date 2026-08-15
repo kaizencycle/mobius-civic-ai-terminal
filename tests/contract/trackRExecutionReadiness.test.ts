@@ -8,10 +8,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   verifyTrackRExecutionReadiness,
+  resolveLiveAffectedBlockNumbersForCas,
   TRACK_R_GOVERNANCE_ATTESTATION_PATH,
   TRACK_R_IMMUTABLE_ARCHIVE,
 } from '@/lib/watchdog/batchRepair/verifyTrackRExecutionReadiness';
 import { CAPTURE_0123Z_ID } from '@/lib/watchdog/batchRepair/verifyTrackRCaptureAttestation';
+import { hashAffectedBlockNumbers } from '@/lib/watchdog/batchRepair';
 
 const GOVERNANCE = join(process.cwd(), TRACK_R_GOVERNANCE_ATTESTATION_PATH);
 const ARCHIVE = join(process.cwd(), TRACK_R_IMMUTABLE_ARCHIVE);
@@ -124,5 +126,25 @@ describe('Track R execution readiness verification', () => {
     } finally {
       rmSync(join(governancePath, '..'), { recursive: true, force: true });
     }
+  });
+
+  it('uses authoritative KV comparison blocks for CAS hash, not public surface', () => {
+    const authoritative = [41, 42, 43];
+    const publicSurface = [99, 100];
+
+    const selected = resolveLiveAffectedBlockNumbersForCas({
+      authoritativeLiveBlockNumbers: authoritative,
+      publicSurfaceBlockNumbers: publicSurface,
+    });
+
+    assert.deepEqual(selected, authoritative);
+    assert.notEqual(
+      hashAffectedBlockNumbers(authoritative),
+      hashAffectedBlockNumbers(publicSurface),
+    );
+    assert.equal(
+      hashAffectedBlockNumbers(selected!),
+      hashAffectedBlockNumbers(authoritative),
+    );
   });
 });

@@ -42,6 +42,14 @@ export type TrackRExecutionReadiness = {
   checks: TrackRCaptureAttestationCheck[];
 };
 
+/** Prefer authoritative KV comparison set over public vault/status surface for CAS binding. */
+export function resolveLiveAffectedBlockNumbersForCas(args: {
+  authoritativeLiveBlockNumbers: number[] | null;
+  publicSurfaceBlockNumbers: number[] | undefined;
+}): number[] | null {
+  return args.authoritativeLiveBlockNumbers;
+}
+
 function readJsonIfExists<T = Record<string, unknown>>(path: string): T | null {
   if (!existsSync(path)) {
     return null;
@@ -270,10 +278,26 @@ export async function verifyTrackRExecutionReadiness(args?: {
         }),
       );
 
-      const liveBlocks =
-        (observedBaseline.affected_block_numbers as number[] | undefined) ??
-        affectedBlockComparison.live_block_numbers ??
-        [];
+      const publicSurfaceBlocks = observedBaseline.affected_block_numbers as number[] | undefined;
+      const authoritativeLiveBlocks = resolveLiveAffectedBlockNumbersForCas({
+        authoritativeLiveBlockNumbers: affectedBlockComparison.live_block_numbers,
+        publicSurfaceBlockNumbers: publicSurfaceBlocks,
+      });
+
+      if (
+        publicSurfaceBlocks &&
+        publicSurfaceBlocks.length > 0 &&
+        authoritativeLiveBlocks &&
+        authoritativeLiveBlocks.length > 0 &&
+        hashAffectedBlockNumbers(publicSurfaceBlocks) !== hashAffectedBlockNumbers(authoritativeLiveBlocks)
+      ) {
+        addCheck(
+          checks,
+          'fresh_public_surface_vs_authoritative',
+          'warn',
+          'public vault/status affected_block_numbers diverges from authoritative KV comparison set; CAS uses authoritative set only',
+        );
+      }
 
       fresh_lineage_snapshot_hash = computeLineageSnapshotHash({
         capture_id: CAPTURE_0123Z_ID,
@@ -296,8 +320,9 @@ export async function verifyTrackRExecutionReadiness(args?: {
         active_lineage_version: null,
         live_canonical_pointer: null,
         pinned_affected_block_numbers_hash: hashAffectedBlockNumbers(witness.contested_block_numbers),
-        live_affected_block_numbers_hash:
-          liveBlocks.length > 0 ? hashAffectedBlockNumbers(liveBlocks) : null,
+        live_affected_block_numbers_hash: authoritativeLiveBlocks
+          ? hashAffectedBlockNumbers(authoritativeLiveBlocks)
+          : null,
         affected_block_set_match: affectedBlockComparison.set_match,
       });
 
