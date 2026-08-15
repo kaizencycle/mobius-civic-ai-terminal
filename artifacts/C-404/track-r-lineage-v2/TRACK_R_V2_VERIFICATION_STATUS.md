@@ -45,14 +45,28 @@ This packet went through two stages:
 | Witness export completeness | ✅ PASS — `export_complete: true` | `track-r-capture-v2-stability-verify` (custodian-run) |
 | Witness comparison | ✅ **248/248 MATCH**, 0 mismatch, 0 missing, 0 unexpected | `track-r-capture-v2-stability-verify` (custodian-run) |
 | KV identity binding present | ✅ PASS | `track-r-capture-v2-stability-verify` (custodian-run) |
-| **CAS-v2 execution-witness stability** | ✅ PASS | `track-r-capture-v2-stability-verify` (custodian-run) |
-| **CAS-v2 execution-witness hash** | ✅ `e08999decbcdaaac06d91a9a11f06e6737756a646800db90ad8e57b865c1ccf1` | `track-r-capture-v2-stability-verify` (custodian-run) — this is the value the earlier BLOCKED status could not produce |
+| **Capture #9 v2 execution-witness hash** | ✅ `e08999decbcdaaac06d91a9a11f06e6737756a646800db90ad8e57b865c1ccf1` | `track-r-capture-v2-stability-verify` (custodian-run) — this is the value the earlier BLOCKED status could not produce. Computed only for Capture #9 (the governance candidate); the tool computes a v2 execution-witness hash per capture independently, but does **not** cross-compare Capture #8's and Capture #9's execution-witness hashes against each other anywhere in `main()` — see the caveat immediately below. |
 | Production KV identity hash | ✅ `fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e` | `track-r-capture-v2-stability-verify` (custodian-run) — matches historical Capture #5's KV identity hash |
 | Semantic manifest hash | ✅ `27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa` | `track-r-capture-v2-stability-verify` (custodian-run) + session-verified via job logs — matches historical Capture #5 |
 | Rollback manifest hash | ✅ `0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d` | `track-r-capture-v2-stability-verify` (custodian-run) + session-verified via job logs — matches historical Capture #5 |
 | `execution_authorized: false` (both captures) | ✅ | GitHub job logs (session-verified) |
 | Live lineage-pointer observation succeeded rather than falling back to placeholder null | ✅ | Both session-side inference (non-null v2 hash printed) and now confirmed by the custodian-run verifier reading real `observed_baseline.active_lineage_version`/`.live_canonical_pointer` values |
 | `production_mutation_performed: false` | ✅ high-confidence by code inspection — hardcoded in `buildTrackREvidencePackage`; the script performs no writes | Code review, not a runtime read |
+
+> **Caveat on execution-witness stability:** `scripts/track-r-capture-v2-stability-verify.ts`'s
+> `main()` cross-compares the two captures' **lineage** hashes
+> (`resultA.recomputed.lineage_snapshot_hash_v2 === resultB.recomputed.lineage_snapshot_hash_v2`)
+> but never cross-compares their **execution-witness** hashes against each
+> other — each capture's `v2_execution_witness_hash` is computed
+> independently inside `verifyCapture()`, with no pairwise check anywhere in
+> the script. This is consistent with the packet's design (only Capture #9,
+> the governance candidate, needs a retained v2 execution-witness hash — see
+> `execution_witness_hash_v2_note` in both `GITHUB_PROVENANCE.json` files),
+> but it means **no claim of "execution-witness stability across Capture #8
+> and #9" should be read into this table** — only the single value above,
+> Capture #9's own hash, was produced and verified against the tool's
+> internal gating (witness completeness + KV identity binding), not against
+> Capture #8's.
 
 ## ⛔ Still outstanding
 

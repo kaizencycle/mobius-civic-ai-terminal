@@ -103,5 +103,5 @@
   },
   "unexplained_v2_semantic_field_differences": [],
   "stop_condition_triggered": false,
-  "stop_condition_note": "No unexplained difference in a v2 semantic field was found. The v2 lineage hash, the v2 execution-witness hash, the full 248/248 witness comparison, and the exact affected-block-set match all confirm stability across Capture #8 and Capture #9, per the custodian-run verifier's PASS report."
+  "stop_condition_note": "No unexplained difference in a v2 semantic field was found. The v2 lineage hash matched exactly across Capture #8 and Capture #9, and each capture's 248/248 witness comparison and exact affected-block-set match independently passed, per the custodian-run verifier's PASS report. The v2 execution-witness hash was computed for Capture #9 only (the governance candidate); the verifier does not cross-compare execution-witness hashes between the two captures, so this is NOT a claim of execution-witness stability across Capture #8 and #9 — see the caveat in TRACK_R_V2_VERIFICATION_STATUS.md."
 }

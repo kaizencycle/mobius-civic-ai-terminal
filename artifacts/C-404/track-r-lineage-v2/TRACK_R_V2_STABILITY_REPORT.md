@@ -40,10 +40,21 @@ into the hash) documented in PR #670 and fixed by PR #672, and it remains
 observable in historical/legacy v1 output while v2 is stable across the two
 new capture envelopes.
 
-All figures in the table above were pulled directly from GitHub's own
-Actions job logs via `mcp__github__get_job_logs` (server-recorded output,
-independent of the handoff that requested this packet) — not copied from the
-handoff text uncritically. They match the handoff's claims exactly.
+The capture ID, run link, executive status, v1/v2 lineage hashes, execution
+witness v1, and artifact digest rows above were pulled directly from
+GitHub's own Actions job logs via `mcp__github__get_job_logs`
+(server-recorded output, independent of any handoff text) — not copied from
+a handoff uncritically.
+
+**The execution witness v2, witness comparison, and production KV identity
+hash rows are different in kind: they are custodian-reported.** This
+session was never given the raw artifact files. Those three rows are the
+output of the custodian (kaizencycle) running the reviewed
+`pnpm track-r:capture-v2-stability-verify` tool against the real extracted
+artifacts and reporting the result — not a value this session pulled from
+GitHub's logs or read from a file itself. See
+`TRACK_R_V2_VERIFICATION_STATUS.md`'s "✅ Verified" table for the exact
+source of every value, row by row.
 
 ---
 
