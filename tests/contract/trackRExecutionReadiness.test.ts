@@ -28,16 +28,16 @@ function withTempGovernance(mutator: (path: string) => void): string {
 }
 
 describe('Track R execution readiness verification', () => {
-  it('returns awaiting_human_consent when governance and attestation pass (CAS probe skipped)', async () => {
+  it('returns awaiting_execution_handoff when governance and attestation pass (CAS probe skipped)', async () => {
     const result = await verifyTrackRExecutionReadiness({
       archivePath: ARCHIVE,
       governancePath: GOVERNANCE,
       probeFreshCas: false,
-      verifiedAt: '2026-08-15T13:28:00.000Z',
+      verifiedAt: '2026-08-15T14:07:00.000Z',
     });
 
     assert.equal(result.capture_id, CAPTURE_0123Z_ID);
-    assert.equal(result.readiness_status, 'awaiting_human_consent');
+    assert.equal(result.readiness_status, 'awaiting_execution_handoff');
     assert.equal(result.execution_authorized, false);
     assert.ok(
       result.checks.some((row) => row.check === 'governance_zeus_adopt' && row.result === 'pass'),
@@ -46,7 +46,7 @@ describe('Track R execution readiness verification', () => {
       result.checks.some((row) => row.check === 'governance_eve_adopt' && row.result === 'pass'),
     );
     assert.ok(
-      result.checks.some((row) => row.check === 'governance_human_pending' && row.result === 'pass'),
+      result.checks.some((row) => row.check === 'governance_human_consent' && row.result === 'pass'),
     );
     assert.ok(
       result.checks.some((row) => row.check === 'attestation_summary' && row.result === 'pass'),
@@ -157,6 +157,53 @@ describe('Track R execution readiness verification', () => {
 
     assert.equal(resolved.ok, true);
     assert.equal(resolved.value, null);
+  });
+
+  it('returns awaiting_human_consent when human approval is still pending', async () => {
+    const governancePath = withTempGovernance((path) => {
+      const governance = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+      const verdicts = governance.governance_verdicts as Record<string, Record<string, string>>;
+      verdicts.human_approval = { verdict: 'pending', manifest_field: 'pending' };
+      writeFileSync(path, `${JSON.stringify(governance, null, 2)}\n`);
+    });
+
+    try {
+      const result = await verifyTrackRExecutionReadiness({
+        archivePath: ARCHIVE,
+        governancePath,
+        probeFreshCas: false,
+      });
+
+      assert.equal(result.readiness_status, 'awaiting_human_consent');
+    } finally {
+      rmSync(join(governancePath, '..'), { recursive: true, force: true });
+    }
+  });
+
+  it('returns awaiting_execution_handoff when human consent is recorded', async () => {
+    const governancePath = withTempGovernance((path) => {
+      const governance = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+      const verdicts = governance.governance_verdicts as Record<string, Record<string, string>>;
+      verdicts.human_approval = {
+        verdict: 'CONSENT',
+        manifest_field: 'approved',
+        signed_at: '2026-08-15T14:07:00.000Z',
+      };
+      writeFileSync(path, `${JSON.stringify(governance, null, 2)}\n`);
+    });
+
+    try {
+      const result = await verifyTrackRExecutionReadiness({
+        archivePath: ARCHIVE,
+        governancePath,
+        probeFreshCas: false,
+      });
+
+      assert.equal(result.readiness_status, 'awaiting_execution_handoff');
+      assert.equal(result.execution_authorized, false);
+    } finally {
+      rmSync(join(governancePath, '..'), { recursive: true, force: true });
+    }
   });
 
   it('blocks when active lineage version is set but canonical pointer is unavailable', () => {

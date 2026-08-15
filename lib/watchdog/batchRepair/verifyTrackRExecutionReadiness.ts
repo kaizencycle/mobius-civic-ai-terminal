@@ -29,6 +29,7 @@ export const TRACK_R_IMMUTABLE_ARCHIVE =
 
 export type TrackRExecutionReadinessStatus =
   | 'awaiting_human_consent'
+  | 'awaiting_execution_handoff'
   | 'cas_drift'
   | 'blocked';
 
@@ -50,6 +51,21 @@ export function resolveLiveAffectedBlockNumbersForCas(args: {
   publicSurfaceBlockNumbers: number[] | undefined;
 }): number[] | null {
   return args.authoritativeLiveBlockNumbers;
+}
+
+function isHumanConsentPending(
+  verdict: { verdict?: string; manifest_field?: string } | undefined,
+): boolean {
+  return verdict?.verdict === 'pending' && verdict?.manifest_field === 'pending';
+}
+
+function isHumanConsentRecorded(
+  verdict: { verdict?: string; manifest_field?: string } | undefined,
+): boolean {
+  return (
+    verdict?.manifest_field === 'approved' &&
+    (verdict?.verdict === 'CONSENT' || verdict?.verdict === 'approved')
+  );
 }
 
 function readJsonIfExists<T = Record<string, unknown>>(path: string): T | null {
@@ -180,9 +196,8 @@ export async function verifyTrackRExecutionReadiness(args?: {
   );
   addCheck(
     checks,
-    'governance_human_pending',
-    verdicts.human_approval?.verdict === 'pending' &&
-      verdicts.human_approval?.manifest_field === 'pending'
+    'governance_human_consent',
+    isHumanConsentRecorded(verdicts.human_approval) || isHumanConsentPending(verdicts.human_approval)
       ? 'pass'
       : 'fail',
     JSON.stringify(verdicts.human_approval ?? {}),
@@ -403,6 +418,8 @@ export async function verifyTrackRExecutionReadiness(args?: {
     readiness_status = casDrift ? 'cas_drift' : 'blocked';
   } else if (casDrift) {
     readiness_status = 'cas_drift';
+  } else if (isHumanConsentRecorded(verdicts.human_approval)) {
+    readiness_status = 'awaiting_execution_handoff';
   }
 
   return {
