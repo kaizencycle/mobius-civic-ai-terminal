@@ -396,12 +396,16 @@ jobs:
         env:
           RUN_ID: ${{ github.run_id }}
         run: |
-          set -uo pipefail
+          set -euo pipefail
           dest="docs/epicon/cycles/C-404/cas-probes"
           mkdir -p "$dest"
           cp ./track-r-preflight-output/cas-probe-report.md "$dest/CAS-PROBE-${RUN_ID}.md"
-          [ -f ./track-r-preflight-output/execution-readiness.log ] && cp ./track-r-preflight-output/execution-readiness.log "$dest/readiness-${RUN_ID}.txt"
-          [ -f ./track-r-preflight-output/batch-apply-preflight.log ] && cp ./track-r-preflight-output/batch-apply-preflight.log "$dest/preflight-${RUN_ID}.txt"
+          if [ -f ./track-r-preflight-output/execution-readiness.log ]; then
+            cp ./track-r-preflight-output/execution-readiness.log "$dest/readiness-${RUN_ID}.txt"
+          fi
+          if [ -f ./track-r-preflight-output/batch-apply-preflight.log ]; then
+            cp ./track-r-preflight-output/batch-apply-preflight.log "$dest/preflight-${RUN_ID}.txt"
+          fi
 
           git config user.name "ATLAS CI"
           git config user.email "atlas@mobius-substrate.com"
