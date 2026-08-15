@@ -18,8 +18,8 @@ Do **not** authorize production mutation until all items are checked.
 
 ## Governance gates
 
-- [ ] ZEUS ADOPT for exact four-hash packet
-- [ ] EVE ADOPT for exact four-hash packet
+- [x] ZEUS ADOPT for exact four-hash packet — `2026-08-15T13:28:00Z`
+- [x] EVE ADOPT for exact four-hash packet — `2026-08-15T13:28:00Z`
 - [ ] Fresh lineage snapshot hash matches (telemetry drift allowed)
 - [ ] Live seal witness export verified (zero mismatch/missing/unexpected)
 - [ ] Contract tests + typecheck + build pass

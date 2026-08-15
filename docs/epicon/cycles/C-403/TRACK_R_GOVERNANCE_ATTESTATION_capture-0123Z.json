@@ -1,0 +1,38 @@
+{
+  "schema_version": "TRACK_R_GOVERNANCE_ATTESTATION_1",
+  "capture_id": "track-r-c403-2026-08-15T0123Z",
+  "attested_at": "2026-08-15T13:28:00.000Z",
+  "immutable_archive": "artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/",
+  "verification_script": "scripts/track-r-capture-attestation-verify.ts",
+  "verification_status": "adopt_ready",
+  "hash_packet": {
+    "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
+    "lineage_snapshot_hash": "3db4832725df8d3d49942e60dc9ddd00d436fdb741329362b6eb4d6753669af5",
+    "execution_witness_hash": "f35ef3c048cbf2f8ea93d4b29cd10c193627aaa1ce17b6cf3b50374348052867",
+    "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d",
+    "production_kv_identity_receipt_hash": "fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e",
+    "production_witness_seal_hash_pin_hash": "3876419a2ff46df126b0b956bca96ddfc21b45d5c9f1ab3d8e21bfaa4c5f9b5e"
+  },
+  "governance_verdicts": {
+    "zeus": {
+      "verdict": "ADOPT",
+      "manifest_field": "approved",
+      "signed_at": "2026-08-15T13:28:00.000Z",
+      "catalog": "docs/catalog/zeus/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json",
+      "signed_attestation": "artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/ZEUS_ATTESTATION_SIGNED.md"
+    },
+    "eve": {
+      "verdict": "ADOPT",
+      "manifest_field": "approved",
+      "signed_at": "2026-08-15T13:28:00.000Z",
+      "catalog": "docs/catalog/eve/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json",
+      "signed_attestation": "artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/EVE_ATTESTATION_SIGNED.md"
+    },
+    "human_approval": {
+      "verdict": "pending",
+      "manifest_field": "pending"
+    }
+  },
+  "execution_authorized": false,
+  "explicit_note": "ZEUS ADOPT and EVE ADOPT recorded for capture #5 hash packet. Track R production mutation remains NOT AUTHORIZED until human custodian consent and separate one-shot execution handoff with fresh pre-mutation CAS."
+}

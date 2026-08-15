@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-08-15T13:28:00.000Z",
+  "agent": "EVE",
+  "cycle": "C-403",
+  "subject": "Track R Production Capture #5",
+  "capture_id": "track-r-c403-2026-08-15T0123Z",
+  "verification_status": "adopt",
+  "track_r_verdict": "ADOPT",
+  "manifest_verdict_field": "approved",
+  "verification_script": "scripts/track-r-capture-attestation-verify.ts",
+  "immutable_archive": "artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/",
+  "attestation_handoff": "docs/epicon/cycles/C-403/HANDOFF_C-403_TRACK_R_ATTESTATION_capture-0123Z.md",
+  "signed_attestation": "artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/EVE_ATTESTATION_SIGNED.md",
+  "hash_packet": {
+    "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
+    "lineage_snapshot_hash": "3db4832725df8d3d49942e60dc9ddd00d436fdb741329362b6eb4d6753669af5",
+    "execution_witness_hash": "f35ef3c048cbf2f8ea93d4b29cd10c193627aaa1ce17b6cf3b50374348052867",
+    "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d",
+    "production_kv_identity_receipt_hash": "fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e",
+    "production_witness_seal_hash_pin_hash": "3876419a2ff46df126b0b956bca96ddfc21b45d5c9f1ab3d8e21bfaa4c5f9b5e"
+  },
+  "findings": [
+    {
+      "check": "evidence preservation",
+      "result": "pass",
+      "detail": "125 hash-divergent pairs remain auditable; 125 losing candidates quarantined as witnesses — zero deletions claimed in capture bundle."
+    },
+    {
+      "check": "canonicalization scope",
+      "result": "pass",
+      "detail": "Repair changes derived interpretation via component_coherent_hybrid strategy; historical seal bodies preserved in production KV witness export."
+    },
+    {
+      "check": "131 cutoff disposition",
+      "result": "pass",
+      "detail": "Promotion stops at position 131; 132–194 preserved unattached; 131→132 edge not fabricated."
+    },
+    {
+      "check": "human consent gate",
+      "result": "warn",
+      "detail": "Human custodian consent remains pending — constitutional requirement before any execution authorization."
+    },
+    {
+      "check": "hash packet alignment with ZEUS",
+      "result": "pass",
+      "detail": "EVE binds to the same capture #5 four-hash packet plus identity receipt and witness pin verified offline by ZEUS technical review."
+    },
+    {
+      "check": "Fountain / Block 361 / Step 8",
+      "result": "pass",
+      "detail": "Separate from this batch repair attestation — Step 8 (131→132, Fountain, sequence 361) remains explicitly deferred."
+    }
+  ],
+  "recommendation": "ADOPT capture #5 hash packet for constitutional scope. Track R execution remains NOT AUTHORIZED until human custodian explicit consent and separate execution handoff."
+}
