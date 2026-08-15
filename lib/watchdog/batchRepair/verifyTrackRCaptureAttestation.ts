@@ -51,7 +51,11 @@ function readJsonIfExists<T = Record<string, unknown>>(path: string): T | null {
   if (!existsSync(path)) {
     return null;
   }
-  return JSON.parse(readFileSync(path, 'utf8')) as T;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as T;
+  } catch {
+    return null;
+  }
 }
 
 function compareHashTriplet(

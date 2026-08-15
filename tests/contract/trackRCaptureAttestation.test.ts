@@ -96,4 +96,22 @@ describe('Track R capture #5 attestation verification', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('blocks when a required artifact contains invalid JSON', () => {
+    const dir = withTempArchive((archivePath) => {
+      writeFileSync(join(archivePath, 'CAPTURE_PROVENANCE.json'), '{not-valid-json');
+    });
+
+    try {
+      const result = verifyTrackRCaptureAttestation({ archivePath: dir });
+      assert.equal(result.verification_status, 'blocked');
+      assert.ok(
+        result.checks.some(
+          (row) => row.check === 'required_artifacts_readable' && row.result === 'fail',
+        ),
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
