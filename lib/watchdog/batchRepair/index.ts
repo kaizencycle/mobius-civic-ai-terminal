@@ -25,6 +25,7 @@ export * from '@/lib/watchdog/batchRepair/governance131Cutoff';
 export * from '@/lib/watchdog/batchRepair/liveSealWitnessExport';
 export * from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
 export * from '@/lib/watchdog/batchRepair/liveAffectedBlockEvidence';
+export * from '@/lib/watchdog/batchRepair/liveLineagePointerObservations';
 export * from '@/lib/watchdog/batchRepair/liveBoundaryEvidence';
 export * from '@/lib/watchdog/batchRepair/productionKvIdentityReceipt';
 export * from '@/lib/watchdog/batchRepair/productionWitnessSealHashPin';

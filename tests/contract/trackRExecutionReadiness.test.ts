@@ -12,6 +12,7 @@ import {
   TRACK_R_GOVERNANCE_ATTESTATION_PATH,
   TRACK_R_IMMUTABLE_ARCHIVE,
 } from '@/lib/watchdog/batchRepair/verifyTrackRExecutionReadiness';
+import { resolveLiveCanonicalPointerForCas } from '@/lib/watchdog/batchRepair/liveLineagePointerObservations';
 import { CAPTURE_0123Z_ID } from '@/lib/watchdog/batchRepair/verifyTrackRCaptureAttestation';
 import { hashAffectedBlockNumbers } from '@/lib/watchdog/batchRepair';
 
@@ -146,5 +147,26 @@ describe('Track R execution readiness verification', () => {
       hashAffectedBlockNumbers(selected!),
       hashAffectedBlockNumbers(authoritative),
     );
+  });
+
+  it('keeps live_canonical_pointer unresolved when active lineage version is absent', () => {
+    const resolved = resolveLiveCanonicalPointerForCas({
+      active_lineage_version: null,
+      primary_latest_seal_id: 'seal-C-372-002',
+    });
+
+    assert.equal(resolved.ok, true);
+    assert.equal(resolved.value, null);
+  });
+
+  it('blocks when active lineage version is set but canonical pointer is unavailable', () => {
+    const resolved = resolveLiveCanonicalPointerForCas({
+      active_lineage_version: 'track-r-c403-batch-001',
+      primary_latest_seal_id: null,
+    });
+
+    assert.equal(resolved.ok, false);
+    assert.equal(resolved.value, null);
+    assert.ok(resolved.errors.length > 0);
   });
 });

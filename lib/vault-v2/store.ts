@@ -167,6 +167,40 @@ async function rawGetPrimaryOnly<T>(key: string): Promise<unknown | null> {
   }
 }
 
+export type PrimaryOnlyStringRead = {
+  read_ok: boolean;
+  value: string | null;
+  error: string | null;
+};
+
+/** Read a string key from primary Upstash only — distinguishes transport failure from absent key. */
+export async function getWatchdogStringPrimaryOnly(key: string): Promise<PrimaryOnlyStringRead> {
+  const redis = getRedis();
+  if (!redis) {
+    return {
+      read_ok: false,
+      value: null,
+      error: 'primary Upstash credentials unavailable',
+    };
+  }
+  try {
+    const raw = await redis.get<string>(key);
+    if (raw === null || raw === undefined) {
+      return { read_ok: true, value: null, error: null };
+    }
+    if (typeof raw === 'string' && raw.length > 0) {
+      return { read_ok: true, value: raw, error: null };
+    }
+    return { read_ok: true, value: null, error: null };
+  } catch (err) {
+    return {
+      read_ok: false,
+      value: null,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 export async function getLatestSealIdPrimaryOnly(): Promise<string | null> {
   try {
     const raw = await rawGetPrimaryOnly<string>(LATEST_SEAL_KEY);
