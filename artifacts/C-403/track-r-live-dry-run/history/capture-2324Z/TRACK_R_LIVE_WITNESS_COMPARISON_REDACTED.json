@@ -1,5 +1,5 @@
 {
-  "capture_id": "track-r-c403-2026-08-15T0123Z",
+  "capture_id": "track-r-c403-2026-08-14T2324Z",
   "executive_status": "READY_FOR_ZEUS_EVE_REVIEW",
   "authenticated_read": true,
   "export_complete": true,
@@ -13,14 +13,10 @@
   },
   "verification_errors": [],
   "verification_notes": [
-    "production witness seal hash pin 3876419a2ff46df126b0b956bca96ddfc21b45d5c9f1ab3d8e21bfaa4c5f9b5e established by capture track-r-c403-2026-08-14T2324Z",
-    "dry-run manifest receipt original_hashes use fixture-hash-* pins; live witness compares primary KV seal_hash against committed production hash pin"
+    "dry-run manifest receipt original_hashes use fixture-hash-* pins; live witness compares primary KV seal_hash against canonical recomputation"
   ],
   "blocked_reason": null,
-  "comparison_mode": "pinned_production_witness_seal_hashes",
-  "production_witness_seal_hash_pin_hash": "3876419a2ff46df126b0b956bca96ddfc21b45d5c9f1ab3d8e21bfaa4c5f9b5e",
-  "production_witness_seal_hash_pin_capture_id": "track-r-c403-2026-08-14T2324Z",
-  "execution_witness_hash": "f35ef3c048cbf2f8ea93d4b29cd10c193627aaa1ce17b6cf3b50374348052867",
+  "execution_witness_hash": "7ca4a19a33f21237698aa5aa5e615dfb954a20c7a5c01e53f7dc4a4907c23c31",
   "per_record_status_counts": {
     "MATCH": 248
   },

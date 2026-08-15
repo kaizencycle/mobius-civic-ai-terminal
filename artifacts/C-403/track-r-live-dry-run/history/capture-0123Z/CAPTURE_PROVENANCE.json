@@ -9,7 +9,6 @@
   "capture_mode": "production_witness_read_only",
   "comparison_mode": "pinned_production_witness_seal_hashes",
   "immutable_archive_path": "artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/",
-  "rolling_mirror_note": "Parent directory mirrors capture #5 for convenience; bind governance to immutable archive path.",
   "github_actions": {
     "workflow": "Track R Production Capture",
     "run_id": 31856368427,

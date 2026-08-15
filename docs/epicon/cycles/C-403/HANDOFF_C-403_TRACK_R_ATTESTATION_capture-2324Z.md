@@ -23,9 +23,9 @@ Capture #4 proved KV identity, affected-block set alignment, completeness, and c
 | Phase | Action | Status |
 |---|---|---|
 | **A — Pin establishment** | Commit `C403_PRODUCTION_WITNESS_SEAL_HASHES.pin.json` from capture #4 authenticated export (248 seals) | **This PR** |
-| **B — Pin validation** | Re-run `pnpm track-r:production-capture` after merge; live KV must match committed pin | **Required before ZEUS ADOPT** |
+| **B — Pin validation** | Re-run `pnpm track-r:production-capture` after merge; live KV must match committed pin | **Complete — capture #5** (`track-r-c403-2026-08-15T0123Z`) |
 
-Capture #4 artifact package (`READY_FOR_ZEUS_EVE_REVIEW`) used pre-pin comparison logic. After this PR merges, **attestation must not proceed until capture #5 passes** with `comparison_mode: pinned_production_witness_seal_hashes`.
+Capture #4 artifact package used pre-pin comparison logic. **Attestation now binds to capture #5** — see `HANDOFF_C-403_TRACK_R_ATTESTATION_capture-0123Z.md`.
 
 ---
 
@@ -58,17 +58,17 @@ Live witness `MATCH` now requires: `live_kv_hash === pinned_witness_hash` (from 
 
 ---
 
-## Evidence bundle (committed)
+## Evidence bundle (committed — immutable archive)
 
 | File | Purpose |
 |---|---|
 | `docs/epicon/cycles/C-403/fixtures/C403_PRODUCTION_WITNESS_SEAL_HASHES.pin.json` | Independent 248-seal hash expectations |
-| `artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_DRY_RUN_PACKAGE.json` | Capture #4 package (historical) |
-| `artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json` | Capture #4 per-record export |
-| `artifacts/C-403/track-r-live-dry-run/ZEUS_ATTESTATION_TEMPLATE.md` | Unsigned ZEUS checklist |
-| `artifacts/C-403/track-r-live-dry-run/EVE_ATTESTATION_TEMPLATE.md` | Unsigned EVE checklist |
-| `artifacts/C-403/track-r-live-dry-run/HUMAN_EXECUTION_CHECKLIST.md` | Unsigned human gate |
-| `docs/epicon/cycles/C-403/TRACK_R_LIVE_DRY_RUN_REPORT.md` | Operator summary |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-2324Z/TRACK_R_LIVE_DRY_RUN_PACKAGE.json` | Capture #4 package (**immutable**) |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-2324Z/TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json` | Capture #4 per-record export (**immutable**) |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-2324Z/CAPTURE_PROVENANCE.json` | GHA provenance + capture #4 hash packet |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-2324Z/ZEUS_ATTESTATION_TEMPLATE.md` | Unsigned ZEUS checklist (capture #4 era) |
+
+Rolling paths under `artifacts/C-403/track-r-live-dry-run/` mirror capture #5 only — do not use them for capture #4 provenance.
 
 ---
 

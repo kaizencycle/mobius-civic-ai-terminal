@@ -23,5 +23,5 @@
       "seal_count": 248
     }
   ],
-  "note": "Fixture pins are dry-run only. Production witness seal hash pin is independent live-KV evidence — validate with capture #5 after pin merge."
+  "note": "Fixture pins are dry-run only. Production witness seal hash pin validated by capture #5 (track-r-c403-2026-08-15T0123Z); attestation binds to capture #5 handoff."
 }
