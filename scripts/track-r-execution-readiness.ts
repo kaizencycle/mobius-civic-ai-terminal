@@ -32,7 +32,10 @@ async function main(): Promise<void> {
     console.log(`  ${row.detail}`);
   }
 
-  if (result.readiness_status !== 'awaiting_human_consent') {
+  if (
+    result.readiness_status !== 'awaiting_human_consent' &&
+    result.readiness_status !== 'awaiting_execution_handoff'
+  ) {
     process.exit(1);
   }
 }

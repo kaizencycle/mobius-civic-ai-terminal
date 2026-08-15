@@ -29,6 +29,8 @@ export const TRACK_R_IMMUTABLE_ARCHIVE =
 
 export type TrackRExecutionReadinessStatus =
   | 'awaiting_human_consent'
+  | 'consent_recorded_cas_required'
+  | 'awaiting_execution_handoff'
   | 'cas_drift'
   | 'blocked';
 
@@ -50,6 +52,75 @@ export function resolveLiveAffectedBlockNumbersForCas(args: {
   publicSurfaceBlockNumbers: number[] | undefined;
 }): number[] | null {
   return args.authoritativeLiveBlockNumbers;
+}
+
+function isHumanConsentPending(
+  verdict: { verdict?: string; manifest_field?: string } | undefined,
+): boolean {
+  return verdict?.verdict === 'pending' && verdict?.manifest_field === 'pending';
+}
+
+function isHumanConsentRecorded(
+  verdict: { verdict?: string; manifest_field?: string } | undefined,
+): boolean {
+  return (
+    verdict?.manifest_field === 'approved' &&
+    (verdict?.verdict === 'CONSENT' || verdict?.verdict === 'approved')
+  );
+}
+
+const CONSENT_HASH_BINDING_LABELS = [
+  'semantic_manifest_hash',
+  'lineage_snapshot_hash',
+  'execution_witness_hash',
+  'rollback_manifest_hash',
+  'production_kv_identity_receipt_hash',
+  'production_witness_seal_hash_pin_hash',
+] as const;
+
+export function validateRecordedHumanConsent(args: {
+  verdict:
+    | {
+        verdict?: string;
+        manifest_field?: string;
+        signed_at?: string;
+        signed_attestation?: string;
+      }
+    | undefined;
+  repoRoot?: string;
+}): { ok: boolean; errors: string[] } {
+  const errors: string[] = [];
+  if (!isHumanConsentRecorded(args.verdict)) {
+    return { ok: false, errors: ['human approval verdict not recorded'] };
+  }
+  if (!args.verdict?.signed_at) {
+    errors.push('human approval signed_at missing');
+  }
+  if (!args.verdict?.signed_attestation) {
+    errors.push('human approval signed_attestation missing');
+  }
+
+  const attestationPath = join(
+    args.repoRoot ?? process.cwd(),
+    args.verdict?.signed_attestation ?? '',
+  );
+  if (!args.verdict?.signed_attestation || !existsSync(attestationPath)) {
+    errors.push(`signed attestation missing at ${attestationPath}`);
+    return { ok: false, errors };
+  }
+
+  const content = readFileSync(attestationPath, 'utf8');
+  if (!content.includes(CAPTURE_0123Z_ID)) {
+    errors.push('signed attestation missing capture_id binding');
+  }
+  for (const label of CONSENT_HASH_BINDING_LABELS) {
+    const hash = CAPTURE_0123Z_EXPECTED_HASHES[label];
+    if (!content.includes(hash)) {
+      errors.push(`signed attestation missing hash binding for ${label}`);
+    }
+  }
+
+  return { ok: errors.length === 0, errors };
 }
 
 function readJsonIfExists<T = Record<string, unknown>>(path: string): T | null {
@@ -180,12 +251,17 @@ export async function verifyTrackRExecutionReadiness(args?: {
   );
   addCheck(
     checks,
-    'governance_human_pending',
-    verdicts.human_approval?.verdict === 'pending' &&
-      verdicts.human_approval?.manifest_field === 'pending'
+    'governance_human_consent',
+    isHumanConsentPending(verdicts.human_approval)
       ? 'pass'
-      : 'fail',
-    JSON.stringify(verdicts.human_approval ?? {}),
+      : validateRecordedHumanConsent({ verdict: verdicts.human_approval }).ok
+        ? 'pass'
+        : 'fail',
+    isHumanConsentPending(verdicts.human_approval)
+      ? JSON.stringify(verdicts.human_approval ?? {})
+      : JSON.stringify(
+          validateRecordedHumanConsent({ verdict: verdicts.human_approval }),
+        ),
   );
   addCheck(
     checks,
@@ -398,11 +474,20 @@ export async function verifyTrackRExecutionReadiness(args?: {
     fresh_cas_match === false ||
     checks.some((row) => row.check === 'fresh_lineage_snapshot_cas' && row.result === 'fail');
 
+  const humanConsentValidation = validateRecordedHumanConsent({
+    verdict: verdicts.human_approval,
+  });
+
   let readiness_status: TrackRExecutionReadinessStatus = 'awaiting_human_consent';
   if (hasFail) {
     readiness_status = casDrift ? 'cas_drift' : 'blocked';
   } else if (casDrift) {
     readiness_status = 'cas_drift';
+  } else if (humanConsentValidation.ok) {
+    readiness_status =
+      fresh_cas_match === true ? 'awaiting_execution_handoff' : 'consent_recorded_cas_required';
+  } else if (!isHumanConsentPending(verdicts.human_approval)) {
+    readiness_status = 'blocked';
   }
 
   return {

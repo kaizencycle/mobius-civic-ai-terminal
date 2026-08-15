@@ -697,7 +697,7 @@
   "attestation_placeholders": {
     "zeus_verdict": "approved",
     "eve_verdict": "approved",
-    "human_approval": "pending",
+    "human_approval": "approved",
     "required_hashes": {
       "capture_id": "track-r-c403-2026-08-15T0123Z",
       "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",

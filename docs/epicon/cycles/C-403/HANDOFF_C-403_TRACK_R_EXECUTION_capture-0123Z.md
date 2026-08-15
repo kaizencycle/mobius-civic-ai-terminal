@@ -43,8 +43,8 @@ Immutable archive: `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/`
 | 1 | Immutable attestation verify | `pnpm track-r:capture-attestation-verify` | ✅ tooling on `main` |
 | 2 | ZEUS ADOPT | `docs/catalog/zeus/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json` | ✅ #664 |
 | 3 | EVE ADOPT | `docs/catalog/eve/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json` | ✅ #664 |
-| 4 | Human custodian consent | `HUMAN_CUSTODIAN_CONSENT_TEMPLATE.md` → signed record | ⬜ pending |
-| 5 | Fresh pre-mutation CAS | `pnpm track-r:execution-readiness` → `awaiting_human_consent` | ⬜ run at consent time |
+| 4 | Human custodian consent | `HUMAN_CUSTODIAN_CONSENT_SIGNED.md` | ✅ `2026-08-15T14:07:00Z` |
+| 5 | Fresh pre-mutation CAS | `pnpm track-r:execution-readiness` → `awaiting_execution_handoff` + `fresh_cas_match: true` | ⬜ required before execution handoff |
 | 6 | One-shot execution handoff | Separate operator command + `TRACK_R_BATCH_EXECUTION_ENABLED=true` | ⛔ forbidden |
 
 ---
@@ -67,8 +67,8 @@ pnpm track-r:execution-readiness --skip-cas-probe
 | Command | Expected |
 |---|---|
 | `track-r:capture-attestation-verify` | `verification_status: adopt_ready` |
-| `track-r:execution-readiness` | `readiness_status: awaiting_human_consent` |
-| `fresh_cas_match` | `true` |
+| `track-r:execution-readiness --skip-cas-probe` | `consent_recorded_cas_required` when consent is signed |
+| `track-r:execution-readiness` (production KV) | `awaiting_execution_handoff` + `fresh_cas_match: true` |
 
 If `readiness_status: cas_drift` → production lineage changed since capture #5. Run **Capture #6** before proceeding.
 
@@ -107,9 +107,8 @@ From `lib/watchdog/batchRepair/commitGuard.ts`:
 
 ## Next operator actions
 
-1. Human custodian signs `HUMAN_CUSTODIAN_CONSENT_TEMPLATE.md` bound to capture #5 hash packet.
-2. Run `pnpm track-r:execution-readiness` immediately before consent recording.
-3. If CAS matches, record human consent in governance JSON + manifest fields.
-4. Issue separate one-shot execution authorization (future PR / operator command only).
+1. ~~Human custodian signs consent bound to capture #5 hash packet~~ ✅ `2026-08-15T14:07:00Z`
+2. Run `pnpm track-r:execution-readiness` with production KV credentials immediately before execution handoff.
+3. If CAS matches (`fresh_cas_match: true`), issue separate one-shot execution authorization (future PR / operator command only).
 
 *"We heal as we walk." — Mobius Systems*

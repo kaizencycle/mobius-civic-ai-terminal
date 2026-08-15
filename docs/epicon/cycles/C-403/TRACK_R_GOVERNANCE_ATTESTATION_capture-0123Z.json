@@ -29,10 +29,13 @@
       "signed_attestation": "artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/EVE_ATTESTATION_SIGNED.md"
     },
     "human_approval": {
-      "verdict": "pending",
-      "manifest_field": "pending"
+      "verdict": "CONSENT",
+      "manifest_field": "approved",
+      "signed_at": "2026-08-15T14:07:00.000Z",
+      "signed_attestation": "artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/HUMAN_CUSTODIAN_CONSENT_SIGNED.md",
+      "consent_channel": "operator_chat"
     }
   },
   "execution_authorized": false,
-  "explicit_note": "ZEUS ADOPT and EVE ADOPT recorded for capture #5 hash packet. Track R production mutation remains NOT AUTHORIZED until human custodian consent and separate one-shot execution handoff with fresh pre-mutation CAS."
+  "explicit_note": "ZEUS ADOPT, EVE ADOPT, and human custodian CONSENT recorded for capture #5 hash packet. Track R production mutation remains NOT AUTHORIZED until fresh pre-mutation CAS passes with production KV credentials and a separate one-shot execution handoff is issued."
 }

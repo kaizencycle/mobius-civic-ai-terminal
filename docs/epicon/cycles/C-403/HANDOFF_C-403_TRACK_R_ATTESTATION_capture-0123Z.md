@@ -85,7 +85,7 @@ Rolling mirror (same capture #5 content): `artifacts/C-403/track-r-live-dry-run/
 
 1. **ZEUS** — ✅ ADOPT recorded `2026-08-15T13:28:00Z` — see `ZEUS_ATTESTATION_SIGNED.md` and `docs/catalog/zeus/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json`
 2. **EVE** — ✅ ADOPT recorded `2026-08-15T13:28:00Z` — see `EVE_ATTESTATION_SIGNED.md` and `docs/catalog/eve/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json`
-3. **Human custodian** — ⬜ pending — sign `HUMAN_CUSTODIAN_CONSENT_TEMPLATE.md` bound to `track-r-c403-2026-08-15T0123Z` and hashes above.
+3. **Human custodian** — ✅ CONSENT recorded `2026-08-15T14:07:00Z` — see `HUMAN_CUSTODIAN_CONSENT_SIGNED.md`
 
 Execution handoff: `HANDOFF_C-403_TRACK_R_EXECUTION_capture-0123Z.md`  
 Governance record: `docs/epicon/cycles/C-403/TRACK_R_GOVERNANCE_ATTESTATION_capture-0123Z.json`  
