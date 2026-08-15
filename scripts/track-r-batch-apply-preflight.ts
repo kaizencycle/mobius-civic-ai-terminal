@@ -15,7 +15,6 @@ async function main(): Promise<void> {
   const result = await runBatchApplyPreflight({
     baseUrl,
     explicitOperatorCommand: true,
-    requireExecutionFeatureFlag: false,
   });
 
   console.log(`Capture ID: ${result.capture_id}`);

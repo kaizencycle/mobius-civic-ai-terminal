@@ -28,7 +28,7 @@ export function assertBatchCommitAllowed(input: BatchCommitGuardInput): {
   if (!input.explicit_operator_command) {
     errors.push('explicit operator command required');
   }
-  if (!input.execution_feature_flag_enabled) {
+  if (!input.preflight_read_only && !input.execution_feature_flag_enabled) {
     errors.push(`${BATCH_EXECUTION_FEATURE_FLAG} must be true`);
   }
   if (!input.approved_manifest_hash) {
@@ -81,11 +81,13 @@ export function assertBatchCommitAllowed(input: BatchCommitGuardInput): {
   if (!input.integrity_gate_active) {
     errors.push('integrity gate must be active before batch commit');
   }
-  if (!input.mutation_journal_available) {
-    errors.push('mutation journal must be available');
-  }
-  if (!input.rollback_plan_verified) {
-    errors.push('rollback plan must be verified');
+  if (!input.preflight_read_only) {
+    if (!input.mutation_journal_available) {
+      errors.push('mutation journal must be available');
+    }
+    if (!input.rollback_plan_verified) {
+      errors.push('rollback plan must be verified');
+    }
   }
   if (input.manifest.production_execution_enabled !== false) {
     errors.push('manifest production_execution_enabled must remain false until governance approves');

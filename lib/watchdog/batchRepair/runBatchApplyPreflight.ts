@@ -3,7 +3,6 @@ import {
   assertBatchCommitAllowed,
   buildBatchManifest,
   buildFixtureSealsFromWitness,
-  buildRollbackPlan,
   computeManifestHash,
   loadResolutionTableFromFile,
   loadWitnessFromFile,
@@ -19,6 +18,7 @@ import {
   CAPTURE_0123Z_ID,
   type TrackRCaptureAttestationCheck,
 } from '@/lib/watchdog/batchRepair/verifyTrackRCaptureAttestation';
+import { hasUpstashKvCredentials } from '@/lib/kv/upstashEnv';
 
 export const TRACK_R_APPLY_PREFLIGHT_ARCHIVE =
   'artifacts/C-403/track-r-live-dry-run/history/capture-0123Z';
@@ -100,10 +100,52 @@ export async function verifyFreshLineageSnapshotAtApply(args?: {
   });
 }
 
-export function assertBatchCommitAllowedAtApply(args: {
+export type ApplyCasProbeOutcome =
+  | { status: 'probe_ok' }
+  | { status: 'credentials_required'; detail: string }
+  | { status: 'cas_drift'; detail: string }
+  | { status: 'probe_incomplete'; detail: string };
+
+/** Classify apply-time CAS probe results without mislabeling identity or API failures as credential drift. */
+export function classifyApplyCasProbeOutcome(
+  applyCas: FreshLineageSnapshotFromProduction,
+): ApplyCasProbeOutcome {
+  if (!hasUpstashKvCredentials()) {
+    return {
+      status: 'credentials_required',
+      detail: 'production KV credentials required for apply-time CAS recheck',
+    };
+  }
+
+  if (applyCas.fresh_cas_match === true) {
+    return { status: 'probe_ok' };
+  }
+
+  if (applyCas.fresh_lineage_snapshot_hash !== null && applyCas.fresh_cas_match === false) {
+    return {
+      status: 'cas_drift',
+      detail: `attested=${applyCas.attested_lineage_snapshot_hash} fresh=${applyCas.fresh_lineage_snapshot_hash}`,
+    };
+  }
+
+  const failedCheck = applyCas.checks.find((row) => row.result === 'fail');
+  return {
+    status: 'probe_incomplete',
+    detail: failedCheck?.detail ?? 'apply-time CAS probe incomplete',
+  };
+}
+
+function assertBatchCommitGuardWithVerifiedApplyCas(args: {
   guardInput: Omit<BatchCommitGuardInput, 'fresh_lineage_snapshot_hash_matches'>;
   applyCas: FreshLineageSnapshotFromProduction;
 }): { ok: boolean; errors: string[] } {
+  if (args.applyCas.fresh_cas_match !== true || args.applyCas.fresh_lineage_snapshot_hash === null) {
+    return {
+      ok: false,
+      errors: ['apply-time CAS probe did not produce a verified fresh hash'],
+    };
+  }
+
   if (!args.applyCas.fresh_lineage_snapshot_hash_matches) {
     return {
       ok: false,
@@ -115,8 +157,86 @@ export function assertBatchCommitAllowedAtApply(args: {
 
   return assertBatchCommitAllowed({
     ...args.guardInput,
-    fresh_lineage_snapshot_hash_matches: args.applyCas.fresh_lineage_snapshot_hash_matches,
+    fresh_lineage_snapshot_hash_matches: true,
   });
+}
+
+/** Apply guard — always performs a production CAS re-read; caller-supplied CAS objects are not accepted. */
+export async function assertBatchCommitAllowedAtApply(args: {
+  guardInput: Omit<
+    BatchCommitGuardInput,
+    'fresh_lineage_snapshot_hash_matches' | 'preflight_read_only'
+  >;
+  attestedLineageSnapshotHash?: string;
+  verifiedAt?: string;
+  baseUrl?: string;
+  repoRoot?: string;
+}): Promise<{ ok: boolean; errors: string[]; applyCas: FreshLineageSnapshotFromProduction }> {
+  const applyCas = await verifyFreshLineageSnapshotAtApply({
+    attestedLineageSnapshotHash: args.attestedLineageSnapshotHash,
+    verifiedAt: args.verifiedAt,
+    baseUrl: args.baseUrl,
+    repoRoot: args.repoRoot,
+  });
+
+  const probeOutcome = classifyApplyCasProbeOutcome(applyCas);
+  if (probeOutcome.status === 'credentials_required') {
+    return { ok: false, errors: [probeOutcome.detail], applyCas };
+  }
+  if (probeOutcome.status === 'probe_incomplete') {
+    return { ok: false, errors: [probeOutcome.detail], applyCas };
+  }
+  if (probeOutcome.status === 'cas_drift') {
+    return {
+      ok: false,
+      errors: [
+        'apply-time lineage snapshot hash does not match attestation (production re-read failed CAS)',
+      ],
+      applyCas,
+    };
+  }
+
+  const guard = assertBatchCommitGuardWithVerifiedApplyCas({
+    applyCas,
+    guardInput: {
+      ...args.guardInput,
+      preflight_read_only: true,
+      integrity_gate_active: applyCas.observed_integrity_gate_active === true,
+    },
+  });
+
+  return { ...guard, applyCas };
+}
+
+function buildPreflightBlockedResult(args: {
+  verifiedAt: string;
+  attestedLineageSnapshotHash: string;
+  preflight_status: BatchApplyPreflightStatus;
+  applyCas: FreshLineageSnapshotFromProduction;
+  checks: TrackRCaptureAttestationCheck[];
+  commit_guard_errors: string[];
+}): BatchApplyPreflightResult {
+  addCheck(
+    args.checks,
+    'apply_preflight_summary',
+    'fail',
+    args.preflight_status,
+  );
+
+  return {
+    capture_id: CAPTURE_0123Z_ID,
+    verified_at: args.verifiedAt,
+    preflight_status: args.preflight_status,
+    execution_authorized: false,
+    production_mutation_performed: false,
+    attested_lineage_snapshot_hash: args.attestedLineageSnapshotHash,
+    fresh_lineage_snapshot_hash: args.applyCas.fresh_lineage_snapshot_hash,
+    fresh_lineage_snapshot_hash_matches: args.applyCas.fresh_lineage_snapshot_hash_matches,
+    commit_guard_ok: false,
+    commit_guard_errors: args.commit_guard_errors,
+    apply_cas: args.applyCas,
+    checks: args.checks,
+  };
 }
 
 export async function runBatchApplyPreflight(args?: {
@@ -124,7 +244,6 @@ export async function runBatchApplyPreflight(args?: {
   baseUrl?: string;
   repoRoot?: string;
   explicitOperatorCommand?: boolean;
-  requireExecutionFeatureFlag?: boolean;
 }): Promise<BatchApplyPreflightResult> {
   const verifiedAt = args?.verifiedAt ?? new Date().toISOString();
   const repoRoot = args?.repoRoot ?? process.cwd();
@@ -132,7 +251,7 @@ export async function runBatchApplyPreflight(args?: {
   const attestedLineageSnapshotHash = CAPTURE_0123Z_EXPECTED_HASHES.lineage_snapshot_hash;
 
   const applyCas = await verifyFreshLineageSnapshotAtApply({
-    attestedLineageSnapshotHash: attestedLineageSnapshotHash,
+    attestedLineageSnapshotHash,
     verifiedAt,
     baseUrl: args?.baseUrl,
     repoRoot,
@@ -141,22 +260,39 @@ export async function runBatchApplyPreflight(args?: {
     checks.push(row);
   }
 
-  if (applyCas.checks.some((row) => row.check === 'apply_cas_probe' && row.result === 'fail')) {
-    addCheck(checks, 'apply_preflight_summary', 'fail', 'production KV credentials required');
-    return {
-      capture_id: CAPTURE_0123Z_ID,
-      verified_at: verifiedAt,
+  const probeOutcome = classifyApplyCasProbeOutcome(applyCas);
+  if (probeOutcome.status === 'credentials_required') {
+    addCheck(checks, 'apply_preflight_summary', 'fail', probeOutcome.detail);
+    return buildPreflightBlockedResult({
+      verifiedAt,
+      attestedLineageSnapshotHash,
       preflight_status: 'apply_credentials_required',
-      execution_authorized: false,
-      production_mutation_performed: false,
-      attested_lineage_snapshot_hash: attestedLineageSnapshotHash,
-      fresh_lineage_snapshot_hash: applyCas.fresh_lineage_snapshot_hash,
-      fresh_lineage_snapshot_hash_matches: false,
-      commit_guard_ok: false,
-      commit_guard_errors: ['production KV credentials required for apply-time CAS recheck'],
-      apply_cas: applyCas,
+      applyCas,
       checks,
-    };
+      commit_guard_errors: [probeOutcome.detail],
+    });
+  }
+  if (probeOutcome.status === 'probe_incomplete') {
+    return buildPreflightBlockedResult({
+      verifiedAt,
+      attestedLineageSnapshotHash,
+      preflight_status: 'apply_blocked',
+      applyCas,
+      checks,
+      commit_guard_errors: [probeOutcome.detail],
+    });
+  }
+  if (probeOutcome.status === 'cas_drift') {
+    return buildPreflightBlockedResult({
+      verifiedAt,
+      attestedLineageSnapshotHash,
+      preflight_status: 'apply_cas_drift',
+      applyCas,
+      checks,
+      commit_guard_errors: [
+        'apply-time lineage snapshot hash does not match attestation (production re-read failed CAS)',
+      ],
+    });
   }
 
   const manifest = loadApprovedCaptureManifest(repoRoot);
@@ -181,25 +317,20 @@ export async function runBatchApplyPreflight(args?: {
       : witnessAttempt.blocked_reason ?? witnessAttempt.verification_errors.join('; '),
   );
 
-  const rollbackPlan = buildRollbackPlan({
-    manifest,
-    previous_active_version: null,
-    previous_latest_pointer: null,
-  });
-
-  const guard = assertBatchCommitAllowedAtApply({
+  const guard = assertBatchCommitGuardWithVerifiedApplyCas({
     applyCas,
     guardInput: {
       manifest,
       dry_run: false,
-      execution_feature_flag_enabled: args?.requireExecutionFeatureFlag ?? false,
+      execution_feature_flag_enabled: false,
       explicit_operator_command: args?.explicitOperatorCommand ?? true,
       approved_manifest_hash: manifest.manifest_hash,
       live_seal_witness_export: witnessAttempt.export,
       pinned_witness: witness,
-      integrity_gate_active: true,
-      mutation_journal_available: true,
-      rollback_plan_verified: rollbackPlan.journals_required,
+      preflight_read_only: true,
+      integrity_gate_active: applyCas.observed_integrity_gate_active === true,
+      mutation_journal_available: false,
+      rollback_plan_verified: false,
     },
   });
 
@@ -211,14 +342,15 @@ export async function runBatchApplyPreflight(args?: {
   );
 
   const hasFail = checks.some((row) => row.result === 'fail');
-  let preflight_status: BatchApplyPreflightStatus = 'apply_blocked';
-  if (!applyCas.fresh_lineage_snapshot_hash_matches) {
-    preflight_status = 'apply_cas_drift';
-  } else if (guard.ok && !hasFail) {
-    preflight_status = 'apply_preflight_pass';
-  }
+  const preflight_status: BatchApplyPreflightStatus =
+    guard.ok && !hasFail ? 'apply_preflight_pass' : 'apply_blocked';
 
-  addCheck(checks, 'apply_preflight_summary', preflight_status === 'apply_preflight_pass' ? 'pass' : 'fail', preflight_status);
+  addCheck(
+    checks,
+    'apply_preflight_summary',
+    preflight_status === 'apply_preflight_pass' ? 'pass' : 'fail',
+    preflight_status,
+  );
 
   return {
     capture_id: CAPTURE_0123Z_ID,

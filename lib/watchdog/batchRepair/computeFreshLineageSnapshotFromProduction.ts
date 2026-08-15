@@ -39,6 +39,7 @@ export type FreshLineageSnapshotFromProduction = {
   fresh_lineage_snapshot_hash: string | null;
   fresh_cas_match: boolean | null;
   fresh_lineage_snapshot_hash_matches: boolean;
+  observed_integrity_gate_active: boolean | null;
   checks: TrackRCaptureAttestationCheck[];
 };
 
@@ -123,6 +124,7 @@ export async function computeFreshLineageSnapshotFromProduction(args?: {
 
   let fresh_lineage_snapshot_hash: string | null = null;
   let fresh_cas_match: boolean | null = null;
+  let observed_integrity_gate_active: boolean | null = null;
 
   if (!hasUpstashKvCredentials()) {
     addCheck(
@@ -201,6 +203,10 @@ export async function computeFreshLineageSnapshotFromProduction(args?: {
             cleanBlockCount: witness.clean_block_numbers.length,
             environment,
           });
+          observed_integrity_gate_active =
+            typeof observedBaseline.integrity_gate_active === 'boolean'
+              ? observedBaseline.integrity_gate_active
+              : null;
 
           const publicLatestSeal = (observedBaseline.latest_attested_seal as string | null) ?? null;
           addCheck(
@@ -308,6 +314,7 @@ export async function computeFreshLineageSnapshotFromProduction(args?: {
     fresh_lineage_snapshot_hash,
     fresh_cas_match,
     fresh_lineage_snapshot_hash_matches: fresh_cas_match === true,
+    observed_integrity_gate_active,
     checks,
   };
 }
