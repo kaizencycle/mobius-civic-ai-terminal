@@ -3,7 +3,7 @@
 **Cycle:** C-403  
 **PR:** #661 merged `2026-08-15T00:32:26Z` (`3c6fcfb9`)  
 **Subject:** `docs/epicon/cycles/C-403/fixtures/C403_PRODUCTION_WITNESS_SEAL_HASHES.pin.json`  
-**Disposition status:** ⬜ **pending custodian review**
+**Disposition status:** ✅ **RATIFY WITH NOTES** — `2026-08-15T14:34:00.000Z`
 
 Track R execution remains **NOT AUTHORIZED**. This disposition does not authorize mutation.
 
@@ -53,15 +53,25 @@ Governance: ZEUS ADOPT + EVE ADOPT + human CONSENT (#666) on Capture #5 packet
 
 ---
 
-## Custodian record (complete before CAS probe)
+## Custodian record
 
-**Disposition:** ⬜ A Ratify / ⬜ B Ratify with notes / ⬜ C Reject
+**Disposition:** B — Ratify with notes
 
-**Custodian:** _pending_
+**Custodian:** kaizencycle (Michael)
 
-**Signed at (UTC):** _pending_
+**Signed at (UTC):** `2026-08-15T14:34:00.000Z`
 
 **Notes:**
+
+> **Disposition: RATIFY WITH NOTES**
+>
+> PR #661’s production witness seal-hash pin is ratified based on Capture #5’s independent, production-authenticated validation: 248/248 expected witnesses matched, with zero missing, mismatched, or unexpected records.
+>
+> This is a retroactive procedural cure, not approval of the original review omission and not precedent for bypassing EP-3 custodian review. Future production witness pins require recorded custodian approval before merge.
+>
+> This disposition authorizes the pin’s continued use as evidence within the Capture #5 governance packet only. It does not authorize production mutation, satisfy either fresh CAS check, lift the integrity gate, approve Step 8, form a seal candidate, or promote sequence 361.
+>
+> Any lineage drift, pin mismatch, or failed commitGuard comparison requires zero writes and a new capture and governance packet.
 
 ---
 

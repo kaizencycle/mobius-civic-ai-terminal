@@ -48,8 +48,8 @@ Immutable archive: `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/`
 | 2 | ZEUS ADOPT | `docs/catalog/zeus/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json` | ✅ #664 |
 | 3 | EVE ADOPT | `docs/catalog/eve/2026-08-15T13-28-00Z-track-r-capture-0123Z-verification.json` | ✅ #664 |
 | 4 | Human custodian consent | `HUMAN_CUSTODIAN_CONSENT_SIGNED.md` | ✅ `2026-08-15T14:07:00Z` |
-| 5 | PR #661 disposition | `PR661_REVIEW_DISPOSITION.md` | ⬜ custodian record required |
-| 6 | One-shot handoff shell (draft) | `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md` | ⬜ non-executable prep |
+| 5 | PR #661 disposition | `PR661_REVIEW_DISPOSITION.md` | ✅ B Ratify with notes — `2026-08-15T14:34:00.000Z` |
+| 6 | One-shot handoff record (non-executable) | `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md` | ✅ #667 |
 | 7 | Fresh pre-mutation CAS (final preflight) | `pnpm track-r:execution-readiness` → see pass shape below | ⬜ run only when mutation window imminent |
 | 8 | Explicit execution authorization + apply | Separate operator command + `commitGuard` CAS recheck + `TRACK_R_BATCH_EXECUTION_ENABLED=true` | ⛔ forbidden |
 
@@ -117,17 +117,17 @@ From `lib/watchdog/batchRepair/commitGuard.ts`:
 
 ---
 
-## Governance debt (disposition before CAS probe)
+## Governance debt (#661 — closed)
 
-- PR #661 (EP-3 pin establishment) merged without recorded custodian approval review — complete `PR661_REVIEW_DISPOSITION.md` before the time-sensitive CAS probe.
+- PR #661 (EP-3 pin establishment): **B Ratify with notes** — `PR661_REVIEW_DISPOSITION.md`, signed `2026-08-15T14:34:00.000Z`. Retroactive procedural cure only; not precedent for bypassing EP-3 custodian review before merge.
 
 ---
 
 ## Next operator actions (corrected order)
 
 1. ~~Human custodian signs consent bound to capture #5 hash packet~~ ✅ `2026-08-15T14:07:00Z`
-2. **Custodian disposition of #661** — ratify / ratify with notes / reject (`PR661_REVIEW_DISPOSITION.md`)
-3. **Prepare non-executable one-shot handoff shell** — review `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md`
+2. ~~**Custodian disposition of #661**~~ ✅ B Ratify with notes — `2026-08-15T14:34:00.000Z`
+3. ~~**Non-executable one-shot handoff record**~~ ✅ `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md` (#667)
 4. **Run `pnpm track-r:execution-readiness`** with production KV credentials only when mutation window is imminent (final preflight)
 5. If CAS matches, **finalize explicit execution authorization**; `commitGuard` must independently recheck CAS at apply
 6. One constrained mutation attempt — or abort with zero writes and Capture #6 if either CAS check differs

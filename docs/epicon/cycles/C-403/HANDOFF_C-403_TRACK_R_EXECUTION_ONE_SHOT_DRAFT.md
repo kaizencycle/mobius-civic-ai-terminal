@@ -1,9 +1,9 @@
-# Track R One-Shot Execution Handoff — DRAFT (Non-Executable)
+# Track R One-Shot Execution Handoff — Non-Executable Record
 
 **Cycle:** C-403  
 **Capture ID:** `track-r-c403-2026-08-15T0123Z`  
-**Status:** **DRAFT — NOT AUTHORIZED**  
-**Purpose:** Shell for the separate one-shot execution path. This document does **not** authorize mutation.
+**Status:** **NOT AUTHORIZED** (non-executable handoff record complete)  
+**Purpose:** Completed shell for the separate one-shot execution path. This document does **not** authorize mutation.
 
 ---
 
@@ -15,8 +15,8 @@
 | 2 | ZEUS ADOPT (#664) | ✅ |
 | 3 | EVE ADOPT (#664) | ✅ |
 | 4 | Human custodian CONSENT (#666) | ✅ `2026-08-15T14:07:00Z` |
-| 5 | PR #661 custodian disposition | ⬜ `PR661_REVIEW_DISPOSITION.md` |
-| 6 | This handoff draft reviewed (non-executable) | ⬜ in progress |
+| 5 | PR #661 custodian disposition | ✅ B Ratify with notes — `2026-08-15T14:34:00.000Z` |
+| 6 | Non-executable handoff record | ✅ this document |
 | 7 | Operator readiness CAS probe | ⬜ run only when mutation window imminent |
 | 8 | Explicit execution authorization | ⛔ forbidden until #7 passes |
 
