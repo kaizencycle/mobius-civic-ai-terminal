@@ -81,6 +81,19 @@ jobs:
             exit 1
           fi
 
+      - name: Validate workflow inputs
+        env:
+          TRACK_R_BASE_URL: ${{ inputs.base_url }}
+        run: |
+          set -euo pipefail
+          case "$TRACK_R_BASE_URL" in
+            https://*) ;;
+            *)
+              echo "::error::base_url must be an https URL"
+              exit 1
+              ;;
+          esac
+
       - name: Prepare probe output directory
         run: mkdir -p ./track-r-preflight-output
 
@@ -93,6 +106,8 @@ jobs:
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           UPSTASH_REDIS_REST_URL: ${{ secrets.KV_REST_API_URL }}
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          TRACK_R_BASE_URL: ${{ inputs.base_url }}
+          TRACK_R_SKIP_CAS_PROBE: ${{ inputs.skip_cas_probe }}
         run: |
           set -uo pipefail
           export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
@@ -100,8 +115,8 @@ jobs:
           export UPSTASH_REDIS_REST_URL="$KV_REST_API_URL"
           export UPSTASH_REDIS_REST_TOKEN="$KV_REST_API_TOKEN"
 
-          cmd=(pnpm track-r:execution-readiness --base-url "${{ inputs.base_url }}")
-          if [ "${{ inputs.skip_cas_probe }}" = "true" ]; then
+          cmd=(pnpm track-r:execution-readiness --base-url "$TRACK_R_BASE_URL")
+          if [ "$TRACK_R_SKIP_CAS_PROBE" = "true" ]; then
             cmd+=(--skip-cas-probe)
           fi
 
@@ -121,6 +136,7 @@ jobs:
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           UPSTASH_REDIS_REST_URL: ${{ secrets.KV_REST_API_URL }}
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          TRACK_R_BASE_URL: ${{ inputs.base_url }}
         run: |
           set -uo pipefail
           export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
@@ -129,7 +145,7 @@ jobs:
           export UPSTASH_REDIS_REST_TOKEN="$KV_REST_API_TOKEN"
 
           set +e
-          pnpm track-r:batch-apply-preflight --base-url "${{ inputs.base_url }}" 2>&1 | tee ./track-r-preflight-output/batch-apply-preflight.log
+          pnpm track-r:batch-apply-preflight --base-url "$TRACK_R_BASE_URL" 2>&1 | tee ./track-r-preflight-output/batch-apply-preflight.log
           exit_code="${PIPESTATUS[0]}"
           set -e
           echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
@@ -141,13 +157,15 @@ jobs:
           PROBE: ${{ inputs.probe }}
           READINESS_EXIT: ${{ steps.readiness.outputs.exit_code }}
           PREFLIGHT_EXIT: ${{ steps.apply_preflight.outputs.exit_code }}
+          TRACK_R_BASE_URL: ${{ inputs.base_url }}
+          TRACK_R_SKIP_CAS_PROBE: ${{ inputs.skip_cas_probe }}
         run: |
           {
             echo "## Track R execution preflight (read-only)"
             echo ""
             echo "- **probe:** \`${PROBE}\`"
-            echo "- **base_url:** \`${{ inputs.base_url }}\`"
-            echo "- **skip_cas_probe:** \`${{ inputs.skip_cas_probe }}\`"
+            echo "- **base_url:** \`${TRACK_R_BASE_URL}\`"
+            echo "- **skip_cas_probe:** \`${TRACK_R_SKIP_CAS_PROBE}\`"
             echo "- **execution_authorized:** \`false\` (probes never authorize mutation)"
             echo ""
             echo "### How to run from mobile"
@@ -199,7 +217,11 @@ jobs:
               echo ""
               echo "<details><summary>Failed checks</summary>"
               echo ""
-              grep -E '^✗ \[fail\]' "$path" | head -20 || echo "_None logged_"
+              if grep -q -E '^✗ \[fail\]' "$path" 2>/dev/null; then
+                grep -E '^✗ \[fail\]' "$path" | head -20
+              else
+                echo "_None logged_"
+              fi
               echo ""
               echo "</details>"
               echo ""
@@ -228,21 +250,60 @@ jobs:
           PROBE: ${{ inputs.probe }}
           READINESS_EXIT: ${{ steps.readiness.outputs.exit_code }}
           PREFLIGHT_EXIT: ${{ steps.apply_preflight.outputs.exit_code }}
+          TRACK_R_SKIP_CAS_PROBE: ${{ inputs.skip_cas_probe }}
         run: |
           set -euo pipefail
           failed=0
 
+          log_field() {
+            local path="$1"
+            local prefix="$2"
+            grep -m1 "^${prefix}" "$path" | sed "s/^${prefix}[[:space:]]*//"
+          }
+
           if [ "$PROBE" = "both" ] || [ "$PROBE" = "execution-readiness" ]; then
+            readiness_log="./track-r-preflight-output/execution-readiness.log"
             if [ "${READINESS_EXIT:-missing}" != "0" ]; then
               echo "::error::execution-readiness probe failed (exit ${READINESS_EXIT:-missing})"
               failed=1
+            elif [ ! -f "$readiness_log" ]; then
+              echo "::error::execution-readiness log missing"
+              failed=1
+            else
+              readiness_status="$(log_field "$readiness_log" "Readiness status:")"
+              fresh_cas_match="$(log_field "$readiness_log" "Fresh CAS match:")"
+              if [ "$TRACK_R_SKIP_CAS_PROBE" = "true" ]; then
+                if [ "$readiness_status" != "awaiting_human_consent" ] && [ "$readiness_status" != "awaiting_execution_handoff" ]; then
+                  echo "::error::execution-readiness governance mode expected awaiting_human_consent or awaiting_execution_handoff, got ${readiness_status:-missing}"
+                  failed=1
+                fi
+              else
+                if [ "$readiness_status" != "awaiting_execution_handoff" ]; then
+                  echo "::error::execution-readiness expected Readiness status: awaiting_execution_handoff, got ${readiness_status:-missing}"
+                  failed=1
+                fi
+                if [ "$fresh_cas_match" != "true" ]; then
+                  echo "::error::execution-readiness expected Fresh CAS match: true, got ${fresh_cas_match:-missing}"
+                  failed=1
+                fi
+              fi
             fi
           fi
 
           if [ "$PROBE" = "both" ] || [ "$PROBE" = "batch-apply-preflight" ]; then
+            preflight_log="./track-r-preflight-output/batch-apply-preflight.log"
             if [ "${PREFLIGHT_EXIT:-missing}" != "0" ]; then
               echo "::error::batch-apply-preflight probe failed (exit ${PREFLIGHT_EXIT:-missing})"
               failed=1
+            elif [ ! -f "$preflight_log" ]; then
+              echo "::error::batch-apply-preflight log missing"
+              failed=1
+            else
+              preflight_status="$(log_field "$preflight_log" "Preflight status:")"
+              if [ "$preflight_status" != "apply_preflight_pass" ]; then
+                echo "::error::batch-apply-preflight expected Preflight status: apply_preflight_pass, got ${preflight_status:-missing}"
+                failed=1
+              fi
             fi
           fi
 
