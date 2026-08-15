@@ -20,6 +20,7 @@ import {
 } from '@/lib/watchdog/batchRepair/productionKvIdentityReceipt';
 import { hasUpstashKvCredentials } from '@/lib/kv/upstashEnv';
 import { loadAuthoritativeLiveAffectedBlockEvidence } from '@/lib/watchdog/batchRepair/liveAffectedBlockEvidence';
+import { loadLiveLineagePointerObservationsPrimaryOnly } from '@/lib/watchdog/batchRepair/liveLineagePointerObservations';
 import {
   assessLiveBoundary4142,
   loadLiveSealsForBoundary4142,
@@ -106,6 +107,11 @@ export async function buildTrackREvidencePackage(
   const credentials_configured = hasUpstashKvCredentials();
 
   let kv_identity_receipt: ProductionKvIdentityReceipt | null = null;
+  // v2-only: unlike v1 (which never resolved these and always hashed null —
+  // preserved as-is below for Capture #5/#6 compatibility), v2 treats
+  // active_lineage_version / live_canonical_pointer as production lineage,
+  // so it must hash the real live observation, not a hardcoded null.
+  let v2LineagePointers = { active_lineage_version: null as string | null, live_canonical_pointer: null as string | null };
   if (credentials_configured) {
     const kv_identity = await verifyProductionKvEnvironmentIdentity({
       anchors: input.production_kv_anchors,
@@ -125,6 +131,12 @@ export async function buildTrackREvidencePackage(
       kv_identity,
       api_cross_check,
     });
+
+    const lineagePointers = await loadLiveLineagePointerObservationsPrimaryOnly();
+    v2LineagePointers = {
+      active_lineage_version: lineagePointers.active_lineage_version,
+      live_canonical_pointer: lineagePointers.live_canonical_pointer,
+    };
   }
 
   const affectedBlockEvidence = await loadAuthoritativeLiveAffectedBlockEvidence({
@@ -197,8 +209,8 @@ export async function buildTrackREvidencePackage(
     candidate_formation_blocked: input.observed.candidate_formation_blocked as boolean | null,
     witness_audit_hash: input.witness_audit_hash,
     resolution_table_hash: input.resolution_table_hash,
-    active_lineage_version: null,
-    live_canonical_pointer: null,
+    active_lineage_version: v2LineagePointers.active_lineage_version,
+    live_canonical_pointer: v2LineagePointers.live_canonical_pointer,
     pinned_affected_block_numbers_hash: hashAffectedBlockNumbers(pinnedBlocks),
     live_affected_block_numbers_hash: affectedBlockComparison.live_block_numbers
       ? hashAffectedBlockNumbers(affectedBlockComparison.live_block_numbers)
