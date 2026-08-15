@@ -23,9 +23,9 @@ Capture #4 proved KV identity, affected-block set alignment, completeness, and c
 | Phase | Action | Status |
 |---|---|---|
 | **A — Pin establishment** | Commit `C403_PRODUCTION_WITNESS_SEAL_HASHES.pin.json` from capture #4 authenticated export (248 seals) | **This PR** |
-| **B — Pin validation** | Re-run `pnpm track-r:production-capture` after merge; live KV must match committed pin | **Required before ZEUS ADOPT** |
+| **B — Pin validation** | Re-run `pnpm track-r:production-capture` after merge; live KV must match committed pin | **Complete — capture #5** (`track-r-c403-2026-08-15T0123Z`) |
 
-Capture #4 artifact package (`READY_FOR_ZEUS_EVE_REVIEW`) used pre-pin comparison logic. After this PR merges, **attestation must not proceed until capture #5 passes** with `comparison_mode: pinned_production_witness_seal_hashes`.
+Capture #4 artifact package used pre-pin comparison logic. **Attestation now binds to capture #5** — see `HANDOFF_C-403_TRACK_R_ATTESTATION_capture-0123Z.md`.
 
 ---
 

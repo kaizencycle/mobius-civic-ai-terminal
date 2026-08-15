@@ -3,7 +3,7 @@
   "environment_label": "production-witness-capture-read-only",
   "reader_implementation": "lib/watchdog/batchRepair/kvEnvironmentIdentity.ts",
   "reader_version": "C-403-handoff-v1",
-  "retrieved_at": "2026-08-14T23:24:27.582Z",
+  "retrieved_at": "2026-08-15T01:23:42.484Z",
   "anchor_results": [
     {
       "anchor": "latest_seal_id",
@@ -77,13 +77,13 @@
     }
   ],
   "api_cross_check": {
-    "fetched_at": "2026-08-14T23:24:27.582Z",
+    "fetched_at": "2026-08-15T01:23:42.484Z",
     "base_url": "https://mobius-civic-ai-terminal.vercel.app",
     "latest_attested_seal": "seal-C-372-002",
     "attested_seal_index": 360,
     "historical_collision_pairs": 125,
     "integrity_gate_active": true,
-    "collision_affected_blocks_present": false
+    "collision_affected_blocks_present": true
   },
   "identity_status": "PRODUCTION_KV_IDENTITY_CONFIRMED",
   "identity_hash": "fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e",
