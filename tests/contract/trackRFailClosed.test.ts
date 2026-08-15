@@ -1035,6 +1035,72 @@ describe('trackRFailClosed C-403', () => {
     assert.equal(computeLineageSnapshotHash(lineageBase), lineageA);
   });
 
+  it('documents v1 lineage CAS drift from capture_id and operator cycle label alone', () => {
+    const pinned = PINNED_WITNESS.contested_block_numbers;
+    const blockHash = hashAffectedBlockNumbers(pinned);
+    const productionLineage = {
+      latest_attested_seal: 'seal-C-372-002',
+      attested_seal_index: 360,
+      projected_next_sequence: 361,
+      historical_collision_pairs: 125,
+      contested_block_positions: 123,
+      uncontested_positions: 71,
+      canonical_reserve_blocks: null,
+      integrity_gate_active: true,
+      reserve_block_lane: 'integrity_hold',
+      candidate_formation_blocked: true,
+      witness_audit_hash: '9196394bdbffe04e7a87d7cb2320b30b2e3c9cc07f24df9dfdfa7351b5dc6b87',
+      resolution_table_hash: 'd821c9ba7fc95b5c5055c8dce41170319c11ec89ba1486a69de90e347760c845',
+      active_lineage_version: null,
+      live_canonical_pointer: null,
+      pinned_affected_block_numbers_hash: blockHash,
+      live_affected_block_numbers_hash: blockHash,
+      affected_block_set_match: true,
+    };
+    const capture5 = computeLineageSnapshotHash({
+      ...productionLineage,
+      capture_id: 'track-r-c403-2026-08-15T0123Z',
+      cycle: 'C-403',
+    });
+    const preflight1656 = computeLineageSnapshotHash({
+      ...productionLineage,
+      capture_id: 'track-r-c403-2026-08-15T0123Z',
+      cycle: 'C-404',
+    });
+    const capture6 = computeLineageSnapshotHash({
+      ...productionLineage,
+      capture_id: 'track-r-c403-2026-08-15T1706Z',
+      cycle: 'C-404',
+    });
+
+    assert.notEqual(capture5, preflight1656);
+    assert.notEqual(preflight1656, capture6);
+    assert.equal(
+      preflight1656,
+      'd0880d2936f4ffffc1d783cc6601f557abcb31a559671f838b930e9b7d7f8845',
+    );
+    assert.equal(
+      capture6,
+      '88b60b24aa3dadfb23b150b64899ff38765aa3e93fbadfc33315460298e5caa4',
+    );
+    assert.equal(
+      computeLineageSnapshotHash({
+        ...productionLineage,
+        capture_id: 'track-r-c403-2026-08-15T1706Z',
+        cycle: 'C-404',
+      }),
+      capture6,
+    );
+    assert.equal(
+      computeLineageSnapshotHash({
+        ...productionLineage,
+        capture_id: 'track-r-c403-2026-08-15T0123Z',
+        cycle: 'C-404',
+      }),
+      preflight1656,
+    );
+  });
+
   it('governance 131 cutoff preserves verified_unattached 132-194', async () => {
     const witness = PINNED_WITNESS;
     const table = loadResolutionTableFromFile(TABLE_PATH);
