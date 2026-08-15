@@ -37,7 +37,8 @@
     "track-r:capture-attestation-verify": "tsx scripts/track-r-capture-attestation-verify.ts",
     "track-r:execution-readiness": "tsx scripts/track-r-execution-readiness.ts",
     "track-r:batch-apply-preflight": "tsx scripts/track-r-batch-apply-preflight.ts",
-    "track-r:lineage-cas-compare": "tsx scripts/track-r-lineage-cas-three-way-compare.ts"
+    "track-r:lineage-cas-compare": "tsx scripts/track-r-lineage-cas-three-way-compare.ts",
+    "track-r:capture-v2-stability-verify": "tsx scripts/track-r-capture-v2-stability-verify.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",

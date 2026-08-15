@@ -1,0 +1,90 @@
+{
+  "schema": "track-r-v2-stability-comparison.v1",
+  "cycle": "C-404",
+  "verification_status": "partial_see_TRACK_R_V2_VERIFICATION_STATUS.md",
+  "capture_a": {
+    "role": "independent_v2_stability_witness",
+    "capture_id": "track-r-c403-2026-08-15T2012Z",
+    "run_id": 31906059559,
+    "run_url": "https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/31906059559"
+  },
+  "capture_b": {
+    "role": "canonical_v2_governance_candidate",
+    "capture_id": "track-r-c403-2026-08-15T2014Z",
+    "run_id": 31906143684,
+    "run_url": "https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/31906143684"
+  },
+  "stability_result": {
+    "lineage_snapshot_hash_v2": {
+      "capture_a": "b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb",
+      "capture_b": "b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb",
+      "match": true,
+      "verified_via": "GitHub Actions job log console output (mcp__github__get_job_logs), both jobs",
+      "independently_recomputed_from_raw_json": false
+    }
+  },
+  "expected_stable_v2_semantic_fields": {
+    "note": "Per the C-404 handoff, these fields must be verified unchanged between the two captures. All require the raw TRACK_R_LIVE_DRY_RUN_PACKAGE.json, which this session could not download. Listed here as pending, not assumed.",
+    "fields": [
+      "latest_attested_seal",
+      "attested_seal_index",
+      "projected_next_sequence",
+      "historical_collision_pairs",
+      "contested_block_positions",
+      "uncontested_positions",
+      "canonical_reserve_blocks",
+      "integrity_gate_active",
+      "reserve_block_lane",
+      "candidate_formation_blocked",
+      "witness_audit_hash",
+      "resolution_table_hash",
+      "active_lineage_version",
+      "live_canonical_pointer",
+      "pinned_affected_block_numbers_hash",
+      "live_affected_block_numbers_hash",
+      "affected_block_set_match"
+    ],
+    "status_per_field": "not_independently_verified_artifact_download_blocked",
+    "indirect_evidence": "Both captures' lineage_snapshot_hash_v2 matched, and v2 is a pure function of exactly these fields plus the domain tag (see computeLineageSnapshotHashV2) — so if the stored inputs match what the hash was computed from, these fields did not change between captures. This is a strong logical implication but was not independently confirmed field-by-field against the raw JSON."
+  },
+  "observed_top_level_fields": {
+    "note": "Directly printed by the capture script to the job log console (not from the raw JSON package). These are legitimate direct observations, not inferred.",
+    "capture_a": {
+      "executive_status": "READY_FOR_ZEUS_EVE_REVIEW",
+      "process_exit_code": 0,
+      "lineage_snapshot_hash_v1": "416ef085c9261a66c0838c653becbe28cfc7f1de716fbfcd3e56856398bd7f92",
+      "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
+      "execution_witness_hash_v1": "a6fa8c1d8719c9fe4e775799210d59fe3db463b3130957bb43b6d72dc6817954",
+      "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d",
+      "execution_authorized": false,
+      "affected_block_set_match": true,
+      "live_witness_ok": true
+    },
+    "capture_b": {
+      "executive_status": "READY_FOR_ZEUS_EVE_REVIEW",
+      "process_exit_code": 0,
+      "lineage_snapshot_hash_v1": "1e6810b7bb72e56468db67d4de304e425adf5d20bfe47cf8269240303d1230bb",
+      "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
+      "execution_witness_hash_v1": "c76f85ced49ce0444cc7632ccea5507d8fd938cbdccfc46d37635f51063591f7",
+      "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d",
+      "execution_authorized": false,
+      "affected_block_set_match": true,
+      "live_witness_ok": true
+    },
+    "diff": {
+      "capture_id": "expected drift (envelope metadata)",
+      "process_started_at": "expected drift (timestamp)",
+      "lineage_snapshot_hash_v1": "expected drift — this IS the v1 defect the CAS-v2 repair fixes",
+      "execution_witness_hash_v1": "expected drift — bound to v1 lineage hash, which differs; not the v2 governance witness",
+      "telemetry_snapshot_hash": "expected drift (telemetry, not lineage)"
+    }
+  },
+  "execution_witness_hash_v2": {
+    "capture_a": null,
+    "capture_b": null,
+    "status": "BLOCKED — not computable without raw package JSON. See TRACK_R_V2_VERIFICATION_STATUS.md. Not fabricated."
+  },
+  "unexplained_v2_semantic_field_differences": [],
+  "stop_condition_triggered": false,
+  "stop_condition_note": "No CONFIRMED unexplained difference in a v2 semantic field was found — the one hash that could be directly observed (lineage_snapshot_hash_v2) matched exactly. This does not mean all v2 semantic fields were confirmed identical field-by-field; it means no evidence of divergence was found within what was accessible this session."
+}
