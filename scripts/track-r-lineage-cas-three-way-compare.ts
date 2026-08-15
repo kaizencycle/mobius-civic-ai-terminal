@@ -4,9 +4,13 @@
  *
  * Compares Capture #5 (0123Z), simulated 16:56 preflight input, and Capture #6 (1706Z).
  * Recomputes hashes with normalization to isolate volatile vs structural drift.
+ *
+ * Usage:
+ *   pnpm track-r:lineage-cas-compare
+ *   pnpm track-r:lineage-cas-compare path/to/TRACK_R_LIVE_DRY_RUN_PACKAGE.json
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   computeLineageSnapshotHash,
@@ -16,24 +20,41 @@ import { hashAffectedBlockNumbers as hashBlocks } from '@/lib/watchdog/batchRepa
 
 type PackageJson = Record<string, unknown>;
 
-const CAPTURE5_PATH =
+const WITNESS_PATH =
+  'docs/epicon/cycles/C-403/fixtures/C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json';
+const CAPTURE5_PACKAGE =
   'artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/TRACK_R_LIVE_DRY_RUN_PACKAGE.json';
-const CAPTURE6_PATH = process.argv[2] ?? '/tmp/capture6/track-r-production-capture/TRACK_R_LIVE_DRY_RUN_PACKAGE.json';
+const CAPTURE6_DEFAULT =
+  'artifacts/C-403/track-r-live-dry-run/history/capture-1706Z/TRACK_R_LIVE_DRY_RUN_PACKAGE.json';
 
 const ATTESTED_CAPTURE_ID = 'track-r-c403-2026-08-15T0123Z';
 const PREFLIGHT_FRESH_HASH = 'd0880d2936f4ffffc1d783cc6601f557abcb31a559671f838b930e9b7d7f8845';
 
-function loadPackage(path: string): PackageJson {
-  return JSON.parse(readFileSync(join(process.cwd(), path), 'utf8')) as PackageJson;
+function loadWitnessContestedBlocks(): number[] {
+  return JSON.parse(readFileSync(join(process.cwd(), WITNESS_PATH), 'utf8'))
+    .contested_block_numbers as number[];
 }
 
-function loadPackageAbs(path: string): PackageJson {
-  return JSON.parse(readFileSync(path, 'utf8')) as PackageJson;
+function loadPackageFromRepo(relativePath: string): PackageJson {
+  const fullPath = join(process.cwd(), relativePath);
+  if (!existsSync(fullPath)) {
+    throw new Error(`Missing capture package: ${fullPath}`);
+  }
+  return JSON.parse(readFileSync(fullPath, 'utf8')) as PackageJson;
+}
+
+function resolveCapture6Path(): string {
+  const arg = process.argv[2];
+  if (arg) {
+    return arg.startsWith('/') ? arg : join(process.cwd(), arg);
+  }
+  return join(process.cwd(), CAPTURE6_DEFAULT);
 }
 
 /** Capture-path lineage input (matches buildTrackREvidencePackage / verifyTrackRCaptureAttestation). */
 function lineageFromCapturePackage(
   pkg: PackageJson,
+  witnessContestedBlocks: number[],
   options?: { capture_id?: string; cycle?: string | null },
 ): LineageSnapshotInput {
   const captureId = options?.capture_id ?? String(pkg.capture_id ?? '');
@@ -65,11 +86,7 @@ function lineageFromCapturePackage(
     resolution_table_hash: String(pinned.resolution_table_hash ?? ''),
     active_lineage_version: null,
     live_canonical_pointer: null,
-    pinned_affected_block_numbers_hash: hashBlocks(
-      (pinned.contested_positions_pinned as number | undefined)
-        ? Array.from({ length: pinned.contested_positions_pinned as number }, (_, i) => i + 1)
-        : [],
-    ),
+    pinned_affected_block_numbers_hash: hashBlocks(witnessContestedBlocks),
     live_affected_block_numbers_hash:
       liveBlocks.length > 0 ? hashBlocks(liveBlocks) : null,
     affected_block_set_match: affected.set_match === true,
@@ -150,44 +167,20 @@ function printSection(title: string): void {
 }
 
 function main(): void {
-  const capture5 = loadPackage(CAPTURE5_PATH);
-  const capture6 = loadPackageAbs(CAPTURE6_PATH);
+  const witnessContestedBlocks = loadWitnessContestedBlocks();
+  const capture5 = loadPackageFromRepo(CAPTURE5_PACKAGE);
+  const capture6Path = resolveCapture6Path();
+  const capture6 = JSON.parse(readFileSync(capture6Path, 'utf8')) as PackageJson;
 
-  const capture5Lineage = lineageFromCapturePackage(capture5);
-  // Fix pinned hash — use witness pin count from package evidence path
-  const pinned5 = (capture5.pinned_evidence ?? {}) as Record<string, unknown>;
-  capture5Lineage.pinned_affected_block_numbers_hash = hashBlocks(
-    JSON.parse(
-      readFileSync(
-        join(
-          process.cwd(),
-          'docs/epicon/cycles/C-403/fixtures/C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json',
-        ),
-        'utf8',
-      ),
-    ).contested_block_numbers as number[],
-  );
-
-  const capture6Lineage = lineageFromCapturePackage(capture6);
-  capture6Lineage.pinned_affected_block_numbers_hash = capture5Lineage.pinned_affected_block_numbers_hash;
-
-  const witnessBlocks = JSON.parse(
-    readFileSync(
-      join(
-        process.cwd(),
-        'docs/epicon/cycles/C-403/fixtures/C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json',
-      ),
-      'utf8',
-    ),
-  ).contested_block_numbers as number[];
+  const capture5Lineage = lineageFromCapturePackage(capture5, witnessContestedBlocks);
+  const capture6Lineage = lineageFromCapturePackage(capture6, witnessContestedBlocks);
 
   const capture6Observed = (capture6.observed_baseline ?? {}) as Record<string, unknown>;
   const capture6Affected = (capture6.affected_block_comparison ?? {}) as Record<string, unknown>;
   const pinned6 = (capture6.pinned_evidence ?? {}) as Record<string, unknown>;
 
   // Simulate 16:56 preflight: attested capture_id + production baseline at Capture #6 time
-  // (seal bodies unchanged; cycle already C-404 by 17:06, likely same at 16:56)
-  const preflightSim = lineageFromPreflightSimulation(capture6Observed, witnessBlocks, {
+  const preflightSim = lineageFromPreflightSimulation(capture6Observed, witnessContestedBlocks, {
     capture_id: ATTESTED_CAPTURE_ID,
     witness_audit_hash: String(pinned6.witness_audit_hash ?? ''),
     resolution_table_hash: String(pinned6.resolution_table_hash ?? ''),
@@ -205,6 +198,8 @@ function main(): void {
   console.log(
     JSON.stringify(
       {
+        capture5_package: CAPTURE5_PACKAGE,
+        capture6_package: capture6Path.replace(`${process.cwd()}/`, ''),
         capture5_attested: {
           capture_id: capture5.capture_id,
           stored: (capture5.attestation_hashes as Record<string, string>).lineage_snapshot_hash,
@@ -253,16 +248,15 @@ function main(): void {
       input: { ...capture5Lineage, cycle: 'C-404' },
     },
     {
-      label: 'Capture #5 with C-404 + attested capture_id unchanged',
-      input: { ...capture5Lineage, cycle: 'C-404' },
+      label: 'Capture #5 with Capture #6 capture_id (1706Z)',
+      input: {
+        ...capture5Lineage,
+        capture_id: String(capture6.capture_id ?? 'track-r-c403-2026-08-15T1706Z'),
+      },
     },
     {
-      label: 'Lineage core only (exclude capture_id + cycle)',
-      input: {
-        ...capture6Lineage,
-        capture_id: ATTESTED_CAPTURE_ID,
-        cycle: 'C-403',
-      },
+      label: 'Capture #6 with Capture #5 cycle label (C-403)',
+      input: { ...capture6Lineage, cycle: 'C-403' },
     },
   ];
 

@@ -20,7 +20,12 @@ Semantic manifest (`27c94b0f…`), rollback manifest (`0a61a3ff…`), and affect
 
 ## Field-level three-way comparison
 
-Script: `pnpm exec tsx scripts/track-r-lineage-cas-three-way-compare.ts`
+Script: `pnpm track-r:lineage-cas-compare`
+
+Committed evidence paths:
+
+- Capture #5: `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/`
+- Capture #6: `artifacts/C-403/track-r-live-dry-run/history/capture-1706Z/` (read-only; not attested)
 
 ### Capture #5 vs Capture #6 (capture path)
 
