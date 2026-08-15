@@ -62,3 +62,5 @@ Handoff: `docs/epicon/cycles/C-403/HANDOFF_C-403_TRACK_R_ATTESTATION_capture-232
 Pending: ZEUS ADOPT + EVE ADOPT + human consent on **capture #5** hash packet, then separate execution handoff.
 
 See `docs/epicon/cycles/C-403/HANDOFF_C-403_TRACK_R_ATTESTATION_capture-0123Z.md`.
+
+Immutable artifact root: `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/`

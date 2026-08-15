@@ -58,17 +58,17 @@ Live witness `MATCH` now requires: `live_kv_hash === pinned_witness_hash` (from 
 
 ---
 
-## Evidence bundle (committed)
+## Evidence bundle (committed — immutable archive)
 
 | File | Purpose |
 |---|---|
 | `docs/epicon/cycles/C-403/fixtures/C403_PRODUCTION_WITNESS_SEAL_HASHES.pin.json` | Independent 248-seal hash expectations |
-| `artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_DRY_RUN_PACKAGE.json` | Capture #4 package (historical) |
-| `artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json` | Capture #4 per-record export |
-| `artifacts/C-403/track-r-live-dry-run/ZEUS_ATTESTATION_TEMPLATE.md` | Unsigned ZEUS checklist |
-| `artifacts/C-403/track-r-live-dry-run/EVE_ATTESTATION_TEMPLATE.md` | Unsigned EVE checklist |
-| `artifacts/C-403/track-r-live-dry-run/HUMAN_EXECUTION_CHECKLIST.md` | Unsigned human gate |
-| `docs/epicon/cycles/C-403/TRACK_R_LIVE_DRY_RUN_REPORT.md` | Operator summary |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-2324Z/TRACK_R_LIVE_DRY_RUN_PACKAGE.json` | Capture #4 package (**immutable**) |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-2324Z/TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json` | Capture #4 per-record export (**immutable**) |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-2324Z/CAPTURE_PROVENANCE.json` | GHA provenance + capture #4 hash packet |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-2324Z/ZEUS_ATTESTATION_TEMPLATE.md` | Unsigned ZEUS checklist (capture #4 era) |
+
+Rolling paths under `artifacts/C-403/track-r-live-dry-run/` mirror capture #5 only — do not use them for capture #4 provenance.
 
 ---
 

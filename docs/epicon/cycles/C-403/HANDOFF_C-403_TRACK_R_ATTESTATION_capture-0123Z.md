@@ -65,17 +65,19 @@ Prior pin-establishment handoff: `HANDOFF_C-403_TRACK_R_ATTESTATION_capture-2324
 
 ---
 
-## Evidence bundle (committed)
+## Evidence bundle (committed — immutable archive)
 
 | File | Purpose |
 |---|---|
-| `artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_DRY_RUN_PACKAGE.json` | Canonical capture #5 package |
-| `artifacts/C-403/track-r-live-dry-run/TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json` | Per-record witness export |
-| `artifacts/C-403/track-r-live-dry-run/CAPTURE_PROVENANCE.json` | GHA provenance + hash packet |
-| `artifacts/C-403/track-r-live-dry-run/ZEUS_ATTESTATION_TEMPLATE.md` | Unsigned ZEUS checklist |
-| `artifacts/C-403/track-r-live-dry-run/EVE_ATTESTATION_TEMPLATE.md` | Unsigned EVE checklist |
-| `artifacts/C-403/track-r-live-dry-run/HUMAN_EXECUTION_CHECKLIST.md` | Unsigned human gate |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/TRACK_R_LIVE_DRY_RUN_PACKAGE.json` | Canonical capture #5 package (**immutable**) |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json` | Per-record witness export |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/CAPTURE_PROVENANCE.json` | GHA provenance + hash packet |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/ZEUS_ATTESTATION_TEMPLATE.md` | Unsigned ZEUS checklist |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/EVE_ATTESTATION_TEMPLATE.md` | Unsigned EVE checklist |
+| `artifacts/C-403/track-r-live-dry-run/history/capture-0123Z/HUMAN_EXECUTION_CHECKLIST.md` | Unsigned human gate |
 | `docs/epicon/cycles/C-403/TRACK_R_LIVE_DRY_RUN_REPORT.md` | Operator summary |
+
+Rolling mirror (same capture #5 content): `artifacts/C-403/track-r-live-dry-run/` — see `history/README.md`.
 
 ---
 

@@ -1,0 +1,16 @@
+{
+  "set_match": true,
+  "missing_from_live": [],
+  "unexpected_in_live": [],
+  "duplicate_live_positions": [],
+  "pinned_contested_count": 123,
+  "live_contested_count": 123,
+  "collision_pair_count_live": 125,
+  "live_source": "kv:primary-vault-v2:derived-collision-affected-blocks",
+  "live_artifact_fresh": true,
+  "live_artifact_stale": false,
+  "audited_at": "2026-08-14T23:24:27.582Z",
+  "errors": [
+    "[info] watchdog primary KV affected-block snapshot missing — deriving from vault seal scan"
+  ]
+}
