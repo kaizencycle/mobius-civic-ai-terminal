@@ -32,7 +32,17 @@
     "live_witness_ok": true
   },
   "execution_witness_hash_v2": null,
-  "execution_witness_hash_v2_note": "Not printed by the capture script (buildTrackREvidencePackage/track-r-live-dry-run-package.ts compute a v2 LINEAGE hash but do not yet compute or print a v2 EXECUTION-WITNESS hash). Recomputing it via computeExecutionWitnessHashV2 requires per-record witness results, live/pinned affected-block numbers, export_source, and environment_identifier from the raw TRACK_R_LIVE_DRY_RUN_PACKAGE.json inside the artifact ZIP, which this session could not download. NOT FABRICATED — left null pending artifact access.",
+  "execution_witness_hash_v2_note": "Not computed for this capture — Capture #8 is the independent stability witness, not the governance candidate, so per the C-404 handoff Phase 3 only Capture #9's v2 execution-witness hash needs to be constructed. The custodian-run pnpm track-r:capture-v2-stability-verify confirmed this capture's witness comparison independently anyway (see witness_comparison_v2_confirmed below), just without carrying that value forward into a signed governance hash for this role.",
+  "witness_comparison_v2_confirmed": {
+    "export_complete": true,
+    "match": 248,
+    "total": 248,
+    "mismatch": 0,
+    "missing": 0,
+    "unexpected": 0,
+    "source": "custodian-run pnpm track-r:capture-v2-stability-verify"
+  },
+  "production_kv_identity_receipt_hash": "fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e",
   "artifact": {
     "artifact_id": 9252374632,
     "artifact_name": "track-r-production-capture",
