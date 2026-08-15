@@ -39,7 +39,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: track-r-execution-preflight
@@ -235,6 +235,85 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Generate CAS probe report
+        if: always()
+        env:
+          PROBE: ${{ inputs.probe }}
+          READINESS_EXIT: ${{ steps.readiness.outputs.exit_code }}
+          PREFLIGHT_EXIT: ${{ steps.apply_preflight.outputs.exit_code }}
+          TRACK_R_BASE_URL: ${{ inputs.base_url }}
+          TRACK_R_SKIP_CAS_PROBE: ${{ inputs.skip_cas_probe }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+
+          field() {
+            local path="$1" prefix="$2"
+            [ -f "$path" ] && grep -m1 "^${prefix}" "$path" | sed "s/^${prefix}[[:space:]]*//"
+          }
+          mark() {
+            [ "$1" = "$2" ] && echo "✅" || echo "❌"
+          }
+
+          readiness_log="./track-r-preflight-output/execution-readiness.log"
+          preflight_log="./track-r-preflight-output/batch-apply-preflight.log"
+          capture_id="$(field "$readiness_log" "Capture ID:")"
+          [ -z "$capture_id" ] && capture_id="$(field "$preflight_log" "Capture ID:")"
+          readiness_status="$(field "$readiness_log" "Readiness status:")"
+          fresh_cas_match="$(field "$readiness_log" "Fresh CAS match:")"
+          preflight_status="$(field "$preflight_log" "Preflight status:")"
+          commit_guard="$(field "$preflight_log" "Commit guard preflight:")"
+
+          {
+            echo "# Track R Pre-Mutation CAS Probe Report"
+            echo ""
+            echo "**Run:** ${RUN_URL}"
+            echo "**Capture ID:** \`${capture_id:-unknown}\`"
+            echo "**Timestamp:** $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "**Probe:** \`${PROBE}\`  **Base URL:** \`${TRACK_R_BASE_URL}\`  **Skip CAS probe:** \`${TRACK_R_SKIP_CAS_PROBE}\`"
+            echo ""
+            echo "## Execution Readiness"
+            echo ""
+            echo "- Status: \`${readiness_status:-not run}\`"
+            echo "- Fresh CAS match: \`${fresh_cas_match:-n/a}\`"
+            echo "- exit_code: \`${READINESS_EXIT:-n/a}\`"
+            echo ""
+            if [ -f "$readiness_log" ]; then
+              echo "<details><summary>Full output</summary>"
+              echo ""
+              echo '```text'
+              cat "$readiness_log"
+              echo '```'
+              echo "</details>"
+            else
+              echo "_Not run_"
+            fi
+            echo ""
+            echo "## Preflight Check"
+            echo ""
+            echo "- Status: \`${preflight_status:-not run}\`"
+            echo "- Commit guard preflight: \`${commit_guard:-n/a}\`"
+            echo "- exit_code: \`${PREFLIGHT_EXIT:-n/a}\`"
+            echo ""
+            if [ -f "$preflight_log" ]; then
+              echo "<details><summary>Full output</summary>"
+              echo ""
+              echo '```text'
+              cat "$preflight_log"
+              echo '```'
+              echo "</details>"
+            else
+              echo "_Not run_"
+            fi
+            echo ""
+            echo "## Summary"
+            echo ""
+            echo "- $(mark "$readiness_status" "awaiting_execution_handoff") Execution readiness: \`${readiness_status:-not run}\`"
+            echo "- $(mark "$preflight_status" "apply_preflight_pass") Preflight: \`${preflight_status:-not run}\`"
+            echo ""
+            echo "**Decision:** both gates must show a pass shape before production mutation is authorized. \`execution_authorized\` stays \`false\` regardless — probes never authorize mutation."
+          } > ./track-r-preflight-output/cas-probe-report.md
+
       - name: Upload probe logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -308,3 +387,48 @@ jobs:
           fi
 
           exit "$failed"
+
+      - name: Commit CAS probe evidence
+        # Only commit a full pre-mutation clearance record: both probes must have
+        # actually run against live CAS (not a single-probe or governance-only
+        # skip_cas_probe run), and both must have passed.
+        if: success() && github.ref == 'refs/heads/main' && inputs.probe == 'both' && !inputs.skip_cas_probe
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          dest="docs/epicon/cycles/C-404/cas-probes"
+          mkdir -p "$dest"
+          cp ./track-r-preflight-output/cas-probe-report.md "$dest/CAS-PROBE-${RUN_ID}.md"
+          if [ -f ./track-r-preflight-output/execution-readiness.log ]; then
+            cp ./track-r-preflight-output/execution-readiness.log "$dest/readiness-${RUN_ID}.txt"
+          fi
+          if [ -f ./track-r-preflight-output/batch-apply-preflight.log ]; then
+            cp ./track-r-preflight-output/batch-apply-preflight.log "$dest/preflight-${RUN_ID}.txt"
+          fi
+
+          git config user.name "ATLAS CI"
+          git config user.email "atlas@mobius-substrate.com"
+          git add -f "$dest"
+          if git diff --cached --quiet; then
+            echo "No evidence changes to commit."
+            exit 0
+          fi
+          git commit -m "evidence(c-404): Track R pre-mutation CAS probe results (run ${RUN_ID})"
+
+          # main can move between checkout and here (e.g. publish-cycle-state.yml
+          # pushes every 10 minutes outside this workflow's concurrency group), so
+          # retry once against latest main before giving up.
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}/3), rebasing onto latest origin/main..."
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "::error::Rebase onto origin/main failed; evidence commit left local only."
+              exit 1
+            fi
+          done
+          echo "::error::Could not push evidence commit to main after retries."
+          exit 1
