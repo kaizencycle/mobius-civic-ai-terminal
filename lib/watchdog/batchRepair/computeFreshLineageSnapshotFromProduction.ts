@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import {
   compareAffectedBlockSets,
   computeLineageSnapshotHash,
+  computeLineageSnapshotHashV2,
   computeResolutionTableHash,
   computeWitnessAuditHash,
   hashAffectedBlockNumbers,
@@ -41,6 +42,14 @@ export type FreshLineageSnapshotFromProduction = {
   fresh_lineage_snapshot_hash_matches: boolean;
   observed_integrity_gate_active: boolean | null;
   checks: TrackRCaptureAttestationCheck[];
+  /**
+   * v2 lineage snapshot hash (capture_id/cycle excluded — see C-404 CAS-v2
+   * repair). Computed alongside the v1 hash for every probe so post-merge
+   * production capture comparisons have v2 material to diff, but does not
+   * gate `fresh_cas_match` / readiness / preflight decisions — those remain
+   * v1-bound until governance restart adopts v2 per the CAS-v2 handoff.
+   */
+  fresh_lineage_snapshot_hash_v2: string | null;
 };
 
 function addCheck(
@@ -123,6 +132,7 @@ export async function computeFreshLineageSnapshotFromProduction(args?: {
   const checks: TrackRCaptureAttestationCheck[] = [];
 
   let fresh_lineage_snapshot_hash: string | null = null;
+  let fresh_lineage_snapshot_hash_v2: string | null = null;
   let fresh_cas_match: boolean | null = null;
   let observed_integrity_gate_active: boolean | null = null;
 
@@ -295,6 +305,37 @@ export async function computeFreshLineageSnapshotFromProduction(args?: {
             affected_block_set_match: affectedBlockComparison.set_match,
           });
 
+          fresh_lineage_snapshot_hash_v2 = computeLineageSnapshotHashV2({
+            latest_attested_seal: publicLatestSeal,
+            attested_seal_index: (observedBaseline.attested_seal_index as number | null) ?? null,
+            projected_next_sequence: (observedBaseline.projected_next_sequence as number | null) ?? null,
+            historical_collision_pairs: (observedBaseline.historical_collision_pairs as number | null) ?? null,
+            contested_block_positions:
+              affectedBlockComparison.live_contested_count ??
+              (observedBaseline.contested_block_positions as number | null) ??
+              0,
+            uncontested_positions: (observedBaseline.uncontested_positions as number | null) ?? 0,
+            canonical_reserve_blocks: observedBaseline.canonical_reserve_blocks ?? null,
+            integrity_gate_active: observedBaseline.integrity_gate_active as boolean | null,
+            reserve_block_lane: (observedBaseline.reserve_block_lane as string | null) ?? null,
+            candidate_formation_blocked: observedBaseline.candidate_formation_blocked as boolean | null,
+            witness_audit_hash: witnessAuditHash,
+            resolution_table_hash: resolutionTableHash,
+            active_lineage_version: lineagePointers.active_lineage_version,
+            live_canonical_pointer: lineagePointers.live_canonical_pointer,
+            pinned_affected_block_numbers_hash: hashAffectedBlockNumbers(witness.contested_block_numbers),
+            live_affected_block_numbers_hash: authoritativeLiveBlocks
+              ? hashAffectedBlockNumbers(authoritativeLiveBlocks)
+              : null,
+            affected_block_set_match: affectedBlockComparison.set_match,
+          });
+          addCheck(
+            checks,
+            `${prefix}_lineage_snapshot_v2`,
+            'pass',
+            `lineage_snapshot_hash_v2=${fresh_lineage_snapshot_hash_v2}`,
+          );
+
           fresh_cas_match = fresh_lineage_snapshot_hash === attestedLineageSnapshotHash;
           addCheck(
             checks,
@@ -316,5 +357,6 @@ export async function computeFreshLineageSnapshotFromProduction(args?: {
     fresh_lineage_snapshot_hash_matches: fresh_cas_match === true,
     observed_integrity_gate_active,
     checks,
+    fresh_lineage_snapshot_hash_v2,
   };
 }

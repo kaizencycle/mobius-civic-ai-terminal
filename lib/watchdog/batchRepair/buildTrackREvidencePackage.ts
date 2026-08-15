@@ -34,6 +34,7 @@ import {
 } from '@/lib/watchdog/batchRepair/processExitPolicy';
 import {
   computeLineageSnapshotHash,
+  computeLineageSnapshotHashV2,
   computeTelemetrySnapshotHash,
 } from '@/lib/watchdog/batchRepair/snapshotIdentity';
 import {
@@ -72,6 +73,13 @@ export type TrackREvidencePackageResult = {
   process_exit_code: number;
   execution_authorized: false;
   lineage_snapshot_hash: string;
+  /**
+   * v2 lineage snapshot hash (capture_id/cycle excluded — C-404 CAS-v2
+   * repair). Recorded alongside the v1 hash so two production captures can
+   * be diffed on v2 material without waiting for a v1 recapture; does not
+   * gate `executive_status` or any authorization decision.
+   */
+  lineage_snapshot_hash_v2: string;
   telemetry_snapshot_hash: string;
   execution_witness_hash: string | null;
   affected_block_evidence: Awaited<ReturnType<typeof loadAuthoritativeLiveAffectedBlockEvidence>>;
@@ -85,6 +93,7 @@ export type TrackREvidencePackageResult = {
   attestation_hashes: {
     semantic_manifest_hash: string | null;
     lineage_snapshot_hash: string;
+    lineage_snapshot_hash_v2: string;
     execution_witness_hash: string | null;
     rollback_manifest_hash: string | null;
   };
@@ -148,6 +157,31 @@ export async function buildTrackREvidencePackage(
   const lineage_snapshot_hash = computeLineageSnapshotHash({
     capture_id: input.capture_id,
     cycle: (input.observed.cycle as string | null) ?? null,
+    latest_attested_seal: (input.observed.latest_attested_seal as string | null) ?? null,
+    attested_seal_index: (input.observed.attested_seal_index as number | null) ?? null,
+    projected_next_sequence: (input.observed.projected_next_sequence as number | null) ?? null,
+    historical_collision_pairs: (input.observed.historical_collision_pairs as number | null) ?? null,
+    contested_block_positions:
+      affectedBlockComparison.live_contested_count ??
+      (input.observed.contested_block_positions as number | null) ??
+      0,
+    uncontested_positions: (input.observed.uncontested_positions as number | null) ?? 0,
+    canonical_reserve_blocks: input.observed.canonical_reserve_blocks ?? null,
+    integrity_gate_active: input.observed.integrity_gate_active as boolean | null,
+    reserve_block_lane: (input.observed.reserve_block_lane as string | null) ?? null,
+    candidate_formation_blocked: input.observed.candidate_formation_blocked as boolean | null,
+    witness_audit_hash: input.witness_audit_hash,
+    resolution_table_hash: input.resolution_table_hash,
+    active_lineage_version: null,
+    live_canonical_pointer: null,
+    pinned_affected_block_numbers_hash: hashAffectedBlockNumbers(pinnedBlocks),
+    live_affected_block_numbers_hash: affectedBlockComparison.live_block_numbers
+      ? hashAffectedBlockNumbers(affectedBlockComparison.live_block_numbers)
+      : null,
+    affected_block_set_match: affectedBlockComparison.set_match,
+  });
+
+  const lineage_snapshot_hash_v2 = computeLineageSnapshotHashV2({
     latest_attested_seal: (input.observed.latest_attested_seal as string | null) ?? null,
     attested_seal_index: (input.observed.attested_seal_index as number | null) ?? null,
     projected_next_sequence: (input.observed.projected_next_sequence as number | null) ?? null,
@@ -306,6 +340,7 @@ export async function buildTrackREvidencePackage(
     process_exit_code: resolveTrackRProcessExitCode(executive_status),
     execution_authorized: false,
     lineage_snapshot_hash,
+    lineage_snapshot_hash_v2,
     telemetry_snapshot_hash,
     execution_witness_hash,
     affected_block_evidence: affectedBlockEvidence,
@@ -319,6 +354,7 @@ export async function buildTrackREvidencePackage(
     attestation_hashes: {
       semantic_manifest_hash: input.manifest?.manifest_hash ?? null,
       lineage_snapshot_hash,
+      lineage_snapshot_hash_v2,
       execution_witness_hash,
       rollback_manifest_hash: input.rollback_hash,
     },

@@ -61,6 +61,7 @@ describe('Track R batch apply preflight (apply-path CAS)', () => {
         fresh_cas_match: null,
         fresh_lineage_snapshot_hash_matches: false,
         observed_integrity_gate_active: null,
+        fresh_lineage_snapshot_hash_v2: null,
         checks: [
           {
             check: 'apply_cas_probe',
@@ -81,6 +82,7 @@ describe('Track R batch apply preflight (apply-path CAS)', () => {
         fresh_cas_match: false,
         fresh_lineage_snapshot_hash_matches: false,
         observed_integrity_gate_active: true,
+        fresh_lineage_snapshot_hash_v2: null,
         checks: [],
       }).status,
       'cas_drift',
@@ -95,6 +97,7 @@ describe('Track R batch apply preflight (apply-path CAS)', () => {
         fresh_cas_match: null,
         fresh_lineage_snapshot_hash_matches: false,
         observed_integrity_gate_active: null,
+        fresh_lineage_snapshot_hash_v2: null,
         checks: [
           {
             check: 'apply_cas_public_api',

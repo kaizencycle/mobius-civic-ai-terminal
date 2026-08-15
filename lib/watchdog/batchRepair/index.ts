@@ -35,3 +35,4 @@ export * from '@/lib/watchdog/batchRepair/verifyTrackRCaptureAttestation';
 export * from '@/lib/watchdog/batchRepair/verifyTrackRExecutionReadiness';
 export * from '@/lib/watchdog/batchRepair/computeFreshLineageSnapshotFromProduction';
 export * from '@/lib/watchdog/batchRepair/runBatchApplyPreflight';
+export * from '@/lib/watchdog/batchRepair/lineageSnapshotVersionGuard';
