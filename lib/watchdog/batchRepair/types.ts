@@ -130,4 +130,6 @@ export type BatchCommitGuardInput = {
   integrity_gate_active: boolean;
   mutation_journal_available: boolean;
   rollback_plan_verified: boolean;
+  /** Read-only apply preflight — skips execution flag and commit-only prerequisites. */
+  preflight_read_only?: boolean;
 };

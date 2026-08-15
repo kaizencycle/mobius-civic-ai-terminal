@@ -37,7 +37,7 @@ Before Track R batch commit, an operator with **authenticated read-only KV acces
 
 Accumulator drift (`telemetry_snapshot_hash`) remains **informational only** and must not block CAS.
 
-**Apply-path gap:** No production caller yet performs the second CAS read described in `HANDOFF_C-403_TRACK_R_EXECUTION_ONE_SHOT_DRAFT.md`. Passing `pnpm track-r:execution-readiness` does not satisfy the apply-time check.
+**Apply-path gap (closed for preflight):** `assertBatchCommitAllowedAtApply()` requires production-derived CAS from `verifyFreshLineageSnapshotAtApply()`. CLI: `pnpm track-r:batch-apply-preflight` (zero writes). Atomic KV apply remains not implemented.
 
 ---
 
