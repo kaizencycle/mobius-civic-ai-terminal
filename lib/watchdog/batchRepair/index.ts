@@ -31,3 +31,4 @@ export * from '@/lib/watchdog/batchRepair/productionWitnessSealHashPin';
 export * from '@/lib/watchdog/batchRepair/trackRExecutiveStatus';
 export * from '@/lib/watchdog/batchRepair/buildTrackREvidencePackage';
 export * from '@/lib/watchdog/batchRepair/verifyTrackRCaptureAttestation';
+export * from '@/lib/watchdog/batchRepair/verifyTrackRExecutionReadiness';
