@@ -1,0 +1,46 @@
+{
+  "schema": "track-r-v2-github-provenance-record.v1",
+  "note": "This is NOT the verbatim Track R capture artifact. It is a provenance record assembled from GitHub's own API and Actions job logs, because this session's network egress policy blocks downloading the artifact ZIP from Azure blob storage (productionresultssa4.blob.core.windows.net returned 403 policy denial). See ../../TRACK_R_V2_VERIFICATION_STATUS.md for the full explanation and what remains to be independently verified once artifact download access is available.",
+  "role": "independent_v2_stability_witness",
+  "governance_candidate": false,
+  "source": {
+    "repository": "kaizencycle/mobius-civic-ai-terminal",
+    "workflow_name": "Track R Production Capture",
+    "run_id": 31906059559,
+    "run_url": "https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/31906059559",
+    "job_id": 95063929935,
+    "job_name": "capture",
+    "job_conclusion": "success",
+    "job_started_at": "2026-08-15T20:12:28Z",
+    "job_completed_at": "2026-08-15T20:13:19Z",
+    "commit": "daeec8f3adb2716879ef773e5d9a63905f402050",
+    "fetched_via": "mcp__github__get_job_logs (job logs, server-recorded), mcp__github__actions_list (job metadata)",
+    "fetched_at": "2026-08-15T20:12Z (session time approx.)"
+  },
+  "capture_id": "track-r-c403-2026-08-15T2012Z",
+  "printed_console_output": {
+    "executive_status": "READY_FOR_ZEUS_EVE_REVIEW",
+    "process_exit_code": 0,
+    "lineage_snapshot_hash_v1": "416ef085c9261a66c0838c653becbe28cfc7f1de716fbfcd3e56856398bd7f92",
+    "lineage_snapshot_hash_v2": "b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb",
+    "telemetry_snapshot_hash": "17d812d29b751682a5010faaf576426f4bba7a97398291d173624cfe216fc1ee",
+    "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
+    "execution_witness_hash_v1": "a6fa8c1d8719c9fe4e775799210d59fe3db463b3130957bb43b6d72dc6817954",
+    "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d",
+    "execution_authorized": false,
+    "affected_block_set_match": true,
+    "live_witness_ok": true
+  },
+  "execution_witness_hash_v2": null,
+  "execution_witness_hash_v2_note": "Not printed by the capture script (buildTrackREvidencePackage/track-r-live-dry-run-package.ts compute a v2 LINEAGE hash but do not yet compute or print a v2 EXECUTION-WITNESS hash). Recomputing it via computeExecutionWitnessHashV2 requires per-record witness results, live/pinned affected-block numbers, export_source, and environment_identifier from the raw TRACK_R_LIVE_DRY_RUN_PACKAGE.json inside the artifact ZIP, which this session could not download. NOT FABRICATED — left null pending artifact access.",
+  "artifact": {
+    "artifact_id": 9252374632,
+    "artifact_name": "track-r-production-capture",
+    "sha256_digest": "f94f0a1ac86e7d0ecde553b492680a79130250abb95302dccb8362b9dd9f732c",
+    "digest_source": "GitHub Actions upload-artifact@v4 log line: \"SHA256 digest of uploaded artifact zip is f94f0a1ac86e7d0ecde553b492680a79130250abb95302dccb8362b9dd9f732c\" (server-computed at upload time, confirmed independently via job log fetch)",
+    "size_bytes": 110386,
+    "file_count": 48,
+    "verbatim_contents_archived_here": false,
+    "download_blocked_reason": "Egress policy denial (HTTP 403 on CONNECT) to productionresultssa4.blob.core.windows.net — see agent proxy status log."
+  }
+}
