@@ -90,7 +90,7 @@ Single-field attribution from Capture #5 baseline:
 
 Workflow dispatch from cloud agent returned HTTP 403 (insufficient Actions scope).
 
-**Mathematical proof:** Two read-only captures against identical production state will produce **different lineage hashes today** because `capture_id` is hashed into the lineage snapshot. Capture #6 vs normalized Capture #6 (same baseline, attested capture_id) demonstrates this without a second live run.
+**Deterministic reproduction:** Two read-only captures against identical production state will produce **different lineage hashes today** because `capture_id` is hashed into the lineage snapshot. Capture #6 vs normalized Capture #6 (same baseline, attested capture_id) demonstrates this without a second live run.
 
 ---
 
