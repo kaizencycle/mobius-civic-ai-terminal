@@ -6,12 +6,14 @@ import {
   computeExecutionWitnessHash,
   computeLineageSnapshotHash,
   computeProductionKvIdentityHash,
+  computeSemanticManifestPayload,
   computeTelemetrySnapshotHash,
   hashAffectedBlockNumbers,
   hashObject,
   loadProductionWitnessSealHashPin,
   loadResolutionTableFromFile,
   loadWitnessFromFile,
+  stableStringify,
   verifyManifestHash,
   type ExecutionWitnessRecordResult,
 } from '@/lib/watchdog/batchRepair';
@@ -45,8 +47,114 @@ export type TrackRCaptureAttestationVerification = {
   recomputed_hashes: Record<string, string | null>;
 };
 
-function readJson<T = Record<string, unknown>>(path: string): T {
+function readJsonIfExists<T = Record<string, unknown>>(path: string): T | null {
+  if (!existsSync(path)) {
+    return null;
+  }
   return JSON.parse(readFileSync(path, 'utf8')) as T;
+}
+
+function compareHashTriplet(
+  checks: TrackRCaptureAttestationCheck[],
+  label: string,
+  packageValue: string | undefined,
+  provenanceValue: string | undefined,
+  expectedValue: string,
+  recomputedValue?: string | null,
+): void {
+  const values = {
+    package: packageValue ?? null,
+    provenance: provenanceValue ?? null,
+    expected: expectedValue,
+    recomputed: recomputedValue ?? null,
+  };
+  const aligned =
+    values.package === values.expected &&
+    values.provenance === values.expected &&
+    values.package === values.provenance &&
+    (values.recomputed == null || values.recomputed === values.expected);
+
+  addCheck(
+    checks,
+    label,
+    aligned ? 'pass' : 'fail',
+    aligned
+      ? `${label}=${expectedValue}`
+      : `${label} mismatch package=${String(values.package)} provenance=${String(values.provenance)} expected=${expectedValue}${values.recomputed != null ? ` recomputed=${values.recomputed}` : ''}`,
+  );
+}
+
+function verifyArchivedManifestAgainstRebuild(args: {
+  archived: Record<string, unknown>;
+  rebuilt: CollisionRepairBatchManifest;
+}): { ok: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const archivedHash = String(args.archived.manifest_hash ?? '');
+  if (archivedHash !== args.rebuilt.manifest_hash) {
+    errors.push(
+      `archived manifest_hash ${archivedHash} != rebuilt ${args.rebuilt.manifest_hash}`,
+    );
+  }
+
+  const rebuiltSemantic = computeSemanticManifestPayload(args.rebuilt);
+  const semanticKeys = [
+    'schema_version',
+    'repair_id',
+    'cycle',
+    'strategy',
+    'source_audit_hash',
+    'resolution_table_hash',
+    'total_block_positions',
+    'contested_positions',
+    'historical_hash_divergent_pairs',
+    'canonical_assignment_count',
+    'quarantined_conflicting_seal_count',
+    'clean_position_count',
+    'canonical_assignments',
+    'quarantined_seal_ids',
+    'boundary_expectations',
+    'governance_disposition',
+  ] as const;
+
+  for (const key of semanticKeys) {
+    const archivedValue = args.archived[key];
+    const rebuiltValue = rebuiltSemantic[key];
+    if (stableStringify(archivedValue) !== stableStringify(rebuiltValue)) {
+      errors.push(`archived semantic field ${key} diverges from rebuilt manifest`);
+    }
+  }
+
+  const archivedReceiptIds = [...((args.archived.receipt_ids as string[] | undefined) ?? [])].sort();
+  const rebuiltReceiptIds = [...args.rebuilt.receipts.map((receipt) => receipt.receipt_id)].sort();
+  if (stableStringify(archivedReceiptIds) !== stableStringify(rebuiltReceiptIds)) {
+    errors.push('archived receipt_ids diverge from rebuilt manifest receipts');
+  }
+
+  const archivedReceiptCount = args.archived.receipt_count;
+  if (archivedReceiptCount !== args.rebuilt.receipts.length) {
+    errors.push(
+      `archived receipt_count ${String(archivedReceiptCount)} != rebuilt ${args.rebuilt.receipts.length}`,
+    );
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+function blockedResult(args: {
+  archivePath: string;
+  verifiedAt: string;
+  checks: TrackRCaptureAttestationCheck[];
+  captureId?: string;
+}): TrackRCaptureAttestationVerification {
+  return {
+    capture_id: args.captureId ?? CAPTURE_0123Z_ID,
+    archive_path: args.archivePath,
+    verified_at: args.verifiedAt,
+    verification_status: 'blocked',
+    checks: args.checks,
+    expected_hashes: CAPTURE_0123Z_EXPECTED_HASHES,
+    recomputed_hashes: {},
+  };
 }
 
 function addCheck(
@@ -127,11 +235,30 @@ export function verifyTrackRCaptureAttestation(args?: {
     );
   }
 
-  const pkg = readJson(join(archivePath, 'TRACK_R_LIVE_DRY_RUN_PACKAGE.json'));
-  const witnessComparison = readJson(join(archivePath, 'TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json'));
-  const rollbackManifest = readJson(join(archivePath, 'TRACK_R_ROLLBACK_MANIFEST.json'));
-  const kvReceipt = readJson(join(archivePath, 'TRACK_R_KV_IDENTITY_RECEIPT.json'));
-  const provenance = readJson(join(archivePath, 'CAPTURE_PROVENANCE.json'));
+  const missingArtifacts = requiredFiles.filter((file) => !existsSync(join(archivePath, file)));
+  if (missingArtifacts.length > 0) {
+    addCheck(
+      checks,
+      'required_artifacts_present',
+      'fail',
+      `missing artifacts: ${missingArtifacts.join(', ')}`,
+    );
+    return blockedResult({ archivePath, verifiedAt, checks });
+  }
+
+  const pkg = readJsonIfExists(join(archivePath, 'TRACK_R_LIVE_DRY_RUN_PACKAGE.json'));
+  const witnessComparison = readJsonIfExists(
+    join(archivePath, 'TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json'),
+  );
+  const archivedManifest = readJsonIfExists(join(archivePath, 'TRACK_R_MANIFEST_REDACTED.json'));
+  const rollbackManifest = readJsonIfExists(join(archivePath, 'TRACK_R_ROLLBACK_MANIFEST.json'));
+  const kvReceipt = readJsonIfExists(join(archivePath, 'TRACK_R_KV_IDENTITY_RECEIPT.json'));
+  const provenance = readJsonIfExists(join(archivePath, 'CAPTURE_PROVENANCE.json'));
+
+  if (!pkg || !witnessComparison || !archivedManifest || !rollbackManifest || !kvReceipt || !provenance) {
+    addCheck(checks, 'required_artifacts_readable', 'fail', 'one or more required artifacts could not be read');
+    return blockedResult({ archivePath, verifiedAt, checks });
+  }
   const placeholders = (pkg.attestation_placeholders ?? {}) as Record<string, unknown>;
   const requiredHashes = (placeholders.required_hashes ?? {}) as Record<string, string>;
 
@@ -189,6 +316,19 @@ export function verifyTrackRCaptureAttestation(args?: {
     'semantic_manifest_verifyManifestHash',
     verifyManifestHash(rebuiltManifest) ? 'pass' : 'fail',
     rebuiltManifest.manifest_hash,
+  );
+
+  const archivedManifestCheck = verifyArchivedManifestAgainstRebuild({
+    archived: archivedManifest,
+    rebuilt: rebuiltManifest,
+  });
+  addCheck(
+    checks,
+    'archived_manifest_semantic_match',
+    archivedManifestCheck.ok ? 'pass' : 'fail',
+    archivedManifestCheck.ok
+      ? `manifest_hash=${String(archivedManifest.manifest_hash ?? '')}`
+      : archivedManifestCheck.errors.join('; '),
   );
 
   const observedBaseline = (pkg.observed_baseline ?? {}) as Record<string, unknown>;
@@ -358,13 +498,16 @@ export function verifyTrackRCaptureAttestation(args?: {
     recomputed_hashes.execution_witness_hash,
   );
 
+  const provenanceHashes = (provenance.required_hashes ?? {}) as Record<string, string>;
+
   for (const [key, expected] of Object.entries(CAPTURE_0123Z_EXPECTED_HASHES)) {
-    const actual = requiredHashes[key];
-    addCheck(
+    compareHashTriplet(
       checks,
       `provenance_crosscheck:${key}`,
-      actual === expected ? 'pass' : 'fail',
-      `package=${actual ?? 'missing'} provenance=${String((provenance.required_hashes as Record<string, string> | undefined)?.[key] ?? 'missing')} expected=${expected}`,
+      requiredHashes[key],
+      provenanceHashes[key],
+      expected,
+      recomputed_hashes[key],
     );
   }
 
