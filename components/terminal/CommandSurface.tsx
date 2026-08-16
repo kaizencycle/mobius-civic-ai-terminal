@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { buildCanonicalGitHubSignInUrl, isVercelBrowserHost } from '@/lib/auth/clientOrigin';
+import { buildCanonicalOAuthHandoffUrl, isVercelBrowserHost } from '@/lib/auth/clientOrigin';
 
 type CommandOutput = {
   timestamp: string;
@@ -31,6 +31,7 @@ export default function CommandSurface() {
   );
   const touchStartY = useRef<number | null>(null);
   const isMountedRef = useRef(false);
+  const oauthHandoffStarted = useRef(false);
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -67,6 +68,29 @@ ${greeting}`,
       active = false;
     };
   }, [session?.user?.githubUsername]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('oauth') !== 'login') return;
+
+    if (isVercelBrowserHost(window.location.hostname)) {
+      const callbackPath = decodeURIComponent(params.get('callbackUrl') ?? '/terminal');
+      window.location.assign(buildCanonicalOAuthHandoffUrl(callbackPath));
+      return;
+    }
+
+    if (oauthHandoffStarted.current) return;
+    oauthHandoffStarted.current = true;
+
+    const callbackUrl = decodeURIComponent(params.get('callbackUrl') ?? '/terminal');
+    params.delete('oauth');
+    params.delete('callbackUrl');
+    const qs = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+
+    void signIn('github', { callbackUrl });
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -265,7 +289,7 @@ ${greeting}`,
     if (base === '/login') {
       push(trimmed, 'Redirecting to GitHub...');
       if (typeof window !== 'undefined' && isVercelBrowserHost(window.location.hostname)) {
-        window.location.assign(buildCanonicalGitHubSignInUrl('/terminal'));
+        window.location.assign(buildCanonicalOAuthHandoffUrl('/terminal'));
         return;
       }
       await signIn('github', { callbackUrl: '/terminal' });

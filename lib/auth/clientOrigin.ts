@@ -17,7 +17,13 @@ export function resolveBrowserAuthOrigin(): string {
   return canonical || DEFAULT_CANON;
 }
 
-export function buildCanonicalGitHubSignInUrl(callbackPath = '/terminal'): string {
+/** Auth.js v5 starts OAuth via POST + CSRF — never GET /api/auth/signin/github directly. */
+export function buildOAuthHandoffUrl(origin: string, callbackPath = '/terminal'): string {
   const callback = encodeURIComponent(callbackPath);
-  return `${resolveBrowserAuthOrigin()}/api/auth/signin/github?callbackUrl=${callback}`;
+  return `${origin.replace(/\/$/, '')}/terminal/globe?oauth=login&callbackUrl=${callback}`;
+}
+
+/** Redirect *.vercel.app operators to canon terminal to run signIn() with CSRF. */
+export function buildCanonicalOAuthHandoffUrl(callbackPath = '/terminal'): string {
+  return buildOAuthHandoffUrl(resolveBrowserAuthOrigin(), callbackPath);
 }
