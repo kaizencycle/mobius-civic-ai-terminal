@@ -4,16 +4,14 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 
 import { runBatchApplyPreflight } from '@/lib/watchdog/batchRepair/runBatchApplyPreflight';
+import { parseTrackRCliArgs } from './track-r-cli-args';
 
 async function main(): Promise<void> {
-  const baseUrlIndex = process.argv.indexOf('--base-url');
-  const baseUrl =
-    baseUrlIndex >= 0 && process.argv[baseUrlIndex + 1]
-      ? process.argv[baseUrlIndex + 1]
-      : undefined;
+  const { baseUrl, captureId } = parseTrackRCliArgs(process.argv);
 
   const result = await runBatchApplyPreflight({
     baseUrl,
+    captureId,
     explicitOperatorCommand: true,
   });
 

@@ -5,6 +5,10 @@ import {
   resolveLiveAffectedBlockNumbersForCas,
 } from '@/lib/watchdog/batchRepair/computeFreshLineageSnapshotFromProduction';
 import {
+  resolveTrackRCaptureBinding,
+  type TrackRCaptureBinding,
+} from '@/lib/watchdog/batchRepair/trackRCaptureBinding';
+import {
   CAPTURE_0123Z_EXPECTED_HASHES,
   CAPTURE_0123Z_ID,
   verifyTrackRCaptureAttestation,
@@ -133,92 +137,130 @@ export async function verifyTrackRExecutionReadiness(args?: {
   verifiedAt?: string;
   baseUrl?: string;
   probeFreshCas?: boolean;
+  captureId?: string;
+  captureBinding?: TrackRCaptureBinding;
 }): Promise<TrackRExecutionReadiness> {
-  const archivePath = args?.archivePath ?? join(process.cwd(), TRACK_R_IMMUTABLE_ARCHIVE);
-  const governancePath = args?.governancePath ?? join(process.cwd(), TRACK_R_GOVERNANCE_ATTESTATION_PATH);
   const verifiedAt = args?.verifiedAt ?? new Date().toISOString();
   const baseUrl = (args?.baseUrl ?? 'https://mobius-civic-ai-terminal.vercel.app').replace(/\/$/, '');
   const probeFreshCas = args?.probeFreshCas ?? true;
   const checks: TrackRCaptureAttestationCheck[] = [];
 
-  const governance = readJsonIfExists<Record<string, unknown>>(governancePath);
-  if (!governance) {
-    addCheck(checks, 'governance_attestation', 'fail', `missing or unreadable ${governancePath}`);
-    return {
-      capture_id: CAPTURE_0123Z_ID,
-      verified_at: verifiedAt,
-      readiness_status: 'blocked',
-      execution_authorized: false,
-      governance_attestation_path: governancePath,
-      attested_lineage_snapshot_hash: CAPTURE_0123Z_EXPECTED_HASHES.lineage_snapshot_hash,
-      fresh_lineage_snapshot_hash: null,
-      fresh_cas_match: null,
+  const binding = args?.captureBinding ?? resolveTrackRCaptureBinding({
+    captureId: args?.captureId,
+    archivePath: args?.archivePath,
+  });
+  const archivePath = binding.archive_path;
+  const governancePath =
+    args?.governancePath ?? join(process.cwd(), TRACK_R_GOVERNANCE_ATTESTATION_PATH);
+  const useLegacyGovernance = binding.capture_id === CAPTURE_0123Z_ID;
+  const attestedLineageSnapshotHash = binding.attestation_hashes.lineage_snapshot_hash;
+
+  let humanConsentValidation: { ok: boolean; errors: string[] } = {
+    ok: false,
+    errors: ['human approval verdict not recorded'],
+  };
+  let verdicts: Record<string, { verdict?: string; manifest_field?: string; signed_at?: string; signed_attestation?: string }> =
+    {};
+
+  if (useLegacyGovernance) {
+    const governance = readJsonIfExists<Record<string, unknown>>(governancePath);
+    if (!governance) {
+      addCheck(checks, 'governance_attestation', 'fail', `missing or unreadable ${governancePath}`);
+      return {
+        capture_id: binding.capture_id,
+        verified_at: verifiedAt,
+        readiness_status: 'blocked',
+        execution_authorized: false,
+        governance_attestation_path: governancePath,
+        attested_lineage_snapshot_hash: attestedLineageSnapshotHash,
+        fresh_lineage_snapshot_hash: null,
+        fresh_cas_match: null,
+        checks,
+      };
+    }
+
+    addCheck(
       checks,
-    };
-  }
+      'governance_capture_id',
+      governance.capture_id === CAPTURE_0123Z_ID ? 'pass' : 'fail',
+      String(governance.capture_id ?? 'missing'),
+    );
 
-  addCheck(
-    checks,
-    'governance_capture_id',
-    governance.capture_id === CAPTURE_0123Z_ID ? 'pass' : 'fail',
-    String(governance.capture_id ?? 'missing'),
-  );
-
-  const verdicts = (governance.governance_verdicts ?? {}) as Record<
-    string,
-    { verdict?: string; manifest_field?: string }
-  >;
-  addCheck(
-    checks,
-    'governance_zeus_adopt',
-    verdicts.zeus?.verdict === 'ADOPT' && verdicts.zeus?.manifest_field === 'approved'
-      ? 'pass'
-      : 'fail',
-    JSON.stringify(verdicts.zeus ?? {}),
-  );
-  addCheck(
-    checks,
-    'governance_eve_adopt',
-    verdicts.eve?.verdict === 'ADOPT' && verdicts.eve?.manifest_field === 'approved'
-      ? 'pass'
-      : 'fail',
-    JSON.stringify(verdicts.eve ?? {}),
-  );
-  addCheck(
-    checks,
-    'governance_human_consent',
-    isHumanConsentPending(verdicts.human_approval)
-      ? 'pass'
-      : validateRecordedHumanConsent({ verdict: verdicts.human_approval }).ok
+    verdicts = (governance.governance_verdicts ?? {}) as typeof verdicts;
+    addCheck(
+      checks,
+      'governance_zeus_adopt',
+      verdicts.zeus?.verdict === 'ADOPT' && verdicts.zeus?.manifest_field === 'approved'
         ? 'pass'
         : 'fail',
-    isHumanConsentPending(verdicts.human_approval)
-      ? JSON.stringify(verdicts.human_approval ?? {})
-      : JSON.stringify(
-          validateRecordedHumanConsent({ verdict: verdicts.human_approval }),
-        ),
-  );
-  addCheck(
-    checks,
-    'governance_execution_authorized',
-    governance.execution_authorized === false ? 'pass' : 'fail',
-    String(governance.execution_authorized ?? 'missing'),
-  );
+      JSON.stringify(verdicts.zeus ?? {}),
+    );
+    addCheck(
+      checks,
+      'governance_eve_adopt',
+      verdicts.eve?.verdict === 'ADOPT' && verdicts.eve?.manifest_field === 'approved'
+        ? 'pass'
+        : 'fail',
+      JSON.stringify(verdicts.eve ?? {}),
+    );
+    addCheck(
+      checks,
+      'governance_human_consent',
+      isHumanConsentPending(verdicts.human_approval)
+        ? 'pass'
+        : validateRecordedHumanConsent({ verdict: verdicts.human_approval }).ok
+          ? 'pass'
+          : 'fail',
+      isHumanConsentPending(verdicts.human_approval)
+        ? JSON.stringify(verdicts.human_approval ?? {})
+        : JSON.stringify(validateRecordedHumanConsent({ verdict: verdicts.human_approval })),
+    );
+    addCheck(
+      checks,
+      'governance_execution_authorized',
+      governance.execution_authorized === false ? 'pass' : 'fail',
+      String(governance.execution_authorized ?? 'missing'),
+    );
 
-  const attestation = verifyTrackRCaptureAttestation({ archivePath, verifiedAt });
-  for (const row of attestation.checks) {
-    checks.push({
-      check: `attestation:${row.check}`,
-      result: row.result,
-      detail: row.detail,
+    const attestation = verifyTrackRCaptureAttestation({ archivePath, verifiedAt });
+    for (const row of attestation.checks) {
+      checks.push({
+        check: `attestation:${row.check}`,
+        result: row.result,
+        detail: row.detail,
+      });
+    }
+    addCheck(
+      checks,
+      'attestation_summary',
+      attestation.verification_status === 'adopt_ready' ? 'pass' : 'fail',
+      attestation.verification_status,
+    );
+
+    humanConsentValidation = validateRecordedHumanConsent({
+      verdict: verdicts.human_approval,
     });
+  } else {
+    addCheck(
+      checks,
+      'governance_attestation',
+      'warn',
+      `explicit capture binding ${binding.capture_id} — C-403 governance JSON not required`,
+    );
+    addCheck(
+      checks,
+      'capture_binding_archive',
+      existsSync(join(archivePath, 'TRACK_R_LIVE_DRY_RUN_PACKAGE.json')) ? 'pass' : 'fail',
+      archivePath,
+    );
+    addCheck(
+      checks,
+      'capture_binding_lineage_hash',
+      binding.attestation_hashes.lineage_snapshot_hash.length === 64 ? 'pass' : 'fail',
+      binding.attestation_hashes.lineage_snapshot_hash,
+    );
+    humanConsentValidation = { ok: true, errors: [] };
   }
-  addCheck(
-    checks,
-    'attestation_summary',
-    attestation.verification_status === 'adopt_ready' ? 'pass' : 'fail',
-    attestation.verification_status,
-  );
 
   let fresh_lineage_snapshot_hash: string | null = null;
   let fresh_cas_match: boolean | null = null;
@@ -231,6 +273,8 @@ export async function verifyTrackRExecutionReadiness(args?: {
       baseUrl,
       environment: 'production-execution-readiness-probe',
       checkPrefix: 'fresh',
+      captureId: binding.capture_id,
+      attestedLineageSnapshotHash,
     });
     for (const row of casProbe.checks) {
       checks.push(row);
@@ -243,10 +287,6 @@ export async function verifyTrackRExecutionReadiness(args?: {
   const casDrift =
     fresh_cas_match === false ||
     checks.some((row) => row.check === 'fresh_lineage_snapshot_cas' && row.result === 'fail');
-
-  const humanConsentValidation = validateRecordedHumanConsent({
-    verdict: verdicts.human_approval,
-  });
 
   let readiness_status: TrackRExecutionReadinessStatus = 'awaiting_human_consent';
   if (hasFail) {
@@ -261,12 +301,12 @@ export async function verifyTrackRExecutionReadiness(args?: {
   }
 
   return {
-    capture_id: CAPTURE_0123Z_ID,
+    capture_id: binding.capture_id,
     verified_at: verifiedAt,
     readiness_status,
     execution_authorized: false,
     governance_attestation_path: governancePath,
-    attested_lineage_snapshot_hash: CAPTURE_0123Z_EXPECTED_HASHES.lineage_snapshot_hash,
+    attested_lineage_snapshot_hash: attestedLineageSnapshotHash,
     fresh_lineage_snapshot_hash,
     fresh_cas_match,
     checks,

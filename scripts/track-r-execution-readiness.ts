@@ -4,18 +4,15 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 
 import { verifyTrackRExecutionReadiness } from '@/lib/watchdog/batchRepair/verifyTrackRExecutionReadiness';
+import { parseTrackRCliArgs } from './track-r-cli-args';
 
 async function main(): Promise<void> {
-  const baseUrlIndex = process.argv.indexOf('--base-url');
-  const baseUrl =
-    baseUrlIndex >= 0 && process.argv[baseUrlIndex + 1]
-      ? process.argv[baseUrlIndex + 1]
-      : undefined;
-  const skipCas = process.argv.includes('--skip-cas-probe');
+  const { baseUrl, captureId, skipCasProbe } = parseTrackRCliArgs(process.argv);
 
   const result = await verifyTrackRExecutionReadiness({
     baseUrl,
-    probeFreshCas: !skipCas,
+    captureId,
+    probeFreshCas: !skipCasProbe,
   });
 
   console.log(`Capture ID: ${result.capture_id}`);

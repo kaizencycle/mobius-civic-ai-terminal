@@ -37,6 +37,10 @@ on:
         description: Governance-only readiness (skip live CAS probe)
         type: boolean
         default: false
+      capture_id:
+        description: Attested capture ID for CAS binding (default capture-0123Z)
+        type: string
+        default: track-r-c403-2026-08-15T0123Z
 
 permissions:
   contents: write
@@ -108,6 +112,7 @@ jobs:
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           TRACK_R_BASE_URL: ${{ inputs.base_url }}
           TRACK_R_SKIP_CAS_PROBE: ${{ inputs.skip_cas_probe }}
+          TRACK_R_CAPTURE_ID: ${{ inputs.capture_id }}
         run: |
           set -uo pipefail
           export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
@@ -115,7 +120,7 @@ jobs:
           export UPSTASH_REDIS_REST_URL="$KV_REST_API_URL"
           export UPSTASH_REDIS_REST_TOKEN="$KV_REST_API_TOKEN"
 
-          cmd=(pnpm track-r:execution-readiness --base-url "$TRACK_R_BASE_URL")
+          cmd=(pnpm track-r:execution-readiness --base-url "$TRACK_R_BASE_URL" --capture-id "$TRACK_R_CAPTURE_ID")
           if [ "$TRACK_R_SKIP_CAS_PROBE" = "true" ]; then
             cmd+=(--skip-cas-probe)
           fi
@@ -137,6 +142,7 @@ jobs:
           UPSTASH_REDIS_REST_URL: ${{ secrets.KV_REST_API_URL }}
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           TRACK_R_BASE_URL: ${{ inputs.base_url }}
+          TRACK_R_CAPTURE_ID: ${{ inputs.capture_id }}
         run: |
           set -uo pipefail
           export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
@@ -145,7 +151,7 @@ jobs:
           export UPSTASH_REDIS_REST_TOKEN="$KV_REST_API_TOKEN"
 
           set +e
-          pnpm track-r:batch-apply-preflight --base-url "$TRACK_R_BASE_URL" 2>&1 | tee ./track-r-preflight-output/batch-apply-preflight.log
+          pnpm track-r:batch-apply-preflight --base-url "$TRACK_R_BASE_URL" --capture-id "$TRACK_R_CAPTURE_ID" 2>&1 | tee ./track-r-preflight-output/batch-apply-preflight.log
           exit_code="${PIPESTATUS[0]}"
           set -e
           echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
@@ -164,6 +170,7 @@ jobs:
             echo "## Track R execution preflight (read-only)"
             echo ""
             echo "- **probe:** \`${PROBE}\`"
+            echo "- **capture_id:** \`${{ inputs.capture_id }}\`"
             echo "- **base_url:** \`${TRACK_R_BASE_URL}\`"
             echo "- **skip_cas_probe:** \`${TRACK_R_SKIP_CAS_PROBE}\`"
             echo "- **execution_authorized:** \`false\` (probes never authorize mutation)"
