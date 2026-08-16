@@ -18,6 +18,9 @@ import {
 export const TRACK_R_GOVERNANCE_ATTESTATION_PATH =
   'docs/epicon/cycles/C-403/TRACK_R_GOVERNANCE_ATTESTATION_capture-0123Z.json';
 
+export const TRACK_R_EXPLICIT_EXECUTION_AUTHORIZATION_PATH =
+  'docs/epicon/cycles/C-404/C404_EXPLICIT_EXECUTION_AUTHORIZATION.md';
+
 export const TRACK_R_IMMUTABLE_ARCHIVE =
   'artifacts/C-403/track-r-live-dry-run/history/capture-0123Z';
 
@@ -106,6 +109,46 @@ export function validateRecordedHumanConsent(args: {
     if (!content.includes(hash)) {
       errors.push(`signed attestation missing hash binding for ${label}`);
     }
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+const EXPLICIT_AUTHORIZATION_HASH_LABELS = [
+  'semantic_manifest_hash',
+  'lineage_snapshot_hash',
+  'execution_witness_hash',
+  'rollback_manifest_hash',
+] as const;
+
+export function validateExplicitCaptureAuthorization(args: {
+  captureId: string;
+  attestationHashes: TrackRCaptureBinding['attestation_hashes'];
+  authorizationPath?: string;
+  repoRoot?: string;
+}): { ok: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const authorizationPath =
+    args.authorizationPath ??
+    join(args.repoRoot ?? process.cwd(), TRACK_R_EXPLICIT_EXECUTION_AUTHORIZATION_PATH);
+
+  if (!existsSync(authorizationPath)) {
+    errors.push(`explicit execution authorization missing at ${authorizationPath}`);
+    return { ok: false, errors };
+  }
+
+  const content = readFileSync(authorizationPath, 'utf8');
+  if (!content.includes(args.captureId)) {
+    errors.push('explicit authorization missing capture_id binding');
+  }
+  for (const label of EXPLICIT_AUTHORIZATION_HASH_LABELS) {
+    const hash = args.attestationHashes[label];
+    if (!hash || !content.includes(hash)) {
+      errors.push(`explicit authorization missing hash binding for ${label}`);
+    }
+  }
+  if (!content.includes('ATLAS_AUTHORIZED_STEP_6_MUTATION')) {
+    errors.push('explicit authorization missing custodian witness signature');
   }
 
   return { ok: errors.length === 0, errors };
@@ -259,7 +302,28 @@ export async function verifyTrackRExecutionReadiness(args?: {
       binding.attestation_hashes.lineage_snapshot_hash.length === 64 ? 'pass' : 'fail',
       binding.attestation_hashes.lineage_snapshot_hash,
     );
-    humanConsentValidation = { ok: true, errors: [] };
+
+    const explicitAuthorization = validateExplicitCaptureAuthorization({
+      captureId: binding.capture_id,
+      attestationHashes: binding.attestation_hashes,
+    });
+    addCheck(
+      checks,
+      'explicit_execution_authorization',
+      explicitAuthorization.ok ? 'pass' : 'fail',
+      explicitAuthorization.ok
+        ? TRACK_R_EXPLICIT_EXECUTION_AUTHORIZATION_PATH
+        : JSON.stringify(explicitAuthorization.errors),
+    );
+    addCheck(
+      checks,
+      'governance_human_consent',
+      explicitAuthorization.ok ? 'pass' : 'fail',
+      explicitAuthorization.ok
+        ? 'explicit custodian authorization recorded'
+        : JSON.stringify(explicitAuthorization.errors),
+    );
+    humanConsentValidation = explicitAuthorization;
   }
 
   let fresh_lineage_snapshot_hash: string | null = null;

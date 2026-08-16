@@ -10,7 +10,9 @@ import {
   verifyTrackRExecutionReadiness,
   resolveLiveAffectedBlockNumbersForCas,
   validateRecordedHumanConsent,
+  validateExplicitCaptureAuthorization,
   TRACK_R_GOVERNANCE_ATTESTATION_PATH,
+  TRACK_R_EXPLICIT_EXECUTION_AUTHORIZATION_PATH,
   TRACK_R_IMMUTABLE_ARCHIVE,
 } from '@/lib/watchdog/batchRepair/verifyTrackRExecutionReadiness';
 import { resolveLiveCanonicalPointerForCas } from '@/lib/watchdog/batchRepair/liveLineagePointerObservations';
@@ -229,5 +231,72 @@ describe('Track R execution readiness verification', () => {
     assert.equal(resolved.ok, false);
     assert.equal(resolved.value, null);
     assert.ok(resolved.errors.length > 0);
+  });
+
+  it('validates explicit authorization bindings for capture-1919Z', () => {
+    const binding = {
+      capture_id: 'track-r-c403-2026-08-15T1919Z',
+      attestation_hashes: {
+        semantic_manifest_hash: '27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa',
+        lineage_snapshot_hash: 'd7f91f007c7334faefd8d8d1fbd2c0093610666c321777240de3e230b0a9bc00',
+        execution_witness_hash: 'eaeeff3866bdfd82a85ef933af5b8342bb2f15d05f79247b882a81d0d67f47af',
+        rollback_manifest_hash: '0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d',
+      },
+    };
+
+    const validation = validateExplicitCaptureAuthorization({
+      captureId: binding.capture_id,
+      attestationHashes: binding.attestation_hashes,
+    });
+
+    assert.equal(validation.ok, true);
+    assert.ok(existsSync(join(process.cwd(), TRACK_R_EXPLICIT_EXECUTION_AUTHORIZATION_PATH)));
+  });
+
+  it('returns blocked for capture-1919Z when explicit authorization hash binding is wrong', async () => {
+    const result = await verifyTrackRExecutionReadiness({
+      captureId: 'track-r-c403-2026-08-15T1919Z',
+      probeFreshCas: false,
+      captureBinding: {
+        capture_id: 'track-r-c403-2026-08-15T1919Z',
+        archive_path: join(
+          process.cwd(),
+          'artifacts/C-403/track-r-live-dry-run/history/capture-1919Z',
+        ),
+        attestation_hashes: {
+          semantic_manifest_hash: '27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa',
+          lineage_snapshot_hash: '0000000000000000000000000000000000000000000000000000000000000000',
+          execution_witness_hash: 'eaeeff3866bdfd82a85ef933af5b8342bb2f15d05f79247b882a81d0d67f47af',
+          rollback_manifest_hash: '0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d',
+        },
+      },
+    });
+
+    assert.equal(result.readiness_status, 'blocked');
+    assert.ok(
+      result.checks.some(
+        (row) => row.check === 'explicit_execution_authorization' && row.result === 'fail',
+      ),
+    );
+  });
+
+  it('returns consent_recorded_cas_required for capture-1919Z when explicit authorization passes', async () => {
+    const result = await verifyTrackRExecutionReadiness({
+      captureId: 'track-r-c403-2026-08-15T1919Z',
+      probeFreshCas: false,
+    });
+
+    assert.equal(result.capture_id, 'track-r-c403-2026-08-15T1919Z');
+    assert.equal(result.readiness_status, 'consent_recorded_cas_required');
+    assert.ok(
+      result.checks.some(
+        (row) => row.check === 'governance_human_consent' && row.result === 'pass',
+      ),
+    );
+    assert.ok(
+      result.checks.some(
+        (row) => row.check === 'explicit_execution_authorization' && row.result === 'pass',
+      ),
+    );
   });
 });

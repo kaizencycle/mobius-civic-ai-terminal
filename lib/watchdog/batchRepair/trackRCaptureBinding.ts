@@ -66,11 +66,26 @@ export function resolveTrackRCaptureBinding(args?: {
   repoRoot?: string;
 }): TrackRCaptureBinding {
   const repoRoot = args?.repoRoot ?? process.cwd();
-  const captureId = args?.captureId ?? CAPTURE_0123Z_ID;
-  const archivePath =
-    args?.archivePath ??
-    resolveTrackRCaptureArchivePath({ captureId, repoRoot }) ??
-    join(repoRoot, 'artifacts/C-403/track-r-live-dry-run/history/capture-0123Z');
+  const explicitCaptureId = args?.captureId;
+  const captureId = explicitCaptureId ?? CAPTURE_0123Z_ID;
+
+  let archivePath: string;
+  if (args?.archivePath) {
+    archivePath = args.archivePath;
+  } else if (explicitCaptureId !== undefined) {
+    if (!captureSuffixFromId(explicitCaptureId)) {
+      throw new Error(`invalid capture_id format: ${explicitCaptureId}`);
+    }
+    const resolved = resolveTrackRCaptureArchivePath({ captureId: explicitCaptureId, repoRoot });
+    if (!resolved) {
+      throw new Error(`no capture archive found for capture_id ${explicitCaptureId}`);
+    }
+    archivePath = resolved;
+  } else {
+    archivePath =
+      resolveTrackRCaptureArchivePath({ captureId: CAPTURE_0123Z_ID, repoRoot }) ??
+      join(repoRoot, 'artifacts/C-403/track-r-live-dry-run/history/capture-0123Z');
+  }
 
   const pkg = readJson<Record<string, unknown>>(
     join(archivePath, 'TRACK_R_LIVE_DRY_RUN_PACKAGE.json'),

@@ -3,6 +3,8 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   resolveTrackRCaptureArchivePath,
   resolveTrackRCaptureBinding,
@@ -32,6 +34,52 @@ describe('Track R capture binding', () => {
     assert.equal(
       binding.attestation_hashes.lineage_snapshot_hash,
       '3db4832725df8d3d49942e60dc9ddd00d436fdb741329362b6eb4d6753669af5',
+    );
+  });
+
+  it('throws for unknown capture_id instead of falling back to capture-0123Z', () => {
+    assert.throws(
+      () =>
+        resolveTrackRCaptureBinding({
+          captureId: 'track-r-c403-2026-08-15T9999Z',
+        }),
+      /no capture archive found for capture_id track-r-c403-2026-08-15T9999Z/,
+    );
+  });
+
+  it('throws for invalid capture_id format', () => {
+    assert.throws(
+      () =>
+        resolveTrackRCaptureBinding({
+          captureId: 'not-a-valid-capture-id',
+        }),
+      /invalid capture_id format/,
+    );
+  });
+
+  it('capture-1919Z provenance matches package identity and locked hashes', () => {
+    const provenancePath = join(
+      process.cwd(),
+      'artifacts/C-403/track-r-live-dry-run/history/capture-1919Z/CAPTURE_PROVENANCE.json',
+    );
+    const provenance = JSON.parse(readFileSync(provenancePath, 'utf8')) as {
+      capture_id: string;
+      immutable_archive_path: string;
+      required_hashes: Record<string, string>;
+    };
+    const binding = resolveTrackRCaptureBinding({
+      captureId: 'track-r-c403-2026-08-15T1919Z',
+    });
+
+    assert.equal(provenance.capture_id, binding.capture_id);
+    assert.ok(provenance.immutable_archive_path.endsWith('capture-1919Z/'));
+    assert.equal(
+      provenance.required_hashes.lineage_snapshot_hash,
+      binding.attestation_hashes.lineage_snapshot_hash,
+    );
+    assert.equal(
+      provenance.required_hashes.execution_witness_hash,
+      binding.attestation_hashes.execution_witness_hash,
     );
   });
 });
