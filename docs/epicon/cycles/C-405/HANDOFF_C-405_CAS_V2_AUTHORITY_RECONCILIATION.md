@@ -38,8 +38,8 @@ The first C-405 deliverable is this reconciliation handoff — **not** another p
 |---------|------------|
 | Cycle | C-405 |
 | Terminal health | degraded, HTTP 200 |
-| GI | 0.71, yellow/stressed |
-| Composite pulse | ~0.746 |
+| GI | 0.71, yellow/stressed (`docs/catalog/heartbeats/2026-08-16T13-03-28-658Z-atlas.json`, `2026-08-16T13:03:28.658Z`) |
+| ATLAS micro composite | 0.871 (same heartbeat; `micro_composite`, not vault GI) |
 | KV / backup Redis | available |
 | Integrity gate | active; hard stop enabled |
 | Sealing | suspended |
@@ -132,7 +132,7 @@ Stability witness (Capture #8): `track-r-c403-2026-08-15T2012Z` — same v2 line
 | Document / artifact | Role | Execution status |
 |---------------------|------|------------------|
 | Capture #5 governance (C-403, v1) | Historical | Superseded — preserve for audit |
-| Capture #7 authorization (`C404_EXPLICIT_EXECUTION_AUTHORIZATION.md`, v1) | PR #675 | **Superseded — non-executable** |
+| Capture #7 authorization (`C404_EXPLICIT_EXECUTION_AUTHORIZATION.md`, v1) | PR #675 | **Superseded — non-executable** (runtime validator rejects) |
 | CAS probe 31918026854 | Stability observation | Valid as v1 mechanical proof; **not** v2 authority |
 | Capture #9 v2 packet | Governance candidate | **Pending** fresh ZEUS/EVE/human + runtime activation |
 | v2 attestation templates (`artifacts/C-404/track-r-lineage-v2/*_TEMPLATE.md`) | Governance shell | **Unsigned** — must not be reused as verdicts |
@@ -167,13 +167,21 @@ Reference: `docs/epicon/cycles/C-404/TRACK_R_LINEAGE_CAS_V2.md` — v2 observati
 - [ ] Do **not** form or promote sequence 361.
 - [ ] Do **not** resolve boundary 131→132.
 - [x] Mark Capture #7/v1 authorization superseded (see `C404_EXPLICIT_EXECUTION_AUTHORIZATION.md` banner + this handoff).
+- [x] Fail-closed: `validateExplicitCaptureAuthorization()` rejects superseded documents at runtime.
 
 ### P1 — Complete the immutable v2 archive
 
 - [ ] Add verbatim Capture #8 raw artifacts under `artifacts/C-404/track-r-lineage-v2/history/capture-2012Z/raw/`.
 - [ ] Add verbatim Capture #9 raw artifacts under `artifacts/C-404/track-r-lineage-v2/history/capture-2014Z/raw/`.
 - [ ] Verify artifact ZIP digests (Capture #8: `sha256:f94f0a1a…`; Capture #9: `sha256:5a4e344a…`).
-- [ ] Run `pnpm track-r:capture-v2-stability-verify` from clean checkout against archived bytes.
+- [ ] Run the v2 stability verifier from a clean checkout against archived bytes:
+
+```bash
+pnpm exec tsx scripts/track-r-capture-v2-stability-verify.ts \
+  --capture-a artifacts/C-404/track-r-lineage-v2/history/capture-2012Z/raw \
+  --capture-b artifacts/C-404/track-r-lineage-v2/history/capture-2014Z/raw
+```
+
 - [ ] Commit machine-readable verifier output.
 - [ ] Record Capture #9 as sole governance candidate in archive provenance.
 

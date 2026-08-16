@@ -121,6 +121,14 @@ const EXPLICIT_AUTHORIZATION_HASH_LABELS = [
   'rollback_manifest_hash',
 ] as const;
 
+/** Machine-readable supersession markers in explicit authorization documents. */
+export function isExplicitExecutionAuthorizationSuperseded(content: string): boolean {
+  return (
+    content.includes('SUPERSEDED FOR EXECUTION') ||
+    content.includes('SUPERSEDED — NON-EXECUTABLE')
+  );
+}
+
 export function validateExplicitCaptureAuthorization(args: {
   captureId: string;
   attestationHashes: TrackRCaptureBinding['attestation_hashes'];
@@ -138,6 +146,10 @@ export function validateExplicitCaptureAuthorization(args: {
   }
 
   const content = readFileSync(authorizationPath, 'utf8');
+  if (isExplicitExecutionAuthorizationSuperseded(content)) {
+    errors.push('explicit execution authorization superseded — non-executable');
+    return { ok: false, errors };
+  }
   if (!content.includes(args.captureId)) {
     errors.push('explicit authorization missing capture_id binding');
   }
