@@ -4,6 +4,9 @@
   "license": "AGPL-3.0-or-later",
   "private": true,
   "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "pnpm": {
     "peerDependencyRules": {
       "allowedVersions": {

@@ -6,7 +6,8 @@
 - `pnpm`
 
 ### Runtime
-- Node 20.x preferred
+- Node **20.9+** required (`sharp@0.35.x` libvips CVE remediation; see `package.json#engines`)
+- Node 22.x also supported
 
 ### Install
 ```bash
