@@ -7,6 +7,7 @@ import {
   githubOAuthCallbackUrl,
   resolveAuthAliasRedirectUrl,
   resolveAuthBaseUrl,
+  shouldRedirectAuthAliasNavigation,
 } from '../../lib/auth/baseUrl';
 
 const ENV_KEYS = ['AUTH_URL', 'NEXTAUTH_URL', 'NEXT_PUBLIC_CANONICAL_URL', 'NEXT_PUBLIC_SITE_URL'] as const;
@@ -108,5 +109,64 @@ describe('resolveAuthAliasRedirectUrl', () => {
     process.env.NEXT_PUBLIC_SITE_URL = 'http://localhost:3000';
     const request = new URL('http://localhost:3000/api/auth/signin/github');
     assert.strictEqual(resolveAuthAliasRedirectUrl(request), null);
+  });
+});
+
+describe('shouldRedirectAuthAliasNavigation', () => {
+  afterEach(() => {
+    for (const key of ENV_KEYS) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  });
+
+  function stashEnv(): void {
+    for (const key of ENV_KEYS) {
+      saved[key] = process.env[key];
+    }
+  }
+
+  const navigateHeaders = {
+    get(name: string) {
+      if (name === 'sec-fetch-mode') return 'navigate';
+      if (name === 'accept') return 'text/html';
+      return null;
+    },
+  };
+
+  const fetchHeaders = {
+    get(name: string) {
+      if (name === 'sec-fetch-mode') return 'cors';
+      if (name === 'accept') return 'application/json';
+      return null;
+    },
+  };
+
+  it('redirects navigations to OAuth sign-in on vercel.app', () => {
+    stashEnv();
+    process.env.NEXT_PUBLIC_CANONICAL_URL = 'https://terminal.mobius-substrate.com';
+    const request = new URL(
+      'https://mobius-civic-ai-terminal.vercel.app/api/auth/signin/github?callbackUrl=%2Fterminal',
+    );
+    const redirect = shouldRedirectAuthAliasNavigation(request, navigateHeaders, 'GET');
+    assert.ok(redirect);
+    assert.strictEqual(
+      redirect!.href,
+      'https://terminal.mobius-substrate.com/api/auth/signin/github?callbackUrl=%2Fterminal',
+    );
+  });
+
+  it('does not redirect Auth.js client fetch to csrf on vercel.app', () => {
+    stashEnv();
+    process.env.NEXT_PUBLIC_CANONICAL_URL = 'https://terminal.mobius-substrate.com';
+    const request = new URL('https://mobius-civic-ai-terminal.vercel.app/api/auth/csrf');
+    assert.strictEqual(shouldRedirectAuthAliasNavigation(request, fetchHeaders, 'GET'), null);
+  });
+
+  it('does not redirect Auth.js client fetch to session on vercel.app', () => {
+    stashEnv();
+    process.env.NEXT_PUBLIC_CANONICAL_URL = 'https://terminal.mobius-substrate.com';
+    const request = new URL('https://mobius-civic-ai-terminal.vercel.app/api/auth/session');
+    assert.strictEqual(shouldRedirectAuthAliasNavigation(request, fetchHeaders, 'GET'), null);
   });
 });

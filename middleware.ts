@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { resolveAuthAliasRedirectUrl } from '@/lib/auth/baseUrl';
+import { shouldRedirectAuthAliasNavigation } from '@/lib/auth/baseUrl';
 
 export function middleware(request: NextRequest): NextResponse {
-  const redirectUrl = resolveAuthAliasRedirectUrl(request.nextUrl);
+  const redirectUrl = shouldRedirectAuthAliasNavigation(
+    request.nextUrl,
+    request.headers,
+    request.method,
+  );
   if (redirectUrl) {
     return NextResponse.redirect(redirectUrl);
   }

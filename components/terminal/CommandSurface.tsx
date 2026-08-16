@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
+import { buildCanonicalGitHubSignInUrl, isVercelBrowserHost } from '@/lib/auth/clientOrigin';
 
 type CommandOutput = {
   timestamp: string;
@@ -263,6 +264,10 @@ ${greeting}`,
     }
     if (base === '/login') {
       push(trimmed, 'Redirecting to GitHub...');
+      if (typeof window !== 'undefined' && isVercelBrowserHost(window.location.hostname)) {
+        window.location.assign(buildCanonicalGitHubSignInUrl('/terminal'));
+        return;
+      }
       await signIn('github', { callbackUrl: '/terminal' });
       return;
     }
