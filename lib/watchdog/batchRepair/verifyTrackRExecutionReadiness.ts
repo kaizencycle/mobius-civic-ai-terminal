@@ -7,6 +7,8 @@ import {
 import {
   resolveTrackRCaptureBinding,
   type TrackRCaptureBinding,
+  CAPTURE_2014Z_EXPECTED_HASHES,
+  TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION,
 } from '@/lib/watchdog/batchRepair/trackRCaptureBinding';
 import {
   CAPTURE_0123Z_EXPECTED_HASHES,
@@ -34,6 +36,7 @@ export type TrackRExecutionReadinessStatus =
 export type TrackRExecutionReadiness = {
   capture_id: string;
   verified_at: string;
+  lineage_snapshot_version: string;
   readiness_status: TrackRExecutionReadinessStatus;
   execution_authorized: false;
   governance_attestation_path: string;
@@ -112,6 +115,44 @@ export function validateRecordedHumanConsent(args: {
   }
 
   return { ok: errors.length === 0, errors };
+}
+
+export const TRACK_R_V2_GOVERNANCE_ATTESTATION_DIR =
+  'artifacts/C-404/track-r-lineage-v2';
+
+const V2_GOVERNANCE_HASH_LABELS = [
+  'semantic_manifest_hash',
+  'lineage_snapshot_hash',
+  'execution_witness_hash',
+  'rollback_manifest_hash',
+] as const;
+
+export function validateV2GovernanceCandidateBinding(args: {
+  binding: TrackRCaptureBinding;
+}): { ok: boolean; errors: string[]; awaitingFreshAttestation: boolean } {
+  const errors: string[] = [];
+  if (args.binding.lineage_snapshot_version !== TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION) {
+    errors.push('capture binding is not a v2 governance candidate');
+    return { ok: false, errors, awaitingFreshAttestation: false };
+  }
+
+  for (const label of V2_GOVERNANCE_HASH_LABELS) {
+    const expected = CAPTURE_2014Z_EXPECTED_HASHES[label];
+    const observed = args.binding.attestation_hashes[label];
+    if (observed !== expected) {
+      errors.push(`v2 governance candidate hash mismatch for ${label}`);
+    }
+  }
+
+  const repoRoot = process.cwd();
+  const signedMarkers = [
+    join(repoRoot, TRACK_R_V2_GOVERNANCE_ATTESTATION_DIR, 'ZEUS_V2_ATTESTATION_SIGNED.md'),
+    join(repoRoot, TRACK_R_V2_GOVERNANCE_ATTESTATION_DIR, 'EVE_V2_ATTESTATION_SIGNED.md'),
+    join(repoRoot, TRACK_R_V2_GOVERNANCE_ATTESTATION_DIR, 'HUMAN_V2_CONSENT_SIGNED.md'),
+  ];
+  const awaitingFreshAttestation = !signedMarkers.some((path) => existsSync(path));
+
+  return { ok: errors.length === 0, errors, awaitingFreshAttestation };
 }
 
 const EXPLICIT_AUTHORIZATION_HASH_LABELS = [
@@ -208,7 +249,24 @@ export async function verifyTrackRExecutionReadiness(args?: {
   const governancePath =
     args?.governancePath ?? join(process.cwd(), TRACK_R_GOVERNANCE_ATTESTATION_PATH);
   const useLegacyGovernance = binding.capture_id === CAPTURE_0123Z_ID;
+  const useV2Governance = binding.lineage_snapshot_version === TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION;
   const attestedLineageSnapshotHash = binding.attestation_hashes.lineage_snapshot_hash;
+
+  addCheck(
+    checks,
+    'lineage_snapshot_version',
+    useV2Governance ? 'pass' : binding.lineage_snapshot_version === 'v1' ? 'warn' : 'fail',
+    binding.lineage_snapshot_version,
+  );
+
+  if (binding.lineage_snapshot_version === 'v1' && !useLegacyGovernance) {
+    addCheck(
+      checks,
+      'lineage_snapshot_version_execution',
+      'fail',
+      'v1 lineage snapshot bindings are not accepted for new execution attempts',
+    );
+  }
 
   let humanConsentValidation: { ok: boolean; errors: string[] } = {
     ok: false,
@@ -224,6 +282,7 @@ export async function verifyTrackRExecutionReadiness(args?: {
       return {
         capture_id: binding.capture_id,
         verified_at: verifiedAt,
+        lineage_snapshot_version: binding.lineage_snapshot_version,
         readiness_status: 'blocked',
         execution_authorized: false,
         governance_attestation_path: governancePath,
@@ -295,6 +354,43 @@ export async function verifyTrackRExecutionReadiness(args?: {
     humanConsentValidation = validateRecordedHumanConsent({
       verdict: verdicts.human_approval,
     });
+  } else if (useV2Governance) {
+    const v2Governance = validateV2GovernanceCandidateBinding({ binding });
+    addCheck(
+      checks,
+      'governance_attestation',
+      'warn',
+      `v2 governance candidate ${binding.capture_id} — fresh ZEUS/EVE/human attestation required`,
+    );
+    addCheck(
+      checks,
+      'capture_binding_archive',
+      existsSync(join(archivePath, 'TRACK_R_LIVE_DRY_RUN_PACKAGE.json')) ||
+        existsSync(join(archivePath, 'GITHUB_PROVENANCE.json'))
+        ? 'pass'
+        : 'fail',
+      archivePath,
+    );
+    addCheck(
+      checks,
+      'v2_governance_candidate_hashes',
+      v2Governance.ok ? 'pass' : 'fail',
+      v2Governance.ok ? CAPTURE_2014Z_EXPECTED_HASHES.lineage_snapshot_hash : JSON.stringify(v2Governance.errors),
+    );
+    addCheck(
+      checks,
+      'governance_human_consent',
+      v2Governance.awaitingFreshAttestation ? 'pass' : 'fail',
+      v2Governance.awaitingFreshAttestation
+        ? 'awaiting fresh v2 ZEUS/EVE/human attestation'
+        : 'v2 attestation markers present — custodian review required',
+    );
+    humanConsentValidation = {
+      ok: !v2Governance.awaitingFreshAttestation && v2Governance.ok,
+      errors: v2Governance.awaitingFreshAttestation
+        ? ['awaiting fresh v2 ZEUS/EVE/human attestation']
+        : v2Governance.errors,
+    };
   } else {
     addCheck(
       checks,
@@ -350,6 +446,7 @@ export async function verifyTrackRExecutionReadiness(args?: {
       environment: 'production-execution-readiness-probe',
       checkPrefix: 'fresh',
       captureId: binding.capture_id,
+      lineageSnapshotVersion: binding.lineage_snapshot_version,
       attestedLineageSnapshotHash,
     });
     for (const row of casProbe.checks) {
@@ -372,6 +469,8 @@ export async function verifyTrackRExecutionReadiness(args?: {
   } else if (humanConsentValidation.ok) {
     readiness_status =
       fresh_cas_match === true ? 'awaiting_execution_handoff' : 'consent_recorded_cas_required';
+  } else if (useV2Governance && !hasFail && !casDrift) {
+    readiness_status = 'awaiting_human_consent';
   } else if (!isHumanConsentPending(verdicts.human_approval)) {
     readiness_status = 'blocked';
   }
@@ -379,6 +478,7 @@ export async function verifyTrackRExecutionReadiness(args?: {
   return {
     capture_id: binding.capture_id,
     verified_at: verifiedAt,
+    lineage_snapshot_version: binding.lineage_snapshot_version,
     readiness_status,
     execution_authorized: false,
     governance_attestation_path: governancePath,

@@ -3,6 +3,7 @@ import {
   resolveRequiredWitnessSealIds,
   verifyLiveSealWitnessExport,
 } from '@/lib/watchdog/batchRepair/executionWitness';
+import { assertLineageSnapshotVersionAccepted } from '@/lib/watchdog/batchRepair/lineageSnapshotVersionGuard';
 import { verifyManifestHash } from '@/lib/watchdog/batchRepair/semanticManifest';
 
 export const BATCH_EXECUTION_FEATURE_FLAG = 'TRACK_R_BATCH_EXECUTION_ENABLED';
@@ -47,6 +48,23 @@ export function assertBatchCommitAllowed(input: BatchCommitGuardInput): {
   }
   if (!input.fresh_lineage_snapshot_hash_matches) {
     errors.push('fresh lineage snapshot hash does not match manifest attestation');
+  } else {
+    const versionCheck = assertLineageSnapshotVersionAccepted({
+      lineage_snapshot_version: input.lineage_snapshot_version,
+      lineage_snapshot_hash: input.fresh_lineage_snapshot_hash ?? input.attested_lineage_snapshot_hash,
+      execution_witness_lineage_snapshot_version: input.lineage_snapshot_version,
+      execution_witness_lineage_snapshot_hash:
+        input.fresh_lineage_snapshot_hash ?? input.attested_lineage_snapshot_hash,
+    });
+    if (!versionCheck.ok) {
+      errors.push(...versionCheck.errors);
+    } else if (
+      input.attested_lineage_snapshot_hash &&
+      input.fresh_lineage_snapshot_hash &&
+      input.attested_lineage_snapshot_hash !== input.fresh_lineage_snapshot_hash
+    ) {
+      errors.push('fresh lineage snapshot hash does not match attested lineage snapshot hash');
+    }
   }
 
   let requiredWitnessSealIds: string[] | undefined = input.required_witness_seal_ids

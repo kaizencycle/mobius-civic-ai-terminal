@@ -16,6 +16,7 @@ async function main(): Promise<void> {
   });
 
   console.log(`Capture ID: ${result.capture_id}`);
+  console.log(`Lineage snapshot version: ${result.lineage_snapshot_version}`);
   console.log(`Readiness status: ${result.readiness_status}`);
   console.log(`Execution authorized: ${result.execution_authorized}`);
   console.log(`Attested lineage CAS: ${result.attested_lineage_snapshot_hash}`);

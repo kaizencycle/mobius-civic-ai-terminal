@@ -21,6 +21,7 @@ import {
 import {
   resolveTrackRCaptureBinding,
   type TrackRCaptureBinding,
+  TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION,
 } from '@/lib/watchdog/batchRepair/trackRCaptureBinding';
 import { hasUpstashKvCredentials } from '@/lib/kv/upstashEnv';
 
@@ -36,6 +37,7 @@ export type BatchApplyPreflightStatus =
 export type BatchApplyPreflightResult = {
   capture_id: string;
   verified_at: string;
+  lineage_snapshot_version: string;
   preflight_status: BatchApplyPreflightStatus;
   execution_authorized: false;
   production_mutation_performed: false;
@@ -101,6 +103,7 @@ export async function verifyFreshLineageSnapshotAtApply(args?: {
     attestedLineageSnapshotHash:
       args?.attestedLineageSnapshotHash ?? binding.attestation_hashes.lineage_snapshot_hash,
     captureId: args?.captureId ?? binding.capture_id,
+    lineageSnapshotVersion: binding.lineage_snapshot_version,
     verifiedAt: args?.verifiedAt,
     baseUrl: args?.baseUrl,
     repoRoot: args?.repoRoot,
@@ -168,7 +171,15 @@ export function classifyApplyCasProbeOutcome(
 function assertBatchCommitGuardWithVerifiedApplyCas(args: {
   guardInput: Omit<BatchCommitGuardInput, 'fresh_lineage_snapshot_hash_matches'>;
   applyCas: FreshLineageSnapshotFromProduction;
+  binding: TrackRCaptureBinding;
 }): { ok: boolean; errors: string[] } {
+  if (args.binding.lineage_snapshot_version !== TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION) {
+    return {
+      ok: false,
+      errors: ['apply preflight requires a v2 lineage snapshot binding'],
+    };
+  }
+
   if (args.applyCas.fresh_cas_match !== true || args.applyCas.fresh_lineage_snapshot_hash === null) {
     return {
       ok: false,
@@ -188,6 +199,9 @@ function assertBatchCommitGuardWithVerifiedApplyCas(args: {
   return assertBatchCommitAllowed({
     ...args.guardInput,
     fresh_lineage_snapshot_hash_matches: true,
+    lineage_snapshot_version: args.binding.lineage_snapshot_version,
+    attested_lineage_snapshot_hash: args.binding.attestation_hashes.lineage_snapshot_hash,
+    fresh_lineage_snapshot_hash: args.applyCas.fresh_lineage_snapshot_hash,
   });
 }
 
@@ -202,6 +216,7 @@ export async function assertBatchCommitAllowedAtApply(args: {
   baseUrl?: string;
   repoRoot?: string;
 }): Promise<{ ok: boolean; errors: string[]; applyCas: FreshLineageSnapshotFromProduction }> {
+  const binding = resolveTrackRCaptureBinding({ repoRoot: args.repoRoot });
   const applyCas = await verifyFreshLineageSnapshotAtApply({
     attestedLineageSnapshotHash: args.attestedLineageSnapshotHash,
     verifiedAt: args.verifiedAt,
@@ -228,6 +243,7 @@ export async function assertBatchCommitAllowedAtApply(args: {
 
   const guard = assertBatchCommitGuardWithVerifiedApplyCas({
     applyCas,
+    binding,
     guardInput: {
       ...args.guardInput,
       preflight_read_only: true,
@@ -241,6 +257,7 @@ export async function assertBatchCommitAllowedAtApply(args: {
 function buildPreflightBlockedResult(args: {
   captureId: string;
   verifiedAt: string;
+  lineageSnapshotVersion: string;
   attestedLineageSnapshotHash: string;
   preflight_status: BatchApplyPreflightStatus;
   applyCas: FreshLineageSnapshotFromProduction;
@@ -257,6 +274,7 @@ function buildPreflightBlockedResult(args: {
   return {
     capture_id: args.captureId,
     verified_at: args.verifiedAt,
+    lineage_snapshot_version: args.lineageSnapshotVersion,
     preflight_status: args.preflight_status,
     execution_authorized: false,
     production_mutation_performed: false,
@@ -287,6 +305,38 @@ export async function runBatchApplyPreflight(args?: {
   });
   const attestedLineageSnapshotHash = binding.attestation_hashes.lineage_snapshot_hash;
 
+  if (binding.lineage_snapshot_version !== TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION) {
+    addCheck(
+      checks,
+      'lineage_snapshot_version',
+      'fail',
+      `apply preflight requires v2 binding; got ${binding.lineage_snapshot_version}`,
+    );
+    return buildPreflightBlockedResult({
+      captureId: binding.capture_id,
+      verifiedAt,
+      lineageSnapshotVersion: binding.lineage_snapshot_version,
+      attestedLineageSnapshotHash,
+      preflight_status: 'apply_blocked',
+      applyCas: {
+        capture_id: binding.capture_id,
+        verified_at: verifiedAt,
+        lineage_snapshot_version: binding.lineage_snapshot_version,
+        attested_lineage_snapshot_hash: attestedLineageSnapshotHash,
+        fresh_lineage_snapshot_hash: null,
+        fresh_cas_match: null,
+        fresh_lineage_snapshot_hash_matches: false,
+        observed_integrity_gate_active: null,
+        fresh_lineage_snapshot_hash_v2: null,
+        checks: [],
+      },
+      checks,
+      commit_guard_errors: ['apply preflight requires a v2 lineage snapshot binding'],
+    });
+  }
+
+  addCheck(checks, 'lineage_snapshot_version', 'pass', binding.lineage_snapshot_version);
+
   const applyCas = await verifyFreshLineageSnapshotAtApply({
     attestedLineageSnapshotHash,
     captureId: binding.capture_id,
@@ -304,6 +354,7 @@ export async function runBatchApplyPreflight(args?: {
     return buildPreflightBlockedResult({
       captureId: binding.capture_id,
       verifiedAt,
+      lineageSnapshotVersion: binding.lineage_snapshot_version,
       attestedLineageSnapshotHash,
       preflight_status: 'apply_credentials_required',
       applyCas,
@@ -315,6 +366,7 @@ export async function runBatchApplyPreflight(args?: {
     return buildPreflightBlockedResult({
       captureId: binding.capture_id,
       verifiedAt,
+      lineageSnapshotVersion: binding.lineage_snapshot_version,
       attestedLineageSnapshotHash,
       preflight_status: 'apply_blocked',
       applyCas,
@@ -326,6 +378,7 @@ export async function runBatchApplyPreflight(args?: {
     return buildPreflightBlockedResult({
       captureId: binding.capture_id,
       verifiedAt,
+      lineageSnapshotVersion: binding.lineage_snapshot_version,
       attestedLineageSnapshotHash,
       preflight_status: 'apply_cas_drift',
       applyCas,
@@ -360,6 +413,7 @@ export async function runBatchApplyPreflight(args?: {
 
   const guard = assertBatchCommitGuardWithVerifiedApplyCas({
     applyCas,
+    binding,
     guardInput: {
       manifest,
       dry_run: false,
@@ -396,6 +450,7 @@ export async function runBatchApplyPreflight(args?: {
   return {
     capture_id: binding.capture_id,
     verified_at: verifiedAt,
+    lineage_snapshot_version: binding.lineage_snapshot_version,
     preflight_status,
     execution_authorized: false,
     production_mutation_performed: false,

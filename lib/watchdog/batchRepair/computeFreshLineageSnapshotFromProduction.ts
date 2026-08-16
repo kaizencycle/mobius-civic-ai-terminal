@@ -14,6 +14,12 @@ import { hasUpstashKvCredentials } from '@/lib/kv/upstashEnv';
 import { verifyProductionKvEnvironmentIdentity } from '@/lib/watchdog/batchRepair/kvEnvironmentIdentity';
 import { loadLiveLineagePointerObservationsPrimaryOnly } from '@/lib/watchdog/batchRepair/liveLineagePointerObservations';
 import type { CollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affected-blocks';
+import type { SupportedLineageSnapshotVersion } from '@/lib/watchdog/batchRepair/lineageSnapshotVersionGuard';
+import {
+  CAPTURE_2014Z_EXPECTED_HASHES,
+  TRACK_R_DEFAULT_CAPTURE_ID,
+  TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION,
+} from '@/lib/watchdog/batchRepair/trackRCaptureV2Governance';
 import {
   CAPTURE_0123Z_EXPECTED_HASHES,
   CAPTURE_0123Z_ID,
@@ -36,6 +42,7 @@ export function resolveLiveAffectedBlockNumbersForCas(args: {
 export type FreshLineageSnapshotFromProduction = {
   capture_id: string;
   verified_at: string;
+  lineage_snapshot_version: SupportedLineageSnapshotVersion | 'v1';
   attested_lineage_snapshot_hash: string;
   fresh_lineage_snapshot_hash: string | null;
   fresh_cas_match: boolean | null;
@@ -44,10 +51,9 @@ export type FreshLineageSnapshotFromProduction = {
   checks: TrackRCaptureAttestationCheck[];
   /**
    * v2 lineage snapshot hash (capture_id/cycle excluded — see C-404 CAS-v2
-   * repair). Computed alongside the v1 hash for every probe so post-merge
-   * production capture comparisons have v2 material to diff, but does not
-   * gate `fresh_cas_match` / readiness / preflight decisions — those remain
-   * v1-bound until governance restart adopts v2 per the CAS-v2 handoff.
+   * repair). Always computed alongside v1 when the probe completes so callers
+   * can diff v2 material; when `lineage_snapshot_version` is `v2`, this hash
+   * is also the canonical CAS gate (`fresh_lineage_snapshot_hash`).
    */
   fresh_lineage_snapshot_hash_v2: string | null;
 };
@@ -115,6 +121,7 @@ function parseObservedBaseline(args: {
 export async function computeFreshLineageSnapshotFromProduction(args?: {
   attestedLineageSnapshotHash?: string;
   captureId?: string;
+  lineageSnapshotVersion?: SupportedLineageSnapshotVersion | 'v1';
   verifiedAt?: string;
   baseUrl?: string;
   repoRoot?: string;
@@ -124,9 +131,13 @@ export async function computeFreshLineageSnapshotFromProduction(args?: {
   const verifiedAt = args?.verifiedAt ?? new Date().toISOString();
   const baseUrl = (args?.baseUrl ?? 'https://mobius-civic-ai-terminal.vercel.app').replace(/\/$/, '');
   const repoRoot = args?.repoRoot ?? process.cwd();
-  const captureId = args?.captureId ?? CAPTURE_0123Z_ID;
+  const captureId = args?.captureId ?? TRACK_R_DEFAULT_CAPTURE_ID;
+  const lineageSnapshotVersion = args?.lineageSnapshotVersion ?? TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION;
   const attestedLineageSnapshotHash =
-    args?.attestedLineageSnapshotHash ?? CAPTURE_0123Z_EXPECTED_HASHES.lineage_snapshot_hash;
+    args?.attestedLineageSnapshotHash ??
+    (lineageSnapshotVersion === TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION
+      ? CAPTURE_2014Z_EXPECTED_HASHES.lineage_snapshot_hash
+      : CAPTURE_0123Z_EXPECTED_HASHES.lineage_snapshot_hash);
   const environment = args?.environment ?? 'production-lineage-cas-probe';
   const prefix = args?.checkPrefix ?? 'fresh';
   const checks: TrackRCaptureAttestationCheck[] = [];
@@ -336,12 +347,28 @@ export async function computeFreshLineageSnapshotFromProduction(args?: {
             `lineage_snapshot_hash_v2=${fresh_lineage_snapshot_hash_v2}`,
           );
 
-          fresh_cas_match = fresh_lineage_snapshot_hash === attestedLineageSnapshotHash;
+          const canonicalFreshHash =
+            lineageSnapshotVersion === TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION
+              ? fresh_lineage_snapshot_hash_v2
+              : fresh_lineage_snapshot_hash;
+
+          if (lineageSnapshotVersion === TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION) {
+            fresh_lineage_snapshot_hash = fresh_lineage_snapshot_hash_v2;
+          }
+
+          fresh_cas_match =
+            canonicalFreshHash !== null && canonicalFreshHash === attestedLineageSnapshotHash;
           addCheck(
             checks,
             `${prefix}_lineage_snapshot_cas`,
             fresh_cas_match ? 'pass' : 'fail',
-            `attested=${attestedLineageSnapshotHash} fresh=${fresh_lineage_snapshot_hash}`,
+            `version=${lineageSnapshotVersion} attested=${attestedLineageSnapshotHash} fresh=${canonicalFreshHash ?? 'null'}`,
+          );
+          addCheck(
+            checks,
+            `${prefix}_lineage_snapshot_version`,
+            lineageSnapshotVersion === TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION ? 'pass' : 'warn',
+            lineageSnapshotVersion,
           );
         }
       }
@@ -351,6 +378,7 @@ export async function computeFreshLineageSnapshotFromProduction(args?: {
   return {
     capture_id: captureId,
     verified_at: verifiedAt,
+    lineage_snapshot_version: lineageSnapshotVersion,
     attested_lineage_snapshot_hash: attestedLineageSnapshotHash,
     fresh_lineage_snapshot_hash,
     fresh_cas_match,
