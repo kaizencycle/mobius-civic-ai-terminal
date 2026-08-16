@@ -1,8 +1,13 @@
 import NextAuth from 'next-auth';
 import GitHub from 'next-auth/providers/github';
+import { resolveAuthBaseUrl } from '@/lib/auth/baseUrl';
 import { env } from '@/lib/env';
 
+// Pin OAuth redirect_uri to the public canon domain — not a *.vercel.app alias.
+process.env.AUTH_URL = resolveAuthBaseUrl();
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   providers: [
     GitHub({
       clientId: env.GITHUB_CLIENT_ID ?? '',

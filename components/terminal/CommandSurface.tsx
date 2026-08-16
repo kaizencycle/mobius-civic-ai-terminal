@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
+import { buildCanonicalOAuthHandoffUrl, isVercelBrowserHost, sanitizeOAuthCallbackUrl } from '@/lib/auth/clientOrigin';
 
 type CommandOutput = {
   timestamp: string;
@@ -30,6 +31,7 @@ export default function CommandSurface() {
   );
   const touchStartY = useRef<number | null>(null);
   const isMountedRef = useRef(false);
+  const oauthHandoffStarted = useRef(false);
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -66,6 +68,29 @@ ${greeting}`,
       active = false;
     };
   }, [session?.user?.githubUsername]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('oauth') !== 'login') return;
+
+    if (isVercelBrowserHost(window.location.hostname)) {
+      const callbackPath = sanitizeOAuthCallbackUrl(params.get('callbackUrl'));
+      window.location.assign(buildCanonicalOAuthHandoffUrl(callbackPath));
+      return;
+    }
+
+    if (oauthHandoffStarted.current) return;
+    oauthHandoffStarted.current = true;
+
+    const callbackUrl = sanitizeOAuthCallbackUrl(params.get('callbackUrl'));
+    params.delete('oauth');
+    params.delete('callbackUrl');
+    const qs = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+
+    void signIn('github', { callbackUrl });
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -263,7 +288,11 @@ ${greeting}`,
     }
     if (base === '/login') {
       push(trimmed, 'Redirecting to GitHub...');
-      await signIn('github', { callbackUrl: '/terminal' });
+      if (typeof window !== 'undefined' && isVercelBrowserHost(window.location.hostname)) {
+        window.location.assign(buildCanonicalOAuthHandoffUrl('/terminal/globe'));
+        return;
+      }
+      await signIn('github', { callbackUrl: '/terminal/globe' });
       return;
     }
     if (base === '/logout') {

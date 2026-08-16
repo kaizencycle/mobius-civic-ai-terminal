@@ -110,6 +110,8 @@ const serverSchema = z.object({
   // GitHub OAuth (next-auth)
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
+  AUTH_URL: z.string().optional(),
+  AUTH_SECRET: z.string().optional(),
 
   // Auto-Seal engine / CPC canon anchor base (lib/cpc/hashAnchor.ts)
   CPC_BASE_URL: z.string().optional(),

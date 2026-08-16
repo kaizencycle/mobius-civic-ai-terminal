@@ -1,13 +1,13 @@
 /** Canonical public origin — never use VERCEL_URL or preview deployment hosts. */
 const DEFAULT_ORIGIN = 'https://terminal.mobius-substrate.com';
 
-function normalizeOrigin(url: string | undefined): string | undefined {
+export function normalizeOrigin(url: string | undefined): string | undefined {
   if (!url) return undefined;
   return url.replace(/\/$/, '');
 }
 
 /** Vercel preview/production aliases must not win over the public canon domain. */
-function isVercelDeploymentHost(origin: string): boolean {
+export function isVercelDeploymentHost(origin: string): boolean {
   try {
     const host = new URL(origin).hostname.toLowerCase();
     return host.endsWith('.vercel.app') || host === 'vercel.app';
