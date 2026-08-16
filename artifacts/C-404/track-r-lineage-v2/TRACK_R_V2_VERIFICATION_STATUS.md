@@ -85,6 +85,12 @@ gap (verbatim artifact archival) does not block starting that review — the
 hash packet itself is what governance adjudicates — but should be closed
 before this candidate is treated as fully immutable-archived.
 
+**C-405 authority reconciliation:** PR #675 activated v1 execution authority
+(Capture #7) after this v2 packet was established. That fork is resolved under
+`docs/epicon/cycles/C-405/HANDOFF_C-405_CAS_V2_AUTHORITY_RECONCILIATION.md`.
+Do not treat Capture #7/v1 authorization or v1-green preflight as v2 execution
+permission.
+
 ---
 
 *"We heal as we walk." — Mobius Systems*

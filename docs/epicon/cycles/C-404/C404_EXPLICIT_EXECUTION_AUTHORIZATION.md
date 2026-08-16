@@ -1,11 +1,20 @@
 # C-404 Explicit Execution Authorization
 
+> **SUPERSEDED FOR EXECUTION (C-405):** This document authorized Capture #7
+> (`1919Z`) under **CAS-v1** (`d7f91f…bc00`). C-404 established Capture #9
+> (`2014Z`) as the **v2 governance candidate** (`b5f781…ef9fb`). PR #675
+> preflight run 31918026854 was mechanically green on v1 but did **not** bind
+> execution to the v2 packet. **Do not execute Track R under this authority.**
+> Preserve historically; active reconciliation:
+> `docs/epicon/cycles/C-405/HANDOFF_C-405_CAS_V2_AUTHORITY_RECONCILIATION.md`.
+
 **Document ID:** `C-404-EXPLICIT-EXECUTION-AUTHORIZATION`  
 **Cycle:** C-404  
 **Date:** 2026-08-15  
 **Time:** 19:19:00Z  
 **Custodian:** Michael (kaizencycle)  
-**Authorization mode:** Explicit (CAS probe workflow previously defaulted to capture #5; authorization by evidence review and manual verification)
+**Authorization mode:** Explicit (CAS probe workflow previously defaulted to capture #5; authorization by evidence review and manual verification)  
+**Execution status:** **SUPERSEDED — NON-EXECUTABLE** (authority fork resolved under C-405)
 
 ---
 
