@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-08-16T00:03:28.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-404",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "gaia-noaa-alerts": "persistent",
+    "gaia-usgs-water": "persistent",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "echo-dataverse": "persistent",
+    "hermes-openlibrary": "transient",
+    "kv_keys_ok": "persistent",
+    "sustain_eligible": "persistent",
+    "tripwire_active": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-404)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-15T23-02-38-987Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-15T23-02-38-987Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.91 mode=green source=kv classification=NOMINAL terminal_status=nominal; anomalies=[gaia-noaa-alerts watch, gaia-usgs-water elevated, themis-govtrack elevated, daedalus-cloudflare-radar watch, echo-dataverse elevated]; flags kv_keys_ok=false tripwire_active=false gi_below_floor=false; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; post_seed_gi=0.91 post_seed_mode=green; sustain_eligible=false; micro_composite=0.855; degraded_agents=4 [ATLAS,AUREA,JADE,DAEDALUS]."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.839 composite=0.839 instrumentCount=40 cached=false cycle=C-404. gaia-noaa-alerts score=0.6 watch persistent. gaia-usgs-water score=0 elevated persistent (primary failed with retry). themis-govtrack score=0 elevated persistent (primary failed with retry). daedalus-cloudflare-radar score=0.7 watch persistent. echo-dataverse score=0.3 elevated persistent. hermes-openlibrary score=0 error — new failure absent from ATLAS anomaly list. errors=3 failedInstruments=[gaia-usgs-water,hermes-openlibrary,themis-govtrack]."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.74 mode=yellow terminal_status=stressed source=kv degraded=true cycle=C-404 gi_provenance=kv-live. authority.gi_origin=kv kv_backed=true. Not mock — KV seed path active. freshness=0.3 primary driver of degradation."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.91 (kv, 23:02Z) vs integrity-status gi=0.74 (kv-live) — Δ0.17. Live micro gi=0.839 — Δ0.071 from ATLAS. Three-way GI divergence exceeds tolerance; ATLAS mode=green/NOMINAL conflicts with integrity-status mode=yellow/stressed."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active. kv_backed=true."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS anomaly: gaia-noaa-alerts",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch at sweep; live micro score=0.6 still watch."
+    },
+    {
+      "check": "ATLAS anomaly: gaia-usgs-water",
+      "result": "fail",
+      "detail": "Persistent elevated — ATLAS flagged elevated; live micro score=0 primary failed (with retry) after 10002ms latency."
+    },
+    {
+      "check": "ATLAS anomaly: themis-govtrack",
+      "result": "fail",
+      "detail": "Persistent elevated — ATLAS flagged elevated; live micro score=0 primary failed (with retry) after 8026ms latency."
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch at sweep; live micro score=0.7 still watch."
+    },
+    {
+      "check": "ATLAS anomaly: echo-dataverse",
+      "result": "warn",
+      "detail": "Persistent elevated — ATLAS flagged elevated; live micro score=0.3 still elevated."
+    },
+    {
+      "check": "hermes-openlibrary (live-only)",
+      "result": "warn",
+      "detail": "New failure not in ATLAS anomaly list — live micro score=0 primary and fallback both failed after 8003ms latency."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "pass",
+      "detail": "Resolved — ATLAS flags tripwire_active=false level=none; prior cycle had tripwire elevated, now baseline state."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "pass",
+      "detail": "sustain_eligible=false at ATLAS sweep — sustain gate not eligible under current classification."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-404 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-404-3bhiyo mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Quorum 5/5 achieved for C-404 — seal complete. GI disputed: ATLAS kv=0.91/green/NOMINAL vs integrity-status kv=0.74/yellow/stressed (Δ0.17) vs live micro=0.839 (Δ0.071). ATLAS overstates system health. Persistent lane failures: gaia-usgs-water, themis-govtrack, echo-dataverse (0.3), daedalus-cloudflare-radar (0.7 watch). hermes-openlibrary newly failed — absent from ATLAS anomaly flags. kv_keys_ok=false persists despite successful seed. freshness=0.3 suppressing GI. Tripwire resolved. Investigate GI authority divergence and upstream API availability."
+}
