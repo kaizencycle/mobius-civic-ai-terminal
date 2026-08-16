@@ -36,6 +36,7 @@ const CAPTURE_HISTORY_ROOTS = [
 export {
   CAPTURE_2014Z_EXPECTED_HASHES,
   CAPTURE_2014Z_ID,
+  isTrackRV2GovernanceCaptureId,
   TRACK_R_DEFAULT_CAPTURE_ID,
   TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION,
 } from '@/lib/watchdog/batchRepair/trackRCaptureV2Governance';
@@ -79,10 +80,21 @@ function readJson<T>(path: string): T | null {
 
 type GithubProvenanceRecord = {
   capture_id?: string;
+  governance_candidate?: boolean;
   printed_console_output?: Record<string, string>;
-  execution_witness_hash_v2?: string;
+  execution_witness_hash_v2?: string | null;
   production_kv_identity_receipt_hash?: string;
 };
+
+/** Derive capture_id from an archive directory name such as `.../capture-0123Z`. */
+export function resolveCaptureIdFromArchivePath(archivePath: string): string | null {
+  const normalized = archivePath.replace(/\/$/, '');
+  const match = /(?:^|\/)capture-(\d{4}Z)$/i.exec(normalized);
+  if (!match) {
+    return null;
+  }
+  return `track-r-c403-2026-08-15T${match[1]}`;
+}
 
 function resolveBindingFromGithubProvenance(args: {
   archivePath: string;
@@ -90,26 +102,27 @@ function resolveBindingFromGithubProvenance(args: {
 }): TrackRCaptureBinding | null {
   const provenancePath = join(args.archivePath, 'GITHUB_PROVENANCE.json');
   const provenance = readJson<GithubProvenanceRecord>(provenancePath);
-  if (!provenance) {
+  if (!provenance || provenance.governance_candidate !== true) {
+    return null;
+  }
+
+  const resolvedCaptureId = String(provenance.capture_id ?? args.captureId);
+  if (!isTrackRV2GovernanceCaptureId(resolvedCaptureId)) {
     return null;
   }
 
   const printed = provenance.printed_console_output ?? {};
-  const lineageV2 =
-    printed.lineage_snapshot_hash_v2 ?? CAPTURE_2014Z_EXPECTED_HASHES.lineage_snapshot_hash;
-  const semantic =
-    printed.semantic_manifest_hash ?? CAPTURE_2014Z_EXPECTED_HASHES.semantic_manifest_hash;
-  const rollback =
-    printed.rollback_manifest_hash ?? CAPTURE_2014Z_EXPECTED_HASHES.rollback_manifest_hash;
-  const witness =
-    provenance.execution_witness_hash_v2 ?? CAPTURE_2014Z_EXPECTED_HASHES.execution_witness_hash;
+  const lineageV2 = printed.lineage_snapshot_hash_v2;
+  const semantic = printed.semantic_manifest_hash;
+  const rollback = printed.rollback_manifest_hash;
+  const witness = provenance.execution_witness_hash_v2;
 
   if (!lineageV2 || !semantic || !rollback || !witness) {
     return null;
   }
 
   return {
-    capture_id: String(provenance.capture_id ?? args.captureId),
+    capture_id: resolvedCaptureId,
     archive_path: args.archivePath,
     lineage_snapshot_version: TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION,
     attestation_hashes: {
@@ -117,9 +130,7 @@ function resolveBindingFromGithubProvenance(args: {
       lineage_snapshot_hash: lineageV2,
       execution_witness_hash: witness,
       rollback_manifest_hash: rollback,
-      production_kv_identity_receipt_hash:
-        provenance.production_kv_identity_receipt_hash ??
-        CAPTURE_2014Z_EXPECTED_HASHES.production_kv_identity_receipt_hash,
+      production_kv_identity_receipt_hash: provenance.production_kv_identity_receipt_hash,
     },
   };
 }
@@ -128,8 +139,8 @@ function inferLineageSnapshotVersion(args: {
   captureId: string;
   packageBody: Record<string, unknown> | null;
 }): SupportedLineageSnapshotVersion | 'v1' {
-  if (isTrackRV2GovernanceCaptureId(args.captureId)) {
-    return TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION;
+  if (!isTrackRV2GovernanceCaptureId(args.captureId)) {
+    return 'v1';
   }
 
   const attestation = (args.packageBody?.attestation_hashes ?? {}) as Record<string, unknown>;
@@ -146,11 +157,11 @@ function inferLineageSnapshotVersion(args: {
   const lineageV2 =
     (attestation.lineage_snapshot_hash_v2 as string | undefined) ??
     (required.lineage_snapshot_hash_v2 as string | undefined);
-  if (lineageV2 && lineageV2 === CAPTURE_2014Z_EXPECTED_HASHES.lineage_snapshot_hash) {
+  if (typeof lineageV2 === 'string' && lineageV2.length === 64) {
     return TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION;
   }
 
-  return 'v1';
+  return TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION;
 }
 
 function resolveLineageSnapshotHash(args: {
@@ -197,12 +208,17 @@ export function resolveTrackRCaptureBinding(args?: {
 }): TrackRCaptureBinding {
   const repoRoot = args?.repoRoot ?? process.cwd();
   const explicitCaptureId = args?.captureId;
-  const captureId = explicitCaptureId ?? TRACK_R_DEFAULT_CAPTURE_ID;
 
   let archivePath: string;
+  let captureId: string;
   if (args?.archivePath) {
     archivePath = args.archivePath;
+    captureId =
+      explicitCaptureId ??
+      resolveCaptureIdFromArchivePath(archivePath) ??
+      TRACK_R_DEFAULT_CAPTURE_ID;
   } else if (explicitCaptureId !== undefined) {
+    captureId = explicitCaptureId;
     if (!captureSuffixFromId(explicitCaptureId)) {
       throw new Error(`invalid capture_id format: ${explicitCaptureId}`);
     }
@@ -211,14 +227,11 @@ export function resolveTrackRCaptureBinding(args?: {
       throw new Error(`no capture archive found for capture_id ${explicitCaptureId}`);
     }
     archivePath = resolved;
-  } else if (isTrackRV2GovernanceCaptureId(captureId)) {
+  } else {
+    captureId = TRACK_R_DEFAULT_CAPTURE_ID;
     archivePath =
       resolveTrackRCaptureArchivePath({ captureId, repoRoot }) ??
       join(repoRoot, 'artifacts/C-404/track-r-lineage-v2/history/capture-2014Z');
-  } else {
-    archivePath =
-      resolveTrackRCaptureArchivePath({ captureId: CAPTURE_0123Z_ID, repoRoot }) ??
-      join(repoRoot, 'artifacts/C-403/track-r-live-dry-run/history/capture-0123Z');
   }
 
   const pkg = readJson<Record<string, unknown>>(
@@ -237,7 +250,11 @@ export function resolveTrackRCaptureBinding(args?: {
   const attestation = (pkg.attestation_hashes ?? {}) as Record<string, string>;
   const placeholders = (pkg.attestation_placeholders ?? {}) as Record<string, unknown>;
   const required = (placeholders.required_hashes ?? {}) as Record<string, string>;
-  const lineageSnapshotVersion = inferLineageSnapshotVersion({ captureId, packageBody: pkg });
+  const resolvedCaptureId = String(pkg.capture_id ?? captureId);
+  const lineageSnapshotVersion = inferLineageSnapshotVersion({
+    captureId: resolvedCaptureId,
+    packageBody: pkg,
+  });
 
   const semantic =
     attestation.semantic_manifest_hash ?? required.semantic_manifest_hash ?? '';
@@ -264,7 +281,7 @@ export function resolveTrackRCaptureBinding(args?: {
       : CAPTURE_0123Z_EXPECTED_HASHES.production_kv_identity_receipt_hash;
 
   return {
-    capture_id: String(pkg.capture_id ?? captureId),
+    capture_id: resolvedCaptureId,
     archive_path: archivePath,
     lineage_snapshot_version: lineageSnapshotVersion,
     attestation_hashes: {

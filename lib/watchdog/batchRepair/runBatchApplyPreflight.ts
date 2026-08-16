@@ -202,6 +202,7 @@ function assertBatchCommitGuardWithVerifiedApplyCas(args: {
     lineage_snapshot_version: args.binding.lineage_snapshot_version,
     attested_lineage_snapshot_hash: args.binding.attestation_hashes.lineage_snapshot_hash,
     fresh_lineage_snapshot_hash: args.applyCas.fresh_lineage_snapshot_hash,
+    attested_execution_witness_hash: args.binding.attestation_hashes.execution_witness_hash,
   });
 }
 

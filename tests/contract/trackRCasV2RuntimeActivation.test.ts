@@ -3,6 +3,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { join } from 'node:path';
 import {
   CAPTURE_2014Z_EXPECTED_HASHES,
   CAPTURE_2014Z_ID,
@@ -100,7 +101,11 @@ describe('CAS-v2 runtime activation — commit guard version binding', () => {
     });
 
     assert.equal(guard.ok, false);
-    assert.ok(guard.errors.some((error) => error.includes('version missing')));
+    assert.ok(
+      guard.errors.some((error) =>
+        error.includes('lineage snapshot version missing or unsupported'),
+      ),
+    );
   });
 
   it('accepts matched v2 version/hash binding alongside CAS match flag', () => {
@@ -114,12 +119,36 @@ describe('CAS-v2 runtime activation — commit guard version binding', () => {
       lineage_snapshot_version: 'v2',
       attested_lineage_snapshot_hash: hash,
       fresh_lineage_snapshot_hash: hash,
+      attested_execution_witness_hash: CAPTURE_2014Z_EXPECTED_HASHES.execution_witness_hash,
       preflight_read_only: true,
       live_seal_witness_export: null,
     });
 
     assert.equal(guard.ok, false);
     assert.ok(!guard.errors.some((error) => error.includes('version missing')));
-    assert.ok(!guard.errors.some((error) => error.includes('unsupported lineage snapshot version')));
+    assert.ok(
+      !guard.errors.some((error) =>
+        error.includes('lineage snapshot version missing or unsupported'),
+      ),
+    );
+    assert.ok(!guard.errors.some((error) => error.includes('attested execution witness hash required')));
+  });
+
+  it('rejects Capture #8 provenance without v2 execution witness hash', () => {
+    assert.throws(
+      () =>
+        resolveTrackRCaptureBinding({
+          captureId: 'track-r-c403-2026-08-15T2012Z',
+        }),
+      /TRACK_R_LIVE_DRY_RUN_PACKAGE.json and GITHUB_PROVENANCE.json missing/,
+    );
+  });
+
+  it('keeps Capture #5 archive v1 when only archivePath is supplied', () => {
+    const binding = resolveTrackRCaptureBinding({
+      archivePath: join(process.cwd(), 'artifacts/C-403/track-r-live-dry-run/history/capture-0123Z'),
+    });
+    assert.equal(binding.capture_id, 'track-r-c403-2026-08-15T0123Z');
+    assert.equal(binding.lineage_snapshot_version, 'v1');
   });
 });

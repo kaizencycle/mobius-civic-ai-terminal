@@ -124,6 +124,8 @@ export type BatchCommitGuardInput = {
   lineage_snapshot_version?: string | null;
   attested_lineage_snapshot_hash?: string | null;
   fresh_lineage_snapshot_hash?: string | null;
+  /** v2 execution-witness hash from the capture binding — not inferred from lineage CAS alone. */
+  attested_execution_witness_hash?: string | null;
   /** Informational telemetry drift — logged but not a commit blocker. */
   telemetry_snapshot_hash?: string | null;
   live_seal_witness_export?: LiveSealWitnessExport | null;

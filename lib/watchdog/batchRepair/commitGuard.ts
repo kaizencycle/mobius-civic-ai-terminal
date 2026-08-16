@@ -4,6 +4,7 @@ import {
   verifyLiveSealWitnessExport,
 } from '@/lib/watchdog/batchRepair/executionWitness';
 import { assertLineageSnapshotVersionAccepted } from '@/lib/watchdog/batchRepair/lineageSnapshotVersionGuard';
+import { TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION } from '@/lib/watchdog/batchRepair/trackRCaptureV2Governance';
 import { verifyManifestHash } from '@/lib/watchdog/batchRepair/semanticManifest';
 
 export const BATCH_EXECUTION_FEATURE_FLAG = 'TRACK_R_BATCH_EXECUTION_ENABLED';
@@ -48,7 +49,14 @@ export function assertBatchCommitAllowed(input: BatchCommitGuardInput): {
   }
   if (!input.fresh_lineage_snapshot_hash_matches) {
     errors.push('fresh lineage snapshot hash does not match manifest attestation');
+  } else if (input.lineage_snapshot_version !== TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION) {
+    errors.push(
+      'lineage snapshot version missing or unsupported — v2 execution requires an explicit v2 binding',
+    );
   } else {
+    if (!input.attested_execution_witness_hash) {
+      errors.push('attested execution witness hash required for v2 commit guard');
+    }
     const versionCheck = assertLineageSnapshotVersionAccepted({
       lineage_snapshot_version: input.lineage_snapshot_version,
       lineage_snapshot_hash: input.fresh_lineage_snapshot_hash ?? input.attested_lineage_snapshot_hash,
