@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
-import { buildCanonicalOAuthHandoffUrl, isVercelBrowserHost } from '@/lib/auth/clientOrigin';
+import { buildCanonicalOAuthHandoffUrl, isVercelBrowserHost, sanitizeOAuthCallbackUrl } from '@/lib/auth/clientOrigin';
 
 type CommandOutput = {
   timestamp: string;
@@ -75,7 +75,7 @@ ${greeting}`,
     if (params.get('oauth') !== 'login') return;
 
     if (isVercelBrowserHost(window.location.hostname)) {
-      const callbackPath = decodeURIComponent(params.get('callbackUrl') ?? '/terminal');
+      const callbackPath = sanitizeOAuthCallbackUrl(params.get('callbackUrl'));
       window.location.assign(buildCanonicalOAuthHandoffUrl(callbackPath));
       return;
     }
@@ -83,7 +83,7 @@ ${greeting}`,
     if (oauthHandoffStarted.current) return;
     oauthHandoffStarted.current = true;
 
-    const callbackUrl = decodeURIComponent(params.get('callbackUrl') ?? '/terminal');
+    const callbackUrl = sanitizeOAuthCallbackUrl(params.get('callbackUrl'));
     params.delete('oauth');
     params.delete('callbackUrl');
     const qs = params.toString();
@@ -289,10 +289,10 @@ ${greeting}`,
     if (base === '/login') {
       push(trimmed, 'Redirecting to GitHub...');
       if (typeof window !== 'undefined' && isVercelBrowserHost(window.location.hostname)) {
-        window.location.assign(buildCanonicalOAuthHandoffUrl('/terminal'));
+        window.location.assign(buildCanonicalOAuthHandoffUrl('/terminal/globe'));
         return;
       }
-      await signIn('github', { callbackUrl: '/terminal' });
+      await signIn('github', { callbackUrl: '/terminal/globe' });
       return;
     }
     if (base === '/logout') {

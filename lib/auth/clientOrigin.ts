@@ -1,4 +1,5 @@
 const DEFAULT_CANON = 'https://terminal.mobius-substrate.com';
+export const DEFAULT_OAUTH_CALLBACK = '/terminal/globe';
 
 export function isVercelBrowserHost(hostname: string): boolean {
   const host = hostname.toLowerCase();
@@ -17,13 +18,53 @@ export function resolveBrowserAuthOrigin(): string {
   return canonical || DEFAULT_CANON;
 }
 
+/**
+ * Auth.js callbackUrl must be a safe same-origin terminal path without oauth
+ * handoff params — crafted values can otherwise re-trigger signIn in a loop.
+ */
+export function sanitizeOAuthCallbackUrl(raw: string | null | undefined): string {
+  const fallback = DEFAULT_OAUTH_CALLBACK;
+  if (!raw?.trim()) return fallback;
+
+  let decoded = raw.trim();
+  try {
+    decoded = decodeURIComponent(decoded);
+  } catch {
+    return fallback;
+  }
+
+  if (/^https?:\/\//i.test(decoded) || decoded.startsWith('//')) {
+    return fallback;
+  }
+  if (!decoded.startsWith('/terminal')) {
+    return fallback;
+  }
+  if (/oauth\s*=/i.test(decoded) || /callbackUrl\s*=/i.test(decoded)) {
+    return fallback;
+  }
+
+  try {
+    const parsed = new URL(decoded, 'http://oauth-callback.local');
+    parsed.searchParams.delete('oauth');
+    parsed.searchParams.delete('callbackUrl');
+    const path = `${parsed.pathname}${parsed.search}`;
+    if (!path.startsWith('/terminal') || /oauth\s*=/i.test(path)) {
+      return fallback;
+    }
+    return path;
+  } catch {
+    return fallback;
+  }
+}
+
 /** Auth.js v5 starts OAuth via POST + CSRF — never GET /api/auth/signin/github directly. */
-export function buildOAuthHandoffUrl(origin: string, callbackPath = '/terminal'): string {
-  const callback = encodeURIComponent(callbackPath);
+export function buildOAuthHandoffUrl(origin: string, callbackPath = DEFAULT_OAUTH_CALLBACK): string {
+  const safeCallback = sanitizeOAuthCallbackUrl(callbackPath);
+  const callback = encodeURIComponent(safeCallback);
   return `${origin.replace(/\/$/, '')}/terminal/globe?oauth=login&callbackUrl=${callback}`;
 }
 
 /** Redirect *.vercel.app operators to canon terminal to run signIn() with CSRF. */
-export function buildCanonicalOAuthHandoffUrl(callbackPath = '/terminal'): string {
+export function buildCanonicalOAuthHandoffUrl(callbackPath = DEFAULT_OAUTH_CALLBACK): string {
   return buildOAuthHandoffUrl(resolveBrowserAuthOrigin(), callbackPath);
 }
