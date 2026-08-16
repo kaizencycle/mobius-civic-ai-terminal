@@ -6,8 +6,9 @@
 - `pnpm`
 
 ### Runtime
-- Node **20.9+** required (`sharp@0.35.x` libvips CVE remediation; see `package.json#engines`)
-- Node 22.x also supported
+- Node **20.9+** required (`package.json#engines`; enforced by `engine-strict` in `.npmrc`)
+- sharp@0.35.x (libvips CVE remediation) sets the 20.9 floor
+- CI uses latest Node **20.x** LTS (`setup-node` major pin); local dev: `nvm use` (see `.nvmrc`)
 
 ### Install
 ```bash
