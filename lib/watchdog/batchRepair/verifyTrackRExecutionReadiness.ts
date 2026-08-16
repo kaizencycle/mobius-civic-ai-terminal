@@ -7,6 +7,10 @@ import {
 import {
   resolveTrackRCaptureBinding,
   type TrackRCaptureBinding,
+  CAPTURE_2014Z_EXPECTED_HASHES,
+  CAPTURE_2014Z_ID,
+  isTrackRV2GovernanceCaptureId,
+  TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION,
 } from '@/lib/watchdog/batchRepair/trackRCaptureBinding';
 import {
   CAPTURE_0123Z_EXPECTED_HASHES,
@@ -34,6 +38,7 @@ export type TrackRExecutionReadinessStatus =
 export type TrackRExecutionReadiness = {
   capture_id: string;
   verified_at: string;
+  lineage_snapshot_version: string;
   readiness_status: TrackRExecutionReadinessStatus;
   execution_authorized: false;
   governance_attestation_path: string;
@@ -112,6 +117,99 @@ export function validateRecordedHumanConsent(args: {
   }
 
   return { ok: errors.length === 0, errors };
+}
+
+export const TRACK_R_V2_GOVERNANCE_ATTESTATION_DIR =
+  'artifacts/C-404/track-r-lineage-v2';
+
+const V2_GOVERNANCE_HASH_LABELS = [
+  'semantic_manifest_hash',
+  'lineage_snapshot_hash',
+  'execution_witness_hash',
+  'rollback_manifest_hash',
+] as const;
+
+const V2_SIGNED_ATTESTATION_PATHS = {
+  zeus: 'ZEUS_V2_ATTESTATION_SIGNED.md',
+  eve: 'EVE_V2_ATTESTATION_SIGNED.md',
+  human: 'HUMAN_V2_CONSENT_SIGNED.md',
+} as const;
+
+function validateSignedAttestationContent(args: {
+  content: string;
+  label: string;
+}): string[] {
+  const errors: string[] = [];
+  if (!args.content.includes(CAPTURE_2014Z_ID)) {
+    errors.push(`${args.label} missing capture_id binding`);
+  }
+  for (const hashLabel of V2_GOVERNANCE_HASH_LABELS) {
+    const hash = CAPTURE_2014Z_EXPECTED_HASHES[hashLabel];
+    if (!args.content.includes(hash)) {
+      errors.push(`${args.label} missing hash binding for ${hashLabel}`);
+    }
+  }
+  return errors;
+}
+
+export function validateV2SignedGovernanceAttestations(args?: {
+  repoRoot?: string;
+}): { ok: boolean; errors: string[]; complete: boolean } {
+  const repoRoot = args?.repoRoot ?? process.cwd();
+  const attestationDir = join(repoRoot, TRACK_R_V2_GOVERNANCE_ATTESTATION_DIR);
+  const paths = Object.entries(V2_SIGNED_ATTESTATION_PATHS).map(([label, filename]) => ({
+    label,
+    path: join(attestationDir, filename),
+  }));
+
+  const missing = paths.filter(({ path }) => !existsSync(path));
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      complete: false,
+      errors: missing.map(({ label }) => `${label} signed attestation missing`),
+    };
+  }
+
+  const errors: string[] = [];
+  for (const { label, path } of paths) {
+    errors.push(...validateSignedAttestationContent({
+      label,
+      content: readFileSync(path, 'utf8'),
+    }));
+  }
+
+  return { ok: errors.length === 0, errors, complete: true };
+}
+
+export function validateV2GovernanceCandidateBinding(args: {
+  binding: TrackRCaptureBinding;
+}): { ok: boolean; errors: string[]; awaitingFreshAttestation: boolean } {
+  const errors: string[] = [];
+  if (!isTrackRV2GovernanceCaptureId(args.binding.capture_id)) {
+    errors.push('capture_id is not the v2 governance candidate');
+  }
+  if (args.binding.lineage_snapshot_version !== TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION) {
+    errors.push('capture binding is not a v2 governance candidate');
+    return { ok: false, errors, awaitingFreshAttestation: false };
+  }
+
+  for (const label of V2_GOVERNANCE_HASH_LABELS) {
+    const expected = CAPTURE_2014Z_EXPECTED_HASHES[label];
+    const observed = args.binding.attestation_hashes[label];
+    if (observed !== expected) {
+      errors.push(`v2 governance candidate hash mismatch for ${label}`);
+    }
+  }
+
+  const signedAttestations = validateV2SignedGovernanceAttestations();
+  const awaitingFreshAttestation = !signedAttestations.complete;
+
+  return {
+    ok: errors.length === 0,
+    errors,
+    awaitingFreshAttestation,
+  };
 }
 
 const EXPLICIT_AUTHORIZATION_HASH_LABELS = [
@@ -208,7 +306,24 @@ export async function verifyTrackRExecutionReadiness(args?: {
   const governancePath =
     args?.governancePath ?? join(process.cwd(), TRACK_R_GOVERNANCE_ATTESTATION_PATH);
   const useLegacyGovernance = binding.capture_id === CAPTURE_0123Z_ID;
+  const useV2Governance = binding.lineage_snapshot_version === TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION;
   const attestedLineageSnapshotHash = binding.attestation_hashes.lineage_snapshot_hash;
+
+  addCheck(
+    checks,
+    'lineage_snapshot_version',
+    useV2Governance ? 'pass' : binding.lineage_snapshot_version === 'v1' ? 'warn' : 'fail',
+    binding.lineage_snapshot_version,
+  );
+
+  if (binding.lineage_snapshot_version === 'v1' && !useLegacyGovernance) {
+    addCheck(
+      checks,
+      'lineage_snapshot_version_execution',
+      'fail',
+      'v1 lineage snapshot bindings are not accepted for new execution attempts',
+    );
+  }
 
   let humanConsentValidation: { ok: boolean; errors: string[] } = {
     ok: false,
@@ -224,6 +339,7 @@ export async function verifyTrackRExecutionReadiness(args?: {
       return {
         capture_id: binding.capture_id,
         verified_at: verifiedAt,
+        lineage_snapshot_version: binding.lineage_snapshot_version,
         readiness_status: 'blocked',
         execution_authorized: false,
         governance_attestation_path: governancePath,
@@ -295,6 +411,69 @@ export async function verifyTrackRExecutionReadiness(args?: {
     humanConsentValidation = validateRecordedHumanConsent({
       verdict: verdicts.human_approval,
     });
+  } else if (useV2Governance) {
+    const v2Governance = validateV2GovernanceCandidateBinding({ binding });
+    const signedAttestations = validateV2SignedGovernanceAttestations();
+    addCheck(
+      checks,
+      'governance_attestation',
+      'warn',
+      `v2 governance candidate ${binding.capture_id} — fresh ZEUS/EVE/human attestation required`,
+    );
+    addCheck(
+      checks,
+      'capture_binding_archive',
+      existsSync(join(archivePath, 'TRACK_R_LIVE_DRY_RUN_PACKAGE.json')) ||
+        existsSync(join(archivePath, 'GITHUB_PROVENANCE.json'))
+        ? 'pass'
+        : 'fail',
+      archivePath,
+    );
+    addCheck(
+      checks,
+      'v2_governance_candidate_hashes',
+      v2Governance.ok ? 'pass' : 'fail',
+      v2Governance.ok ? CAPTURE_2014Z_EXPECTED_HASHES.lineage_snapshot_hash : JSON.stringify(v2Governance.errors),
+    );
+    if (signedAttestations.complete) {
+      addCheck(
+        checks,
+        'governance_zeus_adopt',
+        signedAttestations.ok ? 'pass' : 'fail',
+        signedAttestations.ok
+          ? V2_SIGNED_ATTESTATION_PATHS.zeus
+          : JSON.stringify(signedAttestations.errors),
+      );
+      addCheck(
+        checks,
+        'governance_eve_adopt',
+        signedAttestations.ok ? 'pass' : 'fail',
+        signedAttestations.ok
+          ? V2_SIGNED_ATTESTATION_PATHS.eve
+          : JSON.stringify(signedAttestations.errors),
+      );
+      addCheck(
+        checks,
+        'governance_human_consent',
+        signedAttestations.ok ? 'pass' : 'fail',
+        signedAttestations.ok
+          ? V2_SIGNED_ATTESTATION_PATHS.human
+          : JSON.stringify(signedAttestations.errors),
+      );
+    } else {
+      addCheck(
+        checks,
+        'governance_human_consent',
+        'pass',
+        'awaiting fresh v2 ZEUS/EVE/human attestation',
+      );
+    }
+    humanConsentValidation = signedAttestations.complete
+      ? { ok: signedAttestations.ok && v2Governance.ok, errors: signedAttestations.errors }
+      : {
+          ok: false,
+          errors: ['awaiting fresh v2 ZEUS/EVE/human attestation'],
+        };
   } else {
     addCheck(
       checks,
@@ -350,6 +529,7 @@ export async function verifyTrackRExecutionReadiness(args?: {
       environment: 'production-execution-readiness-probe',
       checkPrefix: 'fresh',
       captureId: binding.capture_id,
+      lineageSnapshotVersion: binding.lineage_snapshot_version,
       attestedLineageSnapshotHash,
     });
     for (const row of casProbe.checks) {
@@ -372,6 +552,8 @@ export async function verifyTrackRExecutionReadiness(args?: {
   } else if (humanConsentValidation.ok) {
     readiness_status =
       fresh_cas_match === true ? 'awaiting_execution_handoff' : 'consent_recorded_cas_required';
+  } else if (useV2Governance && !hasFail && !casDrift) {
+    readiness_status = 'awaiting_human_consent';
   } else if (!isHumanConsentPending(verdicts.human_approval)) {
     readiness_status = 'blocked';
   }
@@ -379,6 +561,7 @@ export async function verifyTrackRExecutionReadiness(args?: {
   return {
     capture_id: binding.capture_id,
     verified_at: verifiedAt,
+    lineage_snapshot_version: binding.lineage_snapshot_version,
     readiness_status,
     execution_authorized: false,
     governance_attestation_path: governancePath,

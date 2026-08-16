@@ -28,9 +28,22 @@ describe('Track R capture binding', () => {
     );
   });
 
-  it('defaults to capture-0123Z when capture_id omitted', () => {
+  it('defaults to capture-2014Z v2 when capture_id omitted', () => {
     const binding = resolveTrackRCaptureBinding();
+    assert.equal(binding.capture_id, 'track-r-c403-2026-08-15T2014Z');
+    assert.equal(binding.lineage_snapshot_version, 'v2');
+    assert.equal(
+      binding.attestation_hashes.lineage_snapshot_hash,
+      'b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb',
+    );
+  });
+
+  it('still resolves capture-0123Z v1 when requested explicitly', () => {
+    const binding = resolveTrackRCaptureBinding({
+      captureId: 'track-r-c403-2026-08-15T0123Z',
+    });
     assert.equal(binding.capture_id, 'track-r-c403-2026-08-15T0123Z');
+    assert.equal(binding.lineage_snapshot_version, 'v1');
     assert.equal(
       binding.attestation_hashes.lineage_snapshot_hash,
       '3db4832725df8d3d49942e60dc9ddd00d436fdb741329362b6eb4d6753669af5',

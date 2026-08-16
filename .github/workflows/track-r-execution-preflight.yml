@@ -38,9 +38,9 @@ on:
         type: boolean
         default: false
       capture_id:
-        description: Attested capture ID for CAS binding (default capture-0123Z)
+        description: Attested capture ID for CAS binding (default Capture #9 / 2014Z v2)
         type: string
-        default: track-r-c403-2026-08-15T0123Z
+        default: track-r-c403-2026-08-15T2014Z
 
 permissions:
   contents: write
@@ -206,6 +206,7 @@ jobs:
               echo "- exit_code: \`${exit_code:-unknown}\`"
               for key in \
                 "Capture ID:" \
+                "Lineage snapshot version:" \
                 "Readiness status:" \
                 "Preflight status:" \
                 "Execution authorized:" \

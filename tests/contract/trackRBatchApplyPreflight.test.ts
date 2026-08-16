@@ -56,6 +56,7 @@ describe('Track R batch apply preflight (apply-path CAS)', () => {
       classifyApplyCasProbeOutcome({
         capture_id: 'track-r-c403-2026-08-15T0123Z',
         verified_at: '2026-08-15T15:00:00.000Z',
+        lineage_snapshot_version: 'v1',
         attested_lineage_snapshot_hash: CAPTURE_0123Z_EXPECTED_HASHES.lineage_snapshot_hash,
         fresh_lineage_snapshot_hash: null,
         fresh_cas_match: null,
@@ -77,6 +78,7 @@ describe('Track R batch apply preflight (apply-path CAS)', () => {
       classifyApplyCasProbeOutcome({
         capture_id: 'track-r-c403-2026-08-15T0123Z',
         verified_at: '2026-08-15T15:00:00.000Z',
+        lineage_snapshot_version: 'v1',
         attested_lineage_snapshot_hash: CAPTURE_0123Z_EXPECTED_HASHES.lineage_snapshot_hash,
         fresh_lineage_snapshot_hash: 'deadbeef',
         fresh_cas_match: false,
@@ -92,6 +94,7 @@ describe('Track R batch apply preflight (apply-path CAS)', () => {
       classifyApplyCasProbeOutcome({
         capture_id: 'track-r-c403-2026-08-15T0123Z',
         verified_at: '2026-08-15T15:00:00.000Z',
+        lineage_snapshot_version: 'v1',
         attested_lineage_snapshot_hash: CAPTURE_0123Z_EXPECTED_HASHES.lineage_snapshot_hash,
         fresh_lineage_snapshot_hash: null,
         fresh_cas_match: null,

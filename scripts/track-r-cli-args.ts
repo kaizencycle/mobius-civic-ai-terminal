@@ -2,6 +2,8 @@
 /**
  * Parse shared Track R CLI flags for capture binding and base URL.
  */
+import { TRACK_R_DEFAULT_CAPTURE_ID } from '@/lib/watchdog/batchRepair/trackRCaptureV2Governance';
+
 export function parseTrackRCliArgs(argv: string[]): {
   baseUrl?: string;
   captureId?: string;
@@ -13,7 +15,9 @@ export function parseTrackRCliArgs(argv: string[]): {
     baseUrl:
       baseUrlIndex >= 0 && argv[baseUrlIndex + 1] ? argv[baseUrlIndex + 1] : undefined,
     captureId:
-      captureIdIndex >= 0 && argv[captureIdIndex + 1] ? argv[captureIdIndex + 1] : undefined,
+      captureIdIndex >= 0 && argv[captureIdIndex + 1]
+        ? argv[captureIdIndex + 1]
+        : TRACK_R_DEFAULT_CAPTURE_ID,
     skipCasProbe: argv.includes('--skip-cas-probe'),
   };
 }

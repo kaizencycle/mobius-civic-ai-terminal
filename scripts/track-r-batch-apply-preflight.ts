@@ -16,6 +16,7 @@ async function main(): Promise<void> {
   });
 
   console.log(`Capture ID: ${result.capture_id}`);
+  console.log(`Lineage snapshot version: ${result.lineage_snapshot_version}`);
   console.log(`Preflight status: ${result.preflight_status}`);
   console.log(`Execution authorized: ${result.execution_authorized}`);
   console.log(`Production mutation performed: ${result.production_mutation_performed}`);
