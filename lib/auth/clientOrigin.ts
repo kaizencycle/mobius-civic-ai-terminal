@@ -18,6 +18,11 @@ export function resolveBrowserAuthOrigin(): string {
   return canonical || DEFAULT_CANON;
 }
 
+/** Allow only `/terminal` or `/terminal/...` chamber routes — not `/terminalfoo`. */
+export function isAllowedTerminalCallbackPathname(pathname: string): boolean {
+  return pathname === '/terminal' || pathname.startsWith('/terminal/');
+}
+
 /**
  * Auth.js callbackUrl must be a safe same-origin terminal path without oauth
  * handoff params — crafted values can otherwise re-trigger signIn in a loop.
@@ -36,19 +41,19 @@ export function sanitizeOAuthCallbackUrl(raw: string | null | undefined): string
   if (/^https?:\/\//i.test(decoded) || decoded.startsWith('//')) {
     return fallback;
   }
-  if (!decoded.startsWith('/terminal')) {
-    return fallback;
-  }
   if (/oauth\s*=/i.test(decoded) || /callbackUrl\s*=/i.test(decoded)) {
     return fallback;
   }
 
   try {
     const parsed = new URL(decoded, 'http://oauth-callback.local');
+    if (!isAllowedTerminalCallbackPathname(parsed.pathname)) {
+      return fallback;
+    }
     parsed.searchParams.delete('oauth');
     parsed.searchParams.delete('callbackUrl');
     const path = `${parsed.pathname}${parsed.search}`;
-    if (!path.startsWith('/terminal') || /oauth\s*=/i.test(path)) {
+    if (!isAllowedTerminalCallbackPathname(parsed.pathname) || /oauth\s*=/i.test(path)) {
       return fallback;
     }
     return path;

@@ -26,6 +26,12 @@ describe('buildOAuthHandoffUrl', () => {
 describe('sanitizeOAuthCallbackUrl', () => {
   it('allows terminal chamber paths', () => {
     assert.strictEqual(sanitizeOAuthCallbackUrl('/terminal/pulse'), '/terminal/pulse');
+    assert.strictEqual(sanitizeOAuthCallbackUrl('/terminal'), '/terminal');
+  });
+
+  it('rejects lookalike paths that only prefix-match /terminal', () => {
+    assert.strictEqual(sanitizeOAuthCallbackUrl('/terminalfoo'), DEFAULT_OAUTH_CALLBACK);
+    assert.strictEqual(sanitizeOAuthCallbackUrl('/terminal-backdoor'), DEFAULT_OAUTH_CALLBACK);
   });
 
   it('rejects absolute URLs', () => {
