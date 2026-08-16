@@ -18,6 +18,10 @@ import {
   CAPTURE_0123Z_ID,
   type TrackRCaptureAttestationCheck,
 } from '@/lib/watchdog/batchRepair/verifyTrackRCaptureAttestation';
+import {
+  resolveTrackRCaptureBinding,
+  type TrackRCaptureBinding,
+} from '@/lib/watchdog/batchRepair/trackRCaptureBinding';
 import { hasUpstashKvCredentials } from '@/lib/kv/upstashEnv';
 
 export const TRACK_R_APPLY_PREFLIGHT_ARCHIVE =
@@ -84,14 +88,19 @@ export function loadApprovedCaptureManifest(repoRoot?: string): CollisionRepairB
 /** Apply-time CAS re-read — must not reuse readiness CLI output. */
 export async function verifyFreshLineageSnapshotAtApply(args?: {
   attestedLineageSnapshotHash?: string;
+  captureId?: string;
   verifiedAt?: string;
   baseUrl?: string;
   repoRoot?: string;
 }): Promise<FreshLineageSnapshotFromProduction> {
+  const binding = resolveTrackRCaptureBinding({
+    captureId: args?.captureId,
+    repoRoot: args?.repoRoot,
+  });
   return computeFreshLineageSnapshotFromProduction({
     attestedLineageSnapshotHash:
-      args?.attestedLineageSnapshotHash ?? CAPTURE_0123Z_EXPECTED_HASHES.lineage_snapshot_hash,
-    captureId: CAPTURE_0123Z_ID,
+      args?.attestedLineageSnapshotHash ?? binding.attestation_hashes.lineage_snapshot_hash,
+    captureId: args?.captureId ?? binding.capture_id,
     verifiedAt: args?.verifiedAt,
     baseUrl: args?.baseUrl,
     repoRoot: args?.repoRoot,
@@ -230,6 +239,7 @@ export async function assertBatchCommitAllowedAtApply(args: {
 }
 
 function buildPreflightBlockedResult(args: {
+  captureId: string;
   verifiedAt: string;
   attestedLineageSnapshotHash: string;
   preflight_status: BatchApplyPreflightStatus;
@@ -245,7 +255,7 @@ function buildPreflightBlockedResult(args: {
   );
 
   return {
-    capture_id: CAPTURE_0123Z_ID,
+    capture_id: args.captureId,
     verified_at: args.verifiedAt,
     preflight_status: args.preflight_status,
     execution_authorized: false,
@@ -265,14 +275,21 @@ export async function runBatchApplyPreflight(args?: {
   baseUrl?: string;
   repoRoot?: string;
   explicitOperatorCommand?: boolean;
+  captureId?: string;
+  captureBinding?: TrackRCaptureBinding;
 }): Promise<BatchApplyPreflightResult> {
   const verifiedAt = args?.verifiedAt ?? new Date().toISOString();
   const repoRoot = args?.repoRoot ?? process.cwd();
   const checks: TrackRCaptureAttestationCheck[] = [];
-  const attestedLineageSnapshotHash = CAPTURE_0123Z_EXPECTED_HASHES.lineage_snapshot_hash;
+  const binding = args?.captureBinding ?? resolveTrackRCaptureBinding({
+    captureId: args?.captureId,
+    repoRoot,
+  });
+  const attestedLineageSnapshotHash = binding.attestation_hashes.lineage_snapshot_hash;
 
   const applyCas = await verifyFreshLineageSnapshotAtApply({
     attestedLineageSnapshotHash,
+    captureId: binding.capture_id,
     verifiedAt,
     baseUrl: args?.baseUrl,
     repoRoot,
@@ -285,6 +302,7 @@ export async function runBatchApplyPreflight(args?: {
   if (probeOutcome.status === 'credentials_required') {
     addCheck(checks, 'apply_preflight_summary', 'fail', probeOutcome.detail);
     return buildPreflightBlockedResult({
+      captureId: binding.capture_id,
       verifiedAt,
       attestedLineageSnapshotHash,
       preflight_status: 'apply_credentials_required',
@@ -295,6 +313,7 @@ export async function runBatchApplyPreflight(args?: {
   }
   if (probeOutcome.status === 'probe_incomplete') {
     return buildPreflightBlockedResult({
+      captureId: binding.capture_id,
       verifiedAt,
       attestedLineageSnapshotHash,
       preflight_status: 'apply_blocked',
@@ -305,6 +324,7 @@ export async function runBatchApplyPreflight(args?: {
   }
   if (probeOutcome.status === 'cas_drift') {
     return buildPreflightBlockedResult({
+      captureId: binding.capture_id,
       verifiedAt,
       attestedLineageSnapshotHash,
       preflight_status: 'apply_cas_drift',
@@ -322,7 +342,7 @@ export async function runBatchApplyPreflight(args?: {
   );
 
   const witnessAttempt = await exportAuthenticatedLiveSealWitness({
-    capture_id: CAPTURE_0123Z_ID,
+    capture_id: binding.capture_id,
     exported_at: verifiedAt,
     environment_identifier: 'production-batch-apply-preflight-read-only',
     witness,
@@ -374,7 +394,7 @@ export async function runBatchApplyPreflight(args?: {
   );
 
   return {
-    capture_id: CAPTURE_0123Z_ID,
+    capture_id: binding.capture_id,
     verified_at: verifiedAt,
     preflight_status,
     execution_authorized: false,
