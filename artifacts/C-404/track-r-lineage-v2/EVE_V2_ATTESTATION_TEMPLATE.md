@@ -8,13 +8,9 @@
 > Do not treat any value pre-filled below as a conclusion — EVE's own
 > constitutional/scope review is a separate, independent act.
 
-> **Before beginning:** `TRACK_R_V2_VERIFICATION_STATUS.md` in this
-> directory has the complete v2 hash packet, computed by the custodian
-> (kaizencycle) running the reviewed `pnpm track-r:capture-v2-stability-verify`
-> tool against the real extracted artifacts. This session never directly
-> read the raw artifact bytes itself — see that doc's provenance note. The
-> one remaining gap is verbatim raw-artifact archival, not the hash packet
-> itself.
+> **Before beginning:** `TRACK_R_V2_VERIFICATION_STATUS.md` documents the complete
+> v2 hash packet and verbatim archive bytes under `history/capture-2014Z/`.
+> Repo-local verifier output: `TRACK_R_V2_STABILITY_VERIFIER_OUTPUT.txt`.
 
 ---
 

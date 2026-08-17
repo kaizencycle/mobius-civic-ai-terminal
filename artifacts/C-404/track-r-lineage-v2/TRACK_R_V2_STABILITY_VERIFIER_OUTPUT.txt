@@ -1,0 +1,39 @@
+
+=== Capture A: artifacts/C-404/track-r-lineage-v2/history/capture-2012Z ===
+Capture ID: track-r-c403-2026-08-15T2012Z
+✓ [pass] v1_lineage_hash_recompute
+  stored=416ef085c9261a66c0838c653becbe28cfc7f1de716fbfcd3e56856398bd7f92 recomputed=416ef085c9261a66c0838c653becbe28cfc7f1de716fbfcd3e56856398bd7f92
+✓ [pass] v2_lineage_hash_recompute
+  stored=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb recomputed=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] v2_lineage_hash_matches_expected_pinned_value
+  expected=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb recomputed=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] witness_export_complete_and_fully_matched
+  export_complete=true, 248/248 MATCH, 0 mismatch/missing/unexpected
+✓ [pass] v2_execution_witness_hash
+  computed=e08999decbcdaaac06d91a9a11f06e6737756a646800db90ad8e57b865c1ccf1 — this is NEW material (no stored v2 witness hash exists yet to compare against); bind this value into the human consent template's execution_witness_hash field
+
+=== Capture B: artifacts/C-404/track-r-lineage-v2/history/capture-2014Z ===
+Capture ID: track-r-c403-2026-08-15T2014Z
+✓ [pass] v1_lineage_hash_recompute
+  stored=1e6810b7bb72e56468db67d4de304e425adf5d20bfe47cf8269240303d1230bb recomputed=1e6810b7bb72e56468db67d4de304e425adf5d20bfe47cf8269240303d1230bb
+✓ [pass] v2_lineage_hash_recompute
+  stored=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb recomputed=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] v2_lineage_hash_matches_expected_pinned_value
+  expected=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb recomputed=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] witness_export_complete_and_fully_matched
+  export_complete=true, 248/248 MATCH, 0 mismatch/missing/unexpected
+✓ [pass] v2_execution_witness_hash
+  computed=e08999decbcdaaac06d91a9a11f06e6737756a646800db90ad8e57b865c1ccf1 — this is NEW material (no stored v2 witness hash exists yet to compare against); bind this value into the human consent template's execution_witness_hash field
+
+=== Capture identity ===
+Capture A ID: track-r-c403-2026-08-15T2012Z (expected track-r-c403-2026-08-15T2012Z)
+Capture B ID: track-r-c403-2026-08-15T2014Z (expected track-r-c403-2026-08-15T2014Z)
+✓ [pass] capture-a is Capture #8, capture-b is Capture #9, and they are distinct
+
+=== Cross-capture v2 stability ===
+Capture A v2: b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+Capture B v2: b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+Expected:     b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] capture8.v2 == capture9.v2 == expected
+
+OVERALL: PASS

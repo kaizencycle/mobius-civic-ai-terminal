@@ -7,9 +7,8 @@
 > have both independently ADOPTed using the templates in this directory.
 > The v2 execution-witness hash below was computed by the custodian
 > (kaizencycle) running the reviewed verifier tool against the real
-> extracted artifacts — see `TRACK_R_V2_VERIFICATION_STATUS.md` for the
-> provenance chain. Verbatim raw-artifact archival is still outstanding;
-> confirm it is complete before signing.
+> extracted artifacts — see `TRACK_R_V2_VERIFICATION_STATUS.md`. Verbatim bytes
+> are archived under `history/capture-2014Z/`; confirm hashes match before signing.
 
 ---
 
@@ -17,7 +16,7 @@
 
 A signed consent using this template binds to, and only to:
 
-- **Capture #9 immutable archive path:** `artifacts/C-404/track-r-lineage-v2/history/capture-2014Z/` (verbatim artifact contents must be present here before signing — as of this packet, only a provenance record is present, not the verbatim artifact; see status doc)
+- **Capture #9 immutable archive path:** `artifacts/C-404/track-r-lineage-v2/history/capture-2014Z/` (verbatim `TRACK_R_*` JSON committed — see `CAPTURE_PROVENANCE.json`)
 - **Capture #9 artifact digest:** `sha256:5a4e344a706a431892f650c63dc48d7cbaf953bdb20e5a16ba6f66d7d1da4b6d`
 - **Source commit:** `daeec8f3adb2716879ef773e5d9a63905f402050`
 - **Complete v2 hash packet:**

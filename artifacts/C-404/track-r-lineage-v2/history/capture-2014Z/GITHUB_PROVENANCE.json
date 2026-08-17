@@ -1,6 +1,6 @@
 {
   "schema": "track-r-v2-github-provenance-record.v1",
-  "note": "This is NOT the verbatim Track R capture artifact. It is a provenance record assembled from GitHub's own API and Actions job logs, because this session's network egress policy blocks downloading the artifact ZIP from Azure blob storage (productionresultssa15.blob.core.windows.net returned 403 policy denial). See ../../TRACK_R_V2_VERIFICATION_STATUS.md for the full explanation and what remains to be independently verified once artifact download access is available.",
+  "note": "Provenance record for Capture #9 (sole v2 governance candidate). Verbatim TRACK_R_* JSON bytes are archived alongside this file (see CAPTURE_PROVENANCE.json). Original assembly used GitHub API/job logs when blob download was blocked; archival completed 2026-08-17 via gh run download + repo-local verifier PASS.",
   "role": "canonical_v2_governance_candidate",
   "governance_candidate": true,
   "source": {
@@ -51,7 +51,19 @@
     "digest_source": "GitHub Actions upload-artifact@v4 log line: \"SHA256 digest of uploaded artifact zip is 5a4e344a706a431892f650c63dc48d7cbaf953bdb20e5a16ba6f66d7d1da4b6d\" (server-computed at upload time, confirmed independently via job log fetch)",
     "size_bytes": 110388,
     "file_count": 48,
-    "verbatim_contents_archived_here": false,
-    "download_blocked_reason": "Egress policy denial (HTTP 403 on CONNECT) to productionresultssa15.blob.core.windows.net — see agent proxy status log."
+    "verbatim_contents_archived_here": true,
+    "archived_at": "2026-08-17T00:20:00Z",
+    "archived_files": [
+      "CAPTURE_PROVENANCE.json",
+      "TRACK_R_AFFECTED_BLOCK_COMPARISON.json",
+      "TRACK_R_KV_IDENTITY_RECEIPT.json",
+      "TRACK_R_LIVE_DRY_RUN_PACKAGE.json",
+      "TRACK_R_LIVE_DRY_RUN_REPORT.json",
+      "TRACK_R_LIVE_SNAPSHOT.json",
+      "TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json",
+      "TRACK_R_MANIFEST_REDACTED.json",
+      "TRACK_R_ROLLBACK_MANIFEST.json"
+    ],
+    "repo_local_verifier": "pnpm exec tsx scripts/track-r-capture-v2-stability-verify.ts — OVERALL: PASS (2026-08-17)"
   }
 }

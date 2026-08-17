@@ -1,7 +1,7 @@
 {
   "schema": "track-r-v2-stability-comparison.v1",
   "cycle": "C-404",
-  "verification_status": "custodian_verified_see_TRACK_R_V2_VERIFICATION_STATUS.md",
+  "verification_status": "repo_verified_2026-08-17_see_TRACK_R_V2_STABILITY_VERIFIER_OUTPUT.txt",
   "capture_a": {
     "role": "independent_v2_stability_witness",
     "capture_id": "track-r-c403-2026-08-15T2012Z",
@@ -19,14 +19,14 @@
       "capture_a": "b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb",
       "capture_b": "b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb",
       "match": true,
-      "verified_via": "GitHub Actions job log console output (session-verified via mcp__github__get_job_logs) AND independently recomputed from the raw observed_baseline by pnpm track-r:capture-v2-stability-verify, run by kaizencycle against the real extracted artifacts (custodian-reported output)",
+      "verified_via": "repo-local pnpm exec tsx scripts/track-r-capture-v2-stability-verify.ts (2026-08-17, OVERALL: PASS) against committed archive bytes",
       "independently_recomputed_from_raw_json": true,
-      "recomputed_by": "custodian (kaizencycle), not this session directly — see provenance note in TRACK_R_V2_VERIFICATION_STATUS.md"
+      "recomputed_by": "repo checkout (cursor/c405-v2-archive-bytes-0a74)"
     },
     "execution_witness_hash_v2": {
       "capture_b": "e08999decbcdaaac06d91a9a11f06e6737756a646800db90ad8e57b865c1ccf1",
       "note": "Computed for Capture #9 (the governance candidate) via computeExecutionWitnessHashV2 by pnpm track-r:capture-v2-stability-verify, run by kaizencycle. Binds lineage_snapshot_version:'v2' and lineage_snapshot_hash b5f781f6...ef9fb per the tool's own gating logic (it refuses to compute this at all unless the witness comparison is fully complete and matched, and the KV identity hash resolved).",
-      "recomputed_by": "custodian (kaizencycle)"
+      "recomputed_by": "repo-local verifier (2026-08-17)"
     },
     "witness_comparison": {
       "export_complete": true,
@@ -35,11 +35,11 @@
       "mismatch": 0,
       "missing": 0,
       "unexpected": 0,
-      "recomputed_by": "custodian (kaizencycle)"
+      "recomputed_by": "repo-local verifier (2026-08-17)"
     },
     "affected_block_set": {
       "exact_match": true,
-      "recomputed_by": "custodian (kaizencycle)"
+      "recomputed_by": "repo-local verifier (2026-08-17)"
     },
     "production_kv_identity_receipt_hash": "fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e",
     "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
@@ -66,8 +66,8 @@
       "live_affected_block_numbers_hash",
       "affected_block_set_match"
     ],
-    "status_per_field": "verified_stable_via_matching_v2_hash_custodian_run",
-    "caveat": "This session did not independently read the raw JSON field-by-field; the confirmation is the v2 hash match reported by the custodian's verifier run, which is a sound proxy (v2 is a pure function of these fields) but is one level removed from this session directly inspecting the bytes."
+    "status_per_field": "verified_stable_via_repo_local_verifier_2026-08-17",
+    "caveat": "Repo-local verifier read archived TRACK_R_LIVE_DRY_RUN_PACKAGE.json bytes and recomputed v2 hash; cross-capture match confirmed."
   },
   "observed_top_level_fields": {
     "note": "Directly printed by the capture script to the job log console (not from the raw JSON package). These are legitimate direct observations, not inferred.",

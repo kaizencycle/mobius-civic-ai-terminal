@@ -86,6 +86,31 @@ type GithubProvenanceRecord = {
   production_kv_identity_receipt_hash?: string;
 };
 
+type CaptureProvenanceRecord = {
+  governance_candidate?: boolean;
+  execution_witness_hash_v2?: string;
+};
+
+function resolveV2ExecutionWitnessFromArchive(archivePath: string): string | null {
+  const captureProv = readJson<CaptureProvenanceRecord>(join(archivePath, 'CAPTURE_PROVENANCE.json'));
+  if (
+    typeof captureProv?.execution_witness_hash_v2 === 'string' &&
+    captureProv.execution_witness_hash_v2.length === 64
+  ) {
+    return captureProv.execution_witness_hash_v2;
+  }
+
+  const githubProv = readJson<GithubProvenanceRecord>(join(archivePath, 'GITHUB_PROVENANCE.json'));
+  if (
+    typeof githubProv?.execution_witness_hash_v2 === 'string' &&
+    githubProv.execution_witness_hash_v2.length === 64
+  ) {
+    return githubProv.execution_witness_hash_v2;
+  }
+
+  return null;
+}
+
 /** Derive capture_id from an archive directory name such as `.../capture-0123Z`. */
 export function resolveCaptureIdFromArchivePath(archivePath: string): string | null {
   const normalized = archivePath.replace(/\/$/, '');
@@ -268,10 +293,15 @@ export function resolveTrackRCaptureBinding(args?: {
     attestation,
     required,
   });
+  const resolvedWitness =
+    lineageSnapshotVersion === TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION &&
+    isTrackRV2GovernanceCaptureId(resolvedCaptureId)
+      ? (resolveV2ExecutionWitnessFromArchive(archivePath) ?? witness)
+      : witness;
   const rollback =
     attestation.rollback_manifest_hash ?? required.rollback_manifest_hash ?? '';
 
-  if (!lineage || !witness || !semantic || !rollback) {
+  if (!lineage || !resolvedWitness || !semantic || !rollback) {
     throw new Error(`capture package under ${archivePath} missing required attestation hashes`);
   }
 
@@ -287,7 +317,7 @@ export function resolveTrackRCaptureBinding(args?: {
     attestation_hashes: {
       semantic_manifest_hash: semantic,
       lineage_snapshot_hash: lineage,
-      execution_witness_hash: witness,
+      execution_witness_hash: resolvedWitness,
       rollback_manifest_hash: rollback,
       production_kv_identity_receipt_hash:
         required.production_kv_identity_receipt_hash ?? defaultKvIdentity,
