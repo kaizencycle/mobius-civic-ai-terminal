@@ -35,7 +35,7 @@ describe('CAS-v2 runtime activation — capture binding', () => {
     );
   });
 
-  it('resolves Capture #9 from provenance-only archive', () => {
+  it('resolves Capture #9 from archived package with v2 witness provenance', () => {
     const binding = resolveTrackRCaptureBinding({ captureId: CAPTURE_2014Z_ID });
     assert.ok(binding.archive_path.endsWith('capture-2014Z'));
     assert.equal(binding.lineage_snapshot_version, 'v2');
@@ -134,13 +134,15 @@ describe('CAS-v2 runtime activation — commit guard version binding', () => {
     assert.ok(!guard.errors.some((error) => error.includes('attested execution witness hash required')));
   });
 
-  it('rejects Capture #8 provenance without v2 execution witness hash', () => {
-    assert.throws(
-      () =>
-        resolveTrackRCaptureBinding({
-          captureId: 'track-r-c403-2026-08-15T2012Z',
-        }),
-      /TRACK_R_LIVE_DRY_RUN_PACKAGE.json and GITHUB_PROVENANCE.json missing/,
+  it('resolves Capture #8 stability witness from archived package (non-governance v1 binding)', () => {
+    const binding = resolveTrackRCaptureBinding({
+      captureId: 'track-r-c403-2026-08-15T2012Z',
+    });
+    assert.equal(binding.capture_id, 'track-r-c403-2026-08-15T2012Z');
+    assert.equal(binding.lineage_snapshot_version, 'v1');
+    assert.equal(
+      binding.attestation_hashes.lineage_snapshot_hash,
+      '416ef085c9261a66c0838c653becbe28cfc7f1de716fbfcd3e56856398bd7f92',
     );
   });
 
