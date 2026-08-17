@@ -8,6 +8,12 @@ import { SIGNAL_REGISTRY, AGENT_WEIGHTS } from '@/lib/signals/registry';
 import { fetchAllInstruments, type InstrumentResult } from '@/lib/signals/fetcher';
 import { kvGet, kvSet } from '@/lib/kv/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { buildGiRepresentation } from '@/lib/integrity/giProvenance';
+import {
+  buildMicroLiveProvenance,
+  refreshMicroCachedProvenance,
+} from '@/lib/integrity/microProvenance';
+import type { GIMode } from '@/lib/gi/mode';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +59,16 @@ export type SignalMicroPayload = {
   composite: number;         // same as gi
   agents: LegacyAgentResult[];
   allSignals: LegacySignalEntry[];
+  /** C-406: explicit GI provenance for governance consumers. */
+  gi_representation?: ReturnType<typeof buildGiRepresentation>;
+  /** C-406: operational decision summary (micro lane). */
+  decision_state?: {
+    display_state: GIMode;
+    operational_classification: string;
+    tripwire_state: string;
+    mutation_state: 'forbidden';
+    decision_summary: string;
+  };
   healthy: boolean;
   timestamp: string;
 };
@@ -130,7 +146,7 @@ export async function GET(req: NextRequest) {
       );
     }
     return NextResponse.json(
-      { ...cached.data, cached: true },
+      refreshMicroCachedProvenance(cached.data, cached.cachedAt),
       {
         headers: {
           'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
@@ -175,6 +191,20 @@ export async function GET(req: NextRequest) {
   // Build legacy-compatible agents + allSignals for existing consumers
   const { agents, allSignals } = buildLegacyAgents(instruments);
 
+  const generatedAtIso = new Date().toISOString();
+  const liveProvenance = buildMicroLiveProvenance({
+    gi,
+    instruments,
+    agents,
+    allSignals,
+    failedInstruments: instruments
+      .filter((i) => i.source === 'error')
+      .map((i) => ({ id: i.id })),
+    generatedAtIso,
+    instrumentCount: instruments.length,
+    fallbacksUsed: instruments.filter((i) => i.source === 'fallback').length,
+  });
+
   const data: SignalMicroPayload = {
     ok: true,
     cached: false,
@@ -195,7 +225,9 @@ export async function GET(req: NextRequest) {
     agents,
     allSignals,
     healthy: agents.some((a) => a.healthy),
-    timestamp: new Date().toISOString(),
+    timestamp: generatedAtIso,
+    gi_representation: liveProvenance.gi_representation,
+    decision_state: liveProvenance.decision_state,
   };
 
   kvSet<CacheEntry>(CACHE_KEY, { data, cachedAt: Date.now() }, CACHE_TTL_SEC).catch(() => {});

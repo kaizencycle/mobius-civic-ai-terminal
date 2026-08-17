@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
+import { getGiMode } from '@/lib/gi/mode';
 import { resolveGiChain } from '@/lib/gi/resolveGiChain';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
@@ -28,9 +29,7 @@ function safeFinite(value: unknown): number | null {
 
 function modeFromGi(gi: number | null): 'green' | 'yellow' | 'red' {
   if (gi === null) return 'red';
-  if (gi >= 0.95) return 'green';
-  if (gi >= 0.6) return 'yellow';
-  return 'red';
+  return getGiMode(gi);
 }
 
 function attestationStatus(candidate: Awaited<ReturnType<typeof getCandidate>>) {
