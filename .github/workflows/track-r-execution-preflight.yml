@@ -11,7 +11,8 @@
 #   KV_REST_API_URL, KV_REST_API_TOKEN
 #
 # Expected pass (mutation window, live CAS aligned):
-#   Probe 1 → Readiness status: awaiting_execution_handoff, Fresh CAS match: true
+#   Probe 1 → Fresh CAS match: true AND Readiness status:
+#             awaiting_human_consent (v2, pre-attestation) OR awaiting_execution_handoff (post-attestation)
 #   Probe 2 → Preflight status: apply_preflight_pass, Commit guard preflight: pass
 #
 # Track R production mutation remains NOT AUTHORIZED until explicit custodian authorization.
@@ -186,7 +187,7 @@ jobs:
             echo ""
             echo "| Probe | Pass signal |"
             echo "|---|---|"
-            echo "| execution-readiness | \`Readiness status: awaiting_execution_handoff\`, \`Fresh CAS match: true\` |"
+            echo "| execution-readiness | \`Fresh CAS match: true\` + \`awaiting_human_consent\` (v2 pre-attestation) or \`awaiting_execution_handoff\` |"
             echo "| batch-apply-preflight | \`Preflight status: apply_preflight_pass\`, \`Commit guard preflight: pass\` |"
             echo ""
             echo "### Results"
@@ -316,7 +317,11 @@ jobs:
             echo ""
             echo "## Summary"
             echo ""
-            echo "- $(mark "$readiness_status" "awaiting_execution_handoff") Execution readiness: \`${readiness_status:-not run}\`"
+            readiness_pass="❌"
+            if [ "$fresh_cas_match" = "true" ] && { [ "$readiness_status" = "awaiting_human_consent" ] || [ "$readiness_status" = "awaiting_execution_handoff" ]; }; then
+              readiness_pass="✅"
+            fi
+            echo "- ${readiness_pass} Execution readiness: \`${readiness_status:-not run}\` (Fresh CAS match: \`${fresh_cas_match:-n/a}\`)"
             echo "- $(mark "$preflight_status" "apply_preflight_pass") Preflight: \`${preflight_status:-not run}\`"
             echo ""
             echo "**Decision:** both gates must show a pass shape before production mutation is authorized. \`execution_authorized\` stays \`false\` regardless — probes never authorize mutation."
@@ -365,12 +370,12 @@ jobs:
                   failed=1
                 fi
               else
-                if [ "$readiness_status" != "awaiting_execution_handoff" ]; then
-                  echo "::error::execution-readiness expected Readiness status: awaiting_execution_handoff, got ${readiness_status:-missing}"
-                  failed=1
-                fi
                 if [ "$fresh_cas_match" != "true" ]; then
                   echo "::error::execution-readiness expected Fresh CAS match: true, got ${fresh_cas_match:-missing}"
+                  failed=1
+                fi
+                if [ "$readiness_status" != "awaiting_human_consent" ] && [ "$readiness_status" != "awaiting_execution_handoff" ]; then
+                  echo "::error::execution-readiness expected Readiness status awaiting_human_consent (v2 pre-attestation) or awaiting_execution_handoff, got ${readiness_status:-missing}"
                   failed=1
                 fi
               fi
