@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server';
 import { bearerMatchesToken, getVaultAttestationToken } from '@/lib/vault-v2/auth';
 import { parseSentinelQuorumSubmission } from '@/lib/mic/quorumAttestation';
 import { registerSentinelAttestation } from '@/lib/mic/quorumTracker';
+import { deriveQuorumAuthoritySemantics } from '@/lib/mic/quorumSemantics';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,6 +68,8 @@ export async function POST(req: NextRequest) {
     submission.source,
   );
 
+  const authority = deriveQuorumAuthoritySemantics(state);
+
   return NextResponse.json({
     ok: true,
     schema: state.schema,
@@ -83,5 +86,11 @@ export async function POST(req: NextRequest) {
     initiated_at: state.initiated_at,
     completed_at: state.completed_at,
     updated_at: state.updatedAt,
+    quorum_receipt_status: authority.quorum_receipt_status,
+    seal_eligibility: authority.seal_eligibility,
+    seal_status: authority.seal_status,
+    adjudication_status: authority.adjudication_status,
+    execution_authorized: authority.execution_authorized,
+    receipt_note: authority.receipt_note,
   });
 }

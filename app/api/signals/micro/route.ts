@@ -8,6 +8,8 @@ import { SIGNAL_REGISTRY, AGENT_WEIGHTS } from '@/lib/signals/registry';
 import { fetchAllInstruments, type InstrumentResult } from '@/lib/signals/fetcher';
 import { kvGet, kvSet } from '@/lib/kv/store';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { buildGiRepresentation } from '@/lib/integrity/giProvenance';
+import { getGiMode } from '@/lib/gi/mode';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +55,16 @@ export type SignalMicroPayload = {
   composite: number;         // same as gi
   agents: LegacyAgentResult[];
   allSignals: LegacySignalEntry[];
+  /** C-406: explicit GI provenance for governance consumers. */
+  gi_representation?: ReturnType<typeof buildGiRepresentation>;
+  /** C-406: operational decision summary (micro lane). */
+  decision_state?: {
+    display_state: ReturnType<typeof getGiMode>;
+    operational_classification: string;
+    tripwire_state: string;
+    mutation_state: 'forbidden';
+    decision_summary: string;
+  };
   healthy: boolean;
   timestamp: string;
 };
@@ -175,6 +187,26 @@ export async function GET(req: NextRequest) {
   // Build legacy-compatible agents + allSignals for existing consumers
   const { agents, allSignals } = buildLegacyAgents(instruments);
 
+  const degradedCount = allSignals.filter((s) => s.severity !== 'nominal').length;
+  const failedCount = instruments.filter((i) => i.source === 'error').length;
+  const generatedAtIso = new Date().toISOString();
+  const giRepresentation = buildGiRepresentation({
+    value: gi,
+    computation_source: 'live-compute',
+    persistence_source: 'live',
+    computed_at: generatedAtIso,
+    persisted_at: null,
+    cache_age_seconds: 0,
+    degraded: false,
+    stored_mode: null,
+    derived_mode: getGiMode(gi),
+    instrument_count: instruments.length,
+    degraded_instrument_count: degradedCount,
+    failed_instrument_count: failedCount,
+    fallback_usage_count: instruments.filter((i) => i.source === 'fallback').length,
+    sample_window: 'signals:micro:registry:40',
+  });
+
   const data: SignalMicroPayload = {
     ok: true,
     cached: false,
@@ -195,7 +227,15 @@ export async function GET(req: NextRequest) {
     agents,
     allSignals,
     healthy: agents.some((a) => a.healthy),
-    timestamp: new Date().toISOString(),
+    timestamp: generatedAtIso,
+    gi_representation: giRepresentation,
+    decision_state: {
+      display_state: getGiMode(gi),
+      operational_classification: degradedCount > 0 || failedCount > 0 ? 'STRESSED' : 'NOMINAL',
+      tripwire_state: 'unknown',
+      mutation_state: 'forbidden',
+      decision_summary: `live micro GI ${gi.toFixed(3)}; ${failedCount} failed / ${degradedCount} non-nominal instruments`,
+    },
   };
 
   kvSet<CacheEntry>(CACHE_KEY, { data, cachedAt: Date.now() }, CACHE_TTL_SEC).catch(() => {});

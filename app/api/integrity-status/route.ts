@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
+import { buildGiRepresentation } from '@/lib/integrity/giProvenance';
+import { deriveOperationalDecisionState } from '@/lib/integrity/operationalState';
 import { resolveGiChain } from '@/lib/gi/resolveGiChain';
+import { getGiMode } from '@/lib/gi/mode';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
+import { assessKvKeyHealth } from '@/lib/kv/kvKeyHealth';
+import { getTripwireState } from '@/lib/tripwire/store';
 import { kvGet, kvSet } from '@/lib/kv/store';
 
 // OPT-07 (C-312): integrity-status is called on every page init and hits Render GIC
@@ -48,6 +53,37 @@ export async function GET() {
   const payload = await computeIntegrityPayload();
   const micRaw = await loadMicReadinessSnapshotRaw();
   const chain = await resolveGiChain({ micReadinessSnapshotRaw: micRaw.raw });
+  const selectedGi =
+    chain.gi !== null ? chain.gi : payload.global_integrity;
+  const derivedMode = getGiMode(selectedGi);
+  const derivedTerminalStatus =
+    derivedMode === 'green' ? 'nominal' : derivedMode === 'yellow' ? 'stressed' : 'critical';
+  const [kvKeyHealth, tripwire] = await Promise.all([
+    assessKvKeyHealth().catch(() => null),
+    Promise.resolve(getTripwireState()),
+  ]);
+  const giRepresentation = buildGiRepresentation({
+    value: selectedGi,
+    computation_source: chain.source,
+    persistence_source: payload.source,
+    computed_at: chain.timestamp ?? payload.timestamp,
+    persisted_at: chain.timestamp ?? payload.timestamp,
+    cache_age_seconds: chain.age_seconds,
+    degraded: chain.degraded,
+    stored_mode: payload.mode,
+    derived_mode: derivedMode,
+  });
+  const decision_state = deriveOperationalDecisionState({
+    gi: selectedGi,
+    stored_mode: payload.mode,
+    tripwire_active: tripwire.active,
+    tripwire_level: tripwire.level,
+    kv_continuity_ok: kvKeyHealth?.kv_continuity_ok ?? null,
+    degraded_agent_count: 0,
+    gi_degraded: chain.degraded,
+    governance_state: chain.degraded ? 'disputed' : 'pending',
+    mutation_state: 'forbidden',
+  });
   const mergedPayload = {
     ...payload,
     ...(chain.gi !== null
@@ -55,15 +91,20 @@ export async function GET() {
           global_integrity: chain.gi,
           raw_integrity: chain.raw_integrity,
           gi_floored: chain.gi_floored,
-          mode: (chain.mode as typeof payload.mode) ?? payload.mode,
-          terminal_status: (chain.terminal_status as typeof payload.terminal_status) ?? payload.terminal_status,
+          mode: derivedMode,
+          terminal_status: derivedTerminalStatus,
           timestamp: chain.timestamp ?? payload.timestamp,
         }
       : {
           raw_integrity: payload.raw_integrity,
           gi_floored: payload.gi_floored,
+          mode: derivedMode,
+          terminal_status: derivedTerminalStatus,
         }),
     gi_provenance: chain.source,
+    gi_representation: giRepresentation,
+    decision_state,
+    kv_continuity_ok: kvKeyHealth?.kv_continuity_ok ?? null,
     // gi_verified omitted from public surface — verification state is operator-only
     gi_degraded: chain.degraded,
     gi_age_seconds: chain.age_seconds,
