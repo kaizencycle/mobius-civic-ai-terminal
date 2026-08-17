@@ -43,6 +43,9 @@ export type KvKeyHealthReport = {
   continuity_required: number;
   continuity_optional_present: number;
   continuity_optional_required: number;
+  /** Required + optional continuity keys present (up to 4). */
+  continuity_extended_present: number;
+  continuity_extended_required: number;
   diagnostic_present: number;
   diagnostic_required: number;
   /** Required seed keys (GI, heartbeat, ingest). */
@@ -127,10 +130,12 @@ export async function assessKvKeyHealth(): Promise<KvKeyHealthReport> {
   return {
     continuity,
     diagnostic,
-    continuity_present: continuityPresent,
-    continuity_required: KV_CONTINUITY_KEY_NAMES.length,
+    continuity_present: requiredPresent,
+    continuity_required: KV_CONTINUITY_REQUIRED_KEY_NAMES.length,
     continuity_optional_present: optionalPresent,
     continuity_optional_required: KV_CONTINUITY_OPTIONAL_KEY_NAMES.length,
+    continuity_extended_present: continuityPresent,
+    continuity_extended_required: KV_CONTINUITY_KEY_NAMES.length,
     diagnostic_present: diagnosticPresent,
     diagnostic_required: Object.keys(diagnostic).length,
     kv_continuity_ok: continuityOk,

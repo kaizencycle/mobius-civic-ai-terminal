@@ -39,12 +39,26 @@ export function buildIntegrityEnrichment(args: {
   degradedAgentCount: number | null;
   giDegraded: boolean;
   storedMode: GIMode | null;
-  remoteMode?: GIMode | null;
+  /** Override for fresh compute tiers (e.g. gic-indexer). */
+  computedAt?: string | null;
+  cacheAgeSeconds?: number | null;
 }): IntegrityEnrichment {
   const derivedMode = getGiMode(args.finalGi);
-  const mode = args.remoteMode ?? derivedMode;
   const terminal_status =
-    mode === 'green' ? 'nominal' : mode === 'yellow' ? 'stressed' : 'critical';
+    derivedMode === 'green' ? 'nominal' : derivedMode === 'yellow' ? 'stressed' : 'critical';
+
+  const computedAt =
+    args.computedAt ??
+    (args.computationSource === 'gic-indexer'
+      ? new Date().toISOString()
+      : args.chain.timestamp ?? args.payload.timestamp);
+
+  const cacheAgeSeconds =
+    args.cacheAgeSeconds !== undefined
+      ? args.cacheAgeSeconds
+      : args.computationSource === 'gic-indexer'
+        ? 0
+        : args.chain.age_seconds;
 
   const persistedAt = resolvePersistedAtForSource({
     computation_source: args.computationSource,
@@ -56,22 +70,21 @@ export function buildIntegrityEnrichment(args: {
     value: args.finalGi,
     computation_source: args.computationSource,
     persistence_source: args.persistenceSource,
-    computed_at: new Date().toISOString(),
+    computed_at: computedAt,
     persisted_at: persistedAt,
-    cache_age_seconds: args.chain.age_seconds,
+    cache_age_seconds: cacheAgeSeconds,
     degraded: args.giDegraded,
     stored_mode: args.storedMode,
     derived_mode: derivedMode,
   });
 
-  const degradedAgents = args.degradedAgentCount;
   const decision_state = deriveOperationalDecisionState({
     gi: args.finalGi,
     stored_mode: args.storedMode,
     tripwire_active: args.tripwire.active,
     tripwire_level: args.tripwire.level,
     kv_continuity_ok: args.kvKeyHealth?.kv_continuity_ok ?? null,
-    degraded_agent_count: degradedAgents,
+    degraded_agent_count: args.degradedAgentCount,
     gi_degraded: args.giDegraded,
     governance_state: 'unknown',
     mutation_state: 'forbidden',
@@ -79,14 +92,14 @@ export function buildIntegrityEnrichment(args: {
 
   return {
     global_integrity: args.finalGi,
-    mode,
+    mode: derivedMode,
     terminal_status,
     gi_provenance: args.computationSource,
     gi_representation,
     decision_state,
     kv_continuity_ok: args.kvKeyHealth?.kv_continuity_ok ?? null,
     gi_degraded: args.giDegraded,
-    gi_age_seconds: args.chain.age_seconds,
+    gi_age_seconds: cacheAgeSeconds,
     source: args.persistenceSource,
   };
 }

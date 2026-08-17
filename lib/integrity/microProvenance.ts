@@ -4,7 +4,11 @@
 
 import { getGiMode } from '@/lib/gi/mode';
 import { buildGiRepresentation } from '@/lib/integrity/giProvenance';
-import { deriveOperationalDecisionState } from '@/lib/integrity/operationalState';
+import {
+  deriveOperationalDecisionState,
+  type OperationalClassification,
+  type OperationalDecisionState,
+} from '@/lib/integrity/operationalState';
 
 type MicroCachePayload = {
   gi: number;
@@ -28,6 +32,38 @@ type MicroCachePayload = {
   composite: number;
   [key: string]: unknown;
 };
+
+function applyMicroInstrumentStress(
+  decision: OperationalDecisionState,
+  args: { failedCount: number; degradedInstrumentCount: number },
+): OperationalDecisionState {
+  if (decision.operational_classification === 'CRITICAL') {
+    return decision;
+  }
+  if (args.failedCount <= 0 && args.degradedInstrumentCount <= 0) {
+    return decision;
+  }
+
+  const operational_classification: OperationalClassification = 'STRESSED';
+  return {
+    ...decision,
+    operational_classification,
+    decision_summary: `${decision.decision_summary}; ${args.failedCount} failed / ${args.degradedInstrumentCount} non-nominal instruments`,
+  };
+}
+
+function toMicroDecisionView(
+  decision: OperationalDecisionState,
+  suffix: string,
+): NonNullable<MicroCachePayload['decision_state']> {
+  return {
+    display_state: decision.display_state,
+    operational_classification: decision.operational_classification,
+    tripwire_state: 'unknown',
+    mutation_state: 'forbidden',
+    decision_summary: `${decision.decision_summary}; ${suffix}`,
+  };
+}
 
 export function refreshMicroCachedProvenance(
   data: MicroCachePayload,
@@ -55,7 +91,7 @@ export function refreshMicroCachedProvenance(
     sample_window: 'signals:micro:registry:40',
   });
 
-  const decision_state = deriveOperationalDecisionState({
+  const baseDecision = deriveOperationalDecisionState({
     gi: data.gi,
     tripwire_active: false,
     kv_continuity_ok: null,
@@ -64,18 +100,16 @@ export function refreshMicroCachedProvenance(
     governance_state: 'unknown',
     mutation_state: 'forbidden',
   });
+  const decision_state = applyMicroInstrumentStress(baseDecision, {
+    failedCount,
+    degradedInstrumentCount,
+  });
 
   return {
     ...data,
     cached: true,
     gi_representation,
-    decision_state: {
-      display_state: decision_state.display_state,
-      operational_classification: decision_state.operational_classification,
-      tripwire_state: 'unknown',
-      mutation_state: 'forbidden',
-      decision_summary: `${decision_state.decision_summary}; micro cache age ${cacheAgeSeconds}s`,
-    },
+    decision_state: toMicroDecisionView(decision_state, `micro cache age ${cacheAgeSeconds}s`),
   };
 }
 
@@ -113,7 +147,7 @@ export function buildMicroLiveProvenance(args: {
     sample_window: 'signals:micro:registry:40',
   });
 
-  const decision_state = deriveOperationalDecisionState({
+  const baseDecision = deriveOperationalDecisionState({
     gi: args.gi,
     tripwire_active: false,
     kv_continuity_ok: null,
@@ -122,15 +156,13 @@ export function buildMicroLiveProvenance(args: {
     governance_state: 'unknown',
     mutation_state: 'forbidden',
   });
+  const decision_state = applyMicroInstrumentStress(baseDecision, {
+    failedCount,
+    degradedInstrumentCount,
+  });
 
   return {
     gi_representation,
-    decision_state: {
-      display_state: decision_state.display_state,
-      operational_classification: decision_state.operational_classification,
-      tripwire_state: 'unknown',
-      mutation_state: 'forbidden',
-      decision_summary: `${decision_state.decision_summary}; live micro sweep`,
-    },
+    decision_state: toMicroDecisionView(decision_state, 'live micro sweep'),
   };
 }

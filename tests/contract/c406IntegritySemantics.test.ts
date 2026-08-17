@@ -20,6 +20,11 @@ import {
 import { deriveQuorumAuthoritySemantics } from '@/lib/mic/quorumSemantics';
 import type { SentinelQuorumState } from '@/lib/mic/quorumTracker';
 import { getGiMode } from '@/lib/gi/mode';
+import { buildMicroLiveProvenance } from '@/lib/integrity/microProvenance';
+import { buildIntegrityEnrichment } from '@/lib/integrity/buildIntegrityEnrichment';
+import type { GiChainResolution } from '@/lib/gi/resolveGiChain';
+import type { IntegrityPayload } from '@/lib/integrity/buildStatus';
+import type { RuntimeTripwireState } from '@/lib/tripwire/store';
 
 function baseQuorum(overrides: Partial<SentinelQuorumState> = {}): SentinelQuorumState {
   return {
@@ -161,6 +166,91 @@ describe('C-406 GI provenance', () => {
     assert.equal(rep.failed_instrument_count, 2);
     assert.equal(rep.instrument_count, 40);
     assert.equal(rep.computation_source, 'live-compute');
+  });
+  it('marks micro STRESSED when instruments fail even if agents appear healthy', () => {
+    const live = buildMicroLiveProvenance({
+      gi: 0.881,
+      instruments: [{ source: 'error' }],
+      agents: [{ healthy: true }],
+      allSignals: [{ severity: 'elevated' }],
+      failedInstruments: [{ id: 'gaia-usgs-water' }],
+      generatedAtIso: '2026-08-17T12:04:35.000Z',
+      instrumentCount: 40,
+      fallbacksUsed: 0,
+    });
+    assert.equal(live.decision_state?.operational_classification, 'STRESSED');
+    assert.match(live.decision_state?.decision_summary ?? '', /failed/);
+  });
+});
+
+describe('C-406 integrity enrichment', () => {
+  const chain: GiChainResolution = {
+    gi: 0.81,
+    mode: 'green',
+    terminal_status: 'nominal',
+    primary_driver: 'test',
+    source: 'kv-live',
+    source_legacy: 'kv',
+    timestamp: '2026-08-17T11:00:00.000Z',
+    age_seconds: 600,
+    verified: false,
+    degraded: false,
+    raw_integrity: null,
+    gi_floored: false,
+    kv: null,
+  };
+  const payload = {
+    global_integrity: 0.81,
+    mode: 'yellow',
+    terminal_status: 'stressed',
+    timestamp: '2026-08-17T11:00:00.000Z',
+    source: 'kv',
+    kv: true,
+  } as IntegrityPayload;
+  const tripwire: RuntimeTripwireState = {
+    active: false,
+    level: 'none',
+    reason: 'test',
+    last_updated: '2026-08-17T12:00:00.000Z',
+  };
+
+  it('uses chain timestamp for storage-backed computed_at', () => {
+    const enrichment = buildIntegrityEnrichment({
+      finalGi: 0.81,
+      computationSource: 'kv-live',
+      persistenceSource: 'kv',
+      chain,
+      payload,
+      kvKeyHealth: null,
+      tripwire,
+      degradedAgentCount: null,
+      giDegraded: false,
+      storedMode: 'yellow',
+    });
+    assert.equal(enrichment.gi_representation.computed_at, '2026-08-17T11:00:00.000Z');
+    assert.equal(enrichment.gi_representation.cache_age_seconds, 600);
+    assert.equal(enrichment.mode, getGiMode(0.81));
+    assert.equal(enrichment.decision_state.display_state, getGiMode(0.81));
+  });
+
+  it('uses fresh age for gic-indexer enrichment', () => {
+    const enrichment = buildIntegrityEnrichment({
+      finalGi: 0.85,
+      computationSource: 'gic-indexer',
+      persistenceSource: 'gic-indexer',
+      chain,
+      payload,
+      kvKeyHealth: null,
+      tripwire,
+      degradedAgentCount: null,
+      giDegraded: false,
+      storedMode: null,
+      computedAt: '2026-08-17T12:04:35.000Z',
+      cacheAgeSeconds: 0,
+    });
+    assert.equal(enrichment.gi_representation.computed_at, '2026-08-17T12:04:35.000Z');
+    assert.equal(enrichment.gi_representation.cache_age_seconds, 0);
+    assert.equal(enrichment.gi_representation.freshness_class, 'fresh');
   });
 });
 

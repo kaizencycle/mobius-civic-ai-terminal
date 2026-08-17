@@ -34,6 +34,8 @@ export async function GET() {
       kv_keys_all_ok: keyReport?.kv_keys_all_ok ?? null,
       continuity_present: keyReport?.continuity_present ?? null,
       continuity_required: keyReport?.continuity_required ?? null,
+      continuity_extended_present: keyReport?.continuity_extended_present ?? null,
+      continuity_extended_required: keyReport?.continuity_extended_required ?? null,
       diagnostic_present: keyReport?.diagnostic_present ?? null,
       diagnostic_required: keyReport?.diagnostic_required ?? null,
       timestamp: new Date().toISOString(),

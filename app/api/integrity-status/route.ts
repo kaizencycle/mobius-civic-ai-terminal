@@ -3,8 +3,6 @@ import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
 import { buildIntegrityEnrichment } from '@/lib/integrity/buildIntegrityEnrichment';
 import { countDegradedAgentsFromSignalSnapshot } from '@/lib/integrity/agentDegradationCount';
 import { resolveGiChain } from '@/lib/gi/resolveGiChain';
-import { getGiMode } from '@/lib/gi/mode';
-import type { GIMode } from '@/lib/gi/mode';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { assessKvKeyHealth } from '@/lib/kv/kvKeyHealth';
 import { getTripwireState } from '@/lib/tripwire/store';
@@ -79,12 +77,13 @@ export async function GET() {
     computationSource: string;
     persistenceSource: string;
     giDegraded: boolean;
-    remoteMode?: GIMode | null;
     rawIntegrity?: number | null;
     giFloored?: boolean;
     summary?: string;
     renderUsed: boolean;
     responseDegraded: boolean;
+    computedAt?: string | null;
+    cacheAgeSeconds?: number | null;
   }) {
     const enrichment = buildIntegrityEnrichment({
       finalGi: args.finalGi,
@@ -97,7 +96,8 @@ export async function GET() {
       degradedAgentCount,
       giDegraded: args.giDegraded,
       storedMode: payload.mode,
-      remoteMode: args.remoteMode,
+      computedAt: args.computedAt,
+      cacheAgeSeconds: args.cacheAgeSeconds,
     });
 
     return {
@@ -162,7 +162,7 @@ export async function GET() {
           finalGi: chainGi,
           computationSource: chain.source,
           persistenceSource: payload.source,
-          giDegraded: true,
+          giDegraded: chain.degraded,
           renderUsed: true,
           responseDegraded: true,
         }),
@@ -172,7 +172,6 @@ export async function GET() {
     const remote = (await response.json()) as {
       global_integrity?: number;
       gi?: number;
-      mode?: GIMode;
       summary?: string;
     };
 
@@ -183,7 +182,7 @@ export async function GET() {
           ? remote.gi
           : chainGi;
 
-    const remoteDerivedMode = getGiMode(computedGi);
+    const gicComputedAt = new Date().toISOString();
 
     return cacheAndReturn(
       assembleResponse({
@@ -191,12 +190,13 @@ export async function GET() {
         computationSource: 'gic-indexer',
         persistenceSource: 'gic-indexer',
         giDegraded: false,
-        remoteMode: remote.mode ?? remoteDerivedMode,
         rawIntegrity: null,
         giFloored: false,
         summary: remote.summary ?? payload.summary,
         renderUsed: true,
         responseDegraded: false,
+        computedAt: gicComputedAt,
+        cacheAgeSeconds: 0,
       }),
     );
   } catch (error) {
@@ -206,7 +206,7 @@ export async function GET() {
         finalGi: chainGi,
         computationSource: chain.source,
         persistenceSource: payload.source,
-        giDegraded: true,
+        giDegraded: chain.degraded,
         renderUsed: true,
         responseDegraded: true,
       }),
