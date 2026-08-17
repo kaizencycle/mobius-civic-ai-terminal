@@ -28,6 +28,7 @@ export async function GET() {
       ...health,
       backup_redis,
       kv_continuity_ok: keyReport?.kv_continuity_ok ?? null,
+      kv_continuity_extended_ok: keyReport?.kv_continuity_extended_ok ?? null,
       kv_diagnostic_ok: keyReport?.kv_diagnostic_ok ?? null,
       kv_keys_ok: keyReport?.kv_keys_ok ?? null,
       kv_keys_all_ok: keyReport?.kv_keys_all_ok ?? null,

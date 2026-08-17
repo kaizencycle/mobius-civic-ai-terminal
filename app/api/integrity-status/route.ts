@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
-import { buildGiRepresentation } from '@/lib/integrity/giProvenance';
-import { deriveOperationalDecisionState } from '@/lib/integrity/operationalState';
+import { buildIntegrityEnrichment } from '@/lib/integrity/buildIntegrityEnrichment';
+import { countDegradedAgentsFromSignalSnapshot } from '@/lib/integrity/agentDegradationCount';
 import { resolveGiChain } from '@/lib/gi/resolveGiChain';
 import { getGiMode } from '@/lib/gi/mode';
+import type { GIMode } from '@/lib/gi/mode';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { assessKvKeyHealth } from '@/lib/kv/kvKeyHealth';
 import { getTripwireState } from '@/lib/tripwire/store';
@@ -17,30 +18,33 @@ const INTEGRITY_CACHE_TTL = 60;
 
 export const dynamic = 'force-dynamic';
 
-function buildAuthority(payload: Awaited<ReturnType<typeof computeIntegrityPayload>>, _renderEnabled: boolean, renderUsed: boolean) {
+function buildAuthority(
+  persistenceSource: string,
+  kvBacked: boolean,
+  renderUsed: boolean,
+) {
   const note =
-    payload.source === 'kv'
+    persistenceSource === 'kv'
       ? 'Primary GI is being served from KV-backed state.'
-      : payload.source === 'live'
+      : persistenceSource === 'live'
         ? 'GI is being computed from live in-process signals.'
-        : 'GI is operating under degraded signal authority.';
+        : persistenceSource === 'gic-indexer'
+          ? 'GI is being served from Render GIC indexer.'
+          : 'GI is operating under degraded signal authority.';
 
   return {
-    kv_backed: Boolean(payload.kv),
-    gi_origin: renderUsed ? 'gic-indexer' : payload.source,
+    kv_backed: kvBacked,
+    gi_origin: renderUsed ? 'gic-indexer' : persistenceSource,
     note,
   };
 }
 
 const CACHE_HEADERS = {
-  // C-354: public edge cache — 120s s-maxage reduces KV reads from heartbeat polling.
-  // GI changes only on cron ticks (5-10 min); 2 min CDN cache is safe.
   'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=30',
   'X-Mobius-Source': 'integrity-status',
 };
 
 export async function GET() {
-  // Serve from KV cache when available — avoids Render GIC call on every page init.
   try {
     const cached = await kvGet<Record<string, unknown>>(INTEGRITY_CACHE_KEY);
     if (cached) {
@@ -53,82 +57,88 @@ export async function GET() {
   const payload = await computeIntegrityPayload();
   const micRaw = await loadMicReadinessSnapshotRaw();
   const chain = await resolveGiChain({ micReadinessSnapshotRaw: micRaw.raw });
-  const selectedGi =
-    chain.gi !== null ? chain.gi : payload.global_integrity;
-  const derivedMode = getGiMode(selectedGi);
-  const derivedTerminalStatus =
-    derivedMode === 'green' ? 'nominal' : derivedMode === 'yellow' ? 'stressed' : 'critical';
-  const [kvKeyHealth, tripwire] = await Promise.all([
+  const chainGi = chain.gi !== null ? chain.gi : payload.global_integrity;
+
+  const [kvKeyHealth, tripwire, degradedAgentCount] = await Promise.all([
     assessKvKeyHealth().catch(() => null),
     Promise.resolve(getTripwireState()),
+    countDegradedAgentsFromSignalSnapshot().catch(() => null),
   ]);
-  const giRepresentation = buildGiRepresentation({
-    value: selectedGi,
-    computation_source: chain.source,
-    persistence_source: payload.source,
-    computed_at: chain.timestamp ?? payload.timestamp,
-    persisted_at: chain.timestamp ?? payload.timestamp,
-    cache_age_seconds: chain.age_seconds,
-    degraded: chain.degraded,
-    stored_mode: payload.mode,
-    derived_mode: derivedMode,
-  });
-  const decision_state = deriveOperationalDecisionState({
-    gi: selectedGi,
-    stored_mode: payload.mode,
-    tripwire_active: tripwire.active,
-    tripwire_level: tripwire.level,
-    kv_continuity_ok: kvKeyHealth?.kv_continuity_ok ?? null,
-    degraded_agent_count: 0,
-    gi_degraded: chain.degraded,
-    governance_state: chain.degraded ? 'disputed' : 'pending',
-    mutation_state: 'forbidden',
-  });
-  const mergedPayload = {
-    ...payload,
-    ...(chain.gi !== null
-      ? {
-          global_integrity: chain.gi,
-          raw_integrity: chain.raw_integrity,
-          gi_floored: chain.gi_floored,
-          mode: derivedMode,
-          terminal_status: derivedTerminalStatus,
-          timestamp: chain.timestamp ?? payload.timestamp,
-        }
-      : {
-          raw_integrity: payload.raw_integrity,
-          gi_floored: payload.gi_floored,
-          mode: derivedMode,
-          terminal_status: derivedTerminalStatus,
-        }),
-    gi_provenance: chain.source,
-    gi_representation: giRepresentation,
-    decision_state,
-    kv_continuity_ok: kvKeyHealth?.kv_continuity_ok ?? null,
-    // gi_verified omitted from public surface — verification state is operator-only
-    gi_degraded: chain.degraded,
-    gi_age_seconds: chain.age_seconds,
-    mic_readiness_snapshot_source: micRaw.source,
-  };
+
   const renderGicUrl = process.env.RENDER_GIC_URL;
 
   async function cacheAndReturn(result: Record<string, unknown>): Promise<NextResponse> {
-    // Only cache non-degraded results — a transient Render GIC 5xx/timeout should not
-    // be served as a 60s cache HIT to all clients after the upstream recovers.
     if (!result.degraded) {
       kvSet(INTEGRITY_CACHE_KEY, result, INTEGRITY_CACHE_TTL).catch(() => {});
     }
     return NextResponse.json(result, { headers: { ...CACHE_HEADERS, 'X-Cache': 'MISS' } });
   }
 
-  if (!renderGicUrl) {
-    return cacheAndReturn({
-      ok: true as const,
-      degraded: true,
-      ...mergedPayload,
-      authority: buildAuthority(payload, false, false),
+  function assembleResponse(args: {
+    finalGi: number;
+    computationSource: string;
+    persistenceSource: string;
+    giDegraded: boolean;
+    remoteMode?: GIMode | null;
+    rawIntegrity?: number | null;
+    giFloored?: boolean;
+    summary?: string;
+    renderUsed: boolean;
+    responseDegraded: boolean;
+  }) {
+    const enrichment = buildIntegrityEnrichment({
+      finalGi: args.finalGi,
+      computationSource: args.computationSource,
+      persistenceSource: args.persistenceSource,
+      chain,
+      payload,
+      kvKeyHealth,
+      tripwire,
+      degradedAgentCount,
+      giDegraded: args.giDegraded,
+      storedMode: payload.mode,
+      remoteMode: args.remoteMode,
     });
+
+    return {
+      ok: true as const,
+      degraded: args.responseDegraded,
+      ...payload,
+      global_integrity: enrichment.global_integrity,
+      raw_integrity: args.rawIntegrity ?? chain.raw_integrity ?? payload.raw_integrity,
+      gi_floored: args.giFloored ?? chain.gi_floored ?? payload.gi_floored,
+      mode: enrichment.mode,
+      terminal_status: enrichment.terminal_status,
+      timestamp: chain.timestamp ?? payload.timestamp,
+      summary: args.summary ?? payload.summary,
+      source: args.persistenceSource,
+      gi_provenance: enrichment.gi_provenance,
+      gi_representation: enrichment.gi_representation,
+      decision_state: enrichment.decision_state,
+      kv_continuity_ok: enrichment.kv_continuity_ok,
+      gi_degraded: enrichment.gi_degraded,
+      gi_age_seconds: enrichment.gi_age_seconds,
+      mic_readiness_snapshot_source: micRaw.source,
+      authority: buildAuthority(args.persistenceSource, Boolean(payload.kv), args.renderUsed),
+    };
   }
+
+  if (!renderGicUrl) {
+    return cacheAndReturn(
+      assembleResponse({
+        finalGi: chainGi,
+        computationSource: chain.source,
+        persistenceSource: payload.source,
+        giDegraded: chain.degraded,
+        renderUsed: false,
+        responseDegraded: true,
+      }),
+    );
+  }
+
+  const baseSignals = {
+    ...payload.signals,
+  };
 
   try {
     const response = await fetch(`${renderGicUrl}/compute`, {
@@ -138,8 +148,8 @@ export async function GET() {
         Accept: 'application/json',
       },
       body: JSON.stringify({
-        signals: mergedPayload.signals,
-        cycle: mergedPayload.cycle,
+        signals: baseSignals,
+        cycle: payload.cycle,
       }),
       signal: AbortSignal.timeout(5000),
       cache: 'no-store',
@@ -147,18 +157,22 @@ export async function GET() {
 
     if (!response.ok) {
       console.error(`[render:gic] ${response.status} ${response.statusText}`);
-      return cacheAndReturn({
-        ok: true as const,
-        degraded: true,
-        ...mergedPayload,
-        authority: buildAuthority(payload, true, false),
-      });
+      return cacheAndReturn(
+        assembleResponse({
+          finalGi: chainGi,
+          computationSource: chain.source,
+          persistenceSource: payload.source,
+          giDegraded: true,
+          renderUsed: true,
+          responseDegraded: true,
+        }),
+      );
     }
 
     const remote = (await response.json()) as {
       global_integrity?: number;
       gi?: number;
-      mode?: 'green' | 'yellow' | 'red';
+      mode?: GIMode;
       summary?: string;
     };
 
@@ -167,27 +181,35 @@ export async function GET() {
         ? remote.global_integrity
         : typeof remote.gi === 'number'
           ? remote.gi
-          : mergedPayload.global_integrity;
+          : chainGi;
 
-    return cacheAndReturn({
-      ok: true as const,
-      ...mergedPayload,
-      global_integrity: computedGi,
-      raw_integrity: null,
-      gi_floored: false,
-      mode: remote.mode ?? mergedPayload.mode,
-      summary: remote.summary ?? mergedPayload.summary,
-      source: 'gic-indexer',
-      degraded: false,
-      authority: buildAuthority(payload, true, true),
-    });
+    const remoteDerivedMode = getGiMode(computedGi);
+
+    return cacheAndReturn(
+      assembleResponse({
+        finalGi: computedGi,
+        computationSource: 'gic-indexer',
+        persistenceSource: 'gic-indexer',
+        giDegraded: false,
+        remoteMode: remote.mode ?? remoteDerivedMode,
+        rawIntegrity: null,
+        giFloored: false,
+        summary: remote.summary ?? payload.summary,
+        renderUsed: true,
+        responseDegraded: false,
+      }),
+    );
   } catch (error) {
     console.error('[render:gic] request failed', error);
-    return cacheAndReturn({
-      ok: true as const,
-      degraded: true,
-      ...mergedPayload,
-      authority: buildAuthority(payload, true, false),
-    });
+    return cacheAndReturn(
+      assembleResponse({
+        finalGi: chainGi,
+        computationSource: chain.source,
+        persistenceSource: payload.source,
+        giDegraded: true,
+        renderUsed: true,
+        responseDegraded: true,
+      }),
+    );
   }
 }

@@ -8,15 +8,24 @@
 
 import { KV_KEYS, kvExists, kvGet, kvGetRaw } from '@/lib/kv/store';
 
-/** Minimum keys written by POST /api/admin/seed-kv and EPICON KV sync CI. */
-export const KV_CONTINUITY_KEY_NAMES = [
+/** Minimum keys always written by POST /api/admin/seed-kv (required for continuity). */
+export const KV_CONTINUITY_REQUIRED_KEY_NAMES = [
   'GI_STATE',
   'HEARTBEAT',
   'LAST_INGEST',
-  'SIGNAL_SNAPSHOT',
+] as const;
+
+/** Best-effort continuity key — seed may succeed without it when signal poll fails. */
+export const KV_CONTINUITY_OPTIONAL_KEY_NAMES = ['SIGNAL_SNAPSHOT'] as const;
+
+/** All continuity keys (required + optional) for documentation / extended checks. */
+export const KV_CONTINUITY_KEY_NAMES = [
+  ...KV_CONTINUITY_REQUIRED_KEY_NAMES,
+  ...KV_CONTINUITY_OPTIONAL_KEY_NAMES,
 ] as const;
 
 export type KvContinuityKeyName = (typeof KV_CONTINUITY_KEY_NAMES)[number];
+export type KvContinuityRequiredKeyName = (typeof KV_CONTINUITY_REQUIRED_KEY_NAMES)[number];
 
 /** Keys whose absence is healthy (only written on failure / open circuit). */
 export const KV_INVERTED_ABSENCE_OK = new Set<string>(['LEDGER_CIRCUIT_OPEN']);
@@ -32,10 +41,14 @@ export type KvKeyHealthReport = {
   diagnostic: Record<string, KvKeyPresence>;
   continuity_present: number;
   continuity_required: number;
+  continuity_optional_present: number;
+  continuity_optional_required: number;
   diagnostic_present: number;
   diagnostic_required: number;
-  /** Seed-minimum keys — operator continuity gate. */
+  /** Required seed keys (GI, heartbeat, ingest). */
   kv_continuity_ok: boolean;
+  /** Required + optional continuity (includes SIGNAL_SNAPSHOT when present). */
+  kv_continuity_extended_ok: boolean;
   /** Full diagnostic enumeration including optional cron keys. */
   kv_diagnostic_ok: boolean;
   /**
@@ -94,7 +107,8 @@ export async function assessKvKeyHealth(): Promise<KvKeyHealthReport> {
     inverted_absence_ok: false,
   };
 
-  const continuityOk = KV_CONTINUITY_KEY_NAMES.every((name) => continuity[name].present);
+  const continuityOk = KV_CONTINUITY_REQUIRED_KEY_NAMES.every((name) => continuity[name].present);
+  const continuityExtendedOk = KV_CONTINUITY_KEY_NAMES.every((name) => continuity[name].present);
   const diagnosticOk = Object.entries(diagnostic).every(([name, row]) => {
     if (row.inverted_absence_ok) {
       return !row.present;
@@ -103,6 +117,8 @@ export async function assessKvKeyHealth(): Promise<KvKeyHealthReport> {
   });
 
   const continuityPresent = KV_CONTINUITY_KEY_NAMES.filter((n) => continuity[n].present).length;
+  const requiredPresent = KV_CONTINUITY_REQUIRED_KEY_NAMES.filter((n) => continuity[n].present).length;
+  const optionalPresent = KV_CONTINUITY_OPTIONAL_KEY_NAMES.filter((n) => continuity[n].present).length;
   const diagnosticPresent = Object.values(diagnostic).filter((row) => {
     if (row.inverted_absence_ok) return !row.present;
     return row.present;
@@ -113,9 +129,12 @@ export async function assessKvKeyHealth(): Promise<KvKeyHealthReport> {
     diagnostic,
     continuity_present: continuityPresent,
     continuity_required: KV_CONTINUITY_KEY_NAMES.length,
+    continuity_optional_present: optionalPresent,
+    continuity_optional_required: KV_CONTINUITY_OPTIONAL_KEY_NAMES.length,
     diagnostic_present: diagnosticPresent,
     diagnostic_required: Object.keys(diagnostic).length,
     kv_continuity_ok: continuityOk,
+    kv_continuity_extended_ok: continuityExtendedOk,
     kv_diagnostic_ok: diagnosticOk,
     kv_keys_ok: continuityOk,
     kv_keys_all_ok: continuityOk && diagnosticOk,

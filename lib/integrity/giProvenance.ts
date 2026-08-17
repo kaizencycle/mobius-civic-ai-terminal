@@ -7,6 +7,35 @@ import type { GISourceDisplay } from '@/lib/gi/resolveGiChain';
 
 export type GiFreshnessClass = 'fresh' | 'stale' | 'degraded' | 'unknown';
 
+const STORAGE_BACKED_SOURCES = new Set<string>([
+  'kv-live',
+  'kv-carry',
+  'github-state-mirror',
+  'oaa-verified',
+  'readiness-fallback',
+]);
+
+/** Persisted_at is set only when GI is read from a storage-backed tier. */
+export function resolvePersistedAtForSource(args: {
+  computation_source: GISourceDisplay | string;
+  persisted_timestamp: string | null | undefined;
+  kv_available: boolean;
+}): string | null {
+  if (args.computation_source === 'live-compute' && !args.kv_available) {
+    return null;
+  }
+  if (!STORAGE_BACKED_SOURCES.has(args.computation_source)) {
+    if (args.computation_source === 'live-compute') {
+      return null;
+    }
+    if (args.computation_source === 'gic-indexer') {
+      return null;
+    }
+    return args.persisted_timestamp ?? null;
+  }
+  return args.persisted_timestamp ?? null;
+}
+
 export type GiRepresentation = {
   value: number;
   /** Route / chain tier label (e.g. kv-live, live-compute). */

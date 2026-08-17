@@ -16,12 +16,13 @@
 
 ### Continuity keys (seed minimum)
 
-- `GI_STATE` → `gi:latest`
-- `HEARTBEAT` → `heartbeat:last`
-- `LAST_INGEST` → `ingest:last`
-- `SIGNAL_SNAPSHOT` → `signals:latest`
+**Required** (gate `kv_continuity_ok` / `kv_keys_ok`):
 
-Matches `POST /api/admin/seed-kv` and EPICON KV sync CI.
+- `GI_STATE`, `HEARTBEAT`, `LAST_INGEST`
+
+**Optional** (best-effort; included in `kv_continuity_extended_ok`):
+
+- `SIGNAL_SNAPSHOT` — seed may succeed without it when signal poll fails
 
 ### Inverted semantics
 

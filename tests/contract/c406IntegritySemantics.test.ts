@@ -5,9 +5,14 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   KV_CONTINUITY_KEY_NAMES,
+  KV_CONTINUITY_REQUIRED_KEY_NAMES,
   KV_INVERTED_ABSENCE_OK,
 } from '@/lib/kv/kvKeyHealth';
-import { buildGiRepresentation, classifyGiFreshness } from '@/lib/integrity/giProvenance';
+import {
+  buildGiRepresentation,
+  classifyGiFreshness,
+  resolvePersistedAtForSource,
+} from '@/lib/integrity/giProvenance';
 import {
   deriveOperationalClassification,
   deriveOperationalDecisionState,
@@ -110,6 +115,33 @@ describe('C-406 GI provenance', () => {
     assert.equal(rep.freshness_class, 'degraded');
   });
 
+  it('leaves persisted_at null for unpersisted live-compute without KV', () => {
+    assert.equal(
+      resolvePersistedAtForSource({
+        computation_source: 'live-compute',
+        persisted_timestamp: '2026-08-17T12:00:00.000Z',
+        kv_available: false,
+      }),
+      null,
+    );
+    assert.equal(
+      resolvePersistedAtForSource({
+        computation_source: 'gic-indexer',
+        persisted_timestamp: '2026-08-17T12:00:00.000Z',
+        kv_available: true,
+      }),
+      null,
+    );
+    assert.equal(
+      resolvePersistedAtForSource({
+        computation_source: 'kv-live',
+        persisted_timestamp: '2026-08-17T12:00:00.000Z',
+        kv_available: true,
+      }),
+      '2026-08-17T12:00:00.000Z',
+    );
+  });
+
   it('preserves live instrument failure metadata on micro representation', () => {
     const rep = buildGiRepresentation({
       value: 0.881,
@@ -133,7 +165,12 @@ describe('C-406 GI provenance', () => {
 });
 
 describe('C-406 KV key semantics', () => {
-  it('defines continuity keys matching seed route minimum', () => {
+  it('defines required continuity keys matching seed route minimum', () => {
+    assert.deepEqual(KV_CONTINUITY_REQUIRED_KEY_NAMES, [
+      'GI_STATE',
+      'HEARTBEAT',
+      'LAST_INGEST',
+    ]);
     assert.deepEqual(KV_CONTINUITY_KEY_NAMES, [
       'GI_STATE',
       'HEARTBEAT',

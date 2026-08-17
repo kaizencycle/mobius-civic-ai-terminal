@@ -59,7 +59,7 @@ export function deriveOperationalClassification(args: {
   display_state: GIMode;
   tripwire_active: boolean;
   kv_continuity_ok: boolean | null;
-  degraded_agent_count: number;
+  degraded_agent_count: number | null;
   gi_degraded: boolean;
   tripwire_elevated: boolean;
 }): OperationalClassification {
@@ -70,7 +70,7 @@ export function deriveOperationalClassification(args: {
     args.tripwire_active ||
     args.tripwire_elevated ||
     args.kv_continuity_ok === false ||
-    args.degraded_agent_count > 0 ||
+    (args.degraded_agent_count !== null && args.degraded_agent_count > 0) ||
     args.gi_degraded ||
     args.display_state === 'yellow'
   ) {
@@ -85,7 +85,7 @@ export function deriveOperationalDecisionState(args: {
   tripwire_active: boolean;
   tripwire_level?: string;
   kv_continuity_ok: boolean | null;
-  degraded_agent_count: number;
+  degraded_agent_count: number | null;
   gi_degraded: boolean;
   governance_state?: GovernanceStateLabel;
   mutation_state?: MutationStateLabel;
@@ -116,7 +116,11 @@ export function deriveOperationalDecisionState(args: {
   parts.push(`operational ${operational_classification}`);
   if (tripwire_state !== 'clear') parts.push(`tripwire ${tripwire_state}`);
   if (persistence_state === 'degraded') parts.push('KV continuity degraded');
-  if (args.degraded_agent_count > 0) parts.push(`${args.degraded_agent_count} degraded agents`);
+  if (args.degraded_agent_count !== null && args.degraded_agent_count > 0) {
+    parts.push(`${args.degraded_agent_count} degraded agents`);
+  } else if (args.degraded_agent_count === null) {
+    parts.push('agent degradation unknown');
+  }
   if (governance_state === 'disputed') parts.push('governance disputed');
   parts.push(`mutation ${mutation_state}`);
 
