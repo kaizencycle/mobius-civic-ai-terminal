@@ -1,0 +1,109 @@
+{
+  "timestamp": "2026-08-17T06:04:54.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-406",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "hermes-openlibrary": "persistent",
+    "themis-transparency-intl": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "echo-dataverse": "persistent",
+    "hermes-internet-archive": "persistent",
+    "kv_keys_ok": "persistent",
+    "sustain_eligible": "persistent",
+    "tripwire_active": "persistent",
+    "gaia-noaa-alerts": "resolved",
+    "hermes-arxiv": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved (cycle C-406)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-17T05-04-54-090Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-17T05-04-54-090Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.71 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[hermes-openlibrary elevated, themis-transparency-intl elevated, daedalus-cloudflare-radar watch, echo-dataverse elevated]; flags kv_keys_ok=false tripwire_active=true (elevated Hormuz); seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; post_seed_gi=0.71; sustain_eligible=false; micro_composite=0.86; degraded_agents=2 [JADE,DAEDALUS]."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.86 composite=0.86 instrumentCount=40 cached=false cycle=C-406. hermes-openlibrary score=0 error persistent. hermes-internet-archive score=0 error persistent (live-only, not in ATLAS anomaly list). themis-transparency-intl score=0.8 fallback persistent elevated. daedalus-cloudflare-radar score=0.7 watch persistent. echo-dataverse score=0.3 elevated persistent. gaia-noaa-alerts score=0.8 resolved from ATLAS list. hermes-arxiv score=0.9 resolved. errors=2 failedInstruments=[hermes-internet-archive, hermes-openlibrary]."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.74 mode=yellow terminal_status=stressed source=kv degraded=true cycle=C-406 gi_provenance=kv-live. authority.gi_origin=kv kv_backed=true. Not mock — KV seed path active. freshness=0.3 suppressing GI."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "ATLAS gi=0.71 (kv, 05:04Z) vs integrity-status gi=0.74 (kv-live) — Δ0.03 aligned. Live micro gi=0.86 — Δ0.15 from ATLAS. KV-backed sources agree; live micro composite diverges."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock) — KV seed failure mock path not active. kv_backed=true."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys.kv_keys_ok=false while seed 200 OK and kv_keys.ok=true; flags.kv_keys_ok=false kv_keys_all_ok=false."
+    },
+    {
+      "check": "ATLAS anomaly: hermes-openlibrary",
+      "result": "fail",
+      "detail": "Persistent elevated — ATLAS flagged elevated; live micro score=0 primary and fallback both failed after 8001ms."
+    },
+    {
+      "check": "ATLAS anomaly: themis-transparency-intl",
+      "result": "warn",
+      "detail": "Persistent elevated — ATLAS flagged elevated; live micro score=0.8 on fallback (degraded but serving)."
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch at sweep; live micro score=0.7 still watch."
+    },
+    {
+      "check": "ATLAS anomaly: echo-dataverse",
+      "result": "warn",
+      "detail": "Persistent elevated — ATLAS flagged elevated; live micro score=0.3 still elevated."
+    },
+    {
+      "check": "hermes-internet-archive (live-only)",
+      "result": "fail",
+      "detail": "Persistent failure not in ATLAS anomaly list — live micro score=0 primary failed (with retry) after 2914ms."
+    },
+    {
+      "check": "tripwire_active",
+      "result": "warn",
+      "detail": "Persistent elevated — ATLAS flags tripwire_active=true level=elevated reason=Hormuz Transit Fee Risk at 05:04Z sweep."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "warn",
+      "detail": "Persistent gate closed — sustain_eligible=false at ATLAS sweep under STRESSED classification."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-406 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-406-o2r6yp mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Quorum 5/5 achieved for C-406 — seal complete. GI disputed: KV-backed ATLAS (0.71) and integrity-status (0.74) align but live micro composite=0.86 diverges (Δ0.15). Persistent lane failures: hermes-openlibrary, hermes-internet-archive (live-only). Persistent anomalies: echo-dataverse (0.3 elevated), daedalus-cloudflare-radar (0.7 watch), themis-transparency-intl (0.8 fallback). kv_keys_ok=false persists despite successful seed. Tripwire elevated (Hormuz). integrity-status freshness=0.3 suppressing GI. sustain_eligible=false. Investigate HERMES upstream availability and KV/live GI lag."
+}
