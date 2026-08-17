@@ -4,8 +4,8 @@
 
 - **Cycle:** `C-406`
 - **GI:** `0.63` · **mode:** `yellow` · ⚠️ degraded
-- **Provenance:** `kv-live` (verified)
-- **Pulse fetched:** `2026-08-17T05:07:06.453Z`
+- **Provenance:** `live-compute` (unverified)
+- **Pulse fetched:** `2026-08-17T05:47:05.467Z`
 - **Deployment:** `822089f3ab98` (production)
 - **Reserve hot (raw):** `360` · **cold manifest:** `194` · **gap (raw−cold):** `166`
 - **Chain tip:** `seal-C-372-002` (seq `2`)
