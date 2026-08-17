@@ -87,28 +87,96 @@ type GithubProvenanceRecord = {
 };
 
 type CaptureProvenanceRecord = {
+  capture_id?: string;
   governance_candidate?: boolean;
   execution_witness_hash_v2?: string;
 };
 
-function resolveV2ExecutionWitnessFromArchive(archivePath: string): string | null {
-  const captureProv = readJson<CaptureProvenanceRecord>(join(archivePath, 'CAPTURE_PROVENANCE.json'));
-  if (
-    typeof captureProv?.execution_witness_hash_v2 === 'string' &&
-    captureProv.execution_witness_hash_v2.length === 64
-  ) {
-    return captureProv.execution_witness_hash_v2;
+function isSha256Hex(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value);
+}
+
+function resolveV2ExecutionWitnessFromArchive(args: {
+  archivePath: string;
+  expectedCaptureId: string;
+}): string {
+  if (!isTrackRV2GovernanceCaptureId(args.expectedCaptureId)) {
+    throw new Error(
+      `v2 execution witness provenance resolved for non-governance capture_id ${args.expectedCaptureId}`,
+    );
   }
 
-  const githubProv = readJson<GithubProvenanceRecord>(join(archivePath, 'GITHUB_PROVENANCE.json'));
-  if (
-    typeof githubProv?.execution_witness_hash_v2 === 'string' &&
-    githubProv.execution_witness_hash_v2.length === 64
-  ) {
-    return githubProv.execution_witness_hash_v2;
+  const captureProv = readJson<CaptureProvenanceRecord>(
+    join(args.archivePath, 'CAPTURE_PROVENANCE.json'),
+  );
+  const githubProv = readJson<GithubProvenanceRecord>(
+    join(args.archivePath, 'GITHUB_PROVENANCE.json'),
+  );
+
+  const witnesses: string[] = [];
+
+  if (captureProv) {
+    if (captureProv.governance_candidate !== true) {
+      throw new Error(
+        `CAPTURE_PROVENANCE.json under ${args.archivePath} is not marked governance_candidate`,
+      );
+    }
+    const provCaptureId = captureProv.capture_id;
+    if (provCaptureId && provCaptureId !== args.expectedCaptureId) {
+      throw new Error(
+        `CAPTURE_PROVENANCE.json capture_id mismatch: expected ${args.expectedCaptureId}, got ${provCaptureId}`,
+      );
+    }
+    if (captureProv.execution_witness_hash_v2 !== undefined) {
+      if (!isSha256Hex(captureProv.execution_witness_hash_v2)) {
+        throw new Error(
+          'CAPTURE_PROVENANCE.json execution_witness_hash_v2 is not a valid sha256 hex string',
+        );
+      }
+      witnesses.push(captureProv.execution_witness_hash_v2.toLowerCase());
+    }
   }
 
-  return null;
+  if (githubProv) {
+    if (githubProv.governance_candidate !== true) {
+      throw new Error(
+        `GITHUB_PROVENANCE.json under ${args.archivePath} is not marked governance_candidate`,
+      );
+    }
+    const provCaptureId = githubProv.capture_id;
+    if (provCaptureId && provCaptureId !== args.expectedCaptureId) {
+      throw new Error(
+        `GITHUB_PROVENANCE.json capture_id mismatch: expected ${args.expectedCaptureId}, got ${provCaptureId}`,
+      );
+    }
+    if (githubProv.execution_witness_hash_v2 != null) {
+      if (!isSha256Hex(githubProv.execution_witness_hash_v2)) {
+        throw new Error(
+          'GITHUB_PROVENANCE.json execution_witness_hash_v2 is not a valid sha256 hex string',
+        );
+      }
+      witnesses.push(githubProv.execution_witness_hash_v2.toLowerCase());
+    }
+  }
+
+  const uniqueWitnesses = [...new Set(witnesses)];
+  if (uniqueWitnesses.length === 0) {
+    throw new Error(`no validated v2 execution witness in provenance under ${args.archivePath}`);
+  }
+  if (uniqueWitnesses.length > 1) {
+    throw new Error(
+      `conflicting execution_witness_hash_v2 between provenance files under ${args.archivePath}`,
+    );
+  }
+
+  const witness = uniqueWitnesses[0]!;
+  if (witness !== CAPTURE_2014Z_EXPECTED_HASHES.execution_witness_hash) {
+    throw new Error(
+      'provenance execution_witness_hash_v2 does not match locked Capture #9 governance witness',
+    );
+  }
+
+  return witness;
 }
 
 /** Derive capture_id from an archive directory name such as `.../capture-0123Z`. */
@@ -296,7 +364,10 @@ export function resolveTrackRCaptureBinding(args?: {
   const resolvedWitness =
     lineageSnapshotVersion === TRACK_R_V2_LINEAGE_SNAPSHOT_VERSION &&
     isTrackRV2GovernanceCaptureId(resolvedCaptureId)
-      ? (resolveV2ExecutionWitnessFromArchive(archivePath) ?? witness)
+      ? resolveV2ExecutionWitnessFromArchive({
+          archivePath,
+          expectedCaptureId: resolvedCaptureId,
+        })
       : witness;
   const rollback =
     attestation.rollback_manifest_hash ?? required.rollback_manifest_hash ?? '';
