@@ -1,0 +1,38 @@
+
+> mobius-civic-ai-terminal@0.1.0 track-r:batch-apply-preflight /home/runner/work/mobius-civic-ai-terminal/mobius-civic-ai-terminal
+> tsx scripts/track-r-batch-apply-preflight.ts --base-url https://mobius-civic-ai-terminal.vercel.app --capture-id track-r-c403-2026-08-15T2014Z
+
+Capture ID: track-r-c403-2026-08-15T2014Z
+Lineage snapshot version: v2
+Preflight status: apply_preflight_pass
+Execution authorized: false
+Production mutation performed: false
+Attested lineage CAS: b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+Fresh lineage CAS: b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+Apply-time CAS match: true
+Commit guard preflight: pass
+
+✓ [pass] lineage_snapshot_version
+  v2
+✓ [pass] apply_production_kv_identity
+  {"latest_seal_id":"seal-C-372-002","attested_index_count":360}
+✓ [pass] apply_lineage_pointer_observation
+  {"active_lineage_version":null,"live_canonical_pointer":null}
+✓ [pass] apply_cas_public_api
+  https://mobius-civic-ai-terminal.vercel.app
+✓ [pass] apply_kv_identity_public_latest_seal
+  kv=seal-C-372-002 public=seal-C-372-002
+✓ [pass] apply_affected_block_set_match
+  {"set_match":true,"pinned":123,"live":123,"errors":[]}
+✓ [pass] apply_lineage_snapshot_v2
+  lineage_snapshot_hash_v2=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] apply_lineage_snapshot_cas
+  version=v2 attested=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb fresh=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] apply_lineage_snapshot_version
+  v2
+✓ [pass] apply_live_witness_export
+  export_complete=true
+✓ [pass] apply_commit_guard
+  commit guard preflight pass
+✓ [pass] apply_preflight_summary
+  apply_preflight_pass
