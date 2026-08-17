@@ -10,12 +10,8 @@
  * artifacts/C-404/track-r-lineage-v2/TRACK_R_V2_VERIFICATION_STATUS.md for
  * the full explanation.
  *
- * This script has NOT been executed against real artifact data as of this
- * commit — it was written against the known TRACK_R_LIVE_DRY_RUN_PACKAGE.json
- * / TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json schema (verified by
- * reading scripts/track-r-live-dry-run-package.ts directly), not run
- * end-to-end. Field assumptions are called out inline. Run it for real once
- * the artifact ZIPs have been extracted locally, and fix anything it flags.
+ * Run against committed archive bytes (2026-08-17): OVERALL PASS — see
+ * artifacts/C-404/track-r-lineage-v2/TRACK_R_V2_STABILITY_VERIFIER_OUTPUT.txt
  *
  * Usage:
  *   pnpm exec tsx scripts/track-r-capture-v2-stability-verify.ts \

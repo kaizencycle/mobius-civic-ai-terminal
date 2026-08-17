@@ -1,0 +1,35 @@
+{
+  "schema_version": "TRACK_R_CAPTURE_PROVENANCE_1",
+  "capture_id": "track-r-c403-2026-08-15T2014Z",
+  "captured_at": "2026-08-15T20:14:44.998Z",
+  "executive_status": "READY_FOR_ZEUS_EVE_REVIEW",
+  "process_exit_code": 0,
+  "production_mutation_performed": false,
+  "execution_authorized": false,
+  "capture_mode": "production_witness_read_only",
+  "comparison_mode": null,
+  "role": "canonical_v2_governance_candidate",
+  "governance_candidate": true,
+  "immutable_archive_path": "artifacts/C-404/track-r-lineage-v2/history/capture-2014Z/",
+  "github_actions": {
+    "workflow": "Track R Production Capture",
+    "run_id": 31906143684,
+    "artifact_name": "track-r-production-capture",
+    "artifact_id": 9252398658,
+    "artifact_sha256_digest": "5a4e344a706a431892f650c63dc48d7cbaf953bdb20e5a16ba6f66d7d1da4b6d",
+    "repository_commit": "daeec8f3adb2716879ef773e5d9a63905f402050",
+    "url": "https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/31906143684"
+  },
+  "attestation_handoff": "docs/epicon/cycles/C-405/HANDOFF_C-405_CAS_V2_AUTHORITY_RECONCILIATION.md",
+  "required_hashes": {
+    "semantic_manifest_hash": "27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa",
+    "lineage_snapshot_hash": "1e6810b7bb72e56468db67d4de304e425adf5d20bfe47cf8269240303d1230bb",
+    "lineage_snapshot_hash_v2": "b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb",
+    "execution_witness_hash": "c76f85ced49ce0444cc7632ccea5507d8fd938cbdccfc46d37635f51063591f7",
+    "rollback_manifest_hash": "0a61a3ff9cd98eb8606dee9040b963b27bec5bd8cacd175977badd378ebf0d8d",
+    "production_kv_identity_receipt_hash": "fc84f950ed17d3863e2f7d24eac6eb3c54a7434913a47aa49c7374cce296726e",
+    "production_witness_seal_hash_pin_hash": "3876419a2ff46df126b0b956bca96ddfc21b45d5c9f1ab3d8e21bfaa4c5f9b5e",
+    "telemetry_snapshot_hash": "0a4470e2f2599644add5345c11aba99e5cb35eab7d91856f4cb7421b67f524d6"
+  },
+  "execution_witness_hash_v2": "e08999decbcdaaac06d91a9a11f06e6737756a646800db90ad8e57b865c1ccf1"
+}

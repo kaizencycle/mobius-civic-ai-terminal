@@ -13,14 +13,10 @@
 > exactly which is which, per row. Neither is a substitute for ZEUS's own
 > independent verification.
 
-> **Before beginning:** the complete v2 hash packet is now available
-> (`TRACK_R_V2_VERIFICATION_STATUS.md`, `TRACK_R_V2_STABILITY_COMPARISON.json`).
-> The one remaining gap is verbatim raw-artifact archival — `history/capture-2012Z/`
-> and `history/capture-2014Z/` still hold provenance records, not the raw
-> `TRACK_R_LIVE_DRY_RUN_PACKAGE.json`/`TRACK_R_LIVE_WITNESS_COMPARISON_REDACTED.json`
-> files themselves. If ZEUS has independent access to the raw artifacts,
-> re-running `pnpm track-r:capture-v2-stability-verify` directly is the
-> strongest form of confirmation.
+> **Before beginning:** the complete v2 hash packet and verbatim archive bytes
+> are available (`TRACK_R_V2_VERIFICATION_STATUS.md`, `history/capture-2014Z/`).
+> Re-run `pnpm track-r:capture-v2-stability-verify` from a clean checkout if
+> independent re-verification is required.
 
 ---
 
