@@ -3,6 +3,8 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   CAPTURE_2014Z_EXPECTED_HASHES,
@@ -18,6 +20,18 @@ import {
   validateV2GovernanceCandidateBinding,
   verifyTrackRExecutionReadiness,
 } from '@/lib/watchdog/batchRepair/verifyTrackRExecutionReadiness';
+
+const CAPTURE_2014Z_ARCHIVE = join(
+  process.cwd(),
+  'artifacts/C-404/track-r-lineage-v2/history/capture-2014Z',
+);
+
+function withTempCapture2014ZArchive(mutator: (dir: string) => void): string {
+  const dir = mkdtempSync(join(tmpdir(), 'track-r-capture-2014Z-'));
+  cpSync(CAPTURE_2014Z_ARCHIVE, dir, { recursive: true });
+  mutator(dir);
+  return dir;
+}
 
 describe('CAS-v2 runtime activation — capture binding', () => {
   it('defaults to Capture #9 v2 governance candidate', () => {
@@ -42,6 +56,117 @@ describe('CAS-v2 runtime activation — capture binding', () => {
     const validation = validateV2GovernanceCandidateBinding({ binding });
     assert.equal(validation.ok, true);
     assert.equal(validation.awaitingFreshAttestation, true);
+  });
+
+  it('rejects foreign execution_witness_hash_v2 in provenance', () => {
+    const dir = withTempCapture2014ZArchive((archivePath) => {
+      const captureProvPath = join(archivePath, 'CAPTURE_PROVENANCE.json');
+      const captureProv = JSON.parse(readFileSync(captureProvPath, 'utf8')) as Record<
+        string,
+        unknown
+      >;
+      captureProv.execution_witness_hash_v2 =
+        '0000000000000000000000000000000000000000000000000000000000000001';
+      writeFileSync(captureProvPath, `${JSON.stringify(captureProv, null, 2)}\n`);
+
+      const githubProvPath = join(archivePath, 'GITHUB_PROVENANCE.json');
+      const githubProv = JSON.parse(readFileSync(githubProvPath, 'utf8')) as Record<
+        string,
+        unknown
+      >;
+      githubProv.execution_witness_hash_v2 =
+        '0000000000000000000000000000000000000000000000000000000000000001';
+      writeFileSync(githubProvPath, `${JSON.stringify(githubProv, null, 2)}\n`);
+    });
+
+    try {
+      assert.throws(
+        () =>
+          resolveTrackRCaptureBinding({
+            captureId: CAPTURE_2014Z_ID,
+            archivePath: dir,
+          }),
+        /does not match locked Capture #9 governance witness/,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects provenance when governance_candidate is false', () => {
+    const dir = withTempCapture2014ZArchive((archivePath) => {
+      const captureProvPath = join(archivePath, 'CAPTURE_PROVENANCE.json');
+      const captureProv = JSON.parse(readFileSync(captureProvPath, 'utf8')) as Record<
+        string,
+        unknown
+      >;
+      captureProv.governance_candidate = false;
+      writeFileSync(captureProvPath, `${JSON.stringify(captureProv, null, 2)}\n`);
+    });
+
+    try {
+      assert.throws(
+        () =>
+          resolveTrackRCaptureBinding({
+            captureId: CAPTURE_2014Z_ID,
+            archivePath: dir,
+          }),
+        /not marked governance_candidate/,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects provenance capture_id mismatch', () => {
+    const dir = withTempCapture2014ZArchive((archivePath) => {
+      const captureProvPath = join(archivePath, 'CAPTURE_PROVENANCE.json');
+      const captureProv = JSON.parse(readFileSync(captureProvPath, 'utf8')) as Record<
+        string,
+        unknown
+      >;
+      captureProv.capture_id = 'track-r-c403-2026-08-15T2012Z';
+      writeFileSync(captureProvPath, `${JSON.stringify(captureProv, null, 2)}\n`);
+    });
+
+    try {
+      assert.throws(
+        () =>
+          resolveTrackRCaptureBinding({
+            captureId: CAPTURE_2014Z_ID,
+            archivePath: dir,
+          }),
+        /CAPTURE_PROVENANCE.json capture_id mismatch/,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects conflicting execution_witness_hash_v2 between provenance files', () => {
+    const dir = withTempCapture2014ZArchive((archivePath) => {
+      const captureProvPath = join(archivePath, 'CAPTURE_PROVENANCE.json');
+      const captureProv = JSON.parse(readFileSync(captureProvPath, 'utf8')) as Record<
+        string,
+        unknown
+      >;
+      captureProv.execution_witness_hash_v2 =
+        '1111111111111111111111111111111111111111111111111111111111111111';
+      writeFileSync(captureProvPath, `${JSON.stringify(captureProv, null, 2)}\n`);
+    });
+
+    try {
+      assert.throws(
+        () =>
+          resolveTrackRCaptureBinding({
+            captureId: CAPTURE_2014Z_ID,
+            archivePath: dir,
+          }),
+        /conflicting execution_witness_hash_v2 between provenance files/,
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('still resolves historical Capture #5 as v1 when requested explicitly', () => {
