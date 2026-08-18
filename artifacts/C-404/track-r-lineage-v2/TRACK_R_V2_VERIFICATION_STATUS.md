@@ -37,6 +37,7 @@ This packet went through three stages:
 | Live lineage-pointer observation | ✅ null/null on both captures at capture time | archived `observed_baseline` |
 | `production_mutation_performed: false` | ✅ | archived package bytes + code review |
 | **ZEUS v2 attestation (Capture #9)** | ✅ **ADOPT** — `ZEUS_V2_ATTESTATION_SIGNED.md` (`2026-08-18T02:01:38Z`, baseline `a8d548f2`) | independent ZEUS review; PR #684 |
+| **EVE v2 attestation (Capture #9)** | ✅ **ADOPT** — `EVE_V2_ATTESTATION_SIGNED.md` (`2026-08-18T02:02:59Z`, baseline `a8d548f2`) | independent EVE review; PR #685 |
 
 > **Caveat on execution-witness stability:** The verifier cross-compares **lineage** v2 hashes across captures but does **not** cross-compare **execution-witness** hashes. Only Capture #9's v2 execution-witness hash is retained for governance signing.
 
@@ -45,9 +46,9 @@ This packet went through three stages:
 | Item | Status |
 |---|---|
 | Fresh ZEUS v2 attestation | ✅ **ADOPT** — `ZEUS_V2_ATTESTATION_SIGNED.md` (`2026-08-18T02:01:38Z`, baseline `a8d548f2`) |
-| Fresh EVE v2 attestation | Unsigned — `EVE_V2_ATTESTATION_TEMPLATE.md` |
+| Fresh EVE v2 attestation | ✅ **ADOPT** — `EVE_V2_ATTESTATION_SIGNED.md` (`2026-08-18T02:02:59Z`, baseline `a8d548f2`) |
 | Fresh human v2 consent | Unsigned — `HUMAN_V2_CONSENT_TEMPLATE.md` |
-| Readiness → `awaiting_execution_handoff` | Blocked until EVE ADOPT + human consent land |
+| Readiness → `awaiting_execution_handoff` | Blocked until human consent lands |
 | `pnpm track-r:batch-apply` (P2) | Not implemented — after governance |
 
 > Unsigned templates (`*_TEMPLATE.md`) are preserved for audit. **Do not treat templates as verdicts** once a signed attestation exists for that lane.
@@ -56,7 +57,7 @@ This packet went through three stages:
 
 ## What this means for governance
 
-The v2 hash packet and immutable byte archive for Capture #9 are complete. **ZEUS ADOPT is recorded** in `ZEUS_V2_ATTESTATION_SIGNED.md`. **EVE review and human consent remain outstanding.** Sign against the exact hashes in `history/capture-2014Z/CAPTURE_PROVENANCE.json`.
+The v2 hash packet and immutable byte archive for Capture #9 are complete. **ZEUS and EVE ADOPT are recorded** in `ZEUS_V2_ATTESTATION_SIGNED.md` and `EVE_V2_ATTESTATION_SIGNED.md`. **Human custodian consent remains outstanding.** Sign against the exact hashes in `history/capture-2014Z/CAPTURE_PROVENANCE.json`.
 
 **C-405 authority reconciliation:** PR #675 v1 authority remains superseded. Runtime gates are v2-bound (#679). Preflight evidence run 31981329436 confirms live CAS alignment with `awaiting_human_consent`.
 
