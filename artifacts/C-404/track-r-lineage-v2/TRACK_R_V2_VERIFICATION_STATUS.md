@@ -49,8 +49,10 @@ This packet went through three stages:
 | Fresh ZEUS v2 attestation | ✅ **ADOPT** — `ZEUS_V2_ATTESTATION_SIGNED.md` (`2026-08-18T02:01:38Z`, baseline `a8d548f2`) |
 | Fresh EVE v2 attestation | ✅ **ADOPT** — `EVE_V2_ATTESTATION_SIGNED.md` (`2026-08-18T02:02:59Z`, baseline `a8d548f2`) |
 | Fresh human v2 consent | ✅ **CONSENT** — `HUMAN_V2_CONSENT_SIGNED.md` (`2026-08-18T02:19:00Z`) |
-| Readiness → `awaiting_execution_handoff` | **Pending fresh CAS probe** — triad complete; rerun `pnpm track-r:execution-readiness` with production credentials |
-| `pnpm track-r:batch-apply` (P2) | Not implemented — after governance |
+| Readiness → `awaiting_execution_handoff` | ✅ **Achieved** — preflight run [32091830992](https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/32091830992) (`2026-08-18T02:26:49Z`, commit `246d981c`) — `fresh_cas_match: true` |
+| Batch apply preflight (read-only) | ✅ **`apply_preflight_pass`** — run [32091830992](https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/32091830992); commit guard preflight pass |
+| `pnpm track-r:batch-apply` (P2) | **Not implemented — next engineering gate** (see C-405 operator sequence) |
+| One-shot execution handoff (P3) | **Blocked** — after P2 + fresh preflight at mutation window |
 
 > Unsigned templates (`*_TEMPLATE.md`) are preserved for audit. **Do not treat templates as verdicts** once a signed attestation exists for that lane.
 
@@ -60,7 +62,15 @@ This packet went through three stages:
 
 The v2 hash packet and immutable byte archive for Capture #9 are complete. **Governance triad is recorded:** `ZEUS_V2_ATTESTATION_SIGNED.md`, `EVE_V2_ATTESTATION_SIGNED.md`, and `HUMAN_V2_CONSENT_SIGNED.md` — all bound to the hashes in `history/capture-2014Z/CAPTURE_PROVENANCE.json`.
 
-**C-405 authority reconciliation:** PR #675 v1 authority remains superseded. Runtime gates are v2-bound (#679). Prior preflight run 31981329436 recorded `fresh_cas_match: true` while human consent was pending. **Next gate:** rerun read-only execution readiness with production credentials; require `awaiting_execution_handoff` before any execution handoff discussion. **Production mutation and execution authority remain forbidden.**
+**C-405 authority reconciliation:** PR #675 v1 authority remains superseded. Runtime gates are v2-bound (#679). **Preflight run 32091830992** (Track R Execution Preflight #8, commit `246d981c`) confirms governance triad + live CAS alignment: `awaiting_execution_handoff`, `fresh_cas_match: true`, `apply_preflight_pass`. Evidence: `docs/epicon/cycles/C-404/cas-probes/CAS-PROBE-32091830992.md`.
+
+**Operator sequence (do not skip steps):** per `docs/epicon/cycles/C-405/HANDOFF_C-405_CAS_V2_AUTHORITY_RECONCILIATION.md`:
+
+1. ✅ P1 governance triad + read-only preflight (`awaiting_execution_handoff`)
+2. **→ P2 (next):** implement and deploy `pnpm track-r:batch-apply` (executable mutation path)
+3. **→ P3 (after P2):** fresh preflight immediately before mutation window, then separate one-shot execution handoff → single mutation → post-write audit
+
+**Important:** `awaiting_execution_handoff` is a **readiness posture**, not execution authorization. Probes and preflight **never** set `execution_authorized: true`. Do **not** issue P3 handoff before P2 exists — that would bind authorization to an unreviewed future implementation. Production mutation remains **forbidden** until P2 + P3 complete.
 
 ---
 
