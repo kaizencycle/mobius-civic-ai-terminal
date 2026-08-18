@@ -12,7 +12,6 @@ import {
   assertAwaitingExecutionHandoff,
   assertBoundary131Unresolved,
   assertCaptureNineBinding,
-  assertDuplicateJournalIdRejected,
   assertFreshCasMatch,
   assertLockedHashBinding,
   assertMutationJournalComplete,
@@ -27,8 +26,16 @@ import {
 } from '@/lib/watchdog/batchRepair/p3PreparationSafety';
 import {
   assertProductionCommitBinding,
+  assertProductionBaseUrlAllowed,
+  normalizeGitSha,
   observeProductionDeploymentCommit,
+  TRACK_R_P3_ALLOWED_PRODUCTION_BASE_URLS,
 } from '@/lib/watchdog/batchRepair/productionDeploymentBinding';
+import {
+  assertPacketNotPreviouslyIssued,
+  loadIssuedPacketRegistry,
+} from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
+import { materializeP3PreparationEvidence } from '@/lib/watchdog/batchRepair/materializeP3PreparationEvidence';
 import {
   buildP3OperatorPacket,
   renderP3OperatorPacketMarkdown,
@@ -44,6 +51,10 @@ import {
 import { CAPTURE_2014Z_EXPECTED_HASHES } from '@/lib/watchdog/batchRepair/trackRCaptureV2Governance';
 import { TRACK_R_ALLOW_PRODUCTION_WRITES_ENV } from '@/lib/watchdog/batchRepair/oneShotExecutionGuard';
 import { loadFixtures } from './trackRBatchApplyPreflightFixtures';
+
+const FULL_SHA_A = '629cf6880123456789abcdef0123456789abcdef';
+const FULL_SHA_B = 'b708c1ad0123456789abcdef0123456789abcdef';
+const ALLOWLISTED_BASE = TRACK_R_P3_ALLOWED_PRODUCTION_BASE_URLS[0];
 
 const KV_ENV_KEYS = [
   'KV_REST_API_URL',
@@ -161,25 +172,47 @@ describe('Track R P3 preparation safety', () => {
     );
   });
 
+  it('locks production base URL to allowlist', () => {
+    assert.equal(assertProductionBaseUrlAllowed(ALLOWLISTED_BASE).ok, true);
+    assert.equal(assertProductionBaseUrlAllowed('https://example.test').ok, false);
+  });
+
+  it('rejects abbreviated or malformed git SHAs', () => {
+    assert.equal(normalizeGitSha(FULL_SHA_A).ok, true);
+    assert.equal(normalizeGitSha('629cf688').ok, false);
+    assert.equal(normalizeGitSha(null).ok, false);
+  });
+
   it('fails on production commit mismatch', () => {
     assert.equal(
       assertProductionCommitBinding({
-        checkedOutCommit: 'abc123',
-        observedProductionCommit: 'abc123',
+        checkedOutCommit: FULL_SHA_A,
+        observedProductionCommit: FULL_SHA_A,
+        observedEnvironment: 'production',
       }).ok,
       true,
     );
     assert.equal(
       assertProductionCommitBinding({
-        checkedOutCommit: 'abc123',
-        observedProductionCommit: 'def456',
+        checkedOutCommit: FULL_SHA_A,
+        observedProductionCommit: FULL_SHA_B,
+        observedEnvironment: 'production',
       }).ok,
       false,
     );
     assert.equal(
       assertProductionCommitBinding({
-        checkedOutCommit: 'abc123',
+        checkedOutCommit: FULL_SHA_A,
         observedProductionCommit: null,
+        observedEnvironment: 'production',
+      }).ok,
+      false,
+    );
+    assert.equal(
+      assertProductionCommitBinding({
+        checkedOutCommit: FULL_SHA_A,
+        observedProductionCommit: FULL_SHA_A,
+        observedEnvironment: 'preview',
       }).ok,
       false,
     );
@@ -234,14 +267,37 @@ describe('Track R P3 preparation safety', () => {
     assert.equal(assertMutationJournalComplete(journal.finalize()).ok, true);
   });
 
-  it('rejects duplicate journal IDs for second execution packet', () => {
-    const issued = new Set<string>(['journal-abc']);
+  it('rejects duplicate journal and packet hashes via durable registry', () => {
+    const registry = loadIssuedPacketRegistry();
+    const blocked = assertPacketNotPreviouslyIssued({
+      journalId: 'existing-journal',
+      journalHash: 'existing-journal-hash',
+      packetHash: 'existing-packet-hash',
+      registry: {
+        ...registry,
+        entries: [
+          {
+            workflow_run_id: '999',
+            issued_at: '2026-08-18T14:00:00.000Z',
+            journal_id: 'existing-journal',
+            journal_hash: 'existing-journal-hash',
+            packet_hash: 'existing-packet-hash',
+            checked_out_commit: FULL_SHA_A,
+            observed_production_commit: FULL_SHA_A,
+            preparation_only: true,
+            execution_authorized: false,
+          },
+        ],
+      },
+    });
+    assert.equal(blocked.ok, false);
     assert.equal(
-      assertDuplicateJournalIdRejected({ journalId: 'journal-abc', issuedJournalIds: issued }).ok,
-      false,
-    );
-    assert.equal(
-      assertDuplicateJournalIdRejected({ journalId: 'journal-def', issuedJournalIds: issued }).ok,
+      assertPacketNotPreviouslyIssued({
+        journalId: 'new-journal',
+        journalHash: 'new-journal-hash',
+        packetHash: 'new-packet-hash',
+        registry,
+      }).ok,
       true,
     );
   });
@@ -286,8 +342,8 @@ describe('Track R P3 preparation safety', () => {
     const packet = buildP3OperatorPacket({
       workflowRunId: '123456',
       timestamp: '2026-08-18T14:02:00.000Z',
-      checkedOutCommit: 'abc123',
-      observedProductionCommit: 'abc123',
+      checkedOutCommit: FULL_SHA_A,
+      observedProductionCommit: FULL_SHA_A,
       captureId: CAPTURE_2014Z_ID,
       mutationJournal: finalized,
       intendedWriteCount: 4,
@@ -315,28 +371,45 @@ describe('Track R P3 preparation safety', () => {
 
   it('observes production deployment commit from snapshot-lite', async () => {
     const observation = await observeProductionDeploymentCommit({
-      baseUrl: 'https://example.test',
+      baseUrl: ALLOWLISTED_BASE,
       observedAt: '2026-08-18T14:03:00.000Z',
       fetchImpl: async () =>
         ({
           ok: true,
           json: async () => ({
             ok: true,
-            deployment: { commit_sha: 'abc123def456', environment: 'production' },
+            deployment: { commit_sha: FULL_SHA_A, environment: 'production' },
           }),
         }) as Response,
     });
-    assert.equal(observation.commit_sha, 'abc123def456');
+    assert.equal(observation.commit_sha, FULL_SHA_A);
+    assert.equal(observation.environment, 'production');
     assert.equal(observation.bindable, true);
   });
 
-  it('fails closed when production deployment commit is unbound', async () => {
+  it('rejects non-allowlisted production base URL', async () => {
     const observation = await observeProductionDeploymentCommit({
       baseUrl: 'https://example.test',
       fetchImpl: async () =>
         ({
           ok: true,
-          json: async () => ({ ok: true, deployment: { commit_sha: null } }),
+          json: async () => ({
+            ok: true,
+            deployment: { commit_sha: FULL_SHA_A, environment: 'production' },
+          }),
+        }) as Response,
+    });
+    assert.equal(observation.bindable, false);
+    assert.ok(observation.errors.some((error) => error.includes('allowlisted')));
+  });
+
+  it('fails closed when production deployment commit is unbound', async () => {
+    const observation = await observeProductionDeploymentCommit({
+      baseUrl: ALLOWLISTED_BASE,
+      fetchImpl: async () =>
+        ({
+          ok: true,
+          json: async () => ({ ok: true, deployment: { commit_sha: null, environment: 'production' } }),
         }) as Response,
     });
     assert.equal(observation.bindable, false);
@@ -361,6 +434,7 @@ describe('Track R P3 preparation safety', () => {
       ]).ok,
       false,
     );
+    assert.equal(assertAffectedBlockSetAligned([]).ok, false);
   });
 
   it('requires zero production writes', () => {

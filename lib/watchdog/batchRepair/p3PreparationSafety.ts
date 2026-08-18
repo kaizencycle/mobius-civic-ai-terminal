@@ -185,7 +185,10 @@ export function assertAffectedBlockSetAligned(checks: readonly { check: string; 
 } {
   const affectedCheck = checks.find((row) => row.check.endsWith('_affected_block_set_match'));
   if (!affectedCheck) {
-    return { ok: true, errors: [] };
+    return {
+      ok: false,
+      errors: ['affected-block-set assertion missing — fail closed'],
+    };
   }
   if (affectedCheck.result !== 'pass') {
     return {

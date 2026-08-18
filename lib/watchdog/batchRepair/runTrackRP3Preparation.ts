@@ -6,6 +6,8 @@ import { verifyTrackRExecutionReadiness } from '@/lib/watchdog/batchRepair/verif
 import {
   observeProductionDeploymentCommit,
   assertProductionCommitBinding,
+  assertProductionBaseUrlAllowed,
+  TRACK_R_P3_ALLOWED_PRODUCTION_BASE_URLS,
 } from '@/lib/watchdog/batchRepair/productionDeploymentBinding';
 import {
   assertAffectedBlockSetAligned,
@@ -14,7 +16,6 @@ import {
   assertAwaitingExecutionHandoff,
   assertBoundary131Unresolved,
   assertCaptureNineBinding,
-  assertDuplicateJournalIdRejected,
   assertFreshCasMatch,
   assertLockedHashBinding,
   assertMutationJournalComplete,
@@ -31,8 +32,14 @@ import {
   renderP3OperatorPacketMarkdown,
   type P3OperatorPacket,
 } from '@/lib/watchdog/batchRepair/buildP3OperatorPacket';
+import {
+  assertPacketNotPreviouslyIssued,
+  loadIssuedPacketRegistry,
+} from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
+import { renderProbeLog } from '@/lib/watchdog/batchRepair/materializeP3PreparationEvidence';
 import { loadWitnessFromFile } from '@/lib/watchdog/batchRepair';
 import { resolveTrackRCaptureBinding } from '@/lib/watchdog/batchRepair/trackRCaptureBinding';
+import type { BatchApplyMutationJournal, BatchApplyWriteRecord } from '@/lib/watchdog/batchRepair/batchApplyMutationJournal';
 import type { TrackRCaptureAttestationCheck } from '@/lib/watchdog/batchRepair/verifyTrackRCaptureAttestation';
 
 export type P3PreparationStatus = 'p3_preparation_pass' | 'p3_preparation_blocked';
@@ -43,6 +50,7 @@ export type P3PreparationResult = {
   capture_id: string;
   checked_out_commit: string;
   observed_production_commit: string | null;
+  observed_production_environment: string | null;
   production_commit_match: boolean;
   readiness_status: string | null;
   preflight_status: string | null;
@@ -56,6 +64,12 @@ export type P3PreparationResult = {
   production_mutation_performed: false;
   operator_packet: P3OperatorPacket | null;
   operator_packet_markdown: string | null;
+  mutation_journal: BatchApplyMutationJournal | null;
+  write_records: BatchApplyWriteRecord[];
+  intended_block_numbers: number[];
+  readiness_log: string;
+  preflight_log: string;
+  batch_apply_log: string;
   checks: TrackRCaptureAttestationCheck[];
   errors: string[];
 };
@@ -79,8 +93,6 @@ export async function runTrackRP3Preparation(args: {
   skipCasProbe?: boolean;
   repoRoot?: string;
   verifiedAt?: string;
-  issuedJournalIds?: Set<string>;
-  requireProductionCommitMatch?: boolean;
   fetchImpl?: typeof fetch;
 }): Promise<P3PreparationResult> {
   const verifiedAt = args.verifiedAt ?? new Date().toISOString();
@@ -95,24 +107,23 @@ export async function runTrackRP3Preparation(args: {
     assertProductionWriteEnvAbsent(),
     assertSignedHandoffNotConsumed({ repoRoot }),
     assertCaptureNineBinding(args.captureId),
+    assertProductionBaseUrlAllowed(args.baseUrl),
   ];
 
-  for (const row of safetyChecks) {
-    const label =
-      row === safetyChecks[0]
-        ? 'p3_dry_run_mode'
-        : row === safetyChecks[1]
-          ? 'p3_apply_rejected'
-          : row === safetyChecks[2]
-            ? 'p3_skip_cas_probe_rejected'
-            : row === safetyChecks[3]
-              ? 'p3_production_write_env_absent'
-              : row === safetyChecks[4]
-                ? 'p3_signed_handoff_not_consumed'
-                : 'p3_capture_nine_binding';
-    addCheck(checks, label, row.ok ? 'pass' : 'fail', row.errors.join('; ') || 'ok');
+  const safetyLabels = [
+    'p3_dry_run_mode',
+    'p3_apply_rejected',
+    'p3_skip_cas_probe_rejected',
+    'p3_production_write_env_absent',
+    'p3_signed_handoff_not_consumed',
+    'p3_capture_nine_binding',
+    'p3_production_base_url_allowlisted',
+  ] as const;
+
+  safetyChecks.forEach((row, index) => {
+    addCheck(checks, safetyLabels[index], row.ok ? 'pass' : 'fail', row.errors.join('; ') || 'ok');
     errors.push(...row.errors);
-  }
+  });
 
   const deployment = await observeProductionDeploymentCommit({
     baseUrl: args.baseUrl,
@@ -130,13 +141,14 @@ export async function runTrackRP3Preparation(args: {
   const commitBinding = assertProductionCommitBinding({
     checkedOutCommit: args.checkedOutCommit,
     observedProductionCommit: deployment.commit_sha,
-    requireMatch: args.requireProductionCommitMatch ?? true,
+    observedEnvironment: deployment.environment,
   });
   addCheck(
     checks,
     'production_commit_match',
     commitBinding.ok ? 'pass' : 'fail',
-    commitBinding.errors.join('; ') || `${args.checkedOutCommit} == ${deployment.commit_sha}`,
+    commitBinding.errors.join('; ') ||
+      `${args.checkedOutCommit} == ${deployment.commit_sha} (production)`,
   );
   errors.push(...commitBinding.errors);
 
@@ -177,10 +189,15 @@ export async function runTrackRP3Preparation(args: {
   }
   addCheck(checks, 'apply_preflight_status', 'pass', preflight.preflight_status);
   errors.push(...assertApplyPreflightPass(preflight.preflight_status).errors);
-  errors.push(
-    ...assertAffectedBlockSetAligned(preflight.apply_cas.checks).errors,
-    ...assertAffectedBlockSetAligned(readiness.checks).errors,
+
+  const affectedBlock = assertAffectedBlockSetAligned(preflight.apply_cas.checks);
+  addCheck(
+    checks,
+    'affected_block_set_alignment',
+    affectedBlock.ok ? 'pass' : 'fail',
+    affectedBlock.errors.join('; ') || 'apply-path affected block set aligned',
   );
+  errors.push(...affectedBlock.errors);
 
   const batchApply = await runBatchApply({
     baseUrl: args.baseUrl,
@@ -196,6 +213,35 @@ export async function runTrackRP3Preparation(args: {
   }
   addCheck(checks, 'batch_apply_dry_run', 'pass', batchApply.apply_status);
   errors.push(...assertZeroProductionWrites(batchApply.writes_performed).errors);
+
+  const readinessLog = renderProbeLog({
+    title: 'Track R execution readiness (P3 preparation)',
+    status: readiness.readiness_status,
+    checks: readiness.checks,
+    extras: {
+      fresh_cas_match: readiness.fresh_cas_match,
+      execution_authorized: readiness.execution_authorized,
+    },
+  });
+  const preflightLog = renderProbeLog({
+    title: 'Track R batch apply preflight (P3 preparation)',
+    status: preflight.preflight_status,
+    checks: preflight.checks,
+    extras: {
+      commit_guard_ok: preflight.commit_guard_ok,
+      execution_authorized: preflight.execution_authorized,
+    },
+  });
+  const batchApplyLog = renderProbeLog({
+    title: 'Track R batch apply dry-run (P3 preparation)',
+    status: batchApply.apply_status,
+    checks: batchApply.checks,
+    extras: {
+      writes_planned: batchApply.writes_planned,
+      writes_performed: batchApply.writes_performed,
+      execution_authorized: batchApply.execution_authorized,
+    },
+  });
 
   const manifest = loadApprovedCaptureManifest(repoRoot);
   const binding = resolveTrackRCaptureBinding({ captureId: args.captureId, repoRoot });
@@ -249,27 +295,6 @@ export async function runTrackRP3Preparation(args: {
   );
   errors.push(...journalCheck.errors);
 
-  if (batchApply.mutation_journal) {
-    const duplicate = assertDuplicateJournalIdRejected({
-      journalId: batchApply.mutation_journal.journal_id,
-      issuedJournalIds: args.issuedJournalIds ?? new Set<string>(),
-    });
-    addCheck(
-      checks,
-      'journal_id_unique',
-      duplicate.ok ? 'pass' : 'fail',
-      duplicate.errors.join('; ') || batchApply.mutation_journal.journal_id,
-    );
-    errors.push(...duplicate.errors);
-  }
-
-  if (!batchApply.rollback_plan_verified) {
-    errors.push('rollback plan verification failed');
-    addCheck(checks, 'rollback_plan_verified', 'fail', 'rollback plan not verified');
-  } else {
-    addCheck(checks, 'rollback_plan_verified', 'pass', 'rollback plan verified');
-  }
-
   const witnessPath = join(
     repoRoot,
     'docs/epicon/cycles/C-403/fixtures/C403_RESERVE_BLOCK_COLLISION_WITNESS.pin.json',
@@ -307,6 +332,28 @@ export async function runTrackRP3Preparation(args: {
       checks,
     });
     operatorPacketMarkdown = renderP3OperatorPacketMarkdown(operatorPacket);
+
+    const registry = loadIssuedPacketRegistry(repoRoot);
+    const duplicate = assertPacketNotPreviouslyIssued({
+      journalId: batchApply.mutation_journal.journal_id,
+      journalHash: batchApply.mutation_journal.journal_hash,
+      packetHash: operatorPacket.packet_hash,
+      registry,
+    });
+    addCheck(
+      checks,
+      'issued_packet_registry_unique',
+      duplicate.ok ? 'pass' : 'fail',
+      duplicate.errors.join('; ') || 'journal and packet hash not previously issued',
+    );
+    errors.push(...duplicate.errors);
+  }
+
+  if (!batchApply.rollback_plan_verified) {
+    errors.push('rollback plan verification failed');
+    addCheck(checks, 'rollback_plan_verified', 'fail', 'rollback plan not verified');
+  } else {
+    addCheck(checks, 'rollback_plan_verified', 'pass', 'rollback plan verified');
   }
 
   const status: P3PreparationStatus =
@@ -320,6 +367,7 @@ export async function runTrackRP3Preparation(args: {
     capture_id: args.captureId,
     checked_out_commit: args.checkedOutCommit,
     observed_production_commit: deployment.commit_sha,
+    observed_production_environment: deployment.environment,
     production_commit_match:
       deployment.commit_sha !== null && args.checkedOutCommit === deployment.commit_sha,
     readiness_status: readiness.readiness_status,
@@ -334,9 +382,15 @@ export async function runTrackRP3Preparation(args: {
     production_mutation_performed: false,
     operator_packet: operatorPacket,
     operator_packet_markdown: operatorPacketMarkdown,
+    mutation_journal: batchApply.mutation_journal,
+    write_records: batchApply.write_records,
+    intended_block_numbers: intendedBlocks,
+    readiness_log: readinessLog,
+    preflight_log: preflightLog,
+    batch_apply_log: batchApplyLog,
     checks,
     errors,
   };
 }
 
-export { P3_PREPARATION_DRY_RUN_MODE };
+export { P3_PREPARATION_DRY_RUN_MODE, TRACK_R_P3_ALLOWED_PRODUCTION_BASE_URLS };
