@@ -32,7 +32,8 @@ async function main(): Promise<void> {
 
   if (
     result.readiness_status !== 'awaiting_human_consent' &&
-    result.readiness_status !== 'awaiting_execution_handoff'
+    result.readiness_status !== 'awaiting_execution_handoff' &&
+    result.readiness_status !== 'consent_recorded_cas_required'
   ) {
     process.exit(1);
   }

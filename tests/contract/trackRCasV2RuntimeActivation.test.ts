@@ -55,7 +55,7 @@ describe('CAS-v2 runtime activation — capture binding', () => {
     assert.equal(binding.lineage_snapshot_version, 'v2');
     const validation = validateV2GovernanceCandidateBinding({ binding });
     assert.equal(validation.ok, true);
-    assert.equal(validation.awaitingFreshAttestation, true);
+    assert.equal(validation.awaitingFreshAttestation, false);
   });
 
   it('rejects foreign execution_witness_hash_v2 in provenance', () => {
@@ -182,18 +182,28 @@ describe('CAS-v2 runtime activation — capture binding', () => {
 });
 
 describe('CAS-v2 runtime activation — readiness posture', () => {
-  it('returns awaiting_human_consent for default v2 binding without live CAS probe', async () => {
+  it('returns consent_recorded_cas_required when v2 triad is signed but CAS probe is skipped', async () => {
     const result = await verifyTrackRExecutionReadiness({
       probeFreshCas: false,
     });
 
     assert.equal(result.capture_id, CAPTURE_2014Z_ID);
     assert.equal(result.lineage_snapshot_version, 'v2');
-    assert.equal(result.readiness_status, 'awaiting_human_consent');
+    assert.equal(result.readiness_status, 'consent_recorded_cas_required');
     assert.equal(result.execution_authorized, false);
     assert.ok(
       result.checks.some(
-        (row) => row.check === 'v2_governance_candidate_hashes' && row.result === 'pass',
+        (row) => row.check === 'governance_human_consent' && row.result === 'pass',
+      ),
+    );
+    assert.ok(
+      result.checks.some(
+        (row) => row.check === 'governance_zeus_adopt' && row.result === 'pass',
+      ),
+    );
+    assert.ok(
+      result.checks.some(
+        (row) => row.check === 'governance_eve_adopt' && row.result === 'pass',
       ),
     );
   });
