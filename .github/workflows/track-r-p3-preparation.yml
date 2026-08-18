@@ -1,0 +1,294 @@
+# C-407 — Track R P3 preparation (read-only; never authorizes mutation)
+#
+# Security posture:
+# - Runs ONLY from refs/heads/main (reviewed code path)
+# - Checks out main and binds git rev-parse HEAD against production snapshot-lite
+# - Production KV secrets never run against branch-selected code
+# - Production base URL is allowlisted (no arbitrary endpoint input)
+#
+# Never creates TRACK_R_V2_EXECUTION_HANDOFF_SIGNED.md.
+
+name: Track R P3 Preparation
+
+on:
+  workflow_dispatch:
+    inputs:
+      capture_id:
+        description: Capture #9 ID (locked CAS-v2 governance binding)
+        type: string
+        default: track-r-c403-2026-08-15T2014Z
+      dry_run_mode:
+        description: Must be dry_run_only — explicit fail-closed mode declaration
+        type: choice
+        options:
+          - dry_run_only
+        default: dry_run_only
+
+permissions:
+  contents: write
+
+concurrency:
+  group: track-r-p3-preparation
+  cancel-in-progress: false
+
+jobs:
+  p3-preparation:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Reject non-main workflow dispatch
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "::error::Track R P3 preparation may only run from refs/heads/main"
+            exit 1
+          fi
+
+      - name: Validate workflow inputs
+        env:
+          DRY_RUN_MODE: ${{ inputs.dry_run_mode }}
+          CAPTURE_ID: ${{ inputs.capture_id }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN_MODE" != "dry_run_only" ]; then
+            echo "::error::dry_run_mode must be dry_run_only"
+            exit 1
+          fi
+          if [ "$CAPTURE_ID" != "track-r-c403-2026-08-15T2014Z" ]; then
+            echo "::error::P3 preparation binds exclusively to Capture #9"
+            exit 1
+          fi
+
+      - name: Checkout reviewed main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve exact reviewed main SHA
+        id: main_sha
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          if ! echo "$sha" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::resolved main SHA is not a full git commit"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Reject production-write environment flags
+        run: |
+          set -euo pipefail
+          if [ "${TRACK_R_BATCH_EXECUTION_ENABLED:-}" = "true" ]; then
+            echo "::error::TRACK_R_BATCH_EXECUTION_ENABLED=true is forbidden"
+            exit 1
+          fi
+          if [ "${TRACK_R_ALLOW_PRODUCTION_WRITES:-}" = "true" ]; then
+            echo "::error::TRACK_R_ALLOW_PRODUCTION_WRITES=true is forbidden"
+            exit 1
+          fi
+          if [ -f artifacts/C-404/track-r-lineage-v2/TRACK_R_V2_EXECUTION_HANDOFF_SIGNED.md ]; then
+            if grep -q 'ONE_SHOT_EXECUTION_AUTHORIZED' artifacts/C-404/track-r-lineage-v2/TRACK_R_V2_EXECUTION_HANDOFF_SIGNED.md; then
+              echo "::error::Signed P3 handoff must not exist during preparation"
+              exit 1
+            fi
+          fi
+
+      - name: Preflight KV secrets
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -z "${KV_REST_API_URL:-}" ] && missing+=("KV_REST_API_URL")
+          [ -z "${KV_REST_API_TOKEN:-}" ] && missing+=("KV_REST_API_TOKEN")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Prepare output directory
+        run: mkdir -p ./track-r-p3-preparation-output
+
+      - name: Run P3 preparation (read-only)
+        id: p3_prep
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.KV_REST_API_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          TRACK_R_CAPTURE_ID: ${{ inputs.capture_id }}
+          TRACK_R_P3_DRY_RUN_MODE: ${{ inputs.dry_run_mode }}
+          TRACK_R_CHECKED_OUT_COMMIT: ${{ steps.main_sha.outputs.sha }}
+          TRACK_R_P3_OUTPUT_DIR: ./track-r-p3-preparation-output
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          export KV_REST_API_TOKEN="$(printf '%s' "$KV_REST_API_TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          export UPSTASH_REDIS_REST_URL="$KV_REST_API_URL"
+          export UPSTASH_REDIS_REST_TOKEN="$KV_REST_API_TOKEN"
+
+          set +e
+          pnpm track-r:p3-preparation --capture-id "$TRACK_R_CAPTURE_ID" \
+            2>&1 | tee ./track-r-p3-preparation-output/p3-preparation.log
+          exit_code="${PIPESTATUS[0]}"
+          set -e
+          echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
+          exit "${exit_code}"
+
+      - name: Assert evidence artifacts materialized
+        if: always()
+        run: |
+          set -euo pipefail
+          required=(
+            readiness.log
+            batch-apply-preflight.log
+            batch-apply-dry-run.log
+            intended-writes.json
+            rollback-verification.json
+            evidence-manifest.json
+          )
+          for file in "${required[@]}"; do
+            if [ ! -f "./track-r-p3-preparation-output/$file" ]; then
+              echo "::warning::missing expected artifact $file"
+            fi
+          done
+          if [ "${{ steps.p3_prep.outputs.exit_code }}" = "0" ]; then
+            for file in operator-packet.json operator-packet.md mutation-journal.json; do
+              if [ ! -f "./track-r-p3-preparation-output/$file" ]; then
+                echo "::error::successful run missing $file"
+                exit 1
+              fi
+            done
+          fi
+
+      - name: Upload P3 preparation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: track-r-p3-preparation
+          path: track-r-p3-preparation-output/
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Summarize P3 preparation
+        if: always()
+        env:
+          EXIT_CODE: ${{ steps.p3_prep.outputs.exit_code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "## Track R P3 Preparation (read-only)"
+            echo ""
+            echo "- **run:** ${RUN_URL}"
+            echo "- **checked_out_commit:** \`${{ steps.main_sha.outputs.sha }}\`"
+            echo "- **capture_id:** \`${{ inputs.capture_id }}\`"
+            echo "- **production_base_url:** \`https://mobius-civic-ai-terminal.vercel.app\` (allowlisted)"
+            echo "- **dry_run_mode:** \`${{ inputs.dry_run_mode }}\`"
+            echo "- **execution_authorized:** \`false\`"
+            echo "- **exit_code:** \`${EXIT_CODE:-unknown}\`"
+            echo ""
+            echo "Signed P3 handoff is **not** created by this workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Assert P3 preparation passed
+        if: always()
+        env:
+          EXIT_CODE: ${{ steps.p3_prep.outputs.exit_code }}
+        run: |
+          set -euo pipefail
+          log="./track-r-p3-preparation-output/p3-preparation.log"
+          if [ "${EXIT_CODE:-missing}" != "0" ]; then
+            echo "::error::P3 preparation failed (exit ${EXIT_CODE:-missing})"
+            exit 1
+          fi
+          if [ ! -f "$log" ]; then
+            echo "::error::P3 preparation log missing"
+            exit 1
+          fi
+          if ! grep -q "P3 preparation status: p3_preparation_pass" "$log"; then
+            echo "::error::Expected p3_preparation_pass"
+            exit 1
+          fi
+          if ! grep -q "Execution authorized: false" "$log"; then
+            echo "::error::execution_authorized must remain false"
+            exit 1
+          fi
+          if ! grep -q "Writes performed: 0" "$log"; then
+            echo "::error::zero production writes required"
+            exit 1
+          fi
+          if ! grep -q "Readiness status: awaiting_execution_handoff" "$log"; then
+            echo "::error::readiness must be awaiting_execution_handoff"
+            exit 1
+          fi
+          if ! grep -q "Observed production environment: production" "$log"; then
+            echo "::error::production environment binding required"
+            exit 1
+          fi
+
+      - name: Commit P3 preparation evidence
+        if: success() && github.ref == 'refs/heads/main'
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          dest="docs/epicon/cycles/C-407/p3-preparation"
+          mkdir -p "$dest/runs/${RUN_ID}"
+          cp -R ./track-r-p3-preparation-output/. "$dest/runs/${RUN_ID}/"
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const runId = process.env.RUN_ID;
+          const runDir = path.join('docs/epicon/cycles/C-407/p3-preparation/runs', runId);
+          const registryPath = 'docs/epicon/cycles/C-407/p3-preparation/issued-packet-registry.json';
+          const packet = JSON.parse(fs.readFileSync(path.join(runDir, 'operator-packet.json'), 'utf8'));
+          const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+          registry.entries.push({
+            workflow_run_id: runId,
+            issued_at: packet.timestamp,
+            journal_id: packet.mutation_journal_id,
+            journal_hash: packet.mutation_journal_hash,
+            packet_hash: packet.packet_hash,
+            checked_out_commit: packet.checked_out_commit,
+            observed_production_commit: packet.observed_production_commit,
+            preparation_only: true,
+            execution_authorized: false,
+          });
+          fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n');
+          NODE
+
+          git config user.name "ATLAS CI"
+          git config user.email "atlas@mobius-substrate.com"
+          git add -f "$dest"
+          git add -f docs/epicon/cycles/C-407/p3-preparation/issued-packet-registry.json
+          if git diff --cached --quiet; then
+            echo "No evidence changes to commit."
+            exit 0
+          fi
+          git commit -m "evidence(c-407): Track R P3 preparation read-only run ${RUN_ID}"
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            git fetch origin main
+            git rebase origin/main || exit 1
+          done
+          exit 1

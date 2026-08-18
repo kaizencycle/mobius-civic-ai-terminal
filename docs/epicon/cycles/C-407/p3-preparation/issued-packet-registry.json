@@ -1,0 +1,5 @@
+{
+  "schema_version": "1",
+  "note": "Preparation-only registry — records unsigned P3 packets. Does not grant execution authority.",
+  "entries": []
+}
