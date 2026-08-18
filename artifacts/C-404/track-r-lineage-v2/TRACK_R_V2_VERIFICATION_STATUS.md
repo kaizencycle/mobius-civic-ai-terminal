@@ -36,6 +36,7 @@ This packet went through three stages:
 | `execution_authorized: false` (both captures) | ✅ | archived package bytes |
 | Live lineage-pointer observation | ✅ null/null on both captures at capture time | archived `observed_baseline` |
 | `production_mutation_performed: false` | ✅ | archived package bytes + code review |
+| **ZEUS v2 attestation (Capture #9)** | ✅ **ADOPT** — `ZEUS_V2_ATTESTATION_SIGNED.md` (`2026-08-18T02:01:38Z`, baseline `a8d548f2`) | independent ZEUS review; PR #684 |
 
 > **Caveat on execution-witness stability:** The verifier cross-compares **lineage** v2 hashes across captures but does **not** cross-compare **execution-witness** hashes. Only Capture #9's v2 execution-witness hash is retained for governance signing.
 
