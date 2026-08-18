@@ -348,6 +348,21 @@ describe('Track R P3 preparation safety', () => {
     assert.equal(typeof result.ok, 'boolean');
   });
 
+  it('fails on affected-block-set drift', () => {
+    assert.equal(
+      assertAffectedBlockSetAligned([
+        { check: 'apply_cas_affected_block_set_match', result: 'pass' },
+      ]).ok,
+      true,
+    );
+    assert.equal(
+      assertAffectedBlockSetAligned([
+        { check: 'apply_cas_affected_block_set_match', result: 'fail' },
+      ]).ok,
+      false,
+    );
+  });
+
   it('requires zero production writes', () => {
     assert.equal(assertZeroProductionWrites(0).ok, true);
     assert.equal(assertZeroProductionWrites(1).ok, false);
