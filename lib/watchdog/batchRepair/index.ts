@@ -40,4 +40,8 @@ export * from '@/lib/watchdog/batchRepair/runBatchApply';
 export * from '@/lib/watchdog/batchRepair/batchApplyMutationJournal';
 export * from '@/lib/watchdog/batchRepair/verifyRollbackPlanForApply';
 export * from '@/lib/watchdog/batchRepair/oneShotExecutionGuard';
+export * from '@/lib/watchdog/batchRepair/productionDeploymentBinding';
+export * from '@/lib/watchdog/batchRepair/p3PreparationSafety';
+export * from '@/lib/watchdog/batchRepair/buildP3OperatorPacket';
+export * from '@/lib/watchdog/batchRepair/runTrackRP3Preparation';
 export * from '@/lib/watchdog/batchRepair/trackRCaptureBinding';
