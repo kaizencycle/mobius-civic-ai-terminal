@@ -210,12 +210,14 @@ function assertBatchCommitGuardWithVerifiedApplyCas(args: {
 export async function assertBatchCommitAllowedAtApply(args: {
   guardInput: Omit<
     BatchCommitGuardInput,
-    'fresh_lineage_snapshot_hash_matches' | 'preflight_read_only'
+    'fresh_lineage_snapshot_hash_matches' | 'preflight_read_only' | 'integrity_gate_active'
   >;
   attestedLineageSnapshotHash?: string;
   verifiedAt?: string;
   baseUrl?: string;
   repoRoot?: string;
+  /** Default true — set false for live batch apply (enforces full commit guard). */
+  preflightReadOnly?: boolean;
 }): Promise<{ ok: boolean; errors: string[]; applyCas: FreshLineageSnapshotFromProduction }> {
   const binding = resolveTrackRCaptureBinding({ repoRoot: args.repoRoot });
   const applyCas = await verifyFreshLineageSnapshotAtApply({
@@ -247,7 +249,7 @@ export async function assertBatchCommitAllowedAtApply(args: {
     binding,
     guardInput: {
       ...args.guardInput,
-      preflight_read_only: true,
+      preflight_read_only: args.preflightReadOnly ?? true,
       integrity_gate_active: applyCas.observed_integrity_gate_active === true,
     },
   });

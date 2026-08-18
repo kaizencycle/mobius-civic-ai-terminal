@@ -51,8 +51,8 @@ This packet went through three stages:
 | Fresh human v2 consent | ✅ **CONSENT** — `HUMAN_V2_CONSENT_SIGNED.md` (`2026-08-18T02:19:00Z`) |
 | Readiness → `awaiting_execution_handoff` | ✅ **Achieved** — preflight run [32091830992](https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/32091830992) (`2026-08-18T02:26:49Z`, commit `246d981c`) — `fresh_cas_match: true` |
 | Batch apply preflight (read-only) | ✅ **`apply_preflight_pass`** — run [32091830992](https://github.com/kaizencycle/mobius-civic-ai-terminal/actions/runs/32091830992); commit guard preflight pass |
-| `pnpm track-r:batch-apply` (P2) | **Not implemented — next engineering gate** (see C-405 operator sequence) |
-| One-shot execution handoff (P3) | **Blocked** — after P2 + fresh preflight at mutation window |
+| `pnpm track-r:batch-apply` (P2) | ✅ **Implemented** — fail-closed dry-run default; live apply requires P3 handoff + explicit env arming (not executed in CI) |
+| One-shot execution handoff (P3) | **Blocked** — after P2 deploy + fresh preflight at mutation window |
 
 > Unsigned templates (`*_TEMPLATE.md`) are preserved for audit. **Do not treat templates as verdicts** once a signed attestation exists for that lane.
 
@@ -67,8 +67,8 @@ The v2 hash packet and immutable byte archive for Capture #9 are complete. **Gov
 **Operator sequence (do not skip steps):** per `docs/epicon/cycles/C-405/HANDOFF_C-405_CAS_V2_AUTHORITY_RECONCILIATION.md`:
 
 1. ✅ P1 governance triad + read-only preflight (`awaiting_execution_handoff`)
-2. **→ P2 (next):** implement and deploy `pnpm track-r:batch-apply` (executable mutation path)
-3. **→ P3 (after P2):** fresh preflight immediately before mutation window, then separate one-shot execution handoff → single mutation → post-write audit
+2. **→ P2 (implemented, not deployed):** `pnpm track-r:batch-apply` executable path — dry-run default; production mutation still forbidden until deploy + P3
+3. **→ P3 (after P2 deploy):** fresh preflight immediately before mutation window, then separate one-shot execution handoff → single mutation → post-write audit
 
 **Important:** `awaiting_execution_handoff` is a **readiness posture**, not execution authorization. Probes and preflight **never** set `execution_authorized: true`. Do **not** issue P3 handoff before P2 exists — that would bind authorization to an unreviewed future implementation. Production mutation remains **forbidden** until P2 + P3 complete.
 
