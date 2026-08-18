@@ -22,26 +22,40 @@ export type IssuedPacketRegistry = {
   entries: IssuedPacketRegistryEntry[];
 };
 
-const EMPTY_REGISTRY: IssuedPacketRegistry = {
-  schema_version: '1',
-  note:
-    'Preparation-only registry — records unsigned P3 packets. Does not grant execution authority.',
-  entries: [],
-};
+export type LoadIssuedPacketRegistryResult =
+  | { ok: true; registry: IssuedPacketRegistry }
+  | { ok: false; errors: string[] };
 
-export function loadIssuedPacketRegistry(repoRoot?: string): IssuedPacketRegistry {
+export function loadIssuedPacketRegistry(repoRoot?: string): LoadIssuedPacketRegistryResult {
   const path = join(repoRoot ?? process.cwd(), ISSUED_PACKET_REGISTRY_PATH);
   if (!existsSync(path)) {
-    return { ...EMPTY_REGISTRY, entries: [] };
+    return {
+      ok: false,
+      errors: [`issued-packet registry missing at ${ISSUED_PACKET_REGISTRY_PATH}`],
+    };
   }
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as IssuedPacketRegistry;
-    if (!Array.isArray(parsed.entries)) {
-      return { ...EMPTY_REGISTRY, entries: [] };
+    if (parsed.schema_version !== '1') {
+      return {
+        ok: false,
+        errors: ['issued-packet registry schema_version must be 1'],
+      };
     }
-    return parsed;
-  } catch {
-    return { ...EMPTY_REGISTRY, entries: [] };
+    if (!Array.isArray(parsed.entries)) {
+      return {
+        ok: false,
+        errors: ['issued-packet registry entries must be an array'],
+      };
+    }
+    return { ok: true, registry: parsed };
+  } catch (error) {
+    return {
+      ok: false,
+      errors: [
+        `issued-packet registry unreadable: ${error instanceof Error ? error.message : String(error)}`,
+      ],
+    };
   }
 }
 
@@ -63,7 +77,7 @@ export function assertPacketNotPreviouslyIssued(args: {
     if (entry.journal_hash === args.journalHash) {
       errors.push(`journal_hash already issued in run ${entry.workflow_run_id}`);
     }
-    if (entry.packet_hash === args.packetHash) {
+    if (args.packetHash && entry.packet_hash === args.packetHash) {
       errors.push(`packet_hash already issued in run ${entry.workflow_run_id}`);
     }
   }

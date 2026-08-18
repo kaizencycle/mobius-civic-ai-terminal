@@ -34,6 +34,7 @@ import {
 } from '@/lib/watchdog/batchRepair/buildP3OperatorPacket';
 import {
   assertPacketNotPreviouslyIssued,
+  ISSUED_PACKET_REGISTRY_PATH,
   loadIssuedPacketRegistry,
 } from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
 import { renderProbeLog } from '@/lib/watchdog/batchRepair/materializeP3PreparationEvidence';
@@ -161,9 +162,15 @@ export async function runTrackRP3Preparation(args: {
   for (const row of readiness.checks) {
     checks.push(row);
   }
-  addCheck(checks, 'readiness_status', 'pass', readiness.readiness_status);
+  const readinessGate = assertAwaitingExecutionHandoff(readiness.readiness_status);
+  addCheck(
+    checks,
+    'readiness_status',
+    readinessGate.ok ? 'pass' : 'fail',
+    readiness.readiness_status,
+  );
   errors.push(
-    ...assertAwaitingExecutionHandoff(readiness.readiness_status).errors,
+    ...readinessGate.errors,
     ...assertReadinessDoesNotAuthorizeExecution({
       readinessStatus: readiness.readiness_status,
       executionAuthorized: readiness.execution_authorized,
@@ -187,8 +194,14 @@ export async function runTrackRP3Preparation(args: {
   for (const row of preflight.checks) {
     checks.push(row);
   }
-  addCheck(checks, 'apply_preflight_status', 'pass', preflight.preflight_status);
-  errors.push(...assertApplyPreflightPass(preflight.preflight_status).errors);
+  const preflightGate = assertApplyPreflightPass(preflight.preflight_status);
+  addCheck(
+    checks,
+    'apply_preflight_status',
+    preflightGate.ok ? 'pass' : 'fail',
+    preflight.preflight_status,
+  );
+  errors.push(...preflightGate.errors);
 
   const affectedBlock = assertAffectedBlockSetAligned(preflight.apply_cas.checks);
   addCheck(
@@ -211,8 +224,17 @@ export async function runTrackRP3Preparation(args: {
   for (const row of batchApply.checks) {
     checks.push(row);
   }
-  addCheck(checks, 'batch_apply_dry_run', 'pass', batchApply.apply_status);
+  const dryRunGateOk = batchApply.apply_status === 'dry_run_pass';
+  addCheck(
+    checks,
+    'batch_apply_dry_run',
+    dryRunGateOk ? 'pass' : 'fail',
+    batchApply.apply_status,
+  );
   errors.push(...assertZeroProductionWrites(batchApply.writes_performed).errors);
+  if (!dryRunGateOk) {
+    errors.push(`batch apply dry-run must pass; got ${batchApply.apply_status}`);
+  }
 
   const readinessLog = renderProbeLog({
     title: 'Track R execution readiness (P3 preparation)',
@@ -273,8 +295,11 @@ export async function runTrackRP3Preparation(args: {
     addCheck(checks, 'commit_guard_pass', 'pass', 'commit guard pass');
   }
 
-  if (batchApply.apply_status !== 'dry_run_pass') {
-    errors.push(`batch apply dry-run must pass; got ${batchApply.apply_status}`);
+  if (!batchApply.rollback_plan_verified) {
+    errors.push('rollback plan verification failed');
+    addCheck(checks, 'rollback_plan_verified', 'fail', 'rollback plan not verified');
+  } else {
+    addCheck(checks, 'rollback_plan_verified', 'pass', 'rollback plan verified');
   }
 
   const boundary = assertBoundary131Unresolved(manifest);
@@ -302,14 +327,48 @@ export async function runTrackRP3Preparation(args: {
   const witness = loadWitnessFromFile(witnessPath);
   const intendedBlocks = [...witness.contested_block_numbers].sort((a, b) => a - b);
 
+  const registryLoad = loadIssuedPacketRegistry(repoRoot);
+  addCheck(
+    checks,
+    'issued_packet_registry_available',
+    registryLoad.ok ? 'pass' : 'fail',
+    registryLoad.ok ? ISSUED_PACKET_REGISTRY_PATH : registryLoad.errors.join('; '),
+  );
+  if (!registryLoad.ok) {
+    errors.push(...registryLoad.errors);
+  }
+
   let operatorPacket: P3OperatorPacket | null = null;
   let operatorPacketMarkdown: string | null = null;
 
   if (
     errors.length === 0 &&
+    registryLoad.ok &&
     batchApply.mutation_journal &&
-    batchApply.apply_status === 'dry_run_pass'
+    dryRunGateOk
   ) {
+    const journalDuplicate = assertPacketNotPreviouslyIssued({
+      journalId: batchApply.mutation_journal.journal_id,
+      journalHash: batchApply.mutation_journal.journal_hash,
+      packetHash: '',
+      registry: registryLoad.registry,
+    });
+    addCheck(
+      checks,
+      'issued_packet_registry_journal_unique',
+      journalDuplicate.ok ? 'pass' : 'fail',
+      journalDuplicate.errors.join('; ') || 'journal id and hash not previously issued',
+    );
+    errors.push(...journalDuplicate.errors);
+  }
+
+  if (
+    errors.length === 0 &&
+    registryLoad.ok &&
+    batchApply.mutation_journal &&
+    dryRunGateOk
+  ) {
+    const packetChecks = checks.map((row) => ({ ...row }));
     operatorPacket = buildP3OperatorPacket({
       workflowRunId: args.workflowRunId,
       timestamp: verifiedAt,
@@ -329,31 +388,27 @@ export async function runTrackRP3Preparation(args: {
       batchApplyStatus: batchApply.apply_status,
       freshCasMatch: readiness.fresh_cas_match,
       commitGuardOk: preflight.commit_guard_ok && batchApply.commit_guard_ok,
-      checks,
+      checks: packetChecks,
     });
-    operatorPacketMarkdown = renderP3OperatorPacketMarkdown(operatorPacket);
 
-    const registry = loadIssuedPacketRegistry(repoRoot);
-    const duplicate = assertPacketNotPreviouslyIssued({
+    const packetDuplicate = assertPacketNotPreviouslyIssued({
       journalId: batchApply.mutation_journal.journal_id,
       journalHash: batchApply.mutation_journal.journal_hash,
       packetHash: operatorPacket.packet_hash,
-      registry,
+      registry: registryLoad.registry,
     });
     addCheck(
       checks,
-      'issued_packet_registry_unique',
-      duplicate.ok ? 'pass' : 'fail',
-      duplicate.errors.join('; ') || 'journal and packet hash not previously issued',
+      'issued_packet_registry_packet_unique',
+      packetDuplicate.ok ? 'pass' : 'fail',
+      packetDuplicate.errors.join('; ') || 'packet hash not previously issued',
     );
-    errors.push(...duplicate.errors);
-  }
-
-  if (!batchApply.rollback_plan_verified) {
-    errors.push('rollback plan verification failed');
-    addCheck(checks, 'rollback_plan_verified', 'fail', 'rollback plan not verified');
-  } else {
-    addCheck(checks, 'rollback_plan_verified', 'pass', 'rollback plan verified');
+    if (!packetDuplicate.ok) {
+      errors.push(...packetDuplicate.errors);
+      operatorPacket = null;
+    } else {
+      operatorPacketMarkdown = renderP3OperatorPacketMarkdown(operatorPacket);
+    }
   }
 
   const status: P3PreparationStatus =

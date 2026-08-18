@@ -36,6 +36,7 @@ import {
   loadIssuedPacketRegistry,
 } from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
 import { materializeP3PreparationEvidence } from '@/lib/watchdog/batchRepair/materializeP3PreparationEvidence';
+import { hashObject } from '@/lib/watchdog/batchRepair/stableHash';
 import {
   buildP3OperatorPacket,
   renderP3OperatorPacketMarkdown,
@@ -268,7 +269,12 @@ describe('Track R P3 preparation safety', () => {
   });
 
   it('rejects duplicate journal and packet hashes via durable registry', () => {
-    const registry = loadIssuedPacketRegistry();
+    const loaded = loadIssuedPacketRegistry();
+    assert.equal(loaded.ok, true);
+    if (!loaded.ok) {
+      return;
+    }
+    const registry = loaded.registry;
     const blocked = assertPacketNotPreviouslyIssued({
       journalId: 'existing-journal',
       journalHash: 'existing-journal-hash',
@@ -300,6 +306,71 @@ describe('Track R P3 preparation safety', () => {
       }).ok,
       true,
     );
+  });
+
+  it('fails closed when issued-packet registry is missing or invalid', () => {
+    const missing = loadIssuedPacketRegistry('/tmp/nonexistent-p3-registry-root');
+    assert.equal(missing.ok, false);
+    if (missing.ok) {
+      return;
+    }
+    assert.ok(missing.errors.some((error) => error.includes('missing')));
+  });
+
+  it('preserves packet_hash when orchestrator appends post-build checks', () => {
+    const { manifest } = loadFixtures();
+    const journal = new InMemoryBatchApplyMutationJournal(
+      buildJournalId({
+        capture_id: CAPTURE_2014Z_ID,
+        repair_id: manifest.repair_id,
+        verified_at: '2026-08-18T14:02:00.000Z',
+      }),
+      CAPTURE_2014Z_ID,
+      manifest.repair_id,
+      '2026-08-18T14:02:00.000Z',
+    );
+    journal.append({
+      at: '2026-08-18T14:02:00.000Z',
+      operation: 'track_r_batch_apply_dry_run',
+      repair_id: manifest.repair_id,
+      capture_id: CAPTURE_2014Z_ID,
+      mode: 'dry_run',
+      lineage_snapshot_hash: CAPTURE_2014Z_EXPECTED_HASHES.lineage_snapshot_hash,
+      execution_witness_hash: CAPTURE_2014Z_EXPECTED_HASHES.execution_witness_hash,
+      before: { active_version: null },
+      after: { active_version: manifest.repair_id },
+    });
+    const finalized = journal.finalize();
+    const checks: { check: string; result: 'pass' | 'fail' | 'warn'; detail: string }[] = [
+      { check: 'gate_a', result: 'pass', detail: 'ok' },
+    ];
+    const packet = buildP3OperatorPacket({
+      workflowRunId: '123456',
+      timestamp: '2026-08-18T14:02:00.000Z',
+      checkedOutCommit: FULL_SHA_A,
+      observedProductionCommit: FULL_SHA_A,
+      captureId: CAPTURE_2014Z_ID,
+      mutationJournal: finalized,
+      intendedWriteCount: 4,
+      intendedBlockNumbers: [1, 2, 3],
+      beforeActiveVersion: null,
+      afterActiveVersion: manifest.repair_id,
+      writeRecords: [],
+      rollbackVerified: true,
+      rollbackDetail: 'verified',
+      readinessStatus: 'awaiting_execution_handoff',
+      preflightStatus: 'apply_preflight_pass',
+      batchApplyStatus: 'dry_run_pass',
+      freshCasMatch: true,
+      commitGuardOk: true,
+      checks,
+    });
+    checks.push({ check: 'post_build_summary', result: 'fail', detail: 'blocked' });
+    const { packet_hash, ...withoutHash } = packet;
+    const recomputed = hashObject(withoutHash);
+    assert.equal(recomputed, packet_hash);
+    assert.equal(packet.checks.length, 1);
+    assert.equal(checks.length, 2);
   });
 
   it('default batch apply dry-run performs zero writes', async () => {

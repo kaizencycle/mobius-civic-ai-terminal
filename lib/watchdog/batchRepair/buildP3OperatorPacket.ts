@@ -111,7 +111,8 @@ export function buildP3OperatorPacket(args: {
     commit_guard_ok: args.commitGuardOk,
     execution_authorized: false as const,
     production_mutation_performed: false as const,
-    checks: args.checks,
+    // Snapshot checks so later orchestrator appends cannot alter the hashed payload.
+    checks: args.checks.map((row) => ({ ...row })),
   };
 
   return Object.freeze({
