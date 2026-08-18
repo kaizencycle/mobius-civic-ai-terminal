@@ -60,7 +60,7 @@ Result: **OVERALL: PASS** — v2 lineage hash recomputed and matched on both cap
 
 ### Evidence completeness
 
-All nine archived `TRACK_R_*` JSON files are present under `history/capture-2014Z/`. `CAPTURE_PROVENANCE.json` binds the locked hash packet. Capture #8 provides an independent stability witness with identical CAS-v2 lineage. Repo-local verifier output matches committed bytes. **Pass.**
+All eight archived `TRACK_R_*` JSON files and both provenance records are present under `history/capture-2014Z/`. `CAPTURE_PROVENANCE.json` binds the locked hash packet. Capture #8 provides an independent stability witness with identical CAS-v2 lineage. Repo-local verifier output matches committed bytes. **Pass.**
 
 ### Affected-block scope
 
@@ -76,7 +76,7 @@ GitHub Actions run [31906143684](https://github.com/kaizencycle/mobius-civic-ai-
 
 ### Human-control preservation
 
-`execution_authorized: false` and `production_mutation_performed: false` in the capture package. `production_execution_enabled: false` in manifest. Human consent template remains unsigned. Integrity gate observed active at capture time. Runtime execution paths remain v1-bound pending C-405 activation PR — this attestation does not change that. **Pass.**
+`execution_authorized: false` and `production_mutation_performed: false` in the capture package. `production_execution_enabled: false` in manifest. Human consent template remains unsigned. Integrity gate observed active at capture time. Runtime Track R governance and preflight paths are CAS-v2-bound on main; production execution remains absent and unauthorized — this attestation does not change that. **Pass.**
 
 ### Irreversible-risk boundaries
 
@@ -128,7 +128,7 @@ None of these conditions obtained under independent offline verification at base
 - Reuse of Capture #5 or Capture #7 consent
 - Any operator action based on ZEUS verdict, GI color, or receipt quorum alone
 
-Fresh ZEUS v2 attestation, custodian human consent bound to this exact hash packet, runtime CAS-v2 activation, read-only preflight with v2 headline, and a separate one-shot execution handoff remain required before any mutation window.
+Fresh ZEUS v2 attestation, custodian human consent bound to this exact hash packet, read-only preflight with v2 headline (requiring `awaiting_execution_handoff`), and a separate one-shot execution handoff remain required before any mutation window.
 
 ---
 
