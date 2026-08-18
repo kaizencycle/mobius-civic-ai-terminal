@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-08-18T03:04:15Z",
+  "agent": "AUREA",
+  "cycle": "C-406",
+  "gi_final": 0.759,
+  "gi_mode": "yellow",
+  "gi_source": "unknown",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.726,
+  "financial_score": 0.734,
+  "environ_score": 0.8,
+  "civic_score": 0.7,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.759. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in ENVIRON via persistent weather, air-quality, and water anomalies. ZEUS verification status is disputed, and the heartbeat trend is rising. Forward signal: watch environmental sensors and Cloudflare infrastructure for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch environmental sensors and Cloudflare infrastructure for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "rising",
+  "anomalies": [
+    "NOAA active weather alerts [watch]",
+    "OpenAQ air quality [elevated]",
+    "NOAA space weather Kp index [watch]",
+    "USGS water conditions [watch]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
