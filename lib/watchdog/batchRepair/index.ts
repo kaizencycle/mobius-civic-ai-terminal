@@ -36,4 +36,8 @@ export * from '@/lib/watchdog/batchRepair/verifyTrackRExecutionReadiness';
 export * from '@/lib/watchdog/batchRepair/computeFreshLineageSnapshotFromProduction';
 export * from '@/lib/watchdog/batchRepair/runBatchApplyPreflight';
 export * from '@/lib/watchdog/batchRepair/lineageSnapshotVersionGuard';
+export * from '@/lib/watchdog/batchRepair/runBatchApply';
+export * from '@/lib/watchdog/batchRepair/batchApplyMutationJournal';
+export * from '@/lib/watchdog/batchRepair/verifyRollbackPlanForApply';
+export * from '@/lib/watchdog/batchRepair/oneShotExecutionGuard';
 export * from '@/lib/watchdog/batchRepair/trackRCaptureBinding';

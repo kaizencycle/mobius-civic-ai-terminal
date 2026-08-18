@@ -8,6 +8,8 @@ export function parseTrackRCliArgs(argv: string[]): {
   baseUrl?: string;
   captureId?: string;
   skipCasProbe: boolean;
+  apply: boolean;
+  explicitOperatorCommand: boolean;
 } {
   const baseUrlIndex = argv.indexOf('--base-url');
   const captureIdIndex = argv.indexOf('--capture-id');
@@ -19,5 +21,7 @@ export function parseTrackRCliArgs(argv: string[]): {
         ? argv[captureIdIndex + 1]
         : TRACK_R_DEFAULT_CAPTURE_ID,
     skipCasProbe: argv.includes('--skip-cas-probe'),
+    apply: argv.includes('--apply'),
+    explicitOperatorCommand: argv.includes('--explicit-operator-command'),
   };
 }
