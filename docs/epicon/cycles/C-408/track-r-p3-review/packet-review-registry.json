@@ -1,0 +1,5 @@
+{
+  "schema_version": "1",
+  "note": "Track R P3 packet review state — does not grant execution authority. Runtime state is persisted in KV under track-r:p3-review:registry.",
+  "entries": []
+}

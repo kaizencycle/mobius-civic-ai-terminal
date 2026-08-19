@@ -47,3 +47,8 @@ export * from '@/lib/watchdog/batchRepair/runTrackRP3Preparation';
 export * from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
 export * from '@/lib/watchdog/batchRepair/materializeP3PreparationEvidence';
 export * from '@/lib/watchdog/batchRepair/trackRCaptureBinding';
+export * from '@/lib/watchdog/batchRepair/p3PacketReviewRegistry';
+export * from '@/lib/watchdog/batchRepair/trackRP3GovernanceIntake';
+export * from '@/lib/watchdog/batchRepair/trackRP3ReviewArtifacts';
+export * from '@/lib/watchdog/batchRepair/runTrackRP3GovernanceIntakeCron';
+export * from '@/lib/watchdog/batchRepair/trackRP3ReviewStateStore';

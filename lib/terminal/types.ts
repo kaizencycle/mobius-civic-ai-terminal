@@ -171,7 +171,13 @@ export type LedgerEntry = {
 };
 
 export type AgentJournalStatus = 'draft' | 'committed' | 'contested' | 'verified';
-export type AgentJournalCategory = 'observation' | 'inference' | 'alert' | 'recommendation' | 'close';
+export type AgentJournalCategory =
+  | 'observation'
+  | 'inference'
+  | 'alert'
+  | 'recommendation'
+  | 'close'
+  | 'governance-review';
 export type AgentJournalSeverity = 'nominal' | 'elevated' | 'critical';
 
 export interface AgentJournalEntry {
