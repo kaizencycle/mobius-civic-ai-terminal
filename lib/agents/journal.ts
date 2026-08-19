@@ -4,6 +4,7 @@ import { kvGet, kvSet } from '@/lib/kv/store';
 import { AGENT_MANIFESTS, AGENT_ORDER, type AgentName } from '@/lib/agents/manifests';
 import type { AgentJournalCategory, AgentJournalEntry, AgentJournalSeverity, AgentJournalStatus } from '@/lib/terminal/types';
 import { scheduleVaultDepositForJournal } from '@/lib/vault/vault';
+import { TRACK_R_P3_GOVERNANCE_SCOPE } from '@/lib/watchdog/batchRepair/trackRP3ReviewArtifacts';
 import { writeToSubstrate } from '@/lib/substrate/client';
 import { pushLedgerEntry } from '@/lib/epicon/ledgerPush';
 import { setJournalHeartbeat } from '@/lib/runtime/heartbeat';
@@ -248,44 +249,55 @@ export async function appendAgentJournalEntry(input: NewJournalEntryInput): Prom
     console.warn('[journal] watermark bump failed (non-blocking):', err instanceof Error ? err.message : err);
   });
   if (entry.status === 'committed') {
-    scheduleVaultDepositForJournal(entry);
+    const trackRGovernanceReceipt =
+      entry.category === 'governance-review' && entry.scope === TRACK_R_P3_GOVERNANCE_SCOPE;
 
-    const attestWork = () =>
-      writeToSubstrate({
-        agent: entry.agent,
-        agentOrigin: entry.agentOrigin,
-        cycle: entry.cycle,
+    if (!trackRGovernanceReceipt) {
+      scheduleVaultDepositForJournal(entry);
+    }
+
+    const attestWork = trackRGovernanceReceipt
+      ? undefined
+      : () =>
+          writeToSubstrate({
+            agent: entry.agent,
+            agentOrigin: entry.agentOrigin,
+            cycle: entry.cycle,
+            title: entry.inference,
+            summary: entry.observation,
+            category: mapCategoryToSubstrate(entry.category),
+            severity: entry.severity,
+            source: 'agent-journal',
+            confidence: entry.confidence,
+            derivedFrom: entry.derivedFrom,
+            tags: [],
+          })
+            .then(() => undefined)
+            .catch((err) => {
+              console.error(`[journal] ledger attest failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
+            });
+    if (attestWork) {
+      scheduleJournalLedgerAttest(attestWork);
+    }
+
+    if (!trackRGovernanceReceipt) {
+      void pushLedgerEntry({
+        id: entry.id,
+        timestamp: entry.timestamp,
+        author: entry.agentOrigin,
         title: entry.inference,
-        summary: entry.observation,
-        category: mapCategoryToSubstrate(entry.category),
-        severity: entry.severity,
+        type: 'epicon',
+        severity: entry.severity === 'critical' ? 'critical' : entry.severity === 'elevated' ? 'elevated' : 'nominal',
         source: 'agent-journal',
-        confidence: entry.confidence,
-        derivedFrom: entry.derivedFrom,
-        tags: [],
-      })
-        .then(() => undefined)
-        .catch((err) => {
-          console.error(`[journal] ledger attest failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
-        });
-    scheduleJournalLedgerAttest(attestWork);
-
-    void pushLedgerEntry({
-      id: entry.id,
-      timestamp: entry.timestamp,
-      author: entry.agentOrigin,
-      title: entry.inference,
-      type: 'epicon',
-      severity: entry.severity === 'critical' ? 'critical' : entry.severity === 'elevated' ? 'elevated' : 'nominal',
-      source: 'agent-journal',
-      tags: [entry.agent, entry.category, entry.cycle],
-      verified: false,
-      category: entry.category,
-      status: 'committed',
-      agentOrigin: entry.agentOrigin,
-    }).catch((err) => {
-      console.error(`[journal] pulse ledger push failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
-    });
+        tags: [entry.agent, entry.category, entry.cycle],
+        verified: false,
+        category: entry.category,
+        status: 'committed',
+        agentOrigin: entry.agentOrigin,
+      }).catch((err) => {
+        console.error(`[journal] pulse ledger push failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
+      });
+    }
   }
   return entry;
 }

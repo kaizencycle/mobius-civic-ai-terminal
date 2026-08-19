@@ -9,6 +9,7 @@ import { scanKeys } from '@/lib/kv/scan';
 import { getOperatorSession } from '@/lib/auth/session';
 import type { SubstrateJournalEntry } from '@/lib/substrate/github-journal';
 import { readAgentJournals } from '@/lib/substrate/github-reader';
+import { TRACK_R_P3_GOVERNANCE_SCOPE } from '@/lib/watchdog/batchRepair/trackRP3ReviewArtifacts';
 import { checkProvenanceBreak, checkTemporalCoherence } from '@/lib/tripwire/archiveChecks';
 import { checkJournalQualityDrift } from '@/lib/tripwire/journalQuality';
 
@@ -16,7 +17,13 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 type AgentJournalStatus = 'draft' | 'committed' | 'contested' | 'verified';
-type AgentJournalCategory = 'observation' | 'inference' | 'alert' | 'recommendation' | 'close';
+type AgentJournalCategory =
+  | 'observation'
+  | 'inference'
+  | 'alert'
+  | 'recommendation'
+  | 'close'
+  | 'governance-review';
 type AgentJournalSeverity = 'nominal' | 'elevated' | 'critical';
 type JournalReadMode = 'hot' | 'canon' | 'merged';
 
@@ -108,7 +115,11 @@ function substrateRecordToAgentEntry(row: SubstrateJournalEntry): AgentJournalEn
   const inference = asString(row.inference);
   const recommendation = asString(row.recommendation);
   const status = (asString(row.status) || 'committed') as AgentJournalStatus;
-  const category = asString(row.category) as AgentJournalCategory;
+  const rawCategory = asString(row.category);
+  const category =
+    rawCategory === 'governance' && scope === TRACK_R_P3_GOVERNANCE_SCOPE
+      ? 'governance-review'
+      : normalizeJournalCategory(rawCategory);
   const severity = asString(row.severity) as AgentJournalSeverity;
   const agentOrigin = asString(row.agentOrigin).toUpperCase();
   const source = row.source;
@@ -118,7 +129,7 @@ function substrateRecordToAgentEntry(row: SubstrateJournalEntry): AgentJournalEn
     return null;
   }
   if (!['draft', 'committed', 'contested', 'verified'].includes(status)) return null;
-  if (!['observation', 'inference', 'alert', 'recommendation', 'close'].includes(category)) return null;
+  if (!['observation', 'inference', 'alert', 'recommendation', 'close', 'governance-review'].includes(category)) return null;
   if (!['nominal', 'elevated', 'critical'].includes(severity)) return null;
   if (source !== 'agent-journal') return null;
   if (Number.isNaN(confidence)) return null;
@@ -153,6 +164,28 @@ const JOURNAL_VALID_CATEGORIES_SET = new Set([
   'close',
   'governance-review',
 ]);
+
+function mapAgentCategoryToSubstrate(
+  category: AgentJournalCategory,
+):
+  | 'observation'
+  | 'inference'
+  | 'alert'
+  | 'recommendation'
+  | 'close'
+  | 'heartbeat'
+  | 'verification'
+  | 'ingest'
+  | 'governance'
+  | 'narrative'
+  | 'market'
+  | 'geopolitical'
+  | 'infrastructure'
+  | 'ethics'
+  | 'civic-risk' {
+  if (category === 'governance-review') return 'governance';
+  return category;
+}
 
 function normalizeJournalCategory(raw: string): AgentJournalCategory {
   return (JOURNAL_VALID_CATEGORIES_SET.has(raw) ? raw : 'observation') as AgentJournalCategory;
@@ -688,7 +721,7 @@ export async function POST(request: NextRequest) {
     cycle: entry.cycle,
     title: entry.inference,
     summary: entry.observation,
-    category: entry.category,
+    category: mapAgentCategoryToSubstrate(entry.category),
     severity: entry.severity,
     source: 'agent-journal',
     confidence: entry.confidence,

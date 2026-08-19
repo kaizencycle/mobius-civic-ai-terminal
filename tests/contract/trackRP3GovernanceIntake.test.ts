@@ -13,7 +13,11 @@ import {
   verifyTrackRP3PacketEvidence,
 } from '@/lib/watchdog/batchRepair/trackRP3GovernanceIntake';
 import { loadIssuedPacketRegistry } from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
-import { runTrackRP3GovernanceIntakeCron } from '@/lib/watchdog/batchRepair/runTrackRP3GovernanceIntakeCron';
+import { runTrackRP3GovernanceIntakeCron, InMemoryTrackRP3ReviewStateStore } from '@/lib/watchdog/batchRepair/runTrackRP3GovernanceIntakeCron';
+import {
+  findPacketReviewEntry,
+  upsertPacketReviewEntry,
+} from '@/lib/watchdog/batchRepair/p3PacketReviewRegistry';
 import {
   renderTrackRP3MachineVerificationReceipt,
   satisfiesTrackRP3PacketReview,
@@ -254,18 +258,56 @@ describe('Track R P3 governance intake', () => {
     }
   });
 
+  it('blocks when newest issued packet is invalid even if older packet remains valid', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
+    try {
+      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN, SUPERSEDED_RUN] });
+      const packetPath = join(
+        tempRoot,
+        `docs/epicon/cycles/C-407/p3-preparation/runs/${CANONICAL_RUN}/operator-packet.json`,
+      );
+      const packet = JSON.parse(readFileSync(packetPath, 'utf8')) as P3OperatorPacket;
+      packet.packet_hash = 'deadbeef'.repeat(8);
+      writeFileSync(packetPath, `${JSON.stringify(packet, null, 2)}\n`, 'utf8');
+      const intake = runTrackRP3GovernanceIntake({ repoRoot: tempRoot });
+      assert.equal(intake.ok, false);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('duplicate cron invocation is idempotent', async () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
     try {
       copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN, SUPERSEDED_RUN] });
+      const store = new InMemoryTrackRP3ReviewStateStore(tempRoot);
       const first = await runTrackRP3GovernanceIntakeCron({
         repoRoot: tempRoot,
         skipJournalWrites: true,
+        reviewStateStore: store,
       });
       assert.equal(first.ok, true);
+      if (!first.ok) return;
+
+      const loaded = await store.loadRegistry();
+      assert.equal(loaded.ok, true);
+      if (!loaded.ok) return;
+      const existing = findPacketReviewEntry(loaded.registry, CANONICAL_RUN);
+      assert.ok(existing);
+      await store.saveRegistry(
+        upsertPacketReviewEntry({
+          registry: loaded.registry,
+          entry: {
+            ...existing,
+            intake_journals_completed: true,
+          },
+        }),
+      );
+
       const second = await runTrackRP3GovernanceIntakeCron({
         repoRoot: tempRoot,
         skipJournalWrites: true,
+        reviewStateStore: store,
       });
       assert.equal(second.ok, true);
       if (!second.ok || !first.ok) return;
@@ -332,14 +374,20 @@ describe('Track R P3 governance intake', () => {
       join(process.cwd(), 'lib/watchdog/batchRepair/runTrackRP3GovernanceIntakeCron.ts'),
       'utf8',
     );
+    const storeSource = readFileSync(
+      join(process.cwd(), 'lib/watchdog/batchRepair/trackRP3ReviewStateStore.ts'),
+      'utf8',
+    );
     const intakeSource = readFileSync(
       join(process.cwd(), 'lib/watchdog/batchRepair/trackRP3GovernanceIntake.ts'),
       'utf8',
     );
-    for (const source of [routeSource, cronSource, intakeSource]) {
+    for (const source of [routeSource, cronSource, storeSource, intakeSource]) {
       assert.doesNotMatch(source, /runBatchApply/);
       assert.doesNotMatch(source, /track-r:batch-apply/);
       assert.doesNotMatch(source, /BATCH_EXECUTION_FEATURE_FLAG/);
+      assert.doesNotMatch(source, /writeFileSync/);
+      assert.doesNotMatch(source, /writePacketReviewRegistry/);
     }
   });
 });
