@@ -1,0 +1,176 @@
+
+> mobius-civic-ai-terminal@0.1.0 track-r:p3-preparation /home/runner/work/mobius-civic-ai-terminal/mobius-civic-ai-terminal
+> tsx scripts/track-r-p3-preparation.ts --capture-id track-r-c403-2026-08-15T2014Z
+
+P3 preparation status: p3_preparation_pass
+Capture ID: track-r-c403-2026-08-15T2014Z
+Checked out commit: e054dd003320c1277e4520f67b64d03d8fdb49b2
+Observed production commit: e054dd003320c1277e4520f67b64d03d8fdb49b2
+Observed production environment: production
+Production commit match: true
+Readiness status: awaiting_execution_handoff
+Preflight status: apply_preflight_pass
+Batch apply status: dry_run_pass
+Fresh CAS match: true
+Writes planned: 4
+Writes performed: 0
+Execution authorized: false
+Production mutation performed: false
+Mutation journal ID: 10baa2c337a35da2ca327f3667c01005
+Mutation journal hash: a540b6866f0e94bf7de872090a53482ff84308a7944410d11909521610afaea4
+Operator packet hash: 271607643453b15a7a1170021fb2e7d4c3c0889de09b7acd12f04f35060e21f6
+
+✓ [pass] p3_dry_run_mode
+  ok
+✓ [pass] p3_apply_rejected
+  ok
+✓ [pass] p3_skip_cas_probe_rejected
+  ok
+✓ [pass] p3_production_write_env_absent
+  ok
+✓ [pass] p3_signed_handoff_not_consumed
+  ok
+✓ [pass] p3_capture_nine_binding
+  ok
+✓ [pass] p3_production_base_url_allowlisted
+  ok
+✓ [pass] production_deployment_binding
+  e054dd003320c1277e4520f67b64d03d8fdb49b2
+✓ [pass] production_commit_match
+  e054dd003320c1277e4520f67b64d03d8fdb49b2 == e054dd003320c1277e4520f67b64d03d8fdb49b2 (production)
+✓ [pass] lineage_snapshot_version
+  v2
+! [warn] governance_attestation
+  v2 governance candidate track-r-c403-2026-08-15T2014Z — fresh ZEUS/EVE/human attestation required
+✓ [pass] capture_binding_archive
+  /home/runner/work/mobius-civic-ai-terminal/mobius-civic-ai-terminal/artifacts/C-404/track-r-lineage-v2/history/capture-2014Z
+✓ [pass] v2_governance_candidate_hashes
+  b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] governance_zeus_adopt
+  ZEUS_V2_ATTESTATION_SIGNED.md
+✓ [pass] governance_eve_adopt
+  EVE_V2_ATTESTATION_SIGNED.md
+✓ [pass] governance_human_consent
+  HUMAN_V2_CONSENT_SIGNED.md
+✓ [pass] fresh_production_kv_identity
+  {"latest_seal_id":"seal-C-372-002","attested_index_count":360}
+✓ [pass] fresh_lineage_pointer_observation
+  {"active_lineage_version":null,"live_canonical_pointer":null}
+✓ [pass] fresh_cas_public_api
+  https://mobius-civic-ai-terminal.vercel.app
+✓ [pass] fresh_kv_identity_public_latest_seal
+  kv=seal-C-372-002 public=seal-C-372-002
+✓ [pass] fresh_affected_block_set_match
+  {"set_match":true,"pinned":123,"live":123,"errors":[]}
+✓ [pass] fresh_lineage_snapshot_v2
+  lineage_snapshot_hash_v2=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] fresh_lineage_snapshot_cas
+  version=v2 attested=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb fresh=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] fresh_lineage_snapshot_version
+  v2
+✓ [pass] readiness_status
+  awaiting_execution_handoff
+✓ [pass] fresh_cas_match_readiness
+  true
+✓ [pass] lineage_snapshot_version
+  v2
+✓ [pass] apply_production_kv_identity
+  {"latest_seal_id":"seal-C-372-002","attested_index_count":360}
+✓ [pass] apply_lineage_pointer_observation
+  {"active_lineage_version":null,"live_canonical_pointer":null}
+✓ [pass] apply_cas_public_api
+  https://mobius-civic-ai-terminal.vercel.app
+✓ [pass] apply_kv_identity_public_latest_seal
+  kv=seal-C-372-002 public=seal-C-372-002
+✓ [pass] apply_affected_block_set_match
+  {"set_match":true,"pinned":123,"live":123,"errors":[]}
+✓ [pass] apply_lineage_snapshot_v2
+  lineage_snapshot_hash_v2=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] apply_lineage_snapshot_cas
+  version=v2 attested=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb fresh=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] apply_lineage_snapshot_version
+  v2
+✓ [pass] apply_live_witness_export
+  export_complete=true
+✓ [pass] apply_commit_guard
+  commit guard preflight pass
+✓ [pass] apply_preflight_summary
+  apply_preflight_pass
+✓ [pass] apply_preflight_status
+  apply_preflight_pass
+✓ [pass] affected_block_set_alignment
+  apply-path affected block set aligned
+✓ [pass] capture_nine_v2_binding
+  track-r-c403-2026-08-15T2014Z
+✓ [pass] governance_signed_attestations_present
+  ZEUS/EVE/human signed artifacts present
+✓ [pass] execution_authority_not_derived_from_governance_files
+  signed attestations and awaiting_execution_handoff do not authorize mutation
+✓ [pass] approved_manifest_capture_nine_alignment
+  27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa
+✓ [pass] batch_engine_dry_run
+  fixture batch engine pass
+✓ [pass] batch_manifest_validation
+  manifest valid
+✓ [pass] approved_block_set_prepare
+  123 contested blocks prepare cleanly
+✓ [pass] governance_131_cutoff
+  positions 1-131 only; 132-194 verified_unattached
+✓ [pass] rollback_plan_verified
+  rollback plan verified
+✓ [pass] one_shot_idempotency_guard
+  no prior committed activation
+✓ [pass] lineage_snapshot_version
+  v2
+✓ [pass] apply_production_kv_identity
+  {"latest_seal_id":"seal-C-372-002","attested_index_count":360}
+✓ [pass] apply_lineage_pointer_observation
+  {"active_lineage_version":null,"live_canonical_pointer":null}
+✓ [pass] apply_cas_public_api
+  https://mobius-civic-ai-terminal.vercel.app
+✓ [pass] apply_kv_identity_public_latest_seal
+  kv=seal-C-372-002 public=seal-C-372-002
+✓ [pass] apply_affected_block_set_match
+  {"set_match":true,"pinned":123,"live":123,"errors":[]}
+✓ [pass] apply_lineage_snapshot_v2
+  lineage_snapshot_hash_v2=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] apply_lineage_snapshot_cas
+  version=v2 attested=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb fresh=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+✓ [pass] apply_lineage_snapshot_version
+  v2
+✓ [pass] apply_live_witness_export
+  export_complete=true
+✓ [pass] apply_commit_guard
+  commit guard preflight pass
+✓ [pass] apply_preflight_summary
+  apply_preflight_pass
+✓ [pass] preflight_packet_alignment
+  apply_preflight_pass
+! [warn] post_write_verification
+  skipped in dry-run mode
+✓ [pass] apply_summary
+  dry_run_pass
+✓ [pass] batch_apply_dry_run
+  dry_run_pass
+✓ [pass] locked_hash_binding
+  Capture #9 hashes aligned
+✓ [pass] batch_apply_cas_drift
+  true
+✓ [pass] commit_guard_pass
+  commit guard pass
+✓ [pass] rollback_plan_verified
+  rollback plan verified
+✓ [pass] boundary_131_unresolved
+  131→132 pending; slot 361 excluded
+✓ [pass] mutation_journal_complete
+  10baa2c337a35da2ca327f3667c01005
+✓ [pass] issued_packet_registry_available
+  docs/epicon/cycles/C-407/p3-preparation/issued-packet-registry.json
+✓ [pass] issued_packet_registry_journal_unique
+  journal id and hash not previously issued
+✓ [pass] issued_packet_registry_packet_unique
+  packet hash not previously issued
+✓ [pass] p3_preparation_summary
+  p3_preparation_pass
+
+Evidence manifest hash: e11eb7308bb4fe28ea6c460038595207e93a9bd560240538044e74436e3f100e
