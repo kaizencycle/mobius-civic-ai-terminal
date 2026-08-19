@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { getOperatorSession } from '@/lib/auth/session';
 import { brokerListPackets } from '@/lib/evidence/brokerClient';
 import { EvidencePacketListView } from '@/components/epicon/evidence/EvidencePacketViews';
 import { chamberMeta } from '../../layout';
@@ -10,6 +12,11 @@ export const metadata = chamberMeta(
 );
 
 export default async function EvidencePacketListPage() {
+  const session = await getOperatorSession();
+  if (!session) {
+    redirect('/api/auth/signin?callbackUrl=/terminal/epicon/evidence');
+  }
+
   const initial = await brokerListPackets(100);
 
   return (

@@ -27,7 +27,7 @@ export function EvidencePacketCard({ packet }: { packet: EvidencePacketListItem 
         </div>
         <div>
           <dt>readers</dt>
-          <dd className="text-slate-300">{summary?.readerCount ?? 1}</dd>
+          <dd className="text-slate-300">{summary?.readerCount ?? '—'}</dd>
         </div>
         <div>
           <dt>independent sources</dt>

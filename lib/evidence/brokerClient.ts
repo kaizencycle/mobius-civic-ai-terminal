@@ -119,21 +119,30 @@ export async function brokerGetPacketWithPayload(
     return meta;
   }
   const payloadRead = await brokerReadPayload(packetId, input);
-  if (!payloadRead.ok) {
+  if (!payloadRead.ok || payloadRead.degraded) {
     return {
       ...meta,
+      ok: false,
+      brokerReachable: payloadRead.brokerReachable ?? true,
       decision: payloadRead.decision,
       reason: payloadRead.reason,
-      error: payloadRead.error,
+      error: payloadRead.error ?? 'payload_read_denied',
     };
   }
+  const refreshed = await brokerGetPacket(packetId);
+  const lineage = refreshed.ok ? refreshed : meta;
+  const reuseEvents =
+    payloadRead.reuseEvents ?? refreshed.reuseEvents ?? meta.reuseEvents;
   return {
-    ...meta,
-    packet: payloadRead.packet ?? meta.packet,
+    ...lineage,
+    ok: true,
+    brokerReachable: true,
+    packet: payloadRead.packet ?? lineage.packet,
     payload: payloadRead.payload,
     decision: payloadRead.decision,
     reason: payloadRead.reason,
-    summary: payloadRead.summary ?? meta.summary,
+    summary: payloadRead.summary ?? lineage.summary,
+    reuseEvents,
   };
 }
 

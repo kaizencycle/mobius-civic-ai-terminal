@@ -16,6 +16,14 @@ export function EvidencePacketListView({
     );
   }
 
+  if (!initial.ok) {
+    return (
+      <div className="rounded border border-amber-600/40 bg-amber-950/20 p-4 font-mono text-xs text-amber-200">
+        Broker error — {initial.error ?? 'request_failed'}. No invented packets rendered.
+      </div>
+    );
+  }
+
   const packets = initial.packets ?? [];
   if (packets.length === 0) {
     return (
@@ -39,6 +47,14 @@ export function EvidencePacketDetailView({ detail }: { detail: EvidenceDetailRes
     return (
       <div className="rounded border border-amber-600/40 bg-amber-950/20 p-4 font-mono text-xs text-amber-200">
         Broker degraded — {detail.error ?? 'unreachable'}.
+      </div>
+    );
+  }
+
+  if (!detail.ok) {
+    return (
+      <div className="rounded border border-amber-600/40 bg-amber-950/20 p-4 font-mono text-xs text-amber-200">
+        Broker error — {detail.reason ?? detail.error ?? 'request_failed'}.
       </div>
     );
   }
@@ -96,7 +112,7 @@ export function EvidencePacketDetailView({ detail }: { detail: EvidenceDetailRes
       <section className="rounded border border-slate-800 bg-slate-950/80 p-4">
         <h2 className="text-[10px] uppercase tracking-widest text-violet-300">Reuse lineage</h2>
         <p className="mt-2 text-slate-400">
-          readers: {summary?.readerCount ?? 1} · reuse events: {summary?.reuseCount ?? reuseEvents.length} · total paid:{' '}
+          readers: {summary?.readerCount ?? '—'} · reuse events: {summary?.reuseCount ?? reuseEvents.length} · total paid:{' '}
           {summary?.totalPaidAmount ? `${summary.totalPaidAmount} ${summary.totalPaidCurrency}` : '—'}
         </p>
         <ul className="mt-2 space-y-1">

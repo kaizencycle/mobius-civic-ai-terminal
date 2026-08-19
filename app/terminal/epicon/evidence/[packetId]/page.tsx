@@ -1,5 +1,8 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { getOperatorSession } from '@/lib/auth/session';
 import { brokerGetPacketWithPayload } from '@/lib/evidence/brokerClient';
+import { operatorRequesterAgent } from '@/lib/evidence/operatorContext';
 import { EvidencePacketDetailView } from '@/components/epicon/evidence/EvidencePacketViews';
 import { AcquisitionBadge, FreshnessBadge } from '@/components/epicon/evidence/EvidenceBadges';
 import { chamberMeta } from '../../../layout';
@@ -16,9 +19,14 @@ export async function generateMetadata({ params }: PageProps) {
 }
 
 export default async function EvidencePacketDetailPage({ params }: PageProps) {
+  const session = await getOperatorSession();
+  if (!session) {
+    redirect('/api/auth/signin?callbackUrl=/terminal/epicon/evidence');
+  }
+
   const { packetId } = await params;
   const detail = await brokerGetPacketWithPayload(packetId, {
-    requesterAgent: 'ECHO',
+    requesterAgent: operatorRequesterAgent(session),
     purpose: 'epicon_evidence_detail',
   });
 

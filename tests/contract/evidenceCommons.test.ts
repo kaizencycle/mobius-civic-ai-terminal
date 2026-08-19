@@ -38,10 +38,41 @@ describe('Evidence Commons (C-408)', () => {
     assert.doesNotMatch(src, /MOCK_PACKET/);
   });
 
-  it('evidence list view surfaces broker degraded state', () => {
+  it('evidence list view surfaces broker degraded and reachable errors', () => {
     const src = readRepoFile('components/epicon/evidence/EvidencePacketViews.tsx');
     assert.match(src, /Broker degraded/);
+    assert.match(src, /Broker error/);
     assert.match(src, /No invented packets/);
+  });
+
+  it('evidence facades require operator session (no impersonation)', () => {
+    const operatorSrc = readRepoFile('lib/evidence/operatorContext.ts');
+    assert.match(operatorSrc, /requireEvidenceOperator/);
+    assert.match(operatorSrc, /OPERATOR:/);
+
+    const resolveSrc = readRepoFile('app/api/evidence/resolve/route.ts');
+    assert.match(resolveSrc, /requireEvidenceOperator/);
+    assert.match(resolveSrc, /requesterAgent: operator\.requesterAgent/);
+
+    const payloadRoute = readRepoFile('app/api/evidence/packets/[packetId]/payload/route.ts');
+    assert.match(payloadRoute, /brokerGetPacketWithPayload/);
+    assert.match(payloadRoute, /requireEvidenceOperator/);
+    assert.doesNotMatch(readRepoFile('app/api/evidence/packets/[packetId]/route.ts'), /includePayload/);
+  });
+
+  it('brokerGetPacketWithPayload fails closed on payload denial', () => {
+    const src = readRepoFile('lib/evidence/brokerClient.ts');
+    assert.match(src, /if \(!payloadRead\.ok \|\| payloadRead\.degraded\)/);
+    assert.match(src, /ok: false/);
+    assert.match(src, /payloadRead\.reuseEvents/);
+  });
+
+  it('reader count is not invented when summary absent', () => {
+    const card = readRepoFile('components/epicon/evidence/EvidencePacketCard.tsx');
+    const detail = readRepoFile('components/epicon/evidence/EvidencePacketViews.tsx');
+    assert.match(card, /readerCount \?\? '—'/);
+    assert.match(detail, /readerCount \?\? '—'/);
+    assert.doesNotMatch(card, /readerCount \?\? 1/);
   });
 
   it('detail view keeps observation section separate', () => {
