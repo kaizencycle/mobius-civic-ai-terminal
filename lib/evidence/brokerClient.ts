@@ -66,10 +66,10 @@ export async function brokerListPackets(limit = 50): Promise<EvidenceListRespons
   }
 }
 
-export async function brokerGetPacket(packetId: string, includePayload = false): Promise<EvidenceDetailResponse> {
+/** Metadata + reuse lineage (no payload body). */
+export async function brokerGetPacket(packetId: string): Promise<EvidenceDetailResponse> {
   try {
-    const query = includePayload ? '?includePayload=true' : '';
-    const response = await fetch(`${brokerBaseUrl()}/v1/evidence/packets/${encodeURIComponent(packetId)}${query}`, {
+    const response = await fetch(`${brokerBaseUrl()}/v1/evidence/packets/${encodeURIComponent(packetId)}`, {
       headers: brokerHeaders(),
       cache: 'no-store',
       signal: AbortSignal.timeout(8000),
@@ -82,6 +82,59 @@ export async function brokerGetPacket(packetId: string, includePayload = false):
   } catch (error) {
     return degraded(error instanceof Error ? error.message : 'broker_unreachable');
   }
+}
+
+/** Authorized payload read — Substrate POST /packets/:id/payload (records reuse lineage). */
+export async function brokerReadPayload(
+  packetId: string,
+  input: { requesterAgent: string; purpose: string },
+): Promise<EvidenceDetailResponse> {
+  try {
+    const response = await fetch(
+      `${brokerBaseUrl()}/v1/evidence/packets/${encodeURIComponent(packetId)}/payload`,
+      {
+        method: 'POST',
+        headers: brokerHeaders(),
+        body: JSON.stringify(input),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      },
+    );
+    const payload = (await response.json()) as EvidenceDetailResponse;
+    if (!response.ok) {
+      return { ...payload, ok: false, brokerReachable: true, error: payload.error ?? `broker_${response.status}` };
+    }
+    return { ...payload, ok: true, brokerReachable: true };
+  } catch (error) {
+    return degraded(error instanceof Error ? error.message : 'broker_unreachable');
+  }
+}
+
+export async function brokerGetPacketWithPayload(
+  packetId: string,
+  input: { requesterAgent: string; purpose: string },
+): Promise<EvidenceDetailResponse> {
+  const meta = await brokerGetPacket(packetId);
+  if (!meta.ok || meta.degraded) {
+    return meta;
+  }
+  const payloadRead = await brokerReadPayload(packetId, input);
+  if (!payloadRead.ok) {
+    return {
+      ...meta,
+      decision: payloadRead.decision,
+      reason: payloadRead.reason,
+      error: payloadRead.error,
+    };
+  }
+  return {
+    ...meta,
+    packet: payloadRead.packet ?? meta.packet,
+    payload: payloadRead.payload,
+    decision: payloadRead.decision,
+    reason: payloadRead.reason,
+    summary: payloadRead.summary ?? meta.summary,
+  };
 }
 
 export async function brokerSubmitCandidates(body: unknown): Promise<{ ok: boolean; degraded?: boolean; error?: string }> {

@@ -28,10 +28,13 @@ describe('Evidence Commons (C-408)', () => {
     assert.equal(acquisitionOperatorLabel('MOCK_X402'), 'SIMULATED ACQUISITION');
   });
 
-  it('broker client fails visibly without inventing packets', () => {
+  it('broker client uses POST payload read, not query includePayload', () => {
     const src = readRepoFile('lib/evidence/brokerClient.ts');
+    assert.match(src, /brokerReadPayload/);
+    assert.match(src, /\/payload`/);
     assert.match(src, /degraded/);
     assert.match(src, /cache: 'no-store'/);
+    assert.doesNotMatch(src, /includePayload=true/);
     assert.doesNotMatch(src, /MOCK_PACKET/);
   });
 

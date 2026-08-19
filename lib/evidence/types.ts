@@ -83,6 +83,9 @@ export type EvidenceDetailResponse = {
   degraded?: boolean;
   brokerReachable?: boolean;
   packet?: EvidencePacket;
+  payload?: unknown;
+  decision?: EvidenceCacheDecision;
+  reason?: string;
   reuseEvents?: Array<{
     eventId: string;
     consumerAgent: string;

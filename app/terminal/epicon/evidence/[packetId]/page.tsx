@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { brokerGetPacket } from '@/lib/evidence/brokerClient';
+import { brokerGetPacketWithPayload } from '@/lib/evidence/brokerClient';
 import { EvidencePacketDetailView } from '@/components/epicon/evidence/EvidencePacketViews';
 import { AcquisitionBadge, FreshnessBadge } from '@/components/epicon/evidence/EvidenceBadges';
 import { chamberMeta } from '../../../layout';
@@ -17,7 +17,10 @@ export async function generateMetadata({ params }: PageProps) {
 
 export default async function EvidencePacketDetailPage({ params }: PageProps) {
   const { packetId } = await params;
-  const detail = await brokerGetPacket(packetId, true);
+  const detail = await brokerGetPacketWithPayload(packetId, {
+    requesterAgent: 'ECHO',
+    purpose: 'epicon_evidence_detail',
+  });
 
   return (
     <div className="h-full overflow-y-auto p-4 font-mono text-xs text-slate-200">
