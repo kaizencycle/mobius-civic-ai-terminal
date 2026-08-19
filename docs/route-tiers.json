@@ -19,6 +19,7 @@
     "/api/cron/echo-ingest": "cron",
     "/api/cron/gi-refresh": "cron",
     "/api/cron/watchdog": "cron",
+    "/api/cron/track-r-p3-governance-intake": "cron",
     "/api/eve/cycle-synthesize": "cron",
     "/api/vault/block/attest-sweep": "cron",
     "/api/terminal/snapshot-lite": "public",
