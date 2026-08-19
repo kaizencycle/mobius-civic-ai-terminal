@@ -123,6 +123,7 @@ export async function brokerGetPacketWithPayload(
     return {
       ...meta,
       ok: false,
+      degraded: payloadRead.degraded,
       brokerReachable: payloadRead.brokerReachable ?? true,
       decision: payloadRead.decision,
       reason: payloadRead.reason,

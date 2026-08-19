@@ -1,10 +1,13 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getOperatorSession } from '@/lib/auth/session';
-import { brokerGetPacketWithPayload } from '@/lib/evidence/brokerClient';
-import { operatorRequesterAgent } from '@/lib/evidence/operatorContext';
+import { brokerGetPacket } from '@/lib/evidence/brokerClient';
 import { EvidencePacketDetailView } from '@/components/epicon/evidence/EvidencePacketViews';
-import { AcquisitionBadge, FreshnessBadge } from '@/components/epicon/evidence/EvidenceBadges';
+import {
+  AcquisitionBadge,
+  EvidenceDecisionBadge,
+  FreshnessBadge,
+} from '@/components/epicon/evidence/EvidenceBadges';
 import { chamberMeta } from '../../../layout';
 
 type PageProps = { params: Promise<{ packetId: string }> };
@@ -25,10 +28,7 @@ export default async function EvidencePacketDetailPage({ params }: PageProps) {
   }
 
   const { packetId } = await params;
-  const detail = await brokerGetPacketWithPayload(packetId, {
-    requesterAgent: operatorRequesterAgent(session),
-    purpose: 'epicon_evidence_detail',
-  });
+  const detail = await brokerGetPacket(packetId);
 
   return (
     <div className="h-full overflow-y-auto p-4 font-mono text-xs text-slate-200">
@@ -43,6 +43,7 @@ export default async function EvidencePacketDetailPage({ params }: PageProps) {
           <>
             <FreshnessBadge status={detail.packet.freshness.status} />
             <AcquisitionBadge packet={detail.packet} />
+            {detail.decision ? <EvidenceDecisionBadge decision={detail.decision} /> : null}
           </>
         ) : null}
       </div>

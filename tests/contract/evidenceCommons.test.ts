@@ -64,7 +64,15 @@ describe('Evidence Commons (C-408)', () => {
     const src = readRepoFile('lib/evidence/brokerClient.ts');
     assert.match(src, /if \(!payloadRead\.ok \|\| payloadRead\.degraded\)/);
     assert.match(src, /ok: false/);
+    assert.match(src, /degraded: payloadRead\.degraded/);
     assert.match(src, /payloadRead\.reuseEvents/);
+  });
+
+  it('detail page uses metadata-only read (no payload reuse on render)', () => {
+    const src = readRepoFile('app/terminal/epicon/evidence/[packetId]/page.tsx');
+    assert.match(src, /brokerGetPacket\(/);
+    assert.doesNotMatch(src, /brokerGetPacketWithPayload/);
+    assert.match(src, /EvidenceDecisionBadge/);
   });
 
   it('reader count is not invented when summary absent', () => {
