@@ -35,6 +35,9 @@ export type PacketReviewRegistryEntry = {
   human_review_status: 'awaiting_human' | 'pending' | 'approved' | 'rejected';
   zeus_review_artifact_path?: string;
   eve_review_artifact_path?: string;
+  zeus_intake_journal_id?: string;
+  eve_intake_journal_id?: string;
+  intake_journals_completed?: boolean;
   last_intake_at?: string;
 };
 

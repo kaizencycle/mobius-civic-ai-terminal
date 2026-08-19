@@ -371,10 +371,37 @@ export function runTrackRP3GovernanceIntake(args?: { repoRoot?: string }): Track
     };
   }
 
-  const verified: VerifiedPacket[] = [];
+  if (registryResult.registry.entries.length === 0) {
+    return {
+      ok: false,
+      status: 'blocked',
+      errors: ['no issued packets available for intake'],
+      execution_authorized: false,
+    };
+  }
+
+  const sortedEntries = [...registryResult.registry.entries].sort(compareRegistryEntries);
+  const newestEntry = sortedEntries[0];
+  const newestVerification = verifyTrackRP3PacketEvidence({
+    registryEntry: newestEntry,
+    repoRoot: args?.repoRoot,
+  });
+
+  if (!newestVerification.ok) {
+    return {
+      ok: false,
+      status: 'blocked',
+      errors: newestVerification.errors.map(
+        (detail) => `${newestEntry.workflow_run_id}: ${detail}`,
+      ),
+      execution_authorized: false,
+    };
+  }
+
+  const verified: VerifiedPacket[] = [{ registryEntry: newestEntry, context: newestVerification.context }];
   const invalidDispositions: TrackRP3PacketDisposition[] = [];
 
-  for (const entry of registryResult.registry.entries) {
+  for (const entry of sortedEntries.slice(1)) {
     const verification = verifyTrackRP3PacketEvidence({ registryEntry: entry, repoRoot: args?.repoRoot });
     if (!verification.ok) {
       invalidDispositions.push({
@@ -389,19 +416,7 @@ export function runTrackRP3GovernanceIntake(args?: { repoRoot?: string }): Track
     verified.push({ registryEntry: entry, context: verification.context });
   }
 
-  if (verified.length === 0) {
-    const errors =
-      invalidDispositions.length > 0
-        ? invalidDispositions.flatMap((row) =>
-            row.errors.map((detail) => `${row.workflow_run_id}: ${detail}`),
-          )
-        : ['no valid issued packets available for intake'];
-    return { ok: false, status: 'blocked', errors, execution_authorized: false };
-  }
-
-  verified.sort((a, b) => compareRegistryEntries(a.registryEntry, b.registryEntry));
-  const candidatePair = verified[0];
-  const candidate = candidatePair.context;
+  const candidate = newestVerification.context;
 
   const historicalPackets: TrackRP3PacketDisposition[] = [
     ...invalidDispositions,
