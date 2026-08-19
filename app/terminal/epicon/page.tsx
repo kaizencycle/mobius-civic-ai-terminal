@@ -99,6 +99,12 @@ export default function EpiconPage() {
             {t === 'feed' ? '≡ Event Feed' : '⊕ Runtime Check'}
           </button>
         ))}
+        <a
+          href="/terminal/epicon/evidence"
+          className="ml-auto rounded border border-cyan-800 px-3 py-0.5 uppercase tracking-widest text-cyan-400 hover:border-cyan-600"
+        >
+          ◈ Evidence Packets
+        </a>
       </div>
 
       {tab === 'feed' && <EpiconChamber />}
