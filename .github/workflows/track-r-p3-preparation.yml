@@ -23,6 +23,10 @@ on:
         options:
           - dry_run_only
         default: dry_run_only
+  push:
+    branches: [main]
+    paths:
+      - docs/epicon/cycles/C-407/p3-preparation/.trigger-run
 
 permissions:
   contents: write
@@ -46,10 +50,25 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve workflow inputs
+        id: wf_inputs
+        run: |
+          set -euo pipefail
+          capture_id="${{ inputs.capture_id }}"
+          dry_run_mode="${{ inputs.dry_run_mode }}"
+          if [ -z "$capture_id" ]; then
+            capture_id="track-r-c403-2026-08-15T2014Z"
+          fi
+          if [ -z "$dry_run_mode" ]; then
+            dry_run_mode="dry_run_only"
+          fi
+          echo "capture_id=$capture_id" >> "$GITHUB_OUTPUT"
+          echo "dry_run_mode=$dry_run_mode" >> "$GITHUB_OUTPUT"
+
       - name: Validate workflow inputs
         env:
-          DRY_RUN_MODE: ${{ inputs.dry_run_mode }}
-          CAPTURE_ID: ${{ inputs.capture_id }}
+          DRY_RUN_MODE: ${{ steps.wf_inputs.outputs.dry_run_mode }}
+          CAPTURE_ID: ${{ steps.wf_inputs.outputs.capture_id }}
         run: |
           set -euo pipefail
           if [ "$DRY_RUN_MODE" != "dry_run_only" ]; then
@@ -77,6 +96,25 @@ jobs:
             exit 1
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for production commit binding
+        env:
+          CHECKED_OUT_SHA: ${{ steps.main_sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          base="https://mobius-civic-ai-terminal.vercel.app"
+          for attempt in $(seq 1 40); do
+            prod="$(curl -sS "$base/api/terminal/snapshot-lite" | jq -r '.deployment.commit_sha')"
+            env_name="$(curl -sS "$base/api/terminal/snapshot-lite" | jq -r '.deployment.environment // empty')"
+            if [ "$prod" = "$CHECKED_OUT_SHA" ] && [ "$env_name" = "production" ]; then
+              echo "Production bound to $prod (production)"
+              exit 0
+            fi
+            echo "attempt ${attempt}: production=${prod:-missing} environment=${env_name:-missing} expected=${CHECKED_OUT_SHA}"
+            sleep 15
+          done
+          echo "::error::production commit binding timeout after 10 minutes"
+          exit 1
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -132,8 +170,8 @@ jobs:
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           UPSTASH_REDIS_REST_URL: ${{ secrets.KV_REST_API_URL }}
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
-          TRACK_R_CAPTURE_ID: ${{ inputs.capture_id }}
-          TRACK_R_P3_DRY_RUN_MODE: ${{ inputs.dry_run_mode }}
+          TRACK_R_CAPTURE_ID: ${{ steps.wf_inputs.outputs.capture_id }}
+          TRACK_R_P3_DRY_RUN_MODE: ${{ steps.wf_inputs.outputs.dry_run_mode }}
           TRACK_R_CHECKED_OUT_COMMIT: ${{ steps.main_sha.outputs.sha }}
           TRACK_R_P3_OUTPUT_DIR: ./track-r-p3-preparation-output
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -198,9 +236,9 @@ jobs:
             echo ""
             echo "- **run:** ${RUN_URL}"
             echo "- **checked_out_commit:** \`${{ steps.main_sha.outputs.sha }}\`"
-            echo "- **capture_id:** \`${{ inputs.capture_id }}\`"
+            echo "- **capture_id:** \`${{ steps.wf_inputs.outputs.capture_id }}\`"
             echo "- **production_base_url:** \`https://mobius-civic-ai-terminal.vercel.app\` (allowlisted)"
-            echo "- **dry_run_mode:** \`${{ inputs.dry_run_mode }}\`"
+            echo "- **dry_run_mode:** \`${{ steps.wf_inputs.outputs.dry_run_mode }}\`"
             echo "- **execution_authorized:** \`false\`"
             echo "- **exit_code:** \`${EXIT_CODE:-unknown}\`"
             echo ""

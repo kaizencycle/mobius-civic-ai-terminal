@@ -1,0 +1,8 @@
+# Push-triggered P3 preparation (read-only)
+# Update this file to enqueue a Track R P3 Preparation run on main.
+# Requires production commit binding after Vercel deploy (workflow waits up to 10m).
+
+triggered_at=2026-08-19T14:30:00Z
+capture_id=track-r-c403-2026-08-15T2014Z
+dry_run_mode=dry_run_only
+reason=c408-p3-packet-issuance
