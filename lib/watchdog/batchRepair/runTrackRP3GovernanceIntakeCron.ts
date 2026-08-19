@@ -195,7 +195,7 @@ function resolveReviewStateStore(args?: {
   reviewStateStore?: TrackRP3ReviewStateStore;
 }): TrackRP3ReviewStateStore {
   if (args?.reviewStateStore) return args.reviewStateStore;
-  return new KvTrackRP3ReviewStateStore(args?.repoRoot);
+  return new KvTrackRP3ReviewStateStore();
 }
 
 export async function runTrackRP3GovernanceIntakeCron(args?: {
@@ -331,7 +331,16 @@ export async function runTrackRP3GovernanceIntakeCron(args?: {
     intakeJournalsCompleted,
   });
   registry = upsertPacketReviewEntry({ registry, entry: candidateEntry });
-  await store.saveRegistry(registry);
+  try {
+    await store.saveRegistry(registry);
+  } catch (error) {
+    return {
+      ok: false,
+      status: 'blocked',
+      errors: [error instanceof Error ? error.message : String(error)],
+      execution_authorized: false,
+    };
+  }
 
   return {
     ok: true,

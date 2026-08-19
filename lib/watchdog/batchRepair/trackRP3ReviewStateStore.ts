@@ -1,4 +1,4 @@
-import { kvGet, kvSet } from '@/lib/kv/store';
+import { kvGet, kvGetOrThrow, kvSet } from '@/lib/kv/store';
 import {
   loadPacketReviewRegistry,
   type LoadPacketReviewRegistryResult,
@@ -50,19 +50,51 @@ function emptyRegistry(): PacketReviewRegistry {
   };
 }
 
-export class KvTrackRP3ReviewStateStore implements TrackRP3ReviewStateStore {
-  constructor(private readonly repoRoot?: string) {}
+export function loadTrackRP3ReviewRegistryFromKvRow(
+  kvRow: PacketReviewRegistry | null | undefined,
+  options?: { readFailed?: boolean; readError?: string },
+): LoadPacketReviewRegistryResult {
+  if (options?.readFailed) {
+    return {
+      ok: false,
+      errors: [
+        options.readError ??
+          'Track R P3 review registry KV read failed — intake blocked to avoid wiping live state',
+      ],
+    };
+  }
+  if (kvRow == null) {
+    return { ok: true, registry: emptyRegistry() };
+  }
+  if (kvRow.schema_version !== '1' || !Array.isArray(kvRow.entries)) {
+    return {
+      ok: false,
+      errors: ['Track R P3 review registry KV payload is malformed — intake blocked'],
+    };
+  }
+  return { ok: true, registry: kvRow };
+}
 
+export class KvTrackRP3ReviewStateStore implements TrackRP3ReviewStateStore {
   async loadRegistry(): Promise<LoadPacketReviewRegistryResult> {
-    const kvRow = await kvGet<PacketReviewRegistry>(TRACK_R_P3_REVIEW_REGISTRY_KV_KEY);
-    if (kvRow && kvRow.schema_version === '1' && Array.isArray(kvRow.entries)) {
-      return { ok: true, registry: kvRow };
+    try {
+      const kvRow = await kvGetOrThrow<PacketReviewRegistry>(TRACK_R_P3_REVIEW_REGISTRY_KV_KEY);
+      return loadTrackRP3ReviewRegistryFromKvRow(kvRow);
+    } catch (error) {
+      return loadTrackRP3ReviewRegistryFromKvRow(null, {
+        readFailed: true,
+        readError: `Track R P3 review registry KV read failed — intake blocked to avoid wiping live state: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
     }
-    return loadPacketReviewRegistry(this.repoRoot);
   }
 
   async saveRegistry(registry: PacketReviewRegistry): Promise<void> {
-    await kvSet(TRACK_R_P3_REVIEW_REGISTRY_KV_KEY, registry);
+    const saved = await kvSet(TRACK_R_P3_REVIEW_REGISTRY_KV_KEY, registry);
+    if (!saved) {
+      throw new Error('Track R P3 review registry KV write failed — intake blocked');
+    }
   }
 
   async saveReceipt(args: {

@@ -13,10 +13,14 @@ import {
   verifyTrackRP3PacketEvidence,
 } from '@/lib/watchdog/batchRepair/trackRP3GovernanceIntake';
 import { loadIssuedPacketRegistry } from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
+import {
+  loadTrackRP3ReviewRegistryFromKvRow,
+} from '@/lib/watchdog/batchRepair/trackRP3ReviewStateStore';
 import { runTrackRP3GovernanceIntakeCron, InMemoryTrackRP3ReviewStateStore } from '@/lib/watchdog/batchRepair/runTrackRP3GovernanceIntakeCron';
 import {
   findPacketReviewEntry,
   upsertPacketReviewEntry,
+  type PacketReviewRegistry,
 } from '@/lib/watchdog/batchRepair/p3PacketReviewRegistry';
 import {
   renderTrackRP3MachineVerificationReceipt,
@@ -68,6 +72,35 @@ function registryEntryFor(runId: string): IssuedPacketRegistryEntry {
   const entry = loaded.registry.entries.find((row) => row.workflow_run_id === runId);
   assert.ok(entry, `missing registry entry for ${runId}`);
   return entry;
+}
+
+class FailingLoadTrackRP3ReviewStateStore extends InMemoryTrackRP3ReviewStateStore {
+  constructor(
+    repoRoot: string,
+    private readonly loadError: string,
+  ) {
+    super(repoRoot);
+  }
+
+  override async loadRegistry() {
+    return {
+      ok: false as const,
+      errors: [this.loadError],
+    };
+  }
+}
+
+class LiveRegistryTrackRP3ReviewStateStore extends InMemoryTrackRP3ReviewStateStore {
+  constructor(
+    repoRoot: string,
+    private readonly liveRegistry: PacketReviewRegistry,
+  ) {
+    super(repoRoot);
+  }
+
+  override async loadRegistry() {
+    return { ok: true as const, registry: this.liveRegistry };
+  }
 }
 
 describe('Track R P3 governance intake', () => {
@@ -363,6 +396,72 @@ describe('Track R P3 governance intake', () => {
     assert.doesNotMatch(receipt, /\bADOPT\b/);
     assert.match(receipt, /execution_authorized: false/);
     assert.match(receipt, /review_does_not_authorize_execution: true/);
+  });
+
+  it('KV read miss seeds empty registry without falling back to committed file', () => {
+    const resolved = loadTrackRP3ReviewRegistryFromKvRow(null);
+    assert.equal(resolved.ok, true);
+    if (!resolved.ok) return;
+    assert.deepEqual(resolved.registry.entries, []);
+  });
+
+  it('KV read failure blocks intake without overwriting live review state', async () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
+    try {
+      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN, SUPERSEDED_RUN] });
+      const issued = registryEntryFor(CANONICAL_RUN);
+      const liveRegistry: PacketReviewRegistry = {
+        schema_version: '1',
+        note: 'live review state',
+        entries: [
+          {
+            workflow_run_id: CANONICAL_RUN,
+            packet_hash: CANONICAL_PACKET_HASH,
+            journal_id: issued.journal_id,
+            journal_hash: issued.journal_hash,
+            observed_production_commit: issued.observed_production_commit,
+            capture_id: CAPTURE_2014Z_ID,
+            status: 'intake_verified',
+            execution_authorized: false,
+            discovered_at: '2026-08-15T00:00:00.000Z',
+            zeus_review_status: 'adopt',
+            eve_review_status: 'adopt',
+            human_review_status: 'approved',
+            intake_journals_completed: true,
+          },
+        ],
+      };
+      const store = new FailingLoadTrackRP3ReviewStateStore(
+        tempRoot,
+        'Track R P3 review registry KV read failed — intake blocked to avoid wiping live state',
+      );
+      const result = await runTrackRP3GovernanceIntakeCron({
+        repoRoot: tempRoot,
+        skipJournalWrites: true,
+        reviewStateStore: store,
+      });
+      assert.equal(result.ok, false);
+      if (result.ok) return;
+      assert.match(result.errors.join('\n'), /KV read failed/i);
+      const preserved = await new LiveRegistryTrackRP3ReviewStateStore(tempRoot, liveRegistry).loadRegistry();
+      assert.equal(preserved.ok, true);
+      if (!preserved.ok) return;
+      assert.equal(preserved.registry.entries[0]?.zeus_review_status, 'adopt');
+      assert.equal(preserved.registry.entries[0]?.human_review_status, 'approved');
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('malformed KV registry payload blocks intake fail-closed', () => {
+    const resolved = loadTrackRP3ReviewRegistryFromKvRow({
+      schema_version: '1',
+      note: 'broken',
+      entries: 'not-an-array' as unknown as PacketReviewRegistry['entries'],
+    });
+    assert.equal(resolved.ok, false);
+    if (resolved.ok) return;
+    assert.match(resolved.errors.join('\n'), /malformed/i);
   });
 
   it('no batch-apply mutation function is reachable from the intake route', () => {
