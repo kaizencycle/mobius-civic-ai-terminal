@@ -256,27 +256,25 @@ export async function appendAgentJournalEntry(input: NewJournalEntryInput): Prom
       scheduleVaultDepositForJournal(entry);
     }
 
-    const attestWork = trackRGovernanceReceipt
-      ? undefined
-      : () =>
-          writeToSubstrate({
-            agent: entry.agent,
-            agentOrigin: entry.agentOrigin,
-            cycle: entry.cycle,
-            title: entry.inference,
-            summary: entry.observation,
-            category: mapCategoryToSubstrate(entry.category),
-            severity: entry.severity,
-            source: 'agent-journal',
-            confidence: entry.confidence,
-            derivedFrom: entry.derivedFrom,
-            tags: [],
-          })
-            .then(() => undefined)
-            .catch((err) => {
-              console.error(`[journal] ledger attest failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
-            });
-    if (attestWork) {
+    const attestWork = () =>
+      writeToSubstrate({
+        agent: entry.agent,
+        agentOrigin: entry.agentOrigin,
+        cycle: entry.cycle,
+        title: entry.inference,
+        summary: entry.observation,
+        category: mapCategoryToSubstrate(entry.category),
+        severity: entry.severity,
+        source: 'agent-journal',
+        confidence: entry.confidence,
+        derivedFrom: entry.derivedFrom,
+        tags: [],
+      })
+        .then(() => undefined)
+        .catch((err) => {
+          console.error(`[journal] ledger attest failed for ${entry.agent}:`, err instanceof Error ? err.message : err);
+        });
+    if (!trackRGovernanceReceipt) {
       scheduleJournalLedgerAttest(attestWork);
     }
 
