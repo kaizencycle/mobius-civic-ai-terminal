@@ -67,6 +67,10 @@
       "schedule": "0 */6 * * *"
     },
     {
+      "path": "/api/cron/track-r-p3-governance-intake",
+      "schedule": "0 */6 * * *"
+    },
+    {
       "path": "/api/vault/block/attest-sweep",
       "schedule": "0 */6 * * *"
     }

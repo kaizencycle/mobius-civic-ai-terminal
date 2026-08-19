@@ -1,0 +1,41 @@
+{
+  "schema_version": "1",
+  "note": "Track R P3 packet review state — does not grant execution authority.",
+  "entries": [
+    {
+      "workflow_run_id": "32264049953",
+      "packet_hash": "97a710df03aed42de4c998697b966534639659aa099255b16999faf88df3f47a",
+      "journal_id": "67632e4ec87e9dfa873b431fb7d811f7",
+      "journal_hash": "eabc99e91470942ba42cba5c9c9ceebfb6e21259e82e07dc140e08fd3a080e93",
+      "observed_production_commit": "847b0098c41ce457cc4296e8980811065ed9cff0",
+      "capture_id": "track-r-c403-2026-08-15T2014Z",
+      "status": "superseded",
+      "execution_authorized": false,
+      "discovered_at": "2026-08-19T14:49:35.623Z",
+      "superseded_by_workflow_run_id": "32264177719",
+      "zeus_review_status": "awaiting_zeus",
+      "eve_review_status": "awaiting_eve",
+      "human_review_status": "awaiting_human",
+      "last_intake_at": "2026-08-19T14:49:35.623Z"
+    },
+    {
+      "workflow_run_id": "32264177719",
+      "packet_hash": "271607643453b15a7a1170021fb2e7d4c3c0889de09b7acd12f04f35060e21f6",
+      "journal_id": "10baa2c337a35da2ca327f3667c01005",
+      "journal_hash": "a540b6866f0e94bf7de872090a53482ff84308a7944410d11909521610afaea4",
+      "observed_production_commit": "e054dd003320c1277e4520f67b64d03d8fdb49b2",
+      "capture_id": "track-r-c403-2026-08-15T2014Z",
+      "status": "intake_verified",
+      "execution_authorized": false,
+      "discovered_at": "2026-08-19T14:49:35.623Z",
+      "intake_verified_at": "2026-08-19T14:49:35.623Z",
+      "supersedes_workflow_run_id": "32264049953",
+      "zeus_review_status": "intake_verified",
+      "eve_review_status": "intake_verified",
+      "human_review_status": "awaiting_human",
+      "zeus_review_artifact_path": "docs/epicon/cycles/C-408/track-r-p3-review/32264177719/ZEUS_P3_PACKET_REVIEW.md",
+      "eve_review_artifact_path": "docs/epicon/cycles/C-408/track-r-p3-review/32264177719/EVE_P3_PACKET_REVIEW.md",
+      "last_intake_at": "2026-08-19T14:49:35.623Z"
+    }
+  ]
+}

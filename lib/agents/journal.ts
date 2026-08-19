@@ -30,7 +30,14 @@ type NewJournalEntryInput = Omit<AgentJournalEntry, 'id' | 'timestamp' | 'scope'
 };
 
 const VALID_STATUS: AgentJournalStatus[] = ['draft', 'committed', 'contested', 'verified'];
-const VALID_CATEGORY: AgentJournalCategory[] = ['observation', 'inference', 'alert', 'recommendation', 'close'];
+const VALID_CATEGORY: AgentJournalCategory[] = [
+  'observation',
+  'inference',
+  'alert',
+  'recommendation',
+  'close',
+  'governance-review',
+];
 const VALID_SEVERITY: AgentJournalSeverity[] = ['nominal', 'elevated', 'critical'];
 
 function isAgentName(value: string): value is AgentName {
@@ -286,6 +293,7 @@ export async function appendAgentJournalEntry(input: NewJournalEntryInput): Prom
 function mapCategoryToSubstrate(
   cat: AgentJournalCategory,
 ): 'observation' | 'inference' | 'alert' | 'recommendation' | 'close' | 'heartbeat' | 'verification' | 'ingest' | 'governance' | 'narrative' | 'market' | 'geopolitical' | 'infrastructure' | 'ethics' | 'civic-risk' {
+  if (cat === 'governance-review') return 'governance';
   return cat;
 }
 

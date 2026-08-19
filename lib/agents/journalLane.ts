@@ -35,7 +35,7 @@ export type AgentJournalLaneEntry = {
   confidence: number;
   derivedFrom: string[];
   status: 'draft' | 'committed' | 'contested' | 'verified';
-  category: 'observation' | 'inference' | 'alert' | 'recommendation' | 'close';
+  category: 'observation' | 'inference' | 'alert' | 'recommendation' | 'close' | 'governance-review';
   severity: 'nominal' | 'elevated' | 'critical';
   source: 'agent-journal';
   agentOrigin: string;

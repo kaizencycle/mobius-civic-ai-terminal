@@ -145,7 +145,14 @@ function substrateRecordToAgentEntry(row: SubstrateJournalEntry): AgentJournalEn
   };
 }
 
-const JOURNAL_VALID_CATEGORIES_SET = new Set(['observation', 'inference', 'alert', 'recommendation', 'close']);
+const JOURNAL_VALID_CATEGORIES_SET = new Set([
+  'observation',
+  'inference',
+  'alert',
+  'recommendation',
+  'close',
+  'governance-review',
+]);
 
 function normalizeJournalCategory(raw: string): AgentJournalCategory {
   return (JOURNAL_VALID_CATEGORIES_SET.has(raw) ? raw : 'observation') as AgentJournalCategory;

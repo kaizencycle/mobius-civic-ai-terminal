@@ -446,7 +446,14 @@ export async function attestToLedger(entry: SubstrateEntry): Promise<AttestToLed
   }
 }
 
-const JOURNAL_VALID_CATEGORIES = new Set(['observation', 'inference', 'alert', 'recommendation', 'close']);
+const JOURNAL_VALID_CATEGORIES = new Set([
+  'observation',
+  'inference',
+  'alert',
+  'recommendation',
+  'close',
+  'governance-review',
+]);
 
 function toJournalCategory(cat: string): string {
   return JOURNAL_VALID_CATEGORIES.has(cat) ? cat : 'observation';
