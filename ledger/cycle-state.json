@@ -4,15 +4,15 @@
   "source": "snapshot-lite+vault+manifest",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
   "cycle": "C-409",
-  "as_of": "2026-08-20T17:13:47.893Z",
-  "fetched_at": "2026-08-20T17:13:47.907Z",
+  "as_of": "2026-08-20T17:47:48.955Z",
+  "fetched_at": "2026-08-20T17:47:48.960Z",
   "gi": 0.745,
   "raw_integrity": null,
   "gi_floored": false,
   "mode": "yellow",
   "degraded": true,
   "gi_provenance": "live-compute",
-  "gi_verified": true,
+  "gi_verified": false,
   "gi_readings": {
     "snapshot_lite": {
       "value": 0.745,
@@ -30,11 +30,11 @@
   },
   "memory_mode": null,
   "deployment": {
-    "commit_sha": "ccbfeff81100baccd24d8970dce8724f0115fd2e",
+    "commit_sha": "016d7021cf8eae8f20c2182e74ca29a77a3801fd",
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 47,
+    "total_ms": 44,
     "lane_ms": null
   },
   "counting_rules": {
@@ -50,7 +50,7 @@
       "cycle": "C-372",
       "sequence": 2
     },
-    "in_progress_mic": 2869.518428,
+    "in_progress_mic": 2870.540948,
     "in_progress_block": 361,
     "fountain_status": "locked",
     "sustain_cycles_met": false,
@@ -67,7 +67,7 @@
   },
   "repos": {
     "terminal": {
-      "sha": "ccbfeff81100baccd24d8970dce8724f0115fd2e",
+      "sha": "016d7021cf8eae8f20c2182e74ca29a77a3801fd",
       "branch": "main",
       "source": "snapshot-lite.deployment"
     },
