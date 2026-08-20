@@ -11,6 +11,18 @@ import { currentCycleId } from '@/lib/eve/cycle-engine';
 import { getHeartbeat, getJournalHeartbeat } from '@/lib/runtime/heartbeat';
 import { resolveGiForTerminal } from '@/lib/integrity/resolveGi';
 import { computeIPI } from '@/lib/integrity/ipi';
+import {
+  buildIntegrityAuthorityBlock,
+  resolveIntegrityDegraded,
+} from '@/lib/integrity/integrityAuthority';
+import {
+  loadLatestZeusVerificationReport,
+  mapZeusVerificationStatus,
+  zeusGovernanceStateFromReport,
+} from '@/lib/integrity/zeusCatalog';
+import { deriveQuorumAuthoritySemantics } from '@/lib/mic/quorumSemantics';
+import { loadQuorumState } from '@/lib/mic/quorumTracker';
+import { getGiMode } from '@/lib/gi/mode';
 
 export type GiVerificationResult = {
   gi_verified: boolean;
@@ -317,13 +329,40 @@ export async function GET(req: NextRequest) {
   };
 
   const modeStr = (giResolved.mode as string | null) ?? gi?.mode ?? null;
-  const degraded =
-    giResolved.degraded ||
-    !lanes.kv.ok ||
-    !lanes.integrity.ok ||
-    lanes.integrity.freshness === 'degraded' ||
-    modeStr === 'red' ||
-    lanes.tripwire.elevated;
+  const latestZeus = loadLatestZeusVerificationReport();
+  const zeusVerificationStatus = mapZeusVerificationStatus(latestZeus?.report.verification_status);
+  const zeusGovernanceState = zeusGovernanceStateFromReport(latestZeus?.report);
+  const quorumState = await loadQuorumState(cycle);
+  const quorumSemantics = deriveQuorumAuthoritySemantics(quorumState, {
+    verification_status: zeusVerificationStatus,
+    candidates_reviewed: latestZeus?.report.candidates_reviewed ?? 0,
+    tripwire_active: lanes.tripwire.elevated,
+  });
+  const giPersistenceSource =
+    lanes.integrity.source === 'kv'
+      ? 'kv'
+      : lanes.integrity.source === 'live'
+        ? 'live'
+        : 'cached';
+  const degraded = resolveIntegrityDegraded({
+    giDegraded: giResolved.degraded,
+    kvOk: lanes.kv.ok,
+    integrityLaneOk: lanes.integrity.ok,
+    integrityFreshnessDegraded: lanes.integrity.freshness === 'degraded',
+    mode: modeStr ?? (giNow !== null ? getGiMode(giNow) : null),
+    tripwireElevated: lanes.tripwire.elevated,
+    gicAvailable: Boolean(process.env.RENDER_GIC_URL),
+    zeusVerificationStatus,
+    governanceState: zeusGovernanceState,
+  });
+  const authority = buildIntegrityAuthorityBlock({
+    persistenceSource: giPersistenceSource,
+    kvBacked: lanes.kv.ok,
+    renderUsed: false,
+    gicAvailable: Boolean(process.env.RENDER_GIC_URL),
+    zeusVerificationStatus,
+    degraded,
+  });
 
     return NextResponse.json(
       {
@@ -359,6 +398,17 @@ export async function GET(req: NextRequest) {
         gi_provenance: giResolved.gi_provenance,
         ...giVerification,
         degraded,
+        authority,
+        execution_authorized: false,
+        zeus_verification: latestZeus
+          ? {
+              path: latestZeus.relative_path,
+              status: latestZeus.report.verification_status ?? 'unknown',
+              timestamp: latestZeus.report.timestamp,
+              candidates_reviewed: latestZeus.report.candidates_reviewed ?? 0,
+            }
+          : null,
+        quorum_semantics: quorumSemantics,
         lanes,
         ipi: ipiBlock,
         heartbeat: {
