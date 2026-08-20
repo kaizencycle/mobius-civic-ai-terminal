@@ -1,0 +1,200 @@
+// C-409: Integrity reconciliation + Track R intake observability
+// Run: tsx tests/contract/c409IntegrityReconciliation.test.ts
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  buildIntegrityAuthorityBlock,
+  resolveIntegrityDegraded,
+} from '@/lib/integrity/integrityAuthority';
+import {
+  listZeusVerificationReportFilenames,
+  loadLatestZeusVerificationReport,
+  mapZeusVerificationStatus,
+} from '@/lib/integrity/zeusCatalog';
+import { deriveQuorumAuthoritySemantics } from '@/lib/mic/quorumSemantics';
+import type { SentinelQuorumState } from '@/lib/mic/quorumTracker';
+import {
+  buildTrackRP3IntakeObservability,
+  TRACK_R_P3_CANONICAL_RUN,
+  TRACK_R_P3_SUPERSEDED_RUN,
+} from '@/lib/trackR/p3IntakeObservability';
+import {
+  intakeStateIsNotVerdict,
+  validateTrackRIndependentReviewRecord,
+} from '@/lib/watchdog/batchRepair/trackRP3ReviewArtifacts';
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+function readRepoFile(rel: string): string {
+  return readFileSync(join(repoRoot, rel), 'utf8');
+}
+
+function baseQuorum(overrides: Partial<SentinelQuorumState> = {}): SentinelQuorumState {
+  return {
+    schema: 'SENTINEL_QUORUM_V1',
+    cycle: 'C-409',
+    required: ['ATLAS', 'ZEUS', 'EVE', 'JADE', 'AUREA'],
+    entries: {},
+    attestations_received: 5,
+    attestations_needed: 5,
+    status: 'achieved',
+    initiated_at: '2026-08-20T00:00:00.000Z',
+    completed_at: '2026-08-20T00:00:00.000Z',
+    updatedAt: '2026-08-20T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('C-409 integrity authority reconciliation', () => {
+  it('snapshot-lite preserves upstream degraded via shared resolver', () => {
+    const src = readRepoFile('app/api/terminal/snapshot-lite/route.ts');
+    assert.match(src, /resolveIntegrityDegraded\(/);
+    assert.match(src, /authority,/);
+    assert.match(src, /zeus_verification/);
+  });
+
+  it('green GI plus degraded authority remains degraded', () => {
+    const degraded = resolveIntegrityDegraded({
+      giDegraded: false,
+      kvOk: true,
+      integrityLaneOk: true,
+      mode: 'green',
+      tripwireElevated: false,
+      gicAvailable: false,
+      zeusVerificationStatus: 'disputed',
+    });
+    assert.equal(degraded, true);
+  });
+
+  it('latest ZEUS report wins chronologically by filename sort', () => {
+    const files = listZeusVerificationReportFilenames(repoRoot);
+    assert.ok(files.length > 0);
+    const latest = loadLatestZeusVerificationReport(repoRoot);
+    assert.ok(latest);
+    assert.equal(latest!.relative_path.endsWith(files[0]), true);
+    assert.equal(mapZeusVerificationStatus(latest!.report.verification_status), 'disputed');
+  });
+
+  it('quorum receipt does not imply agreement or execution authority', () => {
+    const semantics = deriveQuorumAuthoritySemantics(baseQuorum(), {
+      verification_status: 'disputed',
+      candidates_reviewed: 0,
+      tripwire_active: true,
+    });
+    assert.equal(semantics.attestation_agreement, null);
+    assert.equal(semantics.execution_authorized, false);
+    assert.equal(semantics.seal_status, 'receipt_quorum_only');
+    assert.match(semantics.receipt_note, /not seal completion/);
+  });
+
+  it('authority block exposes degraded and gic availability separately', () => {
+    const authority = buildIntegrityAuthorityBlock({
+      persistenceSource: 'kv',
+      kvBacked: true,
+      renderUsed: false,
+      gicAvailable: false,
+      zeusVerificationStatus: 'disputed',
+      degraded: true,
+    });
+    assert.equal(authority.degraded, true);
+    assert.equal(authority.gic_available, false);
+    assert.equal(authority.zeus_verification_status, 'disputed');
+  });
+});
+
+describe('C-409 Track R intake observability', () => {
+  it('intake visibility is read-only and never authorizes execution', async () => {
+    const status = await buildTrackRP3IntakeObservability({
+      workflowRunId: TRACK_R_P3_CANONICAL_RUN,
+      repoRoot,
+    });
+    assert.equal(status.read_only, true);
+    assert.equal(status.execution_authorized, false);
+    assert.equal(status.run_id, TRACK_R_P3_CANONICAL_RUN);
+    assert.equal(status.packet_hash, '271607643453b15a7a1170021fb2e7d4c3c0889de09b7acd12f04f35060e21f6');
+  });
+
+  it('intake receipt state cannot become ADOPT verdict', () => {
+    assert.equal(intakeStateIsNotVerdict('INTAKE_VERIFIED'), true);
+    assert.equal(intakeStateIsNotVerdict('ADOPT'), false);
+  });
+
+  it('ZEUS and EVE review records require exact packet binding', () => {
+    const expected = {
+      workflow_run_id: TRACK_R_P3_CANONICAL_RUN,
+      packet_hash: '271607643453b15a7a1170021fb2e7d4c3c0889de09b7acd12f04f35060e21f6',
+      journal_id: '10baa2c337a35da2ca327f3667c01005',
+      production_commit: 'e054dd003320c1277e4520f67b64d03d8fdb49b2',
+    };
+    const ok = validateTrackRIndependentReviewRecord(
+      {
+        reviewer: 'ZEUS',
+        workflow_run_id: expected.workflow_run_id,
+        packet_hash: expected.packet_hash,
+        journal_id: expected.journal_id,
+        production_commit: expected.production_commit,
+        capture_id: 'capture-2014Z',
+        verdict: 'ADOPT',
+        reviewed_at: '2026-08-20T12:00:00.000Z',
+        evidence_refs: ['docs/epicon/cycles/C-407/p3-preparation/runs/32264177719/operator-packet.json'],
+      },
+      expected,
+    );
+    assert.equal(ok.ok, true);
+
+    const bad = validateTrackRIndependentReviewRecord(
+      {
+        reviewer: 'EVE',
+        workflow_run_id: expected.workflow_run_id,
+        packet_hash: 'deadbeef',
+        journal_id: expected.journal_id,
+        production_commit: expected.production_commit,
+        capture_id: 'capture-2014Z',
+        verdict: 'CHALLENGE',
+        reviewed_at: '2026-08-20T12:00:00.000Z',
+        evidence_refs: ['docs/epicon/cycles/C-407/p3-preparation/runs/32264177719/operator-packet.json'],
+      },
+      expected,
+    );
+    assert.equal(bad.ok, false);
+    if (!bad.ok) {
+      assert.ok(bad.errors.includes('packet_hash_binding_failed'));
+    }
+  });
+
+  it('superseded run cannot satisfy current-run gates', async () => {
+    const status = await buildTrackRP3IntakeObservability({
+      workflowRunId: TRACK_R_P3_SUPERSEDED_RUN,
+      repoRoot,
+    });
+    assert.ok(status.blocked_reasons.some((reason) => reason.includes('superseded')));
+    assert.equal(status.execution_authorized, false);
+  });
+
+  it('missing human consent keeps execution_authorized false', async () => {
+    const status = await buildTrackRP3IntakeObservability({
+      workflowRunId: TRACK_R_P3_CANONICAL_RUN,
+      repoRoot,
+    });
+    assert.equal(status.execution_authorized, false);
+    assert.ok(status.blocked_reasons.includes('human_consent_absent'));
+    assert.ok(status.blocked_reasons.includes('execution_handoff_absent'));
+  });
+
+  it('intake route is read-only facade', () => {
+    const src = readRepoFile('app/api/track-r/p3-intake-status/route.ts');
+    assert.match(src, /buildTrackRP3IntakeObservability/);
+    assert.doesNotMatch(src, /batch-apply/);
+    assert.doesNotMatch(src, /execution_authorized:\s*true/);
+  });
+
+  it('fixtures avoid production mutation paths in changed routes', () => {
+    const intake = readRepoFile('app/api/track-r/p3-intake-status/route.ts');
+    assert.doesNotMatch(intake, /batchApply/);
+    assert.doesNotMatch(intake, /track-r:batch-apply/);
+  });
+});

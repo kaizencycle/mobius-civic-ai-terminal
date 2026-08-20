@@ -42,6 +42,10 @@ export function buildIntegrityEnrichment(args: {
   /** Override for fresh compute tiers (e.g. gic-indexer). */
   computedAt?: string | null;
   cacheAgeSeconds?: number | null;
+  governance_state?: OperationalDecisionState['governance_state'];
+  mutation_state?: OperationalDecisionState['mutation_state'];
+  /** C-409: latest ZEUS catalog posture when available. */
+  zeusGovernanceState?: OperationalDecisionState['governance_state'];
 }): IntegrityEnrichment {
   const derivedMode = getGiMode(args.finalGi);
   const terminal_status =
@@ -86,8 +90,8 @@ export function buildIntegrityEnrichment(args: {
     kv_continuity_ok: args.kvKeyHealth?.kv_continuity_ok ?? null,
     degraded_agent_count: args.degradedAgentCount,
     gi_degraded: args.giDegraded,
-    governance_state: 'unknown',
-    mutation_state: 'forbidden',
+    governance_state: args.zeusGovernanceState ?? args.governance_state ?? 'unknown',
+    mutation_state: args.mutation_state ?? 'forbidden',
   });
 
   return {

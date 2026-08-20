@@ -2,11 +2,24 @@ import { NextResponse } from 'next/server';
 import { computeIntegrityPayload } from '@/lib/integrity/buildStatus';
 import { buildIntegrityEnrichment } from '@/lib/integrity/buildIntegrityEnrichment';
 import { countDegradedAgentsFromSignalSnapshot } from '@/lib/integrity/agentDegradationCount';
+import {
+  buildIntegrityAuthorityBlock,
+  resolveIntegrityDegraded,
+} from '@/lib/integrity/integrityAuthority';
 import { resolveGiChain } from '@/lib/gi/resolveGiChain';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { assessKvKeyHealth } from '@/lib/kv/kvKeyHealth';
 import { getTripwireState } from '@/lib/tripwire/store';
 import { kvGet, kvSet } from '@/lib/kv/store';
+import {
+  loadLatestZeusVerificationReport,
+  mapZeusVerificationStatus,
+  zeusGovernanceStateFromReport,
+} from '@/lib/integrity/zeusCatalog';
+import { deriveQuorumAuthoritySemantics } from '@/lib/mic/quorumSemantics';
+import { loadQuorumState } from '@/lib/mic/quorumTracker';
+import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { getGiMode } from '@/lib/gi/mode';
 
 // OPT-07 (C-312): integrity-status is called on every page init and hits Render GIC
 // on every request. GI changes only on cron ticks (5-10min). 60s KV cache reduces
@@ -15,27 +28,6 @@ const INTEGRITY_CACHE_KEY = 'cache:integrity-status';
 const INTEGRITY_CACHE_TTL = 60;
 
 export const dynamic = 'force-dynamic';
-
-function buildAuthority(
-  persistenceSource: string,
-  kvBacked: boolean,
-  renderUsed: boolean,
-) {
-  const note =
-    persistenceSource === 'kv'
-      ? 'Primary GI is being served from KV-backed state.'
-      : persistenceSource === 'live'
-        ? 'GI is being computed from live in-process signals.'
-        : persistenceSource === 'gic-indexer'
-          ? 'GI is being served from Render GIC indexer.'
-          : 'GI is operating under degraded signal authority.';
-
-  return {
-    kv_backed: kvBacked,
-    gi_origin: renderUsed ? 'gic-indexer' : persistenceSource,
-    note,
-  };
-}
 
 const CACHE_HEADERS = {
   'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=30',
@@ -64,6 +56,45 @@ export async function GET() {
   ]);
 
   const renderGicUrl = process.env.RENDER_GIC_URL;
+  const latestZeus = loadLatestZeusVerificationReport();
+  const zeusVerificationStatus = mapZeusVerificationStatus(latestZeus?.report.verification_status);
+  const zeusGovernanceState = zeusGovernanceStateFromReport(latestZeus?.report);
+  const quorumState = await loadQuorumState(currentCycleId());
+  const quorumSemantics = deriveQuorumAuthoritySemantics(quorumState, {
+    verification_status: zeusVerificationStatus,
+    candidates_reviewed: latestZeus?.report.candidates_reviewed ?? 0,
+    tripwire_active: tripwire.active,
+  });
+
+  function tripwireElevated(): boolean {
+    if (!tripwire.active) return false;
+    return (
+      tripwire.level === 'elevated' ||
+      tripwire.level === 'high' ||
+      tripwire.level === 'triggered' ||
+      tripwire.level === 'suspended'
+    );
+  }
+
+  function resolveResponseDegraded(args: {
+    giDegraded: boolean;
+    gicAvailable: boolean;
+    gicFetchFailed?: boolean;
+    upstreamDegraded?: boolean;
+  }): boolean {
+    return resolveIntegrityDegraded({
+      giDegraded: args.giDegraded,
+      kvOk: Boolean(payload.kv),
+      integrityLaneOk: chainGi !== null && Number.isFinite(chainGi),
+      mode: chainGi !== null && Number.isFinite(chainGi) ? getGiMode(chainGi) : null,
+      tripwireElevated: tripwireElevated(),
+      gicAvailable: args.gicAvailable,
+      gicFetchFailed: args.gicFetchFailed,
+      zeusVerificationStatus,
+      governanceState: zeusGovernanceState,
+      upstreamDegraded: args.upstreamDegraded,
+    });
+  }
 
   async function cacheAndReturn(result: Record<string, unknown>): Promise<NextResponse> {
     if (!result.degraded) {
@@ -98,11 +129,22 @@ export async function GET() {
       storedMode: payload.mode,
       computedAt: args.computedAt,
       cacheAgeSeconds: args.cacheAgeSeconds,
+      zeusGovernanceState,
+    });
+
+    const authority = buildIntegrityAuthorityBlock({
+      persistenceSource: args.persistenceSource,
+      kvBacked: Boolean(payload.kv),
+      renderUsed: args.renderUsed,
+      gicAvailable: Boolean(renderGicUrl),
+      zeusVerificationStatus,
+      degraded: args.responseDegraded,
     });
 
     return {
       ok: true as const,
       degraded: args.responseDegraded,
+      execution_authorized: false as const,
       ...payload,
       global_integrity: enrichment.global_integrity,
       raw_integrity: args.rawIntegrity ?? chain.raw_integrity ?? payload.raw_integrity,
@@ -119,7 +161,16 @@ export async function GET() {
       gi_degraded: enrichment.gi_degraded,
       gi_age_seconds: enrichment.gi_age_seconds,
       mic_readiness_snapshot_source: micRaw.source,
-      authority: buildAuthority(args.persistenceSource, Boolean(payload.kv), args.renderUsed),
+      authority,
+      zeus_verification: latestZeus
+        ? {
+            path: latestZeus.relative_path,
+            status: latestZeus.report.verification_status ?? 'unknown',
+            timestamp: latestZeus.report.timestamp,
+            candidates_reviewed: latestZeus.report.candidates_reviewed ?? 0,
+          }
+        : null,
+      quorum_semantics: quorumSemantics,
     };
   }
 
@@ -131,7 +182,10 @@ export async function GET() {
         persistenceSource: payload.source,
         giDegraded: chain.degraded,
         renderUsed: false,
-        responseDegraded: true,
+        responseDegraded: resolveResponseDegraded({
+          giDegraded: chain.degraded,
+          gicAvailable: false,
+        }),
       }),
     );
   }
@@ -164,7 +218,11 @@ export async function GET() {
           persistenceSource: payload.source,
           giDegraded: chain.degraded,
           renderUsed: true,
-          responseDegraded: true,
+          responseDegraded: resolveResponseDegraded({
+            giDegraded: chain.degraded,
+            gicAvailable: true,
+            gicFetchFailed: true,
+          }),
         }),
       );
     }
@@ -194,7 +252,10 @@ export async function GET() {
         giFloored: false,
         summary: remote.summary ?? payload.summary,
         renderUsed: true,
-        responseDegraded: false,
+        responseDegraded: resolveResponseDegraded({
+          giDegraded: false,
+          gicAvailable: true,
+        }),
         computedAt: gicComputedAt,
         cacheAgeSeconds: 0,
       }),
@@ -208,7 +269,11 @@ export async function GET() {
         persistenceSource: payload.source,
         giDegraded: chain.degraded,
         renderUsed: true,
-        responseDegraded: true,
+        responseDegraded: resolveResponseDegraded({
+          giDegraded: chain.degraded,
+          gicAvailable: true,
+          gicFetchFailed: true,
+        }),
       }),
     );
   }
