@@ -194,8 +194,25 @@ describe('C-409 Track R intake observability', () => {
     });
     assert.equal(status.intake_state, 'SUPERSEDED');
     assert.equal(status.structurally_accepted, false);
+    assert.equal(status.ok, true);
+    assert.equal(status.superseded_by_run_id, TRACK_R_P3_CANONICAL_RUN);
     assert.ok(status.blocked_reasons.some((reason) => reason.includes('superseded')));
     assert.equal(status.execution_authorized, false);
+  });
+
+  it('unknown and current runs do not invent superseded_by_run_id', async () => {
+    const current = await buildTrackRP3IntakeObservability({
+      workflowRunId: TRACK_R_P3_CANONICAL_RUN,
+      repoRoot,
+    });
+    assert.equal(current.superseded_by_run_id, null);
+
+    const unknown = await buildTrackRP3IntakeObservability({
+      workflowRunId: '99999999999',
+      repoRoot,
+    });
+    assert.equal(unknown.intake_state, 'NOT_SEEN');
+    assert.equal(unknown.superseded_by_run_id, null);
   });
 
   it('missing human consent keeps execution_authorized false', async () => {

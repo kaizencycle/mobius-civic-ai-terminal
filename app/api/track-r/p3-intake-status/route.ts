@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     headers: {
       'Cache-Control': 'no-store',
       'X-Mobius-Source': 'track-r-p3-intake-status',
+      'X-Intake-State': status.intake_state,
     },
   });
 }

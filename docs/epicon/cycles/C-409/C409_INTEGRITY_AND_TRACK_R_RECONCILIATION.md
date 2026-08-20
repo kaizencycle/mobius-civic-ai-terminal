@@ -74,7 +74,7 @@ Both `/api/integrity-status` and `/api/terminal/snapshot-lite` now call `resolve
 - `verification_status: disputed`
 - Supersedes earlier C-409 confirmed report
 
-Disputed ZEUS posture contributes to `degraded: true` and `decision_state.governance_state: disputed` even when numeric GI is green.
+Disputed or **unknown** ZEUS posture contributes to `degraded: true` and `decision_state.governance_state: disputed|unknown` even when numeric GI is green. Only explicitly `verified` catalog posture clears verification authority.
 
 ## Track R intake observability
 
@@ -112,7 +112,7 @@ Superseded run `32264049953` is blocked from satisfying current-run gates.
 ## Tests executed
 
 ```bash
-pnpm exec tsx tests/contract/c409IntegrityReconciliation.test.ts  # 12/12 pass
+pnpm exec tsx tests/contract/c409IntegrityReconciliation.test.ts  # 14/14 pass
 pnpm exec tsc --noEmit                                              # pass
 pnpm build                                                            # pass
 node scripts/gen-route-manifest.mjs --check                           # pass

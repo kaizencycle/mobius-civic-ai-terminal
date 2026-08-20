@@ -80,7 +80,10 @@ function isSupersededByNewerIssuance(args: {
 }): { superseded: boolean; supersededByRunId: string | null } {
   const target = args.issuedRegistry.entries.find((row) => row.workflow_run_id === args.runId);
   if (!target) {
-    return { superseded: args.runId === SUPERSEDED_RUN, supersededByRunId: CANONICAL_CURRENT_RUN };
+    if (args.runId === SUPERSEDED_RUN) {
+      return { superseded: true, supersededByRunId: CANONICAL_CURRENT_RUN };
+    }
+    return { superseded: false, supersededByRunId: null };
   }
   const newer = args.issuedRegistry.entries
     .filter((row) => row.workflow_run_id !== args.runId)
@@ -88,6 +91,19 @@ function isSupersededByNewerIssuance(args: {
     .sort((a, b) => Date.parse(b.issued_at) - Date.parse(a.issued_at))[0];
   if (newer) {
     return { superseded: true, supersededByRunId: newer.workflow_run_id };
+  }
+  return { superseded: false, supersededByRunId: null };
+}
+
+function resolveSupersession(args: {
+  runId: string;
+  issuedRegistry: IssuedPacketRegistry | null;
+}): { superseded: boolean; supersededByRunId: string | null } {
+  if (args.issuedRegistry) {
+    return isSupersededByNewerIssuance({ runId: args.runId, issuedRegistry: args.issuedRegistry });
+  }
+  if (args.runId === SUPERSEDED_RUN) {
+    return { superseded: true, supersededByRunId: CANONICAL_CURRENT_RUN };
   }
   return { superseded: false, supersededByRunId: null };
 }
@@ -201,9 +217,7 @@ export async function buildTrackRP3IntakeObservability(args: {
   const issued = issuedRegistry?.entries.find((row) => row.workflow_run_id === runId);
   if (!issuedLoad.ok) errors.push(...issuedLoad.errors);
 
-  const supersession = issuedRegistry
-    ? isSupersededByNewerIssuance({ runId, issuedRegistry })
-    : { superseded: runId === SUPERSEDED_RUN, supersededByRunId: CANONICAL_CURRENT_RUN };
+  const supersession = resolveSupersession({ runId, issuedRegistry });
 
   const registryLoad = await loadReviewRegistry({ repoRoot });
   errors.push(...registryLoad.errors);
@@ -262,7 +276,7 @@ export async function buildTrackRP3IntakeObservability(args: {
   const structurally_accepted = intake_state === 'INTAKE_VERIFIED';
 
   return {
-    ok: errors.length === 0 && intake_state !== 'SUPERSEDED' && intake_state !== 'BLOCKED',
+    ok: errors.length === 0,
     read_only: true,
     execution_authorized: false,
     data_source,
@@ -275,7 +289,8 @@ export async function buildTrackRP3IntakeObservability(args: {
     intake_journal_emitted: Boolean(registryEntry?.intake_journals_completed),
     structurally_accepted,
     superseded_by_run_id:
-      registryEntry?.superseded_by_workflow_run_id ?? supersession.supersededByRunId,
+      registryEntry?.superseded_by_workflow_run_id ??
+      (supersession.superseded ? supersession.supersededByRunId : null),
     supersedes_run_id: registryEntry?.supersedes_workflow_run_id ?? null,
     zeus: laneStatus({
       lane: 'ZEUS',
