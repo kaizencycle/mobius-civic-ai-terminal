@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-08-20T03:02:33Z",
+  "agent": "AUREA",
+  "cycle": "C-408",
+  "gi_final": 0.83,
+  "gi_mode": "green",
+  "gi_source": "unknown",
+  "gi_range_24h": {
+    "min": 0.74,
+    "max": 0.91
+  },
+  "overall_sentiment": 0.736,
+  "financial_score": 0.543,
+  "environ_score": 0.853,
+  "civic_score": 0.7,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.83. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL at 0.888 while NOAA, USGS water, and Cloudflare remained non-nominal in the live micro lane. ZEUS verification status is confirmed, and the heartbeat trend is volatile across a 24-hour GI range of 0.74 to 0.91. Forward signal: watch the environmental and infrastructure lanes for confirmation that anomaly persistence does not pull the green posture back toward stress in the next cycle.",
+  "forward_signal": "Watch the environmental and infrastructure lanes for confirmation that anomaly persistence does not pull the green posture back toward stress in the next cycle.",
+  "zeus_status": "confirmed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "NOAA active weather alerts [watch]",
+    "USGS water conditions [elevated]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
