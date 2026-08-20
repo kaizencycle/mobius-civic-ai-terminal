@@ -64,10 +64,29 @@ describe('C-409 integrity authority reconciliation', () => {
       integrityLaneOk: true,
       mode: 'green',
       tripwireElevated: false,
-      gicAvailable: false,
+      gicAvailable: true,
       zeusVerificationStatus: 'disputed',
     });
     assert.equal(degraded, true);
+  });
+
+  it('unknown ZEUS verification authority remains degraded fail-closed', () => {
+    const degraded = resolveIntegrityDegraded({
+      giDegraded: false,
+      kvOk: true,
+      integrityLaneOk: true,
+      mode: 'green',
+      tripwireElevated: false,
+      gicAvailable: true,
+      zeusVerificationStatus: 'unknown',
+    });
+    assert.equal(degraded, true);
+  });
+
+  it('integrity-status caches authority-degraded GIC results', () => {
+    const src = readRepoFile('app/api/integrity-status/route.ts');
+    assert.match(src, /skipCache: true/);
+    assert.doesNotMatch(src, /if \(!result\.degraded\)/);
   });
 
   it('latest ZEUS report wins chronologically by filename sort', () => {
@@ -116,6 +135,8 @@ describe('C-409 Track R intake observability', () => {
     assert.equal(status.execution_authorized, false);
     assert.equal(status.run_id, TRACK_R_P3_CANONICAL_RUN);
     assert.equal(status.packet_hash, '271607643453b15a7a1170021fb2e7d4c3c0889de09b7acd12f04f35060e21f6');
+    assert.equal(status.intake_state, 'NOT_SEEN');
+    assert.equal(status.structurally_accepted, false);
   });
 
   it('intake receipt state cannot become ADOPT verdict', () => {
@@ -171,6 +192,8 @@ describe('C-409 Track R intake observability', () => {
       workflowRunId: TRACK_R_P3_SUPERSEDED_RUN,
       repoRoot,
     });
+    assert.equal(status.intake_state, 'SUPERSEDED');
+    assert.equal(status.structurally_accepted, false);
     assert.ok(status.blocked_reasons.some((reason) => reason.includes('superseded')));
     assert.equal(status.execution_authorized, false);
   });

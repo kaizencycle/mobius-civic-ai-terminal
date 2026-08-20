@@ -54,9 +54,11 @@ export function resolveIntegrityDegraded(input: IntegrityAuthorityInput): boolea
     input.tripwireElevated ||
     !input.gicAvailable ||
     input.gicFetchFailed === true ||
+    input.zeusVerificationStatus === 'unknown' ||
     input.zeusVerificationStatus === 'disputed' ||
     input.zeusVerificationStatus === 'blocked' ||
-    input.governanceState === 'disputed'
+    input.governanceState === 'disputed' ||
+    input.governanceState === 'unknown'
   );
 }
 

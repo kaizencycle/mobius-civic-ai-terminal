@@ -4,17 +4,20 @@
  * Never issues ADOPT, never authorizes execution, never synthesizes verdicts.
  */
 
-import { kvGet } from '@/lib/kv/store';
+import { kvGet, kvGetOrThrow } from '@/lib/kv/store';
 import {
   findPacketReviewEntry,
   loadPacketReviewRegistry,
+  type PacketReviewRegistry,
   type PacketReviewRegistryEntry,
 } from '@/lib/watchdog/batchRepair/p3PacketReviewRegistry';
 import {
   loadIssuedPacketRegistry,
+  type IssuedPacketRegistry,
   type IssuedPacketRegistryEntry,
 } from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
 import {
+  loadTrackRP3ReviewRegistryFromKvRow,
   TRACK_R_P3_REVIEW_REGISTRY_KV_KEY,
   trackRP3ReviewReceiptKvKey,
   type TrackRP3ReviewReceiptRecord,
@@ -40,11 +43,17 @@ export type TrackRP3ReviewLaneStatus = {
   blocked_reasons: string[];
 };
 
+export type TrackRP3IntakeDataSource =
+  | 'kv'
+  | 'committed_registry'
+  | 'fallback'
+  | 'kv_unavailable';
+
 export type TrackRP3IntakeObservability = {
   ok: boolean;
   read_only: true;
   execution_authorized: false;
-  data_source: 'kv' | 'committed_registry' | 'fallback';
+  data_source: TrackRP3IntakeDataSource;
   run_id: string;
   packet_hash: string | null;
   journal_id: string | null;
@@ -65,21 +74,39 @@ export type TrackRP3IntakeObservability = {
 const CANONICAL_CURRENT_RUN = '32264177719';
 const SUPERSEDED_RUN = '32264049953';
 
-function mapRegistryStatusToIntakeState(
-  entry: PacketReviewRegistryEntry | undefined,
-  issued: IssuedPacketRegistryEntry | undefined,
-): TrackRP3OperatorIntakeState {
-  if (entry?.status === 'superseded') return 'SUPERSEDED';
-  if (!issued && !entry) return 'NOT_SEEN';
-  if (entry?.status === 'challenged') return 'BLOCKED';
-  if (entry?.status === 'adopted_for_handoff_consideration') return 'REVIEW_IN_PROGRESS';
-  if (entry?.status === 'awaiting_human') return 'REVIEW_IN_PROGRESS';
-  if (entry?.status === 'intake_verified') return 'INTAKE_VERIFIED';
-  if (entry?.status === 'awaiting_zeus' || entry?.status === 'awaiting_eve') {
+function isSupersededByNewerIssuance(args: {
+  runId: string;
+  issuedRegistry: IssuedPacketRegistry;
+}): { superseded: boolean; supersededByRunId: string | null } {
+  const target = args.issuedRegistry.entries.find((row) => row.workflow_run_id === args.runId);
+  if (!target) {
+    return { superseded: args.runId === SUPERSEDED_RUN, supersededByRunId: CANONICAL_CURRENT_RUN };
+  }
+  const newer = args.issuedRegistry.entries
+    .filter((row) => row.workflow_run_id !== args.runId)
+    .filter((row) => Date.parse(row.issued_at) > Date.parse(target.issued_at))
+    .sort((a, b) => Date.parse(b.issued_at) - Date.parse(a.issued_at))[0];
+  if (newer) {
+    return { superseded: true, supersededByRunId: newer.workflow_run_id };
+  }
+  return { superseded: false, supersededByRunId: null };
+}
+
+function mapRegistryStatusToIntakeState(args: {
+  entry: PacketReviewRegistryEntry | undefined;
+  issued: IssuedPacketRegistryEntry | undefined;
+  superseded: boolean;
+}): TrackRP3OperatorIntakeState {
+  if (args.superseded || args.entry?.status === 'superseded') return 'SUPERSEDED';
+  if (!args.entry) return 'NOT_SEEN';
+  if (args.entry.status === 'challenged') return 'BLOCKED';
+  if (args.entry.status === 'adopted_for_handoff_consideration') return 'REVIEW_IN_PROGRESS';
+  if (args.entry.status === 'awaiting_human') return 'REVIEW_IN_PROGRESS';
+  if (args.entry.status === 'intake_verified') return 'INTAKE_VERIFIED';
+  if (args.entry.status === 'awaiting_zeus' || args.entry.status === 'awaiting_eve') {
     return 'AWAITING_INDEPENDENT_REVIEW';
   }
-  if (entry?.status === 'discovered') return 'NOT_SEEN';
-  if (issued) return 'AWAITING_INDEPENDENT_REVIEW';
+  if (args.entry.status === 'discovered') return 'NOT_SEEN';
   return 'NOT_SEEN';
 }
 
@@ -101,6 +128,9 @@ function laneStatus(args: {
   if (args.intakeState === 'NOT_SEEN') {
     blocked_reasons.push('intake_not_observed');
   }
+  if (args.intakeState === 'BLOCKED') {
+    blocked_reasons.push('review_blocked');
+  }
   if (reviewStatus === 'adopt' || reviewStatus === 'challenge' || reviewStatus === 'overturn') {
     blocked_reasons.push('independent_review_recorded_separately');
   }
@@ -119,6 +149,44 @@ function laneStatus(args: {
   };
 }
 
+async function loadReviewRegistry(args: {
+  repoRoot: string;
+}): Promise<{
+  data_source: TrackRP3IntakeDataSource;
+  registry: PacketReviewRegistry | null;
+  errors: string[];
+}> {
+  try {
+    const kvRow = await kvGetOrThrow<PacketReviewRegistry>(TRACK_R_P3_REVIEW_REGISTRY_KV_KEY);
+    if (kvRow != null) {
+      const loaded = loadTrackRP3ReviewRegistryFromKvRow(kvRow);
+      if (!loaded.ok) {
+        return { data_source: 'kv_unavailable', registry: null, errors: loaded.errors };
+      }
+      return { data_source: 'kv', registry: loaded.registry, errors: [] };
+    }
+  } catch (error) {
+    const message = `Track R P3 review registry KV read failed: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+    const committed = loadPacketReviewRegistry(args.repoRoot);
+    if (committed.ok) {
+      return {
+        data_source: 'kv_unavailable',
+        registry: committed.registry,
+        errors: [message],
+      };
+    }
+    return { data_source: 'kv_unavailable', registry: null, errors: [message, ...committed.errors] };
+  }
+
+  const committed = loadPacketReviewRegistry(args.repoRoot);
+  if (committed.ok) {
+    return { data_source: 'committed_registry', registry: committed.registry, errors: [] };
+  }
+  return { data_source: 'fallback', registry: null, errors: committed.errors };
+}
+
 export async function buildTrackRP3IntakeObservability(args: {
   workflowRunId?: string;
   repoRoot?: string;
@@ -129,32 +197,21 @@ export async function buildTrackRP3IntakeObservability(args: {
   const blocked_reasons: string[] = [];
 
   const issuedLoad = loadIssuedPacketRegistry(repoRoot);
-  const issued = issuedLoad.ok
-    ? issuedLoad.registry.entries.find((row) => row.workflow_run_id === runId)
-    : undefined;
+  const issuedRegistry = issuedLoad.ok ? issuedLoad.registry : null;
+  const issued = issuedRegistry?.entries.find((row) => row.workflow_run_id === runId);
   if (!issuedLoad.ok) errors.push(...issuedLoad.errors);
 
-  let data_source: TrackRP3IntakeObservability['data_source'] = 'fallback';
-  let registryEntry: PacketReviewRegistryEntry | undefined;
+  const supersession = issuedRegistry
+    ? isSupersededByNewerIssuance({ runId, issuedRegistry })
+    : { superseded: runId === SUPERSEDED_RUN, supersededByRunId: CANONICAL_CURRENT_RUN };
 
-  const kvRegistry = await kvGet<{ entries?: PacketReviewRegistryEntry[] }>(
-    TRACK_R_P3_REVIEW_REGISTRY_KV_KEY,
-  );
-  if (kvRegistry && Array.isArray(kvRegistry.entries)) {
-    data_source = 'kv';
-    registryEntry = findPacketReviewEntry(
-      { schema_version: '1', note: '', entries: kvRegistry.entries },
-      runId,
-    );
-  } else {
-    const committed = loadPacketReviewRegistry(repoRoot);
-    if (committed.ok) {
-      data_source = 'committed_registry';
-      registryEntry = findPacketReviewEntry(committed.registry, runId);
-    } else {
-      errors.push(...committed.errors);
-    }
-  }
+  const registryLoad = await loadReviewRegistry({ repoRoot });
+  errors.push(...registryLoad.errors);
+
+  const data_source = registryLoad.data_source;
+  const registryEntry = registryLoad.registry
+    ? findPacketReviewEntry(registryLoad.registry, runId)
+    : undefined;
 
   const zeusReceipt = await kvGet<TrackRP3ReviewReceiptRecord>(
     trackRP3ReviewReceiptKvKey({ workflowRunId: runId, lane: 'ZEUS' }),
@@ -163,10 +220,17 @@ export async function buildTrackRP3IntakeObservability(args: {
     trackRP3ReviewReceiptKvKey({ workflowRunId: runId, lane: 'EVE' }),
   );
 
-  const intake_state = mapRegistryStatusToIntakeState(registryEntry, issued);
+  const intake_state = mapRegistryStatusToIntakeState({
+    entry: registryEntry,
+    issued,
+    superseded: supersession.superseded,
+  });
 
-  if (runId === SUPERSEDED_RUN) {
+  if (supersession.superseded) {
     blocked_reasons.push('superseded_run_cannot_satisfy_current_gates');
+    if (supersession.supersededByRunId) {
+      blocked_reasons.push(`superseded_by_${supersession.supersededByRunId}`);
+    }
   }
   if (registryEntry?.superseded_by_workflow_run_id) {
     blocked_reasons.push(`superseded_by_${registryEntry.superseded_by_workflow_run_id}`);
@@ -181,6 +245,9 @@ export async function buildTrackRP3IntakeObservability(args: {
     blocked_reasons.push('human_consent_absent');
   }
   blocked_reasons.push('execution_handoff_absent');
+  if (data_source === 'kv_unavailable') {
+    blocked_reasons.push('runtime_registry_kv_unavailable');
+  }
 
   const packet_hash = registryEntry?.packet_hash ?? issued?.packet_hash ?? null;
   const journal_id = registryEntry?.journal_id ?? issued?.journal_id ?? null;
@@ -192,8 +259,10 @@ export async function buildTrackRP3IntakeObservability(args: {
     blocked_reasons.push('packet_hash_binding_failed');
   }
 
+  const structurally_accepted = intake_state === 'INTAKE_VERIFIED';
+
   return {
-    ok: errors.length === 0,
+    ok: errors.length === 0 && intake_state !== 'SUPERSEDED' && intake_state !== 'BLOCKED',
     read_only: true,
     execution_authorized: false,
     data_source,
@@ -204,8 +273,9 @@ export async function buildTrackRP3IntakeObservability(args: {
     intake_state,
     last_intake_at: registryEntry?.last_intake_at ?? registryEntry?.intake_verified_at ?? null,
     intake_journal_emitted: Boolean(registryEntry?.intake_journals_completed),
-    structurally_accepted: intake_state === 'INTAKE_VERIFIED' || intake_state === 'AWAITING_INDEPENDENT_REVIEW',
-    superseded_by_run_id: registryEntry?.superseded_by_workflow_run_id ?? null,
+    structurally_accepted,
+    superseded_by_run_id:
+      registryEntry?.superseded_by_workflow_run_id ?? supersession.supersededByRunId,
     supersedes_run_id: registryEntry?.supersedes_workflow_run_id ?? null,
     zeus: laneStatus({
       lane: 'ZEUS',

@@ -96,8 +96,13 @@ export async function GET() {
     });
   }
 
-  async function cacheAndReturn(result: Record<string, unknown>): Promise<NextResponse> {
-    if (!result.degraded) {
+  async function cacheAndReturn(
+    result: Record<string, unknown>,
+    options?: { skipCache?: boolean },
+  ): Promise<NextResponse> {
+    // Cache stable computed payloads even when authority is degraded (e.g. disputed ZEUS).
+    // Skip only on transient GIC fetch failures where a retry may succeed.
+    if (!options?.skipCache) {
       kvSet(INTEGRITY_CACHE_KEY, result, INTEGRITY_CACHE_TTL).catch(() => {});
     }
     return NextResponse.json(result, { headers: { ...CACHE_HEADERS, 'X-Cache': 'MISS' } });
@@ -224,6 +229,7 @@ export async function GET() {
             gicFetchFailed: true,
           }),
         }),
+        { skipCache: true },
       );
     }
 
@@ -275,6 +281,7 @@ export async function GET() {
           gicFetchFailed: true,
         }),
       }),
+      { skipCache: true },
     );
   }
 }
