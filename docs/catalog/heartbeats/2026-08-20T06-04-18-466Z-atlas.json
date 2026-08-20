@@ -1,0 +1,109 @@
+{
+  "timestamp": "2026-08-20T06:04:18.466Z",
+  "agent": "ATLAS",
+  "cycle": "C-409",
+  "gi": 0.792,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "gaia-noaa-alerts",
+      "label": "NOAA active weather alerts",
+      "severity": "watch"
+    },
+    {
+      "source": "themis-federal-register",
+      "label": "Federal Register rule count",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 5,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 2,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 18,
+    "diagnostic_required": 19,
+    "timestamp": "2026-08-20T06:02:07.836Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.86,
+  "degraded_agents": 3,
+  "degraded_agent_names": [
+    "AUREA",
+    "JADE",
+    "DAEDALUS"
+  ],
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-08-20T06:02:07.912Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": false,
+      "level": "none",
+      "reason": "No active tripwires - baseline state",
+      "last_updated": "2026-08-20T05:02:28.985Z"
+    },
+    "last_updated": "2026-08-20T06:02:07.912Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "pre_seed_gi": 0.792,
+  "pre_seed_mode": "yellow",
+  "post_seed_gi": 0.792,
+  "post_seed_mode": "yellow",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "seed_http": "200",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-409-2palso",
+  "journal_ok": true,
+  "journal_canonical": true
+}
