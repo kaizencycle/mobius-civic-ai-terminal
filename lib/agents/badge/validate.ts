@@ -20,6 +20,8 @@ import type {
   WitnessProvenance,
 } from '@/lib/agents/badge/types';
 
+const MIN_QUORUM_WITNESSES = 2;
+
 function fail(code: string, message: string): ValidationResult {
   return { ok: false, code, message };
 }
@@ -50,6 +52,10 @@ function containsSecrets(value: unknown): boolean {
   return false;
 }
 
+function witnessHasProvenance(witness: WitnessProvenance): boolean {
+  return Boolean(witness.model_provenance) || (witness.evidence_sources?.length ?? 0) > 0;
+}
+
 export function validateAgentBadge(
   badge: AgentBadge,
   nowMs: number = Date.now(),
@@ -69,8 +75,8 @@ export function validateAgentBadge(
   if (badge.mic_mechanism !== false) {
     return fail('mic_mechanism', 'Badge must not create MIC or financial balance');
   }
-  if (badge.revocation_status === 'revoked') {
-    return fail('badge_revoked', 'Badge is revoked');
+  if (badge.revocation_status === 'revoked' || badge.revocation_status === 'expired') {
+    return fail('badge_revoked', `Badge is ${badge.revocation_status}`);
   }
   const expires = parseIso(badge.expires_at);
   if (!Number.isNaN(expires) && nowMs > expires) {
@@ -128,12 +134,12 @@ export function validateJobCapability(
   if (Number.isNaN(expires) || nowMs > expires) {
     return fail('capability_expired', 'Job capability has expired');
   }
-  const badge = getAgentBadge(capability.agent_id);
-  if (!badge) {
-    return fail('unknown_agent', `Unknown agent_id "${capability.agent_id}"`);
-  }
-  const badgeCheck = validateAgentBadge(badge, nowMs);
-  if (!badgeCheck.ok) return badgeCheck;
+  const actionCheck = validateBadgePermitsParticipation(
+    capability.agent_id,
+    capability.permitted_action,
+    nowMs,
+  );
+  if (!actionCheck.ok) return actionCheck;
   return ok();
 }
 
@@ -149,6 +155,9 @@ export function validateGovernedJob(job: GovernedJob): ValidationResult {
   }
   if (!job.human_approver.startsWith('mobius:human:')) {
     return fail('human_approver', 'human_approver must be a registered human identity');
+  }
+  if (job.execution_authorized && !job.human_approval) {
+    return fail('missing_human_consent', 'execution_authorized requires human_approval');
   }
   if (job.quorum_satisfied && job.execution_authorized && !job.human_approval) {
     return fail('quorum_bypass', 'Quorum alone must not grant execution_authorized');
@@ -179,9 +188,13 @@ export function detectSelfApproval(
 export function validateQuorumIndependence(
   witnesses: WitnessProvenance[],
   requiredDomainCoverage: string[] = [],
+  nowMs: number = Date.now(),
 ): ValidationResult {
   if (witnesses.length === 0) {
     return fail('empty_quorum', 'No witnesses supplied');
+  }
+  if (witnesses.length < MIN_QUORUM_WITNESSES) {
+    return fail('insufficient_witnesses', `Quorum requires at least ${MIN_QUORUM_WITNESSES} eligible witnesses`);
   }
 
   const agentIds = witnesses.map((w) => w.agent_id);
@@ -189,14 +202,37 @@ export function validateQuorumIndependence(
     return fail('duplicate_witness', 'Duplicate agents cannot count as independent witnesses');
   }
 
-  const processIds = witnesses
-    .map((w) => w.shared_process_id)
-    .filter((id): id is string => Boolean(id));
-  if (processIds.length > 1 && new Set(processIds).size === 1) {
-    return fail(
-      'insufficient_independence',
-      'Multiple personas backed by the same evidentiary process cannot satisfy quorum',
+  for (const witness of witnesses) {
+    if (!VALID_AGENT_IDS.has(witness.agent_id)) {
+      return fail('unknown_witness', `Unknown witness agent "${witness.agent_id}"`);
+    }
+    const badge = getAgentBadge(witness.agent_id);
+    if (!badge || !validateAgentBadge(badge, nowMs).ok) {
+      return fail('ineligible_witness', `Witness "${witness.agent_id}" lacks an active eligible badge`);
+    }
+    if (!witnessHasProvenance(witness)) {
+      return fail(
+        'insufficient_independence',
+        `Independence cannot be established for witness "${witness.agent_id}"`,
+      );
+    }
+  }
+
+  const processCounts = new Map<string, number>();
+  for (const witness of witnesses) {
+    if (!witness.shared_process_id) continue;
+    processCounts.set(
+      witness.shared_process_id,
+      (processCounts.get(witness.shared_process_id) ?? 0) + 1,
     );
+  }
+  for (const count of processCounts.values()) {
+    if (count > 1) {
+      return fail(
+        'insufficient_independence',
+        'Multiple personas backed by the same evidentiary process cannot satisfy quorum',
+      );
+    }
   }
 
   const builders = witnesses.filter((w) => w.builder_of_change);
@@ -217,17 +253,24 @@ export function validateQuorumIndependence(
     }
   }
 
-  const independenceUnknown = witnesses.every(
-    (w) => !w.model_provenance && !(w.evidence_sources?.length ?? 0),
-  );
-  if (independenceUnknown) {
-    return fail(
-      'insufficient_independence',
-      'Independence cannot be established from witness provenance',
-    );
-  }
-
   return ok();
+}
+
+function isValidAttestation(
+  job: GovernedJob,
+  record: AttestationRecord,
+  nowMs: number,
+): boolean {
+  if (record.job_id !== job.job_id || record.evidence_hash !== job.evidence_hash) {
+    return false;
+  }
+  if (!VALID_AGENT_IDS.has(record.agent_id)) {
+    return false;
+  }
+  if (validateBadgePermitsParticipation(record.agent_id, 'issue_attestation', nowMs).ok !== true) {
+    return false;
+  }
+  return detectSelfVerification(job, record.agent_id).ok === true;
 }
 
 export function deriveAuthorizationPosture(input: {
@@ -249,17 +292,20 @@ export function deriveAuthorizationPosture(input: {
     capability_valid: false,
     attestations_valid: false,
     quorum_satisfied: false,
-    human_approval: job.human_approval,
+    human_approval: false,
     execution_authorized: false,
     authority_source: 'canon_registry',
     execution_grant: null,
     mic_created: false,
   };
 
+  if (VALID_AGENT_IDS.has(job.steward)) {
+    posture.state = 'REGISTERED';
+  }
+
   const stewardBadge = getAgentBadge(job.steward);
   posture.badge_valid =
     stewardBadge !== null && validateAgentBadge(stewardBadge, nowMs).ok === true;
-
   if (posture.badge_valid) {
     posture.state = 'BADGED';
   }
@@ -274,34 +320,47 @@ export function deriveAuthorizationPosture(input: {
     posture.state = 'ASSIGNED';
   }
 
-  const validAttestations = input.attestations.filter(
-    (record) =>
-      record.job_id === job.job_id &&
-      record.evidence_hash === job.evidence_hash &&
-      detectSelfVerification(job, record.agent_id).ok === true,
+  const validAttestations = input.attestations.filter((record) =>
+    isValidAttestation(job, record, nowMs),
   );
   posture.attestations_valid = validAttestations.length > 0;
   if (posture.attestations_valid) {
     posture.state = 'ATTESTED';
   }
 
-  const quorumCheck = validateQuorumIndependence(input.witnesses);
-  posture.quorum_satisfied = quorumCheck.ok === true && job.quorum_satisfied === true;
+  const quorumCheck = validateQuorumIndependence(input.witnesses, [], nowMs);
+  const callerQuorumFlag = job.quorum_satisfied === true;
+  posture.quorum_satisfied = quorumCheck.ok === true && callerQuorumFlag;
   if (!quorumCheck.ok) {
-    posture.quorum_status = quorumCheck.code === 'insufficient_independence'
-      ? 'insufficient_evidentiary_independence'
-      : quorumCheck.code;
+    posture.quorum_status =
+      quorumCheck.code === 'insufficient_independence' ||
+      quorumCheck.code === 'ineligible_witness' ||
+      quorumCheck.code === 'unknown_witness'
+        ? 'insufficient_evidentiary_independence'
+        : quorumCheck.code;
     posture.quorum_satisfied = false;
   }
   if (posture.quorum_satisfied) {
     posture.state = 'QUORUM_REACHED';
   }
 
-  if (job.human_approval) {
+  const chainCompleteThroughQuorum =
+    posture.badge_valid &&
+    posture.capability_valid &&
+    posture.attestations_valid &&
+    posture.quorum_satisfied;
+
+  if (chainCompleteThroughQuorum && job.human_approval) {
+    posture.human_approval = true;
     posture.state = 'HUMAN_APPROVED';
   }
 
-  if (job.execution_authorized && job.human_approval) {
+  const executionPrerequisitesMet =
+    chainCompleteThroughQuorum &&
+    posture.human_approval &&
+    job.execution_authorized === true;
+
+  if (executionPrerequisitesMet) {
     posture.state = 'EXECUTION_AUTHORIZED';
     posture.execution_authorized = true;
   } else {

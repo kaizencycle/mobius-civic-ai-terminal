@@ -55,7 +55,7 @@ function baseCapability(overrides: Partial<JobCapability> = {}): JobCapability {
     agent_id: 'mobius:agent:zeus',
     job_id: 'EPICON-C410-EXAMPLE',
     evidence_hash: EVIDENCE_HASH,
-    permitted_action: 'issue_adversarial_verdict',
+    permitted_action: 'issue_attestation',
     scope: ['docs/epicon/cycles/C-410/'],
     issued_at: '2026-08-21T00:00:00.000Z',
     expires_at: '2026-12-31T23:59:59.000Z',
@@ -144,6 +144,16 @@ describe('C-410 division-of-labor and self-review rejection', () => {
     assert.equal(result.ok, false);
   });
 
+  it('rejects execution without human approval regardless of quorum flag', () => {
+    const job = baseJob({
+      quorum_satisfied: false,
+      human_approval: false,
+      execution_authorized: true,
+    });
+    const result = validateGovernedJob(job);
+    assert.equal(result.ok, false);
+  });
+
   it('rejects quorum bypassing human approval', () => {
     const job = baseJob({
       quorum_satisfied: true,
@@ -174,6 +184,15 @@ describe('C-410 capability and packet binding', () => {
       NOW,
     );
     assert.equal(expired.ok, false);
+  });
+
+  it('rejects capabilities that widen standing beyond badge eligibility', () => {
+    const capability = baseCapability({
+      agent_id: 'mobius:agent:atlas',
+      permitted_action: 'mutate_production',
+    });
+    const result = validateJobCapability(capability, EVIDENCE_HASH, NOW);
+    assert.equal(result.ok, false);
   });
 
   it('rejects human approval for a different hash, action, or scope', () => {
@@ -216,6 +235,59 @@ describe('C-410 quorum independence and authorization posture', () => {
     ];
     const result = validateQuorumIndependence(witnesses);
     assert.equal(result.ok, false);
+  });
+
+  it('does not satisfy quorum for unregistered witnesses', () => {
+    const witnesses: WitnessProvenance[] = [
+      {
+        agent_id: 'mobius:agent:not-registered',
+        evidence_sources: ['docs/'],
+        model_provenance: 'review-runtime-a',
+      },
+      {
+        agent_id: 'mobius:agent:eve',
+        evidence_sources: ['docs/governance/'],
+        model_provenance: 'review-runtime-b',
+      },
+    ];
+    const result = validateQuorumIndependence(witnesses, [], NOW);
+    assert.equal(result.ok, false);
+  });
+
+  it('does not satisfy quorum when witnesses share a process id', () => {
+    const witnesses: WitnessProvenance[] = [
+      {
+        agent_id: 'mobius:agent:zeus',
+        shared_process_id: 'process-a',
+        evidence_sources: ['docs/epicon/'],
+        model_provenance: 'review-runtime-a',
+      },
+      {
+        agent_id: 'mobius:agent:eve',
+        shared_process_id: 'process-a',
+        evidence_sources: ['docs/governance/'],
+        model_provenance: 'review-runtime-b',
+      },
+    ];
+    const result = validateQuorumIndependence(witnesses, [], NOW);
+    assert.equal(result.ok, false);
+  });
+
+  it('does not authorize execution from flags alone without validated chain', () => {
+    const job = baseJob({
+      quorum_satisfied: true,
+      human_approval: true,
+      execution_authorized: true,
+    });
+    const posture = deriveAuthorizationPosture({
+      job,
+      capabilities: [],
+      attestations: [],
+      witnesses: [],
+      nowMs: NOW,
+    });
+    assert.equal(posture.execution_authorized, false);
+    assert.notEqual(posture.state, 'EXECUTION_AUTHORIZED');
   });
 
   it('keeps execution_authorized false without human consent even when quorum is true', () => {
@@ -277,11 +349,14 @@ describe('C-410 badge fail-closed guards', () => {
     assert.equal(validateAgentBadge(unknown, NOW).ok, false);
   });
 
-  it('rejects revoked badges', () => {
+  it('rejects revoked and explicitly expired badges', () => {
     const badge = getAgentBadge('mobius:agent:zeus');
     assert.ok(badge);
     const revoked = { ...badge!, revocation_status: 'revoked' as const };
     assert.equal(validateAgentBadge(revoked, NOW).ok, false);
+
+    const expired = { ...badge!, revocation_status: 'expired' as const, expires_at: null };
+    assert.equal(validateAgentBadge(expired, NOW).ok, false);
   });
 
   it('rejects secrets in badge records', () => {
