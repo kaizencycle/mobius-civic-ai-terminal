@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mobius.local/governance/schemas/authorization-state.schema.json",
+  "title": "Mobius Authorization State v0.1",
+  "description": "Fail-closed authorization posture for a governed packet. Quorum alone never grants execution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "job_id",
+    "evidence_hash",
+    "state",
+    "badge_valid",
+    "capability_valid",
+    "attestations_valid",
+    "quorum_satisfied",
+    "human_approval",
+    "execution_authorized",
+    "authority_source"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "job_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "REGISTERED",
+        "BADGED",
+        "ASSIGNED",
+        "ATTESTED",
+        "QUORUM_REACHED",
+        "HUMAN_APPROVED",
+        "EXECUTION_AUTHORIZED",
+        "EXPIRED_OR_REVOKED"
+      ]
+    },
+    "badge_valid": {
+      "type": "boolean"
+    },
+    "capability_valid": {
+      "type": "boolean"
+    },
+    "attestations_valid": {
+      "type": "boolean"
+    },
+    "quorum_satisfied": {
+      "type": "boolean"
+    },
+    "quorum_status": {
+      "type": "string"
+    },
+    "human_approval": {
+      "type": "boolean"
+    },
+    "execution_authorized": {
+      "type": "boolean"
+    },
+    "authority_source": {
+      "type": "string",
+      "enum": ["canon_registry", "terminal_renderer"]
+    },
+    "execution_grant": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "exact_action": { "type": "string" },
+        "exact_scope": { "type": "array", "items": { "type": "string" } },
+        "evidence_hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "issuing_human": { "type": "string" },
+        "issued_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "rollback_condition": { "type": "string" },
+        "revocation_status": { "type": "string", "enum": ["active", "revoked", "expired"] }
+      }
+    },
+    "mic_created": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

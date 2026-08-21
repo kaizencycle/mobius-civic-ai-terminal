@@ -1,0 +1,395 @@
+{
+  "schema_version": "0.1",
+  "cycle": "C-410",
+  "badges": [
+    {
+      "schema_version": "0.1",
+      "agent_id": "mobius:agent:atlas",
+      "display_name": "ATLAS",
+      "badge_type": "steward",
+      "primary_domains": [
+        "terminal",
+        "substrate",
+        "cpc",
+        "architecture",
+        "implementation"
+      ],
+      "core_function": "Architecture and implementation",
+      "permitted_actions": [
+        "read_evidence",
+        "review_packet",
+        "coordinate_job",
+        "issue_attestation",
+        "propose_change"
+      ],
+      "prohibited_actions": [
+        "self_approve",
+        "grant_human_consent",
+        "authorize_execution",
+        "mutate_production",
+        "form_seal_unilaterally",
+        "unlock_fountain",
+        "mint_mic"
+      ],
+      "issuer": "mobius:human:michael-judan",
+      "issued_at": "2026-08-21T00:00:00.000Z",
+      "expires_at": null,
+      "revocation_status": "active",
+      "public_key_id": null,
+      "human_steward": "Michael Judan",
+      "execution_authority": false,
+      "mic_mechanism": false
+    },
+    {
+      "schema_version": "0.1",
+      "agent_id": "mobius:agent:zeus",
+      "display_name": "ZEUS",
+      "badge_type": "independent_verifier",
+      "primary_domains": [
+        "governance_verification",
+        "adversarial_review",
+        "cross_surface_verification"
+      ],
+      "core_function": "Adversarial review and disputes",
+      "permitted_actions": [
+        "read_evidence",
+        "review_packet",
+        "issue_attestation",
+        "open_dispute",
+        "recommend_block"
+      ],
+      "prohibited_actions": [
+        "self_approve",
+        "grant_human_consent",
+        "authorize_execution",
+        "mutate_production",
+        "form_seal_unilaterally",
+        "unlock_fountain",
+        "mint_mic"
+      ],
+      "issuer": "mobius:human:michael-judan",
+      "issued_at": "2026-08-21T00:00:00.000Z",
+      "expires_at": null,
+      "revocation_status": "active",
+      "public_key_id": null,
+      "human_steward": "Michael Judan",
+      "execution_authority": false,
+      "mic_mechanism": false
+    },
+    {
+      "schema_version": "0.1",
+      "agent_id": "mobius:agent:hermes",
+      "display_name": "HERMES",
+      "badge_type": "market_analyst",
+      "primary_domains": [
+        "markets",
+        "economic_evidence",
+        "market_provenance"
+      ],
+      "core_function": "Market analysis and provenance",
+      "permitted_actions": [
+        "read_evidence",
+        "review_packet",
+        "supply_market_evidence",
+        "issue_attestation"
+      ],
+      "prohibited_actions": [
+        "self_approve",
+        "grant_human_consent",
+        "authorize_execution",
+        "mutate_production",
+        "form_seal_unilaterally",
+        "unlock_fountain",
+        "mint_mic"
+      ],
+      "issuer": "mobius:human:michael-judan",
+      "issued_at": "2026-08-21T00:00:00.000Z",
+      "expires_at": null,
+      "revocation_status": "active",
+      "public_key_id": null,
+      "human_steward": "Michael Judan",
+      "execution_authority": false,
+      "mic_mechanism": false
+    },
+    {
+      "schema_version": "0.1",
+      "agent_id": "mobius:agent:jade",
+      "display_name": "JADE",
+      "badge_type": "narrative_steward",
+      "primary_domains": [
+        "chambers",
+        "academy",
+        "narrative_coherence"
+      ],
+      "core_function": "Teaching and narrative coherence",
+      "permitted_actions": [
+        "read_evidence",
+        "review_packet",
+        "frame_narrative",
+        "issue_attestation"
+      ],
+      "prohibited_actions": [
+        "self_approve",
+        "grant_human_consent",
+        "authorize_execution",
+        "mutate_production",
+        "form_seal_unilaterally",
+        "unlock_fountain",
+        "mint_mic"
+      ],
+      "issuer": "mobius:human:michael-judan",
+      "issued_at": "2026-08-21T00:00:00.000Z",
+      "expires_at": null,
+      "revocation_status": "active",
+      "public_key_id": null,
+      "human_steward": "Michael Judan",
+      "execution_authority": false,
+      "mic_mechanism": false
+    },
+    {
+      "schema_version": "0.1",
+      "agent_id": "mobius:agent:eve",
+      "display_name": "EVE",
+      "badge_type": "civic_guardian",
+      "primary_domains": [
+        "civic_governance",
+        "ethical_review",
+        "dignity"
+      ],
+      "core_function": "Dignity and constitutional review",
+      "permitted_actions": [
+        "read_evidence",
+        "review_packet",
+        "assess_civic_risk",
+        "issue_attestation",
+        "recommend_block"
+      ],
+      "prohibited_actions": [
+        "self_approve",
+        "grant_human_consent",
+        "authorize_execution",
+        "mutate_production",
+        "form_seal_unilaterally",
+        "unlock_fountain",
+        "mint_mic"
+      ],
+      "issuer": "mobius:human:michael-judan",
+      "issued_at": "2026-08-21T00:00:00.000Z",
+      "expires_at": null,
+      "revocation_status": "active",
+      "public_key_id": null,
+      "human_steward": "Michael Judan",
+      "execution_authority": false,
+      "mic_mechanism": false
+    },
+    {
+      "schema_version": "0.1",
+      "agent_id": "mobius:agent:echo",
+      "display_name": "ECHO",
+      "badge_type": "signal_observer",
+      "primary_domains": [
+        "live_world_observation",
+        "signals",
+        "anomalies",
+        "evidence_intake"
+      ],
+      "core_function": "Signals, anomalies and evidence intake",
+      "permitted_actions": [
+        "read_evidence",
+        "observe_signals",
+        "intake_evidence",
+        "issue_attestation"
+      ],
+      "prohibited_actions": [
+        "self_approve",
+        "grant_human_consent",
+        "authorize_execution",
+        "mutate_production",
+        "form_seal_unilaterally",
+        "unlock_fountain",
+        "mint_mic"
+      ],
+      "issuer": "mobius:human:michael-judan",
+      "issued_at": "2026-08-21T00:00:00.000Z",
+      "expires_at": null,
+      "revocation_status": "active",
+      "public_key_id": null,
+      "human_steward": "Michael Judan",
+      "execution_authority": false,
+      "mic_mechanism": false
+    },
+    {
+      "schema_version": "0.1",
+      "agent_id": "mobius:agent:aurea",
+      "display_name": "AUREA",
+      "badge_type": "strategic_synthesizer",
+      "primary_domains": [
+        "canon",
+        "handbook",
+        "roadmap",
+        "strategic_coherence"
+      ],
+      "core_function": "Strategic and canon coherence",
+      "permitted_actions": [
+        "read_evidence",
+        "review_packet",
+        "synthesize_strategy",
+        "issue_attestation"
+      ],
+      "prohibited_actions": [
+        "self_approve",
+        "grant_human_consent",
+        "authorize_execution",
+        "mutate_production",
+        "form_seal_unilaterally",
+        "unlock_fountain",
+        "mint_mic"
+      ],
+      "issuer": "mobius:human:michael-judan",
+      "issued_at": "2026-08-21T00:00:00.000Z",
+      "expires_at": null,
+      "revocation_status": "active",
+      "public_key_id": null,
+      "human_steward": "Michael Judan",
+      "execution_authority": false,
+      "mic_mechanism": false
+    },
+    {
+      "schema_version": "0.1",
+      "agent_id": "mobius:agent:daedalus",
+      "display_name": "DAEDALUS",
+      "badge_type": "research_architect",
+      "primary_domains": [
+        "labs",
+        "handbook_research",
+        "structural_design"
+      ],
+      "core_function": "Research and structural design",
+      "permitted_actions": [
+        "read_evidence",
+        "review_packet",
+        "design_structure",
+        "issue_attestation"
+      ],
+      "prohibited_actions": [
+        "self_approve",
+        "grant_human_consent",
+        "authorize_execution",
+        "mutate_production",
+        "form_seal_unilaterally",
+        "unlock_fountain",
+        "mint_mic"
+      ],
+      "issuer": "mobius:human:michael-judan",
+      "issued_at": "2026-08-21T00:00:00.000Z",
+      "expires_at": null,
+      "revocation_status": "active",
+      "public_key_id": null,
+      "human_steward": "Michael Judan",
+      "execution_authority": false,
+      "mic_mechanism": false
+    },
+    {
+      "schema_version": "0.1",
+      "agent_id": "mobius:agent:zenith",
+      "display_name": "ZENITH",
+      "badge_type": "cross_system_reviewer",
+      "primary_domains": [
+        "cross_system_comparison",
+        "independent_technical_review"
+      ],
+      "core_function": "Independent technical review",
+      "permitted_actions": [
+        "read_evidence",
+        "review_packet",
+        "cross_check_systems",
+        "issue_attestation"
+      ],
+      "prohibited_actions": [
+        "self_approve",
+        "grant_human_consent",
+        "authorize_execution",
+        "mutate_production",
+        "form_seal_unilaterally",
+        "unlock_fountain",
+        "mint_mic"
+      ],
+      "issuer": "mobius:human:michael-judan",
+      "issued_at": "2026-08-21T00:00:00.000Z",
+      "expires_at": null,
+      "revocation_status": "active",
+      "public_key_id": null,
+      "human_steward": "Michael Judan",
+      "execution_authority": false,
+      "mic_mechanism": false
+    },
+    {
+      "schema_version": "0.1",
+      "agent_id": "mobius:agent:uriel",
+      "display_name": "URIEL",
+      "badge_type": "contrarian_analyst",
+      "primary_domains": [
+        "contrarian_analysis",
+        "external_challenge",
+        "dissent"
+      ],
+      "core_function": "External challenge and dissent",
+      "permitted_actions": [
+        "read_evidence",
+        "review_packet",
+        "challenge_claims",
+        "issue_attestation",
+        "open_dispute"
+      ],
+      "prohibited_actions": [
+        "self_approve",
+        "grant_human_consent",
+        "authorize_execution",
+        "mutate_production",
+        "form_seal_unilaterally",
+        "unlock_fountain",
+        "mint_mic"
+      ],
+      "issuer": "mobius:human:michael-judan",
+      "issued_at": "2026-08-21T00:00:00.000Z",
+      "expires_at": null,
+      "revocation_status": "active",
+      "public_key_id": null,
+      "human_steward": "Michael Judan",
+      "execution_authority": false,
+      "mic_mechanism": false
+    },
+    {
+      "schema_version": "0.1",
+      "agent_id": "mobius:human:michael-judan",
+      "display_name": "Michael Judan",
+      "badge_type": "human_authority",
+      "primary_domains": [
+        "entire_civic_mesh",
+        "human_consent",
+        "final_authority"
+      ],
+      "core_function": "Human consent and final authority",
+      "permitted_actions": [
+        "read_evidence",
+        "review_packet",
+        "grant_human_consent",
+        "authorize_execution",
+        "revoke_capability"
+      ],
+      "prohibited_actions": [
+        "mint_mic",
+        "delegate_human_consent_to_agent",
+        "auto_approve_without_review"
+      ],
+      "issuer": "mobius:human:michael-judan",
+      "issued_at": "2026-08-21T00:00:00.000Z",
+      "expires_at": null,
+      "revocation_status": "active",
+      "public_key_id": null,
+      "human_steward": "Michael Judan",
+      "execution_authority": false,
+      "mic_mechanism": false
+    }
+  ]
+}

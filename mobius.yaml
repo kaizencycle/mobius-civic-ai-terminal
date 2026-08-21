@@ -290,3 +290,36 @@ governance:
   required_reviewers:
     - "ZEUS"
     - "ATLAS"
+
+# C-410 — Agent Badge and Stewardship Registry (Phase 1 canon; execution disabled)
+stewardship:
+  schema_version: "0.1"
+  cycle: "C-410"
+  authority_source: "canon_registry"
+  terminal_role: "renderer_not_authority"
+  human_steward: "Michael Judan"
+  human_approver: "mobius:human:michael-judan"
+  execution_phase: "disabled"
+  mic_mechanism: false
+  registry_root: "governance/agents"
+  schema_root: "governance/schemas"
+  validation_root: "lib/agents/badge"
+  protocol_doc: "docs/governance/AGENT_BADGE_PROTOCOL.md"
+  constitutional_rule: "Badge proves eligibility; quorum proves agreement; human consent grants consequential authority"
+  surface_assignments:
+    - surface: terminal
+      steward: mobius:agent:atlas
+      verifier: mobius:agent:zeus
+      guardian: mobius:agent:eve
+    - surface: substrate
+      steward: mobius:agent:aurea
+      verifier: mobius:agent:zeus
+      guardian: mobius:agent:eve
+    - surface: cpc
+      steward: mobius:agent:atlas
+      verifier: mobius:agent:zeus
+      guardian: mobius:agent:eve
+    - surface: roadmap
+      steward: mobius:agent:aurea
+      verifier: mobius:agent:zeus
+      guardian: mobius:human:michael-judan

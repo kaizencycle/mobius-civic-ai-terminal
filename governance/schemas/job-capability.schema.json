@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mobius.local/governance/schemas/job-capability.schema.json",
+  "title": "Mobius Job Capability Grant v0.1",
+  "description": "Narrow, temporary, packet-bound permission for a specific governed assignment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capability_id",
+    "cycle",
+    "agent_id",
+    "job_id",
+    "evidence_hash",
+    "permitted_action",
+    "scope",
+    "issued_at",
+    "expires_at",
+    "revoked",
+    "execution_authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "capability_id": {
+      "type": "string",
+      "pattern": "^CAP-C[0-9]+-[A-Z0-9-]+$"
+    },
+    "cycle": {
+      "type": "string",
+      "pattern": "^C-[0-9]+$"
+    },
+    "agent_id": {
+      "type": "string",
+      "pattern": "^mobius:(agent|human):[a-z0-9-]+$"
+    },
+    "job_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "permitted_action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revoked": {
+      "type": "boolean"
+    },
+    "execution_authority": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

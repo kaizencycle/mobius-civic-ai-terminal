@@ -1,0 +1,16 @@
+{
+  "schema_version": "0.1",
+  "job_id": "EPICON-C410-EXAMPLE",
+  "cycle": "C-410",
+  "surface": "terminal",
+  "domain": "market_evidence",
+  "steward": "mobius:agent:atlas",
+  "contributors": ["mobius:agent:hermes"],
+  "verifier": "mobius:agent:zeus",
+  "guardian": "mobius:agent:eve",
+  "human_approver": "mobius:human:michael-judan",
+  "evidence_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "quorum_satisfied": false,
+  "human_approval": false,
+  "execution_authorized": false
+}

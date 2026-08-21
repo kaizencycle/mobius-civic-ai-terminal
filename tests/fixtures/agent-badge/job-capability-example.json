@@ -1,0 +1,14 @@
+{
+  "schema_version": "0.1",
+  "capability_id": "CAP-C410-EXAMPLE",
+  "cycle": "C-410",
+  "agent_id": "mobius:agent:zeus",
+  "job_id": "EPICON-C410-EXAMPLE",
+  "evidence_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "permitted_action": "issue_attestation",
+  "scope": ["docs/epicon/cycles/C-410/"],
+  "issued_at": "2026-08-21T00:00:00.000Z",
+  "expires_at": "2026-12-31T23:59:59.000Z",
+  "revoked": false,
+  "execution_authority": false
+}

@@ -1,0 +1,32 @@
+{
+  "schema_version": "0.1",
+  "agent_id": "mobius:human:michael-judan",
+  "display_name": "Michael Judan",
+  "badge_type": "human_authority",
+  "primary_domains": [
+    "entire_civic_mesh",
+    "human_consent",
+    "final_authority"
+  ],
+  "core_function": "Human consent and final authority",
+  "permitted_actions": [
+    "read_evidence",
+    "review_packet",
+    "grant_human_consent",
+    "authorize_execution",
+    "revoke_capability"
+  ],
+  "prohibited_actions": [
+    "mint_mic",
+    "delegate_human_consent_to_agent",
+    "auto_approve_without_review"
+  ],
+  "issuer": "mobius:human:michael-judan",
+  "issued_at": "2026-08-21T00:00:00.000Z",
+  "expires_at": null,
+  "revocation_status": "active",
+  "public_key_id": null,
+  "human_steward": "Michael Judan",
+  "execution_authority": false,
+  "mic_mechanism": false
+}
