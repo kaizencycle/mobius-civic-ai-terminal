@@ -30,7 +30,7 @@ Preflight read: `AGENTS.md`, `BUILD.md`, `mobius.yaml`, PR templates (both repos
 | **GI (handoff reference)** | 0.64 yellow | Operator handoff | 2026-08-21 | Selected operational reference — **disagrees with live KV at fetch** |
 | **GI (micro composite)** | 0.872 | `/api/signals/micro` | 2026-08-21T13:10:33Z | Different formula; `cached: true` |
 | **GI (ATLAS cached)** | 0.712 (handoff) / 0.786 (repo) | heartbeats catalog | 2026-08-20T14:04:22Z latest | Agent evidence; not primary pulse |
-| **GI (Substrate editorial, former)** | 0.90 | `cycle.json` pre-reconciliation | 2026-08-21T04:50:09Z | Carry-forward; **superseded → null** |
+| **GI (Substrate editorial, former)** | 0.90 withheld | `cycle.json` post-reconciliation | 2026-08-21T13:15:00Z | Carry-forward; **gi_status unresolved — not live authority** (see `superseded_fields.gi`) |
 | **Mode** | green (live) / yellow (handoff) | snapshot-lite | 2026-08-21T13:08:43Z | Mode disagreement visible |
 | **degraded** | true | snapshot-lite, integrity-status | 2026-08-21T13:08:43Z | Authority degraded despite green mode |
 | **seals_raw** | 360 | vault / ledger | 2026-08-21T13:06:50Z | KV index cardinality |
@@ -71,7 +71,7 @@ Preflight read: `AGENTS.md`, `BUILD.md`, `mobius.yaml`, PR templates (both repos
 
 | Repo | Change |
 |------|--------|
-| **Mobius-Substrate** | `cycle.json` reconciliation: C-410 pointer, editorial gi null/unresolved, `operational_pulse` block, `competing_projections`, `superseded_fields`, removed `next_state_snapshot_expected`, updated `open_flags` |
+| **Mobius-Substrate** | `cycle.json` reconciliation: C-410 pointer, editorial gi withheld/unresolved (`gi_editorial_class: carry_forward_withheld`), `operational_pulse` block, `competing_projections`, `superseded_fields`, removed `next_state_snapshot_expected`, updated `open_flags` |
 | **Mobius-Substrate** | `tests/test_c410_cycle_pointer.py` |
 | **mobius-civic-ai-terminal** | This report + `tests/contract/c410CivicMeshReconciliation.test.ts` |
 

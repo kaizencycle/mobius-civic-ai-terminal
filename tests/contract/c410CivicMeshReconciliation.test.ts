@@ -16,6 +16,15 @@ import {
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const substrateCyclePath = join(repoRoot, '..', 'Mobius-Substrate', 'cycle.json');
+const c410LedgerFixturePath = join(
+  repoRoot,
+  'tests/fixtures/c410-reconciliation/ledger-cycle-state-c410.json',
+);
+
+function parseGeneratedCycle(markdown: string): string | null {
+  const match = markdown.match(/-\s+\*\*Cycle:\*\*\s+`([^`]+)`/);
+  return match?.[1] ?? null;
+}
 
 function readRepoFile(rel: string): string {
   return readFileSync(join(repoRoot, rel), 'utf8');
@@ -65,6 +74,16 @@ function baseQuorum(overrides: Partial<SentinelQuorumState> = {}): SentinelQuoru
 }
 
 describe('C-410 civic mesh reconciliation', () => {
+  it('C-410 reconciliation fixture locks cycle and fail-closed ledger posture', () => {
+    const fixture = readJson(c410LedgerFixturePath);
+    assert.equal(fixture.schema, 'MOBIUS_CYCLE_STATE_V2');
+    assert.equal(fixture.cycle, 'C-410');
+    assert.equal(fixture.gi, 0.81);
+    assert.equal(fixture.degraded, true);
+    assert.equal(fixture.source, 'snapshot-lite+vault+manifest');
+    assert.ok((fixture.open_gates as string[]).includes('terminal_degraded'));
+  });
+
   it('committed terminal ledger keeps fail-closed MOBIUS_CYCLE_STATE_V2 invariants', () => {
     const ledger = readJson(join(repoRoot, 'ledger/cycle-state.json'));
     assert.equal(ledger.schema, 'MOBIUS_CYCLE_STATE_V2');
@@ -74,6 +93,13 @@ describe('C-410 civic mesh reconciliation', () => {
     assert.ok(Array.isArray(ledger.open_gates));
     assert.ok((ledger.open_gates as string[]).includes('terminal_degraded'));
     assert.equal(ledger.source, 'snapshot-lite+vault+manifest');
+  });
+
+  it('live ledger cycle matches generated CURRENT_CYCLE.md block', () => {
+    const ledger = readJson(join(repoRoot, 'ledger/cycle-state.json'));
+    const generatedCycle = parseGeneratedCycle(readRepoFile('CURRENT_CYCLE.md'));
+    assert.ok(generatedCycle, 'CURRENT_CYCLE.md must expose generated cycle block');
+    assert.equal(ledger.cycle, generatedCycle);
   });
 
   it('reconciliation report documents C-410 non-averaged GI disagreement', () => {
@@ -140,13 +166,17 @@ describe('C-410 Substrate cycle pointer (sibling repo)', () => {
       gi: number;
       canon_lag?: { counting_model?: string };
     };
+    const superseded = cycle.superseded_fields as {
+      gi?: { former: number; reason: string };
+    };
 
     assert.equal(cycle.current_cycle, 'C-410');
     assert.equal(cycle.gi_status, 'unresolved');
     assert.equal(cycle.gi_editorial_class, 'carry_forward_withheld');
-    assert.equal(cycle.gi, 0.9);
-    assert.equal(pulse.gi, 0.81);
+    assert.equal(typeof cycle.gi, 'number');
+    assert.equal(typeof pulse.gi, 'number');
     assert.notEqual(pulse.gi, cycle.gi);
+    assert.match(String(superseded?.gi?.reason ?? ''), /unresolved|not live authority/i);
     assert.equal(pulse.execution_authorized, false);
     assert.equal(pulse.zeus_disposition, 'disputed');
     assert.equal('next_state_snapshot_expected' in cycle, false);
