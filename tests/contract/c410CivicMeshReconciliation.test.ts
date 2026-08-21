@@ -65,13 +65,20 @@ function baseQuorum(overrides: Partial<SentinelQuorumState> = {}): SentinelQuoru
 }
 
 describe('C-410 civic mesh reconciliation', () => {
-  it('committed terminal ledger remains on C-410', () => {
+  it('committed terminal ledger keeps fail-closed MOBIUS_CYCLE_STATE_V2 invariants', () => {
     const ledger = readJson(join(repoRoot, 'ledger/cycle-state.json'));
-    assert.equal(ledger.cycle, 'C-410');
+    assert.equal(ledger.schema, 'MOBIUS_CYCLE_STATE_V2');
+    assert.match(String(ledger.cycle), /^C-\d+$/);
+    assert.equal(ledger.degraded, true);
+    assert.equal(typeof ledger.gi, 'number');
+    assert.ok(Array.isArray(ledger.open_gates));
+    assert.ok((ledger.open_gates as string[]).includes('terminal_degraded'));
+    assert.equal(ledger.source, 'snapshot-lite+vault+manifest');
   });
 
-  it('reconciliation report documents non-averaged GI disagreement', () => {
+  it('reconciliation report documents C-410 non-averaged GI disagreement', () => {
     const report = readRepoFile('docs/epicon/cycles/C-410/C410_CIVIC_MESH_RECONCILIATION.md');
+    assert.match(report, /C-410/);
     assert.match(report, /not averaged/i);
     assert.match(report, /0\.64/);
     assert.match(report, /0\.81/);
@@ -136,6 +143,9 @@ describe('C-410 Substrate cycle pointer (sibling repo)', () => {
 
     assert.equal(cycle.current_cycle, 'C-410');
     assert.equal(cycle.gi_status, 'unresolved');
+    assert.equal(cycle.gi_editorial_class, 'carry_forward_withheld');
+    assert.equal(cycle.gi, 0.9);
+    assert.equal(pulse.gi, 0.81);
     assert.notEqual(pulse.gi, cycle.gi);
     assert.equal(pulse.execution_authorized, false);
     assert.equal(pulse.zeus_disposition, 'disputed');
