@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mobius.local/governance/schemas/agent-badge.schema.json",
+  "title": "Mobius Agent Badge v0.1",
+  "description": "Standing eligibility to participate in governed work. Does not grant execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "agent_id",
+    "display_name",
+    "badge_type",
+    "primary_domains",
+    "permitted_actions",
+    "prohibited_actions",
+    "issuer",
+    "issued_at",
+    "revocation_status",
+    "human_steward"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "agent_id": {
+      "type": "string",
+      "pattern": "^mobius:(agent|human):[a-z0-9-]+$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "badge_type": {
+      "type": "string",
+      "enum": [
+        "steward",
+        "independent_verifier",
+        "market_analyst",
+        "narrative_steward",
+        "civic_guardian",
+        "signal_observer",
+        "strategic_synthesizer",
+        "research_architect",
+        "cross_system_reviewer",
+        "contrarian_analyst",
+        "human_authority"
+      ]
+    },
+    "primary_domains": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "permitted_actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "prohibited_actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "issuer": {
+      "type": "string",
+      "pattern": "^mobius:human:[a-z0-9-]+$"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "revocation_status": {
+      "type": "string",
+      "enum": ["active", "revoked", "expired"]
+    },
+    "public_key_id": {
+      "type": ["string", "null"],
+      "description": "Future cryptographic key reference. null or unimplemented when signing is not wired."
+    },
+    "human_steward": {
+      "type": "string",
+      "const": "Michael Judan"
+    },
+    "core_function": {
+      "type": "string"
+    },
+    "execution_authority": {
+      "type": "boolean",
+      "const": false
+    },
+    "mic_mechanism": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

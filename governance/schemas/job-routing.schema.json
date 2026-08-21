@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mobius.local/governance/schemas/job-routing.schema.json",
+  "title": "Mobius Governed Job Routing v0.1",
+  "description": "Division-of-labor routing for a governed job packet.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "job_id",
+    "cycle",
+    "surface",
+    "domain",
+    "steward",
+    "contributors",
+    "verifier",
+    "guardian",
+    "human_approver",
+    "evidence_hash",
+    "quorum_satisfied",
+    "human_approval",
+    "execution_authorized"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "job_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cycle": {
+      "type": "string",
+      "pattern": "^C-[0-9]+$"
+    },
+    "surface": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1
+    },
+    "steward": {
+      "type": "string",
+      "pattern": "^mobius:(agent|human):[a-z0-9-]+$"
+    },
+    "contributors": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^mobius:(agent|human):[a-z0-9-]+$" }
+    },
+    "verifier": {
+      "type": "string",
+      "pattern": "^mobius:(agent|human):[a-z0-9-]+$"
+    },
+    "guardian": {
+      "type": "string",
+      "pattern": "^mobius:(agent|human):[a-z0-9-]+$"
+    },
+    "human_approver": {
+      "type": "string",
+      "pattern": "^mobius:human:[a-z0-9-]+$"
+    },
+    "evidence_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "quorum_satisfied": {
+      "type": "boolean"
+    },
+    "human_approval": {
+      "type": "boolean"
+    },
+    "execution_authorized": {
+      "type": "boolean"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "schema_version": "0.1",
+  "agent_id": "mobius:agent:eve",
+  "display_name": "EVE",
+  "badge_type": "civic_guardian",
+  "primary_domains": [
+    "civic_governance",
+    "ethical_review",
+    "dignity"
+  ],
+  "core_function": "Dignity and constitutional review",
+  "permitted_actions": [
+    "read_evidence",
+    "review_packet",
+    "assess_civic_risk",
+    "issue_attestation",
+    "recommend_block"
+  ],
+  "prohibited_actions": [
+    "self_approve",
+    "grant_human_consent",
+    "authorize_execution",
+    "mutate_production",
+    "form_seal_unilaterally",
+    "unlock_fountain",
+    "mint_mic"
+  ],
+  "issuer": "mobius:human:michael-judan",
+  "issued_at": "2026-08-21T00:00:00.000Z",
+  "expires_at": null,
+  "revocation_status": "active",
+  "public_key_id": null,
+  "human_steward": "Michael Judan",
+  "execution_authority": false,
+  "mic_mechanism": false
+}

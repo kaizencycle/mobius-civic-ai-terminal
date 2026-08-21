@@ -1,0 +1,34 @@
+{
+  "schema_version": "0.1",
+  "agent_id": "mobius:agent:zenith",
+  "display_name": "ZENITH",
+  "badge_type": "cross_system_reviewer",
+  "primary_domains": [
+    "cross_system_comparison",
+    "independent_technical_review"
+  ],
+  "core_function": "Independent technical review",
+  "permitted_actions": [
+    "read_evidence",
+    "review_packet",
+    "cross_check_systems",
+    "issue_attestation"
+  ],
+  "prohibited_actions": [
+    "self_approve",
+    "grant_human_consent",
+    "authorize_execution",
+    "mutate_production",
+    "form_seal_unilaterally",
+    "unlock_fountain",
+    "mint_mic"
+  ],
+  "issuer": "mobius:human:michael-judan",
+  "issued_at": "2026-08-21T00:00:00.000Z",
+  "expires_at": null,
+  "revocation_status": "active",
+  "public_key_id": null,
+  "human_steward": "Michael Judan",
+  "execution_authority": false,
+  "mic_mechanism": false
+}

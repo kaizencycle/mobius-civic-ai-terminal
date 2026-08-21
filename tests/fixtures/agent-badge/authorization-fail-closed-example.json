@@ -1,0 +1,15 @@
+{
+  "schema_version": "0.1",
+  "job_id": "EPICON-C410-EXAMPLE",
+  "evidence_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "state": "QUORUM_REACHED",
+  "badge_valid": true,
+  "capability_valid": true,
+  "attestations_valid": true,
+  "quorum_satisfied": true,
+  "human_approval": false,
+  "execution_authorized": false,
+  "authority_source": "canon_registry",
+  "execution_grant": null,
+  "mic_created": false
+}
