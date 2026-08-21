@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-08-21T03:04:07Z",
+  "agent": "AUREA",
+  "cycle": "C-409",
+  "gi_final": 0.92,
+  "gi_mode": "green",
+  "gi_source": "unknown",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.94
+  },
+  "overall_sentiment": 0.712,
+  "financial_score": 0.555,
+  "environ_score": 0.804,
+  "civic_score": 0.7,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.92. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL at 0.866 while Cloudflare infrastructure remains on watch in the live micro lane. ZEUS verification status is disputed, and the heartbeat trend is rising across a 24-hour GI range of 0.63 to 0.94. Forward signal: watch the infrastructure lane for confirmation that the persistent Cloudflare watch does not widen into broader operating drift next cycle.",
+  "forward_signal": "Watch the infrastructure lane for confirmation that the persistent Cloudflare watch does not widen into broader operating drift next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "rising",
+  "anomalies": [
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
