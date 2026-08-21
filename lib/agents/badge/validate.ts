@@ -157,10 +157,10 @@ export function validateGovernedJob(job: GovernedJob): ValidationResult {
     return fail('human_approver', 'human_approver must be a registered human identity');
   }
   if (job.execution_authorized && !job.human_approval) {
+    if (job.quorum_satisfied) {
+      return fail('quorum_bypass', 'Quorum alone must not grant execution_authorized');
+    }
     return fail('missing_human_consent', 'execution_authorized requires human_approval');
-  }
-  if (job.quorum_satisfied && job.execution_authorized && !job.human_approval) {
-    return fail('quorum_bypass', 'Quorum alone must not grant execution_authorized');
   }
   return ok();
 }

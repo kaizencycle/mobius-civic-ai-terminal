@@ -152,6 +152,9 @@ describe('C-410 division-of-labor and self-review rejection', () => {
     });
     const result = validateGovernedJob(job);
     assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.code, 'missing_human_consent');
+    }
   });
 
   it('rejects quorum bypassing human approval', () => {
@@ -162,6 +165,9 @@ describe('C-410 division-of-labor and self-review rejection', () => {
     });
     const result = validateGovernedJob(job);
     assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.code, 'quorum_bypass');
+    }
   });
 });
 
