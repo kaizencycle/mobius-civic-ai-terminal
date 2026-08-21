@@ -3,7 +3,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveIntegrityDegraded } from '@/lib/integrity/integrityAuthority';
@@ -23,6 +23,29 @@ function readRepoFile(rel: string): string {
 
 function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+}
+
+function readSubstrateCycleOptional(): Record<string, unknown> | null {
+  if (!existsSync(substrateCyclePath)) {
+    return null;
+  }
+
+  let raw: string;
+  try {
+    raw = readFileSync(substrateCyclePath, 'utf8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') {
+      return null;
+    }
+    throw err;
+  }
+
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch (err) {
+    assert.fail(`Substrate cycle.json is not valid JSON: ${(err as Error).message}`);
+  }
 }
 
 function baseQuorum(overrides: Partial<SentinelQuorumState> = {}): SentinelQuorumState {
@@ -98,22 +121,25 @@ describe('C-410 civic mesh reconciliation', () => {
 });
 
 describe('C-410 Substrate cycle pointer (sibling repo)', () => {
-  it('substrate cycle.json preserves C-410 and withholds editorial gi when present', () => {
-    let cycle: Record<string, unknown>;
-    try {
-      cycle = readJson(substrateCyclePath);
-    } catch {
-      // CI may not checkout sibling repo — skip without failing Terminal CI
+  it('substrate cycle.json preserves C-410 reconciliation invariants when checkout present', () => {
+    const cycle = readSubstrateCycleOptional();
+    if (cycle === null) {
       return;
     }
+
+    const pulse = cycle.operational_pulse as {
+      execution_authorized: boolean;
+      zeus_disposition: string;
+      gi: number;
+      canon_lag?: { counting_model?: string };
+    };
+
     assert.equal(cycle.current_cycle, 'C-410');
-    assert.equal(cycle.gi, null);
     assert.equal(cycle.gi_status, 'unresolved');
-    assert.equal((cycle.operational_pulse as { execution_authorized: boolean }).execution_authorized, false);
-    assert.equal(
-      (cycle.operational_pulse as { zeus_disposition: string }).zeus_disposition,
-      'disputed',
-    );
+    assert.notEqual(pulse.gi, cycle.gi);
+    assert.equal(pulse.execution_authorized, false);
+    assert.equal(pulse.zeus_disposition, 'disputed');
     assert.equal('next_state_snapshot_expected' in cycle, false);
+    assert.equal(pulse.canon_lag?.counting_model, 'invalid_for_canon_lag');
   });
 });
