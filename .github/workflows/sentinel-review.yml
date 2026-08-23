@@ -25,8 +25,11 @@ jobs:
   sentinel:
     runs-on: ubuntu-latest
     env:
-      OPENAI_MODEL: gpt-4o-mini
-      ANTHROPIC_MODEL: claude-sonnet-4-20250514
+      OPENROUTER_BASE_URL: https://openrouter.ai/api/v1
+      SENTINEL_AUREA_MODEL: openai/gpt-4o-mini
+      SENTINEL_ATLAS_MODEL: anthropic/claude-sonnet-4
+      SENTINEL_EVE_MODEL: anthropic/claude-sonnet-4
+      SENTINEL_EVE_FALLBACK_MODEL: openai/gpt-4o-mini
       MAX_DIFF_CHARS: "120000"
       MAX_PROMPT_CHARS: "200000"
       AUTO_LABEL_ON_PASS: "true"
@@ -127,390 +130,34 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.ref }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
 
-      - name: Run AUREA review (OpenAI)
+      - name: Run AUREA review (OpenRouter)
         if: steps.gate.outputs.run == 'true'
-        uses: actions/github-script@v7
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        with:
-          script: |
-            const fs = require('fs');
-            const writeOutcome = (outcome) => {
-              fs.writeFileSync('/tmp/sentinel-aurea.outcome.json', JSON.stringify(outcome));
-            };
+          AGENT_SERVICE_TOKEN: ${{ secrets.AGENT_SERVICE_TOKEN }}
+          REVIEWER: AUREA
+          SENTINEL_MODEL: ${{ env.SENTINEL_AUREA_MODEL }}
+          SENTINEL_INDEPENDENCE: independent
+          OUTCOME_FILE: /tmp/sentinel-aurea.outcome.json
+        run: node scripts/sentinel-openrouter-lane.mjs
 
-            try {
-              const apiKey = process.env.OPENAI_API_KEY;
-              if (!apiKey) {
-                writeOutcome({ kind: 'missing_credential', reviewer: 'AUREA', credential: 'OPENAI_API_KEY' });
-                return;
-              }
-
-              const meta = fs.readFileSync('/tmp/pr.meta.json','utf8');
-              const diff = fs.readFileSync('/tmp/pr.diff','utf8');
-              const files = fs.readFileSync('/tmp/changed_files.txt','utf8');
-
-              const instruction = `
-              You are AUREA, a civic integrity reviewer for the Mobius Civic AI Terminal.
-              Return ONLY valid JSON (no markdown):
-              {"verdict":"pass"|"fail","summary":"string","blocking":["..."],"non_blocking":["..."]}
-              Only "fail" when at least one blocking item exists. Cite file paths.
-              `;
-
-              const content = `# AUREA Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
-              const maxP = parseInt(process.env.MAX_PROMPT_CHARS || '200000', 10);
-              const finalContent = content.length > maxP ? content.slice(0, maxP) + '\n[TRUNCATED]' : content;
-
-              const res = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                  temperature: 0.1,
-                  messages: [
-                    { role: 'system', content: 'You are AUREA. Return STRICT JSON only.' },
-                    { role: 'user', content: finalContent }
-                  ]
-                })
-              });
-
-              if (!res.ok) {
-                writeOutcome({
-                  kind: 'http_error',
-                  reviewer: 'AUREA',
-                  provider: 'openai',
-                  model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                  independence: 'independent',
-                  httpStatus: res.status,
-                });
-                return;
-              }
-
-              const data = await res.json();
-              let text = (data?.choices?.[0]?.message?.content ?? '').trim();
-              if (text.startsWith('```json')) text = text.slice(7);
-              if (text.startsWith('```')) text = text.slice(3);
-              if (text.endsWith('```')) text = text.slice(0, -3);
-
-              writeOutcome({
-                kind: 'legacy_json',
-                reviewer: 'AUREA',
-                provider: 'openai',
-                model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                independence: 'independent',
-                raw: text.trim(),
-              });
-            } catch (err) {
-              writeOutcome({
-                kind: 'http_error',
-                reviewer: 'AUREA',
-                provider: 'openai',
-                model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                independence: 'independent',
-                httpStatus: 503,
-              });
-            }
-
-      - name: Run ATLAS review (Anthropic)
+      - name: Run ATLAS review (OpenRouter)
         if: steps.gate.outputs.run == 'true'
-        uses: actions/github-script@v7
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        with:
-          script: |
-            const fs = require('fs');
-            const writeOutcome = (outcome) => {
-              fs.writeFileSync('/tmp/sentinel-atlas.outcome.json', JSON.stringify(outcome));
-            };
+          AGENT_SERVICE_TOKEN: ${{ secrets.AGENT_SERVICE_TOKEN }}
+          REVIEWER: ATLAS
+          SENTINEL_MODEL: ${{ env.SENTINEL_ATLAS_MODEL }}
+          SENTINEL_INDEPENDENCE: shared_provider
+          OUTCOME_FILE: /tmp/sentinel-atlas.outcome.json
+        run: node scripts/sentinel-openrouter-lane.mjs
 
-            try {
-              const apiKey = process.env.ANTHROPIC_API_KEY;
-              if (!apiKey) {
-                writeOutcome({ kind: 'missing_credential', reviewer: 'ATLAS', credential: 'ANTHROPIC_API_KEY' });
-                return;
-              }
-
-              const meta = fs.readFileSync('/tmp/pr.meta.json','utf8');
-              const diff = fs.readFileSync('/tmp/pr.diff','utf8');
-              const files = fs.readFileSync('/tmp/changed_files.txt','utf8');
-
-              const instruction = `
-              You are ATLAS, the primary sentinel of the Mobius Civic AI Terminal.
-              Return ONLY valid JSON (no markdown):
-              {"verdict":"pass"|"fail","summary":"string","blocking":["..."],"non_blocking":["..."]}
-              Only "fail" when at least one blocking item exists. Cite file paths.
-              `;
-
-              const content = `# ATLAS Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
-              const maxP = parseInt(process.env.MAX_PROMPT_CHARS || '200000', 10);
-              const finalContent = content.length > maxP ? content.slice(0, maxP) + '\n[TRUNCATED]' : content;
-
-              const res = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: {
-                  'x-api-key': apiKey,
-                  'anthropic-version': '2023-06-01',
-                  'content-type': 'application/json'
-                },
-                body: JSON.stringify({
-                  model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-                  max_tokens: 1200,
-                  temperature: 0.1,
-                  system: 'You are ATLAS. Return STRICT JSON only.',
-                  messages: [{ role: 'user', content: finalContent }]
-                })
-              });
-
-              if (!res.ok) {
-                writeOutcome({
-                  kind: 'http_error',
-                  reviewer: 'ATLAS',
-                  provider: 'anthropic',
-                  model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-                  independence: 'shared_provider',
-                  httpStatus: res.status,
-                });
-                return;
-              }
-
-              const data = await res.json();
-              let text = (data?.content || []).map(p => p.text || '').join('\n').trim();
-              if (text.startsWith('```json')) text = text.slice(7);
-              if (text.startsWith('```')) text = text.slice(3);
-              if (text.endsWith('```')) text = text.slice(0, -3);
-
-              writeOutcome({
-                kind: 'legacy_json',
-                reviewer: 'ATLAS',
-                provider: 'anthropic',
-                model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-                independence: 'shared_provider',
-                raw: text.trim(),
-              });
-            } catch (err) {
-              writeOutcome({
-                kind: 'http_error',
-                reviewer: 'ATLAS',
-                provider: 'anthropic',
-                model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-                independence: 'shared_provider',
-                httpStatus: 503,
-              });
-            }
-
-      - name: Run EVE review (civic risk — Anthropic primary, OpenAI fallback advisory)
+      - name: Run EVE review (OpenRouter — primary + advisory fallback model)
         if: steps.gate.outputs.run == 'true'
-        uses: actions/github-script@v7
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        with:
-          script: |
-            const fs = require('fs');
-            const writeOutcome = (outcome) => {
-              fs.writeFileSync('/tmp/sentinel-eve.outcome.json', JSON.stringify(outcome));
-            };
-
-            try {
-              const anthropicKey = process.env.ANTHROPIC_API_KEY;
-              const openaiKey = process.env.OPENAI_API_KEY;
-              if (!anthropicKey && !openaiKey) {
-                writeOutcome({ kind: 'missing_credential', reviewer: 'EVE', credential: 'ANTHROPIC_API_KEY|OPENAI_API_KEY' });
-                return;
-              }
-
-              const meta = fs.readFileSync('/tmp/pr.meta.json','utf8');
-              const diff = fs.readFileSync('/tmp/pr.diff','utf8');
-              const files = fs.readFileSync('/tmp/changed_files.txt','utf8');
-
-              const instruction = `
-              You are EVE, the civic-risk and ethics reviewer for the Mobius Civic AI Terminal.
-              Return ONLY valid JSON (no markdown):
-              {"verdict":"pass"|"fail","summary":"string","blocking":["..."],"non_blocking":["..."]}
-              Never silently approve high-risk civic harm. Only "fail" when at least one blocking item exists.
-              `;
-
-              const content = `# EVE Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
-              const maxP = parseInt(process.env.MAX_PROMPT_CHARS || '200000', 10);
-              const finalContent = content.length > maxP ? content.slice(0, maxP) + '\n[TRUNCATED]' : content;
-              const degraded = [401, 402, 403, 429, 500, 502, 503, 504];
-
-              async function callAnthropic() {
-                const res = await fetch('https://api.anthropic.com/v1/messages', {
-                  method: 'POST',
-                  headers: {
-                    'x-api-key': anthropicKey,
-                    'anthropic-version': '2023-06-01',
-                    'content-type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-                    max_tokens: 1200,
-                    temperature: 0.1,
-                    system: 'You are EVE. Return STRICT JSON only.',
-                    messages: [{ role: 'user', content: finalContent }]
-                  })
-                });
-                return { res, provider: 'anthropic', model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514', independence: 'shared_provider' };
-              }
-
-              async function callOpenAiFallback(reason) {
-                const res = await fetch('https://api.openai.com/v1/chat/completions', {
-                  method: 'POST',
-                  headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                    temperature: 0.1,
-                    messages: [
-                      { role: 'system', content: 'You are an advisory fallback for EVE civic-risk review. Return STRICT JSON only. This is NOT independent EVE attestation.' },
-                      { role: 'user', content: finalContent }
-                    ]
-                  })
-                });
-                return { res, provider: 'openai', model: process.env.OPENAI_MODEL || 'gpt-4o-mini', independence: 'shared_provider', reason };
-              }
-
-              function writeFallbackOutcome(attempt, reason) {
-                return attempt.res.json().then((data) => {
-                  let text = (data?.choices?.[0]?.message?.content ?? '').trim();
-                  if (text.startsWith('```json')) text = text.slice(7);
-                  if (text.startsWith('```')) text = text.slice(3);
-                  if (text.endsWith('```')) text = text.slice(0, -3);
-                  writeOutcome({
-                    kind: 'fallback_json',
-                    reviewer: 'EVE',
-                    provider: attempt.provider,
-                    model: attempt.model,
-                    raw: text.trim(),
-                    reason,
-                  });
-                });
-              }
-
-              let attempt = null;
-              let anthropicTransportError = null;
-
-              if (anthropicKey) {
-                try {
-                  attempt = await callAnthropic();
-                } catch (err) {
-                  anthropicTransportError = err;
-                }
-
-                const shouldTryFallback =
-                  anthropicTransportError ||
-                  (attempt && !attempt.res.ok && degraded.includes(attempt.res.status));
-
-                if (shouldTryFallback && openaiKey) {
-                  try {
-                    const fallback = await callOpenAiFallback(
-                      anthropicTransportError
-                        ? `Anthropic transport failure — OpenAI advisory fallback (not independent EVE quorum)`
-                        : 'Anthropic unavailable — OpenAI advisory fallback (not independent EVE quorum)',
-                    );
-                    if (fallback.res.ok) {
-                      await writeFallbackOutcome(
-                        fallback,
-                        anthropicTransportError
-                          ? `Anthropic transport failure — OpenAI advisory fallback (not independent EVE quorum)`
-                          : 'Anthropic unavailable — OpenAI advisory fallback (not independent EVE quorum)',
-                      );
-                      return;
-                    }
-                    attempt = fallback;
-                  } catch (fallbackErr) {
-                    writeOutcome({
-                      kind: 'http_error',
-                      reviewer: 'EVE',
-                      provider: 'openai',
-                      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                      independence: 'shared_provider',
-                      httpStatus: 503,
-                    });
-                    return;
-                  }
-                } else if (anthropicTransportError) {
-                  writeOutcome({
-                    kind: 'http_error',
-                    reviewer: 'EVE',
-                    provider: 'anthropic',
-                    model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-                    independence: 'shared_provider',
-                    httpStatus: 503,
-                  });
-                  return;
-                }
-              } else if (openaiKey) {
-                try {
-                  attempt = await callOpenAiFallback('Anthropic credential missing — OpenAI advisory fallback only');
-                  if (attempt.res.ok) {
-                    await writeFallbackOutcome(attempt, 'Anthropic credential missing — OpenAI advisory fallback only');
-                    return;
-                  }
-                } catch (fallbackErr) {
-                  writeOutcome({
-                    kind: 'http_error',
-                    reviewer: 'EVE',
-                    provider: 'openai',
-                    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                    independence: 'shared_provider',
-                    httpStatus: 503,
-                  });
-                  return;
-                }
-              }
-
-              if (!attempt || !attempt.res.ok) {
-                writeOutcome({
-                  kind: 'http_error',
-                  reviewer: 'EVE',
-                  provider: attempt?.provider || 'anthropic',
-                  model: attempt?.model || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-                  independence: 'shared_provider',
-                  httpStatus: attempt?.res?.status || 503,
-                });
-                return;
-              }
-
-              const data = await attempt.res.json();
-              let text = (data?.content || []).map(p => p.text || '').join('\n').trim();
-              if (!text && data?.choices?.[0]?.message?.content) {
-                text = data.choices[0].message.content.trim();
-              }
-              if (text.startsWith('```json')) text = text.slice(7);
-              if (text.startsWith('```')) text = text.slice(3);
-              if (text.endsWith('```')) text = text.slice(0, -3);
-
-              if (attempt.provider === 'openai') {
-                writeOutcome({
-                  kind: 'fallback_json',
-                  reviewer: 'EVE',
-                  provider: attempt.provider,
-                  model: attempt.model,
-                  raw: text.trim(),
-                  reason: attempt.reason || 'OpenAI advisory fallback — not independent EVE quorum',
-                });
-                return;
-              }
-
-              writeOutcome({
-                kind: 'legacy_json',
-                reviewer: 'EVE',
-                provider: attempt.provider,
-                model: attempt.model,
-                independence: attempt.independence,
-                raw: text.trim(),
-              });
-            } catch (err) {
-              writeOutcome({
-                kind: 'http_error',
-                reviewer: 'EVE',
-                provider: 'anthropic',
-                model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-                independence: 'shared_provider',
-                httpStatus: 503,
-              });
-            }
+          AGENT_SERVICE_TOKEN: ${{ secrets.AGENT_SERVICE_TOKEN }}
+          SENTINEL_EVE_MODEL: ${{ env.SENTINEL_EVE_MODEL }}
+          SENTINEL_EVE_FALLBACK_MODEL: ${{ env.SENTINEL_EVE_FALLBACK_MODEL }}
+          OUTCOME_FILE: /tmp/sentinel-eve.outcome.json
+        run: node scripts/sentinel-openrouter-eve.mjs
 
       - name: Ensure review outcome files (fail-closed defaults)
         if: always() && steps.gate.outputs.run == 'true'
@@ -521,7 +168,7 @@ jobs:
             local file="$1"
             local reviewer="$2"
             if [ ! -f "$file" ]; then
-              printf '{"kind":"http_error","reviewer":"%s","provider":"unknown","model":"unknown","independence":"unknown","httpStatus":503}\n' "$reviewer" > "$file"
+              printf '{"kind":"http_error","reviewer":"%s","provider":"openrouter","model":"unknown","independence":"unknown","httpStatus":503}\n' "$reviewer" > "$file"
               echo "Wrote default degraded outcome for ${reviewer} → ${file}"
             fi
           }

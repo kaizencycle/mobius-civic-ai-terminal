@@ -20,7 +20,9 @@ import {
   shouldRunSentinelReview,
   validateLegacyVerdictJson,
   SENTINEL_DEGRADED_LABEL,
+  SENTINEL_GATEWAY_PROVIDER,
   SENTINEL_PASS_LABEL,
+  SENTINEL_SERVICE_CREDENTIAL,
   type ReviewStepOutcome,
   type SentinelLaneResult,
 } from '@/lib/governance/sentinelReviewPolicy';
@@ -28,11 +30,16 @@ import {
 const NOW = '2026-08-23T01:30:00.000Z';
 
 function passLane(reviewer: 'AUREA' | 'ATLAS' | 'EVE'): SentinelLaneResult {
+  const models = {
+    AUREA: 'openai/gpt-4o-mini',
+    ATLAS: 'anthropic/claude-sonnet-4',
+    EVE: 'anthropic/claude-sonnet-4',
+  };
   return laneFromLegacyVerdict({
     reviewer,
     observedAt: NOW,
-    provider: reviewer === 'AUREA' ? 'openai' : 'anthropic',
-    model: reviewer === 'AUREA' ? 'gpt-4o-mini' : 'claude-sonnet-4-20250514',
+    provider: SENTINEL_GATEWAY_PROVIDER,
+    model: models[reviewer],
     independence: reviewer === 'AUREA' ? 'independent' : 'shared_provider',
     parsed: { verdict: 'pass', blocking: [], non_blocking: [], summary: `${reviewer} ok` },
   });
@@ -54,7 +61,7 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
     const eve = laneFromMissingCredential({
       reviewer: 'EVE',
       observedAt: NOW,
-      credential: 'ANTHROPIC_API_KEY|OPENAI_API_KEY',
+      credential: SENTINEL_SERVICE_CREDENTIAL,
     });
     const disposition = aggregateSentinelReview({
       lanes: [passLane('AUREA'), passLane('ATLAS'), eve],
@@ -71,8 +78,8 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
       {
         kind: 'http_error',
         reviewer: 'EVE',
-        provider: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
+        provider: SENTINEL_GATEWAY_PROVIDER,
+        model: 'anthropic/claude-sonnet-4',
         independence: 'shared_provider',
         httpStatus: 402,
       },
@@ -91,8 +98,8 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
       {
         kind: 'legacy_json',
         reviewer: 'EVE',
-        provider: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
+        provider: SENTINEL_GATEWAY_PROVIDER,
+        model: 'anthropic/claude-sonnet-4',
         independence: 'shared_provider',
         raw: '',
       },
@@ -111,10 +118,10 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
       {
         kind: 'fallback_json',
         reviewer: 'EVE',
-        provider: 'openai',
-        model: 'gpt-4o-mini',
+        provider: SENTINEL_GATEWAY_PROVIDER,
+        model: 'openai/gpt-4o-mini',
         raw: JSON.stringify({ verdict: 'pass', blocking: [], non_blocking: [], summary: 'advisory only' }),
-        reason: 'Anthropic unavailable — OpenAI advisory fallback',
+        reason: 'Primary model unavailable — advisory fallback model',
       },
       NOW,
     );
@@ -134,7 +141,7 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
     const aurea = laneFromMissingCredential({
       reviewer: 'AUREA',
       observedAt: NOW,
-      credential: 'OPENAI_API_KEY',
+      credential: SENTINEL_SERVICE_CREDENTIAL,
     });
     assert.notEqual(aurea.state, 'PASS');
     const disposition = aggregateSentinelReview({
@@ -176,7 +183,7 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
     const eve = laneFromMissingCredential({
       reviewer: 'EVE',
       observedAt: NOW,
-      credential: 'ANTHROPIC_API_KEY',
+      credential: SENTINEL_SERVICE_CREDENTIAL,
     });
     const disposition = aggregateSentinelReview({
       lanes: [passLane('AUREA'), passLane('ATLAS'), eve],
@@ -194,7 +201,9 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
     assert.deepEqual(failOpen, []);
     assert.match(source, /needs-custodian-review/);
     assert.match(source, /sentinelReviewPolicy/);
-    assert.match(source, /Run EVE review/);
+    assert.match(source, /AGENT_SERVICE_TOKEN/);
+    assert.match(source, /openrouter/);
+    assert.match(source, /sentinel-openrouter-lane/);
     assert.match(source, /pnpm\/action-setup@v4/);
     assert.match(source, /ignore-scripts/);
     assert.match(source, /trusted-sentinelReviewPolicy/);
@@ -234,8 +243,8 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
       laneFromLegacyVerdict({
         reviewer,
         observedAt: NOW,
-        provider: 'openai',
-        model: 'gpt-4o-mini',
+        provider: SENTINEL_GATEWAY_PROVIDER,
+        model: 'openai/gpt-4o-mini',
         independence: 'shared_provider',
         parsed: { verdict: 'pass', blocking: [], non_blocking: [], summary: `${reviewer} shared` },
       });
@@ -270,8 +279,8 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
       {
         kind: 'legacy_json',
         reviewer: 'EVE',
-        provider: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
+        provider: SENTINEL_GATEWAY_PROVIDER,
+        model: 'anthropic/claude-sonnet-4',
         independence: 'shared_provider',
         raw: JSON.stringify({ verdict: 'fail', blocking: 'civic-risk-finding' }),
       },
@@ -286,15 +295,15 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
       {
         kind: 'fallback_json',
         reviewer: 'EVE',
-        provider: 'openai',
-        model: 'gpt-4o-mini',
+        provider: SENTINEL_GATEWAY_PROVIDER,
+        model: 'openai/gpt-4o-mini',
         raw: JSON.stringify({
           verdict: 'fail',
           blocking: ['Potential civic harm in auth bypass'],
           non_blocking: [],
           summary: 'advisory fail',
         }),
-        reason: 'Anthropic unavailable — OpenAI advisory fallback',
+        reason: 'Primary model unavailable — advisory fallback model',
       },
       NOW,
     );
@@ -307,20 +316,20 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
       {
         kind: 'legacy_json',
         reviewer: 'AUREA',
-        provider: 'openai',
-        model: 'gpt-4o-mini',
+        provider: SENTINEL_GATEWAY_PROVIDER,
+        model: 'openai/gpt-4o-mini',
         independence: 'independent',
         raw: JSON.stringify({ verdict: 'pass', blocking: [], non_blocking: [], summary: 'ok' }),
       },
       {
         kind: 'missing_credential',
         reviewer: 'ATLAS',
-        credential: 'ANTHROPIC_API_KEY',
+        credential: SENTINEL_SERVICE_CREDENTIAL,
       },
       {
         kind: 'missing_credential',
         reviewer: 'EVE',
-        credential: 'ANTHROPIC_API_KEY|OPENAI_API_KEY',
+        credential: SENTINEL_SERVICE_CREDENTIAL,
       },
     ];
     const disposition = buildDispositionFromStepOutcomes({

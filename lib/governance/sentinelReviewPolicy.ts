@@ -57,6 +57,16 @@ export const SENTINEL_REVIEW_TRIGGER_LABELS = [
 
 export const SENTINEL_PASS_LABEL = 'consensus:approved' as const;
 export const SENTINEL_DEGRADED_LABEL = 'review:degraded' as const;
+export const SENTINEL_GATEWAY_PROVIDER = 'openrouter' as const;
+export const SENTINEL_SERVICE_CREDENTIAL = 'AGENT_SERVICE_TOKEN' as const;
+
+/** OpenRouter model ids — override via workflow env (SENTINEL_*_MODEL). */
+export const SENTINEL_DEFAULT_MODELS = {
+  AUREA: 'openai/gpt-4o-mini',
+  ATLAS: 'anthropic/claude-sonnet-4',
+  EVE: 'anthropic/claude-sonnet-4',
+  EVE_FALLBACK: 'openai/gpt-4o-mini',
+} as const;
 
 const FULL_QUORUM_LABELS = new Set([
   'consensus:requested',
@@ -74,13 +84,19 @@ const REVIEWER_PROVIDERS: Record<
   SentinelReviewer,
   { primary: string; primaryModel: string; fallback?: string; fallbackModel?: string }
 > = {
-  AUREA: { primary: 'openai', primaryModel: 'gpt-4o-mini' },
-  ATLAS: { primary: 'anthropic', primaryModel: 'claude-sonnet-4-20250514' },
+  AUREA: {
+    primary: SENTINEL_GATEWAY_PROVIDER,
+    primaryModel: SENTINEL_DEFAULT_MODELS.AUREA,
+  },
+  ATLAS: {
+    primary: SENTINEL_GATEWAY_PROVIDER,
+    primaryModel: SENTINEL_DEFAULT_MODELS.ATLAS,
+  },
   EVE: {
-    primary: 'anthropic',
-    primaryModel: 'claude-sonnet-4-20250514',
-    fallback: 'openai',
-    fallbackModel: 'gpt-4o-mini',
+    primary: SENTINEL_GATEWAY_PROVIDER,
+    primaryModel: SENTINEL_DEFAULT_MODELS.EVE,
+    fallback: SENTINEL_GATEWAY_PROVIDER,
+    fallbackModel: SENTINEL_DEFAULT_MODELS.EVE_FALLBACK,
   },
 };
 
@@ -364,11 +380,11 @@ export function laneMeetsApprovalIndependence(lane: SentinelLaneResult): boolean
   if (lane.state !== 'PASS') return false;
   switch (lane.reviewer) {
     case 'AUREA':
-      return lane.independence === 'independent' && lane.provider === 'openai';
+      return lane.independence === 'independent';
     case 'ATLAS':
-      return lane.provider === 'anthropic';
+      return lane.independence === 'shared_provider';
     case 'EVE':
-      return lane.provider === 'anthropic' && lane.independence === 'shared_provider';
+      return lane.independence === 'shared_provider';
     default: {
       const _exhaustive: never = lane.reviewer;
       return _exhaustive;
