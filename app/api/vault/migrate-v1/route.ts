@@ -9,7 +9,7 @@ import { kvGetRaw, kvSetRawKey, kvDel, kvInspectSamples } from '@/lib/kv/store';
 import { TERMINAL_REGISTRATION } from '@/lib/ledger';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
 import {
-  isReservedVaultSealId,
+  listV1SealIdsFromKvInspect,
   parseV1SealRecord,
   validateMigratableSealId,
 } from '@/lib/vault-v2/reservedSealIds';
@@ -116,18 +116,7 @@ export async function POST(req: Request) {
 // GET: list all v1 seals still in KV (no schema_version field)
 export async function GET() {
   const { keys } = await kvInspectSamples('vault:seal:*', 50);
-  const v1Seals: string[] = [];
-
-  for (const row of keys) {
-    const suffix = row.key.replace('vault:seal:', '');
-    if (isReservedVaultSealId(suffix)) {
-      continue;
-    }
-    const data = row.sample as Record<string, unknown> | null;
-    if (data && !data.schema_version) {
-      v1Seals.push(suffix);
-    }
-  }
+  const v1Seals = listV1SealIdsFromKvInspect(keys);
 
   return NextResponse.json({ ok: true, v1Count: v1Seals.length, v1Seals });
 }

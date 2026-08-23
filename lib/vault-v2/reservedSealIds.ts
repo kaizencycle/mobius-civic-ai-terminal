@@ -43,3 +43,20 @@ export function parseV1SealRecord(raw: unknown): V1SealRecord | null {
   }
   return rec as V1SealRecord;
 }
+
+export type KvInspectSealRow = { key: string; sample: unknown };
+
+/** List legacy v1 seal ids from kvInspectSamples rows — excludes CAS pointer keys. */
+export function listV1SealIdsFromKvInspect(rows: KvInspectSealRow[]): string[] {
+  const v1Seals: string[] = [];
+  for (const row of rows) {
+    const suffix = row.key.replace(/^vault:seal:/, '');
+    if (isReservedVaultSealId(suffix)) {
+      continue;
+    }
+    if (parseV1SealRecord(row.sample)) {
+      v1Seals.push(suffix);
+    }
+  }
+  return v1Seals;
+}
