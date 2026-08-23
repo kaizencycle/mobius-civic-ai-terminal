@@ -11,7 +11,7 @@ import { deriveQuorumAuthoritySemantics } from '@/lib/mic/quorumSemantics';
 import type { SentinelQuorumState } from '@/lib/mic/quorumTracker';
 import {
   buildTrackRP3IntakeObservability,
-  TRACK_R_P3_CANONICAL_RUN,
+  getLatestIssuedPacketRunIdFromRepo,
 } from '@/lib/trackR/p3IntakeObservability';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -135,13 +135,15 @@ describe('C-410 civic mesh reconciliation', () => {
     assert.equal(semantics.seal_eligibility, 'blocked');
   });
 
-  it('Track R canonical run remains blocked without packet-bound governance', async () => {
+  it('Track R latest issued run remains blocked without packet-bound governance', async () => {
+    const latestRunId = getLatestIssuedPacketRunIdFromRepo(repoRoot);
+    assert.ok(latestRunId);
     const status = await buildTrackRP3IntakeObservability({
-      workflowRunId: TRACK_R_P3_CANONICAL_RUN,
+      workflowRunId: latestRunId!,
       repoRoot,
     });
     assert.equal(status.execution_authorized, false);
-    assert.equal(status.intake_state, 'NOT_SEEN');
+    assert.equal(status.intake_state, 'AWAITING_INDEPENDENT_REVIEW');
     assert.equal(status.zeus.review_status, 'awaiting_zeus');
     assert.equal(status.eve.review_status, 'awaiting_eve');
     assert.equal(status.human_review_status, 'awaiting_human');

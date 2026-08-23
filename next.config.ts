@@ -42,6 +42,19 @@ const nextConfig: NextConfig = {
   // OPT-12(C-352): one Pages Router route exists (pages/api/epicon/check.ts). Keeping this
   // flag ensures its dependencies are bundled identically to App Router functions.
   bundlePagesRouterDependencies: true,
+  outputFileTracingIncludes: {
+    '/api/track-r/p3-intake-status': [
+      './docs/epicon/cycles/C-407/p3-preparation/issued-packet-registry.json',
+      './docs/epicon/cycles/C-407/p3-preparation/runs/**/*',
+      './docs/epicon/cycles/C-408/track-r-p3-review/packet-review-registry.json',
+    ],
+    '/api/cron/track-r-p3-governance-intake': [
+      './docs/epicon/cycles/C-407/p3-preparation/issued-packet-registry.json',
+      './docs/epicon/cycles/C-407/p3-preparation/runs/**/*',
+      './docs/epicon/cycles/C-408/track-r-p3-review/packet-review-registry.json',
+      './artifacts/C-404/track-r-lineage-v2/history/capture-2014Z/**/*',
+    ],
+  },
   // OPT-13(C-352): @mobius/integrity-core removed — package does not exist in node_modules
   // or packages/ workspace; the entry was dead weight causing module resolution warnings.
   serverExternalPackages: [],

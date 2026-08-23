@@ -19,15 +19,32 @@ import { deriveQuorumAuthoritySemantics } from '@/lib/mic/quorumSemantics';
 import type { SentinelQuorumState } from '@/lib/mic/quorumTracker';
 import {
   buildTrackRP3IntakeObservability,
-  TRACK_R_P3_CANONICAL_RUN,
-  TRACK_R_P3_SUPERSEDED_RUN,
+  getLatestIssuedPacketRunIdFromRepo,
 } from '@/lib/trackR/p3IntakeObservability';
+import {
+  loadIssuedPacketRegistry,
+  selectLatestIssuedPacketEntry,
+} from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
 import {
   intakeStateIsNotVerdict,
   validateTrackRIndependentReviewRecord,
 } from '@/lib/watchdog/batchRepair/trackRP3ReviewArtifacts';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+function latestIssuedRun(): { runId: string; packetHash: string; journalId: string; productionCommit: string } {
+  const loaded = loadIssuedPacketRegistry(repoRoot);
+  assert.equal(loaded.ok, true);
+  if (!loaded.ok) throw new Error('issued registry unavailable');
+  const latest = selectLatestIssuedPacketEntry(loaded.registry);
+  assert.ok(latest, 'latest issued packet missing');
+  return {
+    runId: latest!.workflow_run_id,
+    packetHash: latest!.packet_hash,
+    journalId: latest!.journal_id,
+    productionCommit: latest!.observed_production_commit,
+  };
+}
 
 function readRepoFile(rel: string): string {
   return readFileSync(join(repoRoot, rel), 'utf8');
@@ -159,16 +176,27 @@ describe('C-409 integrity authority reconciliation', () => {
 
 describe('C-409 Track R intake observability', () => {
   it('intake visibility is read-only and never authorizes execution', async () => {
+    const latest = latestIssuedRun();
     const status = await buildTrackRP3IntakeObservability({
-      workflowRunId: TRACK_R_P3_CANONICAL_RUN,
+      workflowRunId: latest.runId,
       repoRoot,
     });
     assert.equal(status.read_only, true);
     assert.equal(status.execution_authorized, false);
-    assert.equal(status.run_id, TRACK_R_P3_CANONICAL_RUN);
-    assert.equal(status.packet_hash, '271607643453b15a7a1170021fb2e7d4c3c0889de09b7acd12f04f35060e21f6');
-    assert.equal(status.intake_state, 'NOT_SEEN');
+    assert.equal(status.run_id, latest.runId);
+    assert.equal(status.packet_hash, latest.packetHash);
+    assert.equal(status.issued_registry_source, 'committed');
+    assert.equal(status.intake_state, 'AWAITING_INDEPENDENT_REVIEW');
     assert.equal(status.structurally_accepted, false);
+    assert.equal(status.ok, true);
+  });
+
+  it('defaults to latest issued packet when run_id is omitted', async () => {
+    const latest = latestIssuedRun();
+    const status = await buildTrackRP3IntakeObservability({ repoRoot });
+    assert.equal(status.run_id, latest.runId);
+    assert.equal(status.packet_hash, latest.packetHash);
+    assert.equal(getLatestIssuedPacketRunIdFromRepo(repoRoot), latest.runId);
   });
 
   it('intake receipt state cannot become ADOPT verdict', () => {
@@ -177,11 +205,12 @@ describe('C-409 Track R intake observability', () => {
   });
 
   it('ZEUS and EVE review records require exact packet binding', () => {
+    const latest = latestIssuedRun();
     const expected = {
-      workflow_run_id: TRACK_R_P3_CANONICAL_RUN,
-      packet_hash: '271607643453b15a7a1170021fb2e7d4c3c0889de09b7acd12f04f35060e21f6',
-      journal_id: '10baa2c337a35da2ca327f3667c01005',
-      production_commit: 'e054dd003320c1277e4520f67b64d03d8fdb49b2',
+      workflow_run_id: latest.runId,
+      packet_hash: latest.packetHash,
+      journal_id: latest.journalId,
+      production_commit: latest.productionCommit,
     };
     const ok = validateTrackRIndependentReviewRecord(
       {
@@ -193,7 +222,7 @@ describe('C-409 Track R intake observability', () => {
         capture_id: 'capture-2014Z',
         verdict: 'ADOPT',
         reviewed_at: '2026-08-20T12:00:00.000Z',
-        evidence_refs: ['docs/epicon/cycles/C-407/p3-preparation/runs/32264177719/operator-packet.json'],
+        evidence_refs: [`docs/epicon/cycles/C-407/p3-preparation/runs/${latest.runId}/operator-packet.json`],
       },
       expected,
     );
@@ -209,7 +238,7 @@ describe('C-409 Track R intake observability', () => {
         capture_id: 'capture-2014Z',
         verdict: 'CHALLENGE',
         reviewed_at: '2026-08-20T12:00:00.000Z',
-        evidence_refs: ['docs/epicon/cycles/C-407/p3-preparation/runs/32264177719/operator-packet.json'],
+        evidence_refs: [`docs/epicon/cycles/C-407/p3-preparation/runs/${latest.runId}/operator-packet.json`],
       },
       expected,
     );
@@ -220,21 +249,23 @@ describe('C-409 Track R intake observability', () => {
   });
 
   it('superseded run cannot satisfy current-run gates', async () => {
+    const latest = latestIssuedRun();
     const status = await buildTrackRP3IntakeObservability({
-      workflowRunId: TRACK_R_P3_SUPERSEDED_RUN,
+      workflowRunId: '32264177719',
       repoRoot,
     });
     assert.equal(status.intake_state, 'SUPERSEDED');
     assert.equal(status.structurally_accepted, false);
     assert.equal(status.ok, true);
-    assert.equal(status.superseded_by_run_id, TRACK_R_P3_CANONICAL_RUN);
+    assert.equal(status.superseded_by_run_id, latest.runId);
     assert.ok(status.blocked_reasons.some((reason) => reason.includes('superseded')));
     assert.equal(status.execution_authorized, false);
   });
 
   it('unknown and current runs do not invent superseded_by_run_id', async () => {
+    const latest = latestIssuedRun();
     const current = await buildTrackRP3IntakeObservability({
-      workflowRunId: TRACK_R_P3_CANONICAL_RUN,
+      workflowRunId: latest.runId,
       repoRoot,
     });
     assert.equal(current.superseded_by_run_id, null);
@@ -248,8 +279,9 @@ describe('C-409 Track R intake observability', () => {
   });
 
   it('missing human consent keeps execution_authorized false', async () => {
+    const latest = latestIssuedRun();
     const status = await buildTrackRP3IntakeObservability({
-      workflowRunId: TRACK_R_P3_CANONICAL_RUN,
+      workflowRunId: latest.runId,
       repoRoot,
     });
     assert.equal(status.execution_authorized, false);
