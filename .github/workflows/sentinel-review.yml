@@ -564,50 +564,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          POLICY_PATH="$(cat /tmp/sentinel-policy-path.txt)"
-          export SENTINEL_POLICY_PATH="${POLICY_PATH}"
-          pnpm exec tsx <<'TS'
-          import { readFileSync, writeFileSync } from 'node:fs';
-          import { pathToFileURL } from 'node:url';
-
-          const policyPath = process.env.SENTINEL_POLICY_PATH || './lib/governance/sentinelReviewPolicy.ts';
-          const policy = await import(pathToFileURL(policyPath).href);
-          const {
-            buildDispositionFromStepOutcomes,
-            computeLabelUpdates,
-            filterLabelUpdatesByAvailable,
-            renderSentinelReviewComment,
-          } = policy;
-
-          const labels = (process.env.PR_LABELS || '').split(',').map((s) => s.trim()).filter(Boolean);
-          const availableLabels = (process.env.REPO_LABELS || '').split(',').map((s) => s.trim()).filter(Boolean);
-          const observedAt = new Date().toISOString();
-          const paths = [
-            '/tmp/sentinel-aurea.outcome.json',
-            '/tmp/sentinel-atlas.outcome.json',
-            '/tmp/sentinel-eve.outcome.json',
-          ];
-          const outcomes = paths.map((path) => JSON.parse(readFileSync(path, 'utf8')));
-          const disposition = buildDispositionFromStepOutcomes({ labels, outcomes, observedAt });
-          const rawLabelUpdates = computeLabelUpdates({
-            disposition,
-            currentLabels: labels,
-          });
-          const labelUpdates = filterLabelUpdatesByAvailable
-            ? filterLabelUpdatesByAvailable({ updates: rawLabelUpdates, availableLabels })
-            : { ...rawLabelUpdates, skipped: [] as string[] };
-          let comment = renderSentinelReviewComment(disposition);
-          if (labelUpdates.skipped?.length) {
-            comment += `\n\n> ⚠️ **Label configuration:** skipped missing repo labels: ${labelUpdates.skipped.join(', ')}. Provision \`consensus:approved\` and \`review:degraded\` before relying on label mutations.\n`;
-          }
-          writeFileSync('/tmp/sentinel-disposition.json', JSON.stringify(disposition, null, 2));
-          writeFileSync('/tmp/sentinel-comment.md', comment);
-          writeFileSync('/tmp/sentinel-label-updates.json', JSON.stringify({ add: labelUpdates.add, remove: labelUpdates.remove }, null, 2));
-          console.log(`approval_eligible=${disposition.approval_eligible}`);
-          TS
-        env:
-          PR_LABELS: ${{ steps.gate.outputs.labels }}
-          REPO_LABELS: ${{ steps.repo-labels.outputs.names }}
+          export SENTINEL_POLICY_PATH="$(cat /tmp/sentinel-policy-path.txt)"
+          export PR_LABELS="${{ steps.gate.outputs.labels }}"
+          export REPO_LABELS="${{ steps.repo-labels.outputs.names }}"
+          pnpm exec tsx scripts/sentinel-aggregate-disposition.mts
 
       - name: Export disposition outputs
         if: always() && steps.gate.outputs.run == 'true'
@@ -634,6 +594,10 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            if (!fs.existsSync('/tmp/sentinel-comment.md')) {
+              core.warning('No sentinel comment file — aggregation may have failed');
+              return;
+            }
             const body = fs.readFileSync('/tmp/sentinel-comment.md', 'utf8');
             const prNumber = context.payload.pull_request.number;
             const { data: comments } = await github.rest.issues.listComments({
