@@ -21,6 +21,7 @@ import {
   validateLegacyVerdictJson,
   SENTINEL_DEGRADED_LABEL,
   SENTINEL_GATEWAY_PROVIDER,
+  SENTINEL_LLM_CREDENTIAL_CHAIN,
   SENTINEL_PASS_LABEL,
   SENTINEL_SERVICE_CREDENTIAL,
   type ReviewStepOutcome,
@@ -201,13 +202,25 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
     assert.deepEqual(failOpen, []);
     assert.match(source, /needs-custodian-review/);
     assert.match(source, /sentinelReviewPolicy/);
+    assert.match(source, /SENTINEL_AUREA_API_KEY/);
+    assert.match(source, /SENTINEL_ATLAS_API_KEY/);
+    assert.match(source, /SENTINEL_EVE_API_KEY/);
     assert.match(source, /AGENT_SERVICE_TOKEN/);
-    assert.match(source, /openrouter/);
-    assert.match(source, /sentinel-openrouter-lane/);
+    assert.match(source, /LLM_API_KEY/);
+    assert.match(source, /sentinel-llm-lane/);
+    assert.match(source, /sentinel-llm-eve/);
     assert.match(source, /pnpm\/action-setup@v4/);
     assert.match(source, /ignore-scripts/);
     assert.match(source, /trusted-sentinelReviewPolicy/);
     assert.match(source, /Pin aggregation policy to base revision/);
+    assert.match(source, /actions\/github-script@v7/);
+  });
+
+  it('documents model-agnostic LLM credential chain', () => {
+    assert.match(SENTINEL_LLM_CREDENTIAL_CHAIN, /SENTINEL_\{REVIEWER\}_API_KEY/);
+    assert.match(SENTINEL_LLM_CREDENTIAL_CHAIN, /AGENT_SERVICE_TOKEN/);
+    assert.match(SENTINEL_LLM_CREDENTIAL_CHAIN, /LLM_API_KEY/);
+    assert.equal(SENTINEL_GATEWAY_PROVIDER, 'llm');
   });
 
   it('partial required quorum cannot approve when a lane is missing', () => {

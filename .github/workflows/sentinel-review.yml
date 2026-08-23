@@ -25,11 +25,12 @@ jobs:
   sentinel:
     runs-on: ubuntu-latest
     env:
-      OPENROUTER_BASE_URL: https://openrouter.ai/api/v1
-      SENTINEL_AUREA_MODEL: openai/gpt-4o-mini
-      SENTINEL_ATLAS_MODEL: anthropic/claude-sonnet-4
-      SENTINEL_EVE_MODEL: anthropic/claude-sonnet-4
-      SENTINEL_EVE_FALLBACK_MODEL: openai/gpt-4o-mini
+      OPENROUTER_BASE_URL: ${{ vars.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1' }}
+      LLM_BASE_URL: ${{ vars.LLM_BASE_URL || '' }}
+      SENTINEL_AUREA_MODEL: ${{ vars.SENTINEL_AUREA_MODEL || 'openai/gpt-4o-mini' }}
+      SENTINEL_ATLAS_MODEL: ${{ vars.SENTINEL_ATLAS_MODEL || 'anthropic/claude-sonnet-4' }}
+      SENTINEL_EVE_MODEL: ${{ vars.SENTINEL_EVE_MODEL || 'anthropic/claude-sonnet-4' }}
+      SENTINEL_EVE_FALLBACK_MODEL: ${{ vars.SENTINEL_EVE_FALLBACK_MODEL || 'openai/gpt-4o-mini' }}
       MAX_DIFF_CHARS: "120000"
       MAX_PROMPT_CHARS: "200000"
       AUTO_LABEL_ON_PASS: "true"
@@ -130,34 +131,52 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.ref }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
 
-      - name: Run AUREA review (OpenRouter)
+      - name: Run AUREA review (model-agnostic LLM)
         if: steps.gate.outputs.run == 'true'
         env:
+          SENTINEL_AUREA_API_KEY: ${{ secrets.SENTINEL_AUREA_API_KEY }}
           AGENT_SERVICE_TOKEN: ${{ secrets.AGENT_SERVICE_TOKEN }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SENTINEL_AUREA_BASE_URL: ${{ vars.SENTINEL_AUREA_BASE_URL || '' }}
+          SENTINEL_AUREA_PROVIDER: ${{ vars.SENTINEL_AUREA_PROVIDER || '' }}
           REVIEWER: AUREA
           SENTINEL_MODEL: ${{ env.SENTINEL_AUREA_MODEL }}
           SENTINEL_INDEPENDENCE: independent
           OUTCOME_FILE: /tmp/sentinel-aurea.outcome.json
-        run: node scripts/sentinel-openrouter-lane.mjs
+        run: node scripts/sentinel-llm-lane.mjs
 
-      - name: Run ATLAS review (OpenRouter)
+      - name: Run ATLAS review (model-agnostic LLM)
         if: steps.gate.outputs.run == 'true'
         env:
+          SENTINEL_ATLAS_API_KEY: ${{ secrets.SENTINEL_ATLAS_API_KEY }}
           AGENT_SERVICE_TOKEN: ${{ secrets.AGENT_SERVICE_TOKEN }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SENTINEL_ATLAS_BASE_URL: ${{ vars.SENTINEL_ATLAS_BASE_URL || '' }}
+          SENTINEL_ATLAS_PROVIDER: ${{ vars.SENTINEL_ATLAS_PROVIDER || '' }}
           REVIEWER: ATLAS
           SENTINEL_MODEL: ${{ env.SENTINEL_ATLAS_MODEL }}
           SENTINEL_INDEPENDENCE: shared_provider
           OUTCOME_FILE: /tmp/sentinel-atlas.outcome.json
-        run: node scripts/sentinel-openrouter-lane.mjs
+        run: node scripts/sentinel-llm-lane.mjs
 
-      - name: Run EVE review (OpenRouter — primary + advisory fallback model)
+      - name: Run EVE review (model-agnostic LLM — primary + advisory fallback)
         if: steps.gate.outputs.run == 'true'
         env:
+          SENTINEL_EVE_API_KEY: ${{ secrets.SENTINEL_EVE_API_KEY }}
+          SENTINEL_EVE_FALLBACK_API_KEY: ${{ secrets.SENTINEL_EVE_FALLBACK_API_KEY }}
           AGENT_SERVICE_TOKEN: ${{ secrets.AGENT_SERVICE_TOKEN }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SENTINEL_EVE_BASE_URL: ${{ vars.SENTINEL_EVE_BASE_URL || '' }}
+          SENTINEL_EVE_FALLBACK_BASE_URL: ${{ vars.SENTINEL_EVE_FALLBACK_BASE_URL || '' }}
+          SENTINEL_EVE_PROVIDER: ${{ vars.SENTINEL_EVE_PROVIDER || '' }}
+          SENTINEL_EVE_FALLBACK_PROVIDER: ${{ vars.SENTINEL_EVE_FALLBACK_PROVIDER || '' }}
           SENTINEL_EVE_MODEL: ${{ env.SENTINEL_EVE_MODEL }}
           SENTINEL_EVE_FALLBACK_MODEL: ${{ env.SENTINEL_EVE_FALLBACK_MODEL }}
           OUTCOME_FILE: /tmp/sentinel-eve.outcome.json
-        run: node scripts/sentinel-openrouter-eve.mjs
+        run: node scripts/sentinel-llm-eve.mjs
 
       - name: Ensure review outcome files (fail-closed defaults)
         if: always() && steps.gate.outputs.run == 'true'
@@ -168,7 +187,7 @@ jobs:
             local file="$1"
             local reviewer="$2"
             if [ ! -f "$file" ]; then
-              printf '{"kind":"http_error","reviewer":"%s","provider":"openrouter","model":"unknown","independence":"unknown","httpStatus":503}\n' "$reviewer" > "$file"
+              printf '{"kind":"http_error","reviewer":"%s","provider":"llm","model":"unknown","independence":"unknown","httpStatus":503}\n' "$reviewer" > "$file"
               echo "Wrote default degraded outcome for ${reviewer} → ${file}"
             fi
           }
@@ -228,21 +247,21 @@ jobs:
       - name: Export disposition outputs
         if: always() && steps.gate.outputs.run == 'true'
         id: disposition
-        shell: bash
-        run: |
-          if [ ! -f /tmp/sentinel-disposition.json ]; then
-            echo "pass=false" >> "$GITHUB_OUTPUT"
-            echo "comment<<EOF" >> "$GITHUB_OUTPUT"
-            echo "## 🤖 Sentinel Review" >> "$GITHUB_OUTPUT"
-            echo "" >> "$GITHUB_OUTPUT"
-            echo "⚠️ Aggregation failed — disposition unavailable. Check workflow logs." >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "pass=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/sentinel-disposition.json','utf8')).approval_eligible")" >> "$GITHUB_OUTPUT"
-          echo "comment<<EOF" >> "$GITHUB_OUTPUT"
-          cat /tmp/sentinel-comment.md >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('/tmp/sentinel-disposition.json')) {
+              core.setOutput('pass', 'false');
+              core.setOutput(
+                'comment',
+                '## 🤖 Sentinel Review\n\n⚠️ Aggregation failed — disposition unavailable. Check workflow logs.',
+              );
+              return;
+            }
+            const disposition = JSON.parse(fs.readFileSync('/tmp/sentinel-disposition.json', 'utf8'));
+            core.setOutput('pass', String(disposition.approval_eligible));
+            core.setOutput('comment', fs.readFileSync('/tmp/sentinel-comment.md', 'utf8'));
 
       - name: Post or update sentinel comment
         if: always() && steps.gate.outputs.run == 'true'
