@@ -72,36 +72,52 @@ jobs:
               print(f"PARSE_ERROR:{e}")
               sys.exit(0)
 
-          required = ("SIGNAL_SNAPSHOT", "GI_STATE", "HEARTBEAT", "LAST_INGEST")
-          keys = h.get("keys") or {}
-
           if not h.get("ok"):
               err = h.get("error") or "unknown"
               configured = h.get("configured")
               print(f"KV_UNAVAILABLE:{err}:configured={configured}")
               sys.exit(0)
 
-          failed = [k for k in required if not keys.get(k)]
-          if failed:
-              print("FAILED_KEYS:" + ",".join(failed))
+          # C-406: /api/kv/health exposes kv_continuity_ok (seed-minimum keys), not legacy `keys`.
+          continuity_ok = h.get("kv_continuity_ok")
+          if continuity_ok is True:
+              if h.get("kv_continuity_extended_ok") is False:
+                  print("OK_OPTIONAL_MISSING:SIGNAL_SNAPSHOT")
+              else:
+                  print("OK")
               sys.exit(0)
 
-          print("OK")
+          if continuity_ok is False:
+              present = h.get("continuity_present")
+              required = h.get("continuity_required")
+              print(f"FAILED_CONTINUITY:present={present}:required={required}")
+              sys.exit(0)
+
+          print("KV_CONTINUITY_UNKNOWN")
           PY
           )
 
             case "$CHECK" in
-              OK)
+              OK|OK_OPTIONAL_MISSING:*)
+                if [ "$CHECK" != "OK" ]; then
+                  echo "::notice::Optional continuity key missing after seed (attempt ${ATTEMPT}): ${CHECK#OK_OPTIONAL_MISSING:}"
+                fi
                 break
                 ;;
               KV_UNAVAILABLE:*)
                 echo "::error::Verification blocked: KV/Redis not provisioned or unavailable — ${CHECK#KV_UNAVAILABLE:}"
                 exit 1
                 ;;
-              FAILED_KEYS:*)
-                echo "::warning::Keys not present after seed (attempt ${ATTEMPT}): ${CHECK#FAILED_KEYS:}"
+              FAILED_CONTINUITY:*)
+                echo "::warning::Required continuity keys not present after seed (attempt ${ATTEMPT}): ${CHECK#FAILED_CONTINUITY:}"
                 if [ "$ATTEMPT" -eq 1 ]; then
                   echo "Retrying seed + health once..."
+                  sleep 2
+                fi
+                ;;
+              KV_CONTINUITY_UNKNOWN)
+                echo "::warning::kv_continuity_ok missing from health response (attempt ${ATTEMPT})"
+                if [ "$ATTEMPT" -eq 1 ]; then
                   sleep 2
                 fi
                 ;;
@@ -122,10 +138,14 @@ jobs:
             esac
           done
 
-          if [ "$CHECK" != "OK" ]; then
-            echo "::error::After 2 attempts, required KV keys are still false — last message: ${CHECK}"
-            exit 1
-          fi
+          case "$CHECK" in
+            OK|OK_OPTIONAL_MISSING:*)
+              ;;
+            *)
+              echo "::error::After 2 attempts, required KV continuity keys are still false — last message: ${CHECK}"
+              exit 1
+              ;;
+          esac
 
           END_MS=$(python3 -c 'import time; print(int(time.time() * 1000))')
           LATENCY=$((END_MS - START_MS))
