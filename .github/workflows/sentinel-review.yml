@@ -1,15 +1,12 @@
 # STEP 0 — Read shared world state (C-274): GET https://mobius-civic-ai-terminal.vercel.app/api/terminal/snapshot
-# (cycle, gi, anomalies, echo/epicon, sentiment, substrate.agents / substrate.latest). Do not duplicate USGS/CoinGecko/EONET fetches.
+# C-411 JOB-4 — fail-closed Sentinel Review with explicit EVE degraded routing.
 # ═══════════════════════════════════════════════════════════════════════════════
-# Sentinel Review (AUREA + ATLAS) — Civic AI Terminal
+# Sentinel Review (AUREA + ATLAS + EVE) — Civic AI Terminal
 # ═══════════════════════════════════════════════════════════════════════════════
-# Adapted from kaizencycle/Mobius-Substrate sentinel-review.yml
-# Runs AI-powered PR review using OpenAI (AUREA) and Anthropic (ATLAS)
-# Posts a combined verdict comment and auto-labels on pass
 # CC0 Public Domain
 # ═══════════════════════════════════════════════════════════════════════════════
 
-name: Sentinel Review (AUREA + ATLAS)
+name: Sentinel Review (AUREA + ATLAS + EVE)
 
 on:
   pull_request:
@@ -43,24 +40,40 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Gate — only run when sentinel labels present
+      - name: Gate — run when sentinel or custodian labels present
         id: gate
         uses: actions/github-script@v7
         with:
           script: |
             const labels = (context.payload.pull_request.labels || []).map(l => l.name);
-            const run =
-              labels.includes('review:aurea') ||
-              labels.includes('review:atlas') ||
-              labels.includes('consensus:requested') ||
-              labels.includes('consensus:approved');
+            const triggers = [
+              'review:aurea',
+              'review:atlas',
+              'review:eve',
+              'consensus:requested',
+              'consensus:approved',
+              'needs-custodian-review',
+            ];
+            const matched = labels.filter(l => triggers.includes(l));
+            const run = matched.length > 0;
             core.setOutput('run', run ? 'true' : 'false');
             core.setOutput('labels', labels.join(', '));
+            core.setOutput('matched', matched.join(', '));
 
       - name: Skip — no sentinel labels
         if: steps.gate.outputs.run != 'true'
         run: |
-          echo "✅ Skipping: add label review:aurea, review:atlas, or consensus:requested."
+          echo "✅ Skipping: add review:aurea, review:atlas, review:eve, consensus:requested, or needs-custodian-review."
+
+      - name: Setup Node
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
 
       - name: Build PR context + diff
         if: steps.gate.outputs.run == 'true'
@@ -75,7 +88,6 @@ jobs:
           git diff --name-only "${BASE}" "${HEAD}" > /tmp/changed_files.txt || true
           git diff --unified=3 "${BASE}" "${HEAD}" > /tmp/pr.diff || true
 
-          # Truncate diff if too large
           python3 - <<'PY'
           import os
           max_chars = int(os.environ.get("MAX_DIFF_CHARS","120000"))
@@ -87,7 +99,6 @@ jobs:
             f.write(s)
           PY
 
-          # Build PR metadata JSON
           python3 - <<'PY'
           import json, os
           pr = {
@@ -113,17 +124,17 @@ jobs:
 
       - name: Run AUREA review (OpenAI)
         if: steps.gate.outputs.run == 'true'
-        id: aurea
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+            const writeOutcome = (outcome) => {
+              fs.writeFileSync('/tmp/sentinel-aurea.outcome.json', JSON.stringify(outcome));
+            };
+
             const apiKey = process.env.OPENAI_API_KEY;
             if (!apiKey) {
-              core.setOutput('json', JSON.stringify({
-                verdict:"pass", blocking:[], non_blocking:["OPENAI_API_KEY not configured — AUREA skipped"],
-                summary:"AUREA review skipped. Add OPENAI_API_KEY secret to enable."
-              }));
+              writeOutcome({ kind: 'missing_credential', reviewer: 'AUREA', credential: 'OPENAI_API_KEY' });
               return;
             }
 
@@ -133,21 +144,9 @@ jobs:
 
             const instruction = `
             You are AUREA, a civic integrity reviewer for the Mobius Civic AI Terminal.
-            This is a Next.js app with EPICON ledger, GI computation, micro sub-agents, and MIC economics.
-
-            Return ONLY valid JSON (no markdown) with schema:
-            {
-              "verdict": "pass" | "fail",
-              "summary": "string (<=400 chars)",
-              "blocking": ["..."],
-              "non_blocking": ["..."]
-            }
-
-            Rules:
-            - Check for: type safety, API route correctness, signal normalization issues
-            - Flag any hardcoded secrets, missing error handling, or broken imports
-            - Only "fail" if there is at least one blocking item
-            - Be concrete: cite file paths
+            Return ONLY valid JSON (no markdown):
+            {"verdict":"pass"|"fail","summary":"string","blocking":["..."],"non_blocking":["..."]}
+            Only "fail" when at least one blocking item exists. Cite file paths.
             `;
 
             const content = `# AUREA Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
@@ -161,14 +160,21 @@ jobs:
                 model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
                 temperature: 0.1,
                 messages: [
-                  { role: 'system', content: 'You are AUREA, a civic integrity reviewer. Return STRICT JSON only.' },
+                  { role: 'system', content: 'You are AUREA. Return STRICT JSON only.' },
                   { role: 'user', content: finalContent }
                 ]
               })
             });
 
             if (!res.ok) {
-              core.setOutput('json', JSON.stringify({verdict:"fail", blocking:[`OpenAI HTTP ${res.status}`], non_blocking:[], summary:"AUREA request failed."}));
+              writeOutcome({
+                kind: 'http_error',
+                reviewer: 'AUREA',
+                provider: 'openai',
+                model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+                independence: 'independent',
+                httpStatus: res.status,
+              });
               return;
             }
 
@@ -178,25 +184,28 @@ jobs:
             if (text.startsWith('```')) text = text.slice(3);
             if (text.endsWith('```')) text = text.slice(0, -3);
 
-            try {
-              core.setOutput('json', JSON.stringify(JSON.parse(text.trim())));
-            } catch (e) {
-              core.setOutput('json', JSON.stringify({verdict:"fail", blocking:["AUREA output was not valid JSON"], non_blocking:[], summary:"Parse failed."}));
-            }
+            writeOutcome({
+              kind: 'legacy_json',
+              reviewer: 'AUREA',
+              provider: 'openai',
+              model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+              independence: 'independent',
+              raw: text.trim(),
+            });
 
       - name: Run ATLAS review (Anthropic)
         if: steps.gate.outputs.run == 'true'
-        id: atlas
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+            const writeOutcome = (outcome) => {
+              fs.writeFileSync('/tmp/sentinel-atlas.outcome.json', JSON.stringify(outcome));
+            };
+
             const apiKey = process.env.ANTHROPIC_API_KEY;
             if (!apiKey) {
-              core.setOutput('json', JSON.stringify({
-                verdict:"pass", blocking:[], non_blocking:["ANTHROPIC_API_KEY not configured — ATLAS skipped"],
-                summary:"ATLAS review skipped. Add ANTHROPIC_API_KEY secret to enable."
-              }));
+              writeOutcome({ kind: 'missing_credential', reviewer: 'ATLAS', credential: 'ANTHROPIC_API_KEY' });
               return;
             }
 
@@ -206,22 +215,9 @@ jobs:
 
             const instruction = `
             You are ATLAS, the primary sentinel of the Mobius Civic AI Terminal.
-            This is a Next.js app with EPICON ledger, GI computation, micro sub-agents, and MIC economics.
-
-            Return ONLY valid JSON (no markdown) with schema:
-            {
-              "verdict": "pass" | "fail",
-              "summary": "string (<=400 chars)",
-              "blocking": ["..."],
-              "non_blocking": ["..."]
-            }
-
-            Rules:
-            - Look for: falsifiability gaps, integrity drift, compliance-theater risk
-            - Flag broken signal normalization, GI computation errors, tripwire logic bugs
-            - Check that new API routes follow the existing pattern in app/api/
-            - Only "fail" if there is at least one blocking item
-            - Be concrete: cite file paths
+            Return ONLY valid JSON (no markdown):
+            {"verdict":"pass"|"fail","summary":"string","blocking":["..."],"non_blocking":["..."]}
+            Only "fail" when at least one blocking item exists. Cite file paths.
             `;
 
             const content = `# ATLAS Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
@@ -239,13 +235,20 @@ jobs:
                 model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
                 max_tokens: 1200,
                 temperature: 0.1,
-                system: 'You are ATLAS, a skeptical systems sentinel. Return STRICT JSON only.',
+                system: 'You are ATLAS. Return STRICT JSON only.',
                 messages: [{ role: 'user', content: finalContent }]
               })
             });
 
             if (!res.ok) {
-              core.setOutput('json', JSON.stringify({verdict:"fail", blocking:[`Anthropic HTTP ${res.status}`], non_blocking:[], summary:"ATLAS request failed."}));
+              writeOutcome({
+                kind: 'http_error',
+                reviewer: 'ATLAS',
+                provider: 'anthropic',
+                model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+                independence: 'shared_provider',
+                httpStatus: res.status,
+              });
               return;
             }
 
@@ -255,51 +258,211 @@ jobs:
             if (text.startsWith('```')) text = text.slice(3);
             if (text.endsWith('```')) text = text.slice(0, -3);
 
-            try {
-              core.setOutput('json', JSON.stringify(JSON.parse(text.trim())));
-            } catch (e) {
-              core.setOutput('json', JSON.stringify({verdict:"fail", blocking:["ATLAS output was not valid JSON"], non_blocking:[], summary:"Parse failed."}));
-            }
+            writeOutcome({
+              kind: 'legacy_json',
+              reviewer: 'ATLAS',
+              provider: 'anthropic',
+              model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+              independence: 'shared_provider',
+              raw: text.trim(),
+            });
 
-      - name: Render verdict and post comment
+      - name: Run EVE review (civic risk — Anthropic primary, OpenAI fallback advisory)
         if: steps.gate.outputs.run == 'true'
-        id: decide
         uses: actions/github-script@v7
         with:
           script: |
-            function safeParse(raw) {
-              try { return JSON.parse(raw || '{}'); }
-              catch { return { verdict: 'pass', blocking: [], non_blocking: ['Output parse failed'], summary: 'Parse error' }; }
+            const fs = require('fs');
+            const writeOutcome = (outcome) => {
+              fs.writeFileSync('/tmp/sentinel-eve.outcome.json', JSON.stringify(outcome));
+            };
+
+            const anthropicKey = process.env.ANTHROPIC_API_KEY;
+            const openaiKey = process.env.OPENAI_API_KEY;
+            if (!anthropicKey && !openaiKey) {
+              writeOutcome({ kind: 'missing_credential', reviewer: 'EVE', credential: 'ANTHROPIC_API_KEY|OPENAI_API_KEY' });
+              return;
             }
 
-            const A = safeParse(`${{ steps.aurea.outputs.json || '{}' }}`);
-            const T = safeParse(`${{ steps.atlas.outputs.json || '{}' }}`);
+            const meta = fs.readFileSync('/tmp/pr.meta.json','utf8');
+            const diff = fs.readFileSync('/tmp/pr.diff','utf8');
+            const files = fs.readFileSync('/tmp/changed_files.txt','utf8');
 
-            const blocking = [...(A.blocking||[]), ...(T.blocking||[])].filter(Boolean);
-            const pass = blocking.length === 0 && (A.verdict||'pass') === 'pass' && (T.verdict||'pass') === 'pass';
+            const instruction = `
+            You are EVE, the civic-risk and ethics reviewer for the Mobius Civic AI Terminal.
+            Return ONLY valid JSON (no markdown):
+            {"verdict":"pass"|"fail","summary":"string","blocking":["..."],"non_blocking":["..."]}
+            Never silently approve high-risk civic harm. Only "fail" when at least one blocking item exists.
+            `;
 
-            const body = [
-              `## 🤖 Sentinel Review`,
-              ``,
-              pass ? `**Result:** ✅ PASS` : `**Result:** ❌ FAIL (${blocking.length} blocking)`,
-              ``,
-              `---`,
-              ``,
-              `### AUREA — ${(A.verdict||'pass').toUpperCase()}`,
-              A.summary ? `> ${A.summary}` : '',
-              (A.blocking||[]).length ? `**Blocking:** ${A.blocking.join(', ')}` : '',
-              (A.non_blocking||[]).length ? `**Notes:** ${A.non_blocking.join(', ')}` : '',
-              ``,
-              `### ATLAS — ${(T.verdict||'pass').toUpperCase()}`,
-              T.summary ? `> ${T.summary}` : '',
-              (T.blocking||[]).length ? `**Blocking:** ${T.blocking.join(', ')}` : '',
-              (T.non_blocking||[]).length ? `**Notes:** ${T.non_blocking.join(', ')}` : '',
-              ``,
-              `---`,
-              `*Add secrets OPENAI_API_KEY and ANTHROPIC_API_KEY to enable AI reviews.*`,
-            ].filter(x => x !== null && x !== undefined).join('\n');
+            const content = `# EVE Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
+            const maxP = parseInt(process.env.MAX_PROMPT_CHARS || '200000', 10);
+            const finalContent = content.length > maxP ? content.slice(0, maxP) + '\n[TRUNCATED]' : content;
 
-            // Upsert comment
+            async function callAnthropic() {
+              const res = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                  'x-api-key': anthropicKey,
+                  'anthropic-version': '2023-06-01',
+                  'content-type': 'application/json'
+                },
+                body: JSON.stringify({
+                  model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+                  max_tokens: 1200,
+                  temperature: 0.1,
+                  system: 'You are EVE. Return STRICT JSON only.',
+                  messages: [{ role: 'user', content: finalContent }]
+                })
+              });
+              return { res, provider: 'anthropic', model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514', independence: 'shared_provider' };
+            }
+
+            async function callOpenAiFallback() {
+              const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+                  temperature: 0.1,
+                  messages: [
+                    { role: 'system', content: 'You are an advisory fallback for EVE civic-risk review. Return STRICT JSON only. This is NOT independent EVE attestation.' },
+                    { role: 'user', content: finalContent }
+                  ]
+                })
+              });
+              return { res, provider: 'openai', model: process.env.OPENAI_MODEL || 'gpt-4o-mini', independence: 'shared_provider' };
+            }
+
+            let attempt = null;
+            if (anthropicKey) {
+              attempt = await callAnthropic();
+              const degraded = [401, 402, 403, 429, 500, 502, 503, 504];
+              if (!attempt.res.ok && openaiKey && degraded.includes(attempt.res.status)) {
+                attempt = await callOpenAiFallback();
+                if (attempt.res.ok) {
+                  const data = await attempt.res.json();
+                  let text = (data?.choices?.[0]?.message?.content ?? '').trim();
+                  if (text.startsWith('```json')) text = text.slice(7);
+                  if (text.startsWith('```')) text = text.slice(3);
+                  if (text.endsWith('```')) text = text.slice(0, -3);
+                  writeOutcome({
+                    kind: 'fallback_json',
+                    reviewer: 'EVE',
+                    provider: attempt.provider,
+                    model: attempt.model,
+                    raw: text.trim(),
+                    reason: 'Anthropic unavailable — OpenAI advisory fallback (not independent EVE quorum)',
+                  });
+                  return;
+                }
+              }
+            } else if (openaiKey) {
+              attempt = await callOpenAiFallback();
+              if (attempt.res.ok) {
+                const data = await attempt.res.json();
+                let text = (data?.choices?.[0]?.message?.content ?? '').trim();
+                if (text.startsWith('```json')) text = text.slice(7);
+                if (text.startsWith('```')) text = text.slice(3);
+                if (text.endsWith('```')) text = text.slice(0, -3);
+                writeOutcome({
+                  kind: 'fallback_json',
+                  reviewer: 'EVE',
+                  provider: attempt.provider,
+                  model: attempt.model,
+                  raw: text.trim(),
+                  reason: 'Anthropic credential missing — OpenAI advisory fallback only',
+                });
+                return;
+              }
+            }
+
+            if (!attempt || !attempt.res.ok) {
+              writeOutcome({
+                kind: 'http_error',
+                reviewer: 'EVE',
+                provider: attempt?.provider || 'anthropic',
+                model: attempt?.model || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+                independence: 'shared_provider',
+                httpStatus: attempt?.res?.status || 503,
+              });
+              return;
+            }
+
+            const data = await attempt.res.json();
+            let text = (data?.content || []).map(p => p.text || '').join('\n').trim();
+            if (!text && data?.choices?.[0]?.message?.content) {
+              text = data.choices[0].message.content.trim();
+            }
+            if (text.startsWith('```json')) text = text.slice(7);
+            if (text.startsWith('```')) text = text.slice(3);
+            if (text.endsWith('```')) text = text.slice(0, -3);
+
+            writeOutcome({
+              kind: attempt.provider === 'openai' ? 'fallback_json' : 'legacy_json',
+              reviewer: 'EVE',
+              provider: attempt.provider,
+              model: attempt.model,
+              independence: attempt.independence,
+              raw: text.trim(),
+              ...(attempt.provider === 'openai'
+                ? { reason: 'OpenAI advisory fallback — not independent EVE quorum' }
+                : {}),
+            });
+
+      - name: Aggregate sentinel disposition (fail-closed policy)
+        if: steps.gate.outputs.run == 'true'
+        id: decide
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec tsx <<'TS'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import {
+            buildDispositionFromStepOutcomes,
+            computeLabelUpdates,
+            renderSentinelReviewComment,
+            type ReviewStepOutcome,
+          } from './lib/governance/sentinelReviewPolicy.ts';
+
+          const labels = (process.env.PR_LABELS || '').split(',').map((s) => s.trim()).filter(Boolean);
+          const observedAt = new Date().toISOString();
+          const paths = [
+            '/tmp/sentinel-aurea.outcome.json',
+            '/tmp/sentinel-atlas.outcome.json',
+            '/tmp/sentinel-eve.outcome.json',
+          ];
+          const outcomes = paths.map((path) => JSON.parse(readFileSync(path, 'utf8')) as ReviewStepOutcome);
+          const disposition = buildDispositionFromStepOutcomes({ labels, outcomes, observedAt });
+          const labelUpdates = computeLabelUpdates({
+            disposition,
+            currentLabels: labels,
+          });
+          writeFileSync('/tmp/sentinel-disposition.json', JSON.stringify(disposition, null, 2));
+          writeFileSync('/tmp/sentinel-comment.md', renderSentinelReviewComment(disposition));
+          writeFileSync('/tmp/sentinel-label-updates.json', JSON.stringify(labelUpdates, null, 2));
+          console.log(`approval_eligible=${disposition.approval_eligible}`);
+          TS
+        env:
+          PR_LABELS: ${{ steps.gate.outputs.labels }}
+
+      - name: Export disposition outputs
+        if: steps.gate.outputs.run == 'true'
+        id: disposition
+        shell: bash
+        run: |
+          echo "pass=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/sentinel-disposition.json','utf8')).approval_eligible")" >> "$GITHUB_OUTPUT"
+          echo "comment<<EOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/sentinel-comment.md >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Post or update sentinel comment
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('/tmp/sentinel-comment.md', 'utf8');
             const prNumber = context.payload.pull_request.number;
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner, repo: context.repo.repo,
@@ -307,7 +470,6 @@ jobs:
             });
             const marker = '## 🤖 Sentinel Review';
             const existing = comments.find(c => c.user?.type === 'Bot' && (c.body||'').includes(marker));
-
             if (existing) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner, repo: context.repo.repo,
@@ -320,26 +482,36 @@ jobs:
               });
             }
 
-            core.setOutput('pass', pass ? 'true' : 'false');
-
-      - name: Auto-label on pass
-        if: steps.gate.outputs.run == 'true' && steps.decide.outputs.pass == 'true' && env.AUTO_LABEL_ON_PASS == 'true'
+      - name: Apply idempotent label updates
+        if: steps.gate.outputs.run == 'true'
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
+            const updates = JSON.parse(fs.readFileSync('/tmp/sentinel-label-updates.json','utf8'));
             const prNumber = context.payload.pull_request.number;
             const { data: labels } = await github.rest.issues.listLabelsOnIssue({
               owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber
             });
-            if (!labels.find(l => l.name === process.env.PASS_LABEL)) {
+            const current = new Set(labels.map(l => l.name));
+            for (const name of updates.remove || []) {
+              if (current.has(name)) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: prNumber, name
+                });
+              }
+            }
+            const toAdd = (updates.add || []).filter(name => !current.has(name));
+            if (toAdd.length > 0) {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: prNumber, labels: [process.env.PASS_LABEL]
+                issue_number: prNumber, labels: toAdd
               });
             }
 
-      - name: Fail check if blocking issues
-        if: steps.gate.outputs.run == 'true' && steps.decide.outputs.pass != 'true'
+      - name: Fail check when approval ineligible
+        if: steps.gate.outputs.run == 'true' && steps.disposition.outputs.pass != 'true'
         run: |
-          echo "❌ Sentinel review failed."
+          echo "❌ Sentinel review blocked — approval ineligible (degraded, failed, or incomplete lanes)."
           exit 1
