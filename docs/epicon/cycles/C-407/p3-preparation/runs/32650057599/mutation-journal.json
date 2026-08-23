@@ -1,0 +1,46 @@
+{
+  "journal_id": "bc1b95c54b49916076c09233477cd954",
+  "capture_id": "track-r-c403-2026-08-15T2014Z",
+  "repair_id": "track-r-c403-batch-001",
+  "created_at": "2026-08-23T15:55:35.552Z",
+  "entries": [
+    {
+      "at": "2026-08-23T15:55:35.552Z",
+      "operation": "track_r_batch_apply_dry_run",
+      "repair_id": "track-r-c403-batch-001",
+      "capture_id": "track-r-c403-2026-08-15T2014Z",
+      "mode": "dry_run",
+      "lineage_snapshot_hash": "b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb",
+      "execution_witness_hash": "e08999decbcdaaac06d91a9a11f06e6737756a646800db90ad8e57b865c1ccf1",
+      "before": {
+        "active_version": null
+      },
+      "after": {
+        "active_version": "track-r-c403-batch-001"
+      },
+      "write_records": [
+        {
+          "key": "watchdog:lineage:version:track-r-c403-batch-001:manifest",
+          "before": null,
+          "after": "[staged manifest payload]"
+        },
+        {
+          "key": "watchdog:lineage:version:track-r-c403-batch-001:canonical",
+          "before": null,
+          "after": "[staged canonical map payload]"
+        },
+        {
+          "key": "watchdog:lineage:version:track-r-c403-batch-001:quarantine",
+          "before": null,
+          "after": "[staged quarantine payload]"
+        },
+        {
+          "key": "watchdog:lineage:active_version",
+          "before": null,
+          "after": "track-r-c403-batch-001"
+        }
+      ]
+    }
+  ],
+  "journal_hash": "2ecd12082679d67e3db2cb24fa2c740febe04ac69f5eea75195cd6dee0eb98c4"
+}

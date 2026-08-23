@@ -1,0 +1,46 @@
+{
+  "schema_version": "1",
+  "generated_at": "2026-08-23T15:55:35.552Z",
+  "workflow_run_id": "32650057599",
+  "execution_authorized": false,
+  "production_mutation_performed": false,
+  "files": {
+    "readiness.log": {
+      "sha256": "a1ab7ff0fd84ad1b7a39576275474641980dfa73380bb5ccc7d470d11d5424d8",
+      "bytes": 1567
+    },
+    "batch-apply-preflight.log": {
+      "sha256": "99bf209d1dbef122c5e97b2f5e659cbbfc2c268e31e16a4721445f4ee6c1474b",
+      "bytes": 1153
+    },
+    "batch-apply-dry-run.log": {
+      "sha256": "b1f690eacb8c2f45c229ebd1aadebbd41406ff4e84d4261fcb72968fce80c875",
+      "bytes": 2096
+    },
+    "operator-packet.json": {
+      "sha256": "ae214217ab445c94ad52736f5f520076ec14306308c87ad11472153e4cc7b56e",
+      "bytes": 13450
+    },
+    "operator-packet.md": {
+      "sha256": "aaa825946b5c1653d234ca7a809033fb782e2ba2813d62ae4998d9085c4c763d",
+      "bytes": 1589
+    },
+    "mutation-journal.json": {
+      "sha256": "4a1b7ec747d6fc6e1bf1079bc7a683fc429c3d5bfe623035cb7ca8d37681e9a4",
+      "bytes": 1552
+    },
+    "intended-writes.json": {
+      "sha256": "c40a5216229adc1765162bed7593d8bb0e76ebf039743a9deb7698ecf47691a6",
+      "bytes": 1759
+    },
+    "rollback-verification.json": {
+      "sha256": "f9c46aed34562d20b546508e19cb15952c568d14e0ce63635f157c43c17dfad7",
+      "bytes": 94
+    }
+  },
+  "cross_references": {
+    "mutation_journal_id": "bc1b95c54b49916076c09233477cd954",
+    "mutation_journal_hash": "2ecd12082679d67e3db2cb24fa2c740febe04ac69f5eea75195cd6dee0eb98c4",
+    "operator_packet_hash": "82bfe16c7a13b3a8e73720debf50161c4a12da9e022e3682cb1d93276cfd96d9"
+  }
+}

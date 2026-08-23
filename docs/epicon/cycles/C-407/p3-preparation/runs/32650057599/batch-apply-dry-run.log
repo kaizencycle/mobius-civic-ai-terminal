@@ -1,0 +1,58 @@
+Track R batch apply dry-run (P3 preparation)
+
+writes_planned: 4
+writes_performed: 0
+execution_authorized: false
+
+status: dry_run_pass
+
+[pass] capture_nine_v2_binding
+  track-r-c403-2026-08-15T2014Z
+[pass] governance_signed_attestations_present
+  ZEUS/EVE/human signed artifacts present
+[pass] execution_authority_not_derived_from_governance_files
+  signed attestations and awaiting_execution_handoff do not authorize mutation
+[pass] approved_manifest_capture_nine_alignment
+  27c94b0f5b4e870ca3ba353368a8b11e5001166cbd3baee37cb11ea6a47b3eaa
+[pass] batch_engine_dry_run
+  fixture batch engine pass
+[pass] batch_manifest_validation
+  manifest valid
+[pass] approved_block_set_prepare
+  123 contested blocks prepare cleanly
+[pass] governance_131_cutoff
+  positions 1-131 only; 132-194 verified_unattached
+[pass] rollback_plan_verified
+  rollback plan verified
+[pass] one_shot_idempotency_guard
+  no prior committed activation
+[pass] lineage_snapshot_version
+  v2
+[pass] apply_production_kv_identity
+  {"latest_seal_id":"seal-C-372-002","attested_index_count":360}
+[pass] apply_lineage_pointer_observation
+  {"active_lineage_version":null,"live_canonical_pointer":null}
+[pass] apply_cas_public_api
+  https://mobius-civic-ai-terminal.vercel.app
+[pass] apply_kv_identity_public_latest_seal
+  kv=seal-C-372-002 public=seal-C-372-002
+[pass] apply_affected_block_set_match
+  {"set_match":true,"pinned":123,"live":123,"errors":[]}
+[pass] apply_lineage_snapshot_v2
+  lineage_snapshot_hash_v2=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+[pass] apply_lineage_snapshot_cas
+  version=v2 attested=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb fresh=b5f781f6992e6d000289ca130eba15d9150e7a2ce59c280384d57a2c149ef9fb
+[pass] apply_lineage_snapshot_version
+  v2
+[pass] apply_live_witness_export
+  export_complete=true
+[pass] apply_commit_guard
+  commit guard preflight pass
+[pass] apply_preflight_summary
+  apply_preflight_pass
+[pass] preflight_packet_alignment
+  apply_preflight_pass
+[warn] post_write_verification
+  skipped in dry-run mode
+[pass] apply_summary
+  dry_run_pass
