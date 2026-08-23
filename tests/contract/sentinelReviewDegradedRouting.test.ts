@@ -10,6 +10,7 @@ import {
   buildDispositionFromStepOutcomes,
   computeLabelUpdates,
   determineRequiredReviewers,
+  filterLabelUpdatesByAvailable,
   findFailOpenWorkflowPatterns,
   laneFromLegacyVerdict,
   laneFromMissingCredential,
@@ -195,6 +196,9 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
     assert.match(source, /sentinelReviewPolicy/);
     assert.match(source, /Run EVE review/);
     assert.match(source, /pnpm\/action-setup@v4/);
+    assert.match(source, /ignore-scripts/);
+    assert.match(source, /trusted-sentinelReviewPolicy/);
+    assert.match(source, /Pin aggregation policy to base revision/);
   });
 
   it('partial required quorum cannot approve when a lane is missing', () => {
@@ -203,7 +207,61 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
       requiredReviewers: ['AUREA', 'ATLAS', 'EVE'],
     });
     assert.equal(disposition.approval_eligible, false);
-    assert.match(disposition.blocking.join(' '), /EVE review missing/);
+    assert.match(disposition.blocking.join(' '), /EVE required but missing/);
+  });
+
+  it('required NOT_REQUESTED lane blocks approval', () => {
+    const eve = laneFromStepOutcome({ kind: 'not_requested', reviewer: 'EVE' }, NOW);
+    const disposition = aggregateSentinelReview({
+      lanes: [passLane('AUREA'), passLane('ATLAS'), eve],
+      requiredReviewers: ['AUREA', 'ATLAS', 'EVE'],
+    });
+    assert.equal(disposition.approval_eligible, false);
+    assert.equal(eve.state, 'NOT_REQUESTED');
+  });
+
+  it('duplicate reviewer lanes fail coverage and block approval', () => {
+    const disposition = aggregateSentinelReview({
+      lanes: [passLane('AUREA'), passLane('AUREA'), passLane('ATLAS'), passLane('EVE')],
+      requiredReviewers: ['AUREA', 'ATLAS', 'EVE'],
+    });
+    assert.equal(disposition.approval_eligible, false);
+    assert.match(disposition.blocking.join(' '), /AUREA has 2 lane outcomes/);
+  });
+
+  it('all-shared-provider PASS lanes cannot satisfy independence quorum', () => {
+    const sharedPass = (reviewer: 'AUREA' | 'ATLAS' | 'EVE'): SentinelLaneResult =>
+      laneFromLegacyVerdict({
+        reviewer,
+        observedAt: NOW,
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        independence: 'shared_provider',
+        parsed: { verdict: 'pass', blocking: [], non_blocking: [], summary: `${reviewer} shared` },
+      });
+    const disposition = aggregateSentinelReview({
+      lanes: [sharedPass('AUREA'), sharedPass('ATLAS'), sharedPass('EVE')],
+      requiredReviewers: ['AUREA', 'ATLAS', 'EVE'],
+    });
+    assert.equal(disposition.approval_eligible, false);
+    assert.match(disposition.blocking.join(' '), /independence\/provider policy not satisfied/);
+  });
+
+  it('filterLabelUpdatesByAvailable skips missing repo labels', () => {
+    const filtered = filterLabelUpdatesByAvailable({
+      updates: { add: [SENTINEL_PASS_LABEL, SENTINEL_DEGRADED_LABEL], remove: [] },
+      availableLabels: ['needs-custodian-review'],
+    });
+    assert.deepEqual(filtered.add, []);
+    assert.deepEqual(filtered.skipped, [SENTINEL_PASS_LABEL, SENTINEL_DEGRADED_LABEL]);
+  });
+
+  it('only AUREA passing with full quorum required cannot approve', () => {
+    const disposition = aggregateSentinelReview({
+      lanes: [passLane('AUREA')],
+      requiredReviewers: ['AUREA', 'ATLAS', 'EVE'],
+    });
+    assert.equal(disposition.approval_eligible, false);
   });
 
   it('structurally malformed verdict JSON fails closed without throwing', () => {

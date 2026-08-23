@@ -25,8 +25,6 @@ jobs:
   sentinel:
     runs-on: ubuntu-latest
     env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       OPENAI_MODEL: gpt-4o-mini
       ANTHROPIC_MODEL: claude-sonnet-4-20250514
       MAX_DIFF_CHARS: "120000"
@@ -78,9 +76,9 @@ jobs:
           node-version: "20"
           cache: pnpm
 
-      - name: Install dependencies
+      - name: Install dependencies (ignore lifecycle scripts)
         if: steps.gate.outputs.run == 'true'
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Build PR context + diff
         if: steps.gate.outputs.run == 'true'
@@ -132,6 +130,8 @@ jobs:
       - name: Run AUREA review (OpenAI)
         if: steps.gate.outputs.run == 'true'
         uses: actions/github-script@v7
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         with:
           script: |
             const fs = require('fs');
@@ -139,70 +139,83 @@ jobs:
               fs.writeFileSync('/tmp/sentinel-aurea.outcome.json', JSON.stringify(outcome));
             };
 
-            const apiKey = process.env.OPENAI_API_KEY;
-            if (!apiKey) {
-              writeOutcome({ kind: 'missing_credential', reviewer: 'AUREA', credential: 'OPENAI_API_KEY' });
-              return;
-            }
+            try {
+              const apiKey = process.env.OPENAI_API_KEY;
+              if (!apiKey) {
+                writeOutcome({ kind: 'missing_credential', reviewer: 'AUREA', credential: 'OPENAI_API_KEY' });
+                return;
+              }
 
-            const meta = fs.readFileSync('/tmp/pr.meta.json','utf8');
-            const diff = fs.readFileSync('/tmp/pr.diff','utf8');
-            const files = fs.readFileSync('/tmp/changed_files.txt','utf8');
+              const meta = fs.readFileSync('/tmp/pr.meta.json','utf8');
+              const diff = fs.readFileSync('/tmp/pr.diff','utf8');
+              const files = fs.readFileSync('/tmp/changed_files.txt','utf8');
 
-            const instruction = `
-            You are AUREA, a civic integrity reviewer for the Mobius Civic AI Terminal.
-            Return ONLY valid JSON (no markdown):
-            {"verdict":"pass"|"fail","summary":"string","blocking":["..."],"non_blocking":["..."]}
-            Only "fail" when at least one blocking item exists. Cite file paths.
-            `;
+              const instruction = `
+              You are AUREA, a civic integrity reviewer for the Mobius Civic AI Terminal.
+              Return ONLY valid JSON (no markdown):
+              {"verdict":"pass"|"fail","summary":"string","blocking":["..."],"non_blocking":["..."]}
+              Only "fail" when at least one blocking item exists. Cite file paths.
+              `;
 
-            const content = `# AUREA Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
-            const maxP = parseInt(process.env.MAX_PROMPT_CHARS || '200000', 10);
-            const finalContent = content.length > maxP ? content.slice(0, maxP) + '\n[TRUNCATED]' : content;
+              const content = `# AUREA Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
+              const maxP = parseInt(process.env.MAX_PROMPT_CHARS || '200000', 10);
+              const finalContent = content.length > maxP ? content.slice(0, maxP) + '\n[TRUNCATED]' : content;
 
-            const res = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
+              const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+                  temperature: 0.1,
+                  messages: [
+                    { role: 'system', content: 'You are AUREA. Return STRICT JSON only.' },
+                    { role: 'user', content: finalContent }
+                  ]
+                })
+              });
+
+              if (!res.ok) {
+                writeOutcome({
+                  kind: 'http_error',
+                  reviewer: 'AUREA',
+                  provider: 'openai',
+                  model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+                  independence: 'independent',
+                  httpStatus: res.status,
+                });
+                return;
+              }
+
+              const data = await res.json();
+              let text = (data?.choices?.[0]?.message?.content ?? '').trim();
+              if (text.startsWith('```json')) text = text.slice(7);
+              if (text.startsWith('```')) text = text.slice(3);
+              if (text.endsWith('```')) text = text.slice(0, -3);
+
+              writeOutcome({
+                kind: 'legacy_json',
+                reviewer: 'AUREA',
+                provider: 'openai',
                 model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-                temperature: 0.1,
-                messages: [
-                  { role: 'system', content: 'You are AUREA. Return STRICT JSON only.' },
-                  { role: 'user', content: finalContent }
-                ]
-              })
-            });
-
-            if (!res.ok) {
+                independence: 'independent',
+                raw: text.trim(),
+              });
+            } catch (err) {
               writeOutcome({
                 kind: 'http_error',
                 reviewer: 'AUREA',
                 provider: 'openai',
                 model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
                 independence: 'independent',
-                httpStatus: res.status,
+                httpStatus: 503,
               });
-              return;
             }
-
-            const data = await res.json();
-            let text = (data?.choices?.[0]?.message?.content ?? '').trim();
-            if (text.startsWith('```json')) text = text.slice(7);
-            if (text.startsWith('```')) text = text.slice(3);
-            if (text.endsWith('```')) text = text.slice(0, -3);
-
-            writeOutcome({
-              kind: 'legacy_json',
-              reviewer: 'AUREA',
-              provider: 'openai',
-              model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-              independence: 'independent',
-              raw: text.trim(),
-            });
 
       - name: Run ATLAS review (Anthropic)
         if: steps.gate.outputs.run == 'true'
         uses: actions/github-script@v7
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         with:
           script: |
             const fs = require('fs');
@@ -210,73 +223,87 @@ jobs:
               fs.writeFileSync('/tmp/sentinel-atlas.outcome.json', JSON.stringify(outcome));
             };
 
-            const apiKey = process.env.ANTHROPIC_API_KEY;
-            if (!apiKey) {
-              writeOutcome({ kind: 'missing_credential', reviewer: 'ATLAS', credential: 'ANTHROPIC_API_KEY' });
-              return;
-            }
+            try {
+              const apiKey = process.env.ANTHROPIC_API_KEY;
+              if (!apiKey) {
+                writeOutcome({ kind: 'missing_credential', reviewer: 'ATLAS', credential: 'ANTHROPIC_API_KEY' });
+                return;
+              }
 
-            const meta = fs.readFileSync('/tmp/pr.meta.json','utf8');
-            const diff = fs.readFileSync('/tmp/pr.diff','utf8');
-            const files = fs.readFileSync('/tmp/changed_files.txt','utf8');
+              const meta = fs.readFileSync('/tmp/pr.meta.json','utf8');
+              const diff = fs.readFileSync('/tmp/pr.diff','utf8');
+              const files = fs.readFileSync('/tmp/changed_files.txt','utf8');
 
-            const instruction = `
-            You are ATLAS, the primary sentinel of the Mobius Civic AI Terminal.
-            Return ONLY valid JSON (no markdown):
-            {"verdict":"pass"|"fail","summary":"string","blocking":["..."],"non_blocking":["..."]}
-            Only "fail" when at least one blocking item exists. Cite file paths.
-            `;
+              const instruction = `
+              You are ATLAS, the primary sentinel of the Mobius Civic AI Terminal.
+              Return ONLY valid JSON (no markdown):
+              {"verdict":"pass"|"fail","summary":"string","blocking":["..."],"non_blocking":["..."]}
+              Only "fail" when at least one blocking item exists. Cite file paths.
+              `;
 
-            const content = `# ATLAS Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
-            const maxP = parseInt(process.env.MAX_PROMPT_CHARS || '200000', 10);
-            const finalContent = content.length > maxP ? content.slice(0, maxP) + '\n[TRUNCATED]' : content;
+              const content = `# ATLAS Review\n## PR Meta\n${meta}\n## Changed files\n${files}\n## Diff\n${diff}\n${instruction}`;
+              const maxP = parseInt(process.env.MAX_PROMPT_CHARS || '200000', 10);
+              const finalContent = content.length > maxP ? content.slice(0, maxP) + '\n[TRUNCATED]' : content;
 
-            const res = await fetch('https://api.anthropic.com/v1/messages', {
-              method: 'POST',
-              headers: {
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-                'content-type': 'application/json'
-              },
-              body: JSON.stringify({
+              const res = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                  'x-api-key': apiKey,
+                  'anthropic-version': '2023-06-01',
+                  'content-type': 'application/json'
+                },
+                body: JSON.stringify({
+                  model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+                  max_tokens: 1200,
+                  temperature: 0.1,
+                  system: 'You are ATLAS. Return STRICT JSON only.',
+                  messages: [{ role: 'user', content: finalContent }]
+                })
+              });
+
+              if (!res.ok) {
+                writeOutcome({
+                  kind: 'http_error',
+                  reviewer: 'ATLAS',
+                  provider: 'anthropic',
+                  model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+                  independence: 'shared_provider',
+                  httpStatus: res.status,
+                });
+                return;
+              }
+
+              const data = await res.json();
+              let text = (data?.content || []).map(p => p.text || '').join('\n').trim();
+              if (text.startsWith('```json')) text = text.slice(7);
+              if (text.startsWith('```')) text = text.slice(3);
+              if (text.endsWith('```')) text = text.slice(0, -3);
+
+              writeOutcome({
+                kind: 'legacy_json',
+                reviewer: 'ATLAS',
+                provider: 'anthropic',
                 model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-                max_tokens: 1200,
-                temperature: 0.1,
-                system: 'You are ATLAS. Return STRICT JSON only.',
-                messages: [{ role: 'user', content: finalContent }]
-              })
-            });
-
-            if (!res.ok) {
+                independence: 'shared_provider',
+                raw: text.trim(),
+              });
+            } catch (err) {
               writeOutcome({
                 kind: 'http_error',
                 reviewer: 'ATLAS',
                 provider: 'anthropic',
                 model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
                 independence: 'shared_provider',
-                httpStatus: res.status,
+                httpStatus: 503,
               });
-              return;
             }
-
-            const data = await res.json();
-            let text = (data?.content || []).map(p => p.text || '').join('\n').trim();
-            if (text.startsWith('```json')) text = text.slice(7);
-            if (text.startsWith('```')) text = text.slice(3);
-            if (text.endsWith('```')) text = text.slice(0, -3);
-
-            writeOutcome({
-              kind: 'legacy_json',
-              reviewer: 'ATLAS',
-              provider: 'anthropic',
-              model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-              independence: 'shared_provider',
-              raw: text.trim(),
-            });
 
       - name: Run EVE review (civic risk — Anthropic primary, OpenAI fallback advisory)
         if: steps.gate.outputs.run == 'true'
         uses: actions/github-script@v7
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         with:
           script: |
             const fs = require('fs');
@@ -485,54 +512,124 @@ jobs:
               });
             }
 
+      - name: Ensure review outcome files (fail-closed defaults)
+        if: always() && steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ensure_outcome() {
+            local file="$1"
+            local reviewer="$2"
+            if [ ! -f "$file" ]; then
+              printf '{"kind":"http_error","reviewer":"%s","provider":"unknown","model":"unknown","independence":"unknown","httpStatus":503}\n' "$reviewer" > "$file"
+              echo "Wrote default degraded outcome for ${reviewer} → ${file}"
+            fi
+          }
+          ensure_outcome /tmp/sentinel-aurea.outcome.json AUREA
+          ensure_outcome /tmp/sentinel-atlas.outcome.json ATLAS
+          ensure_outcome /tmp/sentinel-eve.outcome.json EVE
+
+      - name: List repository labels
+        if: always() && steps.gate.outputs.run == 'true'
+        id: repo-labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.issues.listLabelsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+            core.setOutput('names', data.map((label) => label.name).join(','));
+
+      - name: Pin aggregation policy to base revision
+        if: always() && steps.gate.outputs.run == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha }}"
+          git fetch --no-tags --prune --depth=1 origin "${BASE}" || true
+          TRUSTED="/tmp/trusted-sentinelReviewPolicy.ts"
+          if git show "${BASE}:lib/governance/sentinelReviewPolicy.ts" > "${TRUSTED}" 2>/dev/null; then
+            echo "Using trusted aggregation policy from base ${BASE}"
+            echo "${TRUSTED}" > /tmp/sentinel-policy-path.txt
+          else
+            echo "Base lacks policy module; using PR checkout (bootstrap introduction)"
+            echo "./lib/governance/sentinelReviewPolicy.ts" > /tmp/sentinel-policy-path.txt
+          fi
+
       - name: Aggregate sentinel disposition (fail-closed policy)
-        if: steps.gate.outputs.run == 'true'
+        if: always() && steps.gate.outputs.run == 'true'
         id: decide
         shell: bash
         run: |
           set -euo pipefail
+          POLICY_PATH="$(cat /tmp/sentinel-policy-path.txt)"
+          export SENTINEL_POLICY_PATH="${POLICY_PATH}"
           pnpm exec tsx <<'TS'
           import { readFileSync, writeFileSync } from 'node:fs';
-          import {
+          import { pathToFileURL } from 'node:url';
+
+          const policyPath = process.env.SENTINEL_POLICY_PATH || './lib/governance/sentinelReviewPolicy.ts';
+          const policy = await import(pathToFileURL(policyPath).href);
+          const {
             buildDispositionFromStepOutcomes,
             computeLabelUpdates,
+            filterLabelUpdatesByAvailable,
             renderSentinelReviewComment,
-            type ReviewStepOutcome,
-          } from './lib/governance/sentinelReviewPolicy.ts';
+          } = policy;
 
           const labels = (process.env.PR_LABELS || '').split(',').map((s) => s.trim()).filter(Boolean);
+          const availableLabels = (process.env.REPO_LABELS || '').split(',').map((s) => s.trim()).filter(Boolean);
           const observedAt = new Date().toISOString();
           const paths = [
             '/tmp/sentinel-aurea.outcome.json',
             '/tmp/sentinel-atlas.outcome.json',
             '/tmp/sentinel-eve.outcome.json',
           ];
-          const outcomes = paths.map((path) => JSON.parse(readFileSync(path, 'utf8')) as ReviewStepOutcome);
+          const outcomes = paths.map((path) => JSON.parse(readFileSync(path, 'utf8')));
           const disposition = buildDispositionFromStepOutcomes({ labels, outcomes, observedAt });
-          const labelUpdates = computeLabelUpdates({
+          const rawLabelUpdates = computeLabelUpdates({
             disposition,
             currentLabels: labels,
           });
+          const labelUpdates = filterLabelUpdatesByAvailable
+            ? filterLabelUpdatesByAvailable({ updates: rawLabelUpdates, availableLabels })
+            : { ...rawLabelUpdates, skipped: [] as string[] };
+          let comment = renderSentinelReviewComment(disposition);
+          if (labelUpdates.skipped?.length) {
+            comment += `\n\n> ⚠️ **Label configuration:** skipped missing repo labels: ${labelUpdates.skipped.join(', ')}. Provision \`consensus:approved\` and \`review:degraded\` before relying on label mutations.\n`;
+          }
           writeFileSync('/tmp/sentinel-disposition.json', JSON.stringify(disposition, null, 2));
-          writeFileSync('/tmp/sentinel-comment.md', renderSentinelReviewComment(disposition));
-          writeFileSync('/tmp/sentinel-label-updates.json', JSON.stringify(labelUpdates, null, 2));
+          writeFileSync('/tmp/sentinel-comment.md', comment);
+          writeFileSync('/tmp/sentinel-label-updates.json', JSON.stringify({ add: labelUpdates.add, remove: labelUpdates.remove }, null, 2));
           console.log(`approval_eligible=${disposition.approval_eligible}`);
           TS
         env:
           PR_LABELS: ${{ steps.gate.outputs.labels }}
+          REPO_LABELS: ${{ steps.repo-labels.outputs.names }}
 
       - name: Export disposition outputs
-        if: steps.gate.outputs.run == 'true'
+        if: always() && steps.gate.outputs.run == 'true'
         id: disposition
         shell: bash
         run: |
+          if [ ! -f /tmp/sentinel-disposition.json ]; then
+            echo "pass=false" >> "$GITHUB_OUTPUT"
+            echo "comment<<EOF" >> "$GITHUB_OUTPUT"
+            echo "## 🤖 Sentinel Review" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Aggregation failed — disposition unavailable. Check workflow logs." >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "pass=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/sentinel-disposition.json','utf8')).approval_eligible")" >> "$GITHUB_OUTPUT"
           echo "comment<<EOF" >> "$GITHUB_OUTPUT"
           cat /tmp/sentinel-comment.md >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Post or update sentinel comment
-        if: steps.gate.outputs.run == 'true'
+        if: always() && steps.gate.outputs.run == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -558,18 +655,26 @@ jobs:
             }
 
       - name: Apply idempotent label updates
-        if: steps.gate.outputs.run == 'true'
+        if: always() && steps.gate.outputs.run == 'true'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+            if (!fs.existsSync('/tmp/sentinel-label-updates.json')) {
+              core.warning('No label updates file — skipping label mutation');
+              return;
+            }
             const updates = JSON.parse(fs.readFileSync('/tmp/sentinel-label-updates.json','utf8'));
             const prNumber = context.payload.pull_request.number;
+            const { data: repoLabels } = await github.rest.issues.listLabelsForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, per_page: 100
+            });
+            const available = new Set(repoLabels.map(l => l.name));
             const { data: labels } = await github.rest.issues.listLabelsOnIssue({
               owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber
             });
             const current = new Set(labels.map(l => l.name));
-            for (const name of updates.remove || []) {
+            for (const name of (updates.remove || []).filter(n => available.has(n))) {
               if (current.has(name)) {
                 await github.rest.issues.removeLabel({
                   owner: context.repo.owner, repo: context.repo.repo,
@@ -577,7 +682,7 @@ jobs:
                 });
               }
             }
-            const toAdd = (updates.add || []).filter(name => !current.has(name));
+            const toAdd = (updates.add || []).filter(name => available.has(name) && !current.has(name));
             if (toAdd.length > 0) {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner, repo: context.repo.repo,
@@ -586,7 +691,7 @@ jobs:
             }
 
       - name: Fail check when approval ineligible
-        if: steps.gate.outputs.run == 'true' && steps.disposition.outputs.pass != 'true'
+        if: always() && steps.gate.outputs.run == 'true' && steps.disposition.outputs.pass != 'true'
         run: |
           echo "❌ Sentinel review blocked — approval ineligible (degraded, failed, or incomplete lanes)."
           exit 1

@@ -338,6 +338,63 @@ function laneBlocksApproval(lane: SentinelLaneResult, required: boolean): boolea
   }
 }
 
+export function validateRequiredLaneCoverage(args: {
+  lanes: SentinelLaneResult[];
+  requiredReviewers: SentinelReviewer[];
+}): { ok: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const counts = new Map<SentinelReviewer, number>();
+  for (const lane of args.lanes) {
+    counts.set(lane.reviewer, (counts.get(lane.reviewer) ?? 0) + 1);
+  }
+  for (const [reviewer, count] of counts) {
+    if (count > 1) {
+      errors.push(`${reviewer} has ${count} lane outcomes — expected exactly one`);
+    }
+  }
+  for (const reviewer of args.requiredReviewers) {
+    if (!counts.has(reviewer)) {
+      errors.push(`${reviewer} required but missing from lane outcomes`);
+    }
+  }
+  return { ok: errors.length === 0, errors };
+}
+
+export function laneMeetsApprovalIndependence(lane: SentinelLaneResult): boolean {
+  if (lane.state !== 'PASS') return false;
+  switch (lane.reviewer) {
+    case 'AUREA':
+      return lane.independence === 'independent' && lane.provider === 'openai';
+    case 'ATLAS':
+      return lane.provider === 'anthropic';
+    case 'EVE':
+      return lane.provider === 'anthropic' && lane.independence === 'shared_provider';
+    default: {
+      const _exhaustive: never = lane.reviewer;
+      return _exhaustive;
+    }
+  }
+}
+
+export const SENTINEL_MANAGED_LABELS = [
+  SENTINEL_PASS_LABEL,
+  SENTINEL_DEGRADED_LABEL,
+  'needs-custodian-review',
+] as const;
+
+export function filterLabelUpdatesByAvailable(args: {
+  updates: { add: string[]; remove: string[] };
+  availableLabels: string[];
+}): { add: string[]; remove: string[]; skipped: string[] } {
+  const available = new Set(args.availableLabels);
+  const skipped = args.updates.add.filter((label) => !available.has(label));
+  return {
+    add: args.updates.add.filter((label) => available.has(label)),
+    remove: args.updates.remove.filter((label) => available.has(label)),
+    skipped,
+  };
+}
+
 function laneIsDegraded(lane: SentinelLaneResult): boolean {
   switch (lane.state) {
     case 'DEGRADED_UNAVAILABLE':
@@ -360,21 +417,29 @@ export function aggregateSentinelReview(args: {
   requiredReviewers: SentinelReviewer[];
 }): SentinelReviewDisposition {
   const laneByReviewer = new Map(args.lanes.map((lane) => [lane.reviewer, lane]));
+  const coverage = validateRequiredLaneCoverage({
+    lanes: args.lanes,
+    requiredReviewers: args.requiredReviewers,
+  });
 
   const approvalEligible =
-    args.requiredReviewers.length > 0 &&
+    coverage.ok &&
     args.requiredReviewers.every((reviewer) => {
       const lane = laneByReviewer.get(reviewer);
-      return lane?.state === 'PASS';
+      return lane != null && laneMeetsApprovalIndependence(lane);
     });
 
-  const blocking = uniqueStrings(
-    args.requiredReviewers.flatMap((reviewer) => {
+  const blocking = uniqueStrings([
+    ...coverage.errors,
+    ...args.requiredReviewers.flatMap((reviewer) => {
       const lane = laneByReviewer.get(reviewer);
-      if (!lane) return [`${reviewer} review missing from aggregation input`];
+      if (!lane) return [];
+      if (!laneMeetsApprovalIndependence(lane) && lane.state === 'PASS') {
+        return [`${reviewer} PASS rejected — independence/provider policy not satisfied`];
+      }
       return laneBlocksApproval(lane, true) ? lane.blocking : [];
     }),
-  );
+  ]);
   const nonBlocking = uniqueStrings(args.lanes.flatMap((lane) => lane.non_blocking));
   const routing = uniqueStrings(args.lanes.flatMap((lane) => lane.routing_disposition));
 
@@ -386,7 +451,7 @@ export function aggregateSentinelReview(args: {
     const lane = laneByReviewer.get(reviewer);
     return lane != null && (lane.state === 'FAIL' || lane.state === 'MALFORMED');
   });
-  const anyMissing = args.requiredReviewers.some((reviewer) => !laneByReviewer.has(reviewer));
+  const anyMissing = !coverage.ok;
 
   let overall: SentinelReviewDisposition['overall'];
   if (approvalEligible) {
