@@ -1,38 +1,29 @@
 /**
  * Per-lane LLM configuration for Sentinel Review (OpenAI-compatible chat/completions).
  *
- * Each reviewer may supply its own API key, base URL, model, and provider label.
- * Fallback chain (first non-empty wins):
- *   API key:  SENTINEL_{REVIEWER}_API_KEY → AGENT_SERVICE_TOKEN → LLM_API_KEY → OPENAI_API_KEY
- *   Base URL: SENTINEL_{REVIEWER}_BASE_URL → LLM_BASE_URL → OPENROUTER_BASE_URL → OpenRouter default
- *   Model:    SENTINEL_{REVIEWER}_MODEL (or SENTINEL_MODEL / SENTINEL_EVE_* for EVE script)
+ * Credentials resolve as **paired provider profiles** — never mix a key from one
+ * profile with a base URL from another (prevents sending secrets to the wrong host).
+ *
+ * Profile order (first complete profile wins):
+ *   1. Lane:     SENTINEL_{REVIEWER}_API_KEY [+ optional SENTINEL_{REVIEWER}_BASE_URL → OpenRouter default]
+ *   2. OpenRouter shared: AGENT_SERVICE_TOKEN [+ OPENROUTER_BASE_URL → OpenRouter default]
+ *   3. Generic LLM pair:  LLM_API_KEY + LLM_BASE_URL (both required)
+ *   4. OpenAI direct:     OPENAI_API_KEY → https://api.openai.com/v1
+ *
+ * EVE fallback uses SENTINEL_EVE_FALLBACK_* as its lane profile prefix (not primary EVE key).
  */
 
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
+const OPENAI_BASE_URL = 'https://api.openai.com/v1';
 
-const API_KEY_CHAIN = [
-  (reviewer) => `SENTINEL_${reviewer}_API_KEY`,
-  () => 'AGENT_SERVICE_TOKEN',
-  () => 'LLM_API_KEY',
-  () => 'OPENAI_API_KEY',
-];
+export const SENTINEL_LLM_CREDENTIAL_HINT =
+  'SENTINEL_{REVIEWER}_API_KEY|AGENT_SERVICE_TOKEN|LLM_API_KEY+LLM_BASE_URL|OPENAI_API_KEY';
 
-const BASE_URL_CHAIN = [
-  (reviewer) => `SENTINEL_${reviewer}_BASE_URL`,
-  () => 'LLM_BASE_URL',
-  () => 'OPENROUTER_BASE_URL',
-];
+export const SENTINEL_EVE_FALLBACK_CREDENTIAL_HINT =
+  'SENTINEL_EVE_FALLBACK_API_KEY|AGENT_SERVICE_TOKEN|LLM_API_KEY+LLM_BASE_URL|OPENAI_API_KEY';
 
 function trim(value) {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function firstEnv(names) {
-  for (const name of names) {
-    const value = trim(process.env[name]);
-    if (value) return { name, value };
-  }
-  return { name: names[0], value: '' };
 }
 
 function inferProviderFromBaseUrl(baseUrl) {
@@ -45,36 +36,110 @@ function inferProviderFromBaseUrl(baseUrl) {
 }
 
 /**
+ * @typedef {object} LlmProfile
+ * @property {string} id
+ * @property {string} keyEnv
+ * @property {string} [baseUrlEnv]
+ * @property {string} [defaultBaseUrl]
+ * @property {string} [providerEnv]
+ * @property {boolean} [requirePairedBase] — both keyEnv and baseUrlEnv must be set
+ * @property {boolean} [fixedBase] — ignore baseUrlEnv; always use defaultBaseUrl
+ */
+
+/** @returns {LlmProfile[]} */
+function profilesFor(reviewer, role) {
+  const lanePrefix =
+    role === 'fallback' && reviewer === 'EVE' ? 'SENTINEL_EVE_FALLBACK' : `SENTINEL_${reviewer}`;
+
+  return [
+    {
+      id: 'lane',
+      keyEnv: `${lanePrefix}_API_KEY`,
+      baseUrlEnv: `${lanePrefix}_BASE_URL`,
+      defaultBaseUrl: DEFAULT_BASE_URL,
+      providerEnv: `${lanePrefix}_PROVIDER`,
+    },
+    {
+      id: 'openrouter',
+      keyEnv: 'AGENT_SERVICE_TOKEN',
+      baseUrlEnv: 'OPENROUTER_BASE_URL',
+      defaultBaseUrl: DEFAULT_BASE_URL,
+    },
+    {
+      id: 'llm_pair',
+      keyEnv: 'LLM_API_KEY',
+      baseUrlEnv: 'LLM_BASE_URL',
+      requirePairedBase: true,
+    },
+    {
+      id: 'openai',
+      keyEnv: 'OPENAI_API_KEY',
+      defaultBaseUrl: OPENAI_BASE_URL,
+      fixedBase: true,
+    },
+  ];
+}
+
+/** @param {LlmProfile[]} profiles */
+function resolveProviderProfile(profiles) {
+  for (const profile of profiles) {
+    const apiKey = trim(process.env[profile.keyEnv]);
+    if (!apiKey) continue;
+
+    if (profile.requirePairedBase) {
+      const pairedBase = trim(process.env[profile.baseUrlEnv]);
+      if (!pairedBase) continue;
+      const baseUrl = pairedBase.replace(/\/$/, '');
+      const provider =
+        trim(process.env[profile.providerEnv ?? '']) ||
+        trim(process.env.LLM_PROVIDER) ||
+        inferProviderFromBaseUrl(baseUrl);
+      return {
+        apiKey,
+        apiKeySource: profile.keyEnv,
+        baseUrl,
+        baseUrlSource: profile.baseUrlEnv,
+        provider,
+        profileId: profile.id,
+      };
+    }
+
+    const explicitBase = profile.fixedBase
+      ? ''
+      : profile.baseUrlEnv
+        ? trim(process.env[profile.baseUrlEnv])
+        : '';
+    const baseUrl = (explicitBase || profile.defaultBaseUrl || DEFAULT_BASE_URL).replace(/\/$/, '');
+    const provider =
+      trim(process.env[profile.providerEnv ?? '']) ||
+      trim(process.env.LLM_PROVIDER) ||
+      inferProviderFromBaseUrl(baseUrl);
+
+    return {
+      apiKey,
+      apiKeySource: profile.keyEnv,
+      baseUrl,
+      baseUrlSource: explicitBase
+        ? profile.baseUrlEnv
+        : profile.fixedBase
+          ? `fixed(${profile.defaultBaseUrl})`
+          : `default(${profile.defaultBaseUrl ?? DEFAULT_BASE_URL})`,
+      provider,
+      profileId: profile.id,
+    };
+  }
+
+  return null;
+}
+
+/**
  * @param {'AUREA'|'ATLAS'|'EVE'} reviewer
  * @param {{ modelEnv?: string; role?: 'primary'|'fallback' }} [options]
  */
 export function resolveSentinelLlmConfig(reviewer, options = {}) {
   const role = options.role ?? 'primary';
   const prefix =
-    role === 'fallback' && reviewer === 'EVE'
-      ? 'SENTINEL_EVE_FALLBACK'
-      : `SENTINEL_${reviewer}`;
-
-  const apiKeyNames =
-    role === 'fallback' && reviewer === 'EVE'
-      ? [
-          'SENTINEL_EVE_FALLBACK_API_KEY',
-          `SENTINEL_${reviewer}_API_KEY`,
-          'AGENT_SERVICE_TOKEN',
-          'LLM_API_KEY',
-          'OPENAI_API_KEY',
-        ]
-      : API_KEY_CHAIN.map((fn) => fn(reviewer));
-
-  const baseUrlNames =
-    role === 'fallback' && reviewer === 'EVE'
-      ? [
-          'SENTINEL_EVE_FALLBACK_BASE_URL',
-          `SENTINEL_${reviewer}_BASE_URL`,
-          'LLM_BASE_URL',
-          'OPENROUTER_BASE_URL',
-        ]
-      : BASE_URL_CHAIN.map((fn) => fn(reviewer));
+    role === 'fallback' && reviewer === 'EVE' ? 'SENTINEL_EVE_FALLBACK' : `SENTINEL_${reviewer}`;
 
   const modelEnv =
     options.modelEnv ??
@@ -85,32 +150,41 @@ export function resolveSentinelLlmConfig(reviewer, options = {}) {
         : 'SENTINEL_MODEL');
 
   const model = trim(process.env[modelEnv] ?? process.env[`${prefix}_MODEL`]);
-
-  const apiKey = firstEnv(apiKeyNames);
-  const baseUrlResolved = firstEnv(baseUrlNames);
-  const baseUrl = (baseUrlResolved.value || DEFAULT_BASE_URL).replace(/\/$/, '');
-
-  const provider =
-    trim(process.env[`${prefix}_PROVIDER`]) ||
-    trim(process.env.LLM_PROVIDER) ||
-    inferProviderFromBaseUrl(baseUrl);
+  const resolved = resolveProviderProfile(profilesFor(reviewer, role));
 
   const credentialHint =
     role === 'fallback' && reviewer === 'EVE'
-      ? 'SENTINEL_EVE_FALLBACK_API_KEY|AGENT_SERVICE_TOKEN|LLM_API_KEY'
-      : `SENTINEL_${reviewer}_API_KEY|AGENT_SERVICE_TOKEN|LLM_API_KEY`;
+      ? SENTINEL_EVE_FALLBACK_CREDENTIAL_HINT
+      : SENTINEL_LLM_CREDENTIAL_HINT.replace('{REVIEWER}', reviewer);
+
+  if (!resolved) {
+    return {
+      reviewer,
+      role,
+      apiKey: '',
+      apiKeySource: '',
+      baseUrl: DEFAULT_BASE_URL,
+      baseUrlSource: 'unresolved',
+      model,
+      modelEnv,
+      provider: 'llm',
+      credentialHint,
+      profileId: null,
+    };
+  }
 
   return {
     reviewer,
     role,
-    apiKey: apiKey.value,
-    apiKeySource: apiKey.name,
-    baseUrl,
-    baseUrlSource: baseUrlResolved.value ? baseUrlResolved.name : 'default(openrouter)',
+    apiKey: resolved.apiKey,
+    apiKeySource: resolved.apiKeySource,
+    baseUrl: resolved.baseUrl,
+    baseUrlSource: resolved.baseUrlSource,
     model,
     modelEnv,
-    provider,
+    provider: resolved.provider,
     credentialHint,
+    profileId: resolved.profileId,
   };
 }
 

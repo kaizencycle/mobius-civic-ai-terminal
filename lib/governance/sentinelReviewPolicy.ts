@@ -62,7 +62,7 @@ export const SENTINEL_GATEWAY_PROVIDER = 'llm' as const;
 /** Primary shared fallback credential (see SENTINEL_LLM_CREDENTIAL_CHAIN for full order). */
 export const SENTINEL_SERVICE_CREDENTIAL = 'AGENT_SERVICE_TOKEN' as const;
 export const SENTINEL_LLM_CREDENTIAL_CHAIN =
-  'SENTINEL_{REVIEWER}_API_KEY|AGENT_SERVICE_TOKEN|LLM_API_KEY|OPENAI_API_KEY' as const;
+  'SENTINEL_{REVIEWER}_API_KEY|AGENT_SERVICE_TOKEN|LLM_API_KEY+LLM_BASE_URL|OPENAI_API_KEY' as const;
 
 /** Default models when repo vars / workflow env omit overrides (any OpenAI-compatible gateway). */
 export const SENTINEL_DEFAULT_MODELS = {

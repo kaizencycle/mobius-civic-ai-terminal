@@ -219,7 +219,8 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
   it('documents model-agnostic LLM credential chain', () => {
     assert.match(SENTINEL_LLM_CREDENTIAL_CHAIN, /SENTINEL_\{REVIEWER\}_API_KEY/);
     assert.match(SENTINEL_LLM_CREDENTIAL_CHAIN, /AGENT_SERVICE_TOKEN/);
-    assert.match(SENTINEL_LLM_CREDENTIAL_CHAIN, /LLM_API_KEY/);
+    assert.match(SENTINEL_LLM_CREDENTIAL_CHAIN, /LLM_API_KEY\+LLM_BASE_URL/);
+    assert.match(SENTINEL_LLM_CREDENTIAL_CHAIN, /OPENAI_API_KEY/);
     assert.equal(SENTINEL_GATEWAY_PROVIDER, 'llm');
   });
 

@@ -59,14 +59,16 @@ Removes fail-open Sentinel Review behavior and adds explicit EVE degraded-state 
 
 Each reviewer lane resolves credentials independently via OpenAI-compatible `chat/completions`:
 
-| Priority | API key env | Base URL env |
+| Priority | Profile | Requirements |
 |---|---|---|
-| 1 | `SENTINEL_{AUREA\|ATLAS\|EVE}_API_KEY` | `SENTINEL_{REVIEWER}_BASE_URL` |
-| 2 | `AGENT_SERVICE_TOKEN` | `LLM_BASE_URL` |
-| 3 | `LLM_API_KEY` | `OPENROUTER_BASE_URL` |
-| 4 | `OPENAI_API_KEY` | default OpenRouter |
+| 1 | Lane | `SENTINEL_{REVIEWER}_API_KEY` [+ optional `SENTINEL_{REVIEWER}_BASE_URL`] |
+| 2 | OpenRouter shared | `AGENT_SERVICE_TOKEN` [+ optional `OPENROUTER_BASE_URL`] |
+| 3 | LLM pair | `LLM_API_KEY` **and** `LLM_BASE_URL` (both required) |
+| 4 | OpenAI direct | `OPENAI_API_KEY` → `https://api.openai.com/v1` |
 
-Models override via repo variables: `SENTINEL_AUREA_MODEL`, `SENTINEL_ATLAS_MODEL`, `SENTINEL_EVE_MODEL`, `SENTINEL_EVE_FALLBACK_MODEL`. EVE fallback may use separate `SENTINEL_EVE_FALLBACK_API_KEY` and base URL.
+Keys and base URLs resolve as **paired profiles** — never mixed across profiles.
+
+Models override via repo variables: `SENTINEL_AUREA_MODEL`, `SENTINEL_ATLAS_MODEL`, `SENTINEL_EVE_MODEL`, `SENTINEL_EVE_FALLBACK_MODEL`. EVE fallback uses `SENTINEL_EVE_FALLBACK_*` only (not primary EVE key + fallback URL).
 
 
 - No provider substitution masquerading as EVE-independent attestation
