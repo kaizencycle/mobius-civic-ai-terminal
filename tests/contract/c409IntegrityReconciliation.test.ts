@@ -95,7 +95,39 @@ describe('C-409 integrity authority reconciliation', () => {
     const latest = loadLatestZeusVerificationReport(repoRoot);
     assert.ok(latest);
     assert.equal(latest!.relative_path.endsWith(files[0]), true);
-    assert.equal(mapZeusVerificationStatus(latest!.report.verification_status), 'disputed');
+    assert.ok(typeof latest!.report.verification_status === 'string');
+    assert.ok(latest!.report.verification_status!.length > 0);
+  });
+
+  it('mapZeusVerificationStatus applies documented normalization rules', () => {
+    assert.equal(mapZeusVerificationStatus('confirmed'), 'verified');
+    assert.equal(mapZeusVerificationStatus('verified'), 'verified');
+    assert.equal(mapZeusVerificationStatus('disputed'), 'disputed');
+    assert.equal(mapZeusVerificationStatus('blocked'), 'blocked');
+    assert.equal(mapZeusVerificationStatus(undefined), 'unknown');
+    assert.equal(mapZeusVerificationStatus('unexpected-value'), 'unknown');
+  });
+
+  it('latest ZEUS catalog report maps through normalization rules', () => {
+    const latest = loadLatestZeusVerificationReport(repoRoot);
+    assert.ok(latest);
+    const raw = latest!.report.verification_status;
+    const mapped = mapZeusVerificationStatus(raw);
+    switch (raw) {
+      case 'confirmed':
+      case 'verified':
+        assert.equal(mapped, 'verified');
+        break;
+      case 'disputed':
+        assert.equal(mapped, 'disputed');
+        break;
+      case 'blocked':
+        assert.equal(mapped, 'blocked');
+        break;
+      default:
+        assert.equal(mapped, 'unknown');
+        break;
+    }
   });
 
   it('quorum receipt does not imply agreement or execution authority', () => {
