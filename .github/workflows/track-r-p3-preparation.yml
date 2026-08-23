@@ -324,9 +324,23 @@ jobs:
           git commit -m "evidence(c-407): Track R P3 preparation read-only run ${RUN_ID}"
           for attempt in 1 2 3; do
             if git push origin HEAD:main; then
-              exit 0
+              break
             fi
             git fetch origin main
             git rebase origin/main || exit 1
           done
-          exit 1
+
+      - name: Sync issued-packet registry to KV (runtime authority)
+        if: success() && github.ref == 'refs/heads/main'
+        env:
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.KV_REST_API_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          export KV_REST_API_URL="$(printf '%s' "$KV_REST_API_URL" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          export KV_REST_API_TOKEN="$(printf '%s' "$KV_REST_API_TOKEN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          export UPSTASH_REDIS_REST_URL="$KV_REST_API_URL"
+          export UPSTASH_REDIS_REST_TOKEN="$KV_REST_API_TOKEN"
+          pnpm track-r:sync-p3-issued-registry-kv

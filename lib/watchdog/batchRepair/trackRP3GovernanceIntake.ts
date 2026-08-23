@@ -5,6 +5,7 @@ import type { BatchApplyMutationJournal } from '@/lib/watchdog/batchRepair/batch
 import type { P3OperatorPacket } from '@/lib/watchdog/batchRepair/buildP3OperatorPacket';
 import type { P3EvidenceManifest } from '@/lib/watchdog/batchRepair/materializeP3PreparationEvidence';
 import {
+  compareIssuedPacketRegistryEntries,
   loadIssuedPacketRegistry,
   type IssuedPacketRegistryEntry,
 } from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
@@ -354,12 +355,6 @@ export function verifyTrackRP3PacketEvidence(args: {
   };
 }
 
-function compareRegistryEntries(a: IssuedPacketRegistryEntry, b: IssuedPacketRegistryEntry): number {
-  const issuedCompare = b.issued_at.localeCompare(a.issued_at);
-  if (issuedCompare !== 0) return issuedCompare;
-  return b.workflow_run_id.localeCompare(a.workflow_run_id);
-}
-
 export function runTrackRP3GovernanceIntake(args?: { repoRoot?: string }): TrackRP3IntakeResult {
   const registryResult = loadIssuedPacketRegistry(args?.repoRoot);
   if (!registryResult.ok) {
@@ -380,7 +375,7 @@ export function runTrackRP3GovernanceIntake(args?: { repoRoot?: string }): Track
     };
   }
 
-  const sortedEntries = [...registryResult.registry.entries].sort(compareRegistryEntries);
+  const sortedEntries = [...registryResult.registry.entries].sort(compareIssuedPacketRegistryEntries);
   const newestEntry = sortedEntries[0];
   const newestVerification = verifyTrackRP3PacketEvidence({
     registryEntry: newestEntry,

@@ -12,7 +12,15 @@ import {
   runTrackRP3GovernanceIntake,
   verifyTrackRP3PacketEvidence,
 } from '@/lib/watchdog/batchRepair/trackRP3GovernanceIntake';
-import { loadIssuedPacketRegistry } from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
+import { buildTrackRP3IntakeObservability } from '@/lib/trackR/p3IntakeObservability';
+import {
+  loadIssuedPacketRegistry,
+  selectLatestIssuedPacketEntry,
+} from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
+import {
+  loadIssuedPacketRegistryFromKvRow,
+  loadIssuedPacketRegistryResolved,
+} from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistryStore';
 import {
   loadTrackRP3ReviewRegistryFromKvRow,
 } from '@/lib/watchdog/batchRepair/trackRP3ReviewStateStore';
@@ -29,12 +37,13 @@ import {
 } from '@/lib/watchdog/batchRepair/trackRP3ReviewArtifacts';
 import { CAPTURE_2014Z_ID } from '@/lib/watchdog/batchRepair/trackRCaptureV2Governance';
 import { hashObject } from '@/lib/watchdog/batchRepair/stableHash';
-import type { IssuedPacketRegistryEntry } from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
+import type { IssuedPacketRegistry, IssuedPacketRegistryEntry } from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
 import type { P3OperatorPacket } from '@/lib/watchdog/batchRepair/buildP3OperatorPacket';
 
-const CANONICAL_RUN = '32264177719';
+const LATEST_RUN = '32650057599';
+const LATEST_PACKET_HASH = '82bfe16c7a13b3a8e73720debf50161c4a12da9e022e3682cb1d93276cfd96d9';
 const SUPERSEDED_RUN = '32264049953';
-const CANONICAL_PACKET_HASH = '271607643453b15a7a1170021fb2e7d4c3c0889de09b7acd12f04f35060e21f6';
+const PRIOR_RUN = '32264177719';
 
 function copyRepoEvidenceTree(tempRoot: string, options?: { runs?: string[] }): void {
   const source = join(process.cwd(), 'docs/epicon/cycles/C-407/p3-preparation');
@@ -104,13 +113,13 @@ class LiveRegistryTrackRP3ReviewStateStore extends InMemoryTrackRP3ReviewStateSt
 }
 
 describe('Track R P3 governance intake', () => {
-  it('canonical run 32264177719 passes intake', () => {
+  it('latest issued packet passes intake', () => {
     const intake = runTrackRP3GovernanceIntake();
     assert.equal(intake.ok, true);
     if (!intake.ok) return;
     assert.equal(intake.status, 'ready_for_independent_review');
-    assert.equal(intake.candidate.workflow_run_id, CANONICAL_RUN);
-    assert.equal(intake.candidate.packet_hash, CANONICAL_PACKET_HASH);
+    assert.equal(intake.candidate.workflow_run_id, LATEST_RUN);
+    assert.equal(intake.candidate.packet_hash, LATEST_PACKET_HASH);
     assert.equal(intake.candidate.capture_id, CAPTURE_2014Z_ID);
     assert.equal(intake.candidate.operator_packet.execution_authorized, false);
     assert.equal(intake.candidate.operator_packet.production_mutation_performed, false);
@@ -123,7 +132,7 @@ describe('Track R P3 governance intake', () => {
     const superseded = intake.historicalPackets.find((row) => row.workflow_run_id === SUPERSEDED_RUN);
     assert.ok(superseded, 'superseded run must remain visible');
     assert.equal(superseded.status, 'superseded');
-    assert.equal(superseded.superseded_by_workflow_run_id, CANONICAL_RUN);
+    assert.equal(superseded.superseded_by_workflow_run_id, LATEST_RUN);
   });
 
   it('latest selection is deterministic by issuance time plus run ID tie-break', () => {
@@ -144,10 +153,10 @@ describe('Track R P3 governance intake', () => {
   it('corrupted packet hash blocks intake', () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
     try {
-      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN] });
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
       const packetPath = join(
         tempRoot,
-        `docs/epicon/cycles/C-407/p3-preparation/runs/${CANONICAL_RUN}/operator-packet.json`,
+        `docs/epicon/cycles/C-407/p3-preparation/runs/${LATEST_RUN}/operator-packet.json`,
       );
       const packet = JSON.parse(readFileSync(packetPath, 'utf8')) as P3OperatorPacket;
       packet.packet_hash = 'deadbeef'.repeat(8);
@@ -162,10 +171,10 @@ describe('Track R P3 governance intake', () => {
   it('corrupted evidence-manifest file hash blocks intake', () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
     try {
-      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN] });
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
       const manifestPath = join(
         tempRoot,
-        `docs/epicon/cycles/C-407/p3-preparation/runs/${CANONICAL_RUN}/evidence-manifest.json`,
+        `docs/epicon/cycles/C-407/p3-preparation/runs/${LATEST_RUN}/evidence-manifest.json`,
       );
       const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
         files: Record<string, { sha256: string; bytes: number }>;
@@ -180,7 +189,7 @@ describe('Track R P3 governance intake', () => {
   });
 
   it('journal ID/hash mismatch blocks intake', () => {
-    const entry = registryEntryFor(CANONICAL_RUN);
+    const entry = registryEntryFor(LATEST_RUN);
     const verification = verifyTrackRP3PacketEvidence({
       registryEntry: { ...entry, journal_id: 'mismatch-journal-id' },
     });
@@ -188,7 +197,7 @@ describe('Track R P3 governance intake', () => {
   });
 
   it('production commit mismatch blocks intake', () => {
-    const entry = registryEntryFor(CANONICAL_RUN);
+    const entry = registryEntryFor(LATEST_RUN);
     const verification = verifyTrackRP3PacketEvidence({
       registryEntry: { ...entry, observed_production_commit: '0'.repeat(40) },
     });
@@ -198,10 +207,10 @@ describe('Track R P3 governance intake', () => {
   it('wrong Capture ID blocks intake', () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
     try {
-      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN] });
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
       const packetPath = join(
         tempRoot,
-        `docs/epicon/cycles/C-407/p3-preparation/runs/${CANONICAL_RUN}/operator-packet.json`,
+        `docs/epicon/cycles/C-407/p3-preparation/runs/${LATEST_RUN}/operator-packet.json`,
       );
       const packet = JSON.parse(readFileSync(packetPath, 'utf8')) as P3OperatorPacket;
       packet.capture_id = 'track-r-c403-2026-08-15T0123Z';
@@ -218,10 +227,10 @@ describe('Track R P3 governance intake', () => {
   it('altered locked hash blocks intake', () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
     try {
-      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN] });
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
       const packetPath = join(
         tempRoot,
-        `docs/epicon/cycles/C-407/p3-preparation/runs/${CANONICAL_RUN}/operator-packet.json`,
+        `docs/epicon/cycles/C-407/p3-preparation/runs/${LATEST_RUN}/operator-packet.json`,
       );
       const packet = JSON.parse(readFileSync(packetPath, 'utf8')) as P3OperatorPacket;
       packet.locked_hashes.lineage_snapshot_hash = '0'.repeat(64);
@@ -238,10 +247,10 @@ describe('Track R P3 governance intake', () => {
   it('execution_authorized: true blocks intake', () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
     try {
-      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN] });
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
       const packetPath = join(
         tempRoot,
-        `docs/epicon/cycles/C-407/p3-preparation/runs/${CANONICAL_RUN}/operator-packet.json`,
+        `docs/epicon/cycles/C-407/p3-preparation/runs/${LATEST_RUN}/operator-packet.json`,
       );
       const packet = JSON.parse(readFileSync(packetPath, 'utf8')) as Record<string, unknown>;
       packet.execution_authorized = true;
@@ -256,10 +265,10 @@ describe('Track R P3 governance intake', () => {
   it('production_mutation_performed: true blocks intake', () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
     try {
-      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN] });
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
       const packetPath = join(
         tempRoot,
-        `docs/epicon/cycles/C-407/p3-preparation/runs/${CANONICAL_RUN}/operator-packet.json`,
+        `docs/epicon/cycles/C-407/p3-preparation/runs/${LATEST_RUN}/operator-packet.json`,
       );
       const packet = JSON.parse(readFileSync(packetPath, 'utf8')) as Record<string, unknown>;
       packet.production_mutation_performed = true;
@@ -274,10 +283,10 @@ describe('Track R P3 governance intake', () => {
   it('position 132 or block 361 in intended scope blocks intake', () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
     try {
-      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN] });
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
       const intendedPath = join(
         tempRoot,
-        `docs/epicon/cycles/C-407/p3-preparation/runs/${CANONICAL_RUN}/intended-writes.json`,
+        `docs/epicon/cycles/C-407/p3-preparation/runs/${LATEST_RUN}/intended-writes.json`,
       );
       const intended = JSON.parse(readFileSync(intendedPath, 'utf8')) as {
         intended_block_numbers: number[];
@@ -294,10 +303,10 @@ describe('Track R P3 governance intake', () => {
   it('blocks when newest issued packet is invalid even if older packet remains valid', () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
     try {
-      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN, SUPERSEDED_RUN] });
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN, SUPERSEDED_RUN] });
       const packetPath = join(
         tempRoot,
-        `docs/epicon/cycles/C-407/p3-preparation/runs/${CANONICAL_RUN}/operator-packet.json`,
+        `docs/epicon/cycles/C-407/p3-preparation/runs/${LATEST_RUN}/operator-packet.json`,
       );
       const packet = JSON.parse(readFileSync(packetPath, 'utf8')) as P3OperatorPacket;
       packet.packet_hash = 'deadbeef'.repeat(8);
@@ -312,7 +321,7 @@ describe('Track R P3 governance intake', () => {
   it('duplicate cron invocation is idempotent', async () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
     try {
-      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN, SUPERSEDED_RUN] });
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN, SUPERSEDED_RUN] });
       const store = new InMemoryTrackRP3ReviewStateStore(tempRoot);
       const first = await runTrackRP3GovernanceIntakeCron({
         repoRoot: tempRoot,
@@ -325,7 +334,7 @@ describe('Track R P3 governance intake', () => {
       const loaded = await store.loadRegistry();
       assert.equal(loaded.ok, true);
       if (!loaded.ok) return;
-      const existing = findPacketReviewEntry(loaded.registry, CANONICAL_RUN);
+      const existing = findPacketReviewEntry(loaded.registry, LATEST_RUN);
       assert.ok(existing);
       await store.saveRegistry(
         upsertPacketReviewEntry({
@@ -408,15 +417,15 @@ describe('Track R P3 governance intake', () => {
   it('KV read failure blocks intake without overwriting live review state', async () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
     try {
-      copyRepoEvidenceTree(tempRoot, { runs: [CANONICAL_RUN, SUPERSEDED_RUN] });
-      const issued = registryEntryFor(CANONICAL_RUN);
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN, SUPERSEDED_RUN] });
+      const issued = registryEntryFor(LATEST_RUN);
       const liveRegistry: PacketReviewRegistry = {
         schema_version: '1',
         note: 'live review state',
         entries: [
           {
-            workflow_run_id: CANONICAL_RUN,
-            packet_hash: CANONICAL_PACKET_HASH,
+            workflow_run_id: LATEST_RUN,
+            packet_hash: LATEST_PACKET_HASH,
             journal_id: issued.journal_id,
             journal_hash: issued.journal_hash,
             observed_production_commit: issued.observed_production_commit,
@@ -462,6 +471,39 @@ describe('Track R P3 governance intake', () => {
     assert.equal(resolved.ok, false);
     if (resolved.ok) return;
     assert.match(resolved.errors.join('\n'), /malformed/i);
+  });
+
+  it('issued registry KV row validates schema fail-closed', () => {
+    const resolved = loadIssuedPacketRegistryFromKvRow({
+      schema_version: '2',
+      note: 'broken',
+      entries: [],
+    } as unknown as IssuedPacketRegistry);
+    assert.equal(resolved.ok, false);
+  });
+
+  it('selectLatestIssuedPacketEntry prefers newest run over stale hardcoded ids', () => {
+    const loaded = loadIssuedPacketRegistry();
+    assert.equal(loaded.ok, true);
+    if (!loaded.ok) return;
+    const latest = selectLatestIssuedPacketEntry(loaded.registry);
+    assert.equal(latest?.workflow_run_id, LATEST_RUN);
+    assert.notEqual(latest?.workflow_run_id, PRIOR_RUN);
+  });
+
+  it('missing committed registry fails closed without stale fallback run id', async () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-intake-'));
+    try {
+      const resolved = await loadIssuedPacketRegistryResolved({ repoRoot: tempRoot });
+      assert.equal(resolved.source, 'unavailable');
+      assert.equal(resolved.result.ok, false);
+      const status = await buildTrackRP3IntakeObservability({ repoRoot: tempRoot });
+      assert.equal(status.run_id, null);
+      assert.equal(status.intake_state, 'BLOCKED');
+      assert.equal(status.execution_authorized, false);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it('no batch-apply mutation function is reachable from the intake route', () => {

@@ -26,6 +26,46 @@ export type LoadIssuedPacketRegistryResult =
   | { ok: true; registry: IssuedPacketRegistry }
   | { ok: false; errors: string[] };
 
+export function parseIssuedPacketRegistry(parsed: unknown): LoadIssuedPacketRegistryResult {
+  if (!parsed || typeof parsed !== 'object') {
+    return { ok: false, errors: ['issued-packet registry must be an object'] };
+  }
+  const registry = parsed as IssuedPacketRegistry;
+  if (registry.schema_version !== '1') {
+    return {
+      ok: false,
+      errors: ['issued-packet registry schema_version must be 1'],
+    };
+  }
+  if (!Array.isArray(registry.entries)) {
+    return {
+      ok: false,
+      errors: ['issued-packet registry entries must be an array'],
+    };
+  }
+  return { ok: true, registry };
+}
+
+export function compareIssuedPacketRegistryEntries(
+  a: IssuedPacketRegistryEntry,
+  b: IssuedPacketRegistryEntry,
+): number {
+  const issuedCompare = b.issued_at.localeCompare(a.issued_at);
+  if (issuedCompare !== 0) return issuedCompare;
+  return b.workflow_run_id.localeCompare(a.workflow_run_id);
+}
+
+export function selectLatestIssuedPacketEntry(
+  registry: IssuedPacketRegistry,
+): IssuedPacketRegistryEntry | null {
+  if (registry.entries.length === 0) return null;
+  return [...registry.entries].sort(compareIssuedPacketRegistryEntries)[0] ?? null;
+}
+
+export function resolveLatestIssuedPacketRunId(registry: IssuedPacketRegistry): string | null {
+  return selectLatestIssuedPacketEntry(registry)?.workflow_run_id ?? null;
+}
+
 export function loadIssuedPacketRegistry(repoRoot?: string): LoadIssuedPacketRegistryResult {
   const path = join(repoRoot ?? process.cwd(), ISSUED_PACKET_REGISTRY_PATH);
   if (!existsSync(path)) {
@@ -35,20 +75,8 @@ export function loadIssuedPacketRegistry(repoRoot?: string): LoadIssuedPacketReg
     };
   }
   try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as IssuedPacketRegistry;
-    if (parsed.schema_version !== '1') {
-      return {
-        ok: false,
-        errors: ['issued-packet registry schema_version must be 1'],
-      };
-    }
-    if (!Array.isArray(parsed.entries)) {
-      return {
-        ok: false,
-        errors: ['issued-packet registry entries must be an array'],
-      };
-    }
-    return { ok: true, registry: parsed };
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+    return parseIssuedPacketRegistry(parsed);
   } catch (error) {
     return {
       ok: false,

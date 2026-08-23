@@ -12,7 +12,12 @@ import {
   type PacketReviewRegistryEntry,
 } from '@/lib/watchdog/batchRepair/p3PacketReviewRegistry';
 import {
+  loadIssuedPacketRegistryResolved,
+  type IssuedPacketRegistrySource,
+} from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistryStore';
+import {
   loadIssuedPacketRegistry,
+  resolveLatestIssuedPacketRunId,
   type IssuedPacketRegistry,
   type IssuedPacketRegistryEntry,
 } from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
@@ -53,8 +58,9 @@ export type TrackRP3IntakeObservability = {
   ok: boolean;
   read_only: true;
   execution_authorized: false;
+  issued_registry_source: IssuedPacketRegistrySource;
   data_source: TrackRP3IntakeDataSource;
-  run_id: string;
+  run_id: string | null;
   packet_hash: string | null;
   journal_id: string | null;
   production_commit: string | null;
@@ -71,18 +77,12 @@ export type TrackRP3IntakeObservability = {
   errors: string[];
 };
 
-const CANONICAL_CURRENT_RUN = '32264177719';
-const SUPERSEDED_RUN = '32264049953';
-
 function isSupersededByNewerIssuance(args: {
   runId: string;
   issuedRegistry: IssuedPacketRegistry;
 }): { superseded: boolean; supersededByRunId: string | null } {
   const target = args.issuedRegistry.entries.find((row) => row.workflow_run_id === args.runId);
   if (!target) {
-    if (args.runId === SUPERSEDED_RUN) {
-      return { superseded: true, supersededByRunId: CANONICAL_CURRENT_RUN };
-    }
     return { superseded: false, supersededByRunId: null };
   }
   const newer = args.issuedRegistry.entries
@@ -99,22 +99,24 @@ function resolveSupersession(args: {
   runId: string;
   issuedRegistry: IssuedPacketRegistry | null;
 }): { superseded: boolean; supersededByRunId: string | null } {
-  if (args.issuedRegistry) {
-    return isSupersededByNewerIssuance({ runId: args.runId, issuedRegistry: args.issuedRegistry });
+  if (!args.issuedRegistry) {
+    return { superseded: false, supersededByRunId: null };
   }
-  if (args.runId === SUPERSEDED_RUN) {
-    return { superseded: true, supersededByRunId: CANONICAL_CURRENT_RUN };
-  }
-  return { superseded: false, supersededByRunId: null };
+  return isSupersededByNewerIssuance({ runId: args.runId, issuedRegistry: args.issuedRegistry });
 }
 
 function mapRegistryStatusToIntakeState(args: {
   entry: PacketReviewRegistryEntry | undefined;
   issued: IssuedPacketRegistryEntry | undefined;
   superseded: boolean;
+  registryUnavailable: boolean;
 }): TrackRP3OperatorIntakeState {
+  if (args.registryUnavailable) return 'BLOCKED';
   if (args.superseded || args.entry?.status === 'superseded') return 'SUPERSEDED';
-  if (!args.entry) return 'NOT_SEEN';
+  if (!args.entry) {
+    if (args.issued) return 'AWAITING_INDEPENDENT_REVIEW';
+    return 'NOT_SEEN';
+  }
   if (args.entry.status === 'challenged') return 'BLOCKED';
   if (args.entry.status === 'adopted_for_handoff_consideration') return 'REVIEW_IN_PROGRESS';
   if (args.entry.status === 'awaiting_human') return 'REVIEW_IN_PROGRESS';
@@ -124,6 +126,16 @@ function mapRegistryStatusToIntakeState(args: {
   }
   if (args.entry.status === 'discovered') return 'NOT_SEEN';
   return 'NOT_SEEN';
+}
+
+function emptyLaneStatus(lane: TrackRP3ReviewLane): TrackRP3ReviewLaneStatus {
+  return {
+    lane,
+    intake_state: 'BLOCKED',
+    review_status: lane === 'ZEUS' ? 'awaiting_zeus' : 'awaiting_eve',
+    receipt_present: false,
+    blocked_reasons: ['issued_registry_unavailable'],
+  };
 }
 
 function laneStatus(args: {
@@ -146,6 +158,9 @@ function laneStatus(args: {
   }
   if (args.intakeState === 'BLOCKED') {
     blocked_reasons.push('review_blocked');
+  }
+  if (args.intakeState === 'AWAITING_INDEPENDENT_REVIEW') {
+    blocked_reasons.push('governance_intake_pending');
   }
   if (reviewStatus === 'adopt' || reviewStatus === 'challenge' || reviewStatus === 'overturn') {
     blocked_reasons.push('independent_review_recorded_separately');
@@ -207,15 +222,51 @@ export async function buildTrackRP3IntakeObservability(args: {
   workflowRunId?: string;
   repoRoot?: string;
 }): Promise<TrackRP3IntakeObservability> {
-  const runId = args.workflowRunId ?? CANONICAL_CURRENT_RUN;
   const repoRoot = args.repoRoot ?? process.cwd();
   const errors: string[] = [];
   const blocked_reasons: string[] = [];
 
-  const issuedLoad = loadIssuedPacketRegistry(repoRoot);
-  const issuedRegistry = issuedLoad.ok ? issuedLoad.registry : null;
+  const issuedResolved = await loadIssuedPacketRegistryResolved({ repoRoot });
+  const issuedRegistry = issuedResolved.result.ok ? issuedResolved.result.registry : null;
+  if (!issuedResolved.result.ok) {
+    errors.push(...issuedResolved.result.errors);
+    blocked_reasons.push('issued_registry_unavailable');
+  }
+
+  const latestRunId = issuedRegistry ? resolveLatestIssuedPacketRunId(issuedRegistry) : null;
+  const runId = args.workflowRunId?.trim() || latestRunId;
+  if (!runId) {
+    errors.push('no issued packet run_id available');
+    blocked_reasons.push('issued_registry_unavailable');
+    return {
+      ok: false,
+      read_only: true,
+      execution_authorized: false,
+      issued_registry_source: issuedResolved.source,
+      data_source: 'fallback',
+      run_id: null,
+      packet_hash: null,
+      journal_id: null,
+      production_commit: null,
+      intake_state: 'BLOCKED',
+      last_intake_at: null,
+      intake_journal_emitted: false,
+      structurally_accepted: false,
+      superseded_by_run_id: null,
+      supersedes_run_id: null,
+      zeus: emptyLaneStatus('ZEUS'),
+      eve: emptyLaneStatus('EVE'),
+      human_review_status: 'awaiting_human',
+      blocked_reasons,
+      errors,
+    };
+  }
+
   const issued = issuedRegistry?.entries.find((row) => row.workflow_run_id === runId);
-  if (!issuedLoad.ok) errors.push(...issuedLoad.errors);
+  if (!issued && issuedRegistry) {
+    errors.push(`issued registry has no entry for workflow_run_id ${runId}`);
+    blocked_reasons.push('unknown_workflow_run_id');
+  }
 
   const supersession = resolveSupersession({ runId, issuedRegistry });
 
@@ -234,10 +285,12 @@ export async function buildTrackRP3IntakeObservability(args: {
     trackRP3ReviewReceiptKvKey({ workflowRunId: runId, lane: 'EVE' }),
   );
 
+  const registryUnavailable = issuedResolved.source === 'unavailable';
   const intake_state = mapRegistryStatusToIntakeState({
     entry: registryEntry,
     issued,
     superseded: supersession.superseded,
+    registryUnavailable,
   });
 
   if (supersession.superseded) {
@@ -274,11 +327,13 @@ export async function buildTrackRP3IntakeObservability(args: {
   }
 
   const structurally_accepted = intake_state === 'INTAKE_VERIFIED';
+  const observabilityOk = errors.length === 0 && intake_state !== 'BLOCKED';
 
   return {
-    ok: errors.length === 0,
+    ok: observabilityOk,
     read_only: true,
     execution_authorized: false,
+    issued_registry_source: issuedResolved.source,
     data_source,
     run_id: runId,
     packet_hash,
@@ -310,5 +365,9 @@ export async function buildTrackRP3IntakeObservability(args: {
   };
 }
 
-export const TRACK_R_P3_CANONICAL_RUN = CANONICAL_CURRENT_RUN;
-export const TRACK_R_P3_SUPERSEDED_RUN = SUPERSEDED_RUN;
+/** Latest issued packet run id from committed registry (tests / local tooling). */
+export function getLatestIssuedPacketRunIdFromRepo(repoRoot?: string): string | null {
+  const loaded = loadIssuedPacketRegistry(repoRoot);
+  if (!loaded.ok) return null;
+  return resolveLatestIssuedPacketRunId(loaded.registry);
+}

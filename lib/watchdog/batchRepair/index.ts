@@ -45,6 +45,7 @@ export * from '@/lib/watchdog/batchRepair/p3PreparationSafety';
 export * from '@/lib/watchdog/batchRepair/buildP3OperatorPacket';
 export * from '@/lib/watchdog/batchRepair/runTrackRP3Preparation';
 export * from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistry';
+export * from '@/lib/watchdog/batchRepair/p3IssuedPacketRegistryStore';
 export * from '@/lib/watchdog/batchRepair/materializeP3PreparationEvidence';
 export * from '@/lib/watchdog/batchRepair/trackRCaptureBinding';
 export * from '@/lib/watchdog/batchRepair/p3PacketReviewRegistry';
