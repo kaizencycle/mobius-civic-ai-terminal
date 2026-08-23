@@ -14,8 +14,10 @@ import {
   laneFromLegacyVerdict,
   laneFromMissingCredential,
   laneFromStepOutcome,
+  parseLegacyVerdictJson,
   renderSentinelReviewComment,
   shouldRunSentinelReview,
+  validateLegacyVerdictJson,
   SENTINEL_DEGRADED_LABEL,
   SENTINEL_PASS_LABEL,
   type ReviewStepOutcome,
@@ -192,6 +194,54 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
     assert.match(source, /needs-custodian-review/);
     assert.match(source, /sentinelReviewPolicy/);
     assert.match(source, /Run EVE review/);
+    assert.match(source, /pnpm\/action-setup@v4/);
+  });
+
+  it('partial required quorum cannot approve when a lane is missing', () => {
+    const disposition = aggregateSentinelReview({
+      lanes: [passLane('AUREA'), passLane('ATLAS')],
+      requiredReviewers: ['AUREA', 'ATLAS', 'EVE'],
+    });
+    assert.equal(disposition.approval_eligible, false);
+    assert.match(disposition.blocking.join(' '), /EVE review missing/);
+  });
+
+  it('structurally malformed verdict JSON fails closed without throwing', () => {
+    assert.equal(validateLegacyVerdictJson({ verdict: 'fail', blocking: 'not-an-array' }), null);
+    const eve = laneFromStepOutcome(
+      {
+        kind: 'legacy_json',
+        reviewer: 'EVE',
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-20250514',
+        independence: 'shared_provider',
+        raw: JSON.stringify({ verdict: 'fail', blocking: 'civic-risk-finding' }),
+      },
+      NOW,
+    );
+    assert.equal(eve.state, 'MALFORMED');
+    assert.equal(parseLegacyVerdictJson(JSON.stringify({ verdict: 'fail', blocking: 'x' })), null);
+  });
+
+  it('fallback advisory preserves parsed blocking findings in disposition', () => {
+    const eve = laneFromStepOutcome(
+      {
+        kind: 'fallback_json',
+        reviewer: 'EVE',
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        raw: JSON.stringify({
+          verdict: 'fail',
+          blocking: ['Potential civic harm in auth bypass'],
+          non_blocking: [],
+          summary: 'advisory fail',
+        }),
+        reason: 'Anthropic unavailable — OpenAI advisory fallback',
+      },
+      NOW,
+    );
+    assert.match(eve.blocking.join(' '), /Potential civic harm in auth bypass/);
+    assert.match(eve.blocking.join(' '), /not independent quorum/);
   });
 
   it('buildDispositionFromStepOutcomes integrates step outcomes fail-closed', () => {

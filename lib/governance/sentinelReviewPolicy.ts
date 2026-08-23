@@ -88,6 +88,23 @@ function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
 }
 
+function normalizeStringArray(value: unknown): string[] | null {
+  if (value == null) return [];
+  if (!Array.isArray(value)) return null;
+  return uniqueStrings(value.filter((entry): entry is string => typeof entry === 'string'));
+}
+
+export function validateLegacyVerdictJson(raw: unknown): LegacyVerdictJson | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const candidate = raw as Record<string, unknown>;
+  const blocking = normalizeStringArray(candidate.blocking);
+  const nonBlocking = normalizeStringArray(candidate.non_blocking);
+  if (blocking === null || nonBlocking === null) return null;
+  const verdict = typeof candidate.verdict === 'string' ? candidate.verdict : undefined;
+  const summary = typeof candidate.summary === 'string' ? candidate.summary : undefined;
+  return { verdict, blocking, non_blocking: nonBlocking, summary };
+}
+
 export function shouldRunSentinelReview(labels: string[]): {
   run: boolean;
   matched: string[];
@@ -223,17 +240,21 @@ export function laneFromFallbackAdvice(args: {
   reason: string;
 }): SentinelLaneResult {
   const routing = args.reviewer === 'EVE' ? ['ZEUS', 'HUMAN'] : [];
+  const advisoryBlocking = normalizeStringArray(args.parsed.blocking) ?? [];
   return {
     reviewer: args.reviewer,
     state: 'DEGRADED_FALLBACK',
     provider: args.provider,
     model: args.model,
     independence: 'shared_provider',
-    blocking: [`${args.reviewer} fallback advisory is not independent quorum`],
+    blocking: uniqueStrings([
+      `${args.reviewer} fallback advisory is not independent quorum`,
+      ...advisoryBlocking,
+    ]),
     non_blocking: uniqueStrings([
       args.reason,
-      ...(args.parsed.non_blocking ?? []),
-      args.parsed.summary ?? '',
+      ...(normalizeStringArray(args.parsed.non_blocking) ?? []),
+      typeof args.parsed.summary === 'string' ? args.parsed.summary : '',
     ]),
     summary:
       args.parsed.summary ??
@@ -262,9 +283,21 @@ export function laneFromLegacyVerdict(args: {
     });
   }
 
-  const blocking = uniqueStrings(args.parsed.blocking ?? []);
-  const nonBlocking = uniqueStrings(args.parsed.non_blocking ?? []);
-  const verdict = (args.parsed.verdict ?? '').trim().toLowerCase();
+  const validated = validateLegacyVerdictJson(args.parsed);
+  if (!validated) {
+    return laneFromMalformed({
+      reviewer: args.reviewer,
+      observedAt: args.observedAt,
+      provider: args.provider,
+      model: args.model,
+      independence: args.independence,
+      detail: 'invalid verdict field types',
+    });
+  }
+
+  const blocking = uniqueStrings(validated.blocking ?? []);
+  const nonBlocking = uniqueStrings(validated.non_blocking ?? []);
+  const verdict = (validated.verdict ?? '').trim().toLowerCase();
   const state: SentinelLaneState =
     verdict === 'pass' && blocking.length === 0
       ? 'PASS'
@@ -280,7 +313,7 @@ export function laneFromLegacyVerdict(args: {
     independence: args.independence,
     blocking,
     non_blocking: nonBlocking,
-    summary: args.parsed.summary ?? `${args.reviewer} review completed.`,
+    summary: validated.summary ?? `${args.reviewer} review completed.`,
     observed_at: args.observedAt,
     routing_disposition: state === 'FAIL' && args.reviewer === 'EVE' ? ['ZEUS', 'HUMAN'] : [],
   };
@@ -292,7 +325,7 @@ function laneBlocksApproval(lane: SentinelLaneResult, required: boolean): boolea
     case 'PASS':
       return false;
     case 'NOT_REQUESTED':
-      return false;
+      return true;
     case 'FAIL':
     case 'DEGRADED_UNAVAILABLE':
     case 'DEGRADED_FALLBACK':
@@ -326,26 +359,39 @@ export function aggregateSentinelReview(args: {
   lanes: SentinelLaneResult[];
   requiredReviewers: SentinelReviewer[];
 }): SentinelReviewDisposition {
-  const required = new Set(args.requiredReviewers);
+  const laneByReviewer = new Map(args.lanes.map((lane) => [lane.reviewer, lane]));
+
+  const approvalEligible =
+    args.requiredReviewers.length > 0 &&
+    args.requiredReviewers.every((reviewer) => {
+      const lane = laneByReviewer.get(reviewer);
+      return lane?.state === 'PASS';
+    });
+
   const blocking = uniqueStrings(
-    args.lanes.flatMap((lane) => (required.has(lane.reviewer) ? lane.blocking : [])),
+    args.requiredReviewers.flatMap((reviewer) => {
+      const lane = laneByReviewer.get(reviewer);
+      if (!lane) return [`${reviewer} review missing from aggregation input`];
+      return laneBlocksApproval(lane, true) ? lane.blocking : [];
+    }),
   );
   const nonBlocking = uniqueStrings(args.lanes.flatMap((lane) => lane.non_blocking));
   const routing = uniqueStrings(args.lanes.flatMap((lane) => lane.routing_disposition));
 
-  const approvalEligible =
-    args.lanes.length > 0 &&
-    args.lanes.every((lane) => !laneBlocksApproval(lane, required.has(lane.reviewer)));
-
-  const anyDegraded = args.lanes.some((lane) => required.has(lane.reviewer) && laneIsDegraded(lane));
-  const anyFail = args.lanes.some(
-    (lane) => required.has(lane.reviewer) && (lane.state === 'FAIL' || lane.state === 'MALFORMED'),
-  );
+  const anyDegraded = args.requiredReviewers.some((reviewer) => {
+    const lane = laneByReviewer.get(reviewer);
+    return lane != null && laneIsDegraded(lane);
+  });
+  const anyFail = args.requiredReviewers.some((reviewer) => {
+    const lane = laneByReviewer.get(reviewer);
+    return lane != null && (lane.state === 'FAIL' || lane.state === 'MALFORMED');
+  });
+  const anyMissing = args.requiredReviewers.some((reviewer) => !laneByReviewer.has(reviewer));
 
   let overall: SentinelReviewDisposition['overall'];
   if (approvalEligible) {
     overall = 'PASS';
-  } else if (anyDegraded) {
+  } else if (anyMissing || anyDegraded) {
     overall = 'DEGRADED';
   } else if (anyFail) {
     overall = 'FAIL';
@@ -353,7 +399,7 @@ export function aggregateSentinelReview(args: {
     overall = 'DEGRADED';
   }
 
-  const eveRequired = required.has('EVE');
+  const eveRequired = args.requiredReviewers.includes('EVE');
   const eveLane = args.lanes.find((lane) => lane.reviewer === 'EVE');
   const finalRouting =
     eveRequired && eveLane && laneIsDegraded(eveLane)
@@ -362,9 +408,11 @@ export function aggregateSentinelReview(args: {
 
   const summary = approvalEligible
     ? 'All required sentinel lanes passed.'
-    : anyDegraded
-      ? 'Sentinel review degraded — unresolved lanes require ZEUS and/or human review.'
-      : 'Sentinel review failed — blocking issues present.';
+    : anyMissing
+      ? 'Sentinel review incomplete — required lane outcomes missing.'
+      : anyDegraded
+        ? 'Sentinel review degraded — unresolved lanes require ZEUS and/or human review.'
+        : 'Sentinel review failed — blocking issues present.';
 
   return {
     approval_eligible: approvalEligible,
@@ -447,7 +495,7 @@ export function renderSentinelReviewComment(disposition: SentinelReviewDispositi
 export function parseLegacyVerdictJson(raw: string | null | undefined): LegacyVerdictJson | null {
   if (!raw || !raw.trim()) return null;
   try {
-    return JSON.parse(raw) as LegacyVerdictJson;
+    return validateLegacyVerdictJson(JSON.parse(raw));
   } catch {
     return null;
   }
