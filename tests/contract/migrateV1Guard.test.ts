@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   isReservedVaultSealId,
+  listV1SealIdsFromKvInspect,
   parseV1SealRecord,
   validateMigratableSealId,
 } from '../../lib/vault-v2/reservedSealIds.js';
@@ -48,5 +49,18 @@ describe('migrate-v1 reserved seal id guard', () => {
     const v1 = parseV1SealRecord({ hash: 'abc123', cycle: 'C-300' });
     assert.ok(v1);
     assert.equal(v1?.hash, 'abc123');
+  });
+
+  it('listV1SealIdsFromKvInspect excludes CAS pointer keys and string pointers', () => {
+    const ids = listV1SealIdsFromKvInspect([
+      { key: 'vault:seal:latest', sample: 'seal-C-372-002' },
+      { key: 'vault:seal:candidate', sample: 'seal-C-372-001' },
+      { key: 'vault:seal:seal-C-300-001', sample: { hash: 'deadbeef', cycle: 'C-300' } },
+      {
+        key: 'vault:seal:seal-C-301-002',
+        sample: { schema_version: 'v2', hash: 'abc', sealId: 'seal-C-301-002' },
+      },
+    ]);
+    assert.deepEqual(ids, ['seal-C-300-001']);
   });
 });

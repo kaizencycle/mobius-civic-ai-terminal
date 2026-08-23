@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 import { log } from '@/lib/log';
 import { kvSetRawKey, kvDel, kvGetRaw, kvInspectSamples } from '@/lib/kv/store';
+import { listV1SealIdsFromKvInspect } from '@/lib/vault-v2/reservedSealIds';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,13 +87,7 @@ export async function GET() {
     }),
   );
 
-  const v1Seals: string[] = [];
-  for (const row of sealResult.keys) {
-    const data = row.sample as Record<string, unknown> | null;
-    if (data && !data.schema_version) {
-      v1Seals.push(row.key.replace('vault:seal:', ''));
-    }
-  }
+  const v1Seals = listV1SealIdsFromKvInspect(sealResult.keys);
 
   return NextResponse.json({
     ok: true,
