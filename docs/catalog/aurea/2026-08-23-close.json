@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-08-23T03:05:29Z",
+  "agent": "AUREA",
+  "cycle": "C-411",
+  "gi_final": 0.82,
+  "gi_mode": "green",
+  "gi_source": "unknown",
+  "gi_range_24h": {
+    "min": 0.64,
+    "max": 0.91
+  },
+  "overall_sentiment": 0.74,
+  "financial_score": 0.714,
+  "environ_score": 0.842,
+  "civic_score": 0.783,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.82. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL at 0.866 while USGS water conditions and Cloudflare infrastructure status remained non-nominal in the live micro lane. ZEUS verification status is disputed, and the heartbeat trend is falling across a 24-hour GI range of 0.64 to 0.91. Forward signal: Watch the environmental and infrastructure lanes for confirmation that the ATLAS slide back to yellow does not harden into the next cycle.",
+  "forward_signal": "Watch the environmental and infrastructure lanes for confirmation that the ATLAS slide back to yellow does not harden into the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "falling",
+  "anomalies": [
+    "USGS water conditions [elevated]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
