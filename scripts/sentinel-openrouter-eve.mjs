@@ -20,6 +20,17 @@ function writeOutcome(outcome) {
   writeFileSync(OUTCOME_FILE, JSON.stringify(outcome));
 }
 
+function writeHttpError(model, httpStatus) {
+  writeOutcome({
+    kind: 'http_error',
+    reviewer: REVIEWER,
+    provider: PROVIDER,
+    model: model || 'unknown',
+    independence: 'shared_provider',
+    httpStatus: httpStatus ?? 503,
+  });
+}
+
 function stripJsonFence(text) {
   let t = text.trim();
   if (t.startsWith('```json')) t = t.slice(7);
@@ -53,7 +64,7 @@ async function callOpenRouter(model, systemPrompt, userContent, advisory = false
     'X-Title': 'Mobius Sentinel Review',
   };
 
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
+  return fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -71,8 +82,19 @@ async function callOpenRouter(model, systemPrompt, userContent, advisory = false
       ],
     }),
   });
+}
 
-  return res;
+async function writeLegacyFromResponse(res, model) {
+  const data = await res.json();
+  const text = stripJsonFence(data?.choices?.[0]?.message?.content ?? '');
+  writeOutcome({
+    kind: 'legacy_json',
+    reviewer: REVIEWER,
+    provider: PROVIDER,
+    model,
+    independence: 'shared_provider',
+    raw: text,
+  });
 }
 
 async function writeFallbackFromResponse(res, model, reason) {
@@ -86,6 +108,23 @@ async function writeFallbackFromResponse(res, model, reason) {
     raw: text,
     reason,
   });
+}
+
+async function tryFallback(userContent, systemPrompt, reason) {
+  if (!FALLBACK_MODEL) return false;
+
+  try {
+    const fallbackRes = await callOpenRouter(FALLBACK_MODEL, systemPrompt, userContent, true);
+    if (fallbackRes.ok) {
+      await writeFallbackFromResponse(fallbackRes, FALLBACK_MODEL, reason);
+      return true;
+    }
+    writeHttpError(FALLBACK_MODEL, fallbackRes.status);
+    return true;
+  } catch {
+    writeHttpError(FALLBACK_MODEL, 503);
+    return true;
+  }
 }
 
 async function main() {
@@ -103,121 +142,62 @@ async function main() {
   const systemPrompt = 'You are EVE. Return STRICT JSON only.';
 
   try {
-    let primaryTransportError = null;
-    let primaryAttempt = null;
-
     if (PRIMARY_MODEL) {
+      let primaryRes = null;
+      let primaryTransportError = false;
+
       try {
-        primaryAttempt = await callOpenRouter(PRIMARY_MODEL, systemPrompt, userContent);
+        primaryRes = await callOpenRouter(PRIMARY_MODEL, systemPrompt, userContent);
       } catch {
         primaryTransportError = true;
       }
 
-      const shouldFallback =
-        primaryTransportError ||
-        (primaryAttempt && !primaryAttempt.ok && DEGRADED_STATUSES.has(primaryAttempt.status));
-
-      if (shouldFallback && FALLBACK_MODEL) {
-        const reason = primaryTransportError
-          ? 'Primary model transport failure — advisory fallback model (not independent EVE quorum)'
-          : 'Primary model unavailable — advisory fallback model (not independent EVE quorum)';
-
-        try {
-          const fallbackRes = await callOpenRouter(FALLBACK_MODEL, systemPrompt, userContent, true);
-          if (fallbackRes.ok) {
-            await writeFallbackFromResponse(fallbackRes, FALLBACK_MODEL, reason);
-            return;
-          }
-          primaryAttempt = fallbackRes;
-        } catch {
-          writeOutcome({
-            kind: 'http_error',
-            reviewer: REVIEWER,
-            provider: PROVIDER,
-            model: FALLBACK_MODEL,
-            independence: 'shared_provider',
-            httpStatus: 503,
-          });
-          return;
-        }
-      } else if (primaryTransportError) {
-        writeOutcome({
-          kind: 'http_error',
-          reviewer: REVIEWER,
-          provider: PROVIDER,
-          model: PRIMARY_MODEL,
-          independence: 'shared_provider',
-          httpStatus: 503,
-        });
+      if (primaryTransportError) {
+        const handled = await tryFallback(
+          userContent,
+          systemPrompt,
+          'Primary model transport failure — advisory fallback model (not independent EVE quorum)',
+        );
+        if (!handled) writeHttpError(PRIMARY_MODEL, 503);
         return;
       }
 
-      if (primaryAttempt?.ok) {
-        const data = await primaryAttempt.json();
-        const text = stripJsonFence(data?.choices?.[0]?.message?.content ?? '');
-        writeOutcome({
-          kind: 'legacy_json',
-          reviewer: REVIEWER,
-          provider: PROVIDER,
-          model: PRIMARY_MODEL,
-          independence: 'shared_provider',
-          raw: text,
-        });
+      if (primaryRes.ok) {
+        await writeLegacyFromResponse(primaryRes, PRIMARY_MODEL);
         return;
       }
 
-      if (!FALLBACK_MODEL) {
-        writeOutcome({
-          kind: 'http_error',
-          reviewer: REVIEWER,
-          provider: PROVIDER,
-          model: PRIMARY_MODEL,
-          independence: 'shared_provider',
-          httpStatus: primaryAttempt?.status ?? 503,
-        });
+      const primaryStatus = primaryRes.status;
+      const primaryDegraded = DEGRADED_STATUSES.has(primaryStatus);
+
+      if (primaryDegraded) {
+        const handled = await tryFallback(
+          userContent,
+          systemPrompt,
+          'Primary model unavailable — advisory fallback model (not independent EVE quorum)',
+        );
+        if (!handled) writeHttpError(PRIMARY_MODEL, primaryStatus);
         return;
       }
+
+      // Hard provider/model errors (400/404/etc.) — fail closed, do not mask as degraded fallback.
+      writeHttpError(PRIMARY_MODEL, primaryStatus);
+      return;
     }
 
-    if (FALLBACK_MODEL && !PRIMARY_MODEL) {
-      try {
-        const fallbackRes = await callOpenRouter(FALLBACK_MODEL, systemPrompt, userContent, true);
-        if (fallbackRes.ok) {
-          await writeFallbackFromResponse(
-            fallbackRes,
-            FALLBACK_MODEL,
-            'Primary model not configured — advisory fallback only (not independent EVE quorum)',
-          );
-          return;
-        }
-        writeOutcome({
-          kind: 'http_error',
-          reviewer: REVIEWER,
-          provider: PROVIDER,
-          model: FALLBACK_MODEL,
-          independence: 'shared_provider',
-          httpStatus: fallbackRes.status,
-        });
-      } catch {
-        writeOutcome({
-          kind: 'http_error',
-          reviewer: REVIEWER,
-          provider: PROVIDER,
-          model: FALLBACK_MODEL,
-          independence: 'shared_provider',
-          httpStatus: 503,
-        });
-      }
+    if (FALLBACK_MODEL) {
+      const handled = await tryFallback(
+        userContent,
+        systemPrompt,
+        'Primary model not configured — advisory fallback only (not independent EVE quorum)',
+      );
+      if (!handled) writeHttpError(FALLBACK_MODEL, 503);
+      return;
     }
+
+    writeHttpError('unknown', 503);
   } catch {
-    writeOutcome({
-      kind: 'http_error',
-      reviewer: REVIEWER,
-      provider: PROVIDER,
-      model: PRIMARY_MODEL || FALLBACK_MODEL || 'unknown',
-      independence: 'shared_provider',
-      httpStatus: 503,
-    });
+    writeHttpError(PRIMARY_MODEL || FALLBACK_MODEL || 'unknown', 503);
   }
 }
 

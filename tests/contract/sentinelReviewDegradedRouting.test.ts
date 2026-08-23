@@ -265,6 +265,16 @@ describe('Sentinel Review degraded routing (C-411 JOB-4)', () => {
     assert.deepEqual(filtered.skipped, [SENTINEL_PASS_LABEL, SENTINEL_DEGRADED_LABEL]);
   });
 
+  it('empty label registry snapshot must not be used to strip all adds pre-apply', () => {
+    const filtered = filterLabelUpdatesByAvailable({
+      updates: { add: [SENTINEL_PASS_LABEL], remove: [] },
+      availableLabels: [],
+    });
+    assert.deepEqual(filtered.add, []);
+    assert.deepEqual(filtered.skipped, [SENTINEL_PASS_LABEL]);
+    // Aggregator skips this filter when availableLabels is empty; apply step validates live labels.
+  });
+
   it('only AUREA passing with full quorum required cannot approve', () => {
     const disposition = aggregateSentinelReview({
       lanes: [passLane('AUREA')],

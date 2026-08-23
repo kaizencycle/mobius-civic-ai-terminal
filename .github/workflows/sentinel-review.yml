@@ -182,12 +182,21 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const { data } = await github.rest.issues.listLabelsForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 100,
-            });
-            core.setOutput('names', data.map((label) => label.name).join(','));
+            const names = [];
+            let page = 1;
+            while (page <= 10) {
+              const { data } = await github.rest.issues.listLabelsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 100,
+                page,
+              });
+              if (!data.length) break;
+              names.push(...data.map((label) => label.name));
+              if (data.length < 100) break;
+              page += 1;
+            }
+            core.setOutput('names', names.join(','));
 
       - name: Pin aggregation policy to base revision
         if: always() && steps.gate.outputs.run == 'true'
@@ -277,9 +286,17 @@ jobs:
             }
             const updates = JSON.parse(fs.readFileSync('/tmp/sentinel-label-updates.json','utf8'));
             const prNumber = context.payload.pull_request.number;
-            const { data: repoLabels } = await github.rest.issues.listLabelsForRepo({
-              owner: context.repo.owner, repo: context.repo.repo, per_page: 100
-            });
+            const repoLabels = [];
+            let page = 1;
+            while (page <= 10) {
+              const { data } = await github.rest.issues.listLabelsForRepo({
+                owner: context.repo.owner, repo: context.repo.repo, per_page: 100, page
+              });
+              if (!data.length) break;
+              repoLabels.push(...data);
+              if (data.length < 100) break;
+              page += 1;
+            }
             const available = new Set(repoLabels.map(l => l.name));
             const { data: labels } = await github.rest.issues.listLabelsOnIssue({
               owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber

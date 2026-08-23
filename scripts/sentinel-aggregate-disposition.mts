@@ -49,17 +49,25 @@ const rawLabelUpdates = computeLabelUpdates({
   disposition,
   currentLabels: labels,
 });
-const labelUpdates = filterLabelUpdatesByAvailable
+
+// Only filter when registry snapshot is non-empty; apply step re-validates live labels.
+const registryKnown = availableLabels.length > 0;
+const labelUpdates = registryKnown && filterLabelUpdatesByAvailable
   ? filterLabelUpdatesByAvailable({ updates: rawLabelUpdates, availableLabels })
   : { add: rawLabelUpdates.add, remove: rawLabelUpdates.remove, skipped: [] as string[] };
+
 let comment = renderSentinelReviewComment(disposition);
 if (labelUpdates.skipped?.length) {
   comment += `\n\n> ⚠️ **Label configuration:** skipped missing repo labels: ${labelUpdates.skipped.join(', ')}. Provision \`consensus:approved\` and \`review:degraded\` before relying on label mutations.\n`;
+} else if (!registryKnown) {
+  comment += `\n\n> ℹ️ **Label registry snapshot unavailable** — label apply step will validate against live repo labels.\n`;
 }
+
 writeFileSync('/tmp/sentinel-disposition.json', JSON.stringify(disposition, null, 2));
 writeFileSync('/tmp/sentinel-comment.md', comment);
+writeFileSync('/tmp/sentinel-label-updates.json', JSON.stringify(rawLabelUpdates, null, 2));
 writeFileSync(
-  '/tmp/sentinel-label-updates.json',
-  JSON.stringify({ add: labelUpdates.add, remove: labelUpdates.remove }, null, 2),
+  '/tmp/sentinel-label-updates-filtered.json',
+  JSON.stringify({ add: labelUpdates.add, remove: labelUpdates.remove, skipped: labelUpdates.skipped ?? [] }, null, 2),
 );
 console.log(`approval_eligible=${(disposition as { approval_eligible: boolean }).approval_eligible}`);
