@@ -57,10 +57,14 @@ export const SENTINEL_REVIEW_TRIGGER_LABELS = [
 
 export const SENTINEL_PASS_LABEL = 'consensus:approved' as const;
 export const SENTINEL_DEGRADED_LABEL = 'review:degraded' as const;
-export const SENTINEL_GATEWAY_PROVIDER = 'openrouter' as const;
+/** Disposition label when provider is not specified per lane. */
+export const SENTINEL_GATEWAY_PROVIDER = 'llm' as const;
+/** Primary shared fallback credential (see SENTINEL_LLM_CREDENTIAL_CHAIN for full order). */
 export const SENTINEL_SERVICE_CREDENTIAL = 'AGENT_SERVICE_TOKEN' as const;
+export const SENTINEL_LLM_CREDENTIAL_CHAIN =
+  'SENTINEL_{REVIEWER}_API_KEY|AGENT_SERVICE_TOKEN|LLM_API_KEY+LLM_BASE_URL|OPENAI_API_KEY' as const;
 
-/** OpenRouter model ids — override via workflow env (SENTINEL_*_MODEL). */
+/** Default models when repo vars / workflow env omit overrides (any OpenAI-compatible gateway). */
 export const SENTINEL_DEFAULT_MODELS = {
   AUREA: 'openai/gpt-4o-mini',
   ATLAS: 'anthropic/claude-sonnet-4',

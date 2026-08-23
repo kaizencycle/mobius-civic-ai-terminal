@@ -55,7 +55,21 @@ Removes fail-open Sentinel Review behavior and adds explicit EVE degraded-state 
 | `DEGRADED_FALLBACK` | Shared-provider advisory fallback | Blocked; not independent quorum |
 | `MALFORMED` | Empty or invalid JSON | Blocked; fail closed |
 
-## Explicit non-goals
+## Model-agnostic LLM credentials (per lane)
+
+Each reviewer lane resolves credentials independently via OpenAI-compatible `chat/completions`:
+
+| Priority | Profile | Requirements |
+|---|---|---|
+| 1 | Lane | `SENTINEL_{REVIEWER}_API_KEY` [+ optional `SENTINEL_{REVIEWER}_BASE_URL`] |
+| 2 | OpenRouter shared | `AGENT_SERVICE_TOKEN` [+ optional `OPENROUTER_BASE_URL`] |
+| 3 | LLM pair | `LLM_API_KEY` **and** `LLM_BASE_URL` (both required) |
+| 4 | OpenAI direct | `OPENAI_API_KEY` → `https://api.openai.com/v1` |
+
+Keys and base URLs resolve as **paired profiles** — never mixed across profiles.
+
+Models override via repo variables: `SENTINEL_AUREA_MODEL`, `SENTINEL_ATLAS_MODEL`, `SENTINEL_EVE_MODEL`, `SENTINEL_EVE_FALLBACK_MODEL`. EVE fallback uses `SENTINEL_EVE_FALLBACK_*` only (not primary EVE key + fallback URL).
+
 
 - No provider substitution masquerading as EVE-independent attestation
 - No seal quorum, MIC, GI, human authority, or production state changes
