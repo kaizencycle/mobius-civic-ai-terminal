@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-08-24T03:02:09Z",
+  "agent": "AUREA",
+  "cycle": "C-412",
+  "gi_final": 0.789,
+  "gi_mode": "yellow",
+  "gi_source": "unknown",
+  "gi_range_24h": {
+    "min": 0.74,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.77,
+  "financial_score": 0.752,
+  "environ_score": 0.85,
+  "civic_score": 0.707,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.789 across a volatile 24-hour band of 0.74 to 0.92. The ledger registered 0 events over the last 24 hours, while the strongest visible domain signal remained INSTITUTIONAL at 0.926 even as USGS water conditions and Cloudflare infrastructure stayed non-nominal. ZEUS verification status is confirmed. Forward signal: watch whether the ATLAS rebound toward green survives persistent weather, water, and infrastructure pressure in the next cycle.",
+  "forward_signal": "Watch whether the ATLAS rebound toward green survives persistent weather, water, and infrastructure pressure in the next cycle.",
+  "zeus_status": "confirmed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "USGS water conditions [elevated]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
