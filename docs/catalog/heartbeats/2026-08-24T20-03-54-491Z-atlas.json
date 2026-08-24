@@ -12,7 +12,7 @@
       "severity": "watch"
     },
     {
-      "source": "gaia-eonet",
+      "source": "gaia-nasa-eonet",
       "label": "NASA EONET natural events",
       "severity": "watch"
     },
