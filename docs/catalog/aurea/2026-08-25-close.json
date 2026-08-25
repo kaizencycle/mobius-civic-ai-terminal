@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-08-25T03:04:17Z",
+  "agent": "AUREA",
+  "cycle": "C-413",
+  "gi_final": 0.745,
+  "gi_mode": "yellow",
+  "gi_source": "unknown",
+  "gi_range_24h": {
+    "min": 0.722,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.716,
+  "financial_score": 0.648,
+  "environ_score": 0.81,
+  "civic_score": 0.65,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.745. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL at 0.866 while Cloudflare infrastructure status remained on watch. ZEUS verification status is confirmed, and the heartbeat trend is falling across a 24-hour GI band of 0.722 to 0.92. Forward signal: watch whether the institutional lead holds if the Cloudflare watch persists and the ATLAS heartbeat continues to soften next cycle.",
+  "forward_signal": "Watch whether the institutional lead holds if the Cloudflare watch persists and the ATLAS heartbeat continues to soften next cycle.",
+  "zeus_status": "confirmed",
+  "heartbeat_gi_trend": "falling",
+  "anomalies": [
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
