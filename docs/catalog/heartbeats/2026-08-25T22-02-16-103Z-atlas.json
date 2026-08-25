@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-08-25T22:02:16.103Z",
+  "agent": "ATLAS",
+  "cycle": "C-414",
+  "gi": 0.82,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "gaia-nasa-eonet",
+      "label": "NASA EONET natural events",
+      "severity": "watch"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 5,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 3,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 18,
+    "diagnostic_required": 19,
+    "timestamp": "2026-08-25T22:01:08.160Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.897,
+  "degraded_agents": 1,
+  "degraded_agent_names": [
+    "DAEDALUS"
+  ],
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-08-25T22:00:01.564Z"
+  },
+  "pre_seed_gi": 0.759,
+  "pre_seed_mode": "yellow",
+  "post_seed_gi": 0.82,
+  "post_seed_mode": "yellow",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "seed_http": "200",
+  "journal_status": 200,
+  "journal_route": "agents/atlas/observe",
+  "journal_id": "journal-ATLAS-C-414-mt97n9gnutre",
+  "journal_ok": true,
+  "journal_canonical": true,
+  "gi_provenance": "kv-live"
+}
