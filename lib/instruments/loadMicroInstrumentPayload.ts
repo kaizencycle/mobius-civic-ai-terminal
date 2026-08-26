@@ -14,7 +14,10 @@ export type MicroInstrumentLoadResult = {
   degraded: boolean;
 };
 
-export async function loadMicroInstrumentPayload(baseUrl: string): Promise<MicroInstrumentLoadResult> {
+/**
+ * KV-only micro instrument load — never HTTP self-fetch (avoids serverless deadlock).
+ */
+export async function loadMicroInstrumentPayload(): Promise<MicroInstrumentLoadResult> {
   const cached = await kvGet<CacheEntry>(CACHE_KEY);
   const ageMs = cached ? Date.now() - cached.cachedAt : null;
 
@@ -34,28 +37,13 @@ export async function loadMicroInstrumentPayload(baseUrl: string): Promise<Micro
     };
   }
 
-  try {
-    const res = await fetch(`${baseUrl}/api/signals/micro`, { cache: 'no-store' });
-    if (!res.ok) {
-      if (cached) {
-        return {
-          payload: cached.data,
-          cached: true,
-          degraded: true,
-        };
-      }
-      return { payload: null, cached: false, degraded: true };
-    }
-    const payload = (await res.json()) as SignalMicroPayload;
-    return { payload, cached: Boolean(payload.cached), degraded: !payload.ok };
-  } catch {
-    if (cached) {
-      return {
-        payload: cached.data,
-        cached: true,
-        degraded: true,
-      };
-    }
-    return { payload: null, cached: false, degraded: true };
+  if (cached) {
+    return {
+      payload: cached.data,
+      cached: true,
+      degraded: true,
+    };
   }
+
+  return { payload: null, cached: false, degraded: true };
 }

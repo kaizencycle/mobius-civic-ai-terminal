@@ -5,58 +5,19 @@ import { assessKvKeyHealth } from '@/lib/kv/kvKeyHealth';
 import { isRedisAvailable } from '@/lib/kv/store';
 import { deriveInstrumentsAlerts } from '@/lib/instruments/deriveAlerts';
 import { loadMicroInstrumentPayload } from '@/lib/instruments/loadMicroInstrumentPayload';
+import { loadSnapshotLiteSlice } from '@/lib/instruments/loadSnapshotLiteSlice';
 import {
   MOBIUS_INSTRUMENTS_SCHEMA_VERSION,
   type MobiusInstrumentsSnapshot,
 } from '@/lib/instruments/types';
 
-type SnapshotLiteBody = {
-  ok?: boolean;
-  degraded?: boolean;
-  gi?: number | null;
-  gi_provenance?: string | null;
-  gi_verified?: boolean;
-  gi_conflict?: boolean;
-  gi_floored?: boolean;
-  gi_source?: string | null;
-  mode?: string | null;
-  cycle?: string;
-  execution_authorized?: boolean;
-  lanes?: Record<string, unknown> | null;
-};
-
-async function fetchSnapshotLite(baseUrl: string): Promise<SnapshotLiteBody> {
-  try {
-    const res = await fetch(`${baseUrl}/api/terminal/snapshot-lite`, { cache: 'no-store' });
-    if (!res.ok) {
-      return {
-        ok: false,
-        degraded: true,
-        cycle: currentCycleId(),
-        execution_authorized: false,
-        lanes: null,
-      };
-    }
-    return (await res.json()) as SnapshotLiteBody;
-  } catch {
-    return {
-      ok: false,
-      degraded: true,
-      cycle: currentCycleId(),
-      execution_authorized: false,
-      lanes: null,
-    };
-  }
-}
-
 /**
- * Composed protocol snapshot for World Renderer HUD.
- * GI/cycle/lanes sourced from snapshot-lite (parity guarantee); instruments from micro cache/route.
+ * Composed protocol snapshot for World Renderer HUD (in-process loaders only).
  */
-export async function composeInstrumentsSnapshot(baseUrl: string): Promise<MobiusInstrumentsSnapshot> {
+export async function composeInstrumentsSnapshot(): Promise<MobiusInstrumentsSnapshot> {
   const [lite, microLoad, integrity, micRaw, kvHealth] = await Promise.all([
-    fetchSnapshotLite(baseUrl),
-    loadMicroInstrumentPayload(baseUrl),
+    loadSnapshotLiteSlice(),
+    loadMicroInstrumentPayload(),
     computeIntegrityPayload(),
     loadMicReadinessSnapshotRaw(),
     isRedisAvailable() ? assessKvKeyHealth() : Promise.resolve(null),
@@ -75,7 +36,7 @@ export async function composeInstrumentsSnapshot(baseUrl: string): Promise<Mobiu
 
   const alerts = deriveInstrumentsAlerts({
     liteDegraded: lite.degraded,
-    lanes: lite.lanes as Record<string, { ok?: boolean; freshness?: string; elevated?: boolean }> | null,
+    lanes: lite.lanes as Record<string, { ok?: boolean; freshness?: string; elevated?: boolean }>,
     failedInstruments: micro?.failedInstruments,
     kvContinuityOk: kvHealth?.kv_continuity_ok ?? null,
     integrityDegraded,
@@ -87,17 +48,17 @@ export async function composeInstrumentsSnapshot(baseUrl: string): Promise<Mobiu
     ok: liteOk && (microOk || microLoad.cached),
     degraded,
     gi: {
-      score: lite.gi ?? integrity.global_integrity ?? null,
-      provenance: lite.gi_provenance ?? null,
-      verified: lite.gi_verified ?? null,
-      conflict: lite.gi_conflict ?? null,
-      floored: lite.gi_floored ?? null,
-      source: lite.gi_source ?? integrity.source ?? null,
-      mode: lite.mode ?? integrity.mode ?? null,
+      score: lite.gi,
+      provenance: lite.gi_provenance,
+      verified: lite.gi_verified,
+      conflict: lite.gi_conflict,
+      floored: lite.gi_floored,
+      source: lite.gi_source,
+      mode: lite.mode,
     },
     cycle: {
-      id: lite.cycle ?? integrity.cycle ?? currentCycleId(),
-      execution_authorized: lite.execution_authorized ?? false,
+      id: lite.cycle ?? currentCycleId(),
+      execution_authorized: lite.execution_authorized,
     },
     mic: {
       readiness_source: micRaw.source ?? null,
@@ -121,7 +82,7 @@ export async function composeInstrumentsSnapshot(baseUrl: string): Promise<Mobiu
       degraded: microLoad.degraded,
     },
     agents: micro?.agentComposites ?? [],
-    lanes: lite.lanes ?? null,
+    lanes: lite.lanes,
     kv: {
       continuity_ok: kvHealth?.kv_continuity_ok ?? null,
       diagnostic_ok: kvHealth?.kv_diagnostic_ok ?? null,

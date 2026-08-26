@@ -29,10 +29,9 @@ export async function OPTIONS(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const cors = handbookCorsHeaders(req.headers.get('origin'));
-  const baseUrl = new URL(req.url).origin;
 
   try {
-    const body = await composeInstrumentsSnapshot(baseUrl);
+    const body = await composeInstrumentsSnapshot();
     return NextResponse.json(body, {
       headers: {
         ...(cors ?? {}),

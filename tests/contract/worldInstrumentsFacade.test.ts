@@ -7,6 +7,10 @@ import { deriveInstrumentsAlerts } from '@/lib/instruments/deriveAlerts';
 import { MOBIUS_INSTRUMENTS_SCHEMA_VERSION } from '@/lib/instruments/types';
 import { computeConsensus } from '@/lib/epicon/consensus';
 import type { EpiconAgentReport } from '@/lib/epicon/types';
+import {
+  isObservationAccepted,
+  parseObservationReports,
+} from '@/lib/instruments/parseObservationReports';
 
 describe('C-412 instruments facade', () => {
   it('schema version constant is MOBIUS_INSTRUMENTS_1', () => {
@@ -32,7 +36,62 @@ describe('C-412 instruments facade', () => {
     assert.equal(alerts.length, 0);
   });
 
-  it('verify-observation consensus pass requires ECS threshold without oppose votes', () => {
+  it('parseObservationReports rejects duplicate agents', () => {
+    const result = parseObservationReports([
+      {
+        agent: 'ATLAS',
+        stance: 'support',
+        confidence: 0.9,
+        ej: { reasoning: 'a', anchors: [], counterfactuals: [], ccr_score: 1, css_pass: true },
+        ej_hash: 'h',
+        generated_at: '2026-08-26T00:00:00.000Z',
+      },
+      {
+        agent: 'ATLAS',
+        stance: 'support',
+        confidence: 0.9,
+        ej: { reasoning: 'b', anchors: [], counterfactuals: [], ccr_score: 1, css_pass: true },
+        ej_hash: 'h2',
+        generated_at: '2026-08-26T00:00:00.000Z',
+      },
+    ]);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error, 'duplicate_agent');
+  });
+
+  it('parseObservationReports rejects unknown agent ids', () => {
+    const result = parseObservationReports([
+      {
+        agent: 'FAKE',
+        stance: 'support',
+        confidence: 0.9,
+        ej: { reasoning: 'a', anchors: [], counterfactuals: [], ccr_score: 1, css_pass: true },
+        ej_hash: 'h',
+        generated_at: '2026-08-26T00:00:00.000Z',
+      },
+    ]);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error, 'invalid_agent');
+  });
+
+  it('isObservationAccepted requires independent quorum even when ECS passes', () => {
+    const singleReport: EpiconAgentReport[] = [
+      {
+        agent: 'ATLAS',
+        stance: 'support',
+        confidence: 0.95,
+        ej: { reasoning: 'ok', anchors: ['a'], counterfactuals: [], ccr_score: 1, css_pass: true },
+        ej_hash: 'h1',
+        generated_at: '2026-08-26T00:00:00.000Z',
+      },
+    ];
+    const consensus = computeConsensus(singleReport);
+    assert.equal(consensus.status, 'pass');
+    assert.equal(consensus.quorum.independent_ok, false);
+    assert.equal(isObservationAccepted(consensus), false);
+  });
+
+  it('isObservationAccepted true with five distinct support reports', () => {
     const reports: EpiconAgentReport[] = [
       {
         agent: 'ATLAS',
@@ -76,7 +135,6 @@ describe('C-412 instruments facade', () => {
       },
     ];
     const consensus = computeConsensus(reports);
-    assert.equal(consensus.status, 'pass');
-    assert.ok(consensus.ecs >= 0.8);
+    assert.equal(isObservationAccepted(consensus), true);
   });
 });
