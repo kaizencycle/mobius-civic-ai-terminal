@@ -44,8 +44,12 @@
   "sustain_eligible": true,
   "classification": "STRESSED",
   "micro_composite": 0.904,
-  "degraded_agents": 0,
-  "degraded_agent_names": [],
+  "degraded_agents": 3,
+  "degraded_agent_names": [
+    "AUREA",
+    "JADE",
+    "DAEDALUS"
+  ],
   "terminal_status": "stressed",
   "flags": {
     "integrity_source_mock": false,
@@ -82,4 +86,3 @@
   "journal_ok": true,
   "journal_canonical": true
 }
-FILENAME docs/catalog/heartbeats/2026-08-26T15-04-46-425Z-atlas.json
