@@ -6,7 +6,7 @@ This document is the **operator-facing contract** for how the three repos line u
 
 | Layer | Repo | What it owns |
 |--------|------|----------------|
-| Terminal | `mobius-civic-ai-terminal` | `GET /api/terminal/snapshot-lite` — hot lanes, GI resolution, degraded-safe JSON; `ledger/cycle-state.json` (published workflow) for cycle continuity |
+| Terminal | `mobius-civic-ai-terminal` | `GET /api/terminal/snapshot-lite` — hot lanes, GI resolution, degraded-safe JSON; `GET /api/instruments` — **MOBIUS_INSTRUMENTS_1** composed facade for World Renderer HUD; `ledger/cycle-state.json` (published workflow) for cycle continuity |
 | HIVE | `mobius-hive` | `world/*.json` projections, `ledger/hive-world-state.json`, ingest from mesh URLs declared in `mobius.yaml` |
 | Browser shell | `mobius-browser-shell` | Operator UI, `/api/hive/world` proxy (`?path=world/...`), Terminal bridge, OAA-facing routes |
 
@@ -17,6 +17,17 @@ Successful and fallback bodies from `GET /api/terminal/snapshot-lite` include:
 - `schema_version`: **`MOBIUS_SNAPSHOT_LITE_1`** — stable identifier for downstream parsers (HIVE ingest, shell, scripts). Implemented in `app/api/terminal/snapshot-lite/route.ts` (not re-exported from the route module; Next route typing stays minimal).
 
 Consumers should treat unknown `schema_version` as **forward-compatible**: read fields defensively; do not assume absence of new keys.
+
+## Instruments facade (World Renderer)
+
+`GET /api/instruments` returns:
+
+- `schema_version`: **`MOBIUS_INSTRUMENTS_1`** — composed GI/cycle/lanes (from snapshot-lite parity fetch), 40-instrument micro sweep, MIC/integrity, KV continuity.
+- World Renderer polls every **15s** (v1); WebSocket deferred.
+
+Verification adapter: `POST /api/world/verify-observation` (service auth) — EPICON consensus when `reports[]` supplied; always returns fresh `instruments_snapshot`.
+
+CORS allowlist includes `world.mobius-substrate.com` and `world-woad.vercel.app` via `lib/http/handbook-cors.ts`.
 
 ## Cycle state artifact
 
