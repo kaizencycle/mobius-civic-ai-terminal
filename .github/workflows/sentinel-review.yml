@@ -27,9 +27,12 @@ jobs:
     env:
       OPENROUTER_BASE_URL: ${{ vars.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1' }}
       LLM_BASE_URL: ${{ vars.LLM_BASE_URL || '' }}
+      # C-416 Job #4 follow-up: EVE no longer defaults to the same model as ATLAS
+      # (both were anthropic/claude-sonnet-4) — a single vendor incident could take
+      # out both lanes whose disagreement matters most for civic-risk review.
       SENTINEL_AUREA_MODEL: ${{ vars.SENTINEL_AUREA_MODEL || 'openai/gpt-4o-mini' }}
       SENTINEL_ATLAS_MODEL: ${{ vars.SENTINEL_ATLAS_MODEL || 'anthropic/claude-sonnet-4' }}
-      SENTINEL_EVE_MODEL: ${{ vars.SENTINEL_EVE_MODEL || 'anthropic/claude-sonnet-4' }}
+      SENTINEL_EVE_MODEL: ${{ vars.SENTINEL_EVE_MODEL || 'google/gemini-2.5-flash' }}
       SENTINEL_EVE_FALLBACK_MODEL: ${{ vars.SENTINEL_EVE_FALLBACK_MODEL || 'openai/gpt-4o-mini' }}
       MAX_DIFF_CHARS: "120000"
       MAX_PROMPT_CHARS: "200000"

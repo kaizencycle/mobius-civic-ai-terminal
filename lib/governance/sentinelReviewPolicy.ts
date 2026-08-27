@@ -64,11 +64,23 @@ export const SENTINEL_SERVICE_CREDENTIAL = 'AGENT_SERVICE_TOKEN' as const;
 export const SENTINEL_LLM_CREDENTIAL_CHAIN =
   'SENTINEL_{REVIEWER}_API_KEY|AGENT_SERVICE_TOKEN|LLM_API_KEY+LLM_BASE_URL|OPENAI_API_KEY' as const;
 
-/** Default models when repo vars / workflow env omit overrides (any OpenAI-compatible gateway). */
+/**
+ * Default models when repo vars / workflow env omit overrides (any OpenAI-compatible gateway).
+ *
+ * C-416 governance review (Job #4, PR #695 ACCEPT_WITH_FOLLOWUP): ATLAS and EVE previously
+ * both defaulted to the same model (anthropic/claude-sonnet-4) through the same gateway
+ * credential (AGENT_SERVICE_TOKEN, absent a per-lane SENTINEL_{REVIEWER}_API_KEY) — a single
+ * vendor incident could degrade both lanes whose independent disagreement matters most for
+ * civic-risk review. EVE now defaults to a third model family so no two required lanes share
+ * one model by default. This does not by itself grant credential-level independence: without
+ * SENTINEL_ATLAS_API_KEY / SENTINEL_EVE_API_KEY configured, all three lanes still share the
+ * AGENT_SERVICE_TOKEN OpenRouter credential (see SENTINEL_LLM_CREDENTIAL_CHAIN) — that requires
+ * an operator to provision distinct keys.
+ */
 export const SENTINEL_DEFAULT_MODELS = {
   AUREA: 'openai/gpt-4o-mini',
   ATLAS: 'anthropic/claude-sonnet-4',
-  EVE: 'anthropic/claude-sonnet-4',
+  EVE: 'google/gemini-2.5-flash',
   EVE_FALLBACK: 'openai/gpt-4o-mini',
 } as const;
 
