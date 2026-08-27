@@ -101,6 +101,27 @@ export function renderTemplateIntentForValidation(raw) {
   return s;
 }
 
+const LITERAL_ISSUED = /^issued_at: .*$/m;
+const LITERAL_EXPIRES = /^expires_at: .*$/m;
+
+/**
+ * The golden fixture (tests/fixtures/pr-template-intent-pass.md) carries a real,
+ * already-filled intent block rather than placeholders, so it can't go through
+ * renderTemplateIntentForValidation. Its own literal issued_at/expires_at dates
+ * would otherwise rot exactly like RENDER's used to (Codex review, PR #703):
+ * re-stamp them to the same relative window used for the template render, so
+ * the fixture can never expire on its own either.
+ */
+export function renderFixtureIntentForValidation(raw) {
+  if (!LITERAL_ISSUED.test(raw) || !LITERAL_EXPIRES.test(raw)) {
+    throw new Error('Golden fixture must include literal issued_at / expires_at lines.');
+  }
+  let s = raw;
+  s = s.replace(LITERAL_ISSUED, `issued_at: ${RENDER.issued_at}`);
+  s = s.replace(LITERAL_EXPIRES, `expires_at: ${RENDER.expires_at}`);
+  return s;
+}
+
 function justificationKeys(intentRaw) {
   const keys = new Set();
   let section = null;
@@ -240,7 +261,8 @@ export function runPrTemplateIntentGuard() {
   assertTemplateSchemaAlignsWithFixture(templateIntent, fixtureIntent);
 
   const rendered = renderTemplateIntentForValidation(templateIntent);
-  runEpiconGuard(fixtureIntent, 'golden fixture');
+  const renderedFixture = renderFixtureIntentForValidation(fixtureIntent);
+  runEpiconGuard(renderedFixture, 'golden fixture');
   runEpiconGuard(rendered, 'rendered §3 template intent');
 
   runRegressionSelfChecks(() => templateIntent);
