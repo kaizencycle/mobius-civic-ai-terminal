@@ -14,12 +14,18 @@ export const EPICON_GUARD_REF = '8af925208733aaf9668aaedc15bf2a65aab47f21';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+// issued_at/expires_at are computed relative to run time, not hardcoded: a fixed
+// historical window inevitably expires and fails this self-check on every PR from
+// that date on (found via C-416 governance review, PR #702's "contract" check
+// failing on unmodified main — the 2026-07-26 -> 2026-08-26 window had lapsed).
+const RENDER_NOW = new Date();
+const RENDER_EXPIRES = new Date(RENDER_NOW.getTime() + 30 * 24 * 60 * 60 * 1000);
 const RENDER = {
   cycle: '384',
   scope: 'ci',
   slug: 'template-schema-check',
-  issued_at: '2026-07-26T15:00:00Z',
-  expires_at: '2026-08-26T15:00:00Z',
+  issued_at: RENDER_NOW.toISOString(),
+  expires_at: RENDER_EXPIRES.toISOString(),
 };
 
 const PLACEHOLDER_EPIcon_ID =
