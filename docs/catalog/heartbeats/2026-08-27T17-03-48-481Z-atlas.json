@@ -1,0 +1,87 @@
+{
+  "timestamp": "2026-08-27T17:03:48.481Z",
+  "agent": "ATLAS",
+  "cycle": "C-416",
+  "gi": 0.92,
+  "mode": "green",
+  "source": "cached",
+  "anomalies": [
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 4,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 18,
+    "diagnostic_required": 19,
+    "timestamp": "2026-08-27T17:02:27.317Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.902,
+  "degraded_agents": 2,
+  "degraded_agent_names": [
+    "JADE",
+    "DAEDALUS"
+  ],
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": false,
+    "integrity_source_live": false,
+    "integrity_source_cached": true,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-08-27T16:31:25.559Z"
+  },
+  "pre_seed_gi": 0.92,
+  "pre_seed_mode": "green",
+  "post_seed_gi": 0.92,
+  "post_seed_mode": "green",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "seed_http": "200",
+  "gi_provenance": "live-compute",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-416-hkiovx",
+  "journal_ok": true,
+  "journal_canonical": true
+}
