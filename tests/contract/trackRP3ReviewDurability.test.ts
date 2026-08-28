@@ -734,22 +734,74 @@ describe('Track R P3 durable review evidence (JOB-17)', () => {
     }
   });
 
-  it('running the durability sync script twice against the real repo produces zero diff on the second run', () => {
-    const tsx = join(REPO_ROOT, 'node_modules/.bin/tsx');
-    const script = join(REPO_ROOT, 'scripts/track-r-p3-review-durability-sync.ts');
-    const run = () => execFileSync(tsx, [script], { cwd: REPO_ROOT, encoding: 'utf8' });
+  it('running the durability sync script twice against an isolated evidence tree produces zero diff on the second run', () => {
+    // Isolated (--repo-root) rather than run against REPO_ROOT: under `pnpm test`,
+    // scripts/run-tests.ts runs all contract files concurrently, and other files
+    // (c409IntegrityReconciliation.test.ts, c410CivicMeshReconciliation.test.ts) read
+    // the same shared packet-review-registry.json this script writes. Running against
+    // the real repo would race those reads and leave the checkout dirty.
+    const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-review-sync-'));
+    try {
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
+      const tsx = join(REPO_ROOT, 'node_modules/.bin/tsx');
+      const script = join(REPO_ROOT, 'scripts/track-r-p3-review-durability-sync.ts');
+      const run = () => execFileSync(tsx, [script, `--repo-root=${tempRoot}`], { cwd: REPO_ROOT, encoding: 'utf8' });
 
-    run(); // seed/settle first (may write nothing if already committed and unchanged)
-    const before = execFileSync('git', ['status', '--short', 'docs/epicon/cycles/C-408/track-r-p3-review/'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-    });
-    run(); // second run against identical committed evidence
-    const after = execFileSync('git', ['status', '--short', 'docs/epicon/cycles/C-408/track-r-p3-review/'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-    });
-    assert.equal(after, before, 'a second run over unchanged evidence must not change any tracked file');
+      const registryPath = join(
+        tempRoot,
+        'docs/epicon/cycles/C-408/track-r-p3-review/packet-review-registry.json',
+      );
+      const zeusReceiptPath = join(
+        tempRoot,
+        trackRP3ReviewArtifactPath({ workflowRunId: LATEST_RUN, lane: 'ZEUS' }),
+      );
+      const eveReceiptPath = join(
+        tempRoot,
+        trackRP3ReviewArtifactPath({ workflowRunId: LATEST_RUN, lane: 'EVE' }),
+      );
+      const snapshot = () => ({
+        registry: readFileSync(registryPath, 'utf8'),
+        zeus: readFileSync(zeusReceiptPath, 'utf8'),
+        eve: readFileSync(eveReceiptPath, 'utf8'),
+      });
+
+      run(); // seed
+      const before = snapshot();
+      run(); // second run against identical evidence
+      const after = snapshot();
+      assert.deepEqual(after, before, 'a second run over unchanged evidence must not change any output file');
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('a stale/corrupted committed receipt is rewritten, not silently trusted because a file exists at the path', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-review-sync-'));
+    try {
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
+      const tsx = join(REPO_ROOT, 'node_modules/.bin/tsx');
+      const script = join(REPO_ROOT, 'scripts/track-r-p3-review-durability-sync.ts');
+      const run = () => execFileSync(tsx, [script, `--repo-root=${tempRoot}`], { cwd: REPO_ROOT, encoding: 'utf8' });
+
+      const zeusReceiptPath = join(
+        tempRoot,
+        trackRP3ReviewArtifactPath({ workflowRunId: LATEST_RUN, lane: 'ZEUS' }),
+      );
+      mkdirSync(zeusReceiptPath.replace(/\/[^/]*$/, ''), { recursive: true });
+      writeFileSync(
+        zeusReceiptPath,
+        '# corrupted stale receipt\ngenerated_at: 2020-01-01T00:00:00.000Z\nworkflow_run_id: `0000000000`\n',
+        'utf8',
+      );
+
+      run();
+      const rewritten = readFileSync(zeusReceiptPath, 'utf8');
+      assert.match(rewritten, new RegExp(LATEST_RUN));
+      assert.doesNotMatch(rewritten, /0000000000/);
+      assert.doesNotMatch(rewritten, /2020-01-01/);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it('the durability sync writer includes the verdict sidecar directory in production output tracing', () => {

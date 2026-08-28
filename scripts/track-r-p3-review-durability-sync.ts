@@ -22,13 +22,18 @@
  * registry, which is preserved rather than clobbered.
  *
  * Usage:
- *   tsx scripts/track-r-p3-review-durability-sync.ts [--expect-run-id=ID] [--expect-packet-hash=HASH]
+ *   tsx scripts/track-r-p3-review-durability-sync.ts [--expect-run-id=ID] [--expect-packet-hash=HASH] [--repo-root=PATH]
  *
  * If --expect-* is supplied and does not match the resolved candidate, this exits 1
  * with PACKET_BINDING_CHANGED rather than silently syncing a different packet.
+ *
+ * --repo-root overrides where evidence is read from and output is written (default:
+ * process.cwd()) — used by tests to point this script at an isolated copy of the
+ * evidence tree instead of the real checkout, so a concurrent test run never mutates
+ * shared repository state.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
   findPacketReviewEntry,
@@ -167,8 +172,43 @@ function writeReceiptFile(args: { repoRoot: string; path: string; content: strin
   writeFileSync(abs, `${args.content}\n`, 'utf8');
 }
 
+const GENERATED_AT_PATTERN = /generated_at:\s*(\S+)/;
+
+/**
+ * Idempotency without trusting a stale receipt: an existing file's *content* — not
+ * merely its existence — must match what the current packet identity would render,
+ * once its own recorded generated_at is substituted back in. A receipt that is
+ * missing, corrupted, or bound to superseded identity fields is rewritten (with a
+ * fresh timestamp), rather than silently accepted because a file happens to sit at
+ * the right path.
+ */
+function receiptUpToDate(args: {
+  repoRoot: string;
+  path: string;
+  lane: 'ZEUS' | 'EVE';
+  context: TrackRP3ReviewContext;
+}): boolean {
+  const abs = join(args.repoRoot, args.path);
+  if (!existsSync(abs)) return false;
+  let existing: string;
+  try {
+    existing = readFileSync(abs, 'utf8');
+  } catch {
+    return false;
+  }
+  const match = existing.match(GENERATED_AT_PATTERN);
+  if (!match) return false;
+  const rerendered = `${renderTrackRP3MachineVerificationReceipt({
+    lane: args.lane,
+    context: args.context,
+    generatedAt: match[1],
+    intakeStatus: 'AWAITING_INDEPENDENT_REVIEW',
+  })}\n`;
+  return rerendered === existing;
+}
+
 function main(): void {
-  const repoRoot = process.cwd();
+  const repoRoot = parseArg('repo-root') ?? process.cwd();
   const expectRunId = parseArg('expect-run-id');
   const expectPacketHash = parseArg('expect-packet-hash');
   const now = new Date().toISOString();
@@ -220,11 +260,10 @@ function main(): void {
 
   for (const lane of ['ZEUS', 'EVE'] as const) {
     const path = trackRP3ReviewArtifactPath({ workflowRunId: intake.candidate.workflow_run_id, lane });
-    // Idempotency: the receipt's content is fully determined by (lane, packet identity)
-    // except for its generated_at stamp. A receipt already present at this run's path
-    // is already correct for this exact packet — re-rendering it would only change the
-    // timestamp and force a spurious commit on every scheduled run.
-    if (existsSync(join(repoRoot, path))) continue;
+    // Idempotency without trusting a stale file: only skip when the existing receipt's
+    // content genuinely matches this packet's identity (its own generated_at re-applied).
+    // Missing, corrupted, or identity-mismatched receipts are (re)written below.
+    if (receiptUpToDate({ repoRoot, path, lane, context: intake.candidate })) continue;
     const content = renderTrackRP3MachineVerificationReceipt({
       lane,
       context: intake.candidate,
