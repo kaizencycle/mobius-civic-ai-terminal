@@ -28,7 +28,7 @@
  * with PACKET_BINDING_CHANGED rather than silently syncing a different packet.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
   findPacketReviewEntry,
@@ -48,7 +48,7 @@ import {
   renderTrackRP3MachineVerificationReceipt,
   trackRP3ReviewArtifactPath,
 } from '@/lib/watchdog/batchRepair/trackRP3ReviewArtifacts';
-import { resolveTrackRP3SelectedReview } from '@/lib/watchdog/batchRepair/trackRP3SelectedReview';
+import { resolveTrackRP3SelectedReviewPair } from '@/lib/watchdog/batchRepair/trackRP3SelectedReview';
 
 const TERMINAL_VERDICTS = new Set(['adopt', 'challenge', 'overturn']);
 
@@ -67,8 +67,11 @@ function candidateEntry(args: {
   const { context, now, existing, repoRoot } = args;
   const samePacket = existing?.packet_hash === context.packet_hash;
 
-  const zeusVerdict = resolveTrackRP3SelectedReview({ lane: 'ZEUS', repoRoot });
-  const eveVerdict = resolveTrackRP3SelectedReview({ lane: 'EVE', repoRoot });
+  // Resolved as a pair (not two independent calls) so the cross-lane independence
+  // collision check always runs before either verdict could be promoted.
+  const pair = resolveTrackRP3SelectedReviewPair({ repoRoot, expectedRunId: context.workflow_run_id });
+  const zeusVerdict = pair.zeus;
+  const eveVerdict = pair.eve;
 
   const preserveZeus =
     samePacket && existing!.zeus_review_status && TERMINAL_VERDICTS.has(existing!.zeus_review_status);
@@ -90,6 +93,20 @@ function candidateEntry(args: {
       ? (eveVerdict.review.verdict.toLowerCase() as PacketReviewRegistryEntry['eve_review_status'])
       : 'awaiting_eve';
 
+  const humanStatus = preserveHuman ? existing!.human_review_status : 'awaiting_human';
+
+  // Idempotency: if this run's packet-review entry already reflects this exact state
+  // (same packet, same statuses, intake already completed), leave last_intake_at as it
+  // was rather than stamping 'now' — otherwise a scheduled sync that changes nothing
+  // would still produce a git diff (and a commit) every time it runs.
+  const unchanged =
+    samePacket &&
+    existing!.status === 'intake_verified' &&
+    existing!.intake_journals_completed === true &&
+    existing!.zeus_review_status === zeusStatus &&
+    existing!.eve_review_status === eveStatus &&
+    existing!.human_review_status === humanStatus;
+
   return {
     workflow_run_id: context.workflow_run_id,
     packet_hash: context.packet_hash,
@@ -103,11 +120,11 @@ function candidateEntry(args: {
     intake_verified_at: samePacket ? (existing!.intake_verified_at ?? now) : now,
     zeus_review_status: zeusStatus,
     eve_review_status: eveStatus,
-    human_review_status: preserveHuman ? existing!.human_review_status : 'awaiting_human',
+    human_review_status: humanStatus,
     zeus_review_artifact_path: trackRP3ReviewArtifactPath({ workflowRunId: context.workflow_run_id, lane: 'ZEUS' }),
     eve_review_artifact_path: trackRP3ReviewArtifactPath({ workflowRunId: context.workflow_run_id, lane: 'EVE' }),
     intake_journals_completed: true,
-    last_intake_at: now,
+    last_intake_at: unchanged ? existing!.last_intake_at! : now,
   };
 }
 
@@ -203,6 +220,11 @@ function main(): void {
 
   for (const lane of ['ZEUS', 'EVE'] as const) {
     const path = trackRP3ReviewArtifactPath({ workflowRunId: intake.candidate.workflow_run_id, lane });
+    // Idempotency: the receipt's content is fully determined by (lane, packet identity)
+    // except for its generated_at stamp. A receipt already present at this run's path
+    // is already correct for this exact packet — re-rendering it would only change the
+    // timestamp and force a spurious commit on every scheduled run.
+    if (existsSync(join(repoRoot, path))) continue;
     const content = renderTrackRP3MachineVerificationReceipt({
       lane,
       context: intake.candidate,

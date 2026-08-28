@@ -29,8 +29,9 @@ import {
 } from '@/lib/watchdog/batchRepair/trackRP3ReviewStateStore';
 import type { TrackRP3ReviewLane } from '@/lib/watchdog/batchRepair/trackRP3ReviewArtifacts';
 import {
-  resolveTrackRP3SelectedReview,
+  resolveTrackRP3SelectedReviewPair,
   type TrackRP3SelectedReview,
+  type TrackRP3SelectedReviewResult,
 } from '@/lib/watchdog/batchRepair/trackRP3SelectedReview';
 
 export type TrackRP3OperatorIntakeState =
@@ -151,12 +152,7 @@ function mapRegistryStatusToIntakeState(args: {
   return 'NOT_SEEN';
 }
 
-function selectedReviewStatus(args: {
-  lane: TrackRP3ReviewLane;
-  repoRoot: string;
-  runId?: string;
-}): TrackRP3ReviewSelectedStatus {
-  const result = resolveTrackRP3SelectedReview({ lane: args.lane, repoRoot: args.repoRoot, expectedRunId: args.runId });
+function selectedReviewStatus(result: TrackRP3SelectedReviewResult): TrackRP3ReviewSelectedStatus {
   if (!result.ok) {
     return {
       status: 'PENDING',
@@ -178,6 +174,16 @@ function selectedReviewStatus(args: {
     independence_status: review.independence_status,
     blocked_reasons: review.blocked_reasons,
   };
+}
+
+function selectedReviewsPairStatus(args: {
+  repoRoot: string;
+  runId?: string;
+}): { zeus: TrackRP3ReviewSelectedStatus; eve: TrackRP3ReviewSelectedStatus } {
+  // Always resolve both lanes together — resolveTrackRP3SelectedReviewPair is the only
+  // path that applies the cross-lane independence collision check (JOB-17 P1 fix).
+  const pair = resolveTrackRP3SelectedReviewPair({ repoRoot: args.repoRoot, expectedRunId: args.runId });
+  return { zeus: selectedReviewStatus(pair.zeus), eve: selectedReviewStatus(pair.eve) };
 }
 
 function emptyLaneStatus(lane: TrackRP3ReviewLane): TrackRP3ReviewLaneStatus {
@@ -308,10 +314,7 @@ export async function buildTrackRP3IntakeObservability(args: {
       supersedes_run_id: null,
       zeus: emptyLaneStatus('ZEUS'),
       eve: emptyLaneStatus('EVE'),
-      reviews: {
-        zeus: selectedReviewStatus({ lane: 'ZEUS', repoRoot }),
-        eve: selectedReviewStatus({ lane: 'EVE', repoRoot }),
-      },
+      reviews: selectedReviewsPairStatus({ repoRoot }),
       human_review_status: 'awaiting_human',
       blocked_reasons,
       errors,
@@ -415,10 +418,7 @@ export async function buildTrackRP3IntakeObservability(args: {
       receipt: eveReceipt,
       intakeState: intake_state,
     }),
-    reviews: {
-      zeus: selectedReviewStatus({ lane: 'ZEUS', repoRoot, runId }),
-      eve: selectedReviewStatus({ lane: 'EVE', repoRoot, runId }),
-    },
+    reviews: selectedReviewsPairStatus({ repoRoot, runId }),
     human_review_status: registryEntry?.human_review_status ?? 'awaiting_human',
     blocked_reasons,
     errors,

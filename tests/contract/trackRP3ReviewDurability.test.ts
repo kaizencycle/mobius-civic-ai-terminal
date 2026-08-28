@@ -7,9 +7,11 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import {
   assertReviewLanesAreIndependent,
   resolveTrackRP3SelectedReview,
+  resolveTrackRP3SelectedReviewPair,
 } from '@/lib/watchdog/batchRepair/trackRP3SelectedReview';
 import {
   runTrackRP3GovernanceIntake,
@@ -575,5 +577,190 @@ describe('Track R P3 durable review evidence (JOB-17)', () => {
       assert.doesNotMatch(source, /BATCH_EXECUTION_FEATURE_FLAG/);
       assert.doesNotMatch(source, /kvSet|kvGet|kvGetOrThrow/);
     }
+  });
+
+  // --- Codex review fixes (initial review of this PR) -----------------------------
+
+  it('a non-object JSON verdict artifact (null) fails closed to PENDING instead of throwing', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-review-'));
+    try {
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
+      const ctx = candidateContext(tempRoot);
+      const path = trackRP3ReviewVerdictArtifactPath({ workflowRunId: ctx.workflow_run_id, lane: 'ZEUS' });
+      const abs = join(tempRoot, path);
+      mkdirSync(abs.replace(/\/[^/]*$/, ''), { recursive: true });
+      writeFileSync(abs, 'null\n', 'utf8');
+      assert.doesNotThrow(() => resolveTrackRP3SelectedReview({ lane: 'ZEUS', repoRoot: tempRoot }));
+      const result = resolveTrackRP3SelectedReview({ lane: 'ZEUS', repoRoot: tempRoot });
+      assert.equal(result.ok, true);
+      if (!result.ok) return;
+      assert.equal(result.review.verdict, 'PENDING');
+      assert.ok(result.review.blocked_reasons.some((r) => r.startsWith('malformed_verdict_artifact')));
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('a non-object JSON verdict artifact (array) fails closed to PENDING', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-review-'));
+    try {
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
+      const ctx = candidateContext(tempRoot);
+      const path = trackRP3ReviewVerdictArtifactPath({ workflowRunId: ctx.workflow_run_id, lane: 'EVE' });
+      const abs = join(tempRoot, path);
+      mkdirSync(abs.replace(/\/[^/]*$/, ''), { recursive: true });
+      writeFileSync(abs, '["ADOPT"]\n', 'utf8');
+      const result = resolveTrackRP3SelectedReview({ lane: 'EVE', repoRoot: tempRoot });
+      assert.equal(result.ok, true);
+      if (!result.ok) return;
+      assert.equal(result.review.verdict, 'PENDING');
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('resolveTrackRP3SelectedReviewPair applies the cross-lane independence check that per-lane calls skip', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-review-'));
+    try {
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
+      const ctx = candidateContext(tempRoot);
+      const sharedRecord = {
+        workflow_run_id: ctx.workflow_run_id,
+        packet_hash: ctx.packet_hash,
+        journal_id: ctx.journal_id,
+        production_commit: ctx.observed_production_commit,
+        capture_id: ctx.capture_id,
+        verdict: 'ADOPT' as const,
+        reviewed_at: '2026-08-28T00:00:00.000Z',
+        evidence_refs: ['same-evidence'],
+        model_provenance: 'colluding-model',
+      };
+      writeVerdictArtifact({ tempRoot, runId: ctx.workflow_run_id, lane: 'ZEUS', record: { ...sharedRecord, reviewer: 'ZEUS' } });
+      writeVerdictArtifact({ tempRoot, runId: ctx.workflow_run_id, lane: 'EVE', record: { ...sharedRecord, reviewer: 'EVE' } });
+
+      // Per-lane calls alone cannot see the collision — each independently reports verified.
+      const zeusAlone = resolveTrackRP3SelectedReview({ lane: 'ZEUS', repoRoot: tempRoot });
+      const eveAlone = resolveTrackRP3SelectedReview({ lane: 'EVE', repoRoot: tempRoot });
+      assert.equal(zeusAlone.ok && zeusAlone.review.independence_status, 'verified');
+      assert.equal(eveAlone.ok && eveAlone.review.independence_status, 'verified');
+
+      // The paired resolver must catch it and downgrade both.
+      const pair = resolveTrackRP3SelectedReviewPair({ repoRoot: tempRoot });
+      assert.equal(pair.zeus.ok, true);
+      assert.equal(pair.eve.ok, true);
+      if (!pair.zeus.ok || !pair.eve.ok) return;
+      assert.equal(pair.zeus.review.independence_status, 'unverified');
+      assert.equal(pair.eve.review.independence_status, 'unverified');
+      assert.ok(pair.zeus.review.blocked_reasons.includes('cross_lane_independence_collision'));
+      assert.ok(pair.eve.review.blocked_reasons.includes('cross_lane_independence_collision'));
+      // The verdicts themselves remain intact — only independence is downgraded.
+      assert.equal(pair.zeus.review.verdict, 'ADOPT');
+      assert.equal(pair.eve.review.verdict, 'ADOPT');
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('resolveTrackRP3SelectedReviewPair leaves genuinely independent verdicts verified', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-review-'));
+    try {
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
+      const ctx = candidateContext(tempRoot);
+      writeVerdictArtifact({
+        tempRoot,
+        runId: ctx.workflow_run_id,
+        lane: 'ZEUS',
+        record: {
+          reviewer: 'ZEUS',
+          workflow_run_id: ctx.workflow_run_id,
+          packet_hash: ctx.packet_hash,
+          journal_id: ctx.journal_id,
+          production_commit: ctx.observed_production_commit,
+          capture_id: ctx.capture_id,
+          verdict: 'ADOPT',
+          reviewed_at: '2026-08-28T00:00:00.000Z',
+          evidence_refs: ['zeus-evidence'],
+          model_provenance: 'zeus-model',
+        },
+      });
+      writeVerdictArtifact({
+        tempRoot,
+        runId: ctx.workflow_run_id,
+        lane: 'EVE',
+        record: {
+          reviewer: 'EVE',
+          workflow_run_id: ctx.workflow_run_id,
+          packet_hash: ctx.packet_hash,
+          journal_id: ctx.journal_id,
+          production_commit: ctx.observed_production_commit,
+          capture_id: ctx.capture_id,
+          verdict: 'ADOPT',
+          reviewed_at: '2026-08-28T01:00:00.000Z',
+          evidence_refs: ['eve-evidence'],
+          model_provenance: 'eve-model',
+        },
+      });
+      const pair = resolveTrackRP3SelectedReviewPair({ repoRoot: tempRoot });
+      assert.equal(pair.zeus.ok && pair.zeus.review.independence_status, 'verified');
+      assert.equal(pair.eve.ok && pair.eve.review.independence_status, 'verified');
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('read-only observability uses the paired resolver (collision downgrades both lanes)', async () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'track-r-p3-review-'));
+    try {
+      copyRepoEvidenceTree(tempRoot, { runs: [LATEST_RUN] });
+      const ctx = candidateContext(tempRoot);
+      const shared = {
+        workflow_run_id: ctx.workflow_run_id,
+        packet_hash: ctx.packet_hash,
+        journal_id: ctx.journal_id,
+        production_commit: ctx.observed_production_commit,
+        capture_id: ctx.capture_id,
+        verdict: 'ADOPT' as const,
+        reviewed_at: '2026-08-28T00:00:00.000Z',
+        evidence_refs: ['x'],
+        model_provenance: 'same-model',
+      };
+      writeVerdictArtifact({ tempRoot, runId: ctx.workflow_run_id, lane: 'ZEUS', record: { ...shared, reviewer: 'ZEUS' } });
+      writeVerdictArtifact({ tempRoot, runId: ctx.workflow_run_id, lane: 'EVE', record: { ...shared, reviewer: 'EVE' } });
+      const status = await buildTrackRP3IntakeObservability({ workflowRunId: LATEST_RUN, repoRoot: tempRoot });
+      assert.equal(status.reviews.zeus.independence_status, 'unverified');
+      assert.equal(status.reviews.eve.independence_status, 'unverified');
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('running the durability sync script twice against the real repo produces zero diff on the second run', () => {
+    const tsx = join(REPO_ROOT, 'node_modules/.bin/tsx');
+    const script = join(REPO_ROOT, 'scripts/track-r-p3-review-durability-sync.ts');
+    const run = () => execFileSync(tsx, [script], { cwd: REPO_ROOT, encoding: 'utf8' });
+
+    run(); // seed/settle first (may write nothing if already committed and unchanged)
+    const before = execFileSync('git', ['status', '--short', 'docs/epicon/cycles/C-408/track-r-p3-review/'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
+    run(); // second run against identical committed evidence
+    const after = execFileSync('git', ['status', '--short', 'docs/epicon/cycles/C-408/track-r-p3-review/'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    });
+    assert.equal(after, before, 'a second run over unchanged evidence must not change any tracked file');
+  });
+
+  it('the durability sync writer includes the verdict sidecar directory in production output tracing', () => {
+    const configSource = readFileSync(join(REPO_ROOT, 'next.config.ts'), 'utf8');
+    const intakeStatusSection = configSource.slice(
+      configSource.indexOf("'/api/track-r/p3-intake-status'"),
+      configSource.indexOf(']', configSource.indexOf("'/api/track-r/p3-intake-status'")),
+    );
+    // Must cover the whole track-r-p3-review tree (registry + per-run receipts/verdicts),
+    // not just the single registry file — otherwise committed *_VERDICT.json sidecars
+    // are invisible to the deployed serverless function even though they resolve locally.
+    assert.match(intakeStatusSection, /docs\/epicon\/cycles\/C-408\/track-r-p3-review\/\*\*\/\*/);
   });
 });
