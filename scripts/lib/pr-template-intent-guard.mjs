@@ -14,12 +14,18 @@ export const EPICON_GUARD_REF = '8af925208733aaf9668aaedc15bf2a65aab47f21';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+// issued_at/expires_at are computed relative to run time, not hardcoded: a fixed
+// historical window inevitably expires and fails this self-check on every PR from
+// that date on (found via C-416 governance review, PR #702's "contract" check
+// failing on unmodified main — the 2026-07-26 -> 2026-08-26 window had lapsed).
+const RENDER_NOW = new Date();
+const RENDER_EXPIRES = new Date(RENDER_NOW.getTime() + 30 * 24 * 60 * 60 * 1000);
 const RENDER = {
   cycle: '384',
   scope: 'ci',
   slug: 'template-schema-check',
-  issued_at: '2026-07-26T15:00:00Z',
-  expires_at: '2026-08-26T15:00:00Z',
+  issued_at: RENDER_NOW.toISOString(),
+  expires_at: RENDER_EXPIRES.toISOString(),
 };
 
 const PLACEHOLDER_EPIcon_ID =
@@ -92,6 +98,27 @@ export function renderTemplateIntentForValidation(raw) {
   if (/\[[^\]]+\]/.test(s)) {
     throw new Error('Unresolved bracket placeholders after render — update §3 or renderTemplateIntentForValidation.');
   }
+  return s;
+}
+
+const LITERAL_ISSUED = /^issued_at: .*$/m;
+const LITERAL_EXPIRES = /^expires_at: .*$/m;
+
+/**
+ * The golden fixture (tests/fixtures/pr-template-intent-pass.md) carries a real,
+ * already-filled intent block rather than placeholders, so it can't go through
+ * renderTemplateIntentForValidation. Its own literal issued_at/expires_at dates
+ * would otherwise rot exactly like RENDER's used to (Codex review, PR #703):
+ * re-stamp them to the same relative window used for the template render, so
+ * the fixture can never expire on its own either.
+ */
+export function renderFixtureIntentForValidation(raw) {
+  if (!LITERAL_ISSUED.test(raw) || !LITERAL_EXPIRES.test(raw)) {
+    throw new Error('Golden fixture must include literal issued_at / expires_at lines.');
+  }
+  let s = raw;
+  s = s.replace(LITERAL_ISSUED, `issued_at: ${RENDER.issued_at}`);
+  s = s.replace(LITERAL_EXPIRES, `expires_at: ${RENDER.expires_at}`);
   return s;
 }
 
@@ -234,7 +261,8 @@ export function runPrTemplateIntentGuard() {
   assertTemplateSchemaAlignsWithFixture(templateIntent, fixtureIntent);
 
   const rendered = renderTemplateIntentForValidation(templateIntent);
-  runEpiconGuard(fixtureIntent, 'golden fixture');
+  const renderedFixture = renderFixtureIntentForValidation(fixtureIntent);
+  runEpiconGuard(renderedFixture, 'golden fixture');
   runEpiconGuard(rendered, 'rendered §3 template intent');
 
   runRegressionSelfChecks(() => templateIntent);
