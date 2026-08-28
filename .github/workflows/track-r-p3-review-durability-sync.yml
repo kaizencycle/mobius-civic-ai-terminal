@@ -1,0 +1,63 @@
+# JOB-17 (C-417) — durable Track R P3 packet-review registry + artifact sync.
+#
+# Repairs the gap between Track R's runtime intake state (Vercel cron, KV-only) and its
+# durable, committed review evidence. Deliberately makes NO network call and reads NO
+# KV/secret: it re-derives the current packet's intake state from evidence already
+# committed in this checkout (docs/epicon/cycles/C-407/p3-preparation/runs/<run>/*),
+# via the same hash-verifying code path the intake API route uses, then commits the
+# result. That is what makes the output durable and reviewable, rather than another
+# runtime-only claim.
+#
+# Never authorizes execution. Never writes a verdict — zeus_review_status /
+# eve_review_status stay awaiting_zeus/awaiting_eve unless a genuine, independently
+# validated verdict artifact already exists in the committed tree.
+
+name: Track R P3 review durability sync
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: track-r-p3-review-durability-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync durable Track R P3 review registry and artifacts
+        run: pnpm track-r:p3-review-durability-sync
+
+      - name: Commit durable review evidence
+        run: |
+          set -euo pipefail
+          git config user.name "mobius-bot"
+          git config user.email "bot@mobius.systems"
+          git add docs/epicon/cycles/C-408/track-r-p3-review/
+          if git diff --staged --quiet; then
+            echo "No durable Track R P3 review evidence changes"
+            exit 0
+          fi
+          git commit -m "chore(track-r): sync durable P3 packet-review registry and receipts"
+          git push

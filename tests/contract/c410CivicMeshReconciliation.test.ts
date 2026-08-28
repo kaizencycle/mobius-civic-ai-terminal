@@ -143,10 +143,16 @@ describe('C-410 civic mesh reconciliation', () => {
       repoRoot,
     });
     assert.equal(status.execution_authorized, false);
-    assert.equal(status.intake_state, 'AWAITING_INDEPENDENT_REVIEW');
+    // JOB-17 (C-417): the committed packet-review registry now durably reflects
+    // INTAKE_VERIFIED for this run (it was a permanent empty seed before). That is
+    // intake completion, not governance — zeus/eve review_status and the durable
+    // per-lane verdict resolution (status.reviews.*) still correctly read as pending.
+    assert.equal(status.intake_state, 'INTAKE_VERIFIED');
     assert.equal(status.zeus.review_status, 'awaiting_zeus');
     assert.equal(status.eve.review_status, 'awaiting_eve');
     assert.equal(status.human_review_status, 'awaiting_human');
+    assert.equal(status.reviews.zeus.status, 'PENDING');
+    assert.equal(status.reviews.eve.status, 'PENDING');
   });
 
   it('snapshot-lite route keeps execution_authorized false', () => {

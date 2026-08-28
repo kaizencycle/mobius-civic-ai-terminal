@@ -28,6 +28,10 @@ import {
   type TrackRP3ReviewReceiptRecord,
 } from '@/lib/watchdog/batchRepair/trackRP3ReviewStateStore';
 import type { TrackRP3ReviewLane } from '@/lib/watchdog/batchRepair/trackRP3ReviewArtifacts';
+import {
+  resolveTrackRP3SelectedReview,
+  type TrackRP3SelectedReview,
+} from '@/lib/watchdog/batchRepair/trackRP3SelectedReview';
 
 export type TrackRP3OperatorIntakeState =
   | 'NOT_SEEN'
@@ -54,6 +58,24 @@ export type TrackRP3IntakeDataSource =
   | 'fallback'
   | 'kv_unavailable';
 
+/**
+ * Durable, committed-tree-only selected review for one lane. Distinct from `zeus`/`eve`
+ * above (which reflect the KV/committed *registry* intake state): this reflects only
+ * whether a genuine, identity-bound, schema-valid verdict artifact exists in the
+ * checked-out repository — never an intake receipt, never KV. See
+ * trackRP3SelectedReview.ts. `status: 'PENDING'` is the explicit, honest default for
+ * "no durable verdict yet" — it is never inferred from intake completion.
+ */
+export type TrackRP3ReviewSelectedStatus = {
+  status: 'PENDING' | 'ADOPT' | 'CHALLENGE' | 'OVERTURN';
+  artifact_present: boolean;
+  artifact_path: string;
+  artifact_hash: string | null;
+  source: 'committed' | 'absent';
+  independence_status: 'verified' | 'unverified';
+  blocked_reasons: string[];
+};
+
 export type TrackRP3IntakeObservability = {
   ok: boolean;
   read_only: true;
@@ -72,6 +94,7 @@ export type TrackRP3IntakeObservability = {
   supersedes_run_id: string | null;
   zeus: TrackRP3ReviewLaneStatus;
   eve: TrackRP3ReviewLaneStatus;
+  reviews: { zeus: TrackRP3ReviewSelectedStatus; eve: TrackRP3ReviewSelectedStatus };
   human_review_status: PacketReviewRegistryEntry['human_review_status'] | 'awaiting_human';
   blocked_reasons: string[];
   errors: string[];
@@ -126,6 +149,35 @@ function mapRegistryStatusToIntakeState(args: {
   }
   if (args.entry.status === 'discovered') return 'NOT_SEEN';
   return 'NOT_SEEN';
+}
+
+function selectedReviewStatus(args: {
+  lane: TrackRP3ReviewLane;
+  repoRoot: string;
+  runId?: string;
+}): TrackRP3ReviewSelectedStatus {
+  const result = resolveTrackRP3SelectedReview({ lane: args.lane, repoRoot: args.repoRoot, expectedRunId: args.runId });
+  if (!result.ok) {
+    return {
+      status: 'PENDING',
+      artifact_present: false,
+      artifact_path: '',
+      artifact_hash: null,
+      source: 'absent',
+      independence_status: 'unverified',
+      blocked_reasons: [result.blockedReason.toLowerCase(), ...result.errors],
+    };
+  }
+  const review: TrackRP3SelectedReview = result.review;
+  return {
+    status: review.verdict,
+    artifact_present: review.artifact_present,
+    artifact_path: review.artifact_path,
+    artifact_hash: review.artifact_hash,
+    source: review.source,
+    independence_status: review.independence_status,
+    blocked_reasons: review.blocked_reasons,
+  };
 }
 
 function emptyLaneStatus(lane: TrackRP3ReviewLane): TrackRP3ReviewLaneStatus {
@@ -256,6 +308,10 @@ export async function buildTrackRP3IntakeObservability(args: {
       supersedes_run_id: null,
       zeus: emptyLaneStatus('ZEUS'),
       eve: emptyLaneStatus('EVE'),
+      reviews: {
+        zeus: selectedReviewStatus({ lane: 'ZEUS', repoRoot }),
+        eve: selectedReviewStatus({ lane: 'EVE', repoRoot }),
+      },
       human_review_status: 'awaiting_human',
       blocked_reasons,
       errors,
@@ -359,6 +415,10 @@ export async function buildTrackRP3IntakeObservability(args: {
       receipt: eveReceipt,
       intakeState: intake_state,
     }),
+    reviews: {
+      zeus: selectedReviewStatus({ lane: 'ZEUS', repoRoot, runId }),
+      eve: selectedReviewStatus({ lane: 'EVE', repoRoot, runId }),
+    },
     human_review_status: registryEntry?.human_review_status ?? 'awaiting_human',
     blocked_reasons,
     errors,
