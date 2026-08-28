@@ -13,6 +13,20 @@ export function trackRP3ReviewArtifactPath(args: {
   return `docs/epicon/cycles/C-408/track-r-p3-review/${args.workflowRunId}/${args.lane}_P3_PACKET_REVIEW.md`;
 }
 
+/**
+ * Sidecar path for a genuine, independently-issued verdict (ADOPT/CHALLENGE/OVERTURN).
+ * Deliberately a different file from trackRP3ReviewArtifactPath's machine-verification
+ * receipt (.md), so an intake receipt can never be mistaken for — or silently promoted
+ * into — a verdict artifact. Only a file at this path, schema-valid per
+ * validateTrackRIndependentReviewRecord, may resolve a lane's verdict away from PENDING.
+ */
+export function trackRP3ReviewVerdictArtifactPath(args: {
+  workflowRunId: string;
+  lane: TrackRP3ReviewLane;
+}): string {
+  return `docs/epicon/cycles/C-408/track-r-p3-review/${args.workflowRunId}/${args.lane}_VERDICT.json`;
+}
+
 export function renderTrackRP3MachineVerificationReceipt(args: {
   lane: TrackRP3ReviewLane;
   context: TrackRP3ReviewContext;
@@ -86,6 +100,8 @@ export type TrackRIndependentReviewRecord = {
   verdict: TrackRIndependentReviewVerdict;
   reviewed_at: string;
   evidence_refs: string[];
+  /** Optional: model/runtime that produced this verdict, for independence provenance. */
+  model_provenance?: string;
 };
 
 const TERMINAL_REVIEW_VERDICTS = new Set<string>(['adopt', 'challenge', 'overturn']);

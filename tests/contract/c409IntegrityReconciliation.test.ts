@@ -186,9 +186,17 @@ describe('C-409 Track R intake observability', () => {
     assert.equal(status.run_id, latest.runId);
     assert.equal(status.packet_hash, latest.packetHash);
     assert.equal(status.issued_registry_source, 'committed');
-    assert.equal(status.intake_state, 'AWAITING_INDEPENDENT_REVIEW');
-    assert.equal(status.structurally_accepted, false);
+    // JOB-17 (C-417): the committed packet-review registry is no longer a permanent
+    // empty seed — durable evidence now exists for the current packet, so intake_state
+    // correctly reads INTAKE_VERIFIED (matching production's KV-observed state).
+    // ZEUS/EVE verdicts remain PENDING regardless — see status.reviews.{zeus,eve}.
+    assert.equal(status.intake_state, 'INTAKE_VERIFIED');
+    assert.equal(status.structurally_accepted, true);
     assert.equal(status.ok, true);
+    assert.equal(status.reviews.zeus.status, 'PENDING');
+    assert.equal(status.reviews.eve.status, 'PENDING');
+    assert.equal(status.reviews.zeus.artifact_present, false);
+    assert.equal(status.reviews.eve.artifact_present, false);
   });
 
   it('defaults to latest issued packet when run_id is omitted', async () => {

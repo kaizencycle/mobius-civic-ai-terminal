@@ -93,16 +93,14 @@ function mergeReviewRegistryEntry(args: {
     discovered_at: existing?.discovered_at ?? args.now,
     intake_verified_at: existing?.intake_verified_at ?? args.now,
     supersedes_workflow_run_id: args.historicalSuperseded?.workflow_run_id,
-    zeus_review_status: preserveZeusStatus
-      ? existing!.zeus_review_status
-      : args.intakeJournalsCompleted
-        ? 'intake_verified'
-        : 'awaiting_zeus',
-    eve_review_status: preserveEveStatus
-      ? existing!.eve_review_status
-      : args.intakeJournalsCompleted
-        ? 'intake_verified'
-        : 'awaiting_eve',
+    // Intake completion (a machine-verification receipt) is never promoted into the
+    // zeus_review_status / eve_review_status field, because that field's terminal
+    // values (adopt/challenge/overturn) are read elsewhere as an independent verdict.
+    // An intake receipt is not a verdict — see JOB-17. Only a genuine, separately
+    // recorded independent review (validateTrackRIndependentReviewRecord) may move
+    // these off their awaiting_* default.
+    zeus_review_status: preserveZeusStatus ? existing!.zeus_review_status : 'awaiting_zeus',
+    eve_review_status: preserveEveStatus ? existing!.eve_review_status : 'awaiting_eve',
     human_review_status: preserveHumanStatus ? existing!.human_review_status : 'awaiting_human',
     zeus_review_artifact_path: zeusPath,
     eve_review_artifact_path: evePath,

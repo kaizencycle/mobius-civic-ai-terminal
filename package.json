@@ -45,7 +45,8 @@
     "track-r:p3-preparation": "tsx scripts/track-r-p3-preparation.ts",
     "track-r:sync-p3-issued-registry-kv": "tsx scripts/sync-track-r-p3-issued-registry-to-kv.ts",
     "track-r:lineage-cas-compare": "tsx scripts/track-r-lineage-cas-three-way-compare.ts",
-    "track-r:capture-v2-stability-verify": "tsx scripts/track-r-capture-v2-stability-verify.ts"
+    "track-r:capture-v2-stability-verify": "tsx scripts/track-r-capture-v2-stability-verify.ts",
+    "track-r:p3-review-durability-sync": "tsx scripts/track-r-p3-review-durability-sync.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
