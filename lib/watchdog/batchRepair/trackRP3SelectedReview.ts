@@ -99,14 +99,21 @@ function readVerdictArtifact(
   } catch (error) {
     return { ok: false, error: `artifact unreadable: ${error instanceof Error ? error.message : String(error)}` };
   }
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw) as Partial<TrackRIndependentReviewRecord>;
-    return { ok: true, raw, record: parsed };
+    parsed = JSON.parse(raw);
   } catch {
     // A non-JSON file at the verdict path (for example, an intake receipt's markdown
     // content copy-pasted here) is malformed — fail closed rather than guess at intent.
     return { ok: false, error: 'verdict artifact is not valid JSON — malformed verdict' };
   }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    // Valid JSON that isn't an object (null, an array, a bare string/number) would
+    // otherwise pass through as a truthy "record" and throw on first property access
+    // downstream instead of failing closed to PENDING.
+    return { ok: false, error: 'verdict artifact JSON must be an object' };
+  }
+  return { ok: true, raw, record: parsed as Partial<TrackRIndependentReviewRecord> };
 }
 
 /**
@@ -282,4 +289,53 @@ export function assertReviewLanesAreIndependent(
     return { independent: false, reason: 'shared_underlying_review_identity' };
   }
   return { independent: true };
+}
+
+export type TrackRP3SelectedReviewPairResult = {
+  zeus: TrackRP3SelectedReviewResult;
+  eve: TrackRP3SelectedReviewResult;
+};
+
+/**
+ * Resolve both lanes together and apply the cross-lane independence check before
+ * either is returned. Callers (observability, durability sync) must use this instead
+ * of two standalone resolveTrackRP3SelectedReview() calls — calling them separately
+ * silently skips the collision check, since neither call alone has visibility into the
+ * other lane's record. If the two lanes share provenance, both are downgraded to
+ * independence_status: 'unverified' (their individual verdict/artifact validity is
+ * unaffected — this only prevents either from being reported as independently proven).
+ */
+export function resolveTrackRP3SelectedReviewPair(args: {
+  repoRoot?: string;
+  expectedRunId?: string;
+  expectedPacketHash?: string;
+}): TrackRP3SelectedReviewPairResult {
+  const zeus = resolveTrackRP3SelectedReview({ ...args, lane: 'ZEUS' });
+  const eve = resolveTrackRP3SelectedReview({ ...args, lane: 'EVE' });
+
+  if (zeus.ok && eve.ok) {
+    const independence = assertReviewLanesAreIndependent(zeus.review, eve.review);
+    if (!independence.independent && independence.reason === 'shared_underlying_review_identity') {
+      return {
+        zeus: {
+          ok: true,
+          review: {
+            ...zeus.review,
+            independence_status: 'unverified',
+            blocked_reasons: [...zeus.review.blocked_reasons, 'cross_lane_independence_collision'],
+          },
+        },
+        eve: {
+          ok: true,
+          review: {
+            ...eve.review,
+            independence_status: 'unverified',
+            blocked_reasons: [...eve.review.blocked_reasons, 'cross_lane_independence_collision'],
+          },
+        },
+      };
+    }
+  }
+
+  return { zeus, eve };
 }

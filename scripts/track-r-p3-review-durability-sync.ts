@@ -22,13 +22,18 @@
  * registry, which is preserved rather than clobbered.
  *
  * Usage:
- *   tsx scripts/track-r-p3-review-durability-sync.ts [--expect-run-id=ID] [--expect-packet-hash=HASH]
+ *   tsx scripts/track-r-p3-review-durability-sync.ts [--expect-run-id=ID] [--expect-packet-hash=HASH] [--repo-root=PATH]
  *
  * If --expect-* is supplied and does not match the resolved candidate, this exits 1
  * with PACKET_BINDING_CHANGED rather than silently syncing a different packet.
+ *
+ * --repo-root overrides where evidence is read from and output is written (default:
+ * process.cwd()) — used by tests to point this script at an isolated copy of the
+ * evidence tree instead of the real checkout, so a concurrent test run never mutates
+ * shared repository state.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
   findPacketReviewEntry,
@@ -48,7 +53,7 @@ import {
   renderTrackRP3MachineVerificationReceipt,
   trackRP3ReviewArtifactPath,
 } from '@/lib/watchdog/batchRepair/trackRP3ReviewArtifacts';
-import { resolveTrackRP3SelectedReview } from '@/lib/watchdog/batchRepair/trackRP3SelectedReview';
+import { resolveTrackRP3SelectedReviewPair } from '@/lib/watchdog/batchRepair/trackRP3SelectedReview';
 
 const TERMINAL_VERDICTS = new Set(['adopt', 'challenge', 'overturn']);
 
@@ -67,8 +72,11 @@ function candidateEntry(args: {
   const { context, now, existing, repoRoot } = args;
   const samePacket = existing?.packet_hash === context.packet_hash;
 
-  const zeusVerdict = resolveTrackRP3SelectedReview({ lane: 'ZEUS', repoRoot });
-  const eveVerdict = resolveTrackRP3SelectedReview({ lane: 'EVE', repoRoot });
+  // Resolved as a pair (not two independent calls) so the cross-lane independence
+  // collision check always runs before either verdict could be promoted.
+  const pair = resolveTrackRP3SelectedReviewPair({ repoRoot, expectedRunId: context.workflow_run_id });
+  const zeusVerdict = pair.zeus;
+  const eveVerdict = pair.eve;
 
   const preserveZeus =
     samePacket && existing!.zeus_review_status && TERMINAL_VERDICTS.has(existing!.zeus_review_status);
@@ -90,6 +98,20 @@ function candidateEntry(args: {
       ? (eveVerdict.review.verdict.toLowerCase() as PacketReviewRegistryEntry['eve_review_status'])
       : 'awaiting_eve';
 
+  const humanStatus = preserveHuman ? existing!.human_review_status : 'awaiting_human';
+
+  // Idempotency: if this run's packet-review entry already reflects this exact state
+  // (same packet, same statuses, intake already completed), leave last_intake_at as it
+  // was rather than stamping 'now' — otherwise a scheduled sync that changes nothing
+  // would still produce a git diff (and a commit) every time it runs.
+  const unchanged =
+    samePacket &&
+    existing!.status === 'intake_verified' &&
+    existing!.intake_journals_completed === true &&
+    existing!.zeus_review_status === zeusStatus &&
+    existing!.eve_review_status === eveStatus &&
+    existing!.human_review_status === humanStatus;
+
   return {
     workflow_run_id: context.workflow_run_id,
     packet_hash: context.packet_hash,
@@ -103,11 +125,11 @@ function candidateEntry(args: {
     intake_verified_at: samePacket ? (existing!.intake_verified_at ?? now) : now,
     zeus_review_status: zeusStatus,
     eve_review_status: eveStatus,
-    human_review_status: preserveHuman ? existing!.human_review_status : 'awaiting_human',
+    human_review_status: humanStatus,
     zeus_review_artifact_path: trackRP3ReviewArtifactPath({ workflowRunId: context.workflow_run_id, lane: 'ZEUS' }),
     eve_review_artifact_path: trackRP3ReviewArtifactPath({ workflowRunId: context.workflow_run_id, lane: 'EVE' }),
     intake_journals_completed: true,
-    last_intake_at: now,
+    last_intake_at: unchanged ? existing!.last_intake_at! : now,
   };
 }
 
@@ -150,8 +172,43 @@ function writeReceiptFile(args: { repoRoot: string; path: string; content: strin
   writeFileSync(abs, `${args.content}\n`, 'utf8');
 }
 
+const GENERATED_AT_PATTERN = /generated_at:\s*(\S+)/;
+
+/**
+ * Idempotency without trusting a stale receipt: an existing file's *content* — not
+ * merely its existence — must match what the current packet identity would render,
+ * once its own recorded generated_at is substituted back in. A receipt that is
+ * missing, corrupted, or bound to superseded identity fields is rewritten (with a
+ * fresh timestamp), rather than silently accepted because a file happens to sit at
+ * the right path.
+ */
+function receiptUpToDate(args: {
+  repoRoot: string;
+  path: string;
+  lane: 'ZEUS' | 'EVE';
+  context: TrackRP3ReviewContext;
+}): boolean {
+  const abs = join(args.repoRoot, args.path);
+  if (!existsSync(abs)) return false;
+  let existing: string;
+  try {
+    existing = readFileSync(abs, 'utf8');
+  } catch {
+    return false;
+  }
+  const match = existing.match(GENERATED_AT_PATTERN);
+  if (!match) return false;
+  const rerendered = `${renderTrackRP3MachineVerificationReceipt({
+    lane: args.lane,
+    context: args.context,
+    generatedAt: match[1],
+    intakeStatus: 'AWAITING_INDEPENDENT_REVIEW',
+  })}\n`;
+  return rerendered === existing;
+}
+
 function main(): void {
-  const repoRoot = process.cwd();
+  const repoRoot = parseArg('repo-root') ?? process.cwd();
   const expectRunId = parseArg('expect-run-id');
   const expectPacketHash = parseArg('expect-packet-hash');
   const now = new Date().toISOString();
@@ -203,6 +260,10 @@ function main(): void {
 
   for (const lane of ['ZEUS', 'EVE'] as const) {
     const path = trackRP3ReviewArtifactPath({ workflowRunId: intake.candidate.workflow_run_id, lane });
+    // Idempotency without trusting a stale file: only skip when the existing receipt's
+    // content genuinely matches this packet's identity (its own generated_at re-applied).
+    // Missing, corrupted, or identity-mismatched receipts are (re)written below.
+    if (receiptUpToDate({ repoRoot, path, lane, context: intake.candidate })) continue;
     const content = renderTrackRP3MachineVerificationReceipt({
       lane,
       context: intake.candidate,

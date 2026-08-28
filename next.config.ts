@@ -46,7 +46,10 @@ const nextConfig: NextConfig = {
     '/api/track-r/p3-intake-status': [
       './docs/epicon/cycles/C-407/p3-preparation/issued-packet-registry.json',
       './docs/epicon/cycles/C-407/p3-preparation/runs/**/*',
-      './docs/epicon/cycles/C-408/track-r-p3-review/packet-review-registry.json',
+      // JOB-17 (C-417): the full track-r-p3-review tree, not just the registry file —
+      // the resolver reads per-run *_VERDICT.json sidecars from the filesystem, and a
+      // dynamic path built at runtime is not otherwise picked up by output tracing.
+      './docs/epicon/cycles/C-408/track-r-p3-review/**/*',
     ],
     '/api/cron/track-r-p3-governance-intake': [
       './docs/epicon/cycles/C-407/p3-preparation/issued-packet-registry.json',
