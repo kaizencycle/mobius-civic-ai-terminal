@@ -1,0 +1,88 @@
+{
+  "timestamp": "2026-08-29T15:05:51.350Z",
+  "agent": "ATLAS",
+  "cycle": "C-418",
+  "gi": 0.771,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 23,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 18,
+    "diagnostic_required": 19,
+    "timestamp": "2026-08-29T15:05:51.350Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 {\"ok\": true, \"seeded\": [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"], \"timestamp\": \"2026-08-29T15:05:58.238Z\"}",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.908,
+  "degraded_agents": 3,
+  "degraded_agent_names": [
+    "AUREA",
+    "JADE",
+    "DAEDALUS"
+  ],
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": true,
+    "gi_below_floor": true
+  },
+  "tripwire": {
+    "active": true,
+    "level": "elevated",
+    "reason": "Hormuz Transit Fee Risk \u2014 Monitoring whether Iran formalizes transit fees and turns passage into an overt leverage instrument",
+    "last_updated": "2026-08-29T15:01:54.130Z"
+  },
+  "pre_seed_gi": 0.771,
+  "pre_seed_mode": "yellow",
+  "post_seed_gi": 0.771,
+  "post_seed_mode": "yellow",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "seed_http": "200",
+  "gi_provenance": "live-compute",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-418-0cp9wq",
+  "journal_ok": true,
+  "journal_canonical": true
+}
