@@ -1,0 +1,87 @@
+{
+  "timestamp": "2026-08-30T06:16:39.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-419",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "kv_keys_all_ok": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "hermes-arxiv": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE] status=achieved seal_status=receipt_quorum_only (cycle C-419)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-08-30T06-03-42-203Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-08-30T06-03-42-203Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.795/yellow source=kv; anomalies=[daedalus-cloudflare-radar watch]; kv_keys_all_ok=false diagnostic_present=18/19; sustain_eligible=true; micro_composite=0.902; degraded_agents=3 [JADE,DAEDALUS,EVE]; tripwire inactive/none; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; classification=STRESSED; gi_provenance=live-compute."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.905 composite=0.905 instrumentCount=40 cached=false cycle=C-419 freshness_class=fresh errors=0 fallbacksUsed=2. daedalus-cloudflare-radar score=0.7 watch — persistent, matches ATLAS. hermes-arxiv score=0.9 primary latencyMs=25 — resolved (not in ATLAS anomaly list). gaia-noaa-alerts score=0.8 nominal. gaia-usgs-water score=0.85 nominal."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv cycle=C-419 gi_provenance=kv-live authority.kv_backed=true gi_origin=kv. Not mock — KV path active. cache_age_seconds=141 freshness_class=stale. operational_classification=STRESSED tripwire_state=elevated sustain_eligible=true degraded=true."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "DISPUTED: ATLAS gi=0.795/yellow at 06:03Z vs integrity-status gi=0.81/green at 06:14Z (delta 0.015, modest) vs live micro gi=0.905 at 06:16Z (delta 0.11 from ATLAS, 0.095 from integrity). ATLAS micro_composite=0.902 aligns closely with live 0.905 but KV GI path lags live sensor composite."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv kv_backed=true (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "tripwire_state",
+      "result": "warn",
+      "detail": "DIVERGED: ATLAS tripwire_active=false level=none at 06:03Z; integrity tripwire_state=elevated at 06:14Z. Operator attention warranted."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys_all_ok=false despite kv_keys_ok=true and seed 200 OK; diagnostic_present=18 diagnostic_required=19 (improved from 16/19 in prior sweep)."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "pass",
+      "detail": "Aligned: ATLAS sustain_eligible=true at 06:03Z; integrity sustain_eligible=true at 06:14Z."
+    },
+    {
+      "check": "live anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — live micro score=0.7 at watch threshold latencyMs=34; matches ATLAS anomaly at watch severity."
+    },
+    {
+      "check": "live anomaly: hermes-arxiv",
+      "result": "pass",
+      "detail": "Resolved — score=0.9 primary latencyMs=25; not flagged in latest ATLAS heartbeat."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-419 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE]. seal_status=receipt_quorum_only seal_eligibility=blocked."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-419-26otr4 mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "GI disputed: ATLAS 0.795 and integrity-status 0.81 are modestly aligned but live micro 0.905 diverges — KV GI path lags live sensor composite. Tripwire state mismatch: ATLAS clear vs integrity elevated. Monitor daedalus-cloudflare-radar watch (persistent). Triage kv_keys_all_ok diagnostic gap (18/19). hermes-arxiv resolved. Quorum 5/5 achieved (receipt_quorum_only — seal blocked)."
+}
