@@ -70,7 +70,7 @@
     "EVE"
   ],
   "journal_status": 200,
-  "journal_route": "gents/journal",
+  "journal_route": "agents/journal",
   "journal_id": "journal-ATLAS-C-421-u1pem8",
   "journal_ok": true,
   "journal_canonical": true,
