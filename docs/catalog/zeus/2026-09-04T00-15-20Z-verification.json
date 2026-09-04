@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-09-04T00:15:20.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-423",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "gaia-noaa-alerts": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_all_ok": "persistent",
+    "gaia-nasa-eonet": "transient",
+    "hermes-arxiv": "transient",
+    "daedalus-netlify-status": "transient",
+    "sustain_eligible": "disputed",
+    "tripwire_state": "disputed"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ZEUS,ATLAS] status=achieved seal_status=receipt_quorum_only seal_eligibility=blocked (cycle C-423)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-03T23-04-17Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-03T23-04-17Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.782/yellow source=kv; anomalies=[gaia-noaa-alerts watch, gaia-nasa-eonet watch, hermes-arxiv elevated, themis-govtrack elevated, daedalus-cloudflare-radar watch, daedalus-netlify-status watch]; kv_keys_all_ok=false diagnostic_present=16/19; sustain_eligible=false; micro_composite=0.846; degraded_agents=3 (AUREA,JADE,DAEDALUS); tripwire active elevated (Hormuz Transit Fee Risk); seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; classification=STRESSED; gi_provenance=kv-live."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.85 composite=0.85 instrumentCount=40 cached=false cycle=C-423 errors=3 fallbacksUsed=2. themis-govtrack score=0 error — persistent elevated (primary failed with retry). gaia-noaa-alerts score=0 error latency=8003ms — persistent, worsened (both primary and fallback failed). daedalus-cloudflare-radar score=0.7 — persistent watch, severity unchanged. gaia-nasa-eonet score=1 — transient resolved. hermes-arxiv score=0.9 — transient resolved. daedalus-netlify-status score=1 — transient resolved."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.772 mode=yellow terminal_status=stressed source=kv cycle=C-423 gi_provenance=live-compute persistence_source=kv. Not mock — KV path active. cache_age_seconds=863 freshness_class=degraded. operational_classification=STRESSED tripwire_state=clear sustain_eligible=true degraded=true execution_authorized=false."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "pass",
+      "detail": "ATLAS gi=0.782/yellow (kv) at 23:04Z vs integrity gi=0.772/yellow (kv) at 00:01Z (delta 0.010). Live micro gi=0.85 at 00:15Z — expected live-compute uplift. ATLAS micro_composite=0.846 vs live composite=0.85 (delta 0.004). KV-backed, not mock."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv kv_backed=true (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys_all_ok=false despite kv_keys_ok=true and seed 200 OK; diagnostic_present=16 diagnostic_required=19."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "fail",
+      "detail": "Divergent: ATLAS sustain_eligible=false at 23:04Z; integrity sustain_eligible=true at 00:01Z. Operator reconciliation required."
+    },
+    {
+      "check": "tripwire_state",
+      "result": "fail",
+      "detail": "Divergent: ATLAS tripwire active elevated (Hormuz Transit Fee Risk) at 23:04Z; integrity tripwire_state=clear at 00:01Z."
+    },
+    {
+      "check": "live anomaly: themis-govtrack",
+      "result": "fail",
+      "detail": "Persistent elevated — ATLAS flagged elevated at 23:04Z; live micro score=0 error at 00:15Z. Primary feed failed with retry."
+    },
+    {
+      "check": "live anomaly: gaia-noaa-alerts",
+      "result": "fail",
+      "detail": "Persistent and worsened — ATLAS flagged watch at 23:04Z; live micro score=0 error at 00:15Z (primary and fallback both failed, latency=8003ms)."
+    },
+    {
+      "check": "live anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch at 23:04Z; live micro score=0.7 at 00:15Z. Severity unchanged."
+    },
+    {
+      "check": "live anomaly: gaia-nasa-eonet",
+      "result": "pass",
+      "detail": "Transient resolved — ATLAS flagged watch at 23:04Z; live micro score=1 at 00:15Z."
+    },
+    {
+      "check": "live anomaly: hermes-arxiv",
+      "result": "pass",
+      "detail": "Transient resolved — ATLAS flagged elevated at 23:04Z; live micro score=0.9 at 00:15Z."
+    },
+    {
+      "check": "live anomaly: daedalus-netlify-status",
+      "result": "pass",
+      "detail": "Transient resolved — ATLAS flagged watch at 23:04Z; live micro score=1 at 00:15Z."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-423 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ZEUS,ATLAS]. seal_status=receipt_quorum_only seal_eligibility=blocked."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-423-ie2d9l mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Operator attention required: (1) Persistent feed failures — themis-govtrack (score=0) and gaia-noaa-alerts (score=0, both feeds failed). (2) Reconcile sustain_eligible divergence — ATLAS false at 23:04Z vs integrity true at 00:01Z. (3) Reconcile tripwire_state — ATLAS active elevated vs integrity clear. (4) Restore missing KV diagnostic keys (16/19). gaia-nasa-eonet, hermes-arxiv, and daedalus-netlify-status recovered this cycle. STRESSED classification with degraded=true and execution_authorized=false. Quorum 5/5 achieved (receipt_quorum_only, seal blocked)."
+}
