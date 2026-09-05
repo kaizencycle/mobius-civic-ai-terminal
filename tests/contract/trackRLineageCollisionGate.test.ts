@@ -23,7 +23,7 @@ import {
   loadLineageAwareCollisionReport,
 } from '@/lib/watchdog/trackRLineageCollisionGate';
 import { checkBlockCollisionsWithLineage } from '@/lib/watchdog/kvHealthChecks';
-import { planCanonicalContinuation } from '@/lib/watchdog/canonicalContinuationPlan';
+import { planCanonicalContinuation, verifyChainHeadAligned } from '@/lib/watchdog/canonicalContinuationPlan';
 
 function baseSeal(overrides: Partial<Seal> & Pick<Seal, 'seal_id' | 'sequence' | 'seal_hash'>): Seal {
   return {
@@ -138,11 +138,42 @@ describe('C-425 Track R lineage collision gate', () => {
     assert.strictEqual(report.resolved_collision_count, 1);
     assert.strictEqual(report.unresolved_collision_count, 0);
 
-    const finding = await checkBlockCollisionsWithLineage(seals, fakeReader(kv));
+    // Chain head aligned with the resolved canonical target (seal-B-winner).
+    const finding = await checkBlockCollisionsWithLineage(seals, fakeReader(kv), 'seal-B-winner');
     // Collision component of the gate may clear — severity must not be critical.
     assert.notStrictEqual(finding.severity, 'critical');
     // But the raw collision must never be reported as if it never existed.
     assert.strictEqual((finding.evidence as { raw_collision_count: number }).raw_collision_count, 1);
+  });
+
+  it('TEST B2 — collisions resolved but chain head NOT aligned: gate stays ACTIVE (Implementation 5)', async () => {
+    const seals: Seal[] = [
+      baseSeal({ seal_id: 'seal-B2-winner', sequence: 5, seal_hash: 'hash-a', sealed_at: '2026-08-01T09:00:00Z' }),
+      baseSeal({ seal_id: 'seal-B2-loser', sequence: 5, seal_hash: 'hash-b', sealed_at: '2026-07-01T09:00:00Z' }),
+    ];
+    const kv = activeLineageMap({
+      repair_id: 'track-r-test-batch',
+      canonical_assignments: { '5': 'seal-B2-winner' },
+      quarantined_seal_ids: ['seal-B2-loser'],
+    });
+    const lineage = await getEffectiveCanonicalLineage(fakeReader(kv));
+    assert.strictEqual(lineage.ok, true);
+
+    // Pure check, directly: pointer still parked on the quarantined branch.
+    const misaligned = verifyChainHeadAligned({ seals, lineage, latestSealId: 'seal-B2-loser' });
+    assert.strictEqual(misaligned.aligned, false);
+    if (!misaligned.aligned) assert.strictEqual(misaligned.reason, 'pointer_mismatch');
+
+    // Same scenario as TEST B (all collisions resolved) but vault:seal:latest still
+    // points at the quarantined loser instead of the resolved canonical winner —
+    // candidate formation must NOT be allowed to resume from that branch.
+    const finding = await checkBlockCollisionsWithLineage(seals, fakeReader(kv), 'seal-B2-loser');
+    assert.strictEqual(finding.severity, 'critical', 'gate must stay active until the chain head is repaired');
+    assert.strictEqual(finding.ok, false);
+
+    // A missing pointer altogether is equally unsafe to proceed from.
+    const missingPointerFinding = await checkBlockCollisionsWithLineage(seals, fakeReader(kv), null);
+    assert.strictEqual(missingPointerFinding.severity, 'critical');
   });
 
   it('TEST C — incomplete Track R (canonical mapping missing for a collision): unresolved, gate ACTIVE', async () => {
@@ -321,7 +352,8 @@ describe('C-425 Track R lineage collision gate', () => {
     const lineage = await getEffectiveCanonicalLineage(fakeReader(kv));
     classifyCollisionsAgainstLineage({ seals, lineage });
     planCanonicalContinuation({ seals, lineage });
-    await checkBlockCollisionsWithLineage(seals, fakeReader(kv));
+    verifyChainHeadAligned({ seals, lineage, latestSealId: 'seal-H-1' });
+    await checkBlockCollisionsWithLineage(seals, fakeReader(kv), 'seal-H-1');
 
     assert.strictEqual(JSON.stringify(seals), before, 'seal records must remain byte-identical');
   });

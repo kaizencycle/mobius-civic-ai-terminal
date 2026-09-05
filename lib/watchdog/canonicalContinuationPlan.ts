@@ -84,3 +84,70 @@ export async function planCanonicalContinuationLive(seals: Seal[]): Promise<Cano
   const lineage = await getEffectiveCanonicalLineage();
   return planCanonicalContinuation({ seals, lineage });
 }
+
+export type ChainHeadAlignment =
+  | {
+      aligned: true;
+      canonical_target_seal_id: string;
+      canonical_target_sequence: number;
+    }
+  | {
+      aligned: false;
+      reason: 'lineage_untrusted' | 'plan_unavailable' | 'pointer_missing' | 'pointer_mismatch';
+      detail: string;
+      canonical_target_seal_id?: string;
+    };
+
+/**
+ * Chain-head safety (C-425 corrected handoff, Implementation 5): resolving every
+ * historical collision is not by itself sufficient to resume candidate formation.
+ * `vault:seal:latest` must also actually point at the newest RESOLVED canonical
+ * seal — otherwise the very next candidate (`lib/vault-v2/seal.ts`'s
+ * `sequence = prevSeal.sequence + 1`) would continue from an unresolved or
+ * quarantined branch and could collide again immediately. Pure: takes the live
+ * pointer as an explicit argument rather than reading it, so this is directly
+ * testable without KV and the caller controls exactly when it's worth checking
+ * (only meaningful once there is a resolved canonical target to compare against).
+ */
+export function verifyChainHeadAligned(args: {
+  seals: Seal[];
+  lineage: EffectiveCanonicalLineage;
+  latestSealId: string | null;
+}): ChainHeadAlignment {
+  if (!args.lineage.ok) {
+    return {
+      aligned: false,
+      reason: 'lineage_untrusted',
+      detail: `effective Track R lineage unavailable: ${args.lineage.reason} (${args.lineage.detail})`,
+    };
+  }
+
+  const plan = planCanonicalContinuation({ seals: args.seals, lineage: args.lineage });
+  if (!plan.ok) {
+    return { aligned: false, reason: 'plan_unavailable', detail: plan.detail };
+  }
+
+  if (!args.latestSealId) {
+    return {
+      aligned: false,
+      reason: 'pointer_missing',
+      detail: `vault:seal:latest is not set while a resolved canonical target (${plan.target_seal_id}) exists`,
+      canonical_target_seal_id: plan.target_seal_id,
+    };
+  }
+
+  if (args.latestSealId !== plan.target_seal_id) {
+    return {
+      aligned: false,
+      reason: 'pointer_mismatch',
+      detail: `vault:seal:latest (${args.latestSealId}) does not match the resolved canonical head (${plan.target_seal_id})`,
+      canonical_target_seal_id: plan.target_seal_id,
+    };
+  }
+
+  return {
+    aligned: true,
+    canonical_target_seal_id: plan.target_seal_id,
+    canonical_target_sequence: plan.target_sequence,
+  };
+}
