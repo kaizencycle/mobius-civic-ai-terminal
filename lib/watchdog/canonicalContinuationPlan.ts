@@ -14,7 +14,8 @@
  */
 
 import type { Seal } from '@/lib/vault-v2/types';
-import { newestResolvedCanonicalSeal } from '@/lib/watchdog/canonicalLineageResolve';
+import { analyzeReserveBlockCollisions } from '@/lib/dat/reserveBlockCollisions';
+import { resolveCanonicalLineageCandidates } from '@/lib/watchdog/canonicalLineageResolve';
 import {
   getEffectiveCanonicalLineage,
   type EffectiveCanonicalLineage,
@@ -35,7 +36,20 @@ export type CanonicalContinuationPlan =
       unresolved_block_numbers?: number[];
     };
 
-/** Pure: given seals and an already-resolved lineage snapshot, plan continuation. */
+/**
+ * Pure: given seals and an already-resolved lineage snapshot, plan continuation.
+ *
+ * Deliberately does NOT call `newestResolvedCanonicalSeal()` directly, even
+ * though it wraps the same underlying resolver: that helper returns
+ * `target: null` whenever `resolveCanonicalLineageCandidates()` reports ANY
+ * unresolved block — including a harmless same-hash duplicate that never
+ * needed a canonical index entry in the first place (no genuine ambiguity to
+ * adjudicate). Chain-head safety only needs to block on blocks that are
+ * actually hash-divergent collisions; blocking on every unresolved block would
+ * make an unrelated harmless duplicate elsewhere in the seal set spuriously
+ * reactivate the gate even when the real collision(s) are fully resolved and
+ * the pointer is genuinely safe to advance from.
+ */
 export function planCanonicalContinuation(args: {
   seals: Seal[];
   lineage: EffectiveCanonicalLineage;
@@ -48,27 +62,36 @@ export function planCanonicalContinuation(args: {
     };
   }
 
-  const { target, unresolved_blocks } = newestResolvedCanonicalSeal({
+  const { candidates, unresolved_blocks } = resolveCanonicalLineageCandidates({
     seals: args.seals,
     quarantined: args.lineage.quarantined,
     canonicalIndex: args.lineage.canonical_index,
   });
 
-  if (unresolved_blocks.length > 0) {
+  const hashDivergentBlocks = new Set(
+    analyzeReserveBlockCollisions(args.seals)
+      .collisions.filter((c) => c.seal_hashes_differ)
+      .map((c) => c.block_number),
+  );
+  const blockingUnresolved = unresolved_blocks.filter((block) => hashDivergentBlocks.has(block));
+
+  if (blockingUnresolved.length > 0) {
     return {
       ok: false,
       reason: 'unresolved_collision_blocks',
-      detail: `cannot plan continuation while ${unresolved_blocks.length} block(s) remain unresolved`,
-      unresolved_block_numbers: unresolved_blocks,
+      detail: `cannot plan continuation while ${blockingUnresolved.length} hash-divergent block(s) remain unresolved`,
+      unresolved_block_numbers: blockingUnresolved,
     };
   }
-  if (!target) {
+  if (candidates.length === 0) {
     return {
       ok: false,
       reason: 'no_resolved_canonical_seal',
       detail: 'no resolved canonical attested seal found under active lineage',
     };
   }
+
+  const target = candidates.reduce((best, seal) => (seal.sealed_at > best.sealed_at ? seal : best));
 
   return {
     ok: true,

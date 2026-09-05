@@ -358,6 +358,108 @@ describe('C-425 Track R lineage collision gate', () => {
     assert.strictEqual(JSON.stringify(seals), before, 'seal records must remain byte-identical');
   });
 
+  it('Codex P1 — canonical map diverging from the verified manifest fails closed', async () => {
+    const manifest = buildManifest({
+      repair_id: 'track-r-test-batch',
+      canonical_assignments: { '5': 'seal-winner' },
+      quarantined_seal_ids: ['seal-loser'],
+    });
+    // The manifest itself hashes correctly, but the separately-stored canonical
+    // side-car key disagrees with what the manifest says — e.g. a stale or
+    // partially-applied write to that key alone.
+    const kv: Record<string, unknown> = {
+      [LINEAGE_ACTIVE_VERSION_KEY]: 'track-r-test-batch',
+      [versionedManifestKey('track-r-test-batch')]: manifest,
+      [versionedCanonicalKey('track-r-test-batch')]: { '5': 'seal-DIFFERENT-winner' },
+      [versionedQuarantineKey('track-r-test-batch')]: ['seal-loser'],
+    };
+    const lineage = await getEffectiveCanonicalLineage(fakeReader(kv));
+    assert.strictEqual(lineage.ok, false);
+    if (!lineage.ok) assert.strictEqual(lineage.reason, 'canonical_map_manifest_mismatch');
+  });
+
+  it('Codex P1 — quarantine list diverging from the verified manifest fails closed', async () => {
+    const manifest = buildManifest({
+      repair_id: 'track-r-test-batch',
+      canonical_assignments: { '5': 'seal-winner' },
+      quarantined_seal_ids: ['seal-loser'],
+    });
+    const kv: Record<string, unknown> = {
+      [LINEAGE_ACTIVE_VERSION_KEY]: 'track-r-test-batch',
+      [versionedManifestKey('track-r-test-batch')]: manifest,
+      [versionedCanonicalKey('track-r-test-batch')]: { '5': 'seal-winner' },
+      [versionedQuarantineKey('track-r-test-batch')]: ['seal-loser', 'seal-EXTRA-quarantined'],
+    };
+    const lineage = await getEffectiveCanonicalLineage(fakeReader(kv));
+    assert.strictEqual(lineage.ok, false);
+    if (!lineage.ok) assert.strictEqual(lineage.reason, 'quarantine_list_manifest_mismatch');
+  });
+
+  it('Codex P1 — malformed manifest (missing receipts) fails closed instead of throwing', async () => {
+    const manifest = buildManifest({
+      repair_id: 'track-r-test-batch',
+      canonical_assignments: { '5': 'seal-winner' },
+      quarantined_seal_ids: ['seal-loser'],
+    });
+    const { receipts: _receipts, ...manifestWithoutReceipts } = manifest as unknown as Record<string, unknown>;
+    const kv: Record<string, unknown> = {
+      [LINEAGE_ACTIVE_VERSION_KEY]: 'track-r-test-batch',
+      [versionedManifestKey('track-r-test-batch')]: manifestWithoutReceipts,
+      [versionedCanonicalKey('track-r-test-batch')]: { '5': 'seal-winner' },
+      [versionedQuarantineKey('track-r-test-batch')]: ['seal-loser'],
+    };
+    // Must resolve to ok:false, not throw/reject.
+    const lineage = await getEffectiveCanonicalLineage(fakeReader(kv));
+    assert.strictEqual(lineage.ok, false);
+    if (!lineage.ok) assert.strictEqual(lineage.reason, 'manifest_malformed');
+  });
+
+  it('Codex P2 — a same-hash duplicate elsewhere does not block chain-head continuation', async () => {
+    const seals: Seal[] = [
+      // The genuine, resolved hash-divergent collision at block 5.
+      baseSeal({ seal_id: 'seal-winner', sequence: 5, seal_hash: 'hash-a', sealed_at: '2026-08-01T09:00:00Z' }),
+      baseSeal({ seal_id: 'seal-loser', sequence: 5, seal_hash: 'hash-b', sealed_at: '2026-07-01T09:00:00Z' }),
+      // An unrelated same-hash duplicate at block 30 that Track R's lineage never
+      // needed to (and correctly does not) cover.
+      baseSeal({ seal_id: 'seal-dup-1', sequence: 30, seal_hash: 'same-hash', sealed_at: '2026-08-03T09:00:00Z' }),
+      baseSeal({ seal_id: 'seal-dup-2', sequence: 30, seal_hash: 'same-hash', sealed_at: '2026-08-02T09:00:00Z' }),
+    ];
+    const kv = activeLineageMap({
+      repair_id: 'track-r-test-batch',
+      canonical_assignments: { '5': 'seal-winner' },
+      quarantined_seal_ids: ['seal-loser'],
+    });
+    const lineage = await getEffectiveCanonicalLineage(fakeReader(kv));
+    assert.strictEqual(lineage.ok, true);
+
+    const plan = planCanonicalContinuation({ seals, lineage });
+    assert.strictEqual(
+      plan.ok,
+      true,
+      'an unresolved same-hash duplicate must not block the plan for an unrelated resolved collision',
+    );
+
+    const alignment = verifyChainHeadAligned({ seals, lineage, latestSealId: 'seal-winner' });
+    assert.strictEqual(alignment.aligned, true);
+
+    const finding = await checkBlockCollisionsWithLineage(seals, fakeReader(kv), 'seal-winner');
+    assert.notStrictEqual(finding.severity, 'critical');
+  });
+
+  it('Codex P2 — same-hash-only duplicates report warning severity, not ok', async () => {
+    const seals: Seal[] = [
+      baseSeal({ seal_id: 'seal-dup-1', sequence: 12, seal_hash: 'same-hash', sealed_at: '2026-08-01T09:00:00Z' }),
+      baseSeal({ seal_id: 'seal-dup-2', sequence: 12, seal_hash: 'same-hash', sealed_at: '2026-07-01T09:00:00Z' }),
+    ];
+    const finding = await checkBlockCollisionsWithLineage(seals, fakeReader({}), null);
+    assert.strictEqual(finding.severity, 'warning', 'harmless duplicates must stay visible, not silently ok');
+    assert.strictEqual(finding.ok, false);
+    assert.strictEqual(
+      (finding.evidence as { non_hash_divergent_collision_count: number }).non_hash_divergent_collision_count,
+      1,
+    );
+  });
+
   it('loadLineageAwareCollisionReport composes the KV-backed loader with the pure classifier', async () => {
     // Smoke test only — real KV is unavailable in this environment; confirms the
     // async wiring path (getEffectiveCanonicalLineage -> classify) does not throw

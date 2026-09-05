@@ -353,6 +353,26 @@ export async function checkBlockCollisionsWithLineage(
     );
   }
 
+  if (report.non_hash_divergent_collision_count > 0) {
+    // Same-hash duplicates never gate, but the pre-existing checkBlockCollisions()
+    // surfaced them at 'warning' severity so they stay visible to max_severity()
+    // rollups and operators — not just buried in evidence. Preserve that.
+    return mk(
+      'block_number_collisions',
+      'warning',
+      false,
+      `${report.non_hash_divergent_collision_count} block_number collision(s) without hash divergence`,
+      {
+        raw_collision_count: report.raw_collision_count,
+        resolved_collision_count: report.resolved_collision_count,
+        unresolved_collision_count: 0,
+        non_hash_divergent_collision_count: report.non_hash_divergent_collision_count,
+        active_track_r_version: report.active_track_r_version,
+        lineage_trusted: report.lineage_trusted,
+      },
+    );
+  }
+
   return mk('block_number_collisions', 'ok', true, 'No unresolved block_number collisions', {
     raw_collision_count: report.raw_collision_count,
     resolved_collision_count: report.resolved_collision_count,

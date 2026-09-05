@@ -14,7 +14,7 @@
  * as "no trustworthy lineage" — never as an empty-but-valid canonical map.
  */
 
-import { kvGet } from '@/lib/kv/store';
+import { kvGetPrimaryOnly } from '@/lib/kv/store';
 import { verifyManifestHash } from '@/lib/watchdog/batchRepair/semanticManifest';
 import {
   LINEAGE_ACTIVE_VERSION_KEY,
@@ -32,8 +32,10 @@ export type EffectiveCanonicalLineageFailureReason =
   | 'manifest_hash_mismatch'
   | 'canonical_map_missing'
   | 'canonical_map_malformed'
+  | 'canonical_map_manifest_mismatch'
   | 'quarantine_list_missing'
   | 'quarantine_list_malformed'
+  | 'quarantine_list_manifest_mismatch'
   | 'read_error';
 
 export type EffectiveCanonicalLineage =
@@ -54,7 +56,16 @@ export type EffectiveCanonicalLineage =
 /** Minimal KV reader shape — allows tests to inject a fake map without touching real KV. */
 export type LineageKvReader = (key: string) => Promise<unknown>;
 
-const defaultReader: LineageKvReader = (key) => kvGet(key);
+/**
+ * Primary-KV-only by default — `kvGet()` falls back to backup Redis / the bridge
+ * on a primary miss or failure, which would let a stale copy of Track R's
+ * lineage (e.g. one removed or superseded on primary) be treated as live
+ * authority for clearing the seal integrity gate. `kvGetPrimaryOnly()` is the
+ * primitive this codebase already reserves for exactly this class of read
+ * (see `lib/watchdog/batchRepair/liveLineagePointerObservations.ts`, which
+ * reads `watchdog:lineage:active_version` the same way).
+ */
+const defaultReader: LineageKvReader = (key) => kvGetPrimaryOnly(key);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -124,7 +135,22 @@ export async function getEffectiveCanonicalLineage(
     };
   }
   const manifest = manifestRaw as unknown as CollisionRepairBatchManifest;
-  if (!verifyManifestHash(manifest)) {
+  let manifestHashValid: boolean;
+  try {
+    manifestHashValid = verifyManifestHash(manifest);
+  } catch (error) {
+    // A malformed-but-object-shaped manifest (e.g. missing `receipts`) can throw
+    // inside hash computation rather than simply failing the comparison. That
+    // must fail closed the same as a mismatch, never propagate and abort the
+    // caller before it persists a fresh (degraded) watchdog report.
+    return {
+      ok: false,
+      active_version: activeVersion,
+      reason: 'manifest_malformed',
+      detail: `manifest hash verification threw: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+  if (!manifestHashValid) {
     return {
       ok: false,
       active_version: activeVersion,
@@ -164,6 +190,44 @@ export async function getEffectiveCanonicalLineage(
       active_version: activeVersion,
       reason: 'quarantine_list_malformed',
       detail: 'staged quarantine list is not a string array',
+    };
+  }
+
+  // The manifest hash only proves the manifest object itself is unmodified —
+  // canonicalRaw/quarantineRaw are read from two SEPARATE KV keys and are not
+  // covered by that hash. A stale, partially-written, or tampered side-car key
+  // could otherwise select a different canonical winner while the manifest
+  // hash still checks out. Bind both back to the verified manifest's own
+  // canonical_assignments/quarantined_seal_ids before trusting them.
+  const manifestCanonical = manifest.canonical_assignments ?? {};
+  const canonicalRawObj = canonicalRaw as Record<string, string>;
+  const manifestCanonicalKeys = Object.keys(manifestCanonical).sort();
+  const canonicalRawKeys = Object.keys(canonicalRawObj).sort();
+  const canonicalMatchesManifest =
+    manifestCanonicalKeys.length === canonicalRawKeys.length &&
+    manifestCanonicalKeys.every(
+      (key, i) => key === canonicalRawKeys[i] && manifestCanonical[key] === canonicalRawObj[key],
+    );
+  if (!canonicalMatchesManifest) {
+    return {
+      ok: false,
+      active_version: activeVersion,
+      reason: 'canonical_map_manifest_mismatch',
+      detail: `staged canonical map at ${versionedCanonicalKey(activeVersion)} does not match the verified manifest's canonical_assignments`,
+    };
+  }
+
+  const manifestQuarantine = [...(manifest.quarantined_seal_ids ?? [])].sort();
+  const quarantineRawSorted = [...(quarantineRaw as string[])].sort();
+  const quarantineMatchesManifest =
+    manifestQuarantine.length === quarantineRawSorted.length &&
+    manifestQuarantine.every((id, i) => id === quarantineRawSorted[i]);
+  if (!quarantineMatchesManifest) {
+    return {
+      ok: false,
+      active_version: activeVersion,
+      reason: 'quarantine_list_manifest_mismatch',
+      detail: `staged quarantine list at ${versionedQuarantineKey(activeVersion)} does not match the verified manifest's quarantined_seal_ids`,
     };
   }
 
