@@ -8,6 +8,9 @@ import { isBudgetSuspensionError } from '@/lib/substrate/kv-errors';
 import { kvGet, kvGetOrThrow, kvHealth, kvSet, kvSetOrThrow } from '@/lib/kv/store';
 import { getLatestSeal, getLatestSealId, listAllSeals } from '@/lib/vault-v2/store';
 import type { Seal } from '@/lib/vault-v2/types';
+import { classifyCollisionsAgainstLineage } from '@/lib/watchdog/trackRLineageCollisionGate';
+import { getEffectiveCanonicalLineage, type LineageKvReader } from '@/lib/watchdog/effectiveCanonicalLineage';
+import { verifyChainHeadAligned, type ChainHeadAlignment } from '@/lib/watchdog/canonicalContinuationPlan';
 
 export const WATCHDOG_CANARY_KEY = 'watchdog:kv:canary';
 export const WATCHDOG_STATE_KEY = 'watchdog:kv:last-report';
@@ -267,6 +270,119 @@ export function checkBlockCollisions(seals: Seal[]): KvWatchdogFinding {
   });
 }
 
+/**
+ * C-425 — Track R canonical-lineage-aware collision check.
+ *
+ * Same `block_number_collisions` check id (the seal integrity gate keys off
+ * this string, unchanged — no changes to sealIntegrityGate.ts), but severity
+ * now reflects UNRESOLVED hash-divergent collisions only. A historical
+ * collision Track R has actually adjudicated under a valid, hash-verified
+ * active lineage no longer permanently pins the gate critical — but raw
+ * collision counts are always reported, never erased, and any lineage that
+ * cannot be trusted (missing, corrupt, hash-mismatched, or leaving any block
+ * unresolved) fails closed to the same CRITICAL behavior as before this change.
+ *
+ * Chain-head safety: resolving every historical collision is not by itself
+ * sufficient to clear this finding. If `vault:seal:latest` does not point at
+ * the newest resolved canonical seal, the very next candidate would continue
+ * from an unresolved or quarantined branch and could collide again — so that
+ * misalignment also reports CRITICAL here, folded into this same finding
+ * rather than a separate check id the gate would never see.
+ */
+export async function checkBlockCollisionsWithLineage(
+  seals: Seal[],
+  lineageReader?: LineageKvReader,
+  latestSealIdOverride?: string | null,
+): Promise<KvWatchdogFinding> {
+  const lineage = await getEffectiveCanonicalLineage(lineageReader);
+  const report = classifyCollisionsAgainstLineage({ seals, lineage });
+
+  if (report.unresolved_collision_count > 0) {
+    return mk(
+      'block_number_collisions',
+      'critical',
+      false,
+      `${report.unresolved_collision_count} unresolved hash-divergent block_number collision(s) in attested KV`,
+      {
+        raw_collision_count: report.raw_collision_count,
+        resolved_collision_count: report.resolved_collision_count,
+        unresolved_collision_count: report.unresolved_collision_count,
+        unresolved_block_numbers: report.unresolved_block_numbers,
+        active_track_r_version: report.active_track_r_version,
+        lineage_trusted: report.lineage_trusted,
+        lineage_failure_reason: report.lineage_failure_reason,
+        sample: report.collisions.filter((c) => c.seal_hashes_differ).slice(0, 3),
+      },
+    );
+  }
+
+  if (report.raw_collision_count > 0) {
+    const latestSealId = latestSealIdOverride !== undefined ? latestSealIdOverride : await getLatestSealId();
+    const alignment: ChainHeadAlignment = verifyChainHeadAligned({ seals, lineage, latestSealId });
+
+    if (!alignment.aligned) {
+      return mk(
+        'block_number_collisions',
+        'critical',
+        false,
+        `${report.raw_collision_count} historical hash-divergent block_number collision(s) resolved by Track R lineage ${report.active_track_r_version ?? 'unknown'}, but chain head is not aligned with the canonical target (${alignment.reason}): ${alignment.detail}`,
+        {
+          raw_collision_count: report.raw_collision_count,
+          resolved_collision_count: report.resolved_collision_count,
+          unresolved_collision_count: 0,
+          active_track_r_version: report.active_track_r_version,
+          lineage_trusted: report.lineage_trusted,
+          chain_head_alignment: alignment,
+        },
+      );
+    }
+
+    return mk(
+      'block_number_collisions',
+      'warning',
+      false,
+      `${report.raw_collision_count} hash-divergent block_number collision(s) resolved under Track R lineage ${report.active_track_r_version ?? 'unknown'} — historical evidence preserved, no unresolved collisions, chain head aligned`,
+      {
+        raw_collision_count: report.raw_collision_count,
+        resolved_collision_count: report.resolved_collision_count,
+        unresolved_collision_count: 0,
+        active_track_r_version: report.active_track_r_version,
+        lineage_trusted: report.lineage_trusted,
+        chain_head_alignment: alignment,
+      },
+    );
+  }
+
+  if (report.non_hash_divergent_collision_count > 0) {
+    // Same-hash duplicates never gate, but the pre-existing checkBlockCollisions()
+    // surfaced them at 'warning' severity so they stay visible to max_severity()
+    // rollups and operators — not just buried in evidence. Preserve that.
+    return mk(
+      'block_number_collisions',
+      'warning',
+      false,
+      `${report.non_hash_divergent_collision_count} block_number collision(s) without hash divergence`,
+      {
+        raw_collision_count: report.raw_collision_count,
+        resolved_collision_count: report.resolved_collision_count,
+        unresolved_collision_count: 0,
+        non_hash_divergent_collision_count: report.non_hash_divergent_collision_count,
+        active_track_r_version: report.active_track_r_version,
+        lineage_trusted: report.lineage_trusted,
+      },
+    );
+  }
+
+  return mk('block_number_collisions', 'ok', true, 'No unresolved block_number collisions', {
+    raw_collision_count: report.raw_collision_count,
+    resolved_collision_count: report.resolved_collision_count,
+    unresolved_collision_count: 0,
+    non_hash_divergent_collision_count: report.non_hash_divergent_collision_count,
+    active_track_r_version: report.active_track_r_version,
+    lineage_trusted: report.lineage_trusted,
+  });
+}
+
 export function checkReattestSpike(seals: Seal[], nowMs = Date.now()): KvWatchdogFinding {
   const oneHourAgo = nowMs - 60 * 60 * 1000;
   const count = seals.filter((s) => {
@@ -314,7 +430,7 @@ export async function runKvHealthChecks(options?: { sealLimit?: number }): Promi
   if (!primary_kv_suspended) {
     const seals = await listAllSeals(options?.sealLimit ?? 10_000);
     findings.push(...(await checkLatestSealKey(seals)));
-    findings.push(checkBlockCollisions(seals));
+    findings.push(await checkBlockCollisionsWithLineage(seals));
     findings.push(checkReattestSpike(seals));
   } else {
     seals_skipped = true;
