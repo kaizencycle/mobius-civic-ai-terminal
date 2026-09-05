@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-09-05T06:03:30.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-425",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_all_ok": "persistent",
+    "sustain_eligible": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved seal_status=receipt_quorum_only seal_eligibility=blocked (cycle C-425)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-05T05-13-33.123Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-05T05-13-33.123Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.795/yellow source=kv; anomalies=[daedalus-cloudflare-radar watch]; kv_keys_all_ok=false diagnostic_present=16/19; sustain_eligible=true; micro_composite=0.908; degraded_agents=2 (JADE,DAEDALUS); tripwire clear; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; classification=STRESSED; gi_provenance=live-compute."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.902 composite=0.902 instrumentCount=40 cached=false cycle=C-425 errors=0 fallbacksUsed=2. daedalus-cloudflare-radar score=0.7 — persistent watch, severity unchanged. All other instruments nominal."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.783 mode=yellow terminal_status=stressed source=kv cycle=C-425 gi_provenance=live-compute. Not mock — KV path active. cache_age_seconds=147 freshness_class=stale. operational_classification=STRESSED tripwire_state=clear sustain_eligible=true degraded=true execution_authorized=false."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "pass",
+      "detail": "ATLAS gi=0.795/yellow (kv) at 05:13Z vs integrity gi=0.783/yellow (kv) at 06:00Z (delta 0.012). Live micro gi=0.902 at 06:03Z — expected live-compute uplift. ATLAS micro_composite=0.908 vs live composite=0.902 (delta 0.006). KV-backed, not mock."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv kv_backed=true (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys_all_ok=false despite kv_keys_ok=true and seed 200 OK; diagnostic_present=16 diagnostic_required=19."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "pass",
+      "detail": "Aligned: ATLAS sustain_eligible=true at 05:13Z; integrity sustain_eligible=true at 06:00Z."
+    },
+    {
+      "check": "tripwire_state",
+      "result": "pass",
+      "detail": "Aligned: ATLAS tripwire inactive at 05:13Z; integrity tripwire_state=clear at 06:00Z."
+    },
+    {
+      "check": "live anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch at 05:13Z; live micro score=0.7 at 06:03Z. Severity unchanged."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-425 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]. seal_status=receipt_quorum_only seal_eligibility=blocked."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-425-rfiucl mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Operator attention: (1) daedalus-cloudflare-radar persistent watch (score=0.7). (2) Restore missing KV diagnostic keys (16/19). STRESSED with execution_authorized=false; quorum 5/5 achieved (receipt_quorum_only, seal blocked). GI trustworthy via KV path — not mock."
+}
