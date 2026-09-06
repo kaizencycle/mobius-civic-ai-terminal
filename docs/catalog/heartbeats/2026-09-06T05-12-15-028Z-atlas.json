@@ -1,0 +1,93 @@
+{
+  "timestamp": "2026-09-06T05:12:15.028Z",
+  "agent": "ATLAS",
+  "cycle": "C-426",
+  "gi": 0.81,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "hermes-arxiv",
+      "label": "ArXiv new submissions",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 5,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 18,
+    "diagnostic_required": 19,
+    "timestamp": "2026-09-06T05:11:30.588Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: ['GI_STATE', 'HEARTBEAT', 'LAST_INGEST', 'SIGNAL_SNAPSHOT']",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.887,
+  "degraded_agents": 2,
+  "degraded_agent_names": [
+    "JADE",
+    "DAEDALUS"
+  ],
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-09-06T04:30:43.669Z"
+  },
+  "pre_seed_gi": 0.81,
+  "pre_seed_mode": "green",
+  "post_seed_gi": 0.81,
+  "post_seed_mode": "green",
+  "gi_provenance": "kv-live",
+  "last_journal_cycle": "C-426",
+  "seed_http": "200",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-426-ix7i2y",
+  "journal_ok": true,
+  "journal_canonical": true
+}
