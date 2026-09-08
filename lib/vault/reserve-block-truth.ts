@@ -11,10 +11,7 @@
 import type { CollisionAffectedBlockSnapshot } from '@/lib/vault/collision-affected-blocks';
 import type { AttestationCoverage } from '@/lib/vault/attestation-coverage';
 import type { ReserveBlockSummary } from '@/lib/vault/lane-status';
-import {
-  findCriticalCollisionFindings,
-  type SealIntegrityGateState,
-} from '@/lib/watchdog/sealIntegrityGate';
+import type { SealIntegrityGateState } from '@/lib/watchdog/sealIntegrityGate';
 import type { KvWatchdogFinding } from '@/lib/watchdog/kvHealthChecks';
 
 export type ReserveBlockFormationStatus =
@@ -104,30 +101,31 @@ export type ReserveBlockTruthSurface = {
 const PROJECTION_NOTE =
   'Operational projected slot from max(seal index, audit index, v1 parcels) + 1 — not a constitutionally adjudicated Reserve Block number until canonical sequencing is restored.';
 
+/**
+ * Selected by `check` name, not by current severity. checkBlockCollisionsWithLineage()
+ * downgrades this same check to 'warning' once Track R resolves every collision and the
+ * chain head realigns (kvHealthChecks.ts) — filtering to critical-only (as this used to,
+ * via findCriticalCollisionFindings) would make the historical count vanish to null/"—"
+ * at exactly the moment the resolution story is worth showing. raw_collision_count is
+ * meant to survive that: "every hash-divergent pair currently in attested KV, resolved
+ * or not" (never hidden by lineage resolution, unlike unresolved_collision_count).
+ */
 function collisionPairCountFromFindings(findings: KvWatchdogFinding[]): number | null {
-  const critical = findCriticalCollisionFindings(findings);
-  if (critical.length === 0) return null;
-  const evidence = critical[0]?.evidence;
+  const finding = findings.find((f) => f.check === 'block_number_collisions');
+  const evidence = finding?.evidence;
+  if (!evidence) return null;
   // Pre-Track-R evidence shape (checkBlockCollisions()).
-  if (evidence && typeof evidence.hash_divergent_collisions === 'number') {
+  if (typeof evidence.hash_divergent_collisions === 'number') {
     return evidence.hash_divergent_collisions;
   }
   // Track R lineage-aware evidence shape (checkBlockCollisionsWithLineage(), C-425 / PR #707).
-  // raw_collision_count is the same "every hash-divergent pair currently in attested KV,
-  // resolved or not" figure hash_divergent_collisions used to carry — never hidden by
-  // lineage resolution, unlike unresolved_collision_count. Without this branch the two
-  // checks above both miss (checkBlockCollisionsWithLineage's evidence has neither key),
-  // and this function silently fell through to `critical.length` — the *count of findings*
-  // (always 1, since there is exactly one block_number_collisions finding) rather than the
-  // pair count, understating a live collision headline as "1" while the same finding's own
-  // evidence.raw_collision_count (and the seal integrity gate) correctly reported 125.
-  if (evidence && typeof evidence.raw_collision_count === 'number') {
+  if (typeof evidence.raw_collision_count === 'number') {
     return evidence.raw_collision_count;
   }
-  if (evidence && typeof evidence.collision_count === 'number') {
+  if (typeof evidence.collision_count === 'number') {
     return evidence.collision_count;
   }
-  return critical.length;
+  return null;
 }
 
 /** Collision pairs from watchdog findings (live report or stale-alert fallback). */

@@ -36,6 +36,20 @@ const trackRCollisionFinding: KvWatchdogFinding = {
   evidence: { raw_collision_count: 125, resolved_collision_count: 0, unresolved_collision_count: 125 },
 };
 
+// checkBlockCollisionsWithLineage() downgrades this same check to 'warning' once Track R
+// has resolved every collision and the chain head realigns (kvHealthChecks.ts ~L340-353) —
+// it does not disappear or flip to 'ok'. Codex review on PR #708 caught that filtering to
+// critical-only findings would make the historical count vanish to null right when the
+// resolution story is worth showing.
+const trackRResolvedCollisionFinding: KvWatchdogFinding = {
+  check: 'block_number_collisions',
+  severity: 'warning',
+  ok: false,
+  message:
+    '125 hash-divergent block_number collision(s) resolved under Track R lineage v1 — historical evidence preserved, no unresolved collisions, chain head aligned',
+  evidence: { raw_collision_count: 125, resolved_collision_count: 125, unresolved_collision_count: 0 },
+};
+
 const gateEngaged: SealIntegrityGateState = {
   enabled: true,
   active: true,
@@ -107,6 +121,13 @@ describe('reserveBlockTruthSurface', () => {
     // because neither hash_divergent_collisions nor collision_count exist on
     // checkBlockCollisionsWithLineage()'s evidence — only raw_collision_count.
     assert.equal(extractCollisionPairCount([trackRCollisionFinding]), 125);
+  });
+
+  it('extractCollisionPairCount survives Track R resolving all collisions (severity downgrades to warning, not ok)', () => {
+    // Before this fix, filtering to critical-only findings meant this returned null the
+    // moment Track R fully resolved every collision — the exact case where "125 resolved"
+    // is worth showing, not hiding behind "—".
+    assert.equal(extractCollisionPairCount([trackRResolvedCollisionFinding]), 125);
   });
 
   it('gate state does not determine canonical count', () => {
