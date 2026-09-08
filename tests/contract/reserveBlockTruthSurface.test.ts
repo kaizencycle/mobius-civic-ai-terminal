@@ -22,6 +22,34 @@ const collisionFinding: KvWatchdogFinding = {
   evidence: { hash_divergent_collisions: 125, collision_count: 125 },
 };
 
+// Evidence shape actually emitted by checkBlockCollisionsWithLineage() (C-425 / PR #707),
+// which runKvHealthChecks() has used in place of checkBlockCollisions() since that PR
+// merged. It carries no hash_divergent_collisions or collision_count key at all — only
+// raw/resolved/unresolved_collision_count. JOB-29 (2026-09-07) observed this producing a
+// live "1" headline (the finding *count*, always 1) next to a correct 125 elsewhere in the
+// same watchdog report.
+const trackRCollisionFinding: KvWatchdogFinding = {
+  check: 'block_number_collisions',
+  severity: 'critical',
+  ok: false,
+  message: '125 unresolved hash-divergent block_number collision(s) in attested KV',
+  evidence: { raw_collision_count: 125, resolved_collision_count: 0, unresolved_collision_count: 125 },
+};
+
+// checkBlockCollisionsWithLineage() downgrades this same check to 'warning' once Track R
+// has resolved every collision and the chain head realigns (kvHealthChecks.ts ~L340-353) —
+// it does not disappear or flip to 'ok'. Codex review on PR #708 caught that filtering to
+// critical-only findings would make the historical count vanish to null right when the
+// resolution story is worth showing.
+const trackRResolvedCollisionFinding: KvWatchdogFinding = {
+  check: 'block_number_collisions',
+  severity: 'warning',
+  ok: false,
+  message:
+    '125 hash-divergent block_number collision(s) resolved under Track R lineage v1 — historical evidence preserved, no unresolved collisions, chain head aligned',
+  evidence: { raw_collision_count: 125, resolved_collision_count: 125, unresolved_collision_count: 0 },
+};
+
 const gateEngaged: SealIntegrityGateState = {
   enabled: true,
   active: true,
@@ -86,6 +114,20 @@ describe('reserveBlockTruthSurface', () => {
   it('extractCollisionPairCount reads hash_divergent_collisions independent of gate state', () => {
     assert.equal(extractCollisionPairCount([collisionFinding]), 125);
     assert.equal(extractCollisionPairCount(null), null);
+  });
+
+  it('extractCollisionPairCount reads Track R raw_collision_count, not the finding count (JOB-29 regression)', () => {
+    // Before the fix this returned 1 (findCriticalCollisionFindings(...).length),
+    // because neither hash_divergent_collisions nor collision_count exist on
+    // checkBlockCollisionsWithLineage()'s evidence — only raw_collision_count.
+    assert.equal(extractCollisionPairCount([trackRCollisionFinding]), 125);
+  });
+
+  it('extractCollisionPairCount survives Track R resolving all collisions (severity downgrades to warning, not ok)', () => {
+    // Before this fix, filtering to critical-only findings meant this returned null the
+    // moment Track R fully resolved every collision — the exact case where "125 resolved"
+    // is worth showing, not hiding behind "—".
+    assert.equal(extractCollisionPairCount([trackRResolvedCollisionFinding]), 125);
   });
 
   it('gate state does not determine canonical count', () => {
