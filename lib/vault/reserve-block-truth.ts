@@ -108,8 +108,21 @@ function collisionPairCountFromFindings(findings: KvWatchdogFinding[]): number |
   const critical = findCriticalCollisionFindings(findings);
   if (critical.length === 0) return null;
   const evidence = critical[0]?.evidence;
+  // Pre-Track-R evidence shape (checkBlockCollisions()).
   if (evidence && typeof evidence.hash_divergent_collisions === 'number') {
     return evidence.hash_divergent_collisions;
+  }
+  // Track R lineage-aware evidence shape (checkBlockCollisionsWithLineage(), C-425 / PR #707).
+  // raw_collision_count is the same "every hash-divergent pair currently in attested KV,
+  // resolved or not" figure hash_divergent_collisions used to carry — never hidden by
+  // lineage resolution, unlike unresolved_collision_count. Without this branch the two
+  // checks above both miss (checkBlockCollisionsWithLineage's evidence has neither key),
+  // and this function silently fell through to `critical.length` — the *count of findings*
+  // (always 1, since there is exactly one block_number_collisions finding) rather than the
+  // pair count, understating a live collision headline as "1" while the same finding's own
+  // evidence.raw_collision_count (and the seal integrity gate) correctly reported 125.
+  if (evidence && typeof evidence.raw_collision_count === 'number') {
+    return evidence.raw_collision_count;
   }
   if (evidence && typeof evidence.collision_count === 'number') {
     return evidence.collision_count;
