@@ -1,0 +1,93 @@
+{
+  "timestamp": "2026-09-08T06:02:45.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-428",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "hermes-arxiv": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_all_ok": "persistent",
+    "hermes-openlibrary": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] status=achieved seal_status=receipt_quorum_only seal_eligibility=blocked (cycle C-428)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-08T05-00-27-750Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-08T05-00-27-750Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.74/yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[hermes-arxiv elevated, daedalus-cloudflare-radar watch]; kv_keys_all_ok=false diagnostic_present=18/19; sustain_eligible=false; tripwire inactive; micro_composite=0.881; degraded_agents=2 (DAEDALUS,EVE); seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; gi_provenance=kv-live."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.888 composite=0.888 instrumentCount=40 cached=false cycle=C-428. hermes-arxiv score=0.9 source=primary latency=43ms — transient, improved from ATLAS elevated. daedalus-cloudflare-radar score=0.7 source=primary — persistent watch, severity unchanged. hermes-openlibrary score=0 error latency=8001ms — persistent error, not in ATLAS anomaly list."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.74 mode=yellow terminal_status=stressed source=kv cycle=C-428 gi_provenance=kv-live. Not mock — KV path active. cache_age_seconds=12 freshness_class=fresh. operational_classification=STRESSED tripwire_state=clear sustain_eligible=false degraded=true execution_authorized=false."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "ATLAS gi=0.74/yellow (kv) at 05:00Z vs integrity gi=0.74/yellow (kv) at 06:00Z (delta 0.000 — aligned). Live micro gi=0.888 at 06:02Z vs KV gi=0.74 (delta 0.148). ATLAS micro_composite=0.881 vs live micro 0.888 (delta 0.007)."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv gi_provenance=kv-live kv_backed=true (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys_all_ok=false despite kv_keys_ok=true and seed 200 OK; diagnostic_present=18 diagnostic_required=19."
+    },
+    {
+      "check": "sustain_eligible",
+      "result": "pass",
+      "detail": "Aligned: ATLAS sustain_eligible=false at 05:00Z; integrity sustain_eligible=false at 06:00Z."
+    },
+    {
+      "check": "tripwire_state",
+      "result": "pass",
+      "detail": "Aligned: ATLAS tripwire inactive at 05:00Z; integrity tripwire_state=clear at 06:00Z."
+    },
+    {
+      "check": "live anomaly: hermes-arxiv",
+      "result": "pass",
+      "detail": "Transient — ATLAS flagged elevated at 05:00Z; live micro score=0.9 source=primary at 06:02Z. Severity improved."
+    },
+    {
+      "check": "live anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch at 05:00Z; live micro score=0.7 source=primary at 06:02Z. Severity unchanged."
+    },
+    {
+      "check": "live anomaly: hermes-openlibrary",
+      "result": "warn",
+      "detail": "Persistent error — not in ATLAS anomaly list but live micro score=0 error at 06:02Z (primary and fallback both failed)."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-428 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS]. seal_status=receipt_quorum_only seal_eligibility=blocked."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-428-sa2h2c mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Operator attention: (1) KV/live GI divergence — KV gi=0.74 vs live micro gi=0.888 (delta 0.148) under STRESSED classification. (2) Persistent daedalus-cloudflare-radar watch (score=0.7). (3) hermes-openlibrary error lane (score=0, not flagged by ATLAS). (4) Restore missing KV diagnostic key (18/19). hermes-arxiv recovered (transient). sustain_eligible=false aligned; execution_authorized=false. Quorum 5/5 achieved (receipt_quorum_only, seal blocked)."
+}
