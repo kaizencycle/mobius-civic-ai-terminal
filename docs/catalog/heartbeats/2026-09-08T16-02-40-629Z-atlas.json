@@ -88,6 +88,6 @@
   "journal_status": 200,
   "journal_route": "agents/journal",
   "journal_id": "journal-ATLAS-C-428-v2h33q",
-  "journal_ok": "journal-ATLAS-C-428-v2h33q",
-  "journal_canonical": "journal-ATLAS-C-428-v2h33q"
+  "journal_ok": true,
+  "journal_canonical": true
 }
