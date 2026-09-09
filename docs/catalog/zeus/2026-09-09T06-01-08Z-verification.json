@@ -1,0 +1,105 @@
+{
+  "timestamp": "2026-09-09T06:01:08.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-429",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "hermes-openlibrary": "transient",
+    "themis-govtrack": "transient",
+    "aurea-coingecko": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "in_progress 4/5 — attestations_received=4 attestations_needed=5 attested_agents=[AUREA,JADE,EVE,ZEUS] status=in_progress seal_status=not_eligible seal_eligibility=none (cycle C-429)",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-09T05-01-26-562Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-09T05-01-26-562Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.92/green source=kv classification=STRESSED terminal_status=nominal cycle=C-429; anomalies=[gaia-usgs-water elevated, hermes-openlibrary elevated, themis-govtrack elevated, daedalus-cloudflare-radar watch]; kv_keys_all_ok=false diagnostic_present=18/19; sustain_eligible=true; tripwire inactive; micro_composite=0.86; degraded_agents=3 (JADE,DAEDALUS,EVE); micro_anomaly_severity_flag=true; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; gi_provenance=kv-live."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.87 composite=0.87 instrumentCount=40 cached=false cycle=C-429 errors=2 fallbacksUsed=3. gaia-usgs-water score=0 source=error — persistent elevated, matches ATLAS. daedalus-cloudflare-radar score=0.7 source=primary — persistent watch, severity unchanged. hermes-openlibrary score=0.9 source=fallback — ATLAS flagged elevated but live nominal via fallback (severity mismatch). themis-govtrack score=0.85 source=primary — ATLAS flagged elevated but live nominal (severity mismatch). aurea-coingecko score=0 source=error — new failure not in ATLAS anomaly list."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "fail",
+      "detail": "HTTP 200 global_integrity=0.64 mode=yellow terminal_status=stressed source=kv cycle=C-429 gi_provenance=kv-live. Not mock — KV path active. degraded=true execution_authorized=false. operational_classification=STRESSED sustain_eligible=false tripwire_state=elevated. GI diverges sharply from ATLAS post-seed gi=0.92/green."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.92/green (kv) at 05:01Z vs integrity gi=0.64/yellow (kv-live) at 06:00Z (delta 0.28 — disputed). Live micro gi=0.87/composite=0.87 at 06:01Z vs ATLAS micro_composite=0.86 (delta 0.01 — aligned). Integrity GI does not align with ATLAS or micro composite."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv gi_provenance=kv-live (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys_all_ok=false despite kv_keys_ok=true and seed 200 OK; diagnostic_present=18 diagnostic_required=19."
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=true at 05:01Z; integrity sustain_eligible=false at 06:00Z — diverged."
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "fail",
+      "detail": "ATLAS tripwire inactive at 05:01Z; integrity tripwire_state=elevated at 06:00Z — diverged."
+    },
+    {
+      "check": "live anomaly: gaia-usgs-water",
+      "result": "fail",
+      "detail": "Persistent elevated — ATLAS flagged elevated at 05:01Z; live micro score=0 source=error at 06:01Z. Feed failure with retry exhausted. Severity unchanged."
+    },
+    {
+      "check": "live anomaly: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — ATLAS flagged watch at 05:01Z; live micro score=0.7 source=primary at 06:01Z. Severity unchanged."
+    },
+    {
+      "check": "live anomaly: hermes-openlibrary",
+      "result": "warn",
+      "detail": "Severity mismatch — ATLAS flagged elevated at 05:01Z; live micro score=0.9 source=fallback at 06:01Z (nominal score, fallback path). Transient ATLAS flag."
+    },
+    {
+      "check": "live anomaly: themis-govtrack",
+      "result": "warn",
+      "detail": "Severity mismatch — ATLAS flagged elevated at 05:01Z; live micro score=0.85 source=primary at 06:01Z (nominal). Transient ATLAS flag."
+    },
+    {
+      "check": "live anomaly: aurea-coingecko",
+      "result": "fail",
+      "detail": "New persistent error — not in ATLAS anomaly list; live micro score=0 source=error at 06:01Z. primary failed (with retry)."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum in_progress 4/5 for cycle C-429 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[AUREA,JADE,EVE,ZEUS]. seal_status=not_eligible seal_eligibility=none."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-429-0mk1j1 mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Operator attention: (1) Reconcile GI divergence — ATLAS gi=0.92/green vs integrity gi=0.64/yellow (both kv-live, cycle C-429). (2) Restore gaia-usgs-water feed (persistent error). (3) Restore aurea-coingecko feed (new error). (4) Investigate hermes-openlibrary fallback path (ATLAS elevated vs live 0.9 fallback). (5) Restore final missing KV diagnostic key (18/19). (6) Tripwire and sustain_eligible diverged between ATLAS and integrity — verify decision_state wiring. Quorum 4/5 in_progress (ATLAS attestation pending)."
+}
