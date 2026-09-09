@@ -1,0 +1,70 @@
+{
+  "timestamp": "2026-09-09T15:04:11.639Z",
+  "agent": "ATLAS",
+  "cycle": "C-429",
+  "gi": 0.92,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 15,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 18,
+    "diagnostic_required": 19,
+    "timestamp": "2026-09-09T15:02:35.418Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 {\"ok\": true,\"seeded\": [\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"],\"timestamp\": \"2026-09-09T15:03:24.264Z\"}",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.862,
+  "degraded_agents": 1,
+  "terminal_status": "nominal",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "active": false,
+    "level": "clear"
+  },
+  "seed_http": "200",
+  "gi_provenance": "kv-live",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-429-jpqa1y",
+  "journal_ok": true,
+  "journal_canonical": true,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ]
+}
