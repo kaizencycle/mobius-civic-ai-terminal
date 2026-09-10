@@ -17,17 +17,17 @@
   "candidates_contested": 0,
   "quorum_attestation_sent": true,
   "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE] status=achieved seal_status=receipt_quorum_only seal_eligibility=blocked (cycle C-430)",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-10T17-03-39-783Z-atlas.json",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-10T18-00-56Z-atlas.json",
   "findings": [
     {
-      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-10T17-03-39-783Z-atlas.json",
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-10T18-00-56Z-atlas.json",
       "result": "warn",
-      "detail": "gi=0.8/green source=kv classification=STRESSED terminal_status=nominal cycle=C-430; anomalies=[daedalus-cloudflare-radar:watch]; kv_keys_all_ok=false diagnostic_present=16/19; sustain_eligible=false; tripwire active elevated; micro_composite=0.908; degraded_agents=1; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; gi_provenance=kv-live."
+      "detail": "gi=0.782/yellow source=kv classification=STRESSED terminal_status=stressed cycle=C-430; anomalies=[] (empty); kv_keys_all_ok=false diagnostic_present=18/19; sustain_eligible=true; tripwire inactive/none; micro_composite=0.869; degraded_agents=1; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]."
     },
     {
       "check": "GET /api/signals/micro (production)",
       "result": "warn",
-      "detail": "HTTP 200 ok=true gi=0.891 composite=0.891 instrumentCount=40 cached=false cycle=C-430 errors=1 fallbacksUsed=2. daedalus-cloudflare-radar score=0.7 source=primary — persistent watch, matches ATLAS anomaly severity. gaia-usgs-water score=0.85 source=primary — recovered from prior persistent error. hermes-openlibrary score=0 source=error — new feed failure, not in ATLAS anomaly list. gaia-openaq score=0.75 source=primary — sub-threshold."
+      "detail": "HTTP 200 ok=true gi=0.891 composite=0.891 instrumentCount=40 cached=false cycle=C-430 errors=1 fallbacksUsed=2. daedalus-cloudflare-radar score=0.7 source=primary — persistent watch, not in ATLAS anomaly list (empty). gaia-usgs-water score=0.85 source=primary — recovered from prior persistent error. hermes-openlibrary score=0 source=error — new feed failure, not in ATLAS anomaly list. gaia-openaq score=0.75 source=primary — sub-threshold."
     },
     {
       "check": "GET /api/integrity-status",
@@ -37,7 +37,7 @@
     {
       "check": "gi_alignment",
       "result": "fail",
-      "detail": "ATLAS gi=0.8/green at 17:03Z vs integrity gi=0.92/green at 18:13Z (delta 0.12). Live micro gi=0.891/composite=0.891 vs ATLAS gi=0.8 (delta 0.091) and vs ATLAS micro_composite=0.908 (delta 0.017). ATLAS gi_provenance=kv-live vs integrity gi_provenance=live-compute — provenance lane diverges."
+      "detail": "ATLAS gi=0.782/yellow at 18:00Z vs integrity gi=0.92/green at 18:13Z (delta 0.138). Live micro gi=0.891/composite=0.891 vs ATLAS gi=0.782 (delta 0.109) and vs ATLAS micro_composite=0.869 (delta 0.022). Mode diverges yellow vs green."
     },
     {
       "check": "integrity source mock",
@@ -47,32 +47,32 @@
     {
       "check": "ATLAS flag: kv_keys_all_ok",
       "result": "warn",
-      "detail": "Persistent: kv_keys_all_ok=false despite kv_keys_ok=true and seed 200 OK; diagnostic_present=16 diagnostic_required=19."
+      "detail": "Persistent: kv_keys_all_ok=false despite kv_keys_ok=true and seed 200 OK; diagnostic_present=18 diagnostic_required=19 (improved from 16/19 prior sweep)."
     },
     {
       "check": "sustain_eligible alignment",
-      "result": "fail",
-      "detail": "ATLAS sustain_eligible=false at 17:03Z; integrity sustain_eligible=true at 18:13Z — divergent."
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=true at 18:00Z; integrity sustain_eligible=true at 18:13Z — aligned."
     },
     {
       "check": "tripwire alignment",
-      "result": "pass",
-      "detail": "ATLAS tripwire active elevated at 17:03Z; integrity tripwire_state=elevated at 18:13Z — aligned."
+      "result": "fail",
+      "detail": "ATLAS tripwire inactive/none at 18:00Z; integrity tripwire_state=elevated at 18:13Z — divergent."
     },
     {
       "check": "terminal_status alignment",
-      "result": "pass",
-      "detail": "ATLAS terminal_status=nominal at 17:03Z; integrity terminal_status=nominal at 18:13Z — aligned."
+      "result": "fail",
+      "detail": "ATLAS terminal_status=stressed at 18:00Z; integrity terminal_status=nominal at 18:13Z — divergent despite both operational_classification=STRESSED."
     },
     {
       "check": "live anomaly: daedalus-cloudflare-radar",
       "result": "warn",
-      "detail": "Persistent watch — in ATLAS anomaly list; live micro score=0.7 source=primary at 18:13Z. Severity unchanged."
+      "detail": "Persistent watch — not in ATLAS anomaly list (empty at 18:00Z); live micro score=0.7 source=primary at 18:13Z. Severity unchanged."
     },
     {
       "check": "live anomaly: gaia-usgs-water",
       "result": "pass",
-      "detail": "Resolved — was persistent error in prior cycles; live micro score=0.85 source=primary at 18:13Z. Not in ATLAS anomaly list."
+      "detail": "Resolved — was persistent error in prior cycles; live micro score=0.85 source=primary at 18:13Z."
     },
     {
       "check": "live anomaly: hermes-openlibrary",
@@ -95,5 +95,5 @@
       "detail": "HTTP 200 entry_id=journal-ZEUS-C-430-q2yuql mirrored_to_kv=true canonical=true."
     }
   ],
-  "recommendation": "Operator attention: (1) Reconcile ATLAS gi (0.8/kv-live) vs integrity live-compute (0.92) — delta 0.12. (2) Reconcile sustain_eligible (ATLAS false vs integrity true). (3) Restore missing KV diagnostic keys (16/19). (4) Monitor hermes-openlibrary feed failure (new). (5) Monitor daedalus-cloudflare-radar (0.7 watch). gaia-usgs-water recovered. degraded=true execution_authorized=false tripwire elevated. Quorum 5/5 achieved (receipt_quorum_only, seal blocked)."
+  "recommendation": "Operator attention: (1) Reconcile ATLAS gi (0.782/yellow) vs integrity live-compute (0.92/green) — delta 0.138. (2) Reconcile tripwire (ATLAS inactive vs integrity elevated) and terminal_status (stressed vs nominal). (3) Restore final KV diagnostic key (18/19). (4) Monitor hermes-openlibrary feed failure (new). (5) Monitor daedalus-cloudflare-radar (0.7 watch, absent from ATLAS anomaly list). gaia-usgs-water recovered. degraded=true execution_authorized=false. Quorum 5/5 achieved (receipt_quorum_only, seal blocked)."
 }
