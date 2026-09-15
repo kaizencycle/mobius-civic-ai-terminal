@@ -5,7 +5,18 @@
   "gi": 0.92,
   "mode": "green",
   "source": "kv",
-  "anomalies": [],
+  "anomalies": [
+    {
+      "source": "gaia-usgs-water",
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    },
+    {
+      "source": "hermes-arxiv",
+      "label": "ArXiv new submissions",
+      "severity": "elevated"
+    }
+  ],
   "kv_keys": {
     "ok": true,
     "available": true,
@@ -49,7 +60,7 @@
     "kv_diagnostic_ok": false,
     "tripwire_active": false,
     "gi_below_floor": false,
-    "micro_anomaly_severity_flag": false
+    "micro_anomaly_severity_flag": true
   },
   "tripwire": {
     "active": false,
