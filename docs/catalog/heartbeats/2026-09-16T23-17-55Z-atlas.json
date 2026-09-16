@@ -1,0 +1,90 @@
+{
+  "timestamp": "2026-09-16T23:17:55.175Z",
+  "agent": "ATLAS",
+  "cycle": "C-436",
+  "gi": 0.63,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "gaia-noaa-alerts",
+      "label": "NOAA active weather alerts",
+      "severity": "watch"
+    },
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 0,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 16,
+    "diagnostic_required": 19,
+    "timestamp": "2026-09-16T23:16:29.424Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — {\"ok\": true, \"seeded\": [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"], \"timestamp\": \"2026-09-16T23:17:11.207Z\"}",
+  "sustain_eligible": false,
+  "classification": "CRITICAL",
+  "micro_composite": 0.881,
+  "degraded_agents": 1,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "kv_diagnostic_ok": false,
+    "tripwire_active": true,
+    "gi_below_floor": true,
+    "micro_anomaly_severity_flag": true
+  },
+  "tripwire": {
+    "active": true,
+    "level": "elevated",
+    "reason": "Hormuz Transit Fee Risk — Monitoring whether Iran formalizes transit fees and turns passage into an overt leverage instrument",
+    "last_updated": "2026-09-16T22:08:59.492Z"
+  },
+  "gi_provenance": "kv-live",
+  "journal_status": 200,
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-436-tc73xz",
+  "journal_ok": true,
+  "journal_canonical": true,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "seed_http": "200"
+}
