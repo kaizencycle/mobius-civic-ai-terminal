@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-09-16T03:03:58.109Z",
+  "agent": "AUREA",
+  "cycle": "C-435",
+  "gi_final": 0.8,
+  "gi_mode": "green",
+  "gi_source": "unknown",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.783,
+  "financial_score": 0.689,
+  "environ_score": 0.941,
+  "civic_score": 0.7,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.8. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in ENVIRON at 0.941 while USGS water conditions and ArXiv submissions remained elevated and Cloudflare stayed on watch. ZEUS verification status is disputed, and the heartbeat trend is flat within a wider 0.63-0.92 band. Forward signal: watch whether environmental strength can hold if USGS water stress and cross-domain anomalies persist into the next cycle.",
+  "forward_signal": "Watch whether environmental strength can hold if USGS water stress and cross-domain anomalies persist into the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "flat",
+  "anomalies": [
+    "USGS water conditions [elevated]",
+    "ArXiv new submissions [elevated]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
