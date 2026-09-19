@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-09-19T03:20:08.649Z",
+  "agent": "AUREA",
+  "cycle": "C-438",
+  "gi_final": 0.65,
+  "gi_mode": "yellow",
+  "gi_source": "unknown",
+  "gi_range_24h": {
+    "min": 0.7,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.76,
+  "financial_score": 0.609,
+  "environ_score": 0.83,
+  "civic_score": 0.783,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.65. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL at 0.926 while OpenLibrary API health [elevated], Federal Register rule count [elevated], and Cloudflare infrastructure status [watch]. ZEUS verification status is disputed, and the heartbeat trend is rising within a 0.7-0.9 band. Forward signal: watch whether the rising ATLAS heartbeat can lift live GI out of yellow once freshness stabilizes in the next cycle.",
+  "forward_signal": "Watch whether the rising ATLAS heartbeat can lift live GI out of yellow once freshness stabilizes in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "rising",
+  "anomalies": [
+    "OpenLibrary API health [elevated]",
+    "Federal Register rule count [elevated]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
