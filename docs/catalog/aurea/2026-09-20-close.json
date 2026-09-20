@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-09-20T03:19:14Z",
+  "agent": "AUREA",
+  "cycle": "C-439",
+  "gi_final": 0.82,
+  "gi_mode": "green",
+  "gi_source": "unknown",
+  "gi_range_24h": {
+    "min": 0.64,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.765,
+  "financial_score": 0.735,
+  "environ_score": 0.83,
+  "civic_score": 0.783,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.82. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL at 0.926 while ArXiv and GovTrack stayed elevated and Cloudflare remained on watch. ZEUS verification status is disputed, and the heartbeat trend is volatile within a 0.64-0.92 band. Forward signal: watch whether the ATLAS rebound to 0.79 holds into the next cycle or slips back toward the 0.64 floor under anomaly pressure.",
+  "forward_signal": "Watch whether the ATLAS rebound to 0.79 holds into the next cycle or slips back toward the 0.64 floor under anomaly pressure.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    "ArXiv new submissions [elevated]",
+    "GovTrack legislation feed [elevated]",
+    "Cloudflare infrastructure status [watch]"
+  ],
+  "quorum_attested": true
+}
