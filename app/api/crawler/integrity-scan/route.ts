@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireWriteAuth } from '@/lib/auth/agent-write-auth';
 import { auditPublicSource, auditToRawEvent, type SourceAuditPurpose } from '@/lib/crawler/sourceAuditor';
 import { currentCycleId } from '@/lib/eve/cycle-engine';
+import { withEgressContext } from '@/lib/net/egress';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,7 +78,14 @@ export async function POST(request: NextRequest) {
     ? payload.cycle.trim()
     : currentCycleId();
 
-  const audit = await auditPublicSource(rawUrl, purpose);
+  // C-442: this is the one AGENT_SELECTED egress path in the codebase — the
+  // destination is a runtime parameter, not fixed by code. Tag it so the
+  // NET_EGRESS receipt this fetch produces is attributed, instead of
+  // defaulting to actor: SYSTEM / trigger: unknown like most call sites.
+  const audit = await withEgressContext(
+    { actor: 'HERMES', trigger: 'agent', reason: `integrity_source_audit:${purpose}`, expected_destination: 'unknown' },
+    () => auditPublicSource(rawUrl, purpose),
+  );
   const epicon_event = auditToRawEvent(audit, cycle);
 
   return NextResponse.json({
