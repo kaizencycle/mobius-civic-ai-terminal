@@ -116,6 +116,24 @@ export function classifyCredential(headers: HeadersInit | undefined, host: strin
   return 'none';
 }
 
+/**
+ * `AbortSignal.timeout()` rejects fetch with a `TimeoutError` DOMException
+ * directly in some runtimes, but Node's undici often wraps it in a
+ * `TypeError: fetch failed` with the real reason on `.cause` — this checks
+ * both shapes so a GDELT-style timeout (the exact C-442 evidence trigger)
+ * is honestly recorded as `result: 'timeout'` rather than a generic 'error'.
+ */
+function isTimeoutError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === 'TimeoutError') return true;
+  if (err instanceof Error) {
+    if (err.name === 'TimeoutError') return true;
+    const cause = (err as { cause?: unknown }).cause;
+    if (cause instanceof DOMException && cause.name === 'TimeoutError') return true;
+    if (cause instanceof Error && cause.name === 'TimeoutError') return true;
+  }
+  return false;
+}
+
 export function safeDestination(rawUrl: string): { host: string; path: string } {
   try {
     const u = new URL(rawUrl, 'http://internal.invalid');
@@ -174,7 +192,7 @@ export function createInstrumentedFetch(getContext: () => NetEgressContext): typ
       if (!response.ok) result = 'error';
     } catch (err) {
       thrown = err;
-      result = err instanceof DOMException && err.name === 'TimeoutError' ? 'timeout' : 'error';
+      result = isTimeoutError(err) ? 'timeout' : 'error';
     }
 
     const authorityFields = resolveAuthorityFields(host);

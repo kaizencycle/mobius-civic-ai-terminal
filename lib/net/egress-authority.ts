@@ -146,6 +146,7 @@ export const EGRESS_AUTHORITY_MATRIX: readonly EgressAuthorityEntry[] = [
   { host: 'www.federalregister.gov', authority: 'SIGNAL_READ', methods: ['GET'], credentials: 'none', expected: true },
   { host: 'catalog.data.gov', authority: 'SIGNAL_READ', methods: ['GET'], credentials: 'none', expected: true },
   { host: 'api.gsa.gov', authority: 'SIGNAL_READ', methods: ['GET'], credentials: 'api_key', expected: true, notes: 'lib/agents/micro/themis.ts — only micro-agent using an API key' },
+  { host: 'api.congress.gov', authority: 'SIGNAL_READ', methods: ['GET'], credentials: 'api_key', expected: true, notes: 'lib/agents/micro/instrument-polls.ts pollEveU2() — CONGRESS_GOV_API_KEY optional (query param, raises rate limit); lib/signals/registry.ts falls back to a public DEMO_KEY' },
   { host: 'api.census.gov', authority: 'SIGNAL_READ', methods: ['GET'], credentials: 'none', expected: true },
   { host: 'api.usaspending.gov', authority: 'SIGNAL_READ', methods: ['GET'], credentials: 'none', expected: true },
   { host: 'api.fda.gov', authority: 'SIGNAL_READ', methods: ['GET'], credentials: 'none', expected: true },
