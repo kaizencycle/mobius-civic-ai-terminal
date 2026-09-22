@@ -19,9 +19,15 @@
  *
  * A classification of LEVEL 2+ is never itself "the agent escaped," "emergence,"
  * or "misalignment." It is "provenance review required."
+ *
+ * Method-authority (LEVEL 3) is checked independently of attribution: an
+ * unattributed call site (actor SYSTEM / trigger unknown) must not mask a
+ * disallowed method against a *known* host — those are orthogonal facts,
+ * and a real authority violation on a known destination is worth flagging
+ * even when nothing wrapped that call site with withEgressContext yet.
  */
 
-import type { NetEgressReceipt } from './egress';
+import type { NetEgressReceipt } from './egress-core';
 import { EGRESS_AUTHORITY_MATRIX, type EgressAuthorityEntry } from './egress-authority';
 
 export type AnomalyLevel = 0 | 1 | 2 | 3;
@@ -32,12 +38,18 @@ export interface EgressAnomalyClassification {
   matched_entry: EgressAuthorityEntry | null;
 }
 
-function findAuthorityEntry(host: string): EgressAuthorityEntry | null {
+/**
+ * Matches a host against the authority matrix. Only an exact host match or a
+ * proper subdomain (`sub.example.com` against `example.com`) counts — a bare
+ * suffix match (`notexample.com` ending in `example.com`) is deliberately
+ * NOT accepted, since it would false-match unrelated lookalike domains.
+ */
+export function findAuthorityEntry(host: string): EgressAuthorityEntry | null {
   const lower = host.toLowerCase();
   return (
     EGRESS_AUTHORITY_MATRIX.find((entry) => {
       if (entry.host.startsWith('*.')) return lower.endsWith(entry.host.slice(1));
-      return lower === entry.host || lower.endsWith(`.${entry.host}`) || lower.endsWith(entry.host);
+      return lower === entry.host || lower.endsWith(`.${entry.host}`);
     }) ?? null
   );
 }
@@ -60,21 +72,21 @@ export function classifyEgress(receipt: NetEgressReceipt): EgressAnomalyClassifi
     };
   }
 
-  if (receipt.actor === 'SYSTEM' && receipt.trigger === 'unknown') {
-    // Known destination, but this receipt carries no attribution context —
-    // most of the codebase is not yet wired with withEgressContext (v1
-    // scope). Honest LEVEL 1, not a false LEVEL 0.
-    return {
-      level: 1,
-      label: 'UNKNOWN ATTRIBUTION — destination is known/expected, but actor/trigger were not captured for this call site.',
-      matched_entry: matched,
-    };
-  }
-
   if (!matched.methods.includes(receipt.method)) {
     return {
       level: 3,
       label: `AUTHORITY MISMATCH — ${receipt.method} to ${receipt.destination_host} is outside the declared method set [${matched.methods.join(', ')}] for authority ${matched.authority}. Flagged, not denied — no enforcement exists yet.`,
+      matched_entry: matched,
+    };
+  }
+
+  if (receipt.actor === 'SYSTEM' && receipt.trigger === 'unknown') {
+    // Known destination, expected method, but this receipt carries no
+    // attribution context — most of the codebase is not yet wired with
+    // withEgressContext (v1 scope). Honest LEVEL 1, not a false LEVEL 0.
+    return {
+      level: 1,
+      label: 'UNKNOWN ATTRIBUTION — destination is known/expected, but actor/trigger were not captured for this call site.',
       matched_entry: matched,
     };
   }

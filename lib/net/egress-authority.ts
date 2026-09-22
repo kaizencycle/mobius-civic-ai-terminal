@@ -99,6 +99,14 @@ export const EGRESS_AUTHORITY_MATRIX: readonly EgressAuthorityEntry[] = [
     expected: true,
     notes: 'app/api/cron/swarm — default OPENAI_COMPAT_BASE_URL, tier-1',
   },
+  {
+    host: 'api.perplexity.ai',
+    authority: 'LLM_INFERENCE',
+    methods: ['POST'],
+    credentials: 'api_key',
+    expected: true,
+    notes: 'lib/signals/perplexity-sonar.ts — querySonar(), PERPLEXITY_API_KEY sent as a Bearer token',
+  },
 
   // ── Slack ──────────────────────────────────────────────────────────────
   {
