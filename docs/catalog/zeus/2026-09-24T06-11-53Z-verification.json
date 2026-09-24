@@ -1,0 +1,99 @@
+{
+  "timestamp": "2026-09-24T06:11:53.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-444",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "gaia-noaa-alerts": "persistent",
+    "gaia-usgs-water": "persistent",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE] status=achieved seal_status=receipt_quorum_only seal_eligibility=blocked execution_authorized=false",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-24T05-03-20-529Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-24T05-03-20-529Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.78/yellow source=kv classification=STRESSED terminal_status=stressed cycle=C-444; anomalies=[gaia-noaa-alerts watch, gaia-usgs-water elevated, themis-govtrack elevated, daedalus-cloudflare-radar watch]; kv_keys_all_ok=false kv_diagnostic_ok=false diagnostic_present=16/19; sustain_eligible=true; micro_composite=0.862; degraded_agents=3 [JADE,DAEDALUS,EVE]; tripwire inactive; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.869 composite=0.869 instrumentCount=40 cached=false cycle=C-444 fallbacksUsed=3 errors=2. gaia-noaa-alerts score=0.6 source=primary watch — persistent (matches ATLAS). gaia-usgs-water score=0 source=error — persistent (matches ATLAS elevated). themis-govtrack score=0 source=error — persistent (matches ATLAS elevated). daedalus-cloudflare-radar score=0.7 source=primary watch — persistent (matches ATLAS)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv cycle=C-444 gi_provenance=kv-live. Not mock — KV path active. degraded=true execution_authorized=false. operational_classification=STRESSED tripwire_state=clear sustain_eligible=true freshness_class=stale cache_age_seconds=571 signals.quality=0.78 signals.freshness=0.6."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "GI TRIANGULATION: ATLAS gi=0.78/yellow/kv at 05:03Z vs integrity gi=0.82/green/kv-live at 06:02Z (delta 0.04). ATLAS micro_composite=0.862 vs live micro gi=0.869 at 06:11Z (delta 0.007). mode diverges: ATLAS yellow vs integrity green. terminal_status diverges: ATLAS stressed vs integrity nominal."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv gi_provenance=kv-live authority.kv_backed=true (not mock) — KV seed failure mock path not active."
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire inactive at 05:03Z; integrity tripwire_state=clear at 06:02Z. Tripwire states aligned."
+    },
+    {
+      "check": "terminal_status alignment",
+      "result": "warn",
+      "detail": "ATLAS terminal_status=stressed at 05:03Z; integrity terminal_status=nominal at 06:02Z. Diverges."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys_all_ok=false despite kv_keys_ok=true and seed 200 OK; diagnostic_present=16 diagnostic_required=19."
+    },
+    {
+      "check": "live instrument: gaia-noaa-alerts",
+      "result": "warn",
+      "detail": "Persistent watch — score=0.6 source=primary at 06:11Z. Matches ATLAS watch anomaly."
+    },
+    {
+      "check": "live instrument: themis-govtrack",
+      "result": "fail",
+      "detail": "Persistent failure — score=0 source=error (primary failed with retry, latencyMs=8003) at 06:11Z; matches ATLAS elevated at 05:03Z."
+    },
+    {
+      "check": "live instrument: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "Persistent watch — score=0.7 source=primary at 06:11Z. Matches ATLAS watch anomaly."
+    },
+    {
+      "check": "live instrument: gaia-usgs-water",
+      "result": "warn",
+      "detail": "Persistent — score=0 source=error (primary failed with retry, latencyMs=4324) at 06:11Z; matches ATLAS elevated at 05:03Z."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-444 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE]. seal_status=receipt_quorum_only seal_eligibility=blocked execution_authorized=false."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-444-lpbonx mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "GI disputed: spread ATLAS 0.78/yellow vs integrity 0.82/green (stale KV, freshness_class=stale) vs live micro 0.869. Reconcile ATLAS terminal_status=stressed vs integrity nominal. Investigate persistent GovTrack and USGS water primary failures and NOAA alerts / Cloudflare radar watch lanes. Restore missing KV diagnostic keys (16/19). degraded=true execution_authorized=false — quorum 5/5 achieved (receipt_quorum_only, seal blocked)."
+}
