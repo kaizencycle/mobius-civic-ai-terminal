@@ -1,0 +1,99 @@
+{
+  "timestamp": "2026-09-24T12:04:16.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-444",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "gaia-noaa-alerts": "persistent",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-usgs-water": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 \u2014 attestations_received=5 attestations_needed=5 attested_agents=['ATLAS', 'ZEUS', 'EVE', 'AUREA', 'JADE'] status=achieved seal_status=receipt_quorum_only seal_eligibility=blocked execution_authorized=False",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-24T11-07-55Z-atlas.json",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-24T11-07-55Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.789/yellow source=kv classification=STRESSED terminal_status=stressed cycle=C-444; anomalies=[('gaia-noaa-alerts', 'watch'), ('themis-govtrack', 'elevated'), ('daedalus-cloudflare-radar', 'watch')]; kv_keys_all_ok=False kv_diagnostic_ok=False diagnostic_present=18/19; micro_composite=0.881; degraded_agents=3 ['JADE', 'DAEDALUS', 'EVE']; seed_result=200 OK."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 ok=true gi=0.826 composite=0.826 instrumentCount=40 cached=False cycle=C-444 fallbacksUsed=3 errors=3. gaia-noaa-alerts score=0.6 source=primary watch \u2014 persistent. themis-govtrack score=0 source=error \u2014 persistent. daedalus-cloudflare-radar score=0.7 source=primary watch \u2014 persistent. gaia-usgs-water score=0 source=error \u2014 persistent (live) though absent from latest ATLAS anomaly list."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.79 mode=yellow terminal_status=stressed source=kv cycle=C-444 gi_provenance=live-compute. Not mock \u2014 KV path active. degraded=True execution_authorized=False. operational_classification=STRESSED tripwire_state=clear sustain_eligible=True freshness_class=stale cache_age_seconds=132."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "GI TRIANGULATION: ATLAS gi=0.789/yellow vs integrity gi=0.79/yellow (delta 0.001). ATLAS micro_composite=0.881 vs live micro gi=0.826 (delta 0.055). mode aligned; terminal_status aligned stressed."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv gi_provenance=live-compute authority.kv_backed=true (not mock) \u2014 KV seed failure mock path not active."
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire inactive; integrity tripwire_state=clear. Aligned clear/inactive."
+    },
+    {
+      "check": "terminal_status alignment",
+      "result": "pass",
+      "detail": "ATLAS terminal_status=stressed; integrity terminal_status=stressed. Aligned."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent: kv_keys_all_ok=false despite kv_keys_ok=true; diagnostic_present=18 diagnostic_required=19."
+    },
+    {
+      "check": "live instrument: gaia-noaa-alerts",
+      "result": "warn",
+      "detail": "score=0.6 source=primary latencyMs=646 error=None \u2014 persistent."
+    },
+    {
+      "check": "live instrument: themis-govtrack",
+      "result": "fail",
+      "detail": "score=0 source=error latencyMs=8004 error=primary failed (with retry) \u2014 persistent."
+    },
+    {
+      "check": "live instrument: daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "score=0.7 source=primary latencyMs=29 error=None \u2014 persistent."
+    },
+    {
+      "check": "live instrument: gaia-usgs-water",
+      "result": "fail",
+      "detail": "score=0 source=error latencyMs=9479 error=primary failed (with retry) \u2014 persistent."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-444 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=['ATLAS', 'ZEUS', 'EVE', 'AUREA', 'JADE']. seal_status=receipt_quorum_only seal_eligibility=blocked execution_authorized=False."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-444-2wa2ew mirrored_to_kv=true canonical=true."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS micro_composite=0.881 vs live micro gi=0.826; fix GovTrack and USGS water primary failures; restore KV diagnostic keys (18/19). degraded=true execution_authorized=false \u2014 quorum 5/5 receipt only, seal blocked."
+}
