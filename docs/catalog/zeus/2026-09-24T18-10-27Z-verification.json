@@ -18,12 +18,12 @@
   "candidates_contested": 0,
   "quorum_attestation_sent": true,
   "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE] status=achieved seal_status=receipt_quorum_only seal_eligibility=blocked execution_authorized=false",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-24T16-13-54Z-atlas.json",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-24T17-15-36Z-atlas.json",
   "findings": [
     {
-      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-24T16-13-54Z-atlas.json",
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-24T17-15-36Z-atlas.json",
       "result": "pass",
-      "detail": "gi=0.794/yellow source=kv classification=STRESSED terminal_status=stressed cycle=C-444; anomalies=[gaia-noaa-alerts watch, gaia-usgs-water elevated, hermes-openlibrary elevated, themis-govtrack elevated, daedalus-cloudflare-radar watch]; kv_keys_all_ok=false kv_diagnostic_ok=false diagnostic_present=16/19; sustain_eligible=true; micro_composite=0.854; degraded_agents=3; tripwire inactive; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]."
+      "detail": "gi=0.75/yellow source=kv classification=STRESSED terminal_status=stressed cycle=C-444; anomalies=[gaia-noaa-alerts elevated, hermes-arxiv elevated, themis-govtrack elevated]; kv_keys_all_ok=false kv_diagnostic_ok=false diagnostic_present=16/19; sustain_eligible=true; micro_composite=0.86; degraded_agents=3; tripwire inactive; seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]. (Also reviewed prior heartbeat 2026-09-24T16-13-54Z-atlas.json during pass.)"
     },
     {
       "check": "GET /api/signals/micro (production)",
@@ -38,7 +38,7 @@
     {
       "check": "gi_alignment",
       "result": "warn",
-      "detail": "GI TRIANGULATION: ATLAS gi=0.794/yellow/kv at 16:13Z vs integrity gi=0.81/green/kv-live-compute at 18:01Z (delta 0.016). ATLAS micro_composite=0.854 vs live micro gi=0.866 at 18:10Z (delta 0.012). mode diverges: ATLAS yellow vs integrity green. terminal_status diverges: ATLAS stressed vs integrity nominal."
+      "detail": "GI TRIANGULATION: ATLAS gi=0.75/yellow/kv at 17:15Z vs integrity gi=0.81/green/kv-live-compute at 18:01Z (delta 0.06). ATLAS micro_composite=0.86 vs live micro gi=0.866 at 18:10Z (delta 0.006). mode diverges: ATLAS yellow vs integrity green. terminal_status diverges: ATLAS stressed vs integrity nominal."
     },
     {
       "check": "integrity source mock",
@@ -101,5 +101,5 @@
       "detail": "HTTP 200 entry_id=journal-ZEUS-C-444-70hnth mirrored_to_kv=true canonical=true."
     }
   ],
-  "recommendation": "GI disputed: ATLAS 0.794/yellow vs integrity 0.81/green (stale KV, freshness_class=stale) vs live micro 0.866. Reconcile ATLAS terminal_status=stressed vs integrity nominal. gaia-usgs-water and themis-govtrack recovered live; monitor persistent NOAA alerts, Cloudflare radar watch, and HERMES openlibrary/crossref failures. Restore missing KV diagnostic keys (16/19). degraded=true execution_authorized=false — quorum 5/5 achieved (receipt_quorum_only, seal blocked)."
+  "recommendation": "GI disputed: ATLAS 0.75/yellow vs integrity 0.81/green (stale KV, freshness_class=stale) vs live micro 0.866. Reconcile ATLAS terminal_status=stressed vs integrity nominal. gaia-usgs-water and themis-govtrack recovered live vs latest ATLAS snapshot; monitor persistent NOAA alerts, Cloudflare radar watch, and HERMES openlibrary/crossref failures. Restore missing KV diagnostic keys (16/19). degraded=true execution_authorized=false — quorum 5/5 achieved (receipt_quorum_only, seal blocked)."
 }
