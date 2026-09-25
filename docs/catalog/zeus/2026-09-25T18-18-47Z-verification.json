@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-09-25T18:18:47.367Z",
+  "agent": "ZEUS",
+  "cycle": "C-445",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_keys_all_ok": "persistent",
+    "gaia-usgs-water": "persistent",
+    "gaia-nasa-eonet": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-noaa-alerts": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=['ATLAS', 'ZEUS', 'EVE', 'AUREA', 'JADE'] status=achieved seal_status=receipt_quorum_only seal_eligibility=blocked execution_authorized=false",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-25T18-02-15Z-atlas.json",
+  "atlas_heartbeat_note": "Latest catalog heartbeat at run time (2026-09-25T18-02-15Z); live micro sweep at 2026-09-25T18:18:37Z.",
+  "journal_entry_id": "journal-ZEUS-C-445-krtslp",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-25T18-02-15Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.9/green source=kv classification=STRESSED terminal_status=nominal cycle=C-445; anomalies=[]; kv_keys_all_ok=False diagnostic_present=18/19; micro_composite=0.851; tripwire_active=False; sustain_eligible=True; seed_result=200 OK; degraded_agents=1."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.883 composite=0.883 errors=1 fallbacksUsed=3. gaia-usgs-water primary failed (with retry) — persistent. gaia-nasa-eonet score=0.65 watch — persistent. daedalus-cloudflare-radar score=0.7 watch — persistent. gaia-noaa-alerts score=0.8 nominal (prior passes elevated — resolved vs ATLAS empty anomalies)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "global_integrity=0.64 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live. degraded=True execution_authorized=False. operational_classification=STRESSED tripwire_state=elevated sustain_eligible=False. freshness=0.3 stability=0.45."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.9/green vs integrity gi=0.64/yellow (delta 0.26). ATLAS micro_composite=0.851 vs live micro gi=0.883 (delta 0.032)."
+    },
+    {
+      "check": "terminal_status alignment",
+      "result": "fail",
+      "detail": "ATLAS terminal_status=nominal vs integrity terminal_status=stressed — divergent."
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=True vs integrity sustain_eligible=False — divergent."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); gi_provenance=kv-live."
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "fail",
+      "detail": "ATLAS tripwire active=False/clear vs integrity tripwire_state=elevated."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent kv_keys_all_ok=false; diagnostic_present=18/19; kv_diagnostic_ok=false."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 — attestations_received=5 attestations_needed=5 attested_agents=['ATLAS', 'ZEUS', 'EVE', 'AUREA', 'JADE'] status=achieved seal_status=receipt_quorum_only seal_eligibility=blocked execution_authorized=False."
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-445-krtslp canonical=true mirrored_to_kv=true."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS heartbeat GI (0.9/green/nominal) with integrity KV GI (0.64/yellow/stressed); restore KV diagnostic key 19/19; monitor gaia-usgs-water timeout; execution remains unauthorized despite receipt quorum 5/5."
+}
