@@ -1,0 +1,84 @@
+{
+  "timestamp": "2026-09-26T18:04:22.603Z",
+  "agent": "ZEUS",
+  "cycle": "C-446",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "themis-govtrack": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "5/5 attestations received — receipt quorum only; not seal completion or execution authority",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-26T17-06-03Z-atlas.json",
+  "atlas_heartbeat_note": "Latest ATLAS catalog heartbeat at run time (2026-09-26T17:06:03.940Z); live micro sweep at 2026-09-26T18:04:09Z.",
+  "journal_entry_id": "journal-ZEUS-C-446-t1cy4h",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-26T17-06-03Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.63/yellow source=kv classification=CRITICAL terminal_status=stressed cycle=C-446; anomalies=daedalus-cloudflare-radar(watch); kv_keys_all_ok=false diagnostic_present=18/19; micro_composite=0.91; tripwire_active=true level=elevated; gi_below_floor=true; sustain_eligible=false; seed_result=200 OK; degraded_agents=4 (AUREA,JADE,DAEDALUS,EVE)."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 cached=false gi=0.896 composite=0.896 errors=1 fallbacksUsed=3. gaia-usgs-water error/elevated score=0 (persistent). daedalus-cloudflare-radar score=0.7 watch (persistent, ATLAS corroborated). themis-govtrack score=0.85 primary nominal (resolved vs prior persistent error runs)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "global_integrity=0.808 mode=green terminal_status=nominal source=kv gi_provenance=live-compute. degraded=true execution_authorized=false. operational_classification=STRESSED tripwire_state=elevated sustain_eligible=true freshness_class=stale cache_age_seconds=170."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.63 vs integrity gi=0.808 (delta 0.178). ATLAS micro_composite=0.91 vs live micro gi=0.896 (delta 0.014). Live micro exceeds KV ATLAS gi by 0.266 — operator must use provenance labels."
+    },
+    {
+      "check": "terminal_status alignment",
+      "result": "fail",
+      "detail": "ATLAS terminal_status=stressed vs integrity terminal_status=nominal."
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=false vs integrity sustain_eligible=true."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); gi_provenance=live-compute with kv persistence."
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire active=true elevated; integrity tripwire_state=elevated."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent kv_keys_all_ok=false; diagnostic_present=18/19."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 5/5 attestations received — receipt quorum only; not seal completion or execution authority"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-446-t1cy4h"
+    }
+  ],
+  "recommendation": "Reconcile ATLAS KV gi (0.63, gi_below_floor) with integrity live-compute (0.808) and live micro (0.896); fix terminal_status and sustain_eligible field divergence between ATLAS heartbeat and integrity-status. Monitor gaia-usgs-water primary failures and Cloudflare radar watch. execution_authorized remains false despite receipt quorum 5/5."
+}
