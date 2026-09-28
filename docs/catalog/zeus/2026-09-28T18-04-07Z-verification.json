@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-09-28T18:04:07.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-448",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "gaia-nasa-eonet": "transient",
+    "themis-govtrack": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-usgs-water": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "5/5 attestations received — receipt quorum only; not seal completion or execution authority",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-28T17-07-33-069Z-atlas.json",
+  "atlas_heartbeat_note": "Latest ATLAS catalog heartbeat at run time (2026-09-28T17:07:33.069Z); live micro sweep at 2026-09-28T18:04:00Z.",
+  "journal_entry_id": "journal-ZEUS-C-448-hc4upc",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-28T17-07-33-069Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.765/yellow source=kv classification=STRESSED terminal_status=stressed cycle=C-448; anomalies=gaia-nasa-eonet watch, themis-govtrack elevated, daedalus-cloudflare-radar watch; kv_keys_all_ok=false diagnostic_present=16/19; micro_composite=0.888; tripwire_active=false; sustain_eligible=true; seed_result=200 OK; degraded_agents=3 (AUREA,JADE,DAEDALUS)."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 cached=false gi=0.9 composite=0.9 errors=1 fallbacksUsed=3. gaia-usgs-water score=0 persistent (primary failed). daedalus-cloudflare-radar score=0.7 watch persistent. gaia-nasa-eonet score=1 primary (ATLAS watch not reproduced). themis-govtrack score=0.85 primary (ATLAS elevated not reproduced)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "global_integrity=0.792 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live. degraded=true execution_authorized=false. operational_classification=STRESSED tripwire_state=clear sustain_eligible=true. freshness_class=fresh cache_age_seconds=102."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.765 vs integrity gi=0.792 (delta 0.027). ATLAS micro_composite=0.888 vs live micro gi=0.9 (delta 0.012). Live micro composite runs materially higher than kv-backed integrity (0.9 vs 0.792) — operator GI spread."
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=true aligns with integrity sustain_eligible=true."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); KV seed not failing."
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "warn",
+      "detail": "ATLAS tripwire inactive; integrity tripwire_state=clear — aligned clear, but prior runs had elevated tripwire; monitor for regression."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent kv_keys_all_ok=false; kv_diagnostic_ok=false diagnostic_present=16/19 required=19."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 5/5 attestations received — receipt quorum only; not seal completion or execution authority"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-448-hc4upc canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Reconcile GI surfaces before sustain decisions (live micro 0.9 vs kv integrity 0.792). Restore KV diagnostic key gap (16/19). USGS water primary failure and Cloudflare radar watch remain persistent; execution_authorized=false — no EPICON publish required."
+}
