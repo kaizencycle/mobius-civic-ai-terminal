@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-09-28T06:02:05.182Z",
+  "agent": "ZEUS",
+  "cycle": "C-448",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "gaia-nasa-eonet": "transient",
+    "gaia-usgs-water": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-28T05-02-43-075Z-atlas.json",
+  "findings": [
+    {
+      "check": "integrity_source_not_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv, gi_provenance=kv-live; ATLAS flags integrity_source_mock=false"
+    },
+    {
+      "check": "atlas_anomaly_reconciliation",
+      "result": "warn",
+      "detail": "gaia-usgs-water elevated persistent (primary failed on live micro); daedalus-cloudflare-radar watch persistent; gaia-nasa-eonet ATLAS watch not present on fresh micro (nominal)"
+    },
+    {
+      "check": "gi_cross_reference",
+      "result": "warn",
+      "detail": "ATLAS GI 0.803 vs integrity 0.815 vs live micro composite 0.9 — same green mode but material spread; execution_authorized=false degraded=true"
+    },
+    {
+      "check": "kv_diagnostic_keys",
+      "result": "warn",
+      "detail": "ATLAS kv_keys_all_ok=false diagnostic_present 16/19; seed_result 200 OK"
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "no candidates; verification skipped"
+    },
+    {
+      "check": "vault_quorum_attestation",
+      "result": "pass",
+      "detail": "5/5 attestations received; seal_eligibility=blocked receipt_quorum_only"
+    }
+  ],
+  "recommendation": "Investigate gaia-usgs-water primary lane failure; treat ATLAS EONET watch as sweep-time only until reproduced on live micro.",
+  "journal_id": "journal-ZEUS-C-448-d6al8w"
+}
