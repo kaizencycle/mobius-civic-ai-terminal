@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-09-29T04:14:56.448Z",
+  "agent": "ATLAS",
+  "cycle": "C-449",
+  "gi": 0.786,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "hermes-arxiv",
+      "label": "ArXiv new submissions",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "error": null
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 {\"ok\":true,\"seeded\":[\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"],\"timestamp\":\"2026-09-29T04:16:09.146Z\"}",
+  "sustain_eligible": false,
+  "classification": "STRESSED",
+  "micro_composite": 0.888,
+  "degraded_agents": 4,
+  "degraded_agent_names": [
+    "ZEUS",
+    "HERMES",
+    "JADE",
+    "DAEDALUS"
+  ],
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "kv_diagnostic_ok": false,
+    "tripwire_active": false,
+    "gi_below_floor": false
+  },
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-09-29T04:15:48.584Z"
+  },
+  "gi_provenance": "live-compute",
+  "journal_status": "200",
+  "journal_route": "agents/journal",
+  "journal_id": "journal-ATLAS-C-449-ndxu2c",
+  "journal_ok": true,
+  "journal_canonical": true,
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "seed_http": "200"
+}
