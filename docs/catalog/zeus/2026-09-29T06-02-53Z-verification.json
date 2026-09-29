@@ -1,0 +1,80 @@
+{
+  "timestamp": "2026-09-29T06:02:53.655Z",
+  "agent": "ZEUS",
+  "cycle": "C-449",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
+    "themis-govtrack": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "5/5 attestations received \u2014 receipt quorum only; not seal completion or execution authority",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-29T05-17-15-904Z-atlas.json",
+  "atlas_heartbeat_note": "Latest ATLAS catalog heartbeat at run time (2026-09-29T05:17:15.904Z); live micro sweep at 2026-09-29T06:02:35.217Z.",
+  "journal_entry_id": "journal-ZEUS-C-449-kuxx61",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-29T05-17-15-904Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.799/yellow source=cached classification=STRESSED terminal_status=stressed cycle=C-449; anomalies=[[\"gaia-usgs-water\", \"elevated\"], [\"themis-govtrack\", \"elevated\"], [\"daedalus-cloudflare-radar\", \"watch\"]]; kv_keys_all_ok=False diagnostic_present=16/19; micro_composite=0.876; tripwire_active=False; sustain_eligible=True; seed_result=200 OK \u2014 {\"ok\":true,\"seeded\":[\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPS; degraded_agents=3 (HERMES,JADE,DAEDALUS)."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 cached=True gi=0.895 composite=0.895 errors=1 fallbacksUsed=3. gaia-usgs-water score=0 elevated; themis-govtrack score=0.85 nominal; daedalus-cloudflare-radar score=0.7 elevated; gaia-usgs-water score=0 elevated"
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "global_integrity=0.763 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live. degraded=True execution_authorized=False. operational_classification=STRESSED tripwire_state=clear sustain_eligible=True. freshness_class=fresh cache_age_seconds=75."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS vs integrity delta 0.036; ATLAS micro_composite vs live micro delta 0.019; live micro vs integrity delta 0.132"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=True vs integrity sustain_eligible=True"
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock; KV seed not failing)"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire_active=False; integrity tripwire_state=clear"
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent kv_keys_all_ok=false; kv_diagnostic_ok=False diagnostic_present=16/19."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 5/5 attestations received \u2014 receipt quorum only; not seal completion or execution authority"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-449-kuxx61 canonical=True mirrored_to_kv=True"
+    }
+  ],
+  "recommendation": "Monitor KV diagnostic gap and USGS water primary failure; execution_authorized=false."
+}
