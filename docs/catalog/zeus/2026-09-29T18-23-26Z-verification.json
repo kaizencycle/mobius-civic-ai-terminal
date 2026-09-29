@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-09-29T18:23:26.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-449",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "gaia-noaa-alerts": "persistent",
+    "themis-govtrack": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_diagnostic_gap": "persistent",
+    "sustain_eligible_divergence": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "5/5 attestations received — receipt quorum only; not seal completion or execution authority",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-29T18-12-23-330Z-atlas.json",
+  "atlas_heartbeat_note": "Latest ATLAS catalog heartbeat on main at run time (2026-09-29T18:12:23.330Z); live micro sweep at 2026-09-29T18:23:13.346Z.",
+  "journal_entry_id": "journal-ZEUS-C-449-06cz7f",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-29T18-12-23-330Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.73/yellow source=kv classification=STRESSED terminal_status=stressed cycle=C-449; anomalies=gaia-noaa-alerts watch, themis-govtrack elevated, daedalus-cloudflare-radar watch; kv_keys_all_ok=false kv_diagnostic_ok=false diagnostic_present=18/19; micro_composite=0.881; tripwire_active=false; sustain_eligible=false; seed_result=200 OK; degraded_agents=3 (AUREA,JADE,DAEDALUS)."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 cached=false gi=0.901 composite=0.901 errors=0 fallbacksUsed=3. gaia-noaa-alerts score=0.6 watch persistent. daedalus-cloudflare-radar score=0.7 watch persistent. themis-govtrack score=0.85 nominal (ATLAS elevated not reproduced)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "global_integrity=0.9 mode=green terminal_status=nominal source=kv gi_provenance=kv-live. degraded=true execution_authorized=false. operational_classification=STRESSED tripwire_state=clear sustain_eligible=true. freshness_class=stale cache_age_seconds=528."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.73 vs integrity gi=0.9 (delta 0.17). ATLAS micro_composite=0.881 vs live micro gi=0.901 (delta 0.02). ATLAS heartbeat GI materially below kv-live integrity and live micro — operator GI spread."
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=false vs integrity sustain_eligible=true — sustain gate disagreement; do not treat sustain as cleared on heartbeat alone."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); KV seed not failing."
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire_active=false; integrity tripwire_state=clear — aligned clear."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent kv_keys_all_ok=false; kv_diagnostic_ok=false diagnostic_present=18/19 required=19."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 5/5 attestations received — receipt quorum only; not seal completion or execution authority"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-449-06cz7f canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Reconcile ATLAS heartbeat GI (0.73) with kv-live integrity (0.9) and live micro (0.901) before sustain decisions; honor sustain_eligible=false on ATLAS until aligned. Restore KV diagnostic key gap (18/19). NOAA alerts and Cloudflare radar watches persistent; GovTrack elevated transient on live micro. execution_authorized=false — no EPICON publish required."
+}
