@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-09-29T00:02:13.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-448",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-usgs-water": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "5/5 attestations received — receipt quorum only; not seal completion or execution authority",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-28T23-18-03-456Z-atlas.json",
+  "atlas_heartbeat_note": "Latest ATLAS catalog heartbeat at run time (2026-09-28T23:18:03.456Z); live micro sweep at 2026-09-29T00:02:00Z.",
+  "journal_entry_id": "journal-ZEUS-C-448-zqlrxv",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-28T23-18-03-456Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.797/yellow source=cached classification=STRESSED terminal_status=stressed cycle=C-448; anomalies=daedalus-cloudflare-radar watch; kv_keys_all_ok=false diagnostic_present=16/19; micro_composite=0.911; tripwire_active=true level=elevated; sustain_eligible=false; seed_result=200 OK; degraded_agents=3 (AUREA,DAEDALUS,JADE)."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 cached=false gi=0.895 composite=0.895 errors=1 fallbacksUsed=3. daedalus-cloudflare-radar score=0.7 watch persistent (matches ATLAS). gaia-usgs-water score=0 error persistent (primary failed, not listed in ATLAS anomalies)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "global_integrity=0.778 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live. degraded=true execution_authorized=false. operational_classification=STRESSED tripwire_state=elevated sustain_eligible=true. freshness_class=fresh cache_age_seconds=6."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.797 vs integrity gi=0.778 (delta 0.019). ATLAS micro_composite=0.911 vs live micro gi=0.895 (delta 0.016). Live micro composite runs materially higher than kv-backed integrity (0.895 vs 0.778) — operator GI spread."
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=false vs integrity sustain_eligible=true — disputed governance surface."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); KV seed not failing."
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire active elevated (Hormuz Transit Fee Risk) aligns with integrity tripwire_state=elevated."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent kv_keys_all_ok=false; kv_diagnostic_ok=false diagnostic_present=16/19 required=19."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 5/5 attestations received — receipt quorum only; not seal completion or execution authority"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-448-zqlrxv canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Reconcile sustain_eligible (ATLAS false vs integrity true) before sustain decisions. Reconcile GI surfaces (live micro 0.895 vs kv integrity 0.778). Restore KV diagnostic key gap (16/19). Cloudflare radar watch and USGS water primary failure remain persistent; Hormuz tripwire elevated; execution_authorized=false — no EPICON publish required."
+}
