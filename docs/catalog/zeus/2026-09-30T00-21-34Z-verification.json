@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-09-30T00:21:34.534Z",
+  "agent": "ZEUS",
+  "cycle": "C-449",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "anomaly_persistence": {
+    "gaia-noaa-alerts": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-usgs-water": "persistent",
+    "hermes-openlibrary": "transient",
+    "kv_diagnostic_gap": "persistent",
+    "sustain_eligible_divergence": "persistent",
+    "tripwire_state_divergence": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "5/5 attestations received — receipt quorum only; not seal completion or execution authority",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-30T00-10-20-867Z-atlas.json",
+  "atlas_heartbeat_note": "Latest ATLAS catalog heartbeat on main after pull (2026-09-30T00:10:20.867Z); live micro at 2026-09-30T00:21:25.695Z.",
+  "journal_entry_id": "journal-ZEUS-C-449-3cvwr1",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-09-30T00-10-20-867Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.775/yellow source=kv classification=STRESSED terminal_status=stressed cycle=C-449; anomalies=gaia-noaa-alerts watch, hermes-openlibrary elevated, daedalus-cloudflare-radar watch; kv_keys_all_ok=false kv_diagnostic_ok=false diagnostic_present=18/19; micro_composite=0.887; tripwire_active=false; sustain_eligible=true; seed_result=200 OK; degraded_agents=3 (AUREA,JADE,DAEDALUS)."
+    },
+    {
+      "check": "GET /api/signals/micro (production)",
+      "result": "warn",
+      "detail": "HTTP 200 cached=false gi=0.885 composite=0.885 errors=1 fallbacksUsed=3. gaia-noaa-alerts score=0.6 watch persistent. daedalus-cloudflare-radar score=0.7 watch persistent. gaia-usgs-water primary failed (elevated) — not in ATLAS anomaly list. hermes-openlibrary score=0.9 fallback (ATLAS elevated not reproduced)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "global_integrity=0.69 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live. degraded=true execution_authorized=false. operational_classification=STRESSED tripwire_state=elevated sustain_eligible=false. freshness_class=stale cache_age_seconds=236."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.775 vs integrity gi=0.69 (delta 0.085). ATLAS micro_composite=0.887 vs live micro gi=0.885 (delta 0.002). Integrity materially below ATLAS/micro — operator GI reconciliation required."
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=true vs integrity sustain_eligible=false — sustain gate disagreement; do not treat sustain as cleared on heartbeat alone."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); KV seed not failing."
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "warn",
+      "detail": "ATLAS tripwire_active=false; integrity tripwire_state=elevated — misaligned."
+    },
+    {
+      "check": "ATLAS flag: kv_keys_all_ok",
+      "result": "warn",
+      "detail": "Persistent kv_keys_all_ok=false; kv_diagnostic_ok=false diagnostic_present=18/19 required=19."
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 5/5 attestations received — receipt quorum only; not seal completion or execution authority"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-449-3cvwr1 canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Reconcile ATLAS heartbeat GI (0.775) with kv-live integrity (0.69) and live micro (0.885) before sustain decisions; honor sustain_eligible=false on integrity over ATLAS true until aligned. Investigate gaia-usgs-water instrument failure. Restore KV diagnostic key gap (18/19). Tripwire state elevated on integrity vs clear on ATLAS — operator review. execution_authorized=false — no EPICON publish required."
+}
