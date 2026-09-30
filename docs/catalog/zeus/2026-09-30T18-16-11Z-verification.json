@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-09-30T18:16:11.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-450",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-09-30T18-01-48-873Z-atlas.json",
+  "atlas_gi": 0.771,
+  "integrity_gi": 0.64,
+  "live_micro_gi": 0.89,
+  "anomaly_persistence": {
+    "gaia-usgs-water": "transient",
+    "hermes-arxiv": "transient",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "Latest ATLAS heartbeat C-450 STRESSED; GI 0.771 kv; seed 200 OK; sustain_eligible true; kv_diagnostic_ok false (18/19)"
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "integrity-status source kv (not mock); gi_provenance kv-live; freshness_class stale (270s)"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "GI spread: ATLAS 0.771 vs integrity-status 0.64 vs live micro 0.89 — operator-facing KV GI below ATLAS snapshot and live instrument composite"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "warn",
+      "detail": "ATLAS elevated; live micro score 0.85 primary — elevated severity not reproduced on independent pass"
+    },
+    {
+      "check": "anomaly_hermes-arxiv",
+      "result": "warn",
+      "detail": "ATLAS elevated; live micro score 0.9 primary — elevated severity not reproduced on independent pass"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS watch; live micro score 0.7 — persistent watch"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates; verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "attestations 5/5 achieved; seal_status receipt_quorum_only; execution_authorized false"
+    }
+  ],
+  "recommendation": "Treat KV GI (0.64) and ATLAS snapshot (0.771) as stressed governance inputs; prefer live micro (0.89) for instrument health with Cloudflare watch flagged. Restore kv diagnostic keys (18/19). No EPICON publish actions this pass."
+}
