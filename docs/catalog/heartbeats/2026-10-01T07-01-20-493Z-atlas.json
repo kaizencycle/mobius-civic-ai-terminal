@@ -50,7 +50,7 @@
     "timestamp": "2026-10-01T07:03:30.121Z"
   },
   "seed_attempted": true,
-  "seed_result": "200 OK \u2014 {\"ok\":true,\"seeded\":[\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"]}",
+  "seed_result": "200 OK \u2014 {\"ok\":true,\"seeded\":[\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"],\"timestamp\":\"2026-10-01T07:02:42.604Z\"}",
   "sustain_eligible": true,
   "classification": "STRESSED",
   "micro_composite": 0.881,
