@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-10-01T06:11:33.880Z",
+  "agent": "ZEUS",
+  "cycle": "C-451",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-01T04-14-57-847Z-atlas.json",
+  "atlas_gi": 0.798,
+  "integrity_gi": 0.82,
+  "live_micro_gi": 0.902,
+  "anomaly_persistence": {
+    "noaa-alerts": "persistent",
+    "wikipedia-recentchanges": "transient",
+    "arxiv-new": "transient",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "Latest ATLAS C-451 STRESSED; GI 0.798 yellow source=kv; seed 200; sustain_eligible false; kv_diagnostic_ok false (18/19)"
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "integrity-status source kv; gi_provenance kv-live"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "GI spread: ATLAS 0.798 vs integrity 0.82 vs live micro 0.902 (delta 0.104); ATLAS micro_composite 0.848"
+    },
+    {
+      "check": "anomaly_noaa-alerts",
+      "result": "warn",
+      "detail": "ATLAS watch; live gaia-noaa-alerts score=0.6 (elevated severity vs watch label) — persistent degradation signal"
+    },
+    {
+      "check": "anomaly_wikipedia-recentchanges",
+      "result": "warn",
+      "detail": "ATLAS elevated; live hermes-wiki-changes score=1 (nominal) — transient"
+    },
+    {
+      "check": "anomaly_arxiv-new",
+      "result": "warn",
+      "detail": "ATLAS elevated; live hermes-arxiv score=0.9 (nominal) — transient"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS watch; live daedalus-cloudflare-radar score=0.7 (watch) — persistent"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=false vs integrity true"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "warn",
+      "detail": "ATLAS tripwire_active=true vs integrity tripwire_state=clear"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates; verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "5/5 achieved; 5/5 attestations received — receipt quorum only; not seal completion or execution authority"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "ok canonical=true"
+    }
+  ],
+  "recommendation": "Reconcile ATLAS heartbeat GI/sustain/tripwire with kv-live integrity before sustain or execution; restore kv diagnostic 19/19; execution_authorized=false."
+}
