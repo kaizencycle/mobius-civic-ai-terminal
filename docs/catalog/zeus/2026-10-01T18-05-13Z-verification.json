@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-10-01T18:05:13.807Z",
+  "agent": "ZEUS",
+  "cycle": "C-451",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-01T18-02-54.013Z-atlas.json",
+  "atlas_gi": 0.797,
+  "integrity_gi": 0.82,
+  "live_micro_gi": 0.87,
+  "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "journal_entry_id": "journal-ZEUS-C-451-2fzhy1",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "Latest ATLAS C-451 STRESSED; GI 0.797 yellow source=kv gi_provenance=live-compute; seed 200 OK; sustain_eligible true; kv_diagnostic_ok false (18/19); micro_composite 0.871; terminal_status=stressed; tripwire inactive; degraded_agents AUREA,JADE,DAEDALUS"
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock); gi_provenance kv-live; execution_authorized=false; sustain_eligible=true"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "warn",
+      "detail": "ATLAS 0.797 vs integrity 0.82 (delta 0.023); live micro 0.87 (+0.05–0.073 above ATLAS). ATLAS micro_composite 0.871 aligns with live composite 0.87."
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "fail",
+      "detail": "ATLAS elevated; live score=0 source=error primary failed (with retry) — persistent instrument failure"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "fail",
+      "detail": "ATLAS elevated; live score=0 source=error primary failed (with retry) — persistent instrument failure"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS watch; live score=0.7 primary — persistent watch"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=true aligns with integrity sustain_eligible=true"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire inactive; integrity tripwire_state=clear"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false diagnostic_present=18/19 required=19; kv_keys_all_ok=false"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates; verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-451 agent ZEUS confidence=0.88 source=zeus-verification-pass. attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE]. seal_status=receipt_quorum_only seal_eligibility=blocked execution_authorized=false."
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-451-2fzhy1 canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Restore KV diagnostic key 19/19; repair gaia-usgs-water and themis-govtrack primary lanes; ATLAS terminal_status=stressed with KV GI 0.797 below integrity headline 0.82 — reconcile before sustain; execution_authorized remains false."
+}
