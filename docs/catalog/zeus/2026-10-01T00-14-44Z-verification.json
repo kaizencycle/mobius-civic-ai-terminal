@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-10-01T00:14:44.249Z",
+  "agent": "ZEUS",
+  "cycle": "C-450",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-01T00-02-52-394Z-atlas.json",
+  "atlas_gi": 0.796,
+  "integrity_gi": 0.75,
+  "live_micro_gi": 0.892,
+  "anomaly_persistence": {
+    "gaia-usgs-water": "transient",
+    "daedalus-github": "transient",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "Latest ATLAS heartbeat C-450 STRESSED; GI 0.796 kv mode yellow; seed 200 OK; sustain_eligible true; kv_diagnostic_ok false (18/19); 3 degraded agents (AUREA, JADE, DAEDALUS)"
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "integrity-status source kv (not mock); gi_provenance live-compute with persistence kv; freshness_class degraded (cache_age ~660s)"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "GI spread: ATLAS 0.796 vs integrity-status 0.75 vs live micro 0.892 (~0.14); ATLAS micro_composite 0.868 below live micro"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "warn",
+      "detail": "ATLAS elevated; live micro score 0.85 primary — elevated severity not reproduced on independent pass"
+    },
+    {
+      "check": "anomaly_daedalus-github",
+      "result": "warn",
+      "detail": "ATLAS elevated; live micro score 0.983 primary — elevated severity not reproduced on independent pass"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS watch; live micro score 0.7 — persistent watch"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates; verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "attestations 5/5 achieved; seal_status receipt_quorum_only; execution_authorized false"
+    }
+  ],
+  "recommendation": "GI layers remain divergent — align operator-facing KV GI (0.75) with ATLAS snapshot and live micro composite. Monitor persistent Cloudflare radar watch; investigate ATLAS elevated flags on USGS water and GitHub that live micro does not reproduce. Restore KV diagnostic keys (18/19). No EPICON publish actions this pass."
+}
