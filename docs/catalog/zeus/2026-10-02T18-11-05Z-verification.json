@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-10-02T18:11:05.703Z",
+  "agent": "ZEUS",
+  "cycle": "C-452",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-02T17-10-47Z-atlas.json",
+  "atlas_gi": 0.71,
+  "integrity_gi": 0.793,
+  "live_micro_gi": 0.882,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-usgs-water": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "journal_entry_id": "journal-ZEUS-C-452-c6hcwe",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "Latest ATLAS C-452 STRESSED; GI 0.71 yellow source=kv; seed 200 OK; sustain_eligible=false; kv_diagnostic_ok false (16/19); micro_composite 0.887; tripwire elevated; degraded_agents AUREA,JADE,DAEDALUS"
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock); gi_provenance live-compute; execution_authorized=false; freshness_class=stale cache_age_seconds≈572"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "GI spread: ATLAS 0.71 vs integrity 0.793 vs live micro 0.882 (max delta 0.172); ATLAS micro_composite 0.887 vs live composite 0.882"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "fail",
+      "detail": "ATLAS elevated; live themis-govtrack score=0 source=error (primary failed with retry) — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS watch; live daedalus-cloudflare-radar score=0.7 — persistent watch"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "pass",
+      "detail": "Not in latest ATLAS anomaly set; live gaia-usgs-water score=0.85 nominal — resolved vs prior sweeps"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false vs integrity sustain_eligible=true"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "warn",
+      "detail": "ATLAS tripwire active elevated (Hormuz); integrity tripwire_state=clear"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false diagnostic_present=16/19; kv_keys_all_ok=false"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates; verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-452; seal_status=receipt_quorum_only; execution_authorized=false"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-452-c6hcwe canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Treat GI as stressed/yellow across layers but reconcile ATLAS KV GI (0.71) with integrity live-compute (0.793) and micro composite (0.882). Restore GovTrack feed; monitor Cloudflare radar; complete KV diagnostic 19/19; align sustain_eligible and tripwire reporting. No EPICON publish actions; execution_authorized=false."
+}
