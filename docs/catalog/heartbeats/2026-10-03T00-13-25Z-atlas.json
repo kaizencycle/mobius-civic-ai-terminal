@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-10-03T00:13:25.239Z",
+  "agent": "ATLAS",
+  "cycle": "C-452",
+  "gi": 0.81,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "ArXiv new submissions",
+      "severity": "elevated",
+      "source": "hermes-arxiv"
+    },
+    {
+      "label": "GovTrack legislation feed",
+      "severity": "elevated",
+      "source": "themis-govtrack"
+    },
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch",
+      "source": "daedalus-cloudflare-radar"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "backup_redis_available": true
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — {\"ok\":true,\"seeded\":[\"GI_STATE\",\"HEARTBEAT\",\"LAST_INGEST\",\"SIGNAL_SNAPSHOT\"],\"timestamp\":\"2026-10-03T00:13:25.239Z\"}",
+  "sustain_eligible": true
+}
