@@ -5,7 +5,7 @@
 - **Cycle:** `C-453`
 - **GI:** `0.807` · **mode:** `green` · ⚠️ degraded
 - **Provenance:** `live-compute` (verified)
-- **Pulse fetched:** `2026-10-03T16:08:17.969Z`
+- **Pulse fetched:** `2026-10-03T19:11:46.547Z`
 - **Deployment:** `79148315fdb9` (production)
 - **Reserve hot (raw):** `360` · **cold manifest:** `194` · **gap (raw−cold):** `166`
 - **Chain tip:** `seal-C-372-002` (seq `2`)
