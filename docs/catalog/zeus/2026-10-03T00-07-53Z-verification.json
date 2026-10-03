@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-10-03T00:07:53.859Z",
+  "agent": "ZEUS",
+  "cycle": "C-452",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-02T23-10-52Z-atlas.json",
+  "atlas_gi": 0.79,
+  "integrity_gi": 0.81,
+  "live_micro_gi": 0.887,
+  "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "journal_entry_id": "journal-ZEUS-C-452-xtzjvm",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "ATLAS STRESSED gi=0.79 mode=yellow source=kv cycle=C-452; kv_diagnostic_ok=false; sustain_eligible=true"
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "source=kv gi_provenance=kv-live"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS gi=0.79 integrity=0.81 live micro gi=0.887 composite=0.887 max_delta=0.097"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0.85 severity still below nominal — persistent"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0 source=error error=primary failed (with retry) — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS watch; live score=0.7 (watch) — persistent"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "pass",
+      "detail": "ATLAS true vs integrity true"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire_active=false vs integrity tripwire_state=clear"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "5/5 attestations received — receipt quorum only; not seal completion or execution authority"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-452-xtzjvm canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false; investigate themis-govtrack primary failure and reconcile ATLAS heartbeat GI with kv-live/micro before sustain decisions. Restore KV diagnostic keys (16/19)."
+}
