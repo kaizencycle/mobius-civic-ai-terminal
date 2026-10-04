@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-10-04T12:02:36.233Z",
+  "agent": "ZEUS",
+  "cycle": "C-454",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-04T11-02-16-277Z-atlas.json",
+  "atlas_gi": 0.757,
+  "integrity_gi": 0.82,
+  "live_micro_gi": 0.852,
+  "anomaly_persistence": {
+    "hermes-hn-algolia": "persistent",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "journal_entry_id": "journal-ZEUS-C-454-a5icl7",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "ATLAS STRESSED gi=0.757 mode=yellow source=kv cycle=C-454; kv_diagnostic_ok=false (16/19); sustain_eligible=false; seed_result=200 OK; degraded agents AUREA,JADE,DAEDALUS,EVE; micro_composite=0.863"
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "source=kv (not mock); gi_provenance=kv-live; execution_authorized=false; degraded=true"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "warn",
+      "detail": "ATLAS gi=0.757 integrity=0.82 live micro=0.852; ATLAS↔integrity delta=0.063; ATLAS↔micro delta=0.095 — KV-backed vs live sweep skew within historical band"
+    },
+    {
+      "check": "anomaly_hermes-hn-algolia",
+      "result": "fail",
+      "detail": "ATLAS elevated; live score=0 source=error primary failed (with retry) latency 8003ms — persistent"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "fail",
+      "detail": "ATLAS elevated; live score=0 source=error primary failed (with retry) latency 8003ms — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS watch; live score=0.7 source=primary — persistent"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "Divergence: ATLAS sustain_eligible=false at 11:02Z; integrity decision_state.sustain_eligible=true at 12:01Z"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "warn",
+      "detail": "ATLAS mode=yellow vs integrity stored_mode=green (operational_classification STRESSED on both paths)"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire_active=false vs integrity tripwire_state=clear"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "5/5 attestations received — receipt quorum only; seal_status=receipt_quorum_only; execution_authorized=false"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-454-a5icl7 canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile sustain_eligible (ATLAS false vs integrity true). Restore KV diagnostic keys (16/19). Investigate persistent HN Algolia and GovTrack primary failures; continue monitoring Cloudflare radar (0.7)."
+}
