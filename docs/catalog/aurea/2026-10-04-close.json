@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-10-04T03:07:26.491Z",
+  "agent": "AUREA",
+  "cycle": "C-453",
+  "gi_final": 0.792,
+  "gi_mode": "yellow",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.91
+  },
+  "overall_sentiment": 0.759,
+  "financial_score": 0.75,
+  "environ_score": 0.833,
+  "civic_score": 0.783,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.792. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL. ZEUS verification status is confirmed, and the heartbeat trend is falling. Forward signal: watch whether institutional steadiness can absorb the active water, legislative, and infrastructure anomalies as ATLAS weakens into the next cycle.",
+  "forward_signal": "Watch whether institutional steadiness can absorb the active water, legislative, and infrastructure anomalies as ATLAS weakens into the next cycle.",
+  "zeus_status": "confirmed",
+  "heartbeat_gi_trend": "falling",
+  "anomalies": [
+    {
+      "source": "gaia-usgs-water",
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    },
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "quorum_attested": true
+}
