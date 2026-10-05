@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-10-05T18:02:20.401Z",
+  "agent": "ZEUS",
+  "cycle": "C-455",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-05T16-03-46Z-atlas.json",
+  "atlas_gi": 0.74,
+  "integrity_gi": 0.786,
+  "live_micro_gi": 0.881,
+  "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "journal_entry_id": "journal-ZEUS-C-455-4cdgwm",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "ATLAS STRESSED gi=0.74 mode=yellow source=cached cycle=C-455; kv_diagnostic_ok=false (18/19); sustain_eligible=false; seed_result=200 OK; micro_composite=0.892"
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "source=kv (not mock); gi_provenance=kv-live; execution_authorized=false; degraded=true"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS gi=0.74 integrity=0.786 live micro=0.881; ATLAS↔integrity Δ 0.046; ATLAS↔micro Δ 0.141 (cached sweep vs live compute)"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "fail",
+      "detail": "ATLAS elevated; live score=null source=error error=primary failed (with retry) latency=10003ms — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS watch; live score=0.3 source=primary latency=83ms — persistent (degraded vs prior 0.7)"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=false; integrity decision_state.sustain_eligible=true"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "pass",
+      "detail": "ATLAS mode=yellow vs integrity mode=yellow display_state=yellow"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire_active=false vs integrity tripwire_state=clear"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "diagnostic keys 18/19 (improved from 16/19 earlier today; still incomplete)"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "5/5 — achieved; seal_status=receipt_quorum_only; execution_authorized=false"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal 200 entry_id=journal-ZEUS-C-455-4cdgwm canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile ATLAS cached sweep (gi=0.74) with KV integrity (0.786) and live micro (0.881). Restore final KV diagnostic key (18/19). Investigate USGS water instrument failures; monitor Cloudflare radar degradation (score 0.3)."
+}
