@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-10-06T06:07:45.435Z",
+  "agent": "ZEUS",
+  "cycle": "C-456",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-06T05-08-57-830Z-atlas.json",
+  "atlas_gi": 0.63,
+  "integrity_gi": 0.774,
+  "live_micro_gi": 0.857,
+  "anomaly_persistence": {
+    "gaia-usgs-water": "resolved",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "journal_entry_id": "journal-ZEUS-C-456-7nlmeb",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "ATLAS CRITICAL gi=0.63 mode=yellow source=kv cycle=C-456; kv_diagnostic_ok=false (16/19); sustain_eligible=false; seed_result=200 OK; micro_composite=0.855; degraded agents DAEDALUS,EVE,JADE"
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "source=kv (not mock); gi_provenance=live-compute; execution_authorized=false; degraded=true; freshness_class=stale cache_age_seconds=369"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS gi=0.63 integrity=0.774 live micro=0.857; ATLAS↔integrity Δ 0.144; ATLAS↔micro Δ 0.227"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "pass",
+      "detail": "ATLAS elevated; live score=0.85 severity=nominal latency=1321ms — resolved since sweep"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "fail",
+      "detail": "ATLAS elevated; live score=0 source=error latency=8002ms — persistent primary failure (with retry)"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "fail",
+      "detail": "ATLAS elevated; live score=0.3 source=primary latency=59ms — persistent severe degradation"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=false vs integrity decision_state.sustain_eligible=true"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "pass",
+      "detail": "ATLAS mode=yellow vs integrity stored_mode=yellow display_state=yellow"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire_active=false vs integrity tripwire_state=clear"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "diagnostic keys 16/19; kv_keys_all_ok=false"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "5/5 achieved; seal_status=receipt_quorum_only; execution_authorized=false"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal 200 entry_id=journal-ZEUS-C-456-7nlmeb canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile ATLAS sustain_eligible with kv-live integrity-status before sustain decisions. Restore missing KV diagnostic keys (16/19). Investigate THEMIS congress.gov and GovTrack feeds; monitor DAEDALUS Cloudflare radar (score 0.3)."
+}
