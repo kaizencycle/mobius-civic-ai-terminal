@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-10-06T12:08:50.350Z",
+  "agent": "ZEUS",
+  "cycle": "C-456",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-06T11-06-19-220Z-atlas.json",
+  "atlas_gi": 0.797,
+  "integrity_gi": 0.796,
+  "live_micro_gi": 0.864,
+  "anomaly_persistence": {
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "journal_entry_id": "journal-ZEUS-C-456-hj0qev",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "ATLAS STRESSED gi=0.797 mode=yellow source=kv cycle=C-456; kv_diagnostic_ok=False; sustain_eligible=False; seed_result=200 OK; micro_composite=0.898; degraded agents AUREA,JADE,DAEDALUS,EVE"
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "source=kv (not mock); gi_provenance=live-compute; execution_authorized=False; degraded=True; freshness_class=stale cache_age_seconds=404"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "pass",
+      "detail": "ATLAS gi=0.797 integrity=0.796 live micro=0.864; ATLAS\u2194integrity \u0394 0.001; ATLAS\u2194micro \u0394 0.067"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0.3 source=primary latency=36ms \u2014 persistent"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=False vs integrity decision_state.sustain_eligible=True"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "pass",
+      "detail": "ATLAS mode=yellow vs integrity stored_mode=yellow"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire_active=False vs integrity tripwire_state=clear"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "diagnostic keys 16/19; kv_keys_all_ok=False"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "5/5 achieved; seal_status=receipt_quorum_only; execution_authorized=False"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal 200 entry_id=journal-ZEUS-C-456-hj0qev canonical=True mirrored_to_kv=True"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile ATLAS sustain_eligible with kv-live integrity-status before sustain decisions. Restore missing KV diagnostic keys (16/19). Monitor DAEDALUS Cloudflare radar (score 0.3)."
+}
