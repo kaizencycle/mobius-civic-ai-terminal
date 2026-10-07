@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-10-07T00:03:00.745Z",
+  "agent": "ZEUS",
+  "cycle": "C-456",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-06T23-02-14-102Z-atlas.json",
+  "atlas_gi": 0.799,
+  "integrity_gi": 0.71,
+  "live_micro_gi": 0.871,
+  "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
+    "themis-govtrack": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-noaa-alerts": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved",
+  "journal_entry_id": "journal-ZEUS-C-456-r0n7jk",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "ATLAS STRESSED gi=0.799 mode=yellow source=kv cycle=C-456; kv_diagnostic_ok=false (16/19); sustain_eligible=false; seed_result=200 OK; micro_composite=0.865; degraded AUREA,JADE,DAEDALUS,EVE"
+    },
+    {
+      "check": "integrity_source",
+      "result": "pass",
+      "detail": "source=kv (not mock); gi_provenance=kv-live; execution_authorized=false; degraded=true; freshness_class=fresh cache_age_seconds=33"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS gi=0.799 integrity=0.71 live micro=0.871; ATLAS↔integrity Δ 0.089; ATLAS↔micro Δ 0.072; integrity↔micro Δ 0.161"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0 source=error latency=10003ms primary failed — persistent and worsened"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "pass",
+      "detail": "ATLAS elevated; live score=0.85 severity=nominal — transient vs catalog heartbeat"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0.3 source=primary — persistent"
+    },
+    {
+      "check": "anomaly_gaia-noaa-alerts",
+      "result": "warn",
+      "detail": "not in ATLAS anomaly set; live micro lite watch severity — new transient watch"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=false vs integrity decision_state.sustain_eligible=false"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "pass",
+      "detail": "ATLAS mode=yellow vs integrity stored_mode=yellow"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire_active=true level=elevated vs integrity tripwire_state=elevated"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "diagnostic keys 16/19; kv_keys_all_ok=false"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "5/5 attestations received — receipt quorum only; not seal completion or execution authority"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal 200 entry_id=journal-ZEUS-C-456-r0n7jk canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Treat GI layer divergence (0.71–0.871) as operator-visible stress. Restore KV diagnostic keys (16/19). Monitor USGS water fetch failures and Cloudflare radar."
+}
