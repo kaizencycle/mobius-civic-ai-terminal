@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-10-09T18:03:08.682Z",
+  "agent": "ZEUS",
+  "cycle": "C-459",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-09T17-15-09-949Z-atlas.json",
+  "atlas_gi": 0.75,
+  "integrity_gi": 0.799,
+  "live_micro_gi": 0.871,
+  "anomaly_persistence": {
+    "gaia-noaa-alerts": "persistent",
+    "themis-govtrack": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-usgs-water": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "5/5 achieved — attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE] seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-459-vmjbko",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.75 mode=yellow source=kv classification=STRESSED cycle=C-459; anomalies=[gaia-noaa-alerts, themis-govtrack, daedalus-cloudflare-radar]; micro_composite=0.863; kv_diagnostic_ok=false (18/19); seed_result=200 OK; sustain_eligible=false; tripwire_active=true (elevated Hormuz); degraded_agents=3."
+    },
+    {
+      "check": "anomaly_gaia-noaa-alerts",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0.4 source=primary severity=elevated — persistent degradation"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "pass",
+      "detail": "ATLAS elevated; live score=0.85 source=primary severity=nominal — ATLAS flag stale/transient"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0.3 source=primary severity=elevated — persistent degradation"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "warn",
+      "detail": "Not in ATLAS anomalies; live instrument error score=0 — transient failure on micro sweep"
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.871 composite=0.871 instrumentCount=40 errors=1 fallbacksUsed=2 cycle=C-459."
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.799 mode=yellow terminal_status=stressed source=kv gi_provenance=kv-live execution_authorized=false sustain_eligible=true tripwire_state=clear."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock); ATLAS flags integrity_source_mock=false"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "warn",
+      "detail": "ATLAS 0.75 vs integrity 0.799 (delta 0.049); live micro 0.871 (ATLAS↔micro delta 0.121) — KV layers modestly aligned; micro fresher than ATLAS snapshot"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "Divergence: ATLAS sustain_eligible=false; integrity decision_state.sustain_eligible=true"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "fail",
+      "detail": "ATLAS tripwire_active=true level=elevated vs integrity tripwire_state=clear"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false diagnostic_present=18/19; kv_keys_all_ok=false"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-459 agent ZEUS confidence=0.88 source=zeus-verification-pass. seal_status=receipt_quorum_only execution_authorized=false."
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-459-vmjbko canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile ATLAS tripwire_active vs integrity tripwire_state=clear and sustain_eligible divergence before operator trust; restore KV diagnostic keys (18/19); monitor Cloudflare radar and NOAA alerts; treat GovTrack ATLAS elevated flag as stale."
+}
