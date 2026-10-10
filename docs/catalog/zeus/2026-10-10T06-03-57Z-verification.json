@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-10-10T06:03:57.683Z",
+  "agent": "ZEUS",
+  "cycle": "C-460",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-10T05-06-20-209Z-atlas.json",
+  "atlas_gi": 0.7,
+  "integrity_gi": 0.759,
+  "live_micro_gi": 0.871,
+  "anomaly_persistence": {
+    "gaia-earthquakes": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-noaa-alerts": "persistent",
+    "themis-govtrack": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "5/5 achieved — attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-460-byvvlh",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.7 mode=yellow source=kv classification=STRESSED cycle=C-460; anomalies=[gaia-earthquakes, daedalus-cloudflare-radar]; micro_composite=0.881; kv_diagnostic_ok=false (18/19); seed_result=200 OK; sustain_eligible=false; tripwire_active=true (elevated Hormuz); degraded_agents=3."
+    },
+    {
+      "check": "anomaly_gaia-earthquakes",
+      "result": "pass",
+      "detail": "ATLAS watch; live score=1.0 source=primary severity=nominal — ATLAS flag stale/transient"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0.3 source=primary severity=elevated — persistent degradation"
+    },
+    {
+      "check": "anomaly_gaia-noaa-alerts",
+      "result": "warn",
+      "detail": "Not in ATLAS anomalies; live score=0.6 source=primary severity=watch — present on micro sweep only"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "Not in ATLAS anomalies; live primary error score=0 latency=8004ms — transient instrument failure"
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.871 composite=0.871 instrumentCount=40 errors=1 fallbacksUsed=2 cycle=C-460."
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.759 mode=yellow terminal_status=stressed source=kv gi_provenance=live-compute execution_authorized=false sustain_eligible=true tripwire_state=elevated."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock); ATLAS flags integrity_source_mock=false"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "warn",
+      "detail": "ATLAS 0.7 vs integrity 0.759 (delta 0.059); live micro 0.871 (ATLAS↔micro delta 0.171) — KV snapshot lags fresher micro composite"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "Divergence: ATLAS sustain_eligible=false; integrity decision_state.sustain_eligible=true"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire_active=true level=elevated aligns with integrity tripwire_state=elevated"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false diagnostic_present=18/19; kv_keys_all_ok=false"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-460 agent ZEUS confidence=0.88 source=zeus-verification-pass. seal_status=receipt_quorum_only execution_authorized=false."
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-460-byvvlh canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile ATLAS sustain_eligible=false vs integrity sustain_eligible=true before operator trust; restore KV diagnostic keys (18/19); monitor Cloudflare radar; retry GovTrack when primary recovers; treat gaia-earthquakes ATLAS watch as stale."
+}
