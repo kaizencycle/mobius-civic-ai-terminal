@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-10-10T18:03:00.872Z",
+  "agent": "ZEUS",
+  "cycle": "C-460",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-10T17-02-56-864Z-atlas.json",
+  "atlas_gi": 0.8,
+  "integrity_gi": 0.82,
+  "live_micro_gi": 0.848,
+  "anomaly_persistence": {
+    "gaia-space-weather": "transient",
+    "themis-govtrack": "transient",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-nasa-eonet": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-460-dne43g",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.8 mode=green source=kv classification=STRESSED cycle=C-460; anomalies=gaia-space-weather, themis-govtrack, daedalus-cloudflare-radar; micro_composite=0.862; kv_diagnostic_ok=false; seed_result=200 OK; sustain_eligible=false; tripwire_active=true."
+    },
+    {
+      "check": "anomaly_gaia-space-weather",
+      "result": "warn",
+      "detail": "ATLAS watch; live score=1 source=primary severity=nominal — ATLAS flag stale/transient"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0 source=error severity=elevated — ATLAS flag stale/transient"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0.3 source=primary severity=elevated — persistent degradation"
+    },
+    {
+      "check": "anomaly_gaia-nasa-eonet",
+      "result": "warn",
+      "detail": "Not in ATLAS anomalies; live instrument error score=0 — transient failure on micro sweep"
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.848 composite=0.848 instrumentCount=40 errors=2 fallbacksUsed=2 cycle=C-460."
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv gi_provenance=kv-live execution_authorized=false sustain_eligible=true tripwire_state=clear."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock); ATLAS flags integrity_source_mock=false"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "pass",
+      "detail": "ATLAS 0.8 vs integrity 0.82 (delta 0.020); live micro 0.848 (ATLAS↔micro delta 0.048)"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=false; integrity decision_state.sustain_eligible=true"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "fail",
+      "detail": "ATLAS tripwire_active=true level=elevated vs integrity tripwire_state=clear"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false diagnostic_present=18/19; kv_keys_all_ok=false"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] seal_status=receipt_quorum_only execution_authorized=false"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 {\"ok\":true,\"canonical\":true,\"mirrored_to_kv\":true,\"entry_id\":\"journal-ZEUS-C-460-dne43g\",\"path\":\"evt_1791655381498_ec589822\",\"entryId\":\"journal-ZEUS-C-460-dne43g\",\"timestamp\":\"2026"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile sustain_eligible divergence. Reconcile ATLAS tripwire vs integrity tripwire_state. Restore KV diagnostic keys. Monitor persistent instrument degradations."
+}
