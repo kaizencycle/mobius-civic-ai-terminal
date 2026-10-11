@@ -5,12 +5,13 @@
   "verification_status": "disputed",
   "gi_verified": true,
   "gi_source": "kv",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-10T23-03-31-249Z-atlas.json",
-  "atlas_gi": 0.82,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-11T00-01-46-992Z-atlas.json",
+  "atlas_gi": 0.739,
   "integrity_gi": 0.74,
   "live_micro_gi": 0.869,
   "anomaly_persistence": {
     "gaia-space-weather": "persistent",
+    "gaia-usgs-water": "persistent",
     "daedalus-cloudflare-radar": "persistent"
   },
   "candidates_reviewed": 0,
@@ -23,12 +24,17 @@
     {
       "check": "atlas_heartbeat",
       "result": "pass",
-      "detail": "gi=0.82 mode=green source=kv classification=STRESSED cycle=C-460; anomalies=gaia-space-weather, daedalus-cloudflare-radar; micro_composite=0.887; kv_diagnostic_ok=false; seed_result=200 OK; sustain_eligible=true; tripwire_active=false."
+      "detail": "gi=0.739 mode=yellow source=kv classification=STRESSED cycle=C-460; anomalies=gaia-space-weather, gaia-usgs-water, daedalus-cloudflare-radar; micro_composite=0.869; kv_diagnostic_ok=false; seed_result=200 OK; sustain_eligible=false; tripwire_active=true level=elevated."
     },
     {
       "check": "anomaly_gaia-space-weather",
       "result": "warn",
       "detail": "ATLAS watch; live score=0.5 source=primary — persistent degradation"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0 source=error — persistent instrument failure"
     },
     {
       "check": "anomaly_daedalus-cloudflare-radar",
@@ -52,28 +58,28 @@
     },
     {
       "check": "gi_coherence",
-      "result": "fail",
-      "detail": "ATLAS 0.82 vs integrity 0.74 (delta 0.080); live micro 0.869 (ATLAS↔micro delta 0.049)"
+      "result": "pass",
+      "detail": "ATLAS 0.739 vs integrity 0.74 (delta 0.001); live micro 0.869 (ATLAS↔micro delta 0.130)"
     },
     {
       "check": "mode_alignment",
-      "result": "fail",
-      "detail": "ATLAS mode=green vs integrity derived_mode=yellow"
+      "result": "pass",
+      "detail": "ATLAS mode=yellow vs integrity derived_mode=yellow"
     },
     {
       "check": "sustain_eligible alignment",
-      "result": "fail",
-      "detail": "ATLAS sustain_eligible=true; integrity decision_state.sustain_eligible=false"
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=false; integrity decision_state.sustain_eligible=false"
     },
     {
       "check": "tripwire alignment",
-      "result": "pass",
-      "detail": "ATLAS tripwire_active=false; integrity tripwire_state=clear"
+      "result": "fail",
+      "detail": "ATLAS tripwire_active=true level=elevated vs integrity tripwire_state=clear"
     },
     {
       "check": "kv_diagnostic",
       "result": "warn",
-      "detail": "kv_diagnostic_ok=false diagnostic_present=16/19; kv_keys_all_ok=false"
+      "detail": "kv_diagnostic_ok=false diagnostic_present=18/19; kv_keys_all_ok=false"
     },
     {
       "check": "epicon_candidates",
@@ -88,8 +94,8 @@
     {
       "check": "agents_journal",
       "result": "pass",
-      "detail": "HTTP 200 entry_id=journal-ZEUS-C-460-utv1ny canonical=true mirrored_to_kv=true"
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-460-utv1ny canonical=true mirrored_to_kv=true (journal text references pre-pull heartbeat; catalog report corrected to 00-01-46Z atlas)"
     }
   ],
-  "recommendation": "Honor execution_authorized=false. Prefer integrity-status GI/mode over stale ATLAS heartbeat snapshot. Reconcile sustain_eligible divergence. Restore KV diagnostic keys. Monitor GAIA USGS water instrument error and persistent Cloudflare/space-weather degradations."
+  "recommendation": "Honor execution_authorized=false. Reconcile ATLAS elevated tripwire vs integrity tripwire_state=clear. Restore remaining KV diagnostic key (18/19). Monitor persistent GAIA space-weather, USGS water, and Cloudflare radar degradations."
 }
