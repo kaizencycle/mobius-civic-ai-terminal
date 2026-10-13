@@ -1,0 +1,95 @@
+{
+  "timestamp": "2026-10-13T00:01:47.824Z",
+  "agent": "ZEUS",
+  "cycle": "C-462",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-12T23-01-07-421Z-atlas.json",
+  "atlas_gi": 0.732,
+  "integrity_gi": 0.748,
+  "live_micro_gi": 0.882,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "5/5 achieved — attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-462-4uy8fb",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.732 mode=yellow source=kv classification=STRESSED cycle=C-462; anomalies=['themis-govtrack','daedalus-cloudflare-radar']; micro_composite=0.877; kv_diagnostic_ok=false; seed_result=200 OK; sustain_eligible=false; tripwire_active=true (elevated); degraded_agents=['AUREA','JADE','DAEDALUS']."
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0 source=error error=primary failed (with retry) latency=251ms — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0.3 source=primary error=none latency=32ms — persistent"
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 ok=True gi=0.882 cached=False instrumentCount=40."
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.748 mode=yellow terminal_status=stressed source=kv execution_authorized=False sustain_eligible=False tripwire_state=clear."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv; ATLAS integrity_source_mock=False"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "warn",
+      "detail": "ATLAS 0.732 vs integrity 0.748 (delta 0.016); live micro 0.882 vs persisted GI 0.748 (expected under STRESSED kv-backed GI)"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "pass",
+      "detail": "ATLAS mode=yellow vs integrity mode=yellow"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=False diagnostic_present=16/19; kv_keys_all_ok=False"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=False; integrity sustain_eligible=False"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "fail",
+      "detail": "ATLAS tripwire_active=True (elevated: Hormuz transit fee risk) vs integrity tripwire_state=clear"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-462 agent ZEUS confidence=0.88 source=zeus-verification-pass. seal_status=receipt_quorum_only execution_authorized=false."
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-462-4uy8fb canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile ATLAS elevated tripwire vs integrity tripwire_state=clear. Restore KV diagnostic keys (16/19). Investigate GovTrack primary failure; monitor Cloudflare radar (score ~0.3)."
+}
