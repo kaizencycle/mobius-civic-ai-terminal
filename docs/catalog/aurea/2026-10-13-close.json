@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-10-13T03:04:25.164703Z",
+  "agent": "AUREA",
+  "cycle": "C-462",
+  "gi_final": 0.82,
+  "gi_mode": "green",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.732,
+  "financial_score": 0.726,
+  "environ_score": 0.79,
+  "civic_score": 0.782,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.82. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL while USGS water, GovTrack, and Cloudflare anomalies remained elevated. ZEUS verification status is disputed, and the heartbeat trend is flat. Forward signal: watch whether GovTrack and Cloudflare persistence pull the next ATLAS heartbeat back below green integrity.",
+  "forward_signal": "Watch whether GovTrack and Cloudflare persistence pull the next ATLAS heartbeat back below green integrity.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "flat",
+  "anomalies": [
+    {
+      "source": "gaia-usgs-water",
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    },
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    }
+  ],
+  "quorum_attested": true
+}
