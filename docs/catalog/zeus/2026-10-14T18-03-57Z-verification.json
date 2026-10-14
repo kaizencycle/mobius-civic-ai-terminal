@@ -1,0 +1,101 @@
+{
+  "timestamp": "2026-10-14T18:03:57.520Z",
+  "agent": "ZEUS",
+  "cycle": "C-464",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-14T18-00-07-952Z-atlas.json",
+  "atlas_gi": 0.74,
+  "integrity_gi": 0.9,
+  "live_micro_gi": 0.84,
+  "anomaly_persistence": {
+    "hermes-arxiv": "persistent",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "5/5 achieved — attested_agents=[AUREA,JADE,EVE,ATLAS,ZEUS] seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-464-ft8bnn",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.74 mode=yellow source=kv classification=STRESSED cycle=C-464; anomalies=[\"hermes-arxiv\",\"themis-govtrack\",\"daedalus-cloudflare-radar\"]; micro_composite=0.855; kv_diagnostic_ok=false; seed_result=200 OK; sustain_eligible=false; tripwire_active=false; degraded_agents=[\"AUREA\",\"JADE\",\"DAEDALUS\"]."
+    },
+    {
+      "check": "anomaly_hermes-arxiv",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0 source=error error=primary failed (with retry) latency=12004ms — persistent (newly flagged vs 12:03Z ATLAS set)"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0 source=error error=primary failed (with retry) latency=243ms — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0.3 source=primary error=none latency=33ms — persistent"
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.84 cached=true instrumentCount=40."
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green terminal_status=nominal source=kv execution_authorized=false sustain_eligible=true tripwire_state=clear."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock); ATLAS integrity_source_mock=false"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS 0.74 vs integrity 0.9 (delta 0.16); live micro 0.84 (ATLAS↔micro delta 0.10; integrity↔micro delta 0.06)"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "fail",
+      "detail": "ATLAS mode=yellow vs integrity mode=green"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false diagnostic_present=16/19; kv_keys_all_ok=false"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible=false; integrity sustain_eligible=true"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "pass",
+      "detail": "ATLAS tripwire_active=false vs integrity tripwire_state=clear"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-464 agent ZEUS confidence=0.88 source=zeus-verification-pass. seal_status=receipt_quorum_only execution_authorized=false."
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 journal-ZEUS-C-464-ft8bnn canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile ATLAS KV GI/mode (0.74 yellow) with integrity GI/mode (0.9 green) before treating GI as operator-truth. Restore KV diagnostic keys (16/19). Monitor ArXiv and GovTrack primary failures and persistent Cloudflare radar elevation."
+}
