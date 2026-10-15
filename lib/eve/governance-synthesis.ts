@@ -19,7 +19,7 @@ import { getLiveIntegritySnapshot } from '@/lib/integrity/buildStatus';
 import { mockCivicAlerts } from '@/lib/terminal/mock';
 import type { CivicRadarAlert } from '@/lib/terminal/types';
 import { getTreasuryAlerts } from '@/lib/treasury/alerts';
-import { getTripwireState } from '@/lib/tripwire/store';
+import { readTripwireState } from '@/lib/tripwire/store';
 
 export const EVE_GOVERNANCE_SYNTH_TAG = 'eve-governance-synthesis';
 export const EVE_SYNTHESIS_SOURCE = EVE_LEDGER_SYNTHESIS_SOURCE;
@@ -36,7 +36,7 @@ export type EveGovernanceSynthesisInput = {
   cycleId: string;
   gatheredAt: string;
   committedAgentRows: EpiconLedgerFeedEntry[];
-  tripwire: ReturnType<typeof getTripwireState>;
+  tripwire: Awaited<ReturnType<typeof readTripwireState>>;
   civicAlerts: CivicRadarAlert[];
   gi: number | null;
   gi_provenance: string;
@@ -335,7 +335,9 @@ export async function gatherEveGovernanceSynthesisInput(
 
   const committedAgentRows = selectCommittedAgentRowsForSynthesis(ledgerRows, resolvedCycle);
 
-  const tripwire = getTripwireState();
+  // C-465 B2: read-through so EVE synthesis reflects durable, cross-instance
+  // tripwire truth rather than this instance's possibly-cold memory (W5/W7).
+  const tripwire = await readTripwireState();
   const echoAlerts = getEchoAlerts();
   const civicAlerts = echoAlerts.length > 0 ? echoAlerts : mockCivicAlerts;
 

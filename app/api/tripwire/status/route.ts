@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTripwireState, setTripwireState, type RuntimeTripwireState } from '@/lib/tripwire/store';
+import { readTripwireState, setTripwireState, type RuntimeTripwireState } from '@/lib/tripwire/store';
 import { mockTripwire } from '@/lib/mock-data';
 import { liveEnvelope, mockEnvelope } from '@/lib/response-envelope';
 import { saveTripwireState, kvSet, kvSetRawKey, KV_KEYS } from '@/lib/kv/store';
@@ -55,20 +55,17 @@ async function writeTripwireKvState(activeTripwires: number): Promise<void> {
 
 export async function GET() {
   try {
-    const tripwire = getTripwireState();
-    // C-354: KV writes are opportunistic side effects — do not block the response.
-    // On degraded KV, awaiting these caused tw PENDING indefinitely in the vault UI.
-    void writeTripwireKvState(tripwire.active ? 1 : 0);
-    void saveTripwireState({
-      cycleId: currentCycleId(),
-      tripwireCount: tripwire.active ? 1 : 0,
-      elevated: tripwire.active,
-      timestamp: new Date().toISOString(),
-    }).catch(() => {});
+    // C-465 B3: a read endpoint must not mutate authority. The W7 clobber bug
+    // was exactly this — a cold instance's baseline memory got written back
+    // into KV here, silently overwriting a real, persisted elevated tripwire.
+    // Only runSignalEngine() (lib/signals/engine.ts) and the authenticated
+    // POST below may write tripwire state.
+    const tripwire = await readTripwireState();
     return NextResponse.json({
       ok: true,
       ...liveEnvelope(),
       tripwire,
+      source: tripwire.source,
       last_updated: new Date().toISOString(),
       freshness: { status: 'fresh', seconds: 0 },
     });

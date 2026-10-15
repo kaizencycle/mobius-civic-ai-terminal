@@ -38,6 +38,7 @@ import {
 import { SENTINEL_ATTESTATION_COUNT } from '@/lib/vault-v2/constants';
 import { loadQuorumState } from '@/lib/mic/quorumTracker';
 import { resolveOperatorCycleId } from '@/lib/eve/resolve-operator-cycle';
+import { readSustainGate } from '@/lib/sustain/readSustainGate';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -150,6 +151,16 @@ async function buildVaultStatus(req: NextRequest) {
     sealIntegrityGateActive: sealIntegrityGate.active,
   });
 
+  // C-465 A3: `seal_lane.sustain_met` (lib/vault/lane-status.ts) is a hardcoded
+  // `false` literal — it has never actually read the MIC_SUSTAIN_STATE
+  // tracker, independent of what GI does. The real gate state lives in
+  // lib/mic/sustainTracker.ts via lib/sustain/readSustainGate.ts, the same
+  // shared reader /api/integrity-status uses, so the two endpoints cannot
+  // honestly disagree. Null (tracker unreadable) falls back to the previous
+  // `false` behavior rather than asserting a gate we can't confirm.
+  const sustainGate = await readSustainGate();
+  const sustainGateSatisfied = sustainGate.sustain_gate_satisfied ?? seal_lane.sustain_met;
+
   const collisionPairCount = extractCollisionPairCount(sealIntegrityGate.authoritative_findings);
 
   const reserve_block_truth = computeReserveBlockTruthSurface({
@@ -189,7 +200,11 @@ async function buildVaultStatus(req: NextRequest) {
     reserve_block_progress_pct: seal_lane.reserve_block.in_progress_pct,
     reserve_threshold_met: seal_lane.reserve_threshold_met,
     gi_threshold_met: seal_lane.gi_threshold_met,
-    sustain_cycles_met: seal_lane.sustain_met,
+    sustain_cycles_met: sustainGateSatisfied,
+    // C-465 A3: same field name/semantics as /api/integrity-status's
+    // decision_state.sustain_gate_satisfied — null means the tracker is
+    // unreadable (unknown), never a false "no".
+    sustain_gate_satisfied: sustainGate.sustain_gate_satisfied,
     fountain_status: seal_lane.fountain_lane,
     reserve_lane: seal_lane.reserve_lane,
     reserve_block_lane: seal_lane.reserve_block_lane,
@@ -222,7 +237,7 @@ async function buildVaultStatus(req: NextRequest) {
     },
     vault_canon: seal_lane.canon,
     unseal_requirements_remaining: {
-      gi_sustain: !seal_lane.gi_threshold_met || !seal_lane.sustain_met,
+      gi_sustain: !seal_lane.gi_threshold_met || !sustainGateSatisfied,
       fountain: seal_lane.fountain_lane !== 'active' && seal_lane.fountain_lane !== 'unsealed',
     },
     seals_count: sealsCount,

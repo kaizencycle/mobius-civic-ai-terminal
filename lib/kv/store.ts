@@ -924,6 +924,9 @@ export type TripwireKVState = {
   tripwireCount: number;
   elevated: boolean;
   timestamp: string;
+  /** C-465 — optional richer fields the signal engine persists (lib/signals/engine.ts); absent on writes from app/api/tripwire/status/route.ts. */
+  level?: string;
+  reason?: string;
 };
 
 /**
