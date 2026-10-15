@@ -9,7 +9,9 @@ import {
 import { resolveGiChain } from '@/lib/gi/resolveGiChain';
 import { loadMicReadinessSnapshotRaw } from '@/lib/mic/loadReadinessSnapshot';
 import { assessKvKeyHealth } from '@/lib/kv/kvKeyHealth';
-import { getTripwireState } from '@/lib/tripwire/store';
+import { readTripwireState } from '@/lib/tripwire/store';
+import { readSustainGate } from '@/lib/sustain/readSustainGate';
+import { buildDecisionStateOverlay, applyDecisionStateOverlay } from '@/lib/sustain/decisionStateOverlay';
 import { kvGet, kvSet } from '@/lib/kv/store';
 import {
   loadLatestZeusVerificationReport,
@@ -49,10 +51,15 @@ export async function GET() {
   const chain = await resolveGiChain({ micReadinessSnapshotRaw: micRaw.raw });
   const chainGi = chain.gi !== null ? chain.gi : payload.global_integrity;
 
-  const [kvKeyHealth, tripwire, degradedAgentCount] = await Promise.all([
+  const [kvKeyHealth, tripwire, degradedAgentCount, sustainGate] = await Promise.all([
     assessKvKeyHealth().catch(() => null),
-    Promise.resolve(getTripwireState()),
+    // C-465 B2 (primary target): read-through so this no longer presents a
+    // per-instance memory baseline as authoritative "clear" (W1/W2/W5/W6).
+    readTripwireState(),
     countDegradedAgentsFromSignalSnapshot().catch(() => null),
+    // C-465 A1/A3: the one shared sustain-gate reader — also used by
+    // /api/vault/status so the two endpoints can never honestly disagree.
+    readSustainGate(),
   ]);
 
   const renderGicUrl = process.env.RENDER_GIC_URL;
@@ -137,6 +144,18 @@ export async function GET() {
       zeusGovernanceState,
     });
 
+    // C-465 Part A/B5: disambiguate sustain_eligible and expose tripwire
+    // provenance, applied as an overlay rather than inside buildIntegrityEnrichment /
+    // deriveOperationalDecisionState — both live under lib/integrity/, a Tier-3
+    // ("operator-only") path this PR does not modify.
+    const decisionStateOverlay = buildDecisionStateOverlay({
+      gi: enrichment.global_integrity,
+      tripwireSource: tripwire.source,
+      tripwireLastUpdated: tripwire.last_updated,
+      sustainGate,
+    });
+    const decisionState = applyDecisionStateOverlay(enrichment.decision_state, decisionStateOverlay);
+
     const authority = buildIntegrityAuthorityBlock({
       persistenceSource: args.persistenceSource,
       kvBacked: Boolean(payload.kv),
@@ -161,7 +180,7 @@ export async function GET() {
       source: args.persistenceSource,
       gi_provenance: enrichment.gi_provenance,
       gi_representation: enrichment.gi_representation,
-      decision_state: enrichment.decision_state,
+      decision_state: decisionState,
       kv_continuity_ok: enrichment.kv_continuity_ok,
       gi_degraded: enrichment.gi_degraded,
       gi_age_seconds: enrichment.gi_age_seconds,

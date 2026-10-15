@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server';
 import { readTripwireDalSnapshot } from '@/lib/dal/tripwire';
+import { getParallelReadTripwireStatus } from '@/lib/dal/tripwireParity';
 import { getTripwireState } from '@/lib/tripwire/store';
 
 export const dynamic = 'force-dynamic';
-
-type ParallelReadStatus = 'matched' | 'mismatch' | 'legacy_only' | 'dal_degraded';
-
-function getStatus(legacyActive: boolean, dalActive: boolean | null, dalOk: boolean): ParallelReadStatus {
-  if (!dalOk) return 'dal_degraded';
-  if (dalActive === null) return 'legacy_only';
-  return legacyActive === dalActive ? 'matched' : 'mismatch';
-}
 
 /**
  * C-303 Phase 2A — Tripwire parallel read route.
@@ -23,7 +16,7 @@ export async function GET() {
   const legacy = getTripwireState();
   const dalResult = await readTripwireDalSnapshot();
   const dal = dalResult.data ?? null;
-  const status = getStatus(legacy.active, dal?.active ?? null, dalResult.ok);
+  const status = getParallelReadTripwireStatus(legacy.active, dal?.active ?? null, dalResult.ok);
 
   return NextResponse.json(
     {

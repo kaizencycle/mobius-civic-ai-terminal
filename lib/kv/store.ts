@@ -924,6 +924,9 @@ export type TripwireKVState = {
   tripwireCount: number;
   elevated: boolean;
   timestamp: string;
+  /** C-465 — optional richer fields the signal engine persists (lib/signals/engine.ts); absent on writes from app/api/tripwire/status/route.ts. */
+  level?: string;
+  reason?: string;
 };
 
 /**
@@ -931,13 +934,27 @@ export type TripwireKVState = {
  */
 let _lastTripwireSemanticJson: string | null = null;
 
-export async function saveTripwireState(state: TripwireKVState): Promise<void> {
-  // Dedupe on semantic fields only — callers often pass a fresh `timestamp` per poll.
-  const semantic = JSON.stringify({
+/**
+ * Dedupe key for `saveTripwireState` — exported for direct testability.
+ * C-465 (Cursor Bugbot, PR #710): level/reason must be part of this key —
+ * otherwise a POST that only changes severity/reason while
+ * cycleId/tripwireCount/elevated stay the same (e.g. medium -> high) is
+ * silently dropped, and other instances keep reading the stale level.
+ * Callers often pass a fresh `timestamp` per poll, so that is deliberately
+ * excluded.
+ */
+export function tripwireSemanticKey(state: Pick<TripwireKVState, 'cycleId' | 'tripwireCount' | 'elevated' | 'level' | 'reason'>): string {
+  return JSON.stringify({
     cycleId: state.cycleId,
     tripwireCount: state.tripwireCount,
     elevated: state.elevated,
+    level: state.level,
+    reason: state.reason,
   });
+}
+
+export async function saveTripwireState(state: TripwireKVState): Promise<void> {
+  const semantic = tripwireSemanticKey(state);
   if (_lastTripwireSemanticJson === semantic) {
     return;
   }

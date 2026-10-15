@@ -1,4 +1,5 @@
-import { getTripwireState } from '@/lib/tripwire/store';
+import { loadTripwireState } from '@/lib/kv/store';
+import { isSignalEngineTripwireRow, tripwireKvRowToRuntimeState } from '@/lib/tripwire/store';
 import type { RuntimeTripwireLevel } from '@/lib/tripwire/store';
 import type { DalResult } from '@/lib/dal/types';
 import { degradedDalResult, okDalResult, nowIso } from '@/lib/dal/types';
@@ -15,12 +16,28 @@ export type TripwireDalSnapshot = {
 /**
  * C-303 Phase 1F — additive tripwire DAL scaffold.
  *
- * Reads the existing runtime tripwire store directly.
+ * C-465 B4: reads the KV-persisted tripwire record, not the runtime
+ * in-memory store. Before this fix it called the same `getTripwireState()`
+ * the legacy path reads, so parallel-read/tripwire's parity check was
+ * tautologically "matched" even when the two authorities had actually
+ * diverged (W8) — comparing memory to KV gives a real, non-tautological
+ * comparison. `triggered_by` is always null: the KV schema never persists it.
+ *
  * It is diagnostic during Phase 1 and does not replace legacy snapshot routing.
  */
 export async function readTripwireDalSnapshot(): Promise<DalResult<TripwireDalSnapshot>> {
   try {
-    const state = getTripwireState();
+    const row = await loadTripwireState();
+    if (!row || !isSignalEngineTripwireRow(row)) {
+      return degradedDalResult<TripwireDalSnapshot>({
+        source: 'kv',
+        error: row ? 'tripwire_state_key_collision' : 'no_persisted_tripwire_record',
+        note: row
+          ? 'tripwire:state holds a non-signal-engine record (likely the watchdog TrustTripwireSnapshot that shares this key) — not read as a civic-tripwire reading.'
+          : 'No KV tripwire:state record exists yet — not the same as a confirmed clear.',
+      });
+    }
+    const state = tripwireKvRowToRuntimeState(row);
 
     return okDalResult(
       {
@@ -28,14 +45,14 @@ export async function readTripwireDalSnapshot(): Promise<DalResult<TripwireDalSn
         level: state.level,
         reason: state.reason,
         last_updated: state.last_updated,
-        triggered_by: state.triggeredBy ?? null,
+        triggered_by: null,
         timestamp: nowIso(),
       },
       {
-        source: 'computed',
+        source: 'kv',
         freshness: 'live',
         timestamp: nowIso(),
-        note: 'Tripwire DAL scaffold sourced from runtime tripwire store',
+        note: 'Tripwire DAL scaffold sourced from KV (tripwire:state), independent of the runtime in-memory store',
       },
     );
   } catch (error) {
