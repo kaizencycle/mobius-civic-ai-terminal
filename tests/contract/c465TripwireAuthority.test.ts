@@ -19,6 +19,7 @@ import {
 } from '@/lib/tripwire/store';
 import { readTripwireDalSnapshot } from '@/lib/dal/tripwire';
 import { getParallelReadTripwireStatus } from '@/lib/dal/tripwireParity';
+import { tripwireSemanticKey } from '@/lib/kv/store';
 import { readFileSync } from 'node:fs';
 import { applyDecisionStateOverlay, buildDecisionStateOverlay } from '@/lib/sustain/decisionStateOverlay';
 import { computeSustainGate } from '@/lib/sustain/readSustainGate';
@@ -248,5 +249,20 @@ describe('C-465: KV_KEYS.TRIPWIRE_STATE key collision with the watchdog TrustTri
       kv,
     });
     assert.equal(result.source, 'baseline', 'honest "unknown", not a false "clear" borrowed from an unrelated system');
+  });
+});
+
+describe('C-465: saveTripwireState dedupe must not swallow a severity/reason-only change (Cursor Bugbot, PR #710)', () => {
+  it('a POST that only changes level/reason produces a different dedupe key', () => {
+    const timestamp = new Date().toISOString();
+    const medium = tripwireSemanticKey({ cycleId: 'C-465', tripwireCount: 1, elevated: true, level: 'medium', reason: 'HERMES escalation' });
+    const high = tripwireSemanticKey({ cycleId: 'C-465', tripwireCount: 1, elevated: true, level: 'high', reason: 'HERMES escalation — worsened' });
+    assert.notEqual(medium, high, 'cycleId/tripwireCount/elevated are identical — only level/reason changed, and that must still produce a new key');
+  });
+
+  it('an identical repeat (including level/reason) still dedupes to the same key', () => {
+    const a = tripwireSemanticKey({ cycleId: 'C-465', tripwireCount: 1, elevated: true, level: 'medium', reason: 'HERMES escalation' });
+    const b = tripwireSemanticKey({ cycleId: 'C-465', tripwireCount: 1, elevated: true, level: 'medium', reason: 'HERMES escalation' });
+    assert.equal(a, b, 'a genuine repeat (same poll result) should still dedupe');
   });
 });
