@@ -1,5 +1,5 @@
 import { loadTripwireState } from '@/lib/kv/store';
-import { tripwireKvRowToRuntimeState } from '@/lib/tripwire/store';
+import { isSignalEngineTripwireRow, tripwireKvRowToRuntimeState } from '@/lib/tripwire/store';
 import type { RuntimeTripwireLevel } from '@/lib/tripwire/store';
 import type { DalResult } from '@/lib/dal/types';
 import { degradedDalResult, okDalResult, nowIso } from '@/lib/dal/types';
@@ -28,11 +28,13 @@ export type TripwireDalSnapshot = {
 export async function readTripwireDalSnapshot(): Promise<DalResult<TripwireDalSnapshot>> {
   try {
     const row = await loadTripwireState();
-    if (!row) {
+    if (!row || !isSignalEngineTripwireRow(row)) {
       return degradedDalResult<TripwireDalSnapshot>({
         source: 'kv',
-        error: 'no_persisted_tripwire_record',
-        note: 'No KV tripwire:state record exists yet — not the same as a confirmed clear.',
+        error: row ? 'tripwire_state_key_collision' : 'no_persisted_tripwire_record',
+        note: row
+          ? 'tripwire:state holds a non-signal-engine record (likely the watchdog TrustTripwireSnapshot that shares this key) — not read as a civic-tripwire reading.'
+          : 'No KV tripwire:state record exists yet — not the same as a confirmed clear.',
       });
     }
     const state = tripwireKvRowToRuntimeState(row);

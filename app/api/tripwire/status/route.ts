@@ -65,7 +65,12 @@ export async function GET() {
       ok: true,
       ...liveEnvelope(),
       tripwire,
-      source: tripwire.source,
+      // C-465: a distinct field, not `source` — liveEnvelope() already sets
+      // `source: 'live'`, which TripwireWatchCard's DataSourceBadge expects
+      // to be one of a fixed DataSource enum. Overwriting it with
+      // 'memory'|'kv'|'merged'|'baseline' made the badge fall through to
+      // its "MOCK DATA" default on every successful response.
+      tripwire_source: tripwire.source,
       last_updated: new Date().toISOString(),
       freshness: { status: 'fresh', seconds: 0 },
     });
@@ -112,11 +117,17 @@ export async function POST(request: NextRequest) {
 
   setTripwireState(nextTripwire);
   await writeTripwireKvState(nextTripwire.active ? 1 : 0);
+  // C-465: include level/reason (Cursor Bugbot finding, PR #710) — without
+  // them, a later readTripwireState() can't tell this medium/watch tripwire
+  // apart from "elevated, severity unspecified" and the worst-wins merge
+  // could inflate it.
   await saveTripwireState({
     cycleId: currentCycleId(),
     tripwireCount: nextTripwire.active ? 1 : 0,
     elevated: nextTripwire.active,
     timestamp: new Date().toISOString(),
+    level: nextTripwire.level,
+    reason: nextTripwire.reason,
   }).catch(() => {});
 
   return NextResponse.json({

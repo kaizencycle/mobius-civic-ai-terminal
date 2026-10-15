@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import {
   mergeTripwireState,
   tripwireKvRowToRuntimeState,
+  isSignalEngineTripwireRow,
   hasEvaluatedTripwireInMemory,
   __resetTripwireStoreForTests,
   type RuntimeTripwireState,
@@ -98,6 +99,27 @@ describe('C-465 T1-T3: mergeTripwireState provenance', () => {
     });
     assert.equal(result.source, 'merged');
     assert.equal(result.active, true);
+  });
+
+  it('Cursor Bugbot finding (PR #710): a level-less KV row must not inflate a real medium/watch tripwire to elevated', () => {
+    // POST /api/tripwire/status previously wrote {elevated, tripwireCount,
+    // timestamp} with no level/reason. tripwireKvRowToRuntimeState's old
+    // 'elevated' default for an unspecified level would always outrank a
+    // memory reading's real 'medium' in the worst-wins merge below.
+    const levelLessKvRow = tripwireKvRowToRuntimeState({
+      elevated: true,
+      tripwireCount: 1,
+      timestamp: new Date().toISOString(),
+      // no `level` field — the exact shape the old POST write produced
+    });
+    assert.equal(levelLessKvRow.level, 'watch', 'unspecified severity must default to the minimum non-clear rank, not the maximum');
+
+    const result = mergeTripwireState({
+      memory: { active: true, level: 'medium', reason: 'HERMES escalation', last_updated: new Date().toISOString() },
+      memoryEvaluated: true,
+      kv: levelLessKvRow,
+    });
+    assert.notEqual(result.level, 'elevated', 'a genuine medium tripwire must not be silently escalated by an unlabeled KV row');
   });
 });
 
@@ -187,5 +209,44 @@ describe('C-465 T6: DAL tripwire snapshot is independent of the runtime store (r
     assert.equal(getParallelReadTripwireStatus(true, true, true), 'matched');
     assert.equal(getParallelReadTripwireStatus(true, null, true), 'legacy_only');
     assert.equal(getParallelReadTripwireStatus(true, true, false), 'dal_degraded');
+  });
+});
+
+describe('C-465: KV_KEYS.TRIPWIRE_STATE key collision with the watchdog TrustTripwireSnapshot (Codex finding, PR #710)', () => {
+  it('accepts a genuine signal-engine row', () => {
+    assert.equal(
+      isSignalEngineTripwireRow({ cycleId: 'C-465', elevated: true, tripwireCount: 1, timestamp: new Date().toISOString() }),
+      true,
+    );
+  });
+
+  it('rejects a TrustTripwireSnapshot row even though elevated/tripwireCount/timestamp coincidentally line up', () => {
+    // lib/watchdog/kvWatchdogEscalation.ts / app/api/cron/watchdog/route.ts
+    // persist this exact shape to the SAME KV key.
+    const watchdogRow = {
+      ok: false,
+      elevated: false,
+      tripwireCount: 0,
+      critical: false,
+      results: [{ kind: 'kv_health', ok: true, severity: 'low', score: 1, triggered: false, message: 'ok', timestamp: new Date().toISOString() }],
+      timestamp: new Date().toISOString(),
+    };
+    assert.equal(isSignalEngineTripwireRow(watchdogRow), false, 'must not be read as a civic-tripwire reading');
+  });
+
+  it('a cold instance never downgrades a real elevation because of a watchdog row sharing the key', () => {
+    // readTripwireState()'s actual guard: if the KV row fails the signal-engine
+    // shape check, kv becomes null, and an unevaluated (cold) memory falls back
+    // to 'baseline' rather than adopting the watchdog's unrelated elevated:false.
+    const watchdogRow = { ok: true, elevated: false, tripwireCount: 0, critical: false, results: [], timestamp: new Date().toISOString() };
+    const kv = isSignalEngineTripwireRow(watchdogRow) ? tripwireKvRowToRuntimeState(watchdogRow) : null;
+    assert.equal(kv, null);
+
+    const result = mergeTripwireState({
+      memory: { active: false, level: 'none', reason: 'baseline', last_updated: new Date().toISOString() },
+      memoryEvaluated: false,
+      kv,
+    });
+    assert.equal(result.source, 'baseline', 'honest "unknown", not a false "clear" borrowed from an unrelated system');
   });
 });

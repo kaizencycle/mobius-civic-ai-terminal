@@ -115,11 +115,44 @@ function isKnownTripwireLevel(value: unknown): value is RuntimeTripwireLevel {
 }
 
 /**
+ * C-465 — `KV_KEYS.TRIPWIRE_STATE` ('tripwire:state') is also written by an
+ * unrelated system: `app/api/cron/watchdog/route.ts` and
+ * `lib/watchdog/kvWatchdogEscalation.ts` persist a `TrustTripwireSnapshot`
+ * (lib/tripwire/types.ts — KV integrity/trust checks) to this exact same
+ * key, which happens to share the `elevated`/`tripwireCount`/`timestamp`
+ * field names but carries a `results` array and `ok`/`critical` flags
+ * instead of a `cycleId`. Without this guard, a watchdog-authored row would
+ * be silently misread as the signal engine's civic-tripwire record — on a
+ * cold instance, if the watchdog's own `elevated` happened to be false,
+ * that would overwrite a real, signal-engine-persisted elevation with a
+ * false "clear" for every new reader this PR adds. Rejecting an
+ * unrecognized shape and falling back to memory/baseline is the safe
+ * default; it does not fix the underlying key collision (pre-existing,
+ * predates this PR — see `lib/gi/serverWriteCircuitBreaker.ts`'s
+ * `resolveBreakerTripwireState()`, which already read this same key before
+ * C-465), which is a KV-schema fix for a human operator, not this PR.
+ */
+export function isSignalEngineTripwireRow(value: unknown): value is {
+  cycleId: string;
+  elevated: boolean;
+  tripwireCount: number;
+  timestamp: string;
+  level?: string;
+  reason?: string;
+} {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  if ('results' in v || 'critical' in v) return false;
+  return typeof v.cycleId === 'string' && typeof v.elevated === 'boolean' && typeof v.timestamp === 'string';
+}
+
+/**
  * Maps the KV-persisted shape (`TripwireKVState` in lib/kv/store.ts — written
  * by both the signal engine, which includes `level`/`reason`, and the
  * tripwire/status POST handler, which does not) into the richer runtime
  * shape. Never invents a specific reason/level beyond what the boolean
- * `elevated` honestly supports.
+ * `elevated` honestly supports. Callers must check `isSignalEngineTripwireRow`
+ * first.
  */
 export function tripwireKvRowToRuntimeState(row: {
   elevated: boolean;
@@ -136,7 +169,15 @@ export function tripwireKvRowToRuntimeState(row: {
       last_updated: row.timestamp,
     };
   }
-  const level: RuntimeTripwireLevel = isKnownTripwireLevel(row.level) ? row.level : 'elevated';
+  // C-465: Cursor Bugbot (PR #710) — defaulting an unspecified level to
+  // 'elevated' (the worst rank) meant a level-less KV row (legacy writes
+  // before this fix, or any future caller that omits it) would *always* beat
+  // a memory reading's real 'medium'/'watch' in the worst-wins merge below,
+  // inflating a genuine medium tripwire to "elevated" on every read. 'watch'
+  // is the honest default: we know elevated=true is not clear, but not its
+  // specific severity, so we claim the minimum non-clear rank, not the
+  // maximum.
+  const level: RuntimeTripwireLevel = isKnownTripwireLevel(row.level) ? row.level : 'watch';
   return {
     active: true,
     level,
@@ -156,7 +197,7 @@ export async function readTripwireState(): Promise<RuntimeTripwireState & { sour
   let kv: RuntimeTripwireState | null = null;
   try {
     const row = await loadTripwireState();
-    kv = row ? tripwireKvRowToRuntimeState(row) : null;
+    kv = row && isSignalEngineTripwireRow(row) ? tripwireKvRowToRuntimeState(row) : null;
   } catch {
     kv = null;
   }

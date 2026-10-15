@@ -71,8 +71,8 @@ describe('C-465 T8: unreadable tracker reports null, never false', () => {
 });
 
 describe('C-465 T9: integrity-status and vault/status share one reader, so they cannot honestly disagree', () => {
-  it('the same tracker state produces identical sustain_gate_satisfied through the one shared computeSustainGate()', () => {
-    const state = trackerState({ consecutiveEligibleCycles: 7 });
+  it('the same tracker state produces identical sustain_gate_satisfied (the 0.75 MIC gate) through the one shared computeSustainGate()', () => {
+    const state = trackerState({ consecutiveEligibleCycles: 7, consecutiveGi95Cycles: 7 });
 
     // /api/integrity-status's path (via lib/sustain/decisionStateOverlay.ts)
     const integrityGate = computeSustainGate(state, SUSTAIN_REQUIRED_CYCLES);
@@ -83,22 +83,37 @@ describe('C-465 T9: integrity-status and vault/status share one reader, so they 
       sustainGate: integrityGate,
     });
 
-    // /api/vault/status's path: `sustainGate.sustain_gate_satisfied ?? seal_lane.sustain_met`
-    // (app/api/vault/status/route.ts) — reusing the exact same computeSustainGate() call.
+    // /api/vault/status/route.ts calls the exact same computeSustainGate() and
+    // exposes decision_state.sustain_gate_satisfied's twin under the same name.
     const vaultGate = computeSustainGate(state, SUSTAIN_REQUIRED_CYCLES);
-    const legacySustainMet = false; // seal_lane.sustain_met is a hardcoded literal (lib/vault/lane-status.ts) — see PR notes
-    const vaultSustainCyclesMet = vaultGate.sustain_gate_satisfied ?? legacySustainMet;
-
-    assert.equal(overlay.sustain_gate_satisfied, vaultSustainCyclesMet);
+    assert.equal(overlay.sustain_gate_satisfied, vaultGate.sustain_gate_satisfied);
     assert.equal(overlay.sustain_gate_satisfied, true);
   });
 
   it('when the tracker is unreadable, vault/status honestly falls back to its prior (false) behavior rather than asserting a gate it cannot confirm', () => {
     const gate = computeSustainGate(null);
-    const legacySustainMet = false;
-    const vaultSustainCyclesMet = gate.sustain_gate_satisfied ?? legacySustainMet;
-    assert.equal(vaultSustainCyclesMet, false);
-    // But the new, honestly-nullable field is still exposed distinctly:
+    const legacySustainMet = false; // seal_lane.sustain_met is a hardcoded literal (lib/vault/lane-status.ts)
+    const vaultFountainSustainSatisfied = gate.fountain_sustain_satisfied ?? legacySustainMet;
+    assert.equal(vaultFountainSustainSatisfied, false);
+    // But the new, honestly-nullable fields are still exposed distinctly:
     assert.equal(gate.sustain_gate_satisfied, null);
+    assert.equal(gate.fountain_sustain_satisfied, null);
+  });
+
+  it('Codex finding (PR #710): vault/status\'s sustain_cycles_met must track the 0.95 Fountain counter, not the 0.75 MIC counter', () => {
+    // Four cycles at GI 0.75-0.95 (consecutiveEligibleCycles climbs), then one
+    // cycle at GI >= 0.95 (consecutiveGi95Cycles is only 1). The 0.75 gate
+    // reaches "satisfied" while the Vault's own 0.95 Fountain gate — the one
+    // app/api/vault/fountain-status already uses — has barely started.
+    const state = trackerState({ consecutiveEligibleCycles: 5, consecutiveGi95Cycles: 1 });
+    const gate = computeSustainGate(state, SUSTAIN_REQUIRED_CYCLES);
+
+    assert.equal(gate.sustain_gate_satisfied, true, 'the 0.75 MIC gate is satisfied');
+    assert.equal(gate.fountain_sustain_satisfied, false, 'but the Vault/Fountain 0.95 gate is not');
+
+    // app/api/vault/status/route.ts: fountainSustainSatisfied = sustainGate.fountain_sustain_satisfied ?? seal_lane.sustain_met
+    const legacySustainMet = false;
+    const vaultSustainCyclesMet = gate.fountain_sustain_satisfied ?? legacySustainMet;
+    assert.equal(vaultSustainCyclesMet, false, 'sustain_cycles_met must not go true off the wrong counter');
   });
 });
