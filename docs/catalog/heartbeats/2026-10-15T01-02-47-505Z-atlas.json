@@ -4,7 +4,7 @@
   "cycle": "C-464",
   "gi": 0.71,
   "mode": "yellow",
-  "source": "live",
+  "source": "kv",
   "anomalies": [
     {
       "source": "hermes-arxiv",
