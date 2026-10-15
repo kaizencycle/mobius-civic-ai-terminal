@@ -3,10 +3,10 @@
   "agent": "ZEUS",
   "cycle": "C-465",
   "verification_status": "disputed",
-  "gi_verified": true,
+  "gi_verified": false,
   "gi_source": "kv",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-15T17-00-35-006Z-atlas.json",
-  "atlas_gi": 0.81,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-15T18-01-02-478Z-atlas.json",
+  "atlas_gi": 0.763,
   "integrity_gi": 0.81,
   "live_micro_gi": 0.872,
   "anomaly_persistence": {
@@ -24,7 +24,7 @@
     {
       "check": "atlas_heartbeat",
       "result": "pass",
-      "detail": "ATLAS STRESSED gi=0.81 mode=green source=cached cycle=C-465; anomalies=[gaia-noaa-alerts, themis-govtrack, daedalus-cloudflare-radar]; micro_composite=0.873; kv_diagnostic_ok=false (18/19); seed_result=200 OK; sustain_eligible=true; tripwire_active=false; degraded_agents=3 (AUREA, JADE, DAEDALUS)."
+      "detail": "ATLAS STRESSED gi=0.763 mode=yellow source=kv cycle=C-465; anomalies=[gaia-noaa-alerts, themis-govtrack, daedalus-cloudflare-radar]; micro_composite=0.872; kv_diagnostic_ok=false (18/19); seed_result=200 OK; sustain_eligible=false; tripwire_active=true level=elevated (Hormuz); degraded_agents=3 (AUREA, JADE, DAEDALUS); terminal_status=stressed."
     },
     {
       "check": "anomaly_gaia-noaa-alerts",
@@ -39,7 +39,7 @@
     {
       "check": "anomaly_daedalus-cloudflare-radar",
       "result": "warn",
-      "detail": "ATLAS elevated; live score=0.3 severity elevated — persistent infrastructure-status strain"
+      "detail": "ATLAS elevated; live score=0.3 — persistent infrastructure-status strain"
     },
     {
       "check": "signals_micro",
@@ -58,18 +58,18 @@
     },
     {
       "check": "gi_coherence",
-      "result": "warn",
-      "detail": "ATLAS 0.81 aligns with integrity 0.81; live micro 0.872 (delta 0.062 vs headline GI); modes both green"
+      "result": "fail",
+      "detail": "ATLAS 0.763 vs integrity 0.81 (delta 0.047); live micro 0.872; ATLAS mode=yellow vs integrity mode=green; ATLAS terminal_status=stressed vs integrity terminal_status=nominal"
     },
     {
       "check": "sustain_eligible alignment",
-      "result": "pass",
-      "detail": "ATLAS sustain_eligible=true; integrity decision_state.sustain_eligible=true"
+      "result": "fail",
+      "detail": "Divergence: ATLAS sustain_eligible=false; integrity decision_state.sustain_eligible=true"
     },
     {
       "check": "tripwire alignment",
-      "result": "fail",
-      "detail": "ATLAS tripwire_active=false vs integrity tripwire_state=elevated"
+      "result": "pass",
+      "detail": "ATLAS tripwire_active=true level=elevated aligns with integrity tripwire_state=elevated"
     },
     {
       "check": "kv_diagnostic",
@@ -92,5 +92,6 @@
       "detail": "HTTP 200 journal-ZEUS-C-465-l6e3z3 canonical=true mirrored_to_kv=true"
     }
   ],
-  "recommendation": "Reconcile ATLAS tripwire inactive flag with integrity-status tripwire_state=elevated; restore missing KV diagnostic key (18/19). Monitor persistent NOAA, GovTrack primary failure, and Cloudflare elevated lanes. No EPICON candidates pending — no publish actions."
+  "recommendation": "Reconcile ATLAS headline GI/mode/terminal_status and sustain_eligible with integrity-status and live micro composite; restore missing KV diagnostic key (18/19). Monitor persistent NOAA, GovTrack primary failure, and Cloudflare elevated lanes under elevated Hormuz tripwire. No EPICON candidates pending — no publish actions.",
+  "note": "Catalog corrected post-push to reference latest ATLAS heartbeat 2026-10-15T18-01-02Z (supersedes 17:00 cached snapshot used during live API window)."
 }
