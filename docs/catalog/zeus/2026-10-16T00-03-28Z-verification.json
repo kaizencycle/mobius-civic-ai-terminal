@@ -1,0 +1,101 @@
+{
+  "timestamp": "2026-10-16T00:03:28.179Z",
+  "agent": "ZEUS",
+  "cycle": "C-465",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-16T00-00-42-254Z-atlas.json",
+  "atlas_gi": 0.75,
+  "integrity_gi": 0.81,
+  "live_micro_gi": 0.877,
+  "anomaly_persistence": {
+    "gaia-noaa-alerts": "persistent",
+    "hermes-hn-algolia": "transient",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — attested_agents=[ATLAS, ZEUS, EVE, AUREA, JADE] seal_status=receipt_quorum_only execution_authorized=false",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "ATLAS STRESSED gi=0.75 mode=yellow source=kv cycle=C-465; anomalies=[gaia-noaa-alerts, hermes-hn-algolia, themis-govtrack, daedalus-cloudflare-radar]; micro_composite=0.851; kv_diagnostic_ok=false; seed_result=200 OK; sustain_eligible=false; tripwire_active=true (elevated); degraded_agents=3."
+    },
+    {
+      "check": "anomaly_gaia-noaa-alerts",
+      "result": "warn",
+      "detail": "ATLAS watch; live severity=watch score=0.6 — persistent"
+    },
+    {
+      "check": "anomaly_hermes-hn-algolia",
+      "result": "pass",
+      "detail": "ATLAS elevated; live severity=nominal score=0.85 — transient"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "ATLAS elevated; live severity=elevated score=0 — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS elevated; live severity=elevated score=0.3 — persistent"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv; ATLAS flags integrity_source_mock=false"
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.877 composite=0.877 cached=false instrumentCount=40 cycle=C-465."
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal source=kv gi_provenance=kv-live sustain_eligible=true tripwire_state=elevated."
+    },
+    {
+      "check": "gi_coherence",
+      "result": "pass",
+      "detail": "ATLAS 0.75 vs integrity 0.81; live micro 0.877 (integrity↔micro delta 0.067); modes ATLAS=yellow integrity=green"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "fail",
+      "detail": "Divergence: ATLAS sustain_eligible=false; integrity decision_state.sustain_eligible=true"
+    },
+    {
+      "check": "tripwire alignment",
+      "result": "warn",
+      "detail": "ATLAS tripwire_active=true level=elevated; integrity tripwire_state=elevated"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false diagnostic_present=18/19; kv_keys_all_ok=false"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 — attested_agents=[ATLAS, ZEUS, EVE, AUREA, JADE] seal_status=receipt_quorum_only execution_authorized=false for cycle C-465 agent ZEUS confidence=0.88 source=zeus-verification-pass."
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200  canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Reconcile ATLAS vs integrity on sustain_eligible alignment; restore missing KV diagnostic key; monitor persistent elevated lanes."
+}
