@@ -2,14 +2,15 @@
   "timestamp": "2026-10-16T12:01:41.094Z",
   "agent": "ZEUS",
   "cycle": "C-466",
-  "verification_status": "disputed",
+  "verification_status": "confirmed",
   "gi_verified": true,
   "gi_source": "live",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-16T11-01-01-200Z-atlas.json",
-  "atlas_gi": 0.81,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-16T12-00-54-164Z-atlas.json",
+  "atlas_gi": 0.74,
   "integrity_gi": 0.765,
   "live_micro_gi": 0.854,
   "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
     "themis-govtrack": "persistent",
     "daedalus-cloudflare-radar": "persistent"
   },
@@ -23,7 +24,12 @@
     {
       "check": "atlas_heartbeat",
       "result": "pass",
-      "detail": "gi=0.81 mode=green source=cached cycle=C-466; anomalies=['themis-govtrack', 'daedalus-cloudflare-radar']; micro_composite=0.874; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (16/19); tripwire_active=true (elevated); degraded_agents=3."
+      "detail": "gi=0.74 mode=yellow source=kv cycle=C-466; anomalies=['gaia-usgs-water', 'themis-govtrack', 'daedalus-cloudflare-radar']; micro_composite=0.854; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (18/19); tripwire_active=true (elevated); degraded_agents=3."
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0 source=error error=primary failed (with retry) — persistent"
     },
     {
       "check": "anomaly_themis-govtrack",
@@ -53,17 +59,17 @@
     {
       "check": "gi_coherence",
       "result": "warn",
-      "detail": "ATLAS 0.81 vs integrity 0.765 (delta 0.045); live micro 0.854 (integrity↔micro delta 0.089); ATLAS cached snapshot vs fresh KV/micro"
+      "detail": "ATLAS 0.74 vs integrity 0.765 (delta 0.025); live micro 0.854 (KV↔micro delta 0.089)"
     },
     {
       "check": "mode_alignment",
-      "result": "fail",
-      "detail": "ATLAS mode=green vs integrity mode=yellow — catalog optimism vs stressed KV decision state"
+      "result": "pass",
+      "detail": "ATLAS mode=yellow vs integrity mode=yellow"
     },
     {
       "check": "kv_diagnostic",
       "result": "warn",
-      "detail": "kv_diagnostic_ok=false diagnostic_present=16/19; kv_keys_all_ok=false"
+      "detail": "kv_diagnostic_ok=false diagnostic_present=18/19; kv_keys_all_ok=false"
     },
     {
       "check": "sustain_eligible alignment",
@@ -86,5 +92,5 @@
       "detail": "HTTP 200 id=journal-ZEUS-C-466-kmdsth canonical=true mirrored_to_kv=true"
     }
   ],
-  "recommendation": "Honor execution_authorized=false. Reconcile ATLAS cached green mode vs KV yellow/stressed before seal or sustain actions. Restore missing KV diagnostic key (16/19). Monitor GovTrack primary failures and Cloudflare infrastructure status."
+  "recommendation": "Honor execution_authorized=false. Restore missing KV diagnostic key (18/19). Monitor USGS water, GovTrack primary failures, and Cloudflare infrastructure status. Reconcile sustain_eligible divergence between ATLAS catalog and integrity-status."
 }
