@@ -45,7 +45,7 @@
     "timestamp": "2026-10-16T08:01:17.213Z"
   },
   "seed_attempted": true,
-  "seed_result": "error:",
+  "seed_result": "200 OK",
   "sustain_eligible": false,
   "classification": "STRESSED",
   "micro_composite": 0.877,
