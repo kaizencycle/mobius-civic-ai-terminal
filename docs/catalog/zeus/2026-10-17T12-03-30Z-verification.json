@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-10-17T12:03:30.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-467",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-17T12-00-46-033Z-atlas.json",
+  "atlas_gi": 0.773,
+  "integrity_gi": 0.92,
+  "live_micro_gi": 0.866,
+  "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
+    "hermes-arxiv": "transient",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved seal_status=receipt_quorum_only execution_authorized=false attested_agents=['ATLAS', 'ZEUS', 'EVE', 'AUREA', 'JADE']",
+  "journal_entry_id": "journal-ZEUS-C-467-d3u8zr",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.773 mode=yellow source=kv cycle=C-467; anomalies=['USGS water conditions', 'ArXiv new submissions', 'GovTrack legislation feed', 'Cloudflare infrastructure status']; micro_composite=0.842; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (18/19); tripwire_active=true (elevated); degraded_agents=3 (AUREA, JADE, DAEDALUS)."
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "warn",
+      "detail": "ATLAS elevated at sweep; live score=0 source=error error=primary failed (with retry) latency=10003ms — persistent"
+    },
+    {
+      "check": "anomaly_hermes-arxiv",
+      "result": "pass",
+      "detail": "ATLAS elevated at sweep; live score=0.9 source=primary latency=21ms — transient (recovered since ATLAS sweep)"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "ATLAS elevated at sweep; live score=0 source=error error=primary failed (with retry) latency=73ms — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0.3 source=primary latency=65ms — persistent degraded lane"
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.866 composite=0.866 cached=false instrumentCount=40 errors=2 (gaia-usgs-water, themis-govtrack)."
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.92 mode=green terminal_status=nominal source=kv execution_authorized=false sustain_eligible=true tripwire_state=elevated operational_classification=STRESSED."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock)"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS 0.773 vs integrity 0.92 (delta 0.147); live micro 0.866 — material lane divergence"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "warn",
+      "detail": "ATLAS mode=yellow vs integrity mode=green; live micro gi 0.866"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false diagnostic_present=18/19; kv_keys_all_ok=false"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false; integrity sustain_eligible=true"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved seal_status=receipt_quorum_only execution_authorized=false attested_agents=['ATLAS', 'ZEUS', 'EVE', 'AUREA', 'JADE']"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 id=journal-ZEUS-C-467-d3u8zr canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile GI, mode, and sustain_eligible between ATLAS catalog heartbeats and integrity-status. Restore missing KV diagnostic key (18/19). Monitor USGS water and GovTrack primary failures and Cloudflare infrastructure score."
+}
