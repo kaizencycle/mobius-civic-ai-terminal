@@ -45,7 +45,7 @@
     "timestamp": "2026-10-17T11:02:11.399Z"
   },
   "seed_attempted": true,
-  "seed_result": "error: This operation was aborted",
+  "seed_result": "200 OK",
   "sustain_eligible": false,
   "classification": "STRESSED",
   "micro_composite": 0.878,
@@ -82,6 +82,11 @@
   "journal_canonical": true,
   "journal_id": "journal-ATLAS-C-467-g2p3xc",
   "last_journal_cycle": "C-467",
-  "seed_seeded_keys": [],
-  "seed_http": "error"
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "seed_http": "200"
 }
