@@ -1,0 +1,96 @@
+{
+  "timestamp": "2026-10-18T12:01:11.709Z",
+  "agent": "ZEUS",
+  "cycle": "C-468",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-18T11-00-35-656Z-atlas.json",
+  "atlas_gi": 0.92,
+  "integrity_gi": 0.74,
+  "live_micro_gi": 0.86,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "aurea-coingecko": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved seal_status=receipt_quorum_only execution_authorized=false attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE]",
+  "journal_entry_id": "journal-ZEUS-C-468-4qj41s",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.92 mode=green source=cached cycle=C-468; two elevated anomalies (GovTrack, Cloudflare radar); micro_composite=0.882; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (18/19); classification=STRESSED; terminal_status=nominal; degraded_agents=3 (AUREA, JADE, DAEDALUS); tripwire active elevated."
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "ATLAS elevated at 11:00 sweep; live score=0 source=error primary failed (with retry) — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS elevated at sweep; live score=0.3 source=primary — persistent degraded lane"
+    },
+    {
+      "check": "anomaly_aurea-coingecko",
+      "result": "warn",
+      "detail": "Live micro elevated score=0 source=error; ATLAS listed AUREA among degraded agents but not in heartbeat anomaly array — persistent instrument failure"
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.86 composite=0.86 cached=true anomaly_count=3."
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.74 mode=yellow terminal_status=stressed source=kv execution_authorized=false sustain_eligible=false."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock)"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS 0.92 vs integrity 0.74 vs live micro 0.86 (max delta 0.18); ATLAS source=cached vs integrity kv"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "fail",
+      "detail": "ATLAS mode=green vs integrity mode=yellow (derived_mode=yellow)"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false diagnostic_present=18/19; kv_keys_all_ok=false per ATLAS heartbeat"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=false; integrity sustain_eligible=false — aligned"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-468. seal_status=receipt_quorum_only execution_authorized=false."
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 id=journal-ZEUS-C-468-4qj41s canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile cached ATLAS GI/mode (green/0.92) with KV integrity (yellow/0.74) and live micro (0.86). Restore missing KV diagnostic key (18/19). Monitor GovTrack, Cloudflare radar, and CoinGecko primary failures."
+}
