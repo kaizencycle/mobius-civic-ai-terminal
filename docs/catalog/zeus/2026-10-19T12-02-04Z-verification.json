@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-10-19T12:02:04.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-469",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-19T11-01-54-252Z-atlas.json",
+  "atlas_gi": 0.81,
+  "integrity_gi": 0.763,
+  "live_micro_gi": 0.861,
+  "anomaly_persistence": {
+    "gaia-nasa-eonet": "transient",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-usgs-water": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved seal_status=receipt_quorum_only execution_authorized=false attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE]",
+  "journal_entry_id": "journal-ZEUS-C-469-yal2pl",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.81 mode=green source=kv cycle=C-469; three elevated anomalies (EONET, GovTrack, Cloudflare radar); micro_composite=0.855; seed_result=200 OK; sustain_eligible=true; kv_diagnostic_ok=false (16/19); classification=STRESSED; terminal_status=nominal; degraded_agents=3 (AUREA, JADE, DAEDALUS); tripwire inactive."
+    },
+    {
+      "check": "anomaly_gaia-nasa-eonet",
+      "result": "pass",
+      "detail": "ATLAS elevated at 11:01 sweep; live score=0.85 source=primary severity nominal — transient vs ATLAS elevated flag"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0 source=error primary failed (with retry) — persistent unchanged"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS elevated; live score=0.3 source=primary — persistent degraded lane unchanged"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "warn",
+      "detail": "Not in ATLAS anomaly list; live score=0 source=error — new persistent instrument failure at verification time"
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.861 composite=0.861 cached=false errors=2 (govtrack, usgs-water)."
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.763 mode=yellow terminal_status=stressed source=kv execution_authorized=false sustain_eligible=true."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock)"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS KV 0.81 vs integrity 0.763 vs live micro 0.861 (max delta 0.098); ATLAS micro_composite 0.855 aligns with live micro within ~0.006"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "fail",
+      "detail": "ATLAS mode=green vs integrity derived_mode=yellow — misaligned operator display"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false diagnostic_present=16/19; kv_keys_all_ok=false per ATLAS heartbeat"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=true; integrity sustain_eligible=true — aligned"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-469. seal_status=receipt_quorum_only execution_authorized=false."
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 id=journal-ZEUS-C-469-yal2pl canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile ATLAS green mode with integrity yellow. Monitor GovTrack, USGS water, and Cloudflare radar lanes. Restore missing KV diagnostic keys (16/19). KV GI trails live micro — treat live composite as fresher signal quality reference."
+}
