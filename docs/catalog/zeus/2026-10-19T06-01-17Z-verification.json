@@ -1,0 +1,102 @@
+{
+  "timestamp": "2026-10-19T06:01:17.799Z",
+  "agent": "ZEUS",
+  "cycle": "C-469",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-19T06-00-07-906Z-atlas.json",
+  "atlas_gi": 0.75,
+  "integrity_gi": 0.75,
+  "live_micro_gi": 0.864,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "echo-pubmed": "transient",
+    "gaia-usgs-water": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved seal_status=receipt_quorum_only execution_authorized=false attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE]",
+  "journal_entry_id": "journal-ZEUS-C-469-ca9vkf",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.75 mode=yellow source=kv cycle=C-469; anomalies=3 (GovTrack, Cloudflare radar, PubMed elevated); micro_composite=0.87; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (18/19); classification=STRESSED; terminal_status=stressed; degraded_agents=2 (JADE, DAEDALUS); tripwire active elevated."
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "ATLAS severity=elevated; live score=0 source=error primary failed (with retry) — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "ATLAS severity=elevated; live score=0.3 source=primary — persistent"
+    },
+    {
+      "check": "anomaly_echo-pubmed",
+      "result": "pass",
+      "detail": "ATLAS severity=elevated at sweep; live score=0.9 severity=nominal — transient (resolved on live micro)"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "warn",
+      "detail": "Not flagged in ATLAS anomaly list; live score=0 source=error — persistent newly observed"
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 ok=true gi=0.864 composite=0.864 cached=false; 2 failed instruments (govtrack, usgs-water)."
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.75 mode=yellow terminal_status=stressed source=kv execution_authorized=false sustain_eligible=true."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock)"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS 0.75 vs integrity 0.75 vs live micro 0.864 (max delta 0.114)"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "pass",
+      "detail": "ATLAS mode=yellow vs integrity mode=yellow"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false diagnostic_present=18/19; kv_keys_all_ok=false"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false; integrity sustain_eligible=true"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 quorum 5/5 for cycle C-469. achieved seal_status=receipt_quorum_only execution_authorized=false attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE]."
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 id=journal-ZEUS-C-469-ca9vkf canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile micro GI (0.864) vs KV integrity (0.75). Restore KV diagnostic keys (18/19). Monitor GovTrack, USGS water, and Cloudflare radar degradation."
+}
