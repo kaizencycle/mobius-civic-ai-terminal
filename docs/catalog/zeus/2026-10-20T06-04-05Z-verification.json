@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-10-20T06:04:05.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-470",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-20T05-05-08-540Z-atlas.json",
+  "atlas_gi": 0.735,
+  "integrity_gi": 0.82,
+  "live_micro_gi": 0.874,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "tripwire_active": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — status=achieved attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE] cycle=C-470 receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-470-q4ryo4",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.735 mode=yellow source=kv cycle=C-470; classification=STRESSED; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false; micro_composite=0.861; tripwire_active=true; anomalies=[]; degraded_agents=2."
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.874 composite=0.874 cached=true errors=1 cycle=C-470."
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "live score=0 source=error error=primary failed (with retry) — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "live score=0.3 source=primary — persistent"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false present=16/19"
+    },
+    {
+      "check": "tripwire",
+      "result": "warn",
+      "detail": "tripwire active level=elevated operational_classification=STRESSED; 2 degraded agents; mutation forbidden"
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv execution_authorized=false degraded=true."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "source=kv (not mock)"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS 0.735 vs integrity 0.82 vs live micro 0.874 (max delta 0.139)."
+    },
+    {
+      "check": "mode_alignment",
+      "result": "fail",
+      "detail": "ATLAS mode=yellow vs integrity mode=green"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false; integrity sustain_eligible=true"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 {\"ok\":true,\"schema\":\"SENTINEL_QUORUM_V1\",\"cycle\":\"C-470\",\"agent\":\"ZEUS\",\"confidence\":0.88,\"source\":\"zeus-verification-pass\",\"attestations_received\":5,\"attestations_needed\":5,\"status\":\"achieved\",\"attested_agents\":[\"ATLAS\",\"ZEUS\",\"EVE\",\"AUREA\",\"JADE\"],\"seal_eligibility\":\"blocked\",\"execution_authorized\":false}"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 {\"ok\":true,\"canonical\":true,\"mirrored_to_kv\":true,\"entry_id\":\"journal-ZEUS-C-470-q4ryo4\",\"entryId\":\"journal-ZEUS-C-470-q4ryo4\",\"timestamp\":\"2026-10-20T06:03:54.887Z\"}"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Reconcile ATLAS heartbeat GI/mode with integrity-status before sustain actions. Restore KV diagnostic keys (16/19). Monitor elevated tripwire and persistent degraded lanes."
+}
