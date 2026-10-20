@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-10-20T12:04:05.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-470",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-20T11-03-40-907Z-atlas.json",
+  "atlas_gi": 0.762,
+  "integrity_gi": 0.791,
+  "live_micro_gi": 0.818,
+  "anomaly_persistence": {
+    "hermes-arxiv": "persistent",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-usgs-water": "persistent",
+    "themis-transparency-intl": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "tripwire_active": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 — status=achieved attested_agents=[ATLAS,ZEUS,EVE,AUREA,JADE] cycle=C-470 receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-470-rgn6d2",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.762 mode=yellow source=kv cycle=C-470; classification=STRESSED; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false; micro_composite=0.853; tripwire_active=true; anomalies=[ArXiv,GovTrack,Cloudflare]; degraded_agents=2."
+    },
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.818 composite=0.818 cached=true errors=4 cycle=C-470."
+    },
+    {
+      "check": "anomaly_hermes-arxiv",
+      "result": "warn",
+      "detail": "live score=0 source=error error=primary failed (with retry) — persistent (matches ATLAS ArXiv elevated)"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "live score=0 source=error error=primary failed (with retry) — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "live score=0.3 source=primary — persistent"
+    },
+    {
+      "check": "anomaly_gaia-usgs-water",
+      "result": "warn",
+      "detail": "live score=0 source=error — persistent (not in ATLAS anomaly list)"
+    },
+    {
+      "check": "anomaly_themis-transparency-intl",
+      "result": "warn",
+      "detail": "live score=0 primary and fallback both failed — persistent"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false present=16/19"
+    },
+    {
+      "check": "tripwire",
+      "result": "warn",
+      "detail": "tripwire active level=elevated operational_classification=STRESSED; 2 degraded agents; mutation forbidden"
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.791 mode=yellow terminal_status=stressed source=kv execution_authorized=false degraded=true."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "source=kv (not mock)"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "warn",
+      "detail": "ATLAS 0.762 vs integrity 0.791 vs live micro 0.818 (max delta 0.056); integrity↔micro delta 0.027."
+    },
+    {
+      "check": "mode_alignment",
+      "result": "pass",
+      "detail": "ATLAS mode=yellow vs integrity mode=yellow"
+    },
+    {
+      "check": "sustain_eligible alignment",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false; integrity sustain_eligible=true"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 seal_eligibility=blocked execution_authorized=false"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-470-rgn6d2 canonical=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false. Restore KV diagnostic keys (16/19). Monitor persistent instrument failures (GovTrack, ArXiv, USGS water, Transparency Intl) and Cloudflare radar degradation. Reconcile ATLAS sustain_eligible=false with integrity sustain_eligible=true before sustain actions."
+}
