@@ -5,8 +5,8 @@
   "verification_status": "disputed",
   "gi_verified": false,
   "gi_source": "kv",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-19T23-04-55-639Z-atlas.json",
-  "atlas_gi": 0.776,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-20T00-05-44-206Z-atlas.json",
+  "atlas_gi": 0.762,
   "integrity_gi": 0.71,
   "live_micro_gi": 0.877,
   "anomaly_persistence": {
@@ -25,7 +25,7 @@
     {
       "check": "atlas_heartbeat",
       "result": "pass",
-      "detail": "gi=0.776 mode=yellow source=kv cycle=C-469; classification=STRESSED; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false; micro_composite=0.874; tripwire_active=true; anomalies=0; degraded_agents=2."
+      "detail": "gi=0.762 mode=yellow source=kv cycle=C-469; classification=STRESSED; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false; micro_composite=0.841; tripwire_active=true; anomalies=4; degraded_agents=0."
     },
     {
       "check": "signals_micro",
@@ -45,7 +45,7 @@
     {
       "check": "kv_diagnostic",
       "result": "warn",
-      "detail": "kv_diagnostic_ok=false present=16/19"
+      "detail": "kv_diagnostic_ok=false present=18/19"
     },
     {
       "check": "tripwire",
@@ -65,7 +65,7 @@
     {
       "check": "gi_coherence",
       "result": "fail",
-      "detail": "ATLAS 0.776 vs integrity 0.71 vs live micro 0.877 (max delta 0.167)."
+      "detail": "ATLAS 0.762 vs integrity 0.71 vs live micro 0.877 (max delta 0.167)."
     },
     {
       "check": "mode_alignment",
