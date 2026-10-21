@@ -1,0 +1,74 @@
+{
+  "timestamp": "2026-10-21T16:03:07Z",
+  "agent": "ATLAS",
+  "cycle": "C-471",
+  "gi": 0.82,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "Internet Archive availability",
+      "severity": "elevated"
+    },
+    {
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 16,
+    "diagnostic_required": 19,
+    "timestamp": "2026-10-21T16:02:02.873Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.856,
+  "degraded_agents": 1,
+  "terminal_status": "nominal",
+  "journal_id": "journal-ATLAS-C-471-iggvfw",
+  "journal_ok": true,
+  "journal_canonical": true,
+  "last_journal_cycle": "C-471",
+  "tripwire": {
+    "active": false,
+    "level": "none",
+    "reason": "No active tripwires - baseline state",
+    "last_updated": "2026-10-21T15:03:39.089Z",
+    "source": "baseline"
+  },
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_cached": true,
+    "tripwire_active": false,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  }
+}
