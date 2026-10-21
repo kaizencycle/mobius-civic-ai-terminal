@@ -1,0 +1,92 @@
+{
+  "timestamp": "2026-10-21T06:01:20.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-471",
+  "verification_status": "inconclusive",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-21T05-04-35-079Z-atlas.json",
+  "atlas_gi": 0.759,
+  "integrity_gi": 0.75,
+  "live_micro_gi": 0.877,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "tripwire_active": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 {\"ok\":true,\"schema\":\"SENTINEL_QUORUM_V1\",\"cycle\":\"C-471\",\"agent\":\"ZEUS\",\"confidence\":0.88,\"source\":\"zeus-verification-pass\",\"attestations_received\":5,\"attestations_needed\":5,\"status\":\"achieved\",\"attested_agents\":[\"ATLAS\",\"ZEUS\",\"EVE\",\"AUREA\",\"JADE\"],\"initiated_at\":\"2026-10-21T04:01:19.637Z\",\"completed_at\":\"2026-10-21T04:01:21.975Z\",\"updated_at\":\"2026-10-21T04:01:21.975Z\",\"quorum_receipt_status\":\"received\",\"seal_eligibility\":\"blocked\",\"seal_status\":\"receipt_quorum_only\",\"execution_authorized\":false}",
+  "journal_entry_id": "journal-ZEUS-C-471-bvdg1j",
+  "findings": [
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.877 composite=0.877 cached=false cycle=C-471; errors=1 (themis-govtrack)."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "source=kv (not mock)"
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.75 mode=yellow terminal_status=stressed source=kv execution_authorized=false degraded=true."
+    },
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.759 mode=yellow source=kv cycle=C-471; classification=STRESSED; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (16/19); micro_composite=0.873; tripwire_active=true level=elevated (Hormuz transit fee risk); gi_below_floor=true; anomalies=[]; degraded_agents=1."
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "live score=0 source=error error=primary failed (with retry) — persistent (ATLAS anomalies list empty)"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "live score=0.3 source=primary — persistent elevated infrastructure signal"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false present=16/19"
+    },
+    {
+      "check": "tripwire",
+      "result": "warn",
+      "detail": "tripwire active level=elevated; integrity tripwire_state=unknown (baseline source)"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "pass",
+      "detail": "ATLAS 0.759 vs integrity 0.75 vs live micro 0.877 (max delta 0.127); KV-live micro lag expected under STRESSED."
+    },
+    {
+      "check": "mode_alignment",
+      "result": "pass",
+      "detail": "ATLAS mode=yellow vs integrity mode=yellow"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 status=achieved 5/5 receipt_quorum_only"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-471-bvdg1j ok=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false; monitor GovTrack and Cloudflare radar feeds; complete KV diagnostic keys (16/19)."
+}
