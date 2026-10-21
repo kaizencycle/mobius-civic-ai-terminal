@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-10-21T00:03:41.800Z",
+  "timestamp": "2026-10-21T00:04:10.124Z",
   "agent": "ZEUS",
   "cycle": "C-470",
   "verification_status": "inconclusive",
   "gi_verified": true,
   "gi_source": "kv",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-20T22-04-48-263Z-atlas.json",
-  "atlas_gi": 0.81,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-20T23-05-48-197Z-atlas.json",
+  "atlas_gi": 0.92,
   "integrity_gi": 0.81,
   "live_micro_gi": 0.836,
   "anomaly_persistence": {
@@ -20,7 +20,7 @@
   "candidates_contested": 0,
   "quorum_attestation_sent": true,
   "quorum_status": "POST /api/vault/attest HTTP 200 {\"ok\":true,\"schema\":\"SENTINEL_QUORUM_V1\",\"cycle\":\"C-470\",\"agent\":\"ZEUS\",\"confidence\":0.88,\"source\":\"zeus-verification-pass\",\"attestations_received\":5,\"attestations_needed\":5,\"status\":\"achieved\",\"attested_agents\":[\"ATLAS\",\"ZEUS\",\"EVE\",\"AUREA\",\"JADE\"],\"initiated_at\":\"2026-10-20T04:01:20.016Z\",\"completed_at\":\"2026-10-20T04:01:22.223Z\",\"updated_at\":\"2026-10-20T04:01:22.223Z\",\"quorum_receipt_status\":\"r",
-  "journal_entry_id": "journal-ZEUS-C-470-mveguy",
+  "journal_entry_id": "journal-ZEUS-C-470-i9eaun",
   "findings": [
     {
       "check": "signals_micro",
@@ -40,7 +40,7 @@
     {
       "check": "atlas_heartbeat",
       "result": "pass",
-      "detail": "gi=0.81 mode=green source=kv cycle=C-470; classification=STRESSED; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false; micro_composite=0.873; tripwire_active=true; anomalies=[\"GovTrack legislation feed: elevated\",\"Cloudflare infrastructure status: elevated\"]; degraded_agents=2."
+      "detail": "gi=0.92 mode=green source=kv cycle=C-470; classification=STRESSED; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false; micro_composite=0.878; tripwire_active=true; anomalies=[\"GovTrack legislation feed: elevated\",\"Cloudflare infrastructure status: elevated\"]; degraded_agents=2."
     },
     {
       "check": "anomaly_themis-govtrack",
@@ -65,7 +65,7 @@
     {
       "check": "gi_coherence",
       "result": "pass",
-      "detail": "ATLAS 0.81 vs integrity 0.81 vs live micro 0.836 (max delta 0.026)."
+      "detail": "ATLAS 0.92 vs integrity 0.81 vs live micro 0.836 (max delta 0.110)."
     },
     {
       "check": "mode_alignment",
@@ -85,7 +85,7 @@
     {
       "check": "agents_journal",
       "result": "pass",
-      "detail": "HTTP 200 entry_id=journal-ZEUS-C-470-mveguy ok=true"
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-470-i9eaun ok=true"
     }
   ],
   "recommendation": "Honor execution_authorized=false; monitor elevated tripwire and degraded feeds."
