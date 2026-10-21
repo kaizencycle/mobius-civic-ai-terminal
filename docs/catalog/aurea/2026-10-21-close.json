@@ -1,16 +1,16 @@
 {
-  "timestamp": "2026-10-21T03:03:11Z",
+  "timestamp": "2026-10-21T03:05:38Z",
   "agent": "AUREA",
   "cycle": "C-470",
-  "gi_final": 0.776,
-  "gi_mode": "yellow",
+  "gi_final": 0.82,
+  "gi_mode": "green",
   "gi_source": "live",
   "gi_range_24h": {
     "min": 0.63,
     "max": 0.92
   },
-  "overall_sentiment": 0.763,
-  "financial_score": 0.716,
+  "overall_sentiment": 0.77,
+  "financial_score": 0.717,
   "environ_score": 0.819,
   "civic_score": 0.7,
   "event_count_24h": 0,
@@ -27,10 +27,10 @@
   "model_provider": "gi_only",
   "model_name": null,
   "model_status": "skipped",
-  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.776. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL while ArXiv, GovTrack, and Cloudflare remained elevated. ZEUS verification status is inconclusive, and the heartbeat trend is volatile. Forward signal: watch whether institutional strength can absorb recurring GovTrack and Cloudflare elevation without another sharp ATLAS dip next cycle.",
-  "forward_signal": "Watch whether institutional strength can absorb recurring GovTrack and Cloudflare elevation without another sharp ATLAS dip next cycle.",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.82. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL while ArXiv, GovTrack, and Cloudflare remained elevated. ZEUS verification status is inconclusive, and the heartbeat trend is rising. Forward signal: watch whether the green recovery can hold if GovTrack and Cloudflare pressure persists without new EPICON volume next cycle.",
+  "forward_signal": "Watch whether the green recovery can hold if GovTrack and Cloudflare pressure persists without new EPICON volume next cycle.",
   "zeus_status": "inconclusive",
-  "heartbeat_gi_trend": "volatile",
+  "heartbeat_gi_trend": "rising",
   "anomalies": [
     {
       "source": "hermes-arxiv",
