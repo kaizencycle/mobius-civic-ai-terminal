@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-10-21T11:02:33.731Z",
+  "agent": "ATLAS",
+  "cycle": "C-471",
+  "gi": 0.767,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 15,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 16,
+    "diagnostic_required": 19,
+    "timestamp": "2026-10-21T11:01:57.321Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.867,
+  "degraded_agents": 1,
+  "terminal_status": "stressed",
+  "journal_id": "journal-ATLAS-C-471-ar4fzo",
+  "journal_ok": true,
+  "journal_canonical": true,
+  "last_journal_cycle": "C-471",
+  "tripwire": {
+    "active": false,
+    "level": "unknown",
+    "reason": null,
+    "source": "baseline",
+    "last_updated": "2026-10-21T11:01:20.631Z"
+  },
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_cached": false,
+    "tripwire_active": false,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  }
+}
