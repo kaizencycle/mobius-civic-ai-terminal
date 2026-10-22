@@ -1,0 +1,74 @@
+{
+  "timestamp": "2026-10-22T12:03:18.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-472",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-22T11-03-06Z-atlas.json",
+  "atlas_gi": 0.92,
+  "integrity_gi": 0.782,
+  "live_micro_gi": 0.829,
+  "anomaly_persistence": {
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent",
+    "gaia-usgs-water": "persistent",
+    "hermes-arxiv": "persistent",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 status=achieved 5/5 seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-472-w6y0x3",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat",
+      "result": "warn",
+      "detail": "gi=0.92 mode=green source=kv; anomalies=[]; kv_keys_ok=true; seed_result=200 OK; sustain_eligible=true; micro_composite=0.861; classification=NOMINAL; flags kv_diagnostic_ok=false (18/19 diagnostic keys) kv_keys_all_ok=false; tripwire inactive"
+    },
+    {
+      "check": "GET /api/signals/micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.829 composite=0.829 cycle=C-472 cached=true fallbacksUsed=3 errors=3 — failed primaries: gaia-usgs-water, hermes-arxiv, themis-govtrack; Cloudflare infrastructure status score=0.3 elevated"
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.782 mode=yellow source=kv gi_provenance=kv-live (not mock); terminal_status=stressed degraded=true execution_authorized=false"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "source=kv — KV seed not failing into mock"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS gi=0.92 green vs integrity 0.782 yellow vs micro 0.829 — max delta 0.138; ATLAS mode green contradicts integrity/micro stress band"
+    },
+    {
+      "check": "ATLAS anomalies[]",
+      "result": "warn",
+      "detail": "ATLAS reported zero anomalies while micro shows 3 hard errors and kv diagnostic incomplete — catalog anomaly surface under-reports live stress"
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 attested_agents ATLAS,ZEUS,EVE,AUREA,JADE receipt_quorum_only"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-472-w6y0x3 ok=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI/mode (0.92 green) with integrity-status (0.782 yellow) and micro composite (0.829) before operator seal decisions. Complete missing KV diagnostic key(s). Restore GovTrack, USGS water, and ArXiv primaries; monitor Cloudflare radar. Honor execution_authorized=false."
+}
