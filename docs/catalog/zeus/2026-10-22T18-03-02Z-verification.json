@@ -1,0 +1,75 @@
+{
+  "timestamp": "2026-10-22T18:03:02.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-472",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-22T18-03-22Z-atlas.json",
+  "atlas_gi": 0.64,
+  "integrity_gi": 0.78,
+  "live_micro_gi": 0.846,
+  "anomaly_persistence": {
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "gaia-usgs-water": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent",
+    "tripwire_active": "persistent",
+    "atlas_anomalies_surface": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 status=achieved 5/5 seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-472-7l9hbd",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat",
+      "result": "warn",
+      "detail": "gi=0.64 mode=yellow source=kv; classification=CRITICAL; sustain_eligible=false; seed_result=200 OK; micro_composite=0.846; anomalies=[] (empty); degraded_agents=2; kv_diagnostic_ok=false (18/19) kv_keys_all_ok=false; tripwire active elevated (Hormuz); terminal_status=stressed"
+    },
+    {
+      "check": "GET /api/signals/micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.846 composite=0.846 cycle=C-472 cached=true fallbacksUsed=2 errors=2 — failed primaries: gaia-usgs-water, themis-govtrack; elevated: USGS water conditions, GovTrack legislation feed, Cloudflare infrastructure status"
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.78 mode=yellow source=kv gi_provenance=kv-live terminal_status=stressed degraded=true execution_authorized=false"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "source=kv — KV seed not failing into mock"
+    },
+    {
+      "check": "ATLAS anomalies[] vs live micro",
+      "result": "warn",
+      "detail": "Latest ATLAS heartbeat reports zero anomalies while micro still shows three elevated signals and two primary failures — catalog anomaly surface under-reports live stress (prior 17:03Z heartbeat had GovTrack/Cloudflare elevated)"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "fail",
+      "detail": "ATLAS gi=0.64 yellow vs integrity 0.78 yellow vs micro 0.846 — max delta 0.206 between ATLAS and micro; classification CRITICAL vs micro-only stress signals"
+    },
+    {
+      "check": "GET /api/epicon/candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 attested_agents ATLAS,ZEUS,EVE,AUREA,JADE receipt_quorum_only"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-472-7l9hbd ok=true mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Verification disputed: ATLAS CRITICAL classification and gi=0.64 align directionally with stressed terminal but anomalies[] is empty while micro shows persistent GovTrack/Cloudflare/USGS failures. Honor execution_authorized=false. Reconcile ATLAS anomaly surfacing with micro errors before seal. Complete missing KV diagnostic key(s); restore GovTrack and USGS water primaries."
+}
