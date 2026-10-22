@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-10-22T00:00:36.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-471",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-21T23-02-48Z-atlas.json",
+  "atlas_gi": 0.773,
+  "integrity_gi": 0.82,
+  "live_micro_gi": 0.797,
+  "anomaly_persistence": {
+    "kv_diagnostic_ok": "persistent",
+    "tripwire_active": "persistent",
+    "themis-govtrack": "persistent",
+    "hermes-hn-algolia": "persistent",
+    "gaia-nasa-eonet": "persistent",
+    "aurea-coingecko": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 status=achieved 5/5 receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-471-ku2w8q",
+  "findings": [
+    {
+      "check": "signals_micro",
+      "result": "pass",
+      "detail": "HTTP 200 gi=0.797 composite=0.797 cached=true cycle=C-471; errors=4; fallbacksUsed=3."
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); gi_provenance=kv-live"
+    },
+    {
+      "check": "integrity_status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal source=kv execution_authorized=false degraded=true"
+    },
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.773 mode=yellow source=kv; classification=STRESSED; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (16/19); micro_composite=0.834; tripwire_active=true elevated; anomalies=[]; degraded_agents=1"
+    },
+    {
+      "check": "anomaly_themis-govtrack",
+      "result": "warn",
+      "detail": "live score=0 source=error — persistent (ATLAS anomalies list empty)"
+    },
+    {
+      "check": "anomaly_hermes-hn-algolia",
+      "result": "warn",
+      "detail": "live score=0 source=error — persistent"
+    },
+    {
+      "check": "anomaly_gaia-nasa-eonet",
+      "result": "warn",
+      "detail": "live score=0 source=error primary and fallback both failed — persistent"
+    },
+    {
+      "check": "anomaly_aurea-coingecko",
+      "result": "warn",
+      "detail": "live score=0 source=error — persistent"
+    },
+    {
+      "check": "anomaly_daedalus-cloudflare-radar",
+      "result": "warn",
+      "detail": "live score=0.3 source=primary — persistent elevated infrastructure signal"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false present=16/19 per ATLAS kv_keys"
+    },
+    {
+      "check": "tripwire",
+      "result": "warn",
+      "detail": "ATLAS tripwire active elevated (Hormuz transit fee risk); integrity tripwire_state=null — ATLAS-only signal this pass"
+    },
+    {
+      "check": "gi_coherence",
+      "result": "pass",
+      "detail": "ATLAS 0.773 vs integrity 0.82 vs live micro 0.797 (max delta 0.047); KV-live micro cached=true"
+    },
+    {
+      "check": "mode_alignment",
+      "result": "fail",
+      "detail": "ATLAS mode=yellow terminal_status=stressed classification=STRESSED vs integrity mode=green terminal_status=nominal"
+    },
+    {
+      "check": "sustain_alignment",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible=false; integrity sustain_gate_satisfied=null — no contradictory sustain claim on integrity"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 status=achieved 5/5 receipt_quorum_only"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-471-ku2w8q ok=true"
+    }
+  ],
+  "recommendation": "Honor execution_authorized=false; reconcile ATLAS yellow/stressed vs integrity green/nominal; restore GovTrack, HN Algolia, NASA EONET, and CoinGecko feeds; complete KV diagnostic keys (16/19); monitor Cloudflare radar and active Hormuz tripwire."
+}
