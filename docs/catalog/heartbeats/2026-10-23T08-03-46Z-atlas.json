@@ -8,7 +8,7 @@
   "anomalies": [
     {
       "label": "NOAA active weather alerts",
-      "severity": "elevated"
+      "severity": "watch"
     },
     {
       "label": "GovTrack legislation feed",
