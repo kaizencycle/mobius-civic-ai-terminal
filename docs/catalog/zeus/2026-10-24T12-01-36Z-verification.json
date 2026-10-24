@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-10-24T12:01:36.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-474",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-24T11-03-45Z-atlas.json",
+  "atlas_gi": 0.91,
+  "integrity_gi": 0.76,
+  "live_micro_gi": 0.853,
+  "anomaly_persistence": {
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "tripwire_active": "resolved",
+    "aurea-coingecko": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-474-yadthr",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.91 mode=green source=kv; classification=STRESSED; micro_composite=0.874; seed_result=200 OK; sustain_eligible=true; kv_diagnostic_ok=false (16/19); tripwire_active=false; degraded_agents=3; gi_age_seconds=21"
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.853 composite=0.853 cached=true cycle=C-474; errors=2; fallbacksUsed=4; failed themis-govtrack, aurea-coingecko; elevated daedalus-cloudflare-radar (0.3); hermes-hn-algolia recovered (0.85 primary)"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); gi_provenance=kv-live"
+    },
+    {
+      "check": "integrity_status",
+      "result": "warn",
+      "detail": "HTTP 200 mode=yellow terminal_status=stressed execution_authorized=false degraded=true; global_integrity=0.76; freshness=1; sustain_eligible=true; tripwire_state=unknown (baseline source)"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.91 vs integrity=0.76 vs live micro cache=0.853 — material spread; ATLAS green mode diverges from integrity yellow/stressed"
+    },
+    {
+      "check": "anomaly_govtrack",
+      "result": "warn",
+      "detail": "live score=0 source=error — persistent elevated (matches ATLAS)"
+    },
+    {
+      "check": "anomaly_cloudflare",
+      "result": "warn",
+      "detail": "live score=0.3 — persistent elevated (matches ATLAS)"
+    },
+    {
+      "check": "anomaly_coingecko",
+      "result": "warn",
+      "detail": "live score=0 source=error — new failure not in ATLAS anomaly labels (degraded_agents=3)"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false present=16/19 per ATLAS kv_keys"
+    },
+    {
+      "check": "tripwire",
+      "result": "pass",
+      "detail": "ATLAS tripwire inactive baseline; prior ZEUS Hormuz elevated cleared"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates; verification skipped"
+    }
+  ],
+  "recommendation": "Operator GI: prefer integrity KV gi=0.76 yellow/stressed over ATLAS green headline until spreads converge. Persistent GovTrack/Cloudflare strain; investigate aurea-coingecko. Close kv diagnostic gap 16/19."
+}
