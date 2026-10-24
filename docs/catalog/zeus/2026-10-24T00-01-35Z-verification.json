@@ -1,0 +1,90 @@
+{
+  "timestamp": "2026-10-24T00:01:35.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-473",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-23T23-03-52Z-atlas.json",
+  "atlas_gi": 0.81,
+  "integrity_gi": 0.796,
+  "live_micro_gi": 0.841,
+  "anomaly_persistence": {
+    "NOAA active weather alerts": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "tripwire_active": "persistent",
+    "hermes-arxiv": "transient",
+    "hermes-hn-algolia": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "achieved 5/5 receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-473-p35b7h",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.81 mode=green source=kv; classification=STRESSED; micro_composite=0.876; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (16/19); tripwire_active=true elevated (Hormuz); degraded_agents=1"
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.841 composite=0.841 cached=false cycle=C-473; errors=3; fallbacksUsed=2; failed themis-govtrack, hermes-arxiv, hermes-hn-algolia; elevated daedalus-cloudflare-radar (0.3); watch gaia-noaa-alerts (0.6)"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); gi_provenance=kv-live"
+    },
+    {
+      "check": "integrity_status",
+      "result": "warn",
+      "detail": "HTTP 200 mode=yellow terminal_status=stressed execution_authorized=false degraded=true; global_integrity=0.796; sustain_eligible=true vs ATLAS false; mode diverges from ATLAS green"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "ATLAS gi=0.81 vs integrity=0.796 vs live micro=0.841 — spread exceeds nominal single-source tolerance"
+    },
+    {
+      "check": "anomaly_govtrack",
+      "result": "warn",
+      "detail": "live score=0 source=error — persistent elevated (matches ATLAS)"
+    },
+    {
+      "check": "anomaly_cloudflare",
+      "result": "warn",
+      "detail": "live score=0.3 severity=elevated — persistent (matches ATLAS)"
+    },
+    {
+      "check": "anomaly_noaa_alerts",
+      "result": "pass",
+      "detail": "live score=0.6 severity=watch — persistent unchanged from ATLAS watch"
+    },
+    {
+      "check": "hermes_feeds",
+      "result": "warn",
+      "detail": "hermes-arxiv and hermes-hn-algolia errors not in ATLAS anomaly list (ATLAS degraded_agents=1); may be transient upstream"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "kv_diagnostic_ok=false present=16/19 per ATLAS kv_keys"
+    },
+    {
+      "check": "tripwire",
+      "result": "warn",
+      "detail": "ATLAS tripwire active elevated Hormuz; integrity decision_state tripwire_state=unknown (baseline source)"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "no candidates; verification skipped"
+    }
+  ],
+  "recommendation": "Treat operator GI as stressed/yellow per integrity-status despite ATLAS green mode on heartbeat; persistent GovTrack/Cloudflare/NOAA strain plus new HERMES feed errors. Reconcile ATLAS vs integrity mode and sustain_eligible; monitor Hormuz tripwire and kv diagnostic gap 16/19."
+}
