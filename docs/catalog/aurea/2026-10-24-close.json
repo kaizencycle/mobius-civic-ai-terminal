@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-10-24T03:05:03Z",
+  "agent": "AUREA",
+  "cycle": "C-473",
+  "gi_final": 0.81,
+  "gi_mode": "green",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.71,
+    "max": 0.91
+  },
+  "overall_sentiment": 0.781,
+  "financial_score": 0.718,
+  "environ_score": 0.792,
+  "civic_score": 0.783,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.81. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL while GovTrack and Cloudflare remained elevated and earthquake frequency stayed on watch. ZEUS verification status is disputed, and the heartbeat trend is falling. Forward signal: watch whether the falling ATLAS heartbeat pulls the next cycle out of green alignment if GovTrack and Cloudflare strain persists.",
+  "forward_signal": "Watch whether the falling ATLAS heartbeat pulls the next cycle out of green alignment if GovTrack and Cloudflare strain persists.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "falling",
+  "anomalies": [
+    {
+      "source": "gaia-earthquakes",
+      "label": "USGS earthquake frequency",
+      "severity": "watch"
+    },
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    }
+  ],
+  "quorum_attested": true
+}
