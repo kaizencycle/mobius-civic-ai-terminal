@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-10-24T18:01:30.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-474",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-24T17-02-35Z-atlas.json",
+  "atlas_gi": 0.91,
+  "integrity_gi": 0.74,
+  "live_micro_gi": 0.883,
+  "anomaly_persistence": {
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "kv_diagnostic_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 status=achieved attestations_received=5/5 seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-474-5cc8bi",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "warn",
+      "detail": "gi=0.91 mode=green source=kv; classification=STRESSED; micro_composite=0.879; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (16/19); tripwire active elevated; degraded_agents=3; journal_ok=true"
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.883 composite=0.883 cached=true; errors=1; themis-govtrack score=0 source=error; daedalus-cloudflare-radar score=0.3 elevated — matches ATLAS anomaly labels"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "source=kv gi_provenance=kv-live (not mock)"
+    },
+    {
+      "check": "integrity_status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.74 mode=yellow terminal_status=stressed execution_authorized=false; freshness signal=0.3; sustain_eligible=false; tripwire_state=unknown"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.91 green vs integrity=0.74 yellow vs live micro=0.883 — material spread; operator surfaces stressed while catalog headline green"
+    },
+    {
+      "check": "anomaly_govtrack",
+      "result": "warn",
+      "detail": "persistent hard error on live micro (primary failed with retry)"
+    },
+    {
+      "check": "anomaly_cloudflare",
+      "result": "warn",
+      "detail": "persistent elevated score=0.3 on live micro"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "ATLAS kv_diagnostic_ok=false diagnostic_present=16/19"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "vault_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 ZEUS zeus-verification-pass quorum achieved 5/5 receipt only"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal HTTP 200 journal-ZEUS-C-474-5cc8bi mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI (0.91 green) with integrity-status (0.74 yellow/stressed) and live micro (0.883) before seal-class decisions. GovTrack feed remains in hard error; Cloudflare radar stays elevated. Close KV diagnostic gap 16/19."
+}
