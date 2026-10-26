@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-10-26T03:02:41Z",
+  "agent": "AUREA",
+  "cycle": "C-475",
+  "gi_final": 0.77,
+  "gi_mode": "yellow",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.7,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.749,
+  "financial_score": 0.701,
+  "environ_score": 0.831,
+  "civic_score": 0.782,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.77. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in ENVIRON while NOAA active weather alerts, USGS water conditions, ArXiv new submissions, GovTrack legislation feed, and Cloudflare infrastructure status remained active. ZEUS verification status is disputed, and the heartbeat trend is flat. Forward signal: Watch whether NOAA active weather alerts and USGS water conditions keep the cycle in yellow posture or begin to narrow on the next close.",
+  "forward_signal": "Watch whether NOAA active weather alerts and USGS water conditions keep the cycle in yellow posture or begin to narrow on the next close.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "flat",
+  "anomalies": [
+    {
+      "source": "gaia-noaa-alerts",
+      "label": "NOAA active weather alerts",
+      "severity": "watch"
+    },
+    {
+      "source": "gaia-usgs-water",
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    },
+    {
+      "source": "hermes-arxiv",
+      "label": "ArXiv new submissions",
+      "severity": "elevated"
+    },
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    }
+  ],
+  "quorum_attested": true
+}
