@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-10-26T06:02:42.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-476",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-26T05-02-42Z-atlas.json",
+  "atlas_gi": 0.91,
+  "integrity_gi": 0.81,
+  "live_micro_gi": 0.83,
+  "anomaly_persistence": {
+    "NOAA active weather alerts": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "USGS water conditions": "transient",
+    "hermes-arxiv": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 status=achieved attestations_received=5/5 seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-476-en12sl",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.91 mode=green source=kv; classification=STRESSED; micro_composite=0.871; seed_result=200 OK; sustain_eligible=true; kv_diagnostic_ok=false (16/19); kv_keys_all_ok=false; degraded_agents=2; journal_ok=true"
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.83 cached=false; errors=3; gaia-noaa-alerts score=0.6 primary; themis-govtrack score=0 source=error; daedalus-cloudflare-radar score=0.3 primary; gaia-usgs-water score=0 source=error; hermes-arxiv score=0 source=error"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "source=kv gi_provenance=kv-live (not mock)"
+    },
+    {
+      "check": "integrity_status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.81 mode=green terminal_status=nominal execution_authorized=false degraded=true; diverges from ATLAS post-seed gi=0.91"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "ATLAS gi=0.91 mode=green vs integrity-status gi=0.81 vs live micro gi=0.83 — tri-source spread; KV provenance live; ATLAS classification STRESSED vs mode green"
+    },
+    {
+      "check": "anomaly_govtrack",
+      "result": "warn",
+      "detail": "persistent hard error on live micro; matches ATLAS elevated flag"
+    },
+    {
+      "check": "anomaly_cloudflare",
+      "result": "warn",
+      "detail": "persistent elevated score=0.3 on live micro; matches ATLAS elevated flag"
+    },
+    {
+      "check": "anomaly_noaa",
+      "result": "warn",
+      "detail": "watch-level NOAA alert present score=0.6 primary; matches ATLAS watch flag"
+    },
+    {
+      "check": "kv_diagnostic",
+      "result": "warn",
+      "detail": "ATLAS kv_diagnostic_ok=false diagnostic_present=16/19"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "vault_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 ZEUS zeus-verification-pass quorum achieved 5/5 receipt only"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal HTTP 200 journal-ZEUS-C-476-en12sl mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "KV GI is live (not mock). ATLAS post-seed gi=0.91 exceeds integrity-status 0.81 — prefer integrity-status for operator mode until feeds stabilize. Fix GovTrack primary; monitor Cloudflare radar and transient USGS/arxiv errors. Close KV diagnostic gap 16/19."
+}
