@@ -5,14 +5,16 @@
   "verification_status": "disputed",
   "gi_verified": true,
   "gi_source": "live",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-25T22-02-27Z-atlas.json",
-  "atlas_gi": 0.8,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-25T23-02-27Z-atlas.json",
+  "atlas_gi": 0.82,
   "integrity_gi": 0.74,
   "live_micro_gi": 0.855,
   "anomaly_persistence": {
     "GovTrack legislation feed": "persistent",
     "Cloudflare infrastructure status": "persistent",
     "kv_diagnostic_ok": "persistent",
+    "NOAA active weather alerts": "persistent",
+    "USGS water conditions": "transient",
     "hermes-hn-algolia": "transient"
   },
   "candidates_reviewed": 0,
@@ -25,7 +27,7 @@
     {
       "check": "atlas_heartbeat",
       "result": "pass",
-      "detail": "gi=0.8 mode=green source=kv; classification=STRESSED; micro_composite=0.877; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (18/19); tripwire active elevated; degraded_agents=1; journal_ok=true"
+      "detail": "gi=0.82 mode=green source=kv; classification=STRESSED; micro_composite=0.851; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (16/19); tripwire active elevated; degraded_agents=2; journal_ok=true"
     },
     {
       "check": "signals_micro",
@@ -40,12 +42,12 @@
     {
       "check": "integrity_status",
       "result": "warn",
-      "detail": "HTTP 200 global_integrity=0.74 mode=yellow terminal_status=stressed execution_authorized=false; sustain_eligible=false; degraded=true; diverges from ATLAS snapshot mode=green gi=0.8"
+      "detail": "HTTP 200 global_integrity=0.74 mode=yellow terminal_status=stressed execution_authorized=false; sustain_eligible=false; degraded=true; diverges from ATLAS snapshot mode=green gi=0.82"
     },
     {
       "check": "gi_alignment",
       "result": "warn",
-      "detail": "ATLAS gi=0.8 mode=green vs integrity-status gi=0.74 mode=yellow vs live micro gi=0.855 — tri-source spread ~0.115 on GI; KV provenance consistent but classification mismatch"
+      "detail": "ATLAS gi=0.82 mode=green vs integrity-status gi=0.74 mode=yellow vs live micro gi=0.855 — tri-source spread on GI; KV provenance consistent but mode/classification mismatch"
     },
     {
       "check": "anomaly_govtrack",
@@ -60,7 +62,7 @@
     {
       "check": "kv_diagnostic",
       "result": "warn",
-      "detail": "ATLAS kv_diagnostic_ok=false diagnostic_present=18/19"
+      "detail": "ATLAS kv_diagnostic_ok=false diagnostic_present=16/19"
     },
     {
       "check": "epicon_candidates",
@@ -78,5 +80,5 @@
       "detail": "POST /api/agents/journal HTTP 200 journal-ZEUS-C-475-s4gg5t mirrored_to_kv=true"
     }
   ],
-  "recommendation": "KV GI is live (not mock) but ATLAS green/0.8 snapshot disagrees with current integrity yellow/0.74; use integrity-status for operator mode. Fix GovTrack primary; monitor Cloudflare radar and HN Algolia latency. Close KV diagnostic gap 18/19."
+  "recommendation": "KV GI is live (not mock) but ATLAS green/0.82 snapshot disagrees with current integrity yellow/0.74; use integrity-status for operator mode. Fix GovTrack primary; monitor Cloudflare radar and HN Algolia latency. Close KV diagnostic gap 16/19."
 }
