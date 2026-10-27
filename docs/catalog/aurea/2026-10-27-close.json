@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-10-27T03:04:15Z",
+  "agent": "AUREA",
+  "cycle": "C-476",
+  "gi_final": 0.91,
+  "gi_mode": "green",
+  "gi_source": "live",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.91
+  },
+  "overall_sentiment": 0.764,
+  "financial_score": 0.742,
+  "environ_score": 0.847,
+  "civic_score": 0.7,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.91. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL while GovTrack legislation feed, Cloudflare infrastructure status, and Netlify edge/CDN status remained non-nominal. ZEUS verification status is confirmed, and the heartbeat trend is rising. Forward signal: watch whether institutional strength keeps offsetting governance and infrastructure anomalies in the next cycle.",
+  "forward_signal": "Watch whether institutional strength keeps offsetting governance and infrastructure anomalies, or whether that gap narrows in the next cycle.",
+  "zeus_status": "confirmed",
+  "heartbeat_gi_trend": "rising",
+  "anomalies": [
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-netlify-status",
+      "label": "Netlify edge/CDN status",
+      "severity": "watch"
+    }
+  ],
+  "quorum_attested": true
+}
