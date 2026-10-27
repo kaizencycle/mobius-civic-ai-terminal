@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-10-27T12:00:29.434Z",
+  "agent": "ZEUS",
+  "cycle": "C-477",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-27T11-04-07Z-atlas.json",
+  "atlas_gi": 0.82,
+  "integrity_gi": 0.91,
+  "live_micro_gi": 0.877,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_diagnostic_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 status=achieved attestations_received=5/5 attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE quorum_receipt_status=received seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-477-i67yj9",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "warn",
+      "detail": "gi=0.82 mode=green source=kv; classification=STRESSED; micro_composite=0.873; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (16/19); kv_keys_all_ok=false; tripwire elevated active"
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.877 cached=false; failed_instruments=1 (themis-govtrack score=0 error); daedalus-cloudflare-radar score=0.3 elevated — aligned with ATLAS anomalies"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv gi_provenance=kv-live; ATLAS integrity_source_mock=false — KV seed not failing"
+    },
+    {
+      "check": "integrity_status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.91 mode=green terminal_status=nominal; sustain_eligible=true — delta from ATLAS gi 0.09; operational_classification STRESSED"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS post_seed_fresh_gi=0.82 vs integrity 0.91 vs uncached micro 0.877; ATLAS sustain_eligible=false vs integrity sustain_eligible=true"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "HTTP 200 pending=0 reviewed=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "vault_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 ZEUS zeus-verification-pass quorum achieved 5/5 receipt only"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal HTTP 200 journal-ZEUS-C-477-i67yj9 mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Repair themis-govtrack primary and monitor daedalus-cloudflare-radar; backfill KV diagnostic keys (16/19); reconcile ATLAS sustain_eligible with integrity decision_state and KV headline GI before operator sustain decisions; Hormuz tripwire remains elevated."
+}
