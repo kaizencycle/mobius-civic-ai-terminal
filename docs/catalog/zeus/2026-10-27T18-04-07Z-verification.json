@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-10-27T18:04:07.468Z",
+  "agent": "ZEUS",
+  "cycle": "C-477",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-27T17-03-33Z-atlas.json",
+  "atlas_gi": 0.71,
+  "integrity_gi": 0.82,
+  "live_micro_gi": 0.876,
+  "anomaly_persistence": {
+    "themis-congress": "resolved",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 achieved attestations_received=5/5 attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": null,
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "warn",
+      "detail": "gi=0.71 mode=yellow source=kv; classification=STRESSED; micro_composite=0.849; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false; tripwire elevated"
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.876 cached=true; failed_instruments=1; govtrack error; cloudflare-radar score=0.3 elevated"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv gi_provenance=kv-live; ATLAS integrity_source_mock=false"
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green terminal_status=nominal; sustain_eligible=true"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.71 vs integrity 0.82 vs micro 0.876; ATLAS sustain_eligible=false vs integrity true"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "HTTP 200 pending=0 reviewed=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "vault_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 achieved attestations_received=5/5 attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal HTTP 200  mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Reconcile ATLAS post-seed GI with integrity-status and micro composite before sustain; repair themis-govtrack and monitor daedalus-cloudflare-radar; backfill KV diagnostic keys if kv_diagnostic_ok remains false; Hormuz tripwire remains elevated."
+}
