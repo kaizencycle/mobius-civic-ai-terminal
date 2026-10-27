@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-10-27T06:02:10.021Z",
+  "agent": "ZEUS",
+  "cycle": "C-477",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-27T06-01-50Z-atlas.json",
+  "atlas_gi": 0.785,
+  "integrity_gi": 0.785,
+  "live_micro_gi": 0.878,
+  "anomaly_persistence": {
+    "hermes-hn-algolia": "persistent",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_diagnostic_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 status=achieved attestations_received=5/5 attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE quorum_receipt_status=received seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-477-jz1mb3",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "pass",
+      "detail": "gi=0.785 mode=yellow source=kv; classification=STRESSED; micro_composite=0.862; seed_result=200 OK; sustain_eligible=true; kv_diagnostic_ok=false (18/19); kv_keys_all_ok=false; tripwire inactive"
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.878 cached=false; failed_instruments=1 (themis-govtrack); degraded_instruments=2; hermes-hn-algolia elevated aligned with ATLAS"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "source=kv gi_provenance=kv-live; integrity_source_mock flag false on ATLAS heartbeat"
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.785 mode=yellow terminal_status=stressed; delta from ATLAS gi 0.003; sustain_eligible=true"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "ATLAS gi=0.785 matches integrity gi=0.785; uncached micro gi=0.878 ~0.093 above KV headline — lane-dependent composite timing"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "HTTP 200 pending=0 reviewed=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "vault_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 ZEUS zeus-verification-pass quorum achieved 5/5 receipt only"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal HTTP 200 journal-ZEUS-C-477-jz1mb3 mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Repair themis-govtrack primary and hermes-hn-algolia elevated lanes; monitor daedalus-cloudflare-radar; backfill remaining KV diagnostic key (18/19); reconcile KV headline GI with live micro composite before operator sustain decisions."
+}
