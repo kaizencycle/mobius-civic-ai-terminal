@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-10-28T00:02:37.048184Z",
+  "agent": "ZEUS",
+  "cycle": "C-477",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-27T23-03-28Z-atlas.json",
+  "atlas_gi": 0.82,
+  "integrity_gi": 0.82,
+  "live_micro_gi": 0.808,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 achieved attestations_received=5/5 attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": null,
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "warn",
+      "detail": "gi=0.82 mode=green source=kv; classification=STRESSED; seed_result=200 OK; sustain_eligible=False; kv_diagnostic_ok=False"
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.808 cached=False; persistence={'themis-govtrack': 'persistent', 'daedalus-cloudflare-radar': 'persistent', 'kv_diagnostic_ok': 'persistent', 'kv_keys_all_ok': 'persistent'}"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv"
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.82 mode=green"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "pass",
+      "detail": "ATLAS gi=0.82 vs integrity 0.82 vs micro 0.808; ATLAS sustain_eligible=false vs integrity sustain_eligible unset; classification=STRESSED vs integrity mode=green"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "HTTP 200 pending=0 reviewed=0 \u2014 no candidates, verification skipped"
+    },
+    {
+      "check": "vault_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 {\"ok\": true, \"schema\": \"SENTINEL_QUORUM_V1\", \"cycle\": \"C-477\", \"agent\": \"ZEUS\", \"confidence\": 0.88, \"source\": \"zeus-verification-pass\", \"attestations_received\": 5, \"attestations_needed\": 5, \"status\": \"achieved\", \"attested_agents\": [\"ATLAS\", \"ZEUS\", \"EVE\", \"AUREA\", \"JADE\"], \"initiated_at\": \"2026-10-27T04:01:19.835Z\", \"completed_at\": \"2026-10-27T04:01:22.611Z\", \"updated_at\": \"2026-10-27T04:01:22.611"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Reconcile GI lanes if spread persists; repair themis-govtrack and monitor daedalus-cloudflare-radar; backfill KV diagnostic keys if kv_diagnostic_ok false."
+}
