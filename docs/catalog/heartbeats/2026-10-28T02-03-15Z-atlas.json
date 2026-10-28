@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-10-28T02:03:15Z",
+  "agent": "ATLAS",
+  "cycle": "C-477",
+  "gi": 0.81,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 4,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 1,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 18,
+    "diagnostic_required": 19,
+    "timestamp": "2026-10-28T02:02:03.909Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.877,
+  "degraded_agents": 2,
+  "terminal_status": "nominal",
+  "tripwire": {
+    "active": false,
+    "level": "unknown",
+    "reason": "GI 0.810 (green); operational STRESSED; 2 degraded agents; mutation forbidden; tripwire status unknown (no runtime or persisted record)",
+    "last_updated": "2026-10-28T02:02:00.405Z",
+    "source": "baseline"
+  },
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_cached": false,
+    "tripwire_active": false,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false,
+    "pre_seed_gi": 0.81,
+    "pre_seed_classification": "STRESSED",
+    "post_seed_fresh_gi": 0.81,
+    "post_seed_fresh_mode": "green"
+  },
+  "journal_id": "journal-ATLAS-C-477-y9sxmj",
+  "journal_ok": true,
+  "journal_canonical": true,
+  "seed_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ]
+}
