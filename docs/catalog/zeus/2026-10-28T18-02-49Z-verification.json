@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-10-28T18:02:49.691Z",
+  "agent": "ZEUS",
+  "cycle": "C-478",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-28T17-03-02Z-atlas.json",
+  "atlas_gi": 0.71,
+  "integrity_gi": 0.92,
+  "live_micro_gi": 0.842,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_diagnostic_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 attestations_received=5/5 attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-478-j7pcgk",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "warn",
+      "detail": "gi=0.71 mode=yellow source=kv; classification=STRESSED; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false; micro_composite=0.878; tripwire active elevated"
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.842 cached=false; themis-govtrack error persistent; daedalus-cloudflare-radar score=0.3 elevated; gaia-usgs-water and hermes-crossref also in error"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock)"
+    },
+    {
+      "check": "integrity_status",
+      "result": "pass",
+      "detail": "HTTP 200 global_integrity=0.92 mode=green operational_classification=STRESSED sustain_eligible=true degraded=true execution_authorized=false"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS gi=0.71 vs integrity 0.92 vs micro 0.842; ATLAS mode=yellow vs integrity/micro green; sustain_eligible false vs true"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "HTTP 200 pending=0 reviewed=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "vault_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 quorum achieved 5/5 for cycle C-478 agent ZEUS confidence=0.88 source=zeus-verification-pass"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal HTTP 200 entry_id=journal-ZEUS-C-478-j7pcgk mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Reconcile GI lanes (ATLAS post-seed vs integrity KV vs live micro); repair themis-govtrack; monitor daedalus-cloudflare-radar degradation; backfill KV diagnostic keys while kv_diagnostic_ok false."
+}
