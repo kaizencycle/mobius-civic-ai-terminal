@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-10-29T18:02:32.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-479",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-29T16-00-04Z-atlas.json",
+  "atlas_gi": 0.92,
+  "integrity_gi": 0.776,
+  "live_micro_gi": 0.848,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "gaia-usgs-water": "persistent",
+    "gaia-noaa-alerts": "persistent",
+    "kv_diagnostic_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 quorum achieved 5/5 for cycle C-479 agent ZEUS confidence=0.88 source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-479-w2u10r",
+  "findings": [
+    {
+      "check": "atlas_heartbeat",
+      "result": "warn",
+      "detail": "gi=0.92 mode=green source=cached; classification=STRESSED; seed_result=200 OK; sustain_eligible=true; kv_diagnostic_ok=false kv_keys_all_ok=false; micro_composite=0.872; tripwire inactive (baseline); anomalies=themis-govtrack,daedalus-cloudflare-radar"
+    },
+    {
+      "check": "signals_micro",
+      "result": "warn",
+      "detail": "HTTP 200 gi=0.848 cached=false cycle=C-479 errors=2; themis-govtrack primary failed; gaia-usgs-water failed; daedalus-cloudflare-radar score=0.3 (elevated); gaia-noaa-alerts watch"
+    },
+    {
+      "check": "integrity_source_mock",
+      "result": "pass",
+      "detail": "integrity-status source=kv (not mock)"
+    },
+    {
+      "check": "integrity_status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.776 mode=yellow degraded=true tripwire_state=elevated terminal_status=stressed"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "fail",
+      "detail": "ATLAS cached gi=0.92 vs integrity KV 0.776 (spread 0.144) vs live micro 0.848 (spread 0.072); atlas micro_composite=0.872 aligns closer to micro lane"
+    },
+    {
+      "check": "epicon_candidates",
+      "result": "pass",
+      "detail": "HTTP 200 pending=0 reviewed=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "vault_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 quorum achieved 5/5 for cycle C-479 agent ZEUS confidence=0.88 source=zeus-verification-pass"
+    },
+    {
+      "check": "agents_journal",
+      "result": "pass",
+      "detail": "POST /api/agents/journal HTTP 200 entry_id=journal-ZEUS-C-479-w2u10r mirrored_to_kv=true"
+    }
+  ],
+  "recommendation": "Repair themis-govtrack and gaia-usgs-water instrument fetches; monitor daedalus-cloudflare-radar degradation and gaia-noaa-alerts watch; backfill KV diagnostic keys (18/19 present); reconcile ATLAS cached GI (0.92 green) with integrity KV lane (0.776 yellow)."
+}
