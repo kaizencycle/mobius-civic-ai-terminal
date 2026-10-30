@@ -5,15 +5,14 @@
   "verification_status": "disputed",
   "gi_verified": true,
   "gi_source": "kv",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-30T11-04-56Z-atlas.json",
-  "atlas_gi": 0.81,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-30T12-03-43Z-atlas.json",
+  "atlas_gi": 0.758,
   "integrity_gi": 0.758,
   "live_micro_gi": 0.852,
   "anomaly_persistence": {
     "gaia-noaa-alerts": "persistent",
     "themis-govtrack": "persistent",
     "daedalus-cloudflare-radar": "persistent",
-    "daedalus-github": "transient",
     "gaia-usgs-water": "persistent",
     "kv_diagnostic_ok": "persistent"
   },
@@ -25,9 +24,9 @@
   "journal_entry_id": "journal-ZEUS-C-480-y5ccx1",
   "findings": [
     {
-      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-10-30T11-04-56Z-atlas.json",
-      "result": "warn",
-      "detail": "gi=0.81 mode=green source=kv classification=STRESSED terminal_status=nominal; anomalies=[gaia-noaa-alerts watch, themis-govtrack elevated, daedalus-github watch, daedalus-cloudflare-radar elevated]; seed_result=200 OK; sustain_eligible=true; kv_diagnostic_ok=false kv_keys_all_ok=false (16/19 diagnostic keys); micro_composite=0.862; tripwire inactive; degraded_agents=1"
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-10-30T12-03-43Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.758 mode=yellow source=kv classification=STRESSED terminal_status=stressed; anomalies=[gaia-noaa-alerts watch, gaia-usgs-water elevated, themis-govtrack elevated, daedalus-cloudflare-radar elevated]; seed_result=200 OK; sustain_eligible=true; kv_diagnostic_ok=false kv_keys_all_ok=false (18/19 diagnostic keys); micro_composite=0.852; tripwire inactive; degraded_agents=2"
     },
     {
       "check": "GET /api/signals/micro (production)",
@@ -42,7 +41,7 @@
     {
       "check": "gi_alignment",
       "result": "warn",
-      "detail": "ATLAS KV gi=0.81 vs integrity KV 0.758 (spread 0.052) vs live micro 0.852 (spread 0.094 vs integrity); ATLAS micro_composite=0.862 aligns with micro lane direction; residual ATLAS gi vs integrity/micro divergence"
+      "detail": "ATLAS KV gi=0.758 aligned with integrity KV 0.758; live micro gi=0.852 higher by +0.094 — operator GI understates micro composite health; ATLAS micro_composite=0.852 matches live micro composite"
     },
     {
       "check": "integrity source mock",
@@ -55,14 +54,12 @@
       "detail": "Persistent. NOAA alerts remain watch-level on live micro lite and full pass."
     },
     {
-      "check": "ATLAS anomaly: themis-govtrack elevated",
+      "check": "ATLAS anomaly: gaia-usgs-water elevated",
+      "result": "warn",
+      "detail": "Persistent. USGS water elevated on ATLAS and live micro; primary instrument fetch failed."
+    },
       "result": "warn",
       "detail": "Persistent. GovTrack elevated on live micro; primary instrument fetch failed (with retry)."
-    },
-    {
-      "check": "ATLAS anomaly: daedalus-github watch",
-      "result": "pass",
-      "detail": "Transient. ATLAS flagged watch; absent from live micro lite anomaly list — resolved since ATLAS sweep."
     },
     {
       "check": "ATLAS anomaly: daedalus-cloudflare-radar elevated",
@@ -72,7 +69,7 @@
     {
       "check": "ATLAS flag: kv_diagnostic_ok",
       "result": "warn",
-      "detail": "Persistent. kv_diagnostic_ok=false with 16/19 diagnostic keys present per ATLAS kv_keys block despite seed 200 OK."
+      "detail": "Persistent. kv_diagnostic_ok=false with 18/19 diagnostic keys present per latest ATLAS kv_keys block despite seed 200 OK."
     },
     {
       "check": "EPICON candidates pending-verification",
@@ -90,5 +87,5 @@
       "detail": "HTTP 200 entry_id=journal-ZEUS-C-480-y5ccx1"
     }
   ],
-  "recommendation": "Quorum 5/5 achieved for C-480. Operator attention: repair gaia-usgs-water and themis-govtrack primary fetches; monitor daedalus-cloudflare-radar and gaia-noaa-alerts; backfill KV diagnostic keys (16/19); reconcile ATLAS sweep gi=0.81/green with integrity gi=0.758/yellow and live micro gi=0.852."
+  "recommendation": "Quorum 5/5 achieved for C-480. Operator attention: repair gaia-usgs-water and themis-govtrack primary fetches; monitor daedalus-cloudflare-radar and gaia-noaa-alerts; backfill final KV diagnostic key (18/19); note micro gi=0.852 vs operator gi=0.758 divergence (+0.094)."
 }
