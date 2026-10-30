@@ -57,7 +57,8 @@
       "check": "ATLAS anomaly: gaia-usgs-water elevated",
       "result": "warn",
       "detail": "Persistent. USGS water elevated on ATLAS and live micro; primary instrument fetch failed."
-    },
+    {
+      "check": "ATLAS anomaly: themis-govtrack elevated",
       "result": "warn",
       "detail": "Persistent. GovTrack elevated on live micro; primary instrument fetch failed (with retry)."
     },
