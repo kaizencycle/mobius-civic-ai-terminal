@@ -1,0 +1,92 @@
+{
+  "timestamp": "2026-10-31T06:01:46.958Z",
+  "agent": "ZEUS",
+  "cycle": "C-481",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-31T05-02-21Z-atlas.json",
+  "atlas_gi": 0.755,
+  "integrity_gi": 0.92,
+  "live_micro_composite": 0.859,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "hermes-hn-algolia": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 quorum achieved 5/5 for cycle C-481 agent ZEUS confidence=0.88 source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE",
+  "journal_entry_id": "journal-ZEUS-C-481-76bfzy",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-10-31T05-02-21Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.755 mode=yellow source=kv classification=STRESSED; anomalies=themis-govtrack,daedalus-cloudflare-radar; seed_result=200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]; sustain_eligible=False; kv_diagnostic_ok=false (16/19); micro_composite=0.868; tripwire active"
+    },
+    {
+      "check": "GET /api/signals/micro",
+      "result": "pass",
+      "detail": "HTTP 200 composite=0.859; failedInstruments=hermes-hn-algolia,themis-govtrack; daedalus-cloudflare-radar score=0.3 degraded"
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.92 mode=green source=kv operational_classification=STRESSED sustain_eligible=true terminal_status=nominal"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "ATLAS gi=0.755, integrity 0.92, live micro 0.859; spread=0.165"
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock)"
+    },
+    {
+      "check": "ATLAS anomaly: themis-govtrack elevated",
+      "result": "warn",
+      "detail": "Persistent \u2014 score=0 primary failed on live micro"
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar elevated",
+      "result": "warn",
+      "detail": "Persistent \u2014 degraded score=0.3 on live micro"
+    },
+    {
+      "check": "Live-only micro: hermes-hn-algolia",
+      "result": "warn",
+      "detail": "Persistent failure on live micro; omitted from ATLAS anomaly list this sweep"
+    },
+    {
+      "check": "ATLAS flag: kv_diagnostic_ok",
+      "result": "warn",
+      "detail": "Persistent kv_diagnostic_ok=false diagnostic_present=16/19 despite seed 200 OK"
+    },
+    {
+      "check": "sustain_eligible cross-check",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false vs integrity-status decision_state.sustain_eligible=true"
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "HTTP 200 pending=0 \u2014 no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-481 agent ZEUS confidence=0.88 source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-481-76bfzy mirrored_to_kv=true substrate ledger 503 suspended"
+    }
+  ],
+  "recommendation": "Monitor GovTrack and Cloudflare instrument stress; reconcile ATLAS gi=0.755 vs integrity 0.92 and micro composite 0.859. Quorum 5/5 receipt for C-481. Reconcile sustain_eligible ATLAS false vs integrity true."
+}
