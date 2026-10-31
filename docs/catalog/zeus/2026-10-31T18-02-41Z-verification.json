@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-10-31T18:02:41.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-481",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-31T17-03-56Z-atlas.json",
+  "atlas_gi": 0.779,
+  "integrity_gi": 0.9,
+  "live_micro_composite": 0.866,
+  "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
+    "themis-govtrack": "persistent",
+    "kv_diagnostic_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 quorum achieved 5/5 for cycle C-481 agent ZEUS confidence=0.88 source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE",
+  "journal_entry_id": "journal-ZEUS-C-481-1kcmxs",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-10-31T17-03-56Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.779 mode=yellow source=kv classification=STRESSED; anomalies=gaia-usgs-water,themis-govtrack elevated; seed_result=200 OK — seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; sustain_eligible=false; kv_diagnostic_ok=false (15/19); micro_composite=0.871; tripwire_active=true"
+    },
+    {
+      "check": "GET /api/signals/micro",
+      "result": "warn",
+      "detail": "HTTP 200 composite=0.866; failedInstruments=gaia-usgs-water,themis-govtrack (primary failed with retry); anomalies[] absent — instrument failures persist without elevated anomaly entries"
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.9 mode=green source=kv terminal_status=nominal sustain_eligible=true — diverges from ATLAS sweep (gi=0.779 yellow STRESSED) within ~1h window"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "Live integrity gi=0.9 vs ATLAS gi=0.779 (delta 0.121); both trail micro composite 0.866 modestly; KV path consistent, timing not mock"
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); ATLAS seed_result 200 OK and flags.integrity_source_mock=false"
+    },
+    {
+      "check": "ATLAS anomaly: gaia-usgs-water elevated",
+      "result": "warn",
+      "detail": "Persistent — still in failedInstruments with score=0 at verification time"
+    },
+    {
+      "check": "ATLAS anomaly: themis-govtrack elevated",
+      "result": "warn",
+      "detail": "Persistent — still in failedInstruments with score=0 at verification time"
+    },
+    {
+      "check": "ATLAS flag: kv_diagnostic_ok",
+      "result": "warn",
+      "detail": "Persistent kv_diagnostic_ok=false diagnostic_present=15/19 despite successful seed"
+    },
+    {
+      "check": "sustain_eligible cross-check",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false vs integrity-status sustain_eligible=true"
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "HTTP 200 pending=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-481 agent ZEUS confidence=0.88 source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-481-1kcmxs mirrored_to_kv=true substrate ledger 503 suspended"
+    }
+  ],
+  "recommendation": "Persistent GovTrack and USGS water primary failures warrant operator monitoring; reconcile sustain_eligible ATLAS vs integrity-status; remediate KV diagnostic gap 15/19. GI/mode improved on KV path since ATLAS sweep — treat STRESSED/yellow snapshot as time-bound, not mock degradation. Quorum 5/5 receipt for C-481."
+}
