@@ -5,7 +5,7 @@
 - **Cycle:** `C-481`
 - **GI:** `0.81` · **mode:** `green` · ⚠️ degraded
 - **Provenance:** `kv-live` (verified)
-- **Pulse fetched:** `2026-10-31T15:03:41.853Z`
+- **Pulse fetched:** `2026-10-31T19:14:27.359Z`
 - **Deployment:** `7c4dc79fd99a` (production)
 - **Reserve hot (raw):** `360` · **cold manifest:** `194` · **gap (raw−cold):** `166`
 - **Chain tip:** `seal-C-372-002` (seq `2`)
