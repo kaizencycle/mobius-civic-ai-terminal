@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-11-01T12:02:39Z",
+  "agent": "ATLAS",
+  "cycle": "C-482",
+  "gi": 0.75,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    },
+    {
+      "label": "HN Algolia search health",
+      "severity": "elevated"
+    },
+    {
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 39,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 0,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 17,
+    "diagnostic_required": 19,
+    "timestamp": "2026-11-01T12:02:39.915Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: [\"GI_STATE\", \"HEARTBEAT\", \"LAST_INGEST\", \"SIGNAL_SNAPSHOT\"]",
+  "sustain_eligible": true,
+  "classification": "STRESSED",
+  "micro_composite": 0.843,
+  "degraded_agents": 2,
+  "terminal_status": "stressed",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": true,
+    "integrity_source_live": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false,
+    "tripwire_active": false
+  },
+  "last_journal_cycle": "C-482",
+  "force_journal": false,
+  "seed_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_id": "journal-ATLAS-C-482-10ccr0",
+  "journal_ok": true,
+  "journal_canonical": false,
+  "journal_status": "200"
+}
