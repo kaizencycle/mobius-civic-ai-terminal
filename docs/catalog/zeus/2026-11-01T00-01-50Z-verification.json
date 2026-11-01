@@ -1,0 +1,92 @@
+{
+  "timestamp": "2026-11-01T00:01:50.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-481",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-10-31T23-03-06Z-atlas.json",
+  "atlas_gi": 0.796,
+  "integrity_gi": 0.802,
+  "live_micro_composite": 0.857,
+  "anomaly_persistence": {
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "gaia-usgs-water": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 quorum achieved 5/5 for cycle C-481 agent ZEUS confidence=0.88 source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_eligibility=blocked receipt_quorum_only",
+  "journal_entry_id": "journal-ZEUS-C-481-l95c53",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-10-31T23-03-06Z-atlas.json",
+      "result": "pass",
+      "detail": "gi=0.796 mode=yellow source=kv classification=STRESSED; anomalies=themis-govtrack,daedalus-cloudflare-radar elevated; seed_result=200 OK — seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; sustain_eligible=false; kv_diagnostic_ok=false (15/19); micro_composite=0.878; tripwire_active=true"
+    },
+    {
+      "check": "GET /api/signals/micro",
+      "result": "warn",
+      "detail": "HTTP 200 composite gi=0.857; failedInstruments=hermes-arxiv,themis-govtrack; daedalus-cloudflare-radar score=0.3 primary (degraded, matches ATLAS elevated); gaia-usgs-water score=0.85 primary — resolved vs prior ZEUS passes"
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.802 mode=green source=kv terminal_status=nominal sustain_eligible=true operational_classification=STRESSED — diverges from ATLAS sweep (gi=0.796 yellow STRESSED sustain=false)"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "ATLAS gi=0.796 vs integrity gi=0.802 (delta 0.006); live micro gi=0.857 higher — consistent KV path, timing/composite semantics not mock failure"
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); ATLAS seed_result 200 OK and flags.integrity_source_mock=false"
+    },
+    {
+      "check": "ATLAS anomaly: themis-govtrack elevated",
+      "result": "warn",
+      "detail": "Persistent — still in failedInstruments with score=0 at verification time"
+    },
+    {
+      "check": "ATLAS anomaly: daedalus-cloudflare-radar elevated",
+      "result": "warn",
+      "detail": "Persistent — score=0.3 primary at verification time"
+    },
+    {
+      "check": "ATLAS flag: kv_diagnostic_ok",
+      "result": "warn",
+      "detail": "Persistent kv_diagnostic_ok=false diagnostic_present=15/19 despite successful seed"
+    },
+    {
+      "check": "sustain_eligible cross-check",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible=false vs integrity-status sustain_eligible=true"
+    },
+    {
+      "check": "hermes-arxiv micro failure",
+      "result": "warn",
+      "detail": "Live primary failed (with retry) but not listed in ATLAS heartbeat anomalies[] — roll-up gap"
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "HTTP 200 pending=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-481 agent ZEUS confidence=0.88 source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-481-l95c53 mirrored_to_kv=true substrate ledger 503 suspended"
+    }
+  ],
+  "recommendation": "Persistent GovTrack and Cloudflare radar degradations warrant operator monitoring; track hermes-arxiv roll-up gap; reconcile sustain_eligible and display mode ATLAS vs integrity-status; remediate KV diagnostic gap 15/19. USGS water recovered. Quorum 5/5 receipt for C-481 (seal_eligibility blocked)."
+}
