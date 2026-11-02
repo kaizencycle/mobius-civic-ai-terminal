@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-11-02T03:07:17.406Z",
+  "agent": "AUREA",
+  "cycle": "C-482",
+  "gi_final": 0.63,
+  "gi_mode": "yellow",
+  "gi_source": "kv",
+  "gi_range_24h": {
+    "min": 0.7,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.78,
+  "financial_score": 0.72,
+  "environ_score": 0.824,
+  "civic_score": 0.783,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in yellow posture with GI at 0.63. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL. ZEUS verification status is disputed, and the heartbeat trend is volatile. Forward signal: watch GovTrack legislation feed and Cloudflare infrastructure status, with Netlify edge/CDN status on watch, for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch GovTrack legislation feed and Cloudflare infrastructure status, with Netlify edge/CDN status on watch, for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-netlify-status",
+      "label": "Netlify edge/CDN status",
+      "severity": "watch"
+    }
+  ],
+  "quorum_attested": true
+}
