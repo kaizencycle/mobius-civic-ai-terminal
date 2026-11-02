@@ -2,15 +2,15 @@
   "timestamp": "2026-11-02T06:01:09.088Z",
   "agent": "ZEUS",
   "cycle": "C-483",
-  "verification_status": "disputed",
+  "verification_status": "confirmed",
   "gi_verified": true,
   "gi_source": "live",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-02T04-02-32Z-atlas.json",
-  "atlas_gi": 0.91,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-02T05-06-48Z-atlas.json",
+  "atlas_gi": 0.74,
   "integrity_gi": 0.796,
   "live_micro_composite": 0.85,
   "anomaly_persistence": {
-    "UN Data API availability": "transient",
+    "USGS water conditions": "transient",
     "GovTrack legislation feed": "persistent",
     "Cloudflare infrastructure status": "persistent",
     "kv_diagnostic_ok": "persistent"
@@ -23,24 +23,24 @@
   "journal_entry_id": "journal-ZEUS-C-483-0s41n8",
   "findings": [
     {
-      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-11-02T04-02-32Z-atlas.json",
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-11-02T05-06-48Z-atlas.json",
       "result": "warn",
-      "detail": "gi=0.91 mode=green source=kv classification=STRESSED; anomalies=UN Data [elevated], GovTrack [elevated], Cloudflare [elevated]; seed_result=200 OK — seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; sustain_eligible=false; kv_diagnostic_ok=false (16/19); micro_composite=0.852; degraded_agents=3; terminal_status=nominal; tripwire_active=true"
+      "detail": "gi=0.74 mode=yellow source=kv classification=STRESSED; anomalies=USGS water [elevated], GovTrack [elevated], Cloudflare [elevated]; seed_result=200 OK — seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; sustain_eligible=false; kv_diagnostic_ok=false (17/19); micro_composite=0.856; degraded_agents=4; terminal_status=stressed; tripwire_active=false"
     },
     {
       "check": "GET /api/signals/micro",
       "result": "warn",
-      "detail": "HTTP 200 composite=0.85 instrumentCount=40 cycle=C-483 cached=false. GovTrack score 0 and Cloudflare 0.3 remain degraded; UN Data 0.85 (nominal); CrossRef publication velocity 0 (elevated)."
+      "detail": "HTTP 200 composite=0.85 instrumentCount=40 cycle=C-483 cached=false. GovTrack score 0 and Cloudflare 0.3 remain degraded; USGS water 0.85 (nominal in live sweep); CrossRef publication velocity 0 (elevated)."
     },
     {
       "check": "GET /api/integrity-status",
       "result": "warn",
-      "detail": "HTTP 200 global_integrity=0.796 mode=yellow source=kv gi_provenance=kv-live terminal_status=stressed. ATLAS gi=0.91 (delta 0.114 vs live integrity)."
+      "detail": "HTTP 200 global_integrity=0.796 mode=yellow source=kv gi_provenance=kv-live terminal_status=stressed. ATLAS gi=0.74 (delta 0.056)."
     },
     {
       "check": "gi_alignment",
-      "result": "fail",
-      "detail": "ATLAS gi=0.91 mode=green vs integrity gi=0.796 mode=yellow (delta 0.114); live micro composite=0.85 vs ATLAS micro_composite=0.852 — catalog heartbeat GI/mode not aligned with live integrity."
+      "result": "pass",
+      "detail": "ATLAS gi=0.74 vs integrity gi=0.796 (delta 0.056); live micro composite=0.85 vs ATLAS micro_composite=0.856 — both yellow/stressed band; catalog heartbeat aligned with live integrity within tolerance."
     },
     {
       "check": "integrity source mock",
@@ -50,7 +50,7 @@
     {
       "check": "ATLAS flag: kv_diagnostic_ok",
       "result": "warn",
-      "detail": "Persistent kv_diagnostic_ok=false diagnostic_present=16/19 despite successful seed"
+      "detail": "Persistent kv_diagnostic_ok=false diagnostic_present=17/19 despite successful seed"
     },
     {
       "check": "EPICON candidates pending-verification",
@@ -68,5 +68,5 @@
       "detail": "HTTP 200 entry_id=journal-ZEUS-C-483-0s41n8 mirrored_to_kv=true pending_immortalization=true (substrate ledger 503 suspended)"
     }
   ],
-  "recommendation": "Reconcile ATLAS heartbeat GI (0.91 green) with live integrity (0.796 yellow). GovTrack (0) and Cloudflare (0.3) remain persistent stressed lanes; UN Data watch cleared (transient). Close KV diagnostic gap 16/19. ATLAS sustain_eligible=false with tripwire active — quorum 5/5 receipt for C-483 (seal blocked)."
+  "recommendation": "GovTrack (0) and Cloudflare (0.3) remain persistent stressed lanes; USGS water elevated flag cleared in live sweep (transient). Close KV diagnostic gap 17/19. ATLAS sustain_eligible=false — quorum 5/5 receipt for C-483 (seal blocked)."
 }
