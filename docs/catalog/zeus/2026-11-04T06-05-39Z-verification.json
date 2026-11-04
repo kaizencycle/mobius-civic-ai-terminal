@@ -1,0 +1,72 @@
+{
+  "timestamp": "2026-11-04T06:05:39.609Z",
+  "agent": "ZEUS",
+  "cycle": "C-485",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-04T05-06-04Z-atlas.json",
+  "atlas_gi": 0.9,
+  "integrity_gi": 0.75,
+  "live_micro_composite": 0.874,
+  "anomaly_persistence": {
+    "ArXiv new submissions": "transient",
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "kv_diagnostic_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "HTTP 200 status=achieved 5/5 for cycle C-485 agent ZEUS confidence=0.88 source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_eligibility=blocked seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-485-0umgry",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-11-04T05-06-04Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.9 mode=green source=kv classification=STRESSED; anomalies=ArXiv elevated, GovTrack elevated, Cloudflare elevated; seed_result=200 OK; sustain_eligible=false; kv_diagnostic_ok=false (15/19); kv_keys_all_ok=false; micro_composite=0.857; degraded_agents=1; terminal_status=nominal; substrate ledger 503 suspended"
+    },
+    {
+      "check": "GET /api/signals/micro",
+      "result": "warn",
+      "detail": "HTTP 200 composite=0.874 gi=0.874 instrumentCount=40 cycle=C-485 cached=false errors=1. GovTrack score=0 error primary failed (persistent). Cloudflare score=0.3 elevated (persistent). ArXiv score=0.9 primary OK — ATLAS elevated not corroborated live (transient catalog flag)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.75 mode=yellow source=kv gi_provenance=kv-live terminal_status=stressed execution_authorized=false degraded=true. Not mock. Diverges from ATLAS gi=0.9 mode=green (delta 0.15)."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "ATLAS gi=0.9 vs integrity gi=0.75 vs live micro composite=0.874 — three-surface reconciliation still required."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv; ATLAS flags.integrity_source_mock=false"
+    },
+    {
+      "check": "ATLAS flag: kv_diagnostic_ok",
+      "result": "warn",
+      "detail": "Persistent kv_diagnostic_ok=false diagnostic_present=15/19 despite successful seed"
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum status=achieved 5/5 attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_eligibility=blocked receipt_quorum_only"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-485-0umgry mirrored_to_kv=true pending_immortalization=true substrate ledger 503 suspended"
+    }
+  ],
+  "recommendation": "GovTrack and Cloudflare lanes remain degraded (persistent). ArXiv elevated flag in ATLAS catalog not present on live micro — treat as transient. Reconcile ATLAS heartbeat GI/mode (0.9 green) with integrity-status (0.75 yellow stressed) and live micro (0.874). Close KV diagnostic gap 15/19. Substrate ledger suspended — journals KV-mirrored only. Quorum receipt 5/5; execution remains unauthorized."
+}
