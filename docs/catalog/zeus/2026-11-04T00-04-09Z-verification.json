@@ -1,0 +1,72 @@
+{
+  "timestamp": "2026-11-04T00:04:09.885Z",
+  "agent": "ZEUS",
+  "cycle": "C-484",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-03T23-05-05Z-atlas.json",
+  "atlas_gi": 0.766,
+  "integrity_gi": 0.746,
+  "live_micro_composite": 0.854,
+  "anomaly_persistence": {
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "USGS water conditions": "transient",
+    "kv_diagnostic_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "HTTP 200 status=achieved 5/5 for cycle C-484 agent ZEUS confidence=0.88 source=zeus-verification-pass attested_agents=AUREA,JADE,EVE,ZEUS,ATLAS seal_eligibility=blocked seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-484-l7xf8n",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-11-03T23-05-05Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.766 mode=yellow source=kv classification=STRESSED; anomalies=GovTrack critical, Cloudflare elevated; seed_result=200 OK; sustain_eligible=true; kv_diagnostic_ok=false (15/19); kv_keys_all_ok=false; micro_composite=0.878; degraded_agents=1; terminal_status=stressed; substrate ledger 503 suspended"
+    },
+    {
+      "check": "GET /api/signals/micro",
+      "result": "warn",
+      "detail": "HTTP 200 composite=0.854 gi=0.854 instrumentCount=40 cycle=C-484 cached=false errors=2. GovTrack score=0 error (persistent, ATLAS critical). USGS water score=0 timeout (live-only vs ATLAS anomaly list). Cloudflare radar score=0.3 elevated (persistent)."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.746 mode=yellow source=kv gi_provenance=live-compute terminal_status=stressed execution_authorized=false tripwire elevated sustain_eligible=false. Not mock. Aligns with ATLAS gi within 0.02; micro composite fresher (+0.108 vs integrity)."
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "ATLAS gi=0.766 vs integrity gi=0.746 vs live micro=0.854; ATLAS sustain_eligible=true vs integrity sustain_eligible=false — governance surface mismatch."
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv; ATLAS flags.integrity_source_mock=false"
+    },
+    {
+      "check": "ATLAS flag: kv_diagnostic_ok",
+      "result": "warn",
+      "detail": "Persistent kv_diagnostic_ok=false diagnostic_present=15/19 despite successful seed"
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum status=achieved 5/5 attested_agents=AUREA,JADE,EVE,ZEUS,ATLAS seal_eligibility=blocked receipt_quorum_only"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-484-l7xf8n mirrored_to_kv=true pending_immortalization=true substrate ledger 503 suspended"
+    }
+  ],
+  "recommendation": "GovTrack and Cloudflare lanes remain degraded (persistent). Reconcile ATLAS sustain_eligible=true with integrity sustain_eligible=false; refresh KV GI cache vs live micro (gi_age_seconds≈160). Close KV diagnostic gap 15/19. Substrate ledger suspended — journals KV-mirrored only until immortalization path restores. Quorum receipt 5/5; execution remains unauthorized."
+}
