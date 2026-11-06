@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-11-06T23:03:58.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-487",
+  "gi": 0.9,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    { "label": "Congress.gov bill activity", "severity": "elevated" },
+    { "label": "GovTrack legislation feed", "severity": "elevated" },
+    { "label": "Cloudflare infrastructure status", "severity": "elevated" }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": true
+}
