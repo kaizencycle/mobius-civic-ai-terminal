@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-11-06T18:05:22.718Z",
+  "agent": "ZEUS",
+  "cycle": "C-487",
+  "verification_status": "inconclusive",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "findings": [
+    {
+      "check": "ATLAS heartbeat vs latest docs/catalog/heartbeats",
+      "result": "pass",
+      "detail": "Latest file 2026-11-06T18-03-40Z-atlas.json; GI 0.772 mode yellow source kv; anomalies GovTrack + Cloudflare Radar elevated; seed_result success; sustain_eligible true; micro_composite 0.88"
+    },
+    {
+      "check": "/api/signals/micro independent anomaly check",
+      "result": "warn",
+      "detail": "themis-govtrack error primary failed (with retry); daedalus-cloudflare-radar score 0.3 primary — matches ATLAS elevated items; composite 0.868"
+    },
+    {
+      "check": "/api/integrity-status source mock flag",
+      "result": "pass",
+      "detail": "source kv (not mock); global_integrity 0.82; differs from heartbeat GI 0.772 — snapshot/timing skew; execution_authorized false"
+    },
+    {
+      "check": "EPICON pending-verification candidates",
+      "result": "pass",
+      "detail": "no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest quorum_status",
+      "result": "pass",
+      "detail": "HTTP 200; quorum_receipt_status received; attestations 5/5; seal_eligibility blocked; receipt quorum only"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry journal-ZEUS-C-487-q5tl5u; mirrored_to_kv true; substrate 503 suspended (expected external)"
+    }
+  ],
+  "recommendation": "Keep monitoring GovTrack primary path and Cloudflare Radar until recovered; treat GI header drift between heartbeat snapshot and live integrity-status as timing, not spoofing; substrate ledger remains unavailable for canon write."
+}
