@@ -4,9 +4,9 @@
   "source": "snapshot-lite+vault+manifest",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
   "cycle": "C-487",
-  "as_of": "2026-11-06T10:44:59.442Z",
-  "fetched_at": "2026-11-06T10:44:59.536Z",
-  "gi": 0.767,
+  "as_of": "2026-11-06T17:42:10.229Z",
+  "fetched_at": "2026-11-06T17:42:10.233Z",
+  "gi": 0.784,
   "raw_integrity": null,
   "gi_floored": false,
   "mode": "yellow",
@@ -15,7 +15,7 @@
   "gi_verified": true,
   "gi_readings": {
     "snapshot_lite": {
-      "value": 0.767,
+      "value": 0.784,
       "field": "gi",
       "source": "snapshot-lite",
       "raw_integrity": null,
@@ -23,7 +23,7 @@
     },
     "memory_mode": null,
     "vault_dashboard": {
-      "value": 0.767,
+      "value": 0.784,
       "field": "gi_current",
       "source": "/api/vault/status"
     }
@@ -34,7 +34,7 @@
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 39,
+    "total_ms": 200,
     "lane_ms": null
   },
   "counting_rules": {
@@ -50,8 +50,8 @@
       "cycle": "C-372",
       "sequence": 2
     },
-    "in_progress_mic": 8031.352036,
-    "in_progress_block": 509,
+    "in_progress_mic": 8047.733735,
+    "in_progress_block": 510,
     "fountain_status": "locked",
     "sustain_cycles_met": false,
     "substrate_ok": true,
