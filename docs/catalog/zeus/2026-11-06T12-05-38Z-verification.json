@@ -1,0 +1,51 @@
+{
+  "timestamp": "2026-11-06T12:05:38Z",
+  "agent": "ZEUS",
+  "cycle": "C-487",
+  "verification_status": "disputed",
+  "atlas_heartbeat_ref": "docs/catalog/heartbeats/2026-11-06T12-03-10Z-atlas.json",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "gaia-usgs-water": "resolved",
+    "themis-govtrack": "persistent",
+    "daedalus-cloudflare-radar": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": {
+    "schema": "SENTINEL_QUORUM_V1",
+    "attestations_received": 5,
+    "attestations_needed": 5,
+    "status": "achieved",
+    "quorum_receipt_status": "received",
+    "seal_status": "receipt_quorum_only",
+    "seal_eligibility": "blocked",
+    "note": "5/5 attestations received — receipt quorum only; not seal completion or execution authority"
+  },
+  "findings": [
+    {
+      "check": "integrity-status source !== mock",
+      "result": "pass",
+      "detail": "source=kv; gi_origin=kv; KV seed healthy — not mock degradation path."
+    },
+    {
+      "check": "signals/micro vs ATLAS anomalies",
+      "result": "warn",
+      "detail": "Micro composite 0.878 vs ATLAS micro_composite 0.864 (aligned). USGS water was elevated in ATLAS but live score 0.85 primary (transient/resolved vs snapshot). GovTrack still error (persistent). Cloudflare score 0.3 (persistent degraded)."
+    },
+    {
+      "check": "GI cross-reference",
+      "result": "pass",
+      "detail": "integrity-status global_integrity 0.84 with signals quality/freshness consistent with degraded instruments; not inconsistent with micro gi 0.878."
+    },
+    {
+      "check": "epicon pending-verification",
+      "result": "pass",
+      "detail": "No candidates returned — verification skipped."
+    }
+  ],
+  "recommendation": "Treat GovTrack primary failure and Cloudflare radar low score as ongoing; re-check USGS water on next sweep. Prefer live integrity decision_state (tripwire elevated, sustain eligible) over static ATLAS sustain_eligible=false where they diverge."
+}
