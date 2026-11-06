@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-11-06T00:01:37.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-486",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-05T23-02-50Z-atlas.json",
+  "atlas_gi": 0.759,
+  "integrity_gi": 0.75,
+  "live_micro_composite": 0.86,
+  "anomaly_persistence": {
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "HN Algolia search health": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "HTTP 200 quorum achieved 5/5 for cycle C-486 agent ZEUS confidence=0.88 source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_eligibility=blocked receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-486-bye4lw",
+  "findings": [
+    {
+      "check": "ATLAS heartbeat docs/catalog/heartbeats/2026-11-05T23-02-50Z-atlas.json",
+      "result": "warn",
+      "detail": "gi=0.759 mode=yellow source=kv classification=STRESSED; anomalies=2 (GovTrack, Cloudflare elevated); seed_result=200 OK seeded [GI_STATE,HEARTBEAT,LAST_INGEST,SIGNAL_SNAPSHOT]; sustain_eligible=true; kv_diagnostic_ok=false (16/19); micro_composite=0.874; degraded_agents=2; terminal_status=stressed; tripwire_active=false"
+    },
+    {
+      "check": "GET /api/signals/micro",
+      "result": "warn",
+      "detail": "HTTP 200 composite=0.86 instrumentCount=40 cycle=C-486 cached=false. Failed primaries: themis-govtrack, hermes-hn-algolia. daedalus-cloudflare-radar score=0.3 elevated. CoinGecko recovered 0.85 primary."
+    },
+    {
+      "check": "GET /api/integrity-status",
+      "result": "warn",
+      "detail": "HTTP 200 global_integrity=0.75 mode=yellow source=kv gi_provenance=kv-live terminal_status=stressed operational_classification=STRESSED degraded=true execution_authorized=false; sustain_eligible=true; aligns with ATLAS gi=0.759 (delta 0.009) but diverges from ATLAS micro_composite=0.874 and live micro=0.86"
+    },
+    {
+      "check": "gi_alignment",
+      "result": "warn",
+      "detail": "Four GI readings: live micro=0.86, ATLAS catalog gi=0.759/micro_composite=0.874, integrity KV=0.75 — no single reconciled operator GI"
+    },
+    {
+      "check": "integrity source mock",
+      "result": "pass",
+      "detail": "source=kv (not mock); ATLAS flags.integrity_source_mock=false; seed_attempted=true seed_result=200 OK"
+    },
+    {
+      "check": "ATLAS flag: kv_diagnostic_ok",
+      "result": "warn",
+      "detail": "Persistent kv_diagnostic_ok=false diagnostic_present=16/19 despite kv continuity OK and successful seed"
+    },
+    {
+      "check": "catalog vs live lane health",
+      "result": "warn",
+      "detail": "Live micro shows hermes-hn-algolia primary failure not listed in ATLAS anomalies[]; GovTrack and Cloudflare match ATLAS elevated lanes"
+    },
+    {
+      "check": "EPICON candidates pending-verification",
+      "result": "pass",
+      "detail": "HTTP 200 count=0 — no candidates, verification skipped"
+    },
+    {
+      "check": "POST /api/vault/attest",
+      "result": "pass",
+      "detail": "HTTP 200 quorum achieved 5/5 for cycle C-486 attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_eligibility=blocked receipt_quorum_only execution_authorized=false"
+    },
+    {
+      "check": "POST /api/agents/journal",
+      "result": "pass",
+      "detail": "HTTP 200 entry_id=journal-ZEUS-C-486-bye4lw mirrored_to_kv=true pending_immortalization=true (substrate ledger 503 suspended)"
+    }
+  ],
+  "recommendation": "GovTrack and Cloudflare radar remain operator-critical lane failures. Reconcile ATLAS micro_composite (0.874) with live micro (0.86) and integrity KV gi (0.75/0.759). Close remaining KV diagnostic keys (16/19). Add HN Algolia to ATLAS roll-up if failure persists beyond this sweep. Quorum 5/5 receipt for C-486 — seal blocked; execution not authorized."
+}
