@@ -1,0 +1,62 @@
+{
+  "timestamp": "2026-11-07T16:01:29.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-488",
+  "gi": 0.777,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "Internet Archive availability",
+      "severity": "elevated"
+    },
+    {
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_live": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  },
+  "classification": "STRESSED",
+  "micro_composite": 0.856,
+  "degraded_agents": 3,
+  "terminal_status": "stressed",
+  "tripwire": {
+    "state": "unknown",
+    "source": "baseline",
+    "last_updated": "2026-11-07T15:51:45.190Z"
+  },
+  "journal_id": "journal-ATLAS-C-488-d15yj7",
+  "last_journal_cycle": "C-488",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_route": "agents/journal",
+  "journal_status": 200,
+  "journal_substrate_error": "ledger 503 suspended (mirrored_to_kv true)"
+}
