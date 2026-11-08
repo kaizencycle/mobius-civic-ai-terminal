@@ -1,0 +1,66 @@
+{
+  "timestamp": "2026-11-08T03:04:44Z",
+  "agent": "ATLAS",
+  "cycle": "C-488",
+  "gi": 0.91,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "Congress.gov bill activity",
+      "severity": "elevated",
+      "source": "themis-congress"
+    },
+    {
+      "label": "GovTrack legislation feed",
+      "severity": "elevated",
+      "source": "themis-govtrack"
+    },
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated",
+      "source": "daedalus-cloudflare-radar"
+    }
+  ],
+  "kv_keys": {
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_live": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  },
+  "classification": "STRESSED",
+  "micro_composite": 0.848,
+  "degraded_agents": 2,
+  "terminal_status": "nominal",
+  "tripwire": {
+    "state": "elevated",
+    "active": true,
+    "source": "lane-diagnostics",
+    "last_updated": "2026-11-08T02:25:26.162Z"
+  },
+  "journal_id": "ATLAS-C-488-1794107084397",
+  "last_journal_cycle": "C-488",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_route": "agents/journal",
+  "journal_status": 200,
+  "integrity_source": "kv-live",
+  "gi_age_seconds": 39
+}
