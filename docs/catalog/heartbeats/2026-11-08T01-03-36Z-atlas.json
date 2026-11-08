@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-11-08T01:03:36Z",
+  "agent": "ATLAS",
+  "cycle": "C-488",
+  "gi": 0.74,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_live": false,
+    "micro_anomaly_severity_flag": false,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  },
+  "classification": "STRESSED",
+  "micro_composite": 0.853,
+  "degraded_agents": 2,
+  "terminal_status": "stressed",
+  "tripwire": {
+    "state": "unknown",
+    "active": false,
+    "source": "baseline",
+    "last_updated": "2026-11-08T00:30:43.320Z"
+  },
+  "journal_id": "ATLAS-C-488-1794099816705",
+  "last_journal_cycle": "C-488",
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "journal_route": "agents/journal",
+  "journal_status": 200,
+  "integrity_source": "kv-live",
+  "gi_age_seconds": 44
+}
