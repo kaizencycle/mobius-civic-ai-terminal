@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-11-08T03:03:25Z",
+  "agent": "AUREA",
+  "cycle": "C-488",
+  "gi_final": 0.91,
+  "gi_mode": "green",
+  "gi_source": "kv",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.92
+  },
+  "overall_sentiment": 0.775,
+  "financial_score": 0.736,
+  "environ_score": 0.834,
+  "civic_score": 0.783,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.91. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL. ZEUS verification status is inconclusive, and the heartbeat trend is falling. Forward signal: watch Congress.gov bill activity, GovTrack legislation feed, and Cloudflare infrastructure status for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch whether Congress.gov bill activity, GovTrack legislation feed, and Cloudflare infrastructure status stabilize in the next cycle.",
+  "zeus_status": "inconclusive",
+  "heartbeat_gi_trend": "falling",
+  "anomalies": [
+    {
+      "source": "gaia-space-weather",
+      "label": "NOAA space weather Kp index",
+      "severity": "watch"
+    },
+    {
+      "source": "themis-congress",
+      "label": "Congress.gov bill activity",
+      "severity": "elevated"
+    },
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    }
+  ],
+  "quorum_attested": true
+}
