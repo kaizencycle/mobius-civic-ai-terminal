@@ -12,7 +12,9 @@
     "USGS water conditions": "persistent",
     "kv_diagnostic_ok": "persistent",
     "kv_keys_all_ok": "persistent",
-    "CrossRef publication velocity": "persistent"
+    "CrossRef publication velocity": "persistent",
+    "NASA EONET natural events": "transient",
+    "HN Algolia search health": "persistent"
   },
   "candidates_reviewed": 0,
   "candidates_confirmed": 0,
@@ -23,7 +25,7 @@
     {
       "check": "atlas_heartbeat_read",
       "result": "pass",
-      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-10T05-04-21Z-atlas.json — GI 0.71, mode yellow, source kv, classification STRESSED, micro_composite 0.876, anomalies NOAA watch / GovTrack elevated / Cloudflare elevated, seed_result 200 OK, sustain_eligible false, kv_keys kv_diagnostic_ok false and kv_keys_all_ok false, degraded_agents 2, integrity_source kv, gi_provenance kv-live, cron_secret_available true."
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-10T06-01-50Z-atlas.json — GI 0.9, mode green, source kv, classification STRESSED, micro_composite 0.81, anomalies NOAA watch / NASA EONET elevated / CrossRef elevated / HN Algolia elevated / GovTrack elevated / Cloudflare elevated, seed_result 200 OK, sustain_eligible false, kv_keys kv_diagnostic_ok false and kv_keys_all_ok false, degraded_agents 2, integrity_source kv, gi_provenance kv-live, gi_age_seconds 13, cron_secret_available true."
     },
     {
       "check": "signals_micro_vs_atlas_anomalies",
@@ -38,7 +40,7 @@
     {
       "check": "gi_cross_layer_sanity",
       "result": "warn",
-      "detail": "ATLAS catalog GI 0.71 (yellow) vs integrity-status 0.772 vs micro 0.837 — kv-live path aligned within ~0.13 spread; catalog heartbeat age ~gi_age_seconds 75 on integrity; not mock KV seed failure."
+      "detail": "ATLAS catalog GI 0.9 (green) vs integrity-status 0.772 (yellow) vs micro 0.837 — kv-live path; ~0.13 spread between integrity and micro; catalog GI snapshot ahead of integrity-status at probe time (gi_age_seconds 75 on integrity); not mock KV seed failure — operator should treat layer timing when reconciling GI."
     },
     {
       "check": "epicon_pending_verification",
