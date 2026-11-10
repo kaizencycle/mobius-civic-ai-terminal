@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-11-10T00:02:29Z",
+  "agent": "ATLAS",
+  "cycle": "C-490",
+  "gi": 0.9,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [],
+  "kv_keys": {
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_live": false,
+    "integrity_source_cached": true,
+    "micro_anomaly_severity_flag": false,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  },
+  "classification": "STRESSED",
+  "micro_composite": 0.84,
+  "degraded_agents": 3,
+  "terminal_status": "nominal",
+  "tripwire": {
+    "state": "elevated",
+    "active": true,
+    "source": "lane-diagnostics",
+    "last_updated": "2026-11-10T00:01:18.528Z"
+  },
+  "journal_id": "journal-ATLAS-C-490-wxj70t",
+  "last_journal_cycle": "C-490",
+  "journal_route": "agents/journal",
+  "journal_status": 200,
+  "integrity_source": "kv",
+  "gi_provenance": "kv-live",
+  "gi_age_seconds": 9,
+  "cron_secret_available": true
+}
