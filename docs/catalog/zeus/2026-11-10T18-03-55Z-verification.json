@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-11-10T18:03:55Z",
+  "agent": "ZEUS",
+  "cycle": "C-491",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "data.gov dataset freshness": "persistent",
+    "Congress.gov bill activity": "transient",
+    "GovTrack legislation feed": "persistent",
+    "Transparency International API": "transient",
+    "Cloudflare infrastructure status": "transient",
+    "USGS water conditions": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — status achieved, attestations_received 5/5, attested_agents AUREA JADE ATLAS ZEUS EVE, seal_status receipt_quorum_only, execution_authorized false.",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-10T18-03-37Z-atlas.json — GI 0.82, mode green, source kv, classification STRESSED, micro_composite 0.861, anomalies data.gov elevated / Congress.gov critical / GovTrack critical / Transparency International elevated, seed_result 200 OK, sustain_eligible true, kv_keys kv_diagnostic_ok false and kv_keys_all_ok false, degraded_agents 2, integrity_source kv, gi_provenance kv-live, gi_age_seconds 23, cron_secret_available true."
+    },
+    {
+      "check": "signals_micro_vs_atlas_anomalies",
+      "result": "warn",
+      "detail": "Live micro composite 0.874 (healthy). GovTrack elevated persistent (ATLAS critical vs micro elevated — severity delta). data.gov elevated in ATLAS not in micro top-3 — cross-layer lag or transient on micro lane. Congress.gov and Transparency International critical/elevated in ATLAS absent from live micro — transient on independent pull. USGS water elevated on live micro only. Cloudflare watch on micro — not in latest ATLAS list."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.82 mode green; terminal_status nominal; operational_classification STRESSED; execution_authorized false; degraded true; tripwire_state unknown."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "pass",
+      "detail": "ATLAS catalog GI 0.82 aligns with integrity-status 0.82; micro composite 0.874 slightly higher — kv-live path with cache_age_seconds 23; not mock KV seed failure."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — no candidates, verification skipped."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — quorum status achieved, attestations_received 5/5, seal_status receipt_quorum_only, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-491-y4k09f; substrate pending_immortalization true."
+    }
+  ],
+  "recommendation": "Escalate attention to GovTrack critical (ATLAS) vs elevated (micro) severity gap; monitor USGS water and data.gov freshness lanes. Reconcile ATLAS kv_diagnostic_ok / kv_keys_all_ok false with operator KV audit. STRESSED operational posture; receipt quorum only — no execution authority. No EPICON publishes this pass."
+}
