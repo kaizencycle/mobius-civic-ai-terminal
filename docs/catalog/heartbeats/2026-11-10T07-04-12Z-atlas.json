@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-11-10T07:04:12Z",
+  "agent": "ATLAS",
+  "cycle": "C-491",
+  "gi": 0.82,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "NOAA active weather alerts",
+      "severity": "watch"
+    },
+    {
+      "label": "CrossRef publication velocity",
+      "severity": "elevated"
+    },
+    {
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  },
+  "classification": "STRESSED",
+  "micro_composite": 0.858,
+  "degraded_agents": 3,
+  "terminal_status": "nominal",
+  "tripwire": {
+    "state": "unknown",
+    "active": false,
+    "source": "baseline",
+    "last_updated": "2026-11-10T07:03:00.095Z"
+  },
+  "journal_id": "journal-ATLAS-C-491-mbunz0",
+  "last_journal_cycle": "C-491",
+  "journal_route": "agents/journal",
+  "journal_status": 200,
+  "integrity_source": "kv",
+  "gi_provenance": "kv-live",
+  "gi_age_seconds": 34,
+  "cron_secret_available": true
+}
