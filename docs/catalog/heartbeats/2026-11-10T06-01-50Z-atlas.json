@@ -1,0 +1,72 @@
+{
+  "timestamp": "2026-11-10T06:01:50Z",
+  "agent": "ATLAS",
+  "cycle": "C-491",
+  "gi": 0.9,
+  "mode": "green",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "NOAA active weather alerts",
+      "severity": "watch"
+    },
+    {
+      "label": "NASA EONET natural events",
+      "severity": "elevated"
+    },
+    {
+      "label": "CrossRef publication velocity",
+      "severity": "elevated"
+    },
+    {
+      "label": "HN Algolia search health",
+      "severity": "elevated"
+    },
+    {
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT",
+  "sustain_eligible": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_live": false,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  },
+  "classification": "STRESSED",
+  "micro_composite": 0.81,
+  "degraded_agents": 2,
+  "terminal_status": "nominal",
+  "tripwire": {
+    "state": "unknown",
+    "active": false,
+    "source": "baseline",
+    "last_updated": "2026-11-10T06:00:17.326Z"
+  },
+  "journal_id": "ATLAS-C-491-1794290510769",
+  "last_journal_cycle": "C-491",
+  "journal_route": "agents/journal",
+  "journal_status": 200,
+  "integrity_source": "kv",
+  "gi_provenance": "kv-live",
+  "gi_age_seconds": 13,
+  "cron_secret_available": true
+}
