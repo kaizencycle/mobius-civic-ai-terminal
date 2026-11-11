@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-11-11T13:02:17Z",
+  "agent": "ATLAS",
+  "cycle": "C-492",
+  "gi": 0.63,
+  "mode": "yellow",
+  "source": "cached",
+  "anomalies": [],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: [GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT]",
+  "sustain_eligible": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_live": false,
+    "integrity_source_kv": false,
+    "integrity_source_cached": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  },
+  "classification": "CRITICAL",
+  "micro_composite": 0.892,
+  "degraded_agents": 2,
+  "terminal_status": "stressed",
+  "tripwire": {
+    "state": "live",
+    "active": true,
+    "level": "elevated",
+    "source": "merged",
+    "last_updated": "2026-11-11T13:02:08.589Z"
+  },
+  "journal_id": "journal-ATLAS-C-492-jb03c3",
+  "last_journal_cycle": "C-492",
+  "journal_route": "agents/journal",
+  "journal_status": 200,
+  "integrity_source": "cached",
+  "gi_provenance": "live-compute",
+  "gi_age_seconds": 3464,
+  "cron_secret_available": true
+}
