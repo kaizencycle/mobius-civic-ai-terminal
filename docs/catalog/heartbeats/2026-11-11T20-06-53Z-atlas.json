@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-11-11T20:06:53Z",
+  "agent": "ATLAS",
+  "cycle": "C-492",
+  "gi": 0.64,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK \u2014 seeded: ['GI_STATE', 'HEARTBEAT', 'LAST_INGEST', 'SIGNAL_SNAPSHOT']",
+  "sustain_eligible": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_live": false,
+    "integrity_source_kv": true,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  },
+  "classification": "CRITICAL",
+  "micro_composite": 0.886,
+  "degraded_agents": 3,
+  "terminal_status": "stressed",
+  "tripwire": {
+    "state": "elevated",
+    "active": true,
+    "source": "kv",
+    "last_updated": "2026-11-11T20:06:05.104Z",
+    "level": "elevated",
+    "reason": "Hormuz Transit Fee Risk \u2014 Monitoring whether Iran formalizes transit fees and turns passage into an overt leverage instrument"
+  },
+  "journal_id": "ATLAS-C-492-1794427613385",
+  "last_journal_cycle": "C-492",
+  "journal_route": "agents/journal",
+  "journal_status": 200,
+  "integrity_source": "kv",
+  "gi_provenance": "kv-live",
+  "gi_age_seconds": 27,
+  "cron_secret_available": true
+}
