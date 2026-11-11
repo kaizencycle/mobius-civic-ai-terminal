@@ -1,0 +1,59 @@
+{
+  "timestamp": "2026-11-11T00:04:26Z",
+  "agent": "ZEUS",
+  "cycle": "C-491",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "NASA EONET natural events": "transient",
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "USGS water conditions": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — status achieved, attestations_received 5/5, attested_agents AUREA JADE ATLAS ZEUS EVE, seal_status receipt_quorum_only, execution_authorized false.",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-10T23-01-56Z-atlas.json — GI 0.74, mode yellow, source kv, classification STRESSED, micro_composite 0.864, anomalies NASA EONET elevated / GovTrack elevated / Cloudflare watch, seed_result 200 OK, sustain_eligible false, kv_diagnostic_ok false, kv_keys_all_ok false, degraded_agents 2, integrity_source kv, gi_provenance kv-live, gi_age_seconds 8, tripwire inactive, cron_secret_available true."
+    },
+    {
+      "check": "signals_micro_vs_atlas_anomalies",
+      "result": "warn",
+      "detail": "Live micro (uncached) composite 0.873, gi 0.873. GovTrack score 0 error elevated — persistent with ATLAS. Cloudflare radar score 0.7 watch — persistent. NASA EONET score 1.0 nominal — ATLAS elevated flag transient on independent pull. Additional: USGS water score 0 error elevated (not in latest ATLAS anomaly list)."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.82 mode green; terminal_status nominal; execution_authorized false; degraded true — not a KV mock seed failure pattern."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "warn",
+      "detail": "ATLAS catalog GI 0.74 vs integrity-status 0.82 vs micro composite 0.873 — all kv-live; yellow STRESSED (ATLAS) vs green nominal (integrity) mode divergence; micro higher than both KV snapshots — operator should treat GI as lane-dependent not contradictory mock."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — no candidates, verification skipped."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — quorum status achieved, attestations_received 5/5, seal_status receipt_quorum_only, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-491-njnen0; substrate ledger 503 Service Suspended — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Restore GovTrack legislation feed and USGS water lane; reconcile ATLAS GI 0.74/yellow with integrity 0.82/green spread. Investigate kv_diagnostic_ok and kv_keys_all_ok false. STRESSED operator posture; receipt quorum only — no EPICON publishes this pass."
+}
