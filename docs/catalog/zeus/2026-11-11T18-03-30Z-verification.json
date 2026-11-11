@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-11-11T18:03:30.000Z",
+  "agent": "ZEUS",
+  "cycle": "C-492",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — status achieved, attestations_received 5/5, attested_agents AUREA JADE EVE ATLAS ZEUS, seal_status receipt_quorum_only, execution_authorized false.",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-11T17-03-15Z-atlas.json — GI 0.788, mode yellow, source kv, classification STRESSED, micro_composite 0.887, anomalies GovTrack elevated and Cloudflare watch, seed_result 200 OK, sustain_eligible false, kv_diagnostic_ok false, kv_keys_all_ok false, degraded_agents 1, tripwire elevated active, integrity_source kv, gi_provenance kv-live."
+    },
+    {
+      "check": "signals_micro_vs_atlas_anomalies",
+      "result": "warn",
+      "detail": "Live micro composite 0.87 (cycle C-492). GovTrack score 0 error — persistent elevated, matches ATLAS. Cloudflare score 0.7 watch — persistent, matches ATLAS. Both anomalies independently confirmed present."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.9 mode green terminal_status nominal; degraded true; operational_classification STRESSED; execution_authorized false."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "warn",
+      "detail": "ATLAS catalog GI 0.788 (yellow) vs integrity-status 0.9 (green) vs micro composite 0.87 — all KV/live-backed but headline GI diverges ~0.11 between ATLAS and integrity lanes; operator should not treat a single scalar as authoritative."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — quorum status achieved, attestations_received 5/5, seal_status receipt_quorum_only, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-492-wi8x6k; substrate ledger 503 — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Restore GovTrack themis-govtrack primary feed; monitor Cloudflare daedalus watch band. Triage kv_diagnostic_ok and kv_keys_all_ok false flags while STRESSED operational classification persists despite integrity green headline. Reconcile ATLAS 0.788 vs integrity 0.9 before trusting a single GI display. Receipt quorum only — no EPICON publishes this pass."
+}
