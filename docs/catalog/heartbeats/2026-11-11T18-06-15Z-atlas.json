@@ -1,0 +1,76 @@
+{
+  "timestamp": "2026-11-11T18:06:15Z",
+  "agent": "ATLAS",
+  "cycle": "C-492",
+  "gi": 0.773,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "label": "USGS water conditions",
+      "severity": "elevated"
+    },
+    {
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: ['GI_STATE', 'HEARTBEAT', 'LAST_INGEST', 'SIGNAL_SNAPSHOT']",
+  "sustain_eligible": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_live": false,
+    "integrity_source_kv": true,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  },
+  "classification": "STRESSED",
+  "micro_composite": 0.87,
+  "degraded_agents": 3,
+  "terminal_status": "stressed",
+  "tripwire": {
+    "ok": true,
+    "source": "live",
+    "freshAt": "2026-11-11T18:05:17.987Z",
+    "staleAt": null,
+    "degraded": false,
+    "tripwire": {
+      "active": true,
+      "level": "elevated",
+      "reason": "Hormuz Transit Fee Risk — Monitoring whether Iran formalizes transit fees and turns passage into an overt leverage instrument",
+      "last_updated": "2026-11-11T18:05:01.341Z",
+      "source": "kv"
+    },
+    "tripwire_source": "kv",
+    "last_updated": "2026-11-11T18:05:17.987Z",
+    "freshness": {
+      "status": "fresh",
+      "seconds": 0
+    }
+  },
+  "journal_id": "journal-ATLAS-C-492-a8f2g1",
+  "last_journal_cycle": "C-492",
+  "journal_route": "agents/journal",
+  "journal_status": 200,
+  "integrity_source": "kv",
+  "gi_provenance": "live-compute",
+  "gi_age_seconds": 236,
+  "cron_secret_available": true
+}
