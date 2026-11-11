@@ -27,7 +27,7 @@
   },
   "seed_attempted": true,
   "seed_result": "200 OK \u2014 seeded: ['GI_STATE', 'HEARTBEAT', 'LAST_INGEST', 'SIGNAL_SNAPSHOT']",
-  "sustain_eligible": true,
+  "sustain_eligible": false,
   "flags": {
     "integrity_source_mock": false,
     "integrity_source_live": false,
