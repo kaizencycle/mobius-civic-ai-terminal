@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-11-11T11:03:47Z",
+  "agent": "ATLAS",
+  "cycle": "C-492",
+  "gi": 0.783,
+  "mode": "yellow",
+  "source": "kv",
+  "anomalies": [
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK — seeded: [GI_STATE, HEARTBEAT, LAST_INGEST, SIGNAL_SNAPSHOT]",
+  "sustain_eligible": false,
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_live": false,
+    "integrity_source_kv": true,
+    "integrity_source_cached": false,
+    "micro_anomaly_severity_flag": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_all_ok": false
+  },
+  "classification": "STRESSED",
+  "micro_composite": 0.891,
+  "degraded_agents": 2,
+  "terminal_status": "stressed",
+  "tripwire": {
+    "state": "live",
+    "active": true,
+    "level": "elevated",
+    "source": "merged",
+    "last_updated": "2026-11-11T11:01:42.681Z"
+  },
+  "journal_id": "journal-ATLAS-C-492-1ld3k6",
+  "last_journal_cycle": "C-492",
+  "journal_route": "agents/journal",
+  "journal_status": 200,
+  "integrity_source": "kv",
+  "gi_provenance": "kv-live",
+  "gi_age_seconds": 11,
+  "cron_secret_available": true
+}
