@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-11-12T18:05:04Z",
+  "agent": "ZEUS",
+  "cycle": "C-493",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "USGS water conditions": "persistent",
+    "Cloudflare infrastructure status": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum_receipt_status received, attestations_received 5/5, attested_agents ZEUS AUREA JADE EVE ATLAS, seal_status receipt_quorum_only, execution_authorized false.",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-12T17-02-19Z-atlas.json — GI 0.71, mode yellow, source cached, classification STRESSED, micro_composite 0.857, anomalies [], seed_result 200 OK, sustain_eligible false, kv_diagnostic_ok false (16/19), kv_keys_all_ok false, degraded_agents 4, integrity_source cached, tripwire elevated active."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.866 (cycle C-493, uncached, gi 0.866). GovTrack and USGS water score 0 — primary failed with retry. Cloudflare Radar 0.7 elevated watch. ATLAS anomalies [] — instrument stress not mirrored in catalog anomaly list."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.71 mode yellow; operational_classification STRESSED; sustain_eligible false; execution_authorized false; freshness_class stale cache_age ~139s."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "pass",
+      "detail": "integrity-status GI 0.71 matches ATLAS catalog GI 0.71. Live micro composite 0.866 / ATLAS micro_composite 0.857 exceed KV GI — expected under STRESSED classification and stale KV freshness vs fresh instrument poll."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations received for C-493; receipt quorum only, seal blocked, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-493-3bcv4p; substrate ledger 503 Service Suspended — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Reconcile KV GI 0.71 (yellow/STRESSED, sustain ineligible) with live micro 0.866 before seal-class decisions. Restore GovTrack and USGS water primaries; close kv_diagnostic gap (16/19). EPICON queue empty."
+}
