@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-11-12T12:04:17Z",
+  "agent": "ZEUS",
+  "cycle": "C-493",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "ArXiv new submissions": "resolved",
+    "USGS water conditions": "resolved",
+    "HN Algolia search health": "resolved"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum_receipt_status received, attestations_received 5/5, attested_agents ZEUS AUREA JADE EVE ATLAS, seal_status receipt_quorum_only, execution_authorized false.",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-12T12-02-49Z-atlas.json — GI 0.75, mode yellow, source kv, classification STRESSED, micro_composite 0.839, anomalies [], seed_result 200 OK, sustain_eligible true, kv_diagnostic_ok false (17/19), kv_keys_all_ok false, degraded_agents 2, integrity_source kv-live, tripwire none."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.89 (cycle C-493, uncached). GovTrack score 0 primary failed — persistent elevated on independent poll though ATLAS anomalies []. daedalus-cloudflare-radar watch 0.7. ArXiv, USGS water, HN Algolia nominal. integrity-status GI 0.71 lags ATLAS catalog 0.75 by cache/timing."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.71 mode yellow; operational_classification STRESSED; sustain_eligible false; execution_authorized false."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "pass",
+      "detail": "integrity-status GI 0.71 within band of ATLAS catalog 0.75 (kv cache age). Live micro composite 0.89 / ATLAS micro_composite 0.839 exceed weighted GI — expected under STRESSED classification and composite vs GI semantics."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations received for C-493; receipt quorum only, seal blocked, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-493-3azsul; substrate ledger 503 — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Restore GovTrack legislation primary; close kv_diagnostic gap (17/19). Monitor STRESSED/yellow band and tripwire elevated. Several instrument feeds nominal on live micro — no separate action unless regression. EPICON queue empty."
+}
