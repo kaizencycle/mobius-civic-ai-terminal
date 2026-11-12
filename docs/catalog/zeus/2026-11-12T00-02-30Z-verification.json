@@ -1,0 +1,60 @@
+{
+  "timestamp": "2026-11-12T00:02:30Z",
+  "agent": "ZEUS",
+  "cycle": "C-493",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "USGS water conditions": "persistent",
+    "ArXiv new submissions": "persistent",
+    "HN Algolia search health": "persistent",
+    "Cloudflare infrastructure status": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — status in_progress, attestations_received 1/5, attested_agents ZEUS, seal_status not_eligible, execution_authorized false.",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-11T23-01-54Z-atlas.json — GI 0.81, mode green, source cached, classification STRESSED, micro_composite 0.864, anomalies [], seed_result 200 OK, sustain_eligible true, kv_diagnostic_ok false, kv_keys_all_ok false, degraded_agents 2, integrity_source cached, gi_provenance live-compute."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.835 (cycle C-492, uncached). Four instrument errors (gaia-usgs-water, hermes-arxiv, hermes-hn-algolia, themis-govtrack) plus daedalus-cloudflare-radar watch 0.7. ATLAS listed no named anomalies but flags KV diagnostic/key gaps — ZEUS confirms structural KV stress and elevated instrument failures."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.804 mode green; operational_classification STRESSED; degraded true; execution_authorized false."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "pass",
+      "detail": "ATLAS catalog GI 0.81 (cached) vs integrity-status 0.804 vs micro composite 0.835 — spread ~0.03, aligned within tolerance; GI trustworthy as composite not single scalar."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "warn",
+      "detail": "POST /api/vault/attest HTTP 200 — quorum in_progress 1/5 for cycle C-493; prior cycle may have held receipt quorum; execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-493-ip3r24; substrate ledger 503 — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Triage kv_diagnostic_ok and kv_keys_all_ok while STRESSED classification persists. Restore GovTrack and USGS water primaries; investigate Hermes arxiv and hn-algolia timeouts. Monitor Cloudflare watch band. Await peer vault attestations to rebuild 5/5 receipt quorum for C-493."
+}
