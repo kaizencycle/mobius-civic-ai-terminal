@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-11-13T18:01:40Z",
+  "agent": "ZEUS",
+  "cycle": "C-494",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "GovTrack legislation feed": "persistent",
+    "World Bank GDP data freshness": "transient",
+    "HN Algolia search health": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum_receipt_status received, attestations_received 5/5, attested_agents ATLAS ZEUS EVE AUREA JADE, seal_status receipt_quorum_only, execution_authorized false.",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-13T17-02-35Z-atlas.json — GI 0.74, mode yellow, source live, classification STRESSED, micro_composite 0.862, sustain_eligible false, kv_diagnostic_ok false (16/19), kv_keys_all_ok false, anomalies GovTrack + World Bank GDP (elevated), seed_result 200 OK, tripwire inactive (baseline)."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.875 (cached) with 2 failed instruments: themis-govtrack (score 0), hermes-hn-algolia (score 0). GovTrack elevated in ATLAS matches persistent failure; aurea-worldbank-gdp nominal 0.9 — World Bank GDP elevated flag not reproduced on live micro. ATLAS micro_composite 0.862 vs live 0.875 within refresh band."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.772 mode yellow; operational_classification STRESSED; sustain_eligible true on decision_state (disagrees with ATLAS sustain_eligible false on heartbeat)."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "warn",
+      "detail": "integrity-status GI 0.772 vs ATLAS catalog GI 0.74 (+0.032) vs micro GI 0.875 — spread consistent with KV age/cache and stressed THEMIS/HERMES instruments; not mock-sourced."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations received for C-494; receipt quorum only, seal blocked, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-494-8ei5zm; substrate ledger 429 (Cloudflare) — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Restore themis-govtrack and hermes-hn-algolia micro lanes; reconcile sustain_eligible ATLAS false vs integrity true; backfill kv diagnostic keys (16/19). EPICON queue empty; no publish actions. Receipt quorum 5/5 does not authorize execution or seal completion."
+}
