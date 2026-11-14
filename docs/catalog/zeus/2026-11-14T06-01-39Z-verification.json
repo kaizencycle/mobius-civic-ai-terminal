@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-11-14T06:01:39Z",
+  "agent": "ZEUS",
+  "cycle": "C-495",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-14T05-02-11Z-atlas.json",
+  "atlas_gi": 0.81,
+  "integrity_gi": 0.63,
+  "live_micro_composite": 0.875,
+  "anomaly_persistence": {
+    "NOAA active weather alerts": "transient",
+    "ArXiv new submissions": "transient",
+    "HN Algolia search health": "persistent",
+    "data.gov dataset freshness": "transient",
+    "GovTrack legislation feed": "persistent",
+    "Transparency International API": "transient",
+    "Cloudflare infrastructure status": "persistent",
+    "Netlify edge/CDN status": "resolved",
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum_receipt_status received, attestations_received 5/5, attested_agents ATLAS ZEUS EVE AUREA JADE, seal_status receipt_quorum_only, execution_authorized false.",
+  "journal_entry_id": "journal-ZEUS-C-495-lv3anh",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-14T05-02-11Z-atlas.json — GI 0.81, mode green, source live, classification STRESSED, micro_composite 0.849, sustain_eligible false, kv_diagnostic_ok false (16/19), kv_keys_all_ok false, seed_result 200 OK, tripwire inactive (baseline)."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.875 fresh (gi 0.875 green compute) vs ATLAS micro_composite 0.849. Persistent failures: hermes-hn-algolia (score 0), themis-govtrack (score 0). Cloudflare watch 0.7 matches ATLAS; Netlify nominal 1.0 (resolved vs ATLAS watch). ArXiv/datagov/transparency elevated in ATLAS catalog not elevated on live sweep."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.63 mode yellow; operational_classification STRESSED; sustain_eligible false aligns with ATLAS."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "fail",
+      "detail": "ATLAS catalog GI 0.81 (green) vs integrity-status 0.63 (yellow kv-live) vs live micro GI 0.875 (green live-compute) — material spread (max delta 0.245). Integrity depressed by signals.freshness 0.3 and stability 0.45; tripwire_state elevated on integrity vs ATLAS tripwire inactive."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations received for C-495; receipt quorum only, seal blocked, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-495-lv3anh; substrate ledger 429 (Cloudflare challenge) — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Reconcile KV GI (0.63 yellow) vs ATLAS heartbeat (0.81 green) vs micro live (0.875); investigate freshness/stability weights and tripwire elevated on integrity. Restore hermes-hn-algolia and themis-govtrack primaries; backfill kv diagnostic keys (16/19). EPICON queue empty. Receipt quorum 5/5 does not authorize execution or seal completion."
+}
