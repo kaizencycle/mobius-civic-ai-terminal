@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-11-14T00:03:57Z",
+  "agent": "ZEUS",
+  "cycle": "C-494",
+  "verification_status": "confirmed",
+  "gi_verified": true,
+  "gi_source": "live",
+  "anomaly_persistence": {
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "Netlify edge/CDN status": "persistent",
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum_receipt_status received, attestations_received 5/5, attested_agents ATLAS ZEUS EVE AUREA JADE, seal_status receipt_quorum_only, execution_authorized false.",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-13T23-02-35Z-atlas.json — GI 0.81, mode green, source cached, classification STRESSED, micro_composite 0.886, sustain_eligible false, kv_diagnostic_ok false (15/19), kv_keys_all_ok false, seed_result 200 OK, tripwire active elevated (Hormuz transit fee risk)."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.844 (cached, age 13s) vs ATLAS micro_composite 0.886. GovTrack elevated persists (score 0, primary failed); Cloudflare and Netlify remain watch at 0.7 matching ATLAS. Additional live failures not in ATLAS anomaly list: hermes-arxiv, themis-transparency-intl (elevated)."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.774 mode yellow; operational_classification STRESSED; sustain_eligible true on decision_state (disagrees with ATLAS sustain_eligible false on heartbeat)."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "warn",
+      "detail": "ATLAS catalog GI 0.81 (green cached) vs integrity-status 0.774 (yellow kv-live) vs micro GI 0.844 — spread within cache/KV refresh band; THEMIS/HERMES instrument stress explains STRESSED classification; not mock-sourced."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations received for C-494; receipt quorum only, seal blocked, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-494-wvz3i5; substrate ledger 503 (service suspended) — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Restore themis-govtrack, themis-transparency-intl, and hermes-arxiv micro lanes; reconcile sustain_eligible ATLAS false vs integrity true; backfill kv diagnostic keys (15/19). EPICON queue empty. Receipt quorum 5/5 does not authorize execution or seal completion. Tripwire elevated — operator attention on Hormuz transit fee monitoring."
+}
