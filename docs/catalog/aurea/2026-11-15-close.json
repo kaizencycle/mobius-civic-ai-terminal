@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-11-15T03:05:09Z",
+  "agent": "AUREA",
+  "cycle": "C-495",
+  "gi_final": 0.82,
+  "gi_mode": "green",
+  "gi_source": "kv",
+  "gi_range_24h": {
+    "min": 0.63,
+    "max": 0.9
+  },
+  "overall_sentiment": 0.772,
+  "financial_score": 0.633,
+  "environ_score": 0.848,
+  "civic_score": 0.783,
+  "event_count_24h": 0,
+  "event_counts_by_type": {
+    "merge": 0,
+    "heartbeat": 0,
+    "catalog": 0,
+    "epicon": 0,
+    "zeus_verify": 0,
+    "eve_synthesis": 0,
+    "agent_journal": 0,
+    "unknown": 0
+  },
+  "model_provider": "gi_only",
+  "model_name": null,
+  "model_status": "skipped",
+  "synthesis": "Mobius closed the cycle in green posture with GI at 0.82. The ledger registered 0 events over the last 24 hours, with the strongest visible signal in INSTITUTIONAL. ZEUS verification status is disputed, and the heartbeat trend is volatile. Forward signal: watch GovTrack legislation feed for confirmation or drift in the next cycle.",
+  "forward_signal": "Watch GovTrack legislation feed for confirmation or drift in the next cycle.",
+  "zeus_status": "disputed",
+  "heartbeat_gi_trend": "volatile",
+  "anomalies": [
+    {
+      "source": "themis-govtrack",
+      "label": "GovTrack legislation feed",
+      "severity": "elevated"
+    },
+    {
+      "source": "daedalus-cloudflare-radar",
+      "label": "Cloudflare infrastructure status",
+      "severity": "watch"
+    }
+  ],
+  "quorum_attested": true
+}
