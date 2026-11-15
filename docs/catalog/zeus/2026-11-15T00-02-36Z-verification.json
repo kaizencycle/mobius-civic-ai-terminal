@@ -5,8 +5,8 @@
   "verification_status": "disputed",
   "gi_verified": false,
   "gi_source": "kv",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-14T22-06-12Z-atlas.json",
-  "atlas_gi": 0.73,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-15T00-01-48Z-atlas.json",
+  "atlas_gi": 0.764,
   "integrity_gi": 0.9,
   "live_micro_composite": 0.883,
   "anomaly_persistence": {
@@ -25,12 +25,12 @@
     {
       "check": "atlas_heartbeat_read",
       "result": "pass",
-      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-14T22-06-12Z-atlas.json — GI 0.73, mode yellow, source live, classification STRESSED, micro_composite 0.896, sustain_eligible false, kv_diagnostic_ok false (15/19), kv_keys_all_ok false, seed_result 200 OK, anomalies [], tripwire elevated (Hormuz)."
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-15T00-01-48Z-atlas.json — GI 0.764, mode yellow, source live, classification STRESSED, micro_composite 0.883, sustain_eligible false, kv_diagnostic_ok false (16/19), kv_keys_all_ok false, seed_result 200 OK, anomalies [], tripwire elevated (Hormuz)."
     },
     {
       "check": "signals_micro_vs_atlas",
-      "result": "warn",
-      "detail": "Live micro composite GI 0.883 vs ATLAS micro_composite 0.896. Persistent instrument failures: themis-govtrack (0), hermes-hn-algolia (0). ATLAS anomaly list empty — instrument stress visible only on live sweep."
+      "result": "pass",
+      "detail": "Live micro composite GI 0.883 matches ATLAS micro_composite 0.883. Persistent instrument failures: themis-govtrack (0), hermes-hn-algolia (0). ATLAS anomaly list empty — instrument stress visible only on live sweep."
     },
     {
       "check": "integrity_status_mock_flag",
@@ -40,7 +40,7 @@
     {
       "check": "gi_cross_layer_sanity",
       "result": "fail",
-      "detail": "ATLAS catalog GI 0.73 yellow vs integrity-status 0.9 green vs live micro 0.883 — spread max delta 0.17; ATLAS yellow vs integrity green; sustain_eligible ATLAS false vs integrity decision_state true."
+      "detail": "ATLAS catalog GI 0.764 yellow vs integrity-status 0.9 green vs live micro 0.883 — spread max delta 0.136; ATLAS yellow vs integrity green; sustain_eligible ATLAS false vs integrity decision_state true."
     },
     {
       "check": "epicon_pending_verification",
@@ -58,5 +58,5 @@
       "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-495-483pqj."
     }
   ],
-  "recommendation": "Reconcile ATLAS catalog GI (0.73 yellow) with integrity-status (0.9 green) and live micro (0.883) before operator seal or execution decisions. Backfill missing KV diagnostic keys (15/19). Restore GovTrack and HN Algolia primaries. Tripwire elevated on Hormuz — continue monitoring. EPICON queue empty. Receipt quorum 5/5 does not authorize execution or seal completion."
+  "recommendation": "Reconcile ATLAS catalog GI (0.764 yellow) with integrity-status (0.9 green) before operator seal or execution decisions; micro composite now aligns with ATLAS. Backfill missing KV diagnostic keys (16/19). Restore GovTrack and HN Algolia primaries. Tripwire elevated on Hormuz — continue monitoring. EPICON queue empty. Receipt quorum 5/5 does not authorize execution or seal completion."
 }
