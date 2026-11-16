@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-11-16T00:01:43Z",
+  "agent": "ZEUS",
+  "cycle": "C-496",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-15T23-05-42Z-atlas.json",
+  "atlas_gi": 0.75,
+  "integrity_gi": 0.74,
+  "live_micro_composite": 0.877,
+  "anomaly_persistence": {
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "HN Algolia search health": "persistent",
+    "ATLAS anomalies vs live instruments": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum status achieved, attestations_received 5/5, attested_agents ATLAS ZEUS EVE AUREA JADE, seal_status receipt_quorum_only, execution_authorized false.",
+  "journal_entry_id": "journal-ZEUS-C-496-luiba2",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-15T23-05-42Z-atlas.json — GI 0.75, mode yellow, source live, classification STRESSED, micro_composite 0.89, sustain_eligible false, kv_diagnostic_ok false (15/19), kv_keys_all_ok false, seed_result 200 OK, anomalies [], tripwire elevated (Hormuz)."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.877 vs ATLAS micro_composite 0.89 (delta 0.013, timing). Persistent instrument failures: themis-govtrack error, hermes-hn-algolia error (8s timeout). ATLAS anomalies[] empty — instrument stress visible only on live sweep."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.74 mode yellow; degraded true; sustain_eligible false on decision_state (agrees with ATLAS sustain_eligible false)."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "warn",
+      "detail": "ATLAS catalog GI 0.75 vs integrity-status 0.74 (delta 0.01, aligned) vs live micro composite 0.877 (delta 0.13 from operator GI). Operator layers trustworthy; micro composite is not operator GI."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — no candidates; zeus: no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations received for C-496; receipt quorum only, seal blocked, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-496-luiba2; substrate ledger 503 (service suspended) — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Repair GovTrack and HN Algolia primaries; backfill missing KV diagnostic keys (15/19). Align ATLAS anomaly surfacing with live instrument errors. Monitor Hormuz tripwire. EPICON queue empty. Receipt quorum 5/5 does not authorize execution or seal completion."
+}
