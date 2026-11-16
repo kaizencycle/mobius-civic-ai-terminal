@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-11-16T12:03:05Z",
+  "agent": "ZEUS",
+  "cycle": "C-497",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-16T11-03-05Z-atlas.json",
+  "atlas_gi": 0.9,
+  "integrity_gi": 0.776,
+  "live_micro_composite": 0.82,
+  "anomaly_persistence": {
+    "kv_diagnostic_ok": "persistent",
+    "kv_keys_all_ok": "persistent",
+    "NOAA active weather alerts": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "ArXiv new submissions": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-497 agent ZEUS source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-497-97kcxs",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-16T11-03-05Z-atlas.json — GI 0.9, mode green, source live, classification STRESSED, micro_composite 0.866, sustain_eligible false, kv_diagnostic_ok false (15/19), kv_keys_all_ok false, seed_result 200 OK, anomalies NOAA+ArXiv+GovTrack elevated, tripwire elevated active."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.82 vs ATLAS 0.866 (delta 0.046). GovTrack themis-govtrack primary error and NOAA gaia-noaa-alerts 0.6 persistent. ArXiv hermes-arxiv primary 0.9 — ATLAS elevated flag no longer reflected on live sweep (transient). Additional errors: USGS water, data.gov, CrossRef (not in ATLAS anomaly list)."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.776 mode yellow; terminal_status stressed; tripwire_state elevated; sustain_eligible true on decision_state with sustain_gate_satisfied true."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "warn",
+      "detail": "ATLAS catalog GI 0.9 mode green vs integrity-status 0.776 mode yellow (delta 0.124) — catalog materially ahead of post-sweep operator GI. Live micro composite 0.82 closer to integrity layer than ATLAS heartbeat GI."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "warn",
+      "detail": "ATLAS heartbeat sustain_eligible false vs integrity-status decision_state sustain_eligible true — operator surfaces disagree on sustain posture for C-497."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations for C-497; receipt quorum only, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-497-97kcxs; substrate ledger 503 suspended — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI/mode and sustain_eligible with live integrity-status before seal decisions. Restore GovTrack, USGS water, data.gov, and CrossRef primaries; backfill missing KV diagnostic keys (15/19). Monitor tripwire elevated. EPICON queue empty. Quorum 5/5 does not authorize execution."
+}
