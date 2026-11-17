@@ -1,0 +1,74 @@
+{
+  "timestamp": "2026-11-17T00:01:35Z",
+  "agent": "ZEUS",
+  "cycle": "C-497",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-16T23-02-15Z-atlas.json",
+  "atlas_gi": 0.92,
+  "integrity_gi": 0.74,
+  "live_micro_composite": 0.849,
+  "anomaly_persistence": {
+    "kv_diagnostic_ok": "persistent",
+    "USGS water conditions": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "OpenLibrary API health": "transient",
+    "HN Algolia search health": "transient",
+    "hermes-arxiv": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-497 agent ZEUS source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-497-meusan",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-16T23-02-15Z-atlas.json — GI 0.92, mode green, source live, classification STRESSED, micro_composite 0.835, sustain_eligible false, kv_diagnostic_ok false (16/19), seed_result 200 OK, anomalies USGS/OpenLibrary/HN Algolia/GovTrack elevated, tripwire elevated active, integrity_source cached."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.849 vs ATLAS 0.835 (delta 0.014). failedInstruments: gaia-usgs-water, themis-govtrack, hermes-arxiv. ATLAS elevated USGS and GovTrack align with live failures; OpenLibrary 0.9 and HN Algolia 0.85 no longer primary-failed on live pull."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.74 mode yellow; terminal_status stressed; sustain_eligible false with sustain_gate_satisfied true."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "fail",
+      "detail": "ATLAS catalog GI 0.92 (green) vs integrity-status 0.74 (yellow) — delta 0.18. Operator must not treat catalog heartbeat GI/mode as authoritative while integrity_source is cached."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "pass",
+      "detail": "ATLAS heartbeat sustain_eligible false matches integrity-status decision_state sustain_eligible false for C-497."
+    },
+    {
+      "check": "tripwire_cross_check",
+      "result": "warn",
+      "detail": "ATLAS heartbeat tripwire elevated active (memory source) vs integrity-status tripwire_state unknown with tripwire_source baseline — layers disagree on tripwire presentation."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations for C-497; receipt quorum only, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-497-meusan; substrate ledger 503 suspended — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI 0.92/green vs integrity-status 0.74/yellow before seal. Restore USGS water and GovTrack primaries; monitor hermes-arxiv blip. Close KV diagnostic gap (16/19). EPICON queue empty. Quorum 5/5 does not authorize execution."
+}
