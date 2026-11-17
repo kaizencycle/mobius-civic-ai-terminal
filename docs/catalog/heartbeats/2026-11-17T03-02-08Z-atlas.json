@@ -53,7 +53,7 @@
   "micro_composite": 0.865,
   "degraded_agents": 2,
   "terminal_status": "stressed",
-  "journal_id": null,
+  "journal_id": "journal-ATLAS-C-497-36r2i6",
   "last_journal_cycle": "C-497",
   "journal_route": "agents/journal",
   "journal_status": 200,
@@ -67,5 +67,6 @@
     "last_updated": "2026-11-17T03:01:30.199Z",
     "source": "merged"
   },
-  "gi_age_seconds": 3404
+  "gi_age_seconds": 3404,
+  "journal_ok": true
 }
