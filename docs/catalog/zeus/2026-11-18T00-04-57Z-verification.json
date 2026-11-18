@@ -5,14 +5,16 @@
   "verification_status": "disputed",
   "gi_verified": true,
   "gi_source": "kv-live",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-17T23-01-57Z-atlas.json",
-  "atlas_gi": 0.63,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-18T00-02-29Z-atlas.json",
+  "atlas_gi": 0.92,
   "integrity_gi": 0.82,
   "live_micro_composite": 0.836,
   "anomaly_persistence": {
+    "NASA EONET natural events": "persistent",
     "USGS water conditions": "persistent",
     "GovTrack legislation feed": "persistent",
-    "NASA EONET natural events": "persistent"
+    "OpenLibrary API health": "transient",
+    "HN Algolia search health": "transient"
   },
   "candidates_reviewed": 0,
   "candidates_confirmed": 0,
@@ -24,12 +26,12 @@
     {
       "check": "atlas_heartbeat_read",
       "result": "pass",
-      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-17T23-01-57Z-atlas.json — GI 0.63, mode yellow, source cached, classification CRITICAL, micro_composite 0.864, sustain_eligible false, kv_diagnostic_ok false (16/19), seed_result 200 OK, gi_provenance live-compute, gi_age_seconds 3368, tripwire elevated (Hormuz)."
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-18T00-02-29Z-atlas.json — GI 0.92, mode green, source live, classification STRESSED, micro_composite 0.803, sustain_eligible true, kv_diagnostic_ok false (18/19), seed_result 200 OK, gi_provenance kv-live, gi_age_seconds 15, tripwire inactive."
     },
     {
       "check": "signals_micro_vs_atlas",
       "result": "pass",
-      "detail": "Live micro composite 0.836 vs ATLAS micro_composite 0.864 (delta 0.028). failedInstruments: gaia-usgs-water, themis-govtrack, gaia-nasa-eonet; gaia-noaa-alerts score 0.6 elevated. ATLAS anomalies USGS water and GovTrack match live errors; NASA EONET failing live but not listed in ATLAS anomalies."
+      "detail": "Live micro composite 0.836 vs ATLAS micro_composite 0.803 (delta 0.033). failedInstruments: gaia-usgs-water, themis-govtrack, gaia-nasa-eonet; gaia-noaa-alerts score 0.6 elevated. ATLAS elevated flags for NASA EONET, USGS water, and GovTrack match live errors. OpenLibrary (live 0.9) and HN Algolia (live 0.85) nominal at verification — ATLAS elevated flags treated as transient."
     },
     {
       "check": "integrity_status_mock_flag",
@@ -39,17 +41,17 @@
     {
       "check": "gi_cross_layer_sanity",
       "result": "warn",
-      "detail": "ATLAS catalog GI 0.63 (cached, age ~3368s) vs integrity-status 0.82 vs live micro 0.836 — spread 0.19 across layers; cached heartbeat GI lags refreshed KV GI."
+      "detail": "ATLAS catalog GI 0.92 vs integrity-status 0.82 vs live micro 0.836 — spread 0.10 across layers; ATLAS GI above integrity and micro despite shared kv-live provenance on fresh heartbeat."
     },
     {
       "check": "classification_cross_check",
-      "result": "warn",
-      "detail": "ATLAS heartbeat classification CRITICAL vs integrity-status operational_classification STRESSED and terminal_status nominal — operator-facing severity diverges."
+      "result": "pass",
+      "detail": "ATLAS heartbeat classification STRESSED matches integrity-status operational_classification STRESSED."
     },
     {
       "check": "sustain_eligible_cross_check",
-      "result": "warn",
-      "detail": "ATLAS heartbeat sustain_eligible false vs integrity-status decision_state sustain_eligible true."
+      "result": "pass",
+      "detail": "ATLAS heartbeat sustain_eligible true matches integrity-status decision_state sustain_eligible true."
     },
     {
       "check": "epicon_pending_verification",
@@ -67,5 +69,5 @@
       "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-498-9l9cz4; substrate ledger 503 suspended — pending_immortalization true."
     }
   ],
-  "recommendation": "Do not trust ATLAS cached GI 0.63 for operator decisions — integrity-status and live micro are higher and refreshed. Restore USGS water and GovTrack primaries; investigate NASA EONET outage. Reconcile CRITICAL vs STRESSED/nominal classification and sustain_eligible mismatch. Close KV diagnostic gap (16/19). EPICON queue empty. Quorum 5/5 does not authorize execution."
+  "recommendation": "Reconcile ATLAS GI 0.92 vs integrity-status 0.82 vs live micro 0.836 before operator trust. Restore gaia-usgs-water, themis-govtrack, and gaia-nasa-eonet primaries; monitor NOAA alerts. Close KV diagnostic gap (18/19). EPICON queue empty. Quorum 5/5 does not authorize execution."
 }
