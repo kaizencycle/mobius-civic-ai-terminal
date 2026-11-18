@@ -5,8 +5,8 @@
   "verification_status": "disputed",
   "gi_verified": true,
   "gi_source": "kv-live",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-18T11-05-55-620Z-atlas.json",
-  "atlas_gi": 0.9,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-18T12-03-14-572Z-atlas.json",
+  "atlas_gi": 0.75,
   "integrity_gi": 0.82,
   "live_micro_composite": 0.849,
   "anomaly_persistence": {
@@ -23,13 +23,13 @@
   "findings": [
     {
       "check": "atlas_heartbeat_read",
-      "result": "warn",
-      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-18T11-05-55-620Z-atlas.json (~56m before ZEUS run) — GI 0.90, mode green, source live, classification STRESSED, micro_composite 0.866, sustain_eligible false, kv_diagnostic_ok false (15/19), seed_result 200 OK, gi_provenance kv-live, tripwire active elevated. Catalog GI 0.90 exceeds heartbeat micro_composite 0.866."
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-18T12-03-14-572Z-atlas.json — GI 0.75, mode yellow, source live, classification STRESSED, micro_composite 0.849, sustain_eligible true, kv_diagnostic_ok false (18/19), seed_result 200 OK, gi_provenance kv-live, terminal_status stressed, degraded_agents 3, tripwire inactive."
     },
     {
       "check": "signals_micro_vs_atlas",
-      "result": "warn",
-      "detail": "Live micro composite 0.849 vs ATLAS micro_composite 0.866 (delta 0.017). failedInstruments: gaia-usgs-water, themis-govtrack, hermes-hn-algolia; ATLAS anomalies cover USGS and GovTrack only — HN Algolia failure not reflected in ATLAS anomaly list."
+      "result": "pass",
+      "detail": "Live micro composite 0.849 matches ATLAS micro_composite 0.849. failedInstruments: gaia-usgs-water, hermes-hn-algolia, themis-govtrack. ATLAS elevated anomalies align with all three live primary failures."
     },
     {
       "check": "integrity_status_mock_flag",
@@ -39,7 +39,7 @@
     {
       "check": "gi_cross_layer_sanity",
       "result": "fail",
-      "detail": "ATLAS catalog GI 0.90 vs integrity-status 0.82 vs live micro 0.849 — max spread 0.08 exceeds prior reconciliation band (~0.065); operator should not treat catalog GI as authoritative until reconciled."
+      "detail": "ATLAS catalog GI 0.75 (yellow) vs integrity-status 0.82 (green) vs live micro composite 0.849 — spread up to 0.099; mode yellow vs green diverges; operator should reconcile before seal or sustain."
     },
     {
       "check": "classification_cross_check",
@@ -48,8 +48,13 @@
     },
     {
       "check": "sustain_eligible_cross_check",
+      "result": "pass",
+      "detail": "ATLAS heartbeat sustain_eligible true matches integrity-status decision_state sustain_eligible true."
+    },
+    {
+      "check": "terminal_status_cross_check",
       "result": "warn",
-      "detail": "ATLAS heartbeat sustain_eligible false vs integrity-status decision_state sustain_eligible true — gate semantics differ; operator should not treat sustain as authorized."
+      "detail": "ATLAS heartbeat terminal_status stressed vs integrity-status terminal_status nominal."
     },
     {
       "check": "epicon_pending_verification",
@@ -67,5 +72,5 @@
       "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-499-bs7cn5; substrate ledger 503 suspended — pending_immortalization true."
     }
   ],
-  "recommendation": "GI layers disputed: reconcile ATLAS catalog GI 0.90 with integrity 0.82 and live micro 0.849 before seal or sustain decisions. Restore gaia-usgs-water, themis-govtrack, and hermes-hn-algolia primaries; monitor NOAA alerts (0.6). Close KV diagnostic gap (15/19). Reconcile sustain_eligible ATLAS false vs integrity true. EPICON queue empty. Quorum 5/5 does not authorize execution."
+  "recommendation": "GI layers disputed: reconcile ATLAS catalog GI 0.75 (yellow, stressed terminal) with integrity 0.82 (green, nominal) before seal actions. Restore gaia-usgs-water, themis-govtrack, and hermes-hn-algolia primaries; close KV diagnostic gap (18/19). EPICON queue empty. Quorum 5/5 does not authorize execution."
 }
