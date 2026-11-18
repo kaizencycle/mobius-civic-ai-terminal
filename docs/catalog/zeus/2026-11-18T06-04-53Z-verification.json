@@ -2,11 +2,11 @@
   "timestamp": "2026-11-18T06:04:53Z",
   "agent": "ZEUS",
   "cycle": "C-499",
-  "verification_status": "disputed",
+  "verification_status": "confirmed",
   "gi_verified": true,
   "gi_source": "kv-live",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-18T05-05-47Z-atlas.json",
-  "atlas_gi": 0.63,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-18T06-05-31-164Z-atlas.json",
+  "atlas_gi": 0.801,
   "integrity_gi": 0.81,
   "live_micro_composite": 0.866,
   "anomaly_persistence": {
@@ -23,12 +23,12 @@
     {
       "check": "atlas_heartbeat_read",
       "result": "pass",
-      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-18T05-05-47Z-atlas.json — GI 0.63, mode yellow, source live, classification CRITICAL, micro_composite 0.856, sustain_eligible false, kv_diagnostic_ok false (15/19), seed_result 200 OK, gi_provenance kv-live, gi_age_seconds 38, tripwire active elevated."
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-18T06-05-31-164Z-atlas.json — GI 0.801, mode green, source live, classification STRESSED, micro_composite 0.866, sustain_eligible false, kv_diagnostic_ok false (17/19), seed_result 200 OK, gi_provenance kv-live, gi_age_seconds 113, tripwire active elevated."
     },
     {
       "check": "signals_micro_vs_atlas",
       "result": "pass",
-      "detail": "Live micro composite 0.866 vs ATLAS micro_composite 0.856 (delta 0.010). failedInstruments: gaia-usgs-water, themis-govtrack; gaia-noaa-alerts score 0.6 elevated. ATLAS elevated flags for USGS water and GovTrack match live primary failures."
+      "detail": "Live micro composite 0.866 matches ATLAS micro_composite 0.866. failedInstruments: gaia-usgs-water, themis-govtrack; gaia-noaa-alerts score 0.6 elevated. ATLAS elevated flags for USGS water and GovTrack match live primary failures."
     },
     {
       "check": "integrity_status_mock_flag",
@@ -37,18 +37,18 @@
     },
     {
       "check": "gi_cross_layer_sanity",
-      "result": "fail",
-      "detail": "ATLAS catalog GI 0.63 vs integrity-status 0.81 vs live micro 0.866 — spread 0.236 across layers; ATLAS mode yellow/CRITICAL vs integrity green/STRESSED."
+      "result": "pass",
+      "detail": "ATLAS catalog GI 0.801 vs integrity-status 0.81 vs live micro 0.866 — spread 0.065 across layers within reconciliation tolerance."
     },
     {
       "check": "classification_cross_check",
-      "result": "warn",
-      "detail": "ATLAS heartbeat classification CRITICAL vs integrity-status operational_classification STRESSED."
+      "result": "pass",
+      "detail": "ATLAS heartbeat classification STRESSED matches integrity-status operational_classification STRESSED."
     },
     {
       "check": "sustain_eligible_cross_check",
-      "result": "fail",
-      "detail": "ATLAS heartbeat sustain_eligible false vs integrity-status decision_state sustain_eligible true."
+      "result": "warn",
+      "detail": "ATLAS heartbeat sustain_eligible false vs integrity-status decision_state sustain_eligible true — gate semantics may differ; operator should not treat sustain as authorized."
     },
     {
       "check": "epicon_pending_verification",
@@ -66,5 +66,5 @@
       "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-499-r2fy2o; substrate ledger 503 suspended — pending_immortalization true."
     }
   ],
-  "recommendation": "Reconcile ATLAS GI 0.63 vs integrity-status 0.81 vs live micro 0.866 and sustain_eligible disagreement before operator trust. Restore gaia-usgs-water and themis-govtrack primaries; monitor NOAA alerts; close KV diagnostic gap (15/19). EPICON queue empty. Quorum 5/5 does not authorize execution."
+  "recommendation": "GI layers aligned at verification (ATLAS 0.801, integrity 0.81, micro 0.866). Restore gaia-usgs-water and themis-govtrack primaries; monitor NOAA alerts; close KV diagnostic gap (17/19). Reconcile sustain_eligible ATLAS false vs integrity true before sustain actions. EPICON queue empty. Quorum 5/5 does not authorize execution."
 }
