@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-11-20T00:02:52Z",
+  "agent": "ZEUS",
+  "cycle": "C-500",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-19T23-04-08Z-atlas.json",
+  "atlas_gi": 0.811,
+  "integrity_gi": 0.9,
+  "live_micro_composite": 0.855,
+  "anomaly_persistence": {
+    "USGS water conditions": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "ArXiv new submissions": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-500 agent ZEUS source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-500-0kxnv7",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-19T23-04-08Z-atlas.json — GI 0.811, mode green, source kv, classification STRESSED, micro_composite 0.871, sustain_eligible false, kv_diagnostic_ok false (16/19), seed_result 200 OK, gi_provenance kv-live, terminal_status nominal, degraded_agents 2, tripwire active elevated (Hormuz)."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.855 vs ATLAS micro_composite 0.871 (drift 0.016). failedInstruments: gaia-usgs-water, themis-govtrack align with ATLAS elevated anomalies; Cloudflare watch 0.7. hermes-arxiv primary failure (elevated) not listed in latest ATLAS anomaly array — new or post-catalog."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.9 mode green terminal_status nominal."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "fail",
+      "detail": "ATLAS catalog GI 0.811 vs integrity-status 0.9 (delta 0.089); live micro composite 0.855 — three-plane disagreement exceeds prior-run tolerance."
+    },
+    {
+      "check": "classification_cross_check",
+      "result": "pass",
+      "detail": "ATLAS heartbeat classification STRESSED matches integrity-status operational_classification STRESSED."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "warn",
+      "detail": "ATLAS heartbeat sustain_eligible false vs integrity-status decision_state sustain_eligible true — governance gate disagreement."
+    },
+    {
+      "check": "terminal_status_cross_check",
+      "result": "pass",
+      "detail": "ATLAS heartbeat terminal_status nominal matches integrity-status terminal_status nominal."
+    },
+    {
+      "check": "tripwire_cross_check",
+      "result": "warn",
+      "detail": "ATLAS heartbeat tripwire active elevated (merged, 22:01Z) vs integrity-status decision_state tripwire_state unknown (baseline source)."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations for C-500; receipt quorum only, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-500-0kxnv7; substrate ledger 503 suspended — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS heartbeat GI (0.811) with integrity KV plane (0.9); align sustain_eligible and tripwire state; restore gaia-usgs-water and themis-govtrack primaries; monitor hermes-arxiv; close KV diagnostic gap (16/19). EPICON queue empty. Quorum 5/5 does not authorize execution."
+}
