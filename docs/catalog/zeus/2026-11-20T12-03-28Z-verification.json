@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-11-20T12:03:28Z",
+  "agent": "ZEUS",
+  "cycle": "C-501",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-20T11-05-17Z-atlas.json",
+  "atlas_gi": 0.75,
+  "integrity_gi": 0.759,
+  "live_micro_composite": 0.829,
+  "anomaly_persistence": {
+    "USGS water conditions": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "World Bank GDP data freshness": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-501 agent ZEUS source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-501-v6inl4",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-20T11-05-17Z-atlas.json — GI 0.75, mode yellow, source kv, classification STRESSED, micro_composite 0.876, sustain_eligible false, kv_diagnostic_ok false (16/19), seed_result 200 OK, gi_provenance kv-live, terminal_status stressed, degraded_agents 4, tripwire active elevated (Hormuz)."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.829 vs ATLAS micro_composite 0.876 (drift 0.047). Primary failures: gaia-usgs-water, themis-govtrack align with ATLAS elevated anomalies; aurea-worldbank-gdp primary failure not in ATLAS anomaly array. daedalus-cloudflare-radar 0.7 watch matches ATLAS watch severity."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.759 mode yellow terminal_status stressed."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "fail",
+      "detail": "ATLAS catalog GI 0.75 vs integrity-status 0.759 (delta 0.009) vs live micro composite 0.829 (delta 0.079 from ATLAS) — multi-plane GI disagreement."
+    },
+    {
+      "check": "classification_cross_check",
+      "result": "pass",
+      "detail": "ATLAS heartbeat classification STRESSED matches integrity-status operational_classification STRESSED."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "fail",
+      "detail": "ATLAS heartbeat sustain_eligible false vs integrity-status decision_state sustain_eligible true (instant_gi_threshold semantics)."
+    },
+    {
+      "check": "terminal_status_cross_check",
+      "result": "pass",
+      "detail": "ATLAS heartbeat terminal_status stressed matches integrity-status terminal_status stressed."
+    },
+    {
+      "check": "tripwire_cross_check",
+      "result": "warn",
+      "detail": "ATLAS heartbeat tripwire active elevated (Hormuz, kv) vs integrity-status decision_state tripwire_state unknown (baseline source, last_updated 11:59Z)."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations for C-501; receipt quorum only, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-501-v6inl4; substrate ledger 503 suspended — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Reconcile GI across catalog heartbeat, KV integrity-status, and live micro sweep before treating sustain eligibility as settled. Monitor USGS water and GovTrack primary failures; investigate new World Bank GDP failure. kv_diagnostic 16/19 remains degraded."
+}
