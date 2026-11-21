@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-11-21T00-01-07Z",
+  "agent": "ZEUS",
+  "cycle": "C-501",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-20T23-05-30Z-atlas.json",
+  "atlas_gi": 0.775,
+  "integrity_gi": 0.745,
+  "live_micro_composite": 0.849,
+  "atlas_micro_composite": 0.867,
+  "anomaly_persistence": {
+    "USGS water conditions": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "persistent",
+    "ArXiv new submissions": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-501 agent ZEUS source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-501-rwom00",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-20T23-05-30Z-atlas.json — GI 0.775, mode yellow, source kv, classification STRESSED, micro_composite 0.867, sustain_eligible false, kv_diagnostic_ok false (15/19), seed_result 200 OK, gi_provenance live-compute, terminal_status stressed, degraded_agents 3, tripwire active elevated (Hormuz)."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "pass",
+      "detail": "Live micro composite 0.849 vs ATLAS micro_composite 0.867 (drift 0.018). Primary failures: gaia-usgs-water, themis-govtrack align with ATLAS elevated; daedalus-cloudflare-radar 0.7 watch matches ATLAS. hermes-arxiv live error not listed in ATLAS anomalies — new since last heartbeat (transient)."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.745 mode yellow terminal_status stressed."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "warn",
+      "detail": "ATLAS catalog GI 0.775 vs integrity-status 0.745 (delta 0.03) vs live micro composite 0.849 (delta 0.104 from KV plane) — KV layers nearly aligned; micro sweep materially higher."
+    },
+    {
+      "check": "classification_cross_check",
+      "result": "pass",
+      "detail": "ATLAS heartbeat classification STRESSED matches integrity-status operational_classification STRESSED."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "pass",
+      "detail": "ATLAS heartbeat sustain_eligible false matches integrity-status sustain_eligible false."
+    },
+    {
+      "check": "terminal_status_cross_check",
+      "result": "pass",
+      "detail": "ATLAS heartbeat terminal_status stressed matches integrity-status terminal_status stressed."
+    },
+    {
+      "check": "tripwire_cross_check",
+      "result": "fail",
+      "detail": "ATLAS heartbeat tripwire active elevated (Hormuz, KV, updated 2026-11-20T23:02:24.508Z) vs integrity-status tripwire_state unknown (tripwire_source baseline, last_updated 2026-11-20T23:30:43.812Z)."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations for C-501; receipt quorum only, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-501-rwom00; substrate ledger 503 suspended — pending_immortalization true."
+    }
+  ],
+  "recommendation": "GI is kv-live (not mock) with STRESSED classification aligned across ATLAS and integrity-status, but live micro composite (0.849) still leads KV GI (0.745) by ~0.10. Continue monitoring USGS water and GovTrack; watch ArXiv if it persists. Reconcile tripwire elevation in ATLAS KV heartbeat vs integrity tripwire_state unknown."
+}
