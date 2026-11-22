@@ -3,16 +3,16 @@
   "node_id": "mobius-terminal",
   "source": "snapshot-lite+vault+manifest",
   "snapshot_schema_version": "MOBIUS_SNAPSHOT_LITE_1",
-  "cycle": "C-502",
-  "as_of": "2026-11-22T04:56:08.500Z",
-  "fetched_at": "2026-11-22T04:56:08.505Z",
+  "cycle": "C-503",
+  "as_of": "2026-11-22T13:04:54.572Z",
+  "fetched_at": "2026-11-22T13:04:54.758Z",
   "gi": 0.75,
   "raw_integrity": null,
   "gi_floored": false,
   "mode": "yellow",
   "degraded": true,
-  "gi_provenance": "live-compute",
-  "gi_verified": false,
+  "gi_provenance": "kv-live",
+  "gi_verified": true,
   "gi_readings": {
     "snapshot_lite": {
       "value": 0.75,
@@ -34,7 +34,7 @@
     "environment": "production"
   },
   "snapshot_meta": {
-    "total_ms": 39,
+    "total_ms": 28,
     "lane_ms": null
   },
   "counting_rules": {
@@ -50,7 +50,7 @@
       "cycle": "C-372",
       "sequence": 2
     },
-    "in_progress_mic": 8968.021807,
+    "in_progress_mic": 8988.548912,
     "in_progress_block": 544,
     "fountain_status": "locked",
     "sustain_cycles_met": false,
