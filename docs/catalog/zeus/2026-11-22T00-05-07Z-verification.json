@@ -1,0 +1,84 @@
+{
+  "timestamp": "2026-11-22T00-05-07Z",
+  "agent": "ZEUS",
+  "cycle": "C-502",
+  "verification_status": "disputed",
+  "gi_verified": false,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-22T00-00-49Z-atlas.json",
+  "atlas_gi": 0.74,
+  "integrity_gi": 0.9,
+  "live_micro_composite": 0.867,
+  "atlas_micro_composite": 0.788,
+  "anomaly_persistence": {
+    "NASA EONET natural events": "transient",
+    "USGS water conditions": "persistent",
+    "ArXiv new submissions": "transient",
+    "HN Algolia search health": "transient",
+    "GovTrack legislation feed": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-502 agent ZEUS source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-502-hz8ora",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-22T00-00-49Z-atlas.json — GI 0.74, mode yellow, source kv, classification STRESSED, micro_composite 0.788, sustain_eligible false, kv_diagnostic_ok false (18/19), seed_result 200 OK, gi_provenance kv-live, terminal_status stressed, degraded_agents 3, tripwire inactive, anomalies [NASA EONET, USGS water, ArXiv, HN Algolia, GovTrack] all elevated."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.867 vs ATLAS micro_composite 0.788 (delta 0.079). Failed instruments: gaia-usgs-water, themis-govtrack. Live elevated only USGS water and GovTrack; NASA EONET, ArXiv, HN Algolia nominal on sweep — ATLAS elevated flags likely stale vs live sweep."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.9 mode green terminal_status nominal."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "fail",
+      "detail": "ATLAS catalog GI 0.74 vs integrity-status 0.9 (delta 0.16) vs live micro composite 0.867 (delta 0.127 from catalog). sustain_eligible false on heartbeat vs true on integrity-status decision_state."
+    },
+    {
+      "check": "classification_cross_check",
+      "result": "pass",
+      "detail": "ATLAS heartbeat classification STRESSED matches integrity-status operational_classification STRESSED."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "fail",
+      "detail": "ATLAS heartbeat sustain_eligible false vs integrity-status sustain_eligible true (instant_gi_threshold gate)."
+    },
+    {
+      "check": "terminal_status_cross_check",
+      "result": "fail",
+      "detail": "ATLAS heartbeat terminal_status stressed vs integrity-status terminal_status nominal."
+    },
+    {
+      "check": "tripwire_cross_check",
+      "result": "warn",
+      "detail": "ATLAS tripwire inactive (baseline) vs integrity-status tripwire_state elevated (kv, updated 2026-11-22T00:02:23.146Z)."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — 5/5 attestations for C-502; receipt quorum only, execution_authorized false."
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-502-hz8ora; substrate ledger 503 suspended — pending_immortalization true."
+    }
+  ],
+  "recommendation": "Treat live micro (0.867) and integrity-status GI (0.9) as fresher than ATLAS catalog GI (0.74) and micro_composite (0.788); do not act on sustain_eligible from heartbeat alone. Persistent USGS water and GovTrack primary failures. Reconcile tripwire and terminal_status between heartbeat and integrity-status before operator sustain decisions. kv_diagnostic_ok still false (18/19)."
+}
