@@ -2,14 +2,14 @@
   "timestamp": "2026-11-22T06-01-26Z",
   "agent": "ZEUS",
   "cycle": "C-503",
-  "verification_status": "confirmed",
-  "gi_verified": true,
+  "verification_status": "disputed",
+  "gi_verified": false,
   "gi_source": "kv-live",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-21T23-02-40Z-atlas.json",
-  "atlas_gi": 0.781,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-22T05-02-32Z-atlas.json",
+  "atlas_gi": 0.72,
   "integrity_gi": 0.766,
   "live_micro_composite": 0.871,
-  "atlas_micro_composite": 0.867,
+  "atlas_micro_composite": 0.871,
   "anomaly_persistence": {
     "USGS water conditions": "persistent",
     "GovTrack legislation feed": "persistent",
@@ -26,12 +26,12 @@
     {
       "check": "atlas_heartbeat_read",
       "result": "pass",
-      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-21T23-02-40Z-atlas.json — GI 0.781, mode yellow, source kv, classification STRESSED, micro_composite 0.867, sustain_eligible true, kv_diagnostic_ok false (16/19), seed_result 200 OK, gi_provenance kv-live, terminal_status stressed, degraded_agents 3, tripwire inactive (baseline), anomalies [USGS water elevated, GovTrack legislation feed elevated]."
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-22T05-02-32Z-atlas.json — GI 0.72, mode yellow, source kv, classification STRESSED, micro_composite 0.871, sustain_eligible false, kv_diagnostic_ok false in kv_keys block (16/19) with flags.kv_diagnostic_ok true, seed_result 200 OK, gi_provenance kv-live, terminal_status stressed, degraded_agents 3, tripwire active elevated (Hormuz transit fee risk), anomalies [USGS water elevated, GovTrack legislation feed elevated]."
     },
     {
       "check": "signals_micro_vs_atlas",
       "result": "pass",
-      "detail": "Live micro composite 0.871 vs ATLAS micro_composite 0.867 (delta 0.004). Primary failures: gaia-usgs-water, themis-govtrack. Watch: daedalus-cloudflare-radar 0.7. hermes-hn-algolia 0.85 — no longer primary-fail (ATLAS had not listed HN in latest anomalies array)."
+      "detail": "Live micro composite 0.871 matches ATLAS micro_composite 0.871. Primary failures: gaia-usgs-water, themis-govtrack. Watch: daedalus-cloudflare-radar 0.7. hermes-hn-algolia 0.85 — not primary-fail."
     },
     {
       "check": "integrity_status_mock_flag",
@@ -40,8 +40,8 @@
     },
     {
       "check": "gi_cross_layer_sanity",
-      "result": "pass",
-      "detail": "ATLAS catalog GI 0.781 vs integrity-status 0.766 (delta 0.015). Live micro composite 0.871 aligns with ATLAS micro 0.867."
+      "result": "warn",
+      "detail": "ATLAS catalog GI 0.72 vs integrity-status 0.766 (delta 0.046). Live micro composite 0.871 aligns with ATLAS micro 0.871."
     },
     {
       "check": "classification_cross_check",
@@ -50,8 +50,8 @@
     },
     {
       "check": "sustain_eligible_cross_check",
-      "result": "pass",
-      "detail": "ATLAS heartbeat sustain_eligible true matches integrity-status sustain_eligible true."
+      "result": "fail",
+      "detail": "ATLAS heartbeat sustain_eligible false disagrees with integrity-status sustain_eligible true at verification time."
     },
     {
       "check": "terminal_status_cross_check",
@@ -60,8 +60,8 @@
     },
     {
       "check": "tripwire_cross_check",
-      "result": "warn",
-      "detail": "ATLAS tripwire inactive baseline vs integrity-status tripwire_state unknown (tripwire_source baseline)."
+      "result": "fail",
+      "detail": "ATLAS tripwire active elevated (memory, updated 2026-11-22T04:04:24Z) vs integrity-status tripwire_state unknown."
     },
     {
       "check": "epicon_pending_verification",
@@ -79,5 +79,5 @@
       "detail": "POST /api/agents/journal HTTP 200 mirrored_to_kv true entry_id journal-ZEUS-C-503-0t1ghl; substrate ledger 503 suspended — pending_immortalization true."
     }
   ],
-  "recommendation": "GI layers aligned on kv-live; treat integrity-status 0.766 as authority for C-503. Persistent USGS water and GovTrack primary failures; Cloudflare radar watch-level. Continue KV diagnostic reconciliation (16/19). Monitor tripwire unknown vs ATLAS baseline inactive."
+  "recommendation": "Treat integrity-status GI 0.766 as live KV authority; ATLAS catalog GI 0.72 lags ingest. Reconcile sustain_eligible and tripwire elevation (ATLAS active vs integrity unknown). Persistent USGS water and GovTrack primary failures; Cloudflare radar watch-level."
 }
