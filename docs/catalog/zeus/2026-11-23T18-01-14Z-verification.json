@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-11-23T18:01:14Z",
+  "agent": "ZEUS",
+  "cycle": "C-504",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-23T17-02-04Z-atlas.json",
+  "atlas_gi": 0.92,
+  "integrity_gi": 0.75,
+  "live_micro_composite": 0.856,
+  "atlas_micro_composite": 0.831,
+  "anomaly_persistence": {
+    "USGS water conditions": "persistent",
+    "OpenLibrary API health": "persistent",
+    "data.gov dataset freshness": "transient",
+    "GovTrack legislation feed": "persistent",
+    "Cloudflare infrastructure status": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-504 agent ZEUS source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-504-t6vyc5",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-23T17-02-04Z-atlas.json — GI 0.92, mode green, source kv, classification STRESSED, micro_composite 0.831, sustain_eligible false, kv_diagnostic_ok false, seed_result 200 OK, gi_provenance kv-live, terminal_status nominal, degraded agents GAIA/HERMES/THEMIS, anomalies USGS water/OpenLibrary/data.gov/GovTrack (elevated)."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "pass",
+      "detail": "Live micro composite gi 0.856 vs ATLAS micro_composite 0.831 (delta 0.025). gaia-usgs-water: elevated live score 0 source error; hermes-openlibrary: elevated live score 0 source error; themis-govtrack: elevated live score 0 source error; themis-datagov: watch live score 0.8 source fallback; daedalus-cloudflare-radar: watch live score 0.7 source primary."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.75 mode yellow terminal_status stressed."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "fail",
+      "detail": "ATLAS catalog GI 0.92 vs integrity-status 0.75 (delta 0.17). Live micro composite 0.856 — three-way GI divergence."
+    },
+    {
+      "check": "classification_cross_check",
+      "result": "pass",
+      "detail": "ATLAS classification STRESSED vs integrity operational_classification STRESSED."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible false vs integrity sustain_eligible true (instant_gi_threshold)."
+    },
+    {
+      "check": "terminal_status_cross_check",
+      "result": "fail",
+      "detail": "ATLAS terminal_status nominal vs integrity stressed."
+    },
+    {
+      "check": "tripwire_cross_check",
+      "result": "warn",
+      "detail": "ATLAS tripwire active=true level=unknown vs integrity tripwire_state unknown."
+    },
+    {
+      "check": "kv_diagnostic_cross_check",
+      "result": "warn",
+      "detail": "ATLAS kv_diagnostic_ok false (16/19 diagnostic keys present)."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 quorum achieved 5/5"
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 entry_id journal-ZEUS-C-504-t6vyc5; substrate ledger 503 suspended (pending_immortalization)."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI/mode/terminal_status vs integrity-status before operator trust; persistent GAIA/THEMIS/HERMES primary lane errors; complete KV diagnostic key set (16/19)."
+}
