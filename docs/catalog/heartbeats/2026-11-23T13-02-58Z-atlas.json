@@ -79,6 +79,5 @@
     "kv_diagnostic_ok": false,
     "tripwire_active": true,
     "gi_below_critical_threshold": false
-  },
-  "observation": "GI 0.751 (yellow), cycle C-504, source kv; micro composite 0.86 with 0 elevated/critical anomalies; KV diagnostic_ok=false (18/19)."
+  }
 }
