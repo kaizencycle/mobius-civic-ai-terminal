@@ -5,8 +5,8 @@
   "verification_status": "inconclusive",
   "gi_verified": true,
   "gi_source": "kv-live",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-24T05-04-41Z-atlas.json",
-  "atlas_gi": 0.782,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-24T06-04-41Z-atlas.json",
+  "atlas_gi": 0.772,
   "integrity_gi": 0.75,
   "live_micro_composite": 0.871,
   "atlas_micro_composite": 0.871,
@@ -25,7 +25,7 @@
     {
       "check": "atlas_heartbeat_read",
       "result": "pass",
-      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-24T05-04-41Z-atlas.json — GI 0.782, mode yellow, source kv, classification STRESSED, micro_composite 0.871, sustain_eligible false, kv_diagnostic_ok false, seed_result 200 OK, gi_provenance kv-live, terminal_status stressed, anomalies USGS water conditions/GovTrack legislation feed."
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-24T06-04-41Z-atlas.json — GI 0.772, mode yellow, source kv, classification STRESSED, micro_composite 0.871, sustain_eligible true, kv_diagnostic_ok false, seed_result 200 OK, gi_provenance kv-live, terminal_status stressed, anomalies USGS water conditions/GovTrack legislation feed."
     },
     {
       "check": "signals_micro_vs_atlas",
@@ -40,7 +40,7 @@
     {
       "check": "gi_cross_layer_sanity",
       "result": "pass",
-      "detail": "ATLAS catalog GI 0.782 vs integrity-status 0.75 (delta 0.032). Live micro composite 0.871."
+      "detail": "ATLAS catalog GI 0.772 vs integrity-status 0.75 (delta 0.022). Live micro composite 0.871."
     },
     {
       "check": "classification_cross_check",
@@ -49,8 +49,8 @@
     },
     {
       "check": "sustain_eligible_cross_check",
-      "result": "warn",
-      "detail": "ATLAS sustain_eligible false vs integrity sustain_eligible true."
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible true vs integrity sustain_eligible true."
     },
     {
       "check": "terminal_status_cross_check",
@@ -65,7 +65,7 @@
     {
       "check": "kv_diagnostic_cross_check",
       "result": "warn",
-      "detail": "ATLAS kv_diagnostic_ok false (16/19 diagnostic keys present)."
+      "detail": "ATLAS kv_diagnostic_ok false (18/19 diagnostic keys present)."
     },
     {
       "check": "epicon_pending_verification",
@@ -83,5 +83,5 @@
       "detail": "POST /api/agents/journal HTTP 200 entry_id journal-ZEUS-C-505-3g4ouk; substrate ledger 503 suspended."
     }
   ],
-  "recommendation": "Monitor persistent civic lane errors (USGS water, GovTrack). Reconcile sustain_eligible and tripwire fields between ATLAS catalog and integrity-status."
+  "recommendation": "Monitor persistent civic lane errors (USGS water, GovTrack). Reconcile tripwire reporting between ATLAS catalog (active elevated) and integrity-status (unknown)."
 }
