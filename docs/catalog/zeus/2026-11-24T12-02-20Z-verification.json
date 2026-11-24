@@ -1,0 +1,93 @@
+{
+  "timestamp": "2026-11-24T12:02:20Z",
+  "agent": "ZEUS",
+  "cycle": "C-505",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-24T11-04-03Z-atlas.json",
+  "atlas_gi": 0.83,
+  "integrity_gi": 0.784,
+  "live_micro_composite": 0.858,
+  "atlas_micro_composite": 0.812,
+  "anomaly_persistence": {
+    "USGS water conditions": "persistent",
+    "data.gov dataset freshness": "persistent",
+    "GovTrack legislation feed": "persistent",
+    "GitHub API rate limit health": "transient"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-505 agent ZEUS source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-505-azo23u",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-24T11-04-03Z-atlas.json — GI 0.83, mode green, source kv, classification STRESSED, micro_composite 0.812, sustain_eligible true, kv_diagnostic_ok false (15/19), seed_result 200 OK, gi_provenance kv-live, terminal_status nominal, tripwire inactive none, degraded GAIA/THEMIS."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.858 vs ATLAS micro_composite 0.812 (delta 0.046). gaia-usgs-water: ATLAS elevated, live score 0 source error — persistent. themis-datagov: ATLAS elevated, live score 0.8 source fallback — persistent. themis-govtrack: ATLAS elevated, live score 0 source error — persistent. daedalus-github: ATLAS elevated, live score 0.967 source primary — transient (resolved)."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.784 mode yellow terminal_status stressed."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "warn",
+      "detail": "ATLAS catalog GI 0.83 vs integrity-status 0.784 (delta 0.046). Live micro composite 0.858 vs ATLAS micro 0.812 (delta 0.046)."
+    },
+    {
+      "check": "classification_cross_check",
+      "result": "pass",
+      "detail": "ATLAS classification STRESSED vs integrity operational_classification STRESSED."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "warn",
+      "detail": "ATLAS sustain_eligible true vs integrity sustain_eligible true but sustain_gate_satisfied false / fountain_sustain_satisfied false."
+    },
+    {
+      "check": "terminal_status_cross_check",
+      "result": "fail",
+      "detail": "ATLAS terminal_status nominal vs integrity terminal_status stressed."
+    },
+    {
+      "check": "mode_cross_check",
+      "result": "fail",
+      "detail": "ATLAS mode green vs integrity derived_mode yellow."
+    },
+    {
+      "check": "tripwire_cross_check",
+      "result": "warn",
+      "detail": "ATLAS tripwire active=false level=none vs integrity tripwire_state elevated."
+    },
+    {
+      "check": "kv_diagnostic_cross_check",
+      "result": "warn",
+      "detail": "ATLAS kv_diagnostic_ok false (15/19 diagnostic keys present); kv_keys_all_ok false."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-505 agent ZEUS source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false"
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 entry_id journal-ZEUS-C-505-azo23u; substrate ledger 503 suspended pending_immortalization."
+    }
+  ],
+  "recommendation": "Treat integrity-status (GI 0.784, yellow, stressed) as the operator decision surface until ATLAS catalog mode/terminal_status align. Monitor persistent GAIA USGS water and THEMIS GovTrack primary failures; data.gov remains on fallback. GitHub rate-limit anomaly cleared on live sweep."
+}
