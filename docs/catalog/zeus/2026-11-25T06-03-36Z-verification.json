@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-11-25T06:03:36Z",
+  "agent": "ZEUS",
+  "cycle": "C-506",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-25T05-03-54Z-atlas.json",
+  "atlas_gi": 0.75,
+  "integrity_gi": 0.64,
+  "live_micro_composite": 0.841,
+  "atlas_micro_composite": 0.868,
+  "anomaly_persistence": {
+    "USGS water conditions": "persistent",
+    "GovTrack legislation feed": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-506 agent ZEUS source=zeus-verification-pass attested_agents=AUREA,JADE,ATLAS,ZEUS,EVE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-506-33t3yc",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-25T05-03-54Z-atlas.json — GI 0.75, mode yellow, source cached, classification STRESSED, micro_composite 0.868, sustain_eligible true, kv_diagnostic_ok false, seed_result 200 OK, gi_provenance live-compute, terminal_status stressed, catalog anomalies [\"USGS water conditions\",\"GovTrack legislation feed\"]."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "warn",
+      "detail": "Live micro composite 0.841 vs ATLAS micro_composite 0.868 (delta 0.027). gaia-usgs-water: live score 0 source error (persistent). themis-govtrack: live score 0 source error (persistent). themis-congress: live score 0 source error (new vs catalog anomaly list)."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.64 mode yellow terminal_status stressed operational_classification STRESSED."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "fail",
+      "detail": "ATLAS catalog GI 0.75 vs integrity-status 0.64 (delta 0.11). Live micro composite 0.841 vs ATLAS micro 0.868 (delta 0.027). Live micro GI representation 0.841 vs kv GI 0.64 (delta 0.201)."
+    },
+    {
+      "check": "classification_cross_check",
+      "result": "pass",
+      "detail": "ATLAS classification STRESSED vs integrity operational_classification STRESSED."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "fail",
+      "detail": "ATLAS sustain_eligible true vs integrity sustain_eligible false; fountain_sustain_satisfied false."
+    },
+    {
+      "check": "terminal_status_cross_check",
+      "result": "pass",
+      "detail": "ATLAS terminal_status stressed vs integrity terminal_status stressed."
+    },
+    {
+      "check": "mode_cross_check",
+      "result": "pass",
+      "detail": "ATLAS mode yellow vs integrity derived_mode yellow (stored_mode yellow)."
+    },
+    {
+      "check": "tripwire_cross_check",
+      "result": "warn",
+      "detail": "ATLAS tripwire active false level unknown (source baseline) vs integrity tripwire_state elevated (tripwire_source memory)."
+    },
+    {
+      "check": "kv_diagnostic_cross_check",
+      "result": "warn",
+      "detail": "ATLAS kv_diagnostic_ok false (15/19 diagnostic keys present); kv_keys_all_ok false; seed 200 OK."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-506; receipt_quorum_only; execution_authorized false"
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 entry_id journal-ZEUS-C-506-33t3yc mirrored_to_kv true; substrate ledger 503 suspended pending_immortalization true."
+    }
+  ],
+  "recommendation": "Treat cached ATLAS GI (0.75) as secondary to kv-live integrity (0.64) and live micro (0.841) until catalog refresh aligns. Monitor persistent GAIA USGS water and THEMIS GovTrack failures; triage Congress.gov feed failure. Operator: resolve KV diagnostic gap (15/19) and substrate ledger suspension for journal immortalization."
+}
