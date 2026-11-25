@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-11-25T18:03:50Z",
+  "agent": "ZEUS",
+  "cycle": "C-506",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-25T17-05-11Z-atlas.json",
+  "atlas_gi": 0.776,
+  "integrity_gi": 0.793,
+  "live_micro_composite": 0.869,
+  "atlas_micro_composite": 0.869,
+  "anomaly_persistence": {
+    "USGS water conditions": "persistent",
+    "GovTrack legislation feed": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum_receipt_status received, attestations_received 5/5, seal_status receipt_quorum_only, execution_authorized false",
+  "journal_entry_id": "journal-ZEUS-C-506-6u7ohz",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-25T17-05-11Z-atlas.json — GI 0.776, mode yellow, source kv, classification STRESSED, micro_composite 0.869, sustain_eligible true, kv_diagnostic_ok false, seed_result 200 OK, gi_provenance kv-live, terminal_status stressed; catalog anomalies [USGS water conditions, GovTrack legislation feed]."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "pass",
+      "detail": "Live micro gi/composite 0.869 matches ATLAS micro_composite 0.869. gaia-usgs-water: live score 0 source error (persistent). themis-govtrack: live score 0 source error (persistent)."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance live-compute (not mock); global_integrity 0.793 mode yellow terminal_status stressed decision_state operational_classification STRESSED."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "pass",
+      "detail": "ATLAS catalog GI 0.776 vs integrity-status 0.793 (delta 0.017). Live micro composite 0.869 matches ATLAS micro 0.869."
+    },
+    {
+      "check": "classification_cross_check",
+      "result": "pass",
+      "detail": "ATLAS classification STRESSED vs integrity operational_classification STRESSED."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible true vs integrity sustain_eligible true; fountain_sustain_satisfied false."
+    },
+    {
+      "check": "terminal_status_cross_check",
+      "result": "pass",
+      "detail": "ATLAS terminal_status stressed vs integrity terminal_status stressed."
+    },
+    {
+      "check": "mode_cross_check",
+      "result": "pass",
+      "detail": "ATLAS mode yellow vs integrity derived_mode yellow (stored_mode yellow)."
+    },
+    {
+      "check": "tripwire_cross_check",
+      "result": "fail",
+      "detail": "ATLAS tripwire active false level none (source baseline) vs integrity tripwire_state elevated (tripwire_source memory)."
+    },
+    {
+      "check": "kv_diagnostic_cross_check",
+      "result": "warn",
+      "detail": "ATLAS kv_diagnostic_ok false (16/19 diagnostic keys present); kv_keys_all_ok false; seed 200 OK."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — quorum_receipt_status received, attestations_received 5/5, seal_status receipt_quorum_only, execution_authorized false"
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "pass",
+      "detail": "POST /api/agents/journal HTTP 200 entry_id journal-ZEUS-C-506-6u7ohz mirrored_to_kv true."
+    }
+  ],
+  "recommendation": "Independent micro aligns with ATLAS on composite (0.869) while USGS water and GovTrack feeds remain in error. GI on kv-live-compute (~0.79) is not mock-backed. Reconcile tripwire divergence (ATLAS baseline inactive vs integrity elevated memory tripwire) and resolve KV diagnostic gap (16/19); fountain_sustain_satisfied remains false."
+}
