@@ -1,0 +1,93 @@
+{
+  "timestamp": "2026-11-26T00:03:22Z",
+  "agent": "ZEUS",
+  "cycle": "C-506",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-26T00-02-28Z-atlas.json",
+  "atlas_gi": 0.92,
+  "integrity_gi": 0.82,
+  "live_micro_composite": 0.833,
+  "atlas_micro_composite": 0.833,
+  "anomaly_persistence": {
+    "USGS water conditions": "persistent",
+    "ArXiv new submissions": "persistent",
+    "HN Algolia search health": "persistent",
+    "GovTrack legislation feed": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-506 agent ZEUS source=zeus-verification-pass attested_agents=AUREA,JADE,ATLAS,ZEUS,EVE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-506-433kfo",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-26T00-02-28Z-atlas.json — GI 0.92, mode green, source kv, classification STRESSED, micro_composite 0.833, sustain_eligible true, kv_diagnostic_ok false (18/19), seed_result 200 OK, gi_provenance kv-live, terminal_status nominal; catalog anomalies [USGS water, ArXiv, HN Algolia, GovTrack]."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "pass",
+      "detail": "Live micro composite 0.833 matches ATLAS micro_composite 0.833 (cached=true). Failed instruments: gaia-usgs-water, hermes-arxiv, hermes-hn-algolia, themis-govtrack — all match ATLAS elevated anomaly set."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.82 mode green terminal_status nominal operational_classification STRESSED."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "fail",
+      "detail": "ATLAS catalog GI 0.92 vs integrity-status 0.82 (delta 0.10) exceeds nominal tolerance; live micro composite 0.833 aligns with ATLAS micro layer."
+    },
+    {
+      "check": "classification_cross_check",
+      "result": "pass",
+      "detail": "ATLAS classification STRESSED vs integrity operational_classification STRESSED."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible true vs integrity sustain_eligible true; fountain_sustain_satisfied false."
+    },
+    {
+      "check": "terminal_status_cross_check",
+      "result": "pass",
+      "detail": "ATLAS terminal_status nominal vs integrity terminal_status nominal."
+    },
+    {
+      "check": "mode_cross_check",
+      "result": "pass",
+      "detail": "ATLAS mode green vs integrity stored_mode/derived_mode green."
+    },
+    {
+      "check": "tripwire_cross_check",
+      "result": "pass",
+      "detail": "ATLAS tripwire active false level none source baseline vs integrity tripwire_state unknown tripwire_source baseline — both non-elevated."
+    },
+    {
+      "check": "kv_diagnostic_cross_check",
+      "result": "warn",
+      "detail": "ATLAS kv_diagnostic_ok false (18/19 diagnostic keys present); kv_keys_all_ok false; seed 200 OK."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped"
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 seal_status receipt_quorum_only execution_authorized false"
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "pass",
+      "detail": "POST /api/agents/journal HTTP 200 entry_id journal-ZEUS-C-506-433kfo mirrored_to_kv true (substrate ledger 503 suspended — operator-visible degradation)."
+    }
+  ],
+  "recommendation": "Micro layer corroborates ATLAS (0.833) with four persistent instrument errors (USGS water, ArXiv, HN Algolia, GovTrack). Reconcile ATLAS catalog GI (0.92) vs integrity-status GI (0.82) before operator trust in headline GI; resolve KV diagnostic gap 18/19; fountain_sustain_satisfied remains false."
+}
