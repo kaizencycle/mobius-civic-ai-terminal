@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-11-28T06:03:21Z",
+  "agent": "ZEUS",
+  "cycle": "C-509",
+  "verification_status": "disputed",
+  "gi_verified": true,
+  "gi_source": "kv-live",
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-28T05-05-26Z-atlas.json",
+  "atlas_gi": 0.63,
+  "integrity_gi": 0.71,
+  "live_micro_composite": 0.879,
+  "atlas_micro_composite": 0.88,
+  "anomaly_persistence": {
+    "gaia-usgs-water": "persistent",
+    "themis-govtrack": "persistent"
+  },
+  "candidates_reviewed": 0,
+  "candidates_confirmed": 0,
+  "candidates_contested": 0,
+  "quorum_attestation_sent": true,
+  "quorum_status": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 for cycle C-509 agent ZEUS source=zeus-verification-pass attested_agents=ATLAS,ZEUS,EVE,AUREA,JADE seal_status=receipt_quorum_only execution_authorized=false",
+  "journal_entry_id": "journal-ZEUS-C-509-en9psa",
+  "findings": [
+    {
+      "check": "atlas_heartbeat_read",
+      "result": "pass",
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-28T05-05-26Z-atlas.json — GI 0.63, mode yellow, source kv, classification CRITICAL, micro_composite 0.88, sustain_eligible false, kv_diagnostic_ok false (15/19), seed_result 200 OK, gi_provenance kv-live, terminal_status stressed; anomalies [gaia-usgs-water, themis-govtrack] elevated; degraded_agents 3; tripwire active elevated (Hormuz Transit Fee Risk)."
+    },
+    {
+      "check": "signals_micro_vs_atlas",
+      "result": "pass",
+      "detail": "Live micro composite 0.879 matches ATLAS micro_composite 0.88 within tolerance (cached=false). Failed instruments gaia-usgs-water and themis-govtrack match ATLAS elevated set — both persistent."
+    },
+    {
+      "check": "integrity_status_mock_flag",
+      "result": "pass",
+      "detail": "GET /api/integrity-status source kv, gi_provenance kv-live (not mock); global_integrity 0.71 mode yellow terminal_status stressed operational_classification STRESSED."
+    },
+    {
+      "check": "gi_cross_layer_sanity",
+      "result": "fail",
+      "detail": "ATLAS catalog GI 0.63 vs integrity-status 0.71 (delta 0.08) exceeds nominal tolerance; live micro 0.879 aligns with both layers on signal quality; MII baseline 0.8758."
+    },
+    {
+      "check": "classification_cross_check",
+      "result": "fail",
+      "detail": "ATLAS classification CRITICAL vs integrity operational_classification STRESSED — operator-facing severity diverges."
+    },
+    {
+      "check": "sustain_eligible_cross_check",
+      "result": "pass",
+      "detail": "ATLAS sustain_eligible false matches integrity sustain_eligible false; sustain_gate_satisfied false and fountain_sustain_satisfied false on integrity."
+    },
+    {
+      "check": "terminal_status_cross_check",
+      "result": "pass",
+      "detail": "ATLAS terminal_status stressed agrees with integrity terminal_status stressed."
+    },
+    {
+      "check": "mode_cross_check",
+      "result": "pass",
+      "detail": "ATLAS mode yellow vs integrity stored_mode/derived_mode yellow (mode_diverged false)."
+    },
+    {
+      "check": "tripwire_cross_check",
+      "result": "pass",
+      "detail": "ATLAS tripwire active elevated (Hormuz Transit Fee Risk, updated 2026-11-28T05:04:47Z) matches integrity tripwire_state elevated (tripwire_source memory)."
+    },
+    {
+      "check": "kv_diagnostic_cross_check",
+      "result": "warn",
+      "detail": "ATLAS kv_diagnostic_ok false (15/19 diagnostic keys); kv_keys_all_ok false; kv_continuity_ok true; seed 200 OK."
+    },
+    {
+      "check": "epicon_pending_verification",
+      "result": "pass",
+      "detail": "GET /api/epicon/candidates count 0 — zeus: no candidates, verification skipped (no POST /api/zeus/verify or /api/epicon/publish)."
+    },
+    {
+      "check": "vault_quorum_attest",
+      "result": "pass",
+      "detail": "POST /api/vault/attest HTTP 200 — quorum achieved 5/5 seal_status receipt_quorum_only execution_authorized=false"
+    },
+    {
+      "check": "agents_journal_append",
+      "result": "warn",
+      "detail": "POST /api/agents/journal HTTP 200 entry_id journal-ZEUS-C-509-en9psa mirrored_to_kv true (substrate ledger 429 Cloudflare challenge — pending_immortalization true)."
+    }
+  ],
+  "recommendation": "Reconcile ATLAS catalog GI 0.63 and CRITICAL classification against integrity-status GI 0.71 STRESSED before escalation. Persistent USGS water and GovTrack failures warrant instrument repair. Close KV diagnostic gap 15/19 when safe. Substrate ledger continues to block canonical journal immortalization."
+}
