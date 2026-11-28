@@ -2,17 +2,18 @@
   "timestamp": "2026-11-28T06:03:21Z",
   "agent": "ZEUS",
   "cycle": "C-509",
-  "verification_status": "disputed",
+  "verification_status": "confirmed",
   "gi_verified": true,
   "gi_source": "kv-live",
-  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-28T05-05-26Z-atlas.json",
-  "atlas_gi": 0.63,
+  "atlas_heartbeat": "docs/catalog/heartbeats/2026-11-28T06-03-15Z-atlas.json",
+  "atlas_gi": 0.71,
   "integrity_gi": 0.71,
   "live_micro_composite": 0.879,
-  "atlas_micro_composite": 0.88,
+  "atlas_micro_composite": 0.865,
   "anomaly_persistence": {
     "gaia-usgs-water": "persistent",
-    "themis-govtrack": "persistent"
+    "themis-govtrack": "persistent",
+    "hermes-hn-algolia": "transient"
   },
   "candidates_reviewed": 0,
   "candidates_confirmed": 0,
@@ -24,12 +25,12 @@
     {
       "check": "atlas_heartbeat_read",
       "result": "pass",
-      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-28T05-05-26Z-atlas.json — GI 0.63, mode yellow, source kv, classification CRITICAL, micro_composite 0.88, sustain_eligible false, kv_diagnostic_ok false (15/19), seed_result 200 OK, gi_provenance kv-live, terminal_status stressed; anomalies [gaia-usgs-water, themis-govtrack] elevated; degraded_agents 3; tripwire active elevated (Hormuz Transit Fee Risk)."
+      "detail": "Latest catalog heartbeat docs/catalog/heartbeats/2026-11-28T06-03-15Z-atlas.json — GI 0.71, mode yellow, source kv, classification STRESSED, micro_composite 0.865, sustain_eligible false, kv_diagnostic_ok false (18/19), seed_result 200 OK, gi_provenance kv-live, terminal_status stressed; anomalies [gaia-usgs-water, hermes-hn-algolia, themis-govtrack] elevated; degraded_agents 2; tripwire active elevated (Hormuz Transit Fee Risk)."
     },
     {
       "check": "signals_micro_vs_atlas",
-      "result": "pass",
-      "detail": "Live micro composite 0.879 matches ATLAS micro_composite 0.88 within tolerance (cached=false). Failed instruments gaia-usgs-water and themis-govtrack match ATLAS elevated set — both persistent."
+      "result": "warn",
+      "detail": "Live micro composite 0.879 vs ATLAS micro_composite 0.865 (delta 0.014, cached=false). Failed instruments gaia-usgs-water and themis-govtrack match ATLAS elevated error set — persistent. ATLAS elevated hermes-hn-algolia not in live failedInstruments (score 0.85) — transient atlas snapshot skew."
     },
     {
       "check": "integrity_status_mock_flag",
@@ -38,13 +39,13 @@
     },
     {
       "check": "gi_cross_layer_sanity",
-      "result": "fail",
-      "detail": "ATLAS catalog GI 0.63 vs integrity-status 0.71 (delta 0.08) exceeds nominal tolerance; live micro 0.879 aligns with both layers on signal quality; MII baseline 0.8758."
+      "result": "pass",
+      "detail": "ATLAS catalog GI 0.71 matches integrity-status 0.71; live micro 0.879 slightly above ATLAS micro snapshot; MII baseline 0.8758."
     },
     {
       "check": "classification_cross_check",
-      "result": "fail",
-      "detail": "ATLAS classification CRITICAL vs integrity operational_classification STRESSED — operator-facing severity diverges."
+      "result": "pass",
+      "detail": "ATLAS classification STRESSED matches integrity operational_classification STRESSED."
     },
     {
       "check": "sustain_eligible_cross_check",
@@ -69,7 +70,7 @@
     {
       "check": "kv_diagnostic_cross_check",
       "result": "warn",
-      "detail": "ATLAS kv_diagnostic_ok false (15/19 diagnostic keys); kv_keys_all_ok false; kv_continuity_ok true; seed 200 OK."
+      "detail": "ATLAS kv_diagnostic_ok false (18/19 diagnostic keys); kv_keys_all_ok false; kv_continuity_ok true; seed 200 OK."
     },
     {
       "check": "epicon_pending_verification",
@@ -87,5 +88,5 @@
       "detail": "POST /api/agents/journal HTTP 200 entry_id journal-ZEUS-C-509-en9psa mirrored_to_kv true (substrate ledger 429 Cloudflare challenge — pending_immortalization true)."
     }
   ],
-  "recommendation": "Reconcile ATLAS catalog GI 0.63 and CRITICAL classification against integrity-status GI 0.71 STRESSED before escalation. Persistent USGS water and GovTrack failures warrant instrument repair. Close KV diagnostic gap 15/19 when safe. Substrate ledger continues to block canonical journal immortalization."
+  "recommendation": "Persistent USGS water and GovTrack failures warrant instrument repair watch. Close KV diagnostic gap 18/19 when safe. Substrate ledger continues to block canonical journal immortalization."
 }
