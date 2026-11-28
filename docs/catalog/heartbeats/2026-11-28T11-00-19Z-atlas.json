@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-11-28T11:00:19.000Z",
+  "agent": "ATLAS",
+  "cycle": "C-509",
+  "gi": 0.64,
+  "mode": "yellow",
+  "source": "cached",
+  "anomalies": [
+    {
+      "label": "USGS water conditions",
+      "severity": "elevated",
+      "agent": "GAIA",
+      "source": "error"
+    },
+    {
+      "label": "HN Algolia search health",
+      "severity": "elevated",
+      "agent": "HERMES",
+      "source": "error"
+    },
+    {
+      "label": "GovTrack legislation feed",
+      "severity": "elevated",
+      "agent": "THEMIS",
+      "source": "error"
+    }
+  ],
+  "kv_keys": {
+    "ok": true,
+    "available": true,
+    "configured": true,
+    "latencyMs": 3,
+    "error": null,
+    "backup_redis": {
+      "configured": true,
+      "mirror_enabled": true,
+      "read_fallback_enabled": true,
+      "available": true,
+      "latency_ms": 2,
+      "error": null
+    },
+    "kv_continuity_ok": true,
+    "kv_continuity_extended_ok": true,
+    "kv_diagnostic_ok": false,
+    "kv_keys_ok": true,
+    "kv_keys_all_ok": false,
+    "continuity_present": 3,
+    "continuity_required": 3,
+    "continuity_extended_present": 4,
+    "continuity_extended_required": 4,
+    "diagnostic_present": 17,
+    "diagnostic_required": 19,
+    "timestamp": "2026-11-28T11:01:54.805Z"
+  },
+  "seed_attempted": true,
+  "seed_result": "200 OK",
+  "sustain_eligible": false,
+  "classification": "CRITICAL",
+  "micro_composite": 0.86,
+  "micro_cycle": "C-509",
+  "degraded_agents": 3,
+  "terminal_status": "stressed",
+  "integrity_source": "cached",
+  "gi_provenance": "live-compute",
+  "tripwire": {
+    "elevated": true,
+    "critical": false,
+    "active": true,
+    "level": "elevated",
+    "reason": "Hormuz Transit Fee Risk \u2014 Monitoring whether Iran formalizes transit fees and turns passage into an overt leverage instrument",
+    "last_updated": "2026-11-28T10:03:25.333Z"
+  },
+  "seed_seeded_keys": [
+    "GI_STATE",
+    "HEARTBEAT",
+    "LAST_INGEST",
+    "SIGNAL_SNAPSHOT"
+  ],
+  "seed_http": "200",
+  "flags": {
+    "integrity_source_mock": false,
+    "integrity_source_kv": false,
+    "integrity_source_live": false,
+    "integrity_source_cached": true,
+    "micro_anomaly_severity_flag": true,
+    "kv_keys_all_ok": false,
+    "kv_diagnostic_ok": false,
+    "tripwire_active": true,
+    "gi_below_critical_threshold": true
+  },
+  "journal_ok": true,
+  "journal_status": 200,
+  "journal_id": "journal-ATLAS-C-509-rx5138",
+  "journal_route": "agents/journal",
+  "pending_immortalization": true,
+  "journal_substrate_error": "Error: ledger 503: <!DOCTYPE html> <html lang=\"en\"> <head> <meta charset=\"UTF-8\"> <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /> <title>Service Suspended</title> </head> <body> This service has been suspended. </body> </html>"
+}
